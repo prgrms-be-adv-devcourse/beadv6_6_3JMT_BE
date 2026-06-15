@@ -1,0 +1,71 @@
+# Workflow 이름
+# GitHub Actions 탭에서 보이는 이름입니다.
+name: CI
+
+# CI 실행 조건
+on:
+  # Pull Request가 생성되거나 수정될 때 실행합니다.
+  pull_request:
+    # PR의 대상 브랜치가 develop일 때만 실행됩니다.
+    # 즉, feature/* -> develop, fix/* -> develop PR에서 동작합니다.
+    branches:
+      - develop
+
+    # PR 이벤트 중 어떤 상황에서 실행할지 지정합니다.
+    types:
+      - opened        # PR이 처음 열렸을 때
+      - synchronize   # PR 브랜치에 추가 커밋이 push 되었을 때
+      - reopened      # 닫힌 PR이 다시 열렸을 때
+      - ready_for_review # Draft PR이 Review 가능 상태로 변경되었을 때
+
+# workflow 권한 설정
+permissions:
+  # 코드를 checkout 하기 위한 최소 권한입니다.
+  contents: read
+
+# 같은 PR에 커밋이 여러 번 push될 경우,
+# 이전에 실행 중이던 CI를 취소하고 최신 커밋 기준으로 다시 실행합니다.
+# CI 시간 절약에 도움이 됩니다.
+concurrency:
+  group: ci-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    # Job 이름
+    name: Build & Test
+
+    # GitHub에서 제공하는 Ubuntu runner 사용
+    runs-on: ubuntu-latest
+
+    # Draft PR일 경우 CI를 실행하지 않습니다.
+    # Draft 상태에서는 아직 검증 대상이 아니라고 보는 경우에 유용합니다.
+    if: github.event.pull_request.draft == false
+
+    steps:
+      # 1. 저장소 코드 가져오기
+      - name: Checkout source code
+        uses: actions/checkout@v6
+
+      # 2. Java 21 설치
+      # Spring Boot 4.x + Java 21 환경 기준입니다.
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # 3. Gradle 캐시 및 실행 환경 설정
+      # Gradle 의존성 캐싱을 통해 CI 시간을 줄일 수 있습니다.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # 4. gradlew 실행 권한 부여
+      # Linux runner에서는 gradlew 실행 권한이 없으면 Permission denied가 발생할 수 있습니다.
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # 5. 빌드 및 테스트 실행
+      # clean build는 컴파일, 테스트, 패키징 검증을 함께 수행합니다.
+      - name: Build and test
+        run: ./gradlew clean build --no-daemon
