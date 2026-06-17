@@ -2,6 +2,7 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.0.6'
 	id 'io.spring.dependency-management' version '1.1.7'
+	id 'checkstyle'
 }
 
 group = 'com.prompthub'
@@ -12,6 +13,16 @@ java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(21)
 	}
+}
+
+checkstyle {
+	configFile = file('../style/checkstyle/Prompthub-checkstyle-rules.xml')
+	toolVersion = '10.12.0'
+	ignoreFailures = true
+}
+
+tasks.named('checkstyleTest') {
+	enabled = false
 }
 
 repositories {
