@@ -243,3 +243,7 @@ gradle-app.setting
 
 # IntelliJ IDE 설정
 .idea/
+
+# Claude Code 플러그인 도구 디렉토리 (레포에 포함하지 않음)
+**/.claude/skill-creator/
+**/.claude/agent-creator/
