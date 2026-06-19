@@ -236,3 +236,10 @@ gradle-app.setting
 
 # End of https://www.toptal.com/developers/gitignore/api/java,windows,macos,intellij+all,git,gradle,gitbook
 !/.idea/
+
+### Project-specific ###
+# Claude Code 스킬 eval 산출물 (테스트 잔여물)
+.claude/skills/*-workspace/
+
+# IntelliJ IDE 설정
+.idea/
