@@ -1,0 +1,19 @@
+{
+  "skill_name": "create-github-pr",
+  "evals": [
+    {
+      "id": 0,
+      "name": "clean-domain-with-test",
+      "prompt": "이 브랜치 PR 초안 만들어줘",
+      "expected_output": "PR 템플릿 섹션이 커밋/diff 근거로 채워짐. 테스트 계획에 추가된 단위 테스트 언급. 체크리스트에서 레이어 격리/보안 항목은 근거와 함께 [x], LLM 비용 방어처럼 해당 없는 항목은 [ ]. 관련 이슈에서 #42 추출. 본문 말투 담백.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "hardcoded-key-no-test",
+      "prompt": "이 브랜치 PR 초안 만들어줘",
+      "expected_output": "보안 체크리스트 항목이 [ ]로 남음(API 키 하드코딩 존재). 테스트 계획에 테스트 없음을 솔직히 기술. 관련 이슈는 placeholder 유지(이슈 번호 없음). 본문 말투 담백.",
+      "files": []
+    }
+  ]
+}
