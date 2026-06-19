@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -36,12 +37,13 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("BusinessException은 문서화된 에러 응답을 반환한다")
     void businessExceptionReturnsDocumentedErrorResponse() throws Exception {
         mockMvc.perform(get("/test/business").header("X-Request-Id", "request-1"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.data").isEmpty())
-                .andExpect(jsonPath("$.message").value("장바구니가 비어있습니다."))
+                .andExpect(jsonPath("$.message").value("장바구니가 비어 있습니다."))
                 .andExpect(jsonPath("$.code").value("O004"))
                 .andExpect(jsonPath("$.status").doesNotExist())
                 .andExpect(jsonPath("$.path").doesNotExist())
@@ -49,6 +51,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("검증 예외는 V001 에러 코드를 반환한다")
     void validationExceptionReturnsV001() throws Exception {
         mockMvc.perform(post("/test/validation")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -60,6 +63,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("사용자 헤더가 없으면 인증 에러를 반환한다")
     void missingUserHeaderReturnsAuthenticationError() throws Exception {
         mockMvc.perform(get("/test/header"))
                 .andExpect(status().isUnauthorized())
@@ -69,6 +73,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("읽을 수 없는 JSON은 V001 에러 코드를 반환한다")
     void unreadableJsonReturnsV001() throws Exception {
         mockMvc.perform(post("/test/validation")
                         .contentType(MediaType.APPLICATION_JSON)
