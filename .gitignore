@@ -235,6 +235,19 @@ gradle-app.setting
 *.hprof
 
 # End of https://www.toptal.com/developers/gitignore/api/java,windows,macos,intellij+all,git,gradle,gitbook
+!/.idea/
+
+### Project-specific ###
+# Claude Code 스킬 eval 산출물 (테스트 잔여물)
+**/.claude/skills/*-workspace/
+
+# IntelliJ IDE 설정
+.idea/
+
+# Claude Code 플러그인 도구 디렉토리 (레포에 포함하지 않음)
+**/skill-creator/
+**/agent-creator/
+
 /AGENTS.md
 /docs/superpowers/
 /.env
