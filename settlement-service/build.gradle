@@ -16,7 +16,7 @@ java {
 }
 
 checkstyle {
-	configFile = file('../style/checkstyle/Prompthub-checkstyle-rules.xml')
+	configFile = file('../style/checkstyle/prompthub-checkstyle-rules.xml')
 	toolVersion = '10.12.0'
 	ignoreFailures = true
 }
