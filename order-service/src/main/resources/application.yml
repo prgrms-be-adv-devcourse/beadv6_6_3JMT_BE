@@ -1,0 +1,77 @@
+spring:
+  application:
+    name: order-service
+  config:
+    import: optional:file:order-service/.env[.properties]
+  profiles:
+    default: local
+
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+
+#  cloud:
+#    openfeign:
+#      client:
+#        config:
+#          product-service:
+#            url: ${PRODUCT_SERVICE_URL:http://localhost:8081}
+
+server:
+  port: 8080
+
+#prompthub:
+#  clients:
+#    product-service:
+#      url: ${PRODUCT_SERVICE_URL:http://localhost:8081}
+
+logging:
+  level:
+    com.prompthub.order: debug
+    org.hibernate.SQL: debug
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: default | local
+
+  cloud:
+    compatibility-verifier:
+      enabled: false
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  cloud:
+    compatibility-verifier:
+      enabled: false
+
+  datasource:
+    url: jdbc:h2:mem:prompthub_order_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+
+logging:
+  level:
+    com.prompthub.order: debug
