@@ -247,3 +247,8 @@ gradle-app.setting
 # Claude Code 플러그인 도구 디렉토리 (레포에 포함하지 않음)
 **/skill-creator/
 **/agent-creator/
+
+/AGENTS.md
+/docs/superpowers/
+/.env
+/order-service/.env
