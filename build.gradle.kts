@@ -9,6 +9,8 @@ plugins {
 group = "com.prompthub"
 version = "0.0.1-SNAPSHOT"
 
+extra["springCloudVersion"] = "2025.1.0"
+
 subprojects {
     group = rootProject.group
     version = rootProject.version
@@ -25,6 +27,14 @@ subprojects {
         reports {
             xml.required.set(true)
             html.required.set(true)
+        }
+    }
+
+    plugins.withId("io.spring.dependency-management") {
+        extensions.configure<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>("dependencyManagement") {
+            imports {
+                mavenBom("org.springframework.cloud:spring-cloud-dependencies:${rootProject.extra["springCloudVersion"]}")
+            }
         }
     }
 

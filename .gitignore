@@ -237,3 +237,5 @@ gradle-app.setting
 # End of https://www.toptal.com/developers/gitignore/api/java,windows,macos,intellij+all,git,gradle,gitbook
 /AGENTS.md
 /docs/superpowers/
+/.env
+/order-service/.env
