@@ -1,4 +1,4 @@
-package com.prompthub.paymentservice.config;
+package com.prompthub.paymentservice.infrastructure.messaging.config;
 
 import org.springframework.context.annotation.Configuration;
 

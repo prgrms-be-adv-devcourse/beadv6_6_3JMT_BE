@@ -1,4 +1,4 @@
-package com.prompthub.paymentservice.infrastructure;
+package com.prompthub.paymentservice.infrastructure.persistence;
 
 import com.prompthub.paymentservice.domain.model.Payment;
 import java.util.UUID;

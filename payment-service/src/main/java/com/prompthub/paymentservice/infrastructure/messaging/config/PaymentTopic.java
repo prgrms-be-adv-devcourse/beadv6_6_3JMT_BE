@@ -1,4 +1,4 @@
-package com.prompthub.paymentservice.config;
+package com.prompthub.paymentservice.infrastructure.messaging.config;
 
 public class PaymentTopic {
     // 이벤트 확정 후 토픽 상수 추가 예정

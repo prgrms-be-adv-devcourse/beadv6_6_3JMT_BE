@@ -1,4 +1,4 @@
-package com.prompthub.paymentservice.domain;
+package com.prompthub.paymentservice.domain.model;
 
 public enum RefundStatus {
     REQUESTED,

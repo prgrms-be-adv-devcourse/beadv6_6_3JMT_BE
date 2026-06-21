@@ -1,6 +1,5 @@
 package com.prompthub.paymentservice.domain.model;
 
-import com.prompthub.paymentservice.domain.RefundStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;

@@ -1,7 +1,7 @@
-package com.prompthub.paymentservice.infrastructure;
+package com.prompthub.paymentservice.infrastructure.persistence;
 
-import com.prompthub.paymentservice.domain.PaymentStatus;
 import com.prompthub.paymentservice.domain.model.Payment;
+import com.prompthub.paymentservice.domain.model.PaymentStatus;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,4 +1,4 @@
-package com.prompthub.paymentservice.domain.repository;
+package com.prompthub.paymentservice.application.gateway.persistence;
 
 import com.prompthub.paymentservice.domain.model.Refund;
 import java.util.Optional;

@@ -1,7 +1,7 @@
-package com.prompthub.paymentservice.infrastructure;
+package com.prompthub.paymentservice.infrastructure.persistence;
 
+import com.prompthub.paymentservice.application.gateway.persistence.RefundRepository;
 import com.prompthub.paymentservice.domain.model.Refund;
-import com.prompthub.paymentservice.domain.repository.RefundRepository;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;

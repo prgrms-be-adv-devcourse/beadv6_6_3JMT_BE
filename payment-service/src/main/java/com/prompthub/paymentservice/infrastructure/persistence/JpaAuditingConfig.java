@@ -1,4 +1,4 @@
-package com.prompthub.paymentservice.config;
+package com.prompthub.paymentservice.infrastructure.persistence;
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
