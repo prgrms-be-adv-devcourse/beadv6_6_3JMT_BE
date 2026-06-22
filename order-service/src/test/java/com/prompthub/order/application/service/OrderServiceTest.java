@@ -19,9 +19,9 @@ import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
+import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
-import com.prompthub.presentation.dto.PageResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -32,6 +32,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Sort;
@@ -76,6 +77,102 @@ class OrderServiceTest {
 
     @InjectMocks
     private OrderService orderService;
+
+    @Nested
+    @DisplayName("내 주문 상세 조회")
+    class GetOrderDetail {
+
+        @Test
+        @DisplayName("본인 주문이면 주문 기본 정보와 주문상품 목록을 반환한다")
+        void getOrderDetail_ownerOrder_success() {
+            // given
+            Order order = createPaidOrderWithProducts();
+            order.getOrderProducts().getFirst().markDownloaded();
+            ReflectionTestUtils.setField(order, "createdAt", CREATED_AT);
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when
+            OrderDetailResponse response = orderService.getOrderDetail(BUYER_ID, order.getId());
+
+            // then
+            assertThat(response.orderId()).isEqualTo(order.getId());
+            assertThat(response.orderNumber()).isEqualTo(ORDER_NUMBER);
+            assertThat(response.buyerId()).isEqualTo(BUYER_ID);
+            assertThat(response.orderStatus()).isEqualTo(OrderStatus.PAID);
+            assertThat(response.totalAmount()).isEqualTo(TOTAL_AMOUNT);
+            assertThat(response.totalProductCount()).isEqualTo(TOTAL_ITEM_COUNT);
+            assertThat(response.paidAt()).isNotNull();
+            assertThat(response.canceledAt()).isNull();
+            assertThat(response.refundedAt()).isNull();
+            assertThat(response.createdAt()).isEqualTo(CREATED_AT);
+            assertThat(response.hasDownloadProduct()).isTrue();
+            assertThat(response.products()).hasSize(TOTAL_ITEM_COUNT);
+            assertThat(response.products().getFirst().productId()).isEqualTo(PRODUCT_ID_1);
+            assertThat(response.products().getFirst().isContentAccessible()).isTrue();
+            assertThat(response.products().getFirst().download()).isTrue();
+
+            then(orderRepository).should().findByIdWithOrderProducts(order.getId());
+        }
+
+        @Test
+        @DisplayName("주문이 없으면 O001 예외가 발생한다")
+        void getOrderDetail_orderNotFound_throwsException() {
+            // given
+            given(orderRepository.findByIdWithOrderProducts(ORDER_ID))
+                .willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> orderService.getOrderDetail(BUYER_ID, ORDER_ID))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ORDER_NOT_FOUND)
+                );
+        }
+
+        @Test
+        @DisplayName("본인 주문이 아니면 A004 예외가 발생한다")
+        void getOrderDetail_notOwner_throwsException() {
+            // given
+            UUID otherBuyerId = UUID.fromString("00000000-0000-0000-0000-000000000991");
+            Order order = createPendingOrderWithProducts();
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderService.getOrderDetail(otherBuyerId, order.getId()))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.FORBIDDEN)
+                );
+        }
+
+        @Test
+        @DisplayName("결제 완료 주문상품만 콘텐츠 열람 가능하다")
+        void getOrderDetail_contentAccessibleByOrderProductStatus_success() {
+            // given
+            Order order = createPendingOrderWithProducts();
+            OrderProduct paidProduct = order.getOrderProducts().getFirst();
+            OrderProduct refundedProduct = order.getOrderProducts().get(1);
+            ReflectionTestUtils.setField(paidProduct, "orderStatus", OrderStatus.PAID);
+            ReflectionTestUtils.setField(refundedProduct, "orderStatus", OrderStatus.REFUNDED);
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when
+            OrderDetailResponse response = orderService.getOrderDetail(BUYER_ID, order.getId());
+
+            // then
+            assertThat(response.products())
+                .extracting(product -> product.isContentAccessible())
+                .containsExactly(true, false);
+        }
+    }
 
     @Nested
     @DisplayName("주문 생성")
@@ -538,17 +635,16 @@ class OrderServiceTest {
             )).willReturn(new PageImpl<>(List.of(projection), pageable, 1));
 
             // when
-            PageResponse<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
+            Page<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
 
             // then
-            assertThat(response.success()).isTrue();
-            assertThat(response.data()).hasSize(1);
-            assertThat(response.meta().page()).isEqualTo(1);
-            assertThat(response.meta().size()).isEqualTo(20);
-            assertThat(response.meta().total()).isEqualTo(1);
-            assertThat(response.meta().hasNext()).isFalse();
+            assertThat(response.getContent()).hasSize(1);
+            assertThat(response.getNumber()).isZero();
+            assertThat(response.getSize()).isEqualTo(20);
+            assertThat(response.getTotalElements()).isEqualTo(1);
+            assertThat(response.hasNext()).isFalse();
 
-            OrderListResponse order = response.data().getFirst();
+            OrderListResponse order = response.getContent().getFirst();
             assertThat(order.orderId()).isEqualTo(ORDER_ID);
             assertThat(order.orderProductId()).isEqualTo(ORDER_PRODUCT_ID);
             assertThat(order.orderStatus()).isEqualTo(OrderStatus.PAID);
@@ -650,10 +746,10 @@ class OrderServiceTest {
                 .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
 
             // when
-            PageResponse<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
+            Page<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
 
             // then
-            assertThat(response.data().getFirst().rating()).isNull();
+            assertThat(response.getContent().getFirst().rating()).isNull();
         }
 
         @Test
@@ -673,10 +769,10 @@ class OrderServiceTest {
                 .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
 
             // when
-            PageResponse<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
+            Page<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
 
             // then
-            assertThat(response.data().getFirst().isRefund()).isFalse();
+            assertThat(response.getContent().getFirst().isRefund()).isFalse();
         }
 
         @Test
@@ -696,10 +792,10 @@ class OrderServiceTest {
                 .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
 
             // when
-            PageResponse<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
+            Page<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
 
             // then
-            assertThat(response.data().getFirst().isRefund()).isFalse();
+            assertThat(response.getContent().getFirst().isRefund()).isFalse();
         }
 
         @Test
@@ -713,65 +809,14 @@ class OrderServiceTest {
                 .willReturn(new PageImpl<>(List.of(), pageable, 0));
 
             // when
-            PageResponse<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
+            Page<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
 
             // then
-            assertThat(response.data()).isEmpty();
-            assertThat(response.meta().total()).isZero();
-            assertThat(response.meta().hasNext()).isFalse();
+            assertThat(response.getContent()).isEmpty();
+            assertThat(response.getTotalElements()).isZero();
+            assertThat(response.hasNext()).isFalse();
         }
 
-        @Test
-        @DisplayName("size가 100을 초과하면 입력값 검증 예외가 발생한다")
-        void getMyOrders_sizeOverLimit_throwsException() {
-            // given
-            PageRequestParams request = new PageRequestParams(1, 101, null, null, null);
-
-            // when & then
-            assertThatThrownBy(() -> orderService.getOrders(BUYER_ID, request))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode())
-                        .isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                );
-
-            then(orderRepository).should(never()).searchOrderproducts(
-                any(UUID.class),
-                any(),
-                any(),
-                any(),
-                any()
-            );
-        }
-
-        @Test
-        @DisplayName("from이 to보다 늦으면 입력값 검증 예외가 발생한다")
-        void getMyOrders_fromAfterTo_throwsException() {
-            // given
-            PageRequestParams request = new PageRequestParams(
-                1,
-                20,
-                null,
-                LocalDate.of(2026, 6, 30),
-                LocalDate.of(2026, 6, 1)
-            );
-
-            // when & then
-            assertThatThrownBy(() -> orderService.getOrders(BUYER_ID, request))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode())
-                        .isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                );
-
-            then(orderRepository).should(never()).searchOrderproducts(
-                any(UUID.class),
-                any(),
-                any(),
-                any(),
-                any()
-            );
-        }
     }
 
     @Nested
@@ -779,10 +824,10 @@ class OrderServiceTest {
     class GetMyOrderPayments {
 
         @Test
-        @DisplayName("page와 size가 없으면 기본값으로 구매자 결제 내역을 반환한다")
+        @DisplayName("page와 size가 전달되면 구매자 결제 내역을 반환한다")
         void getMyOrderPayments_defaultPage_success() {
             // given
-            PageRequestParams request = new PageRequestParams(null, null, null, null, null);
+            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderPaymentListProjection projection = orderPaymentListProjection(
                 OrderStatus.PAID,
                 OrderStatus.PAID,
@@ -797,16 +842,15 @@ class OrderServiceTest {
                 .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
 
             // when
-            PageResponse<OrderPaymentListResponse> response = orderService.getOrderPayments(BUYER_ID, request);
+            Page<OrderPaymentListResponse> response = orderService.getOrderPayments(BUYER_ID, request);
 
             // then
-            assertThat(response.success()).isTrue();
-            assertThat(response.meta().page()).isEqualTo(1);
-            assertThat(response.meta().size()).isEqualTo(20);
-            assertThat(response.meta().total()).isEqualTo(1);
-            assertThat(response.meta().hasNext()).isFalse();
+            assertThat(response.getNumber()).isZero();
+            assertThat(response.getSize()).isEqualTo(20);
+            assertThat(response.getTotalElements()).isEqualTo(1);
+            assertThat(response.hasNext()).isFalse();
 
-            OrderPaymentListResponse payment = response.data().getFirst();
+            OrderPaymentListResponse payment = response.getContent().getFirst();
             assertThat(payment.orderId()).isEqualTo(ORDER_ID);
             assertThat(payment.orderProductId()).isEqualTo(ORDER_PRODUCT_ID);
             assertThat(payment.paymentId()).isEqualTo(PAYMENT_ID);
@@ -839,11 +883,11 @@ class OrderServiceTest {
                 .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
 
             // when
-            PageResponse<OrderPaymentListResponse> response = orderService.getOrderPayments(BUYER_ID, request);
+            Page<OrderPaymentListResponse> response = orderService.getOrderPayments(BUYER_ID, request);
 
             // then
-            assertThat(response.data().getFirst().paymentStatus()).isEqualTo(PaymentStatus.PAID);
-            assertThat(response.data().getFirst().isRefund()).isTrue();
+            assertThat(response.getContent().getFirst().paymentStatus()).isEqualTo(PaymentStatus.PAID);
+            assertThat(response.getContent().getFirst().isRefund()).isTrue();
         }
 
         @Test
@@ -865,10 +909,10 @@ class OrderServiceTest {
                 .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
 
             // when
-            PageResponse<OrderPaymentListResponse> response = orderService.getOrderPayments(BUYER_ID, request);
+            Page<OrderPaymentListResponse> response = orderService.getOrderPayments(BUYER_ID, request);
 
             // then
-            assertThat(response.data().getFirst().paidAt()).isEqualTo(APPROVED_OFFSET_AT.toLocalDateTime());
+            assertThat(response.getContent().getFirst().paidAt()).isEqualTo(APPROVED_OFFSET_AT.toLocalDateTime());
         }
     }
 }

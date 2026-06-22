@@ -16,10 +16,11 @@ import com.prompthub.order.domain.repository.OrderPaymentRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.presentation.dto.PageResponse;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
+import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
+import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
@@ -89,13 +90,45 @@ public class OrderService implements OrderUseCase {
 	}
 
 	@Override
-	public PageResponse<OrderListResponse> getOrders(UUID buyerId, PageRequestParams request) {
-		PageRequestParams resolvedRequest = request.resolve();
-		int page = resolvedRequest.page();
-		int size = resolvedRequest.size();
+	@Transactional(readOnly = true)
+	public OrderDetailResponse getOrderDetail(UUID buyerId, UUID orderId) {
+		Order order = orderRepository.findByIdWithOrderProducts(orderId)
+			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
-		LocalDateTime from = resolvedRequest.from() == null ? null : resolvedRequest.from().atStartOfDay();
-		LocalDateTime to = resolvedRequest.to() == null ? null : resolvedRequest.to().atTime(23, 59, 59);
+		if (!order.getBuyerId().equals(buyerId)) {
+			throw new OrderException(ErrorCode.FORBIDDEN);
+		}
+
+		List<OrderDetailProductResponse> products = order.getOrderProducts().stream()
+			.map(this::toOrderDetailProductResponse)
+			.toList();
+
+		boolean hasDownloadProduct = order.getOrderProducts().stream()
+			.anyMatch(OrderProduct::isDownload);
+
+		return new OrderDetailResponse(
+			order.getId(),
+			order.getOrderNumber(),
+			order.getBuyerId(),
+			order.getOrderStatus(),
+			products,
+			order.getTotalOrderAmount(),
+			order.getTotalProductCount(),
+			order.getPaidAt(),
+			order.getCanceledAt(),
+			order.getRefundedAt(),
+			order.getCreatedAt(),
+			hasDownloadProduct
+		);
+	}
+
+	@Override
+	public Page<OrderListResponse> getOrders(UUID buyerId, PageRequestParams request) {
+		int page = request.page();
+		int size = request.size();
+
+		LocalDateTime from = request.from() == null ? null : request.from().atStartOfDay();
+		LocalDateTime to = request.to() == null ? null : request.to().atTime(23, 59, 59);
 
 		PageRequest pageable = PageRequest.of(
 			page - 1,
@@ -105,17 +138,13 @@ public class OrderService implements OrderUseCase {
 
 		Page<OrderListProjection> orders = orderRepository.searchOrderproducts(
 			buyerId,
-			resolvedRequest.status(),
+			request.status(),
 			from,
 			to,
 			pageable
 		);
 
-		List<OrderListResponse> data = orders.getContent().stream()
-			.map(this::toOrderListResponse)
-			.toList();
-
-		return PageResponse.success(data, page, size, orders.getTotalElements(), orders.hasNext());
+		return orders.map(this::toOrderListResponse);
 	}
 
 	@Transactional
@@ -150,10 +179,9 @@ public class OrderService implements OrderUseCase {
 	}
 
 	@Override
-	public PageResponse<OrderPaymentListResponse> getOrderPayments(UUID buyerId, PageRequestParams request) {
-		PageRequestParams resolvedRequest = request.resolve();
-		int page = resolvedRequest.page();
-		int size = resolvedRequest.size();
+	public Page<OrderPaymentListResponse> getOrderPayments(UUID buyerId, PageRequestParams request) {
+		int page = request.page();
+		int size = request.size();
 
 		PageRequest pageable = PageRequest.of(
 			page - 1,
@@ -166,11 +194,7 @@ public class OrderService implements OrderUseCase {
 
 		Page<OrderPaymentListProjection> orderPayments = orderPaymentRepository.searchOrderPayments(buyerId, pageable);
 
-		List<OrderPaymentListResponse> data = orderPayments.getContent().stream()
-			.map(this::toOrderPaymentListResponse)
-			.toList();
-
-		return PageResponse.success(data, page, size, orderPayments.getTotalElements(), orderPayments.hasNext());
+		return orderPayments.map(this::toOrderPaymentListResponse);
 	}
 
 	private OrderListResponse toOrderListResponse(OrderListProjection projection) {
@@ -187,6 +211,20 @@ public class OrderService implements OrderUseCase {
 			// projection.thumbnailUrl(),
 			projection.paidAt(),
 			projection.createdAt()
+		);
+	}
+
+	private OrderDetailProductResponse toOrderDetailProductResponse(OrderProduct orderProduct) {
+		return new OrderDetailProductResponse(
+			orderProduct.getId(),
+			orderProduct.getProductId(),
+			orderProduct.getSellerId(),
+			orderProduct.getProductTitle(),
+			orderProduct.getProductType(),
+			orderProduct.getProductAmount(),
+			orderProduct.getOrderStatus(),
+			orderProduct.isPaid(),
+			orderProduct.isDownload()
 		);
 	}
 
