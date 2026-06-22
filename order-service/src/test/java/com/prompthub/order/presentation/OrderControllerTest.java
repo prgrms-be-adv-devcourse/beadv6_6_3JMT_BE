@@ -5,7 +5,10 @@ import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.GlobalExceptionHandler;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
+import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
+import com.prompthub.order.presentation.dto.response.OrderListResponse;
+import com.prompthub.presentation.dto.PageResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,14 +22,17 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.*;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -178,5 +184,135 @@ class OrderControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(request)))
 			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	@DisplayName("내 주문 목록 조회 성공")
+	void getOrders_success() throws Exception {
+		// given
+		OrderListResponse order = new OrderListResponse(
+			ORDER_ID,
+			ORDER_PRODUCT_ID,
+			OrderStatus.PAID,
+			true,
+			PRODUCT_TYPE_PROMPT,
+			PRODUCT_TITLE_1,
+			PRODUCT_MODEL,
+			4.5,
+			PAID_AT,
+			CREATED_AT
+		);
+		PageResponse<OrderListResponse> response = PageResponse.success(List.of(order), 1, 20, 1, false);
+		PageRequestParams request = new PageRequestParams(
+			1,
+			20,
+			OrderStatus.PAID,
+			LocalDate.of(2026, 6, 1),
+			LocalDate.of(2026, 6, 30)
+		);
+
+		when(orderUseCase.getOrders(eq(BUYER_ID), eq(request)))
+			.thenReturn(response);
+
+		// when & then
+		mockMvc.perform(get("/api/v1/orders")
+				.header("X-User-Id", BUYER_ID.toString())
+				.param("page", "1")
+				.param("size", "20")
+				.param("status", "PAID")
+				.param("from", "2026-06-01")
+				.param("to", "2026-06-30"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.success").value(true))
+			.andExpect(jsonPath("$.message").value("success"))
+			.andExpect(jsonPath("$.data[0].orderId").value(ORDER_ID.toString()))
+			.andExpect(jsonPath("$.data[0].orderProductId").value(ORDER_PRODUCT_ID.toString()))
+			.andExpect(jsonPath("$.data[0].orderStatus").value("PAID"))
+			.andExpect(jsonPath("$.data[0].isRefund").value(true))
+			.andExpect(jsonPath("$.data[0].productType").value(PRODUCT_TYPE_PROMPT))
+			.andExpect(jsonPath("$.data[0].title").value(PRODUCT_TITLE_1))
+			.andExpect(jsonPath("$.data[0].model").value(PRODUCT_MODEL))
+			.andExpect(jsonPath("$.data[0].rating").value(4.5))
+			// .andExpect(jsonPath("$.data[0].thumbnailUrl").value(PRODUCT_THUMBNAIL_URL))
+			.andExpect(jsonPath("$.data[0].paidAt").value("2026-06-20T12:00:00"))
+			.andExpect(jsonPath("$.data[0].createdAt").value("2026-06-20T11:58:00"))
+			.andExpect(jsonPath("$.meta.page").value(1))
+			.andExpect(jsonPath("$.meta.size").value(20))
+			.andExpect(jsonPath("$.meta.total").value(1))
+			.andExpect(jsonPath("$.meta.hasNext").value(false));
+
+		verify(orderUseCase).getOrders(eq(BUYER_ID), eq(request));
+	}
+
+	@Test
+	@DisplayName("내 주문 목록 조회 응답은 rating이 null이어도 정상이다")
+	void getOrders_nullRating_success() throws Exception {
+		// given
+		OrderListResponse order = new OrderListResponse(
+			ORDER_ID,
+			ORDER_PRODUCT_ID,
+			OrderStatus.PAID,
+			true,
+			PRODUCT_TYPE_PROMPT,
+			PRODUCT_TITLE_1,
+			PRODUCT_MODEL,
+			null,
+			PAID_AT,
+			CREATED_AT
+		);
+		PageResponse<OrderListResponse> response = PageResponse.success(List.of(order), 1, 20, 1, false);
+		PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
+
+		when(orderUseCase.getOrders(eq(BUYER_ID), eq(request)))
+			.thenReturn(response);
+
+		// when & then
+		mockMvc.perform(get("/api/v1/orders")
+				.header("X-User-Id", BUYER_ID.toString()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data[0].rating").doesNotExist());
+	}
+
+	@Test
+	@DisplayName("날짜 형식이 잘못되면 400 Bad Request와 V001을 반환한다")
+	void getOrders_invalidDate_badRequest() throws Exception {
+		// when & then
+		mockMvc.perform(get("/api/v1/orders")
+				.header("X-User-Id", BUYER_ID.toString())
+				.param("from", "2026/06/01"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.success").value(false))
+			.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
+
+		verifyNoInteractions(orderUseCase);
+	}
+
+	@Test
+	@DisplayName("size가 100을 초과하면 400 Bad Request와 V001을 반환한다")
+	void getOrders_sizeOverLimit_badRequest() throws Exception {
+		// when & then
+		mockMvc.perform(get("/api/v1/orders")
+				.header("X-User-Id", BUYER_ID.toString())
+				.param("size", "101"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.success").value(false))
+			.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
+
+		verifyNoInteractions(orderUseCase);
+	}
+
+	@Test
+	@DisplayName("from이 to보다 늦으면 400 Bad Request와 V001을 반환한다")
+	void getOrders_fromAfterTo_badRequest() throws Exception {
+		// when & then
+		mockMvc.perform(get("/api/v1/orders")
+				.header("X-User-Id", BUYER_ID.toString())
+				.param("from", "2026-06-30")
+				.param("to", "2026-06-01"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.success").value(false))
+			.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
+
+		verifyNoInteractions(orderUseCase);
 	}
 }
