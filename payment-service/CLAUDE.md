@@ -31,6 +31,14 @@ docker-compose up -d                   # 로컬 PostgreSQL (호스트 5433)
 - **REST 컨트롤러·예외 처리·API 응답 형식** → `.claude/rules/api-error-handling.md`
 - **커밋·브랜치·PR** → `.claude/rules/git-conventions.md`
 
+## 도메인 참조 문서
+
+API 설계·DB·이벤트 관련 작업 시 아래 문서를 먼저 확인한다.
+
+- **API 설계 (Swagger/OpenAPI)** → `.claude/docs/api-design.md`
+- **DB 테이블 구조** → `.claude/docs/db-schema.md`
+- **Kafka 이벤트 계약** → `.claude/docs/events.md`
+
 ## 테스트 정책
 
 - 새 기능은 **테스트와 함께** 추가(가능하면 TDD: 실패 테스트 → 구현 → 통과).
