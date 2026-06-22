@@ -46,22 +46,6 @@ API 설계·DB·이벤트 관련 작업 시 아래 문서를 먼저 확인한다
 - 단언은 **AssertJ**(`assertThat`).
 - 영속성 테스트는 엔티티 `create(...)` 팩토리로 객체를 만들어 라운드트립 + 감사 필드 검증(기존 `PaymentJpaRepositoryTest` 패턴).
 
-## 플랜 파일 워크플로
-
-작업 규모에 따라 다음 기준으로 구분한다.
-
-### 큰 작업 (새 기능, 아키텍처 변경, 레이어 간 의존 수정)
-1. `.claude/plans/[NNN]-[type]-[영어-kebab-case-설명].md` 파일을 생성한다
-   - 예: `.claude/plans/001-feat-payment-confirm-api.md`
-   - `NNN`은 `.claude/plans/`와 `.claude/plans/done/`의 파일 중 가장 큰 번호 + 1 (3자리 zero-pad)
-   - `type`은 커밋 type과 동일 (`feat`, `fix`, `refactor`, `chore` 등)
-2. 파일 안에 구현 계획을 작성한다. 템플릿은 `.claude/plans/TEMPLATE.md` 참조
-3. 사용자가 플랜을 검토·수정한 뒤 승인하면 구현을 시작한다
-4. 구현 완료 후 `.claude/plans/done/`으로 이동한다 (삭제 금지, 번호·이름 유지)
-
-### 단순 수정 (버그 수정, 작은 변경, 설정 변경)
-- 구현 직전 변경 의도를 한 줄로 먼저 말하고, 확인 후 진행한다
-- 플랜 파일은 생성하지 않는다
 
 ## AI 작업 원칙
 
