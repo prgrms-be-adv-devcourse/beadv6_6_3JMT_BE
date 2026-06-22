@@ -1,0 +1,130 @@
+package com.prompthub.order.infra.persistence;
+
+import com.prompthub.order.application.dto.OrderPaymentListProjection;
+import com.prompthub.order.config.TestJpaConfig;
+import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.model.Order;
+import com.prompthub.order.domain.model.OrderPayment;
+import com.prompthub.order.domain.model.OrderProduct;
+import com.prompthub.order.infra.persistence.config.QuerydslConfig;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.test.context.ActiveProfiles;
+
+import java.util.UUID;
+
+import static com.prompthub.order.fixture.OrderFixture.APPROVED_OFFSET_AT;
+import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
+import static com.prompthub.order.fixture.OrderFixture.ORDER_NUMBER;
+import static com.prompthub.order.fixture.OrderFixture.PAYMENT_ID;
+import static com.prompthub.order.fixture.OrderFixture.PAYMENT_METHOD;
+import static com.prompthub.order.fixture.OrderFixture.PAYMENT_PROVIDER;
+import static com.prompthub.order.fixture.OrderFixture.PG_TX_ID;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_AMOUNT_1;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_ID_1;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TITLE_1;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TYPE_PROMPT;
+import static com.prompthub.order.fixture.OrderFixture.SELLER_ID_1;
+import static com.prompthub.order.fixture.OrderFixture.TOTAL_AMOUNT;
+import static com.prompthub.order.fixture.OrderFixture.TOTAL_ITEM_COUNT;
+import static org.assertj.core.api.Assertions.assertThat;
+
+@DataJpaTest
+@ActiveProfiles("test")
+@Import({QuerydslConfig.class, TestJpaConfig.class})
+class OrderPaymentPersistenceImplTest {
+
+	@Autowired
+	private TestEntityManager entityManager;
+
+	@Autowired
+	private OrderPaymentPersistence orderPaymentPersistence;
+
+	@Test
+	@DisplayName("구매자 결제 내역을 order, order_product, order_payment 조인으로 조회한다")
+	void searchOrderPayments_join_success() {
+		// given
+		Order order = Order.create(BUYER_ID, ORDER_NUMBER, TOTAL_AMOUNT, TOTAL_ITEM_COUNT);
+		OrderProduct orderProduct = OrderProduct.create(
+			PRODUCT_ID_1,
+			SELLER_ID_1,
+			PRODUCT_TITLE_1,
+			PRODUCT_TYPE_PROMPT,
+			PRODUCT_AMOUNT_1
+		);
+		order.addOrderProduct(orderProduct);
+		order.markPaid(APPROVED_OFFSET_AT.toLocalDateTime());
+
+		entityManager.persist(order);
+		entityManager.persist(OrderPayment.create(
+			order.getId(),
+			PAYMENT_ID,
+			BUYER_ID,
+			PG_TX_ID,
+			PAYMENT_METHOD,
+			PAYMENT_PROVIDER,
+			TOTAL_AMOUNT,
+			APPROVED_OFFSET_AT
+		));
+
+		Order otherBuyerOrder = Order.create(
+			UUID.fromString("00000000-0000-0000-0000-000000000991"),
+			"ORD-20260619-9999",
+			TOTAL_AMOUNT,
+			TOTAL_ITEM_COUNT
+		);
+		otherBuyerOrder.addOrderProduct(OrderProduct.create(
+			PRODUCT_ID_1,
+			SELLER_ID_1,
+			PRODUCT_TITLE_1,
+			PRODUCT_TYPE_PROMPT,
+			PRODUCT_AMOUNT_1
+		));
+		otherBuyerOrder.markPaid(APPROVED_OFFSET_AT.toLocalDateTime());
+		entityManager.persist(otherBuyerOrder);
+		entityManager.persist(OrderPayment.create(
+			otherBuyerOrder.getId(),
+			UUID.fromString("00000000-0000-0000-0000-000000000992"),
+			otherBuyerOrder.getBuyerId(),
+			"other-pg-tx-id",
+			PAYMENT_METHOD,
+			PAYMENT_PROVIDER,
+			TOTAL_AMOUNT,
+			APPROVED_OFFSET_AT
+		));
+
+		entityManager.flush();
+		entityManager.clear();
+
+		PageRequest pageable = PageRequest.of(0, 20, Sort.by(
+			Sort.Order.desc("approvedAt"),
+			Sort.Order.asc("orderProductId")
+		));
+
+		// when
+		Page<OrderPaymentListProjection> result = orderPaymentPersistence.searchOrderPayments(BUYER_ID, pageable);
+
+		// then
+		assertThat(result.getTotalElements()).isEqualTo(1);
+		assertThat(result.getContent()).hasSize(1);
+
+		OrderPaymentListProjection projection = result.getContent().getFirst();
+		assertThat(projection.orderId()).isEqualTo(order.getId());
+		assertThat(projection.orderProductId()).isEqualTo(orderProduct.getId());
+		assertThat(projection.paymentId()).isEqualTo(PAYMENT_ID);
+		assertThat(projection.orderStatus()).isEqualTo(OrderStatus.PAID);
+		assertThat(projection.orderProductStatus()).isEqualTo(OrderStatus.PAID);
+		assertThat(projection.productType()).isEqualTo(PRODUCT_TYPE_PROMPT);
+		assertThat(projection.title()).isEqualTo(PRODUCT_TITLE_1);
+		assertThat(projection.amount()).isEqualTo(PRODUCT_AMOUNT_1);
+		assertThat(projection.paidAt()).isEqualTo(APPROVED_OFFSET_AT.toLocalDateTime());
+		assertThat(projection.approvedAt()).isEqualTo(APPROVED_OFFSET_AT);
+	}
+}
