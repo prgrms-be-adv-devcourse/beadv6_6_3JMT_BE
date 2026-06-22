@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.prompthub.exception.BusinessException;
+import com.prompthub.order.domain.exception.InvalidOrderStatusTransitionException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +53,16 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("주문 상태 전이 도메인 예외는 O009 에러 코드를 반환한다")
+    void invalidOrderStatusTransitionReturnsO009() throws Exception {
+        mockMvc.perform(get("/test/domain/order-status").header("X-Request-Id", "request-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("대기 상태의 주문만 처리할 수 있습니다."))
+                .andExpect(jsonPath("$.code").value("O009"));
+    }
+
+    @Test
     @DisplayName("검증 예외는 V001 에러 코드를 반환한다")
     void validationExceptionReturnsV001() throws Exception {
         mockMvc.perform(post("/test/validation")
@@ -90,6 +102,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/test/business")
         void business() {
             throw new BusinessException(ErrorCode.CART_EMPTY);
+        }
+
+        @GetMapping("/test/domain/order-status")
+        void invalidOrderStatusTransition() {
+            throw new InvalidOrderStatusTransitionException("대기 상태의 주문만 처리할 수 있습니다.");
         }
 
         @PostMapping("/test/validation")

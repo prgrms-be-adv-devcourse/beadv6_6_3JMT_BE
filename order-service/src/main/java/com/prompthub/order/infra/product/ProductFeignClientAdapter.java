@@ -2,7 +2,7 @@ package com.prompthub.order.infra.product;
 
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
-import com.prompthub.order.global.exception.BusinessException;
+import com.prompthub.exception.BusinessException;
 import com.prompthub.order.global.exception.ErrorCode;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;

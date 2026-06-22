@@ -2,6 +2,8 @@ package com.prompthub.order.presentation;
 
 import com.prompthub.order.application.usecase.OrderUseCase;
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.global.exception.ErrorCode;
+import com.prompthub.order.global.exception.GlobalExceptionHandler;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
@@ -45,6 +47,7 @@ class OrderControllerTest {
 		validator.afterPropertiesSet();
 
 		mockMvc = MockMvcBuilders.standaloneSetup(new OrderController(orderUseCase))
+			.setControllerAdvice(new GlobalExceptionHandler())
 			.setValidator(validator)
 			.build();
 	}
@@ -124,8 +127,8 @@ class OrderControllerTest {
 	}
 
 	@Test
-	@DisplayName("X-User-Id 헤더가 없으면 400 Bad Request")
-	void createOrder_withoutUserIdHeader_badRequest() throws Exception {
+	@DisplayName("X-User-Id 헤더가 없으면 401 Unauthorized")
+	void createOrder_withoutUserIdHeader_unauthorized() throws Exception {
 		// given
 		CreateOrderRequest request = createOrderRequest();
 
@@ -133,7 +136,9 @@ class OrderControllerTest {
 		mockMvc.perform(post("/api/v1/orders")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(request)))
-			.andExpect(status().isBadRequest());
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.success").value(false))
+			.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
 	}
 
 	@Test

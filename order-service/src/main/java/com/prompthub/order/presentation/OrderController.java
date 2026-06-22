@@ -1,7 +1,7 @@
 package com.prompthub.order.presentation;
 
 import com.prompthub.order.application.usecase.OrderUseCase;
-import com.prompthub.order.global.response.ApiResponse;
+import com.prompthub.presentation.dto.ApiResponse;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import jakarta.validation.Valid;
@@ -20,7 +20,7 @@ public class OrderController {
 	@PostMapping
 	public ApiResponse<CreateOrderResponse> createOrder(
 		@RequestHeader("X-User-Id") UUID buyerId,
-		@Valid @RequestBody CreateOrderRequest request
+		@RequestBody @Valid CreateOrderRequest request
 	) {
 		return ApiResponse.success(orderUseCase.createOrder(buyerId, request));
 	}
