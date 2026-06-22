@@ -2,6 +2,7 @@ package com.prompthub.order.application.service;
 
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
+import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.event.PaymentApprovedEvent;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
@@ -12,7 +13,10 @@ import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
+import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
+import com.prompthub.order.presentation.dto.response.OrderListResponse;
+import com.prompthub.presentation.dto.PageResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -21,8 +25,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Sort;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -52,6 +63,9 @@ class OrderServiceTest {
     @Mock
     private ProductClient productClient;
 
+    @Spy
+    private OrderPolicyService orderPolicyService;
+
     @InjectMocks
     private OrderService orderService;
 
@@ -73,7 +87,11 @@ class OrderServiceTest {
                 .willReturn(ORDER_NUMBER);
 
             given(orderRepository.save(any(Order.class)))
-                .willAnswer(invocation -> invocation.getArgument(0));
+                .willAnswer(invocation -> {
+                    Order order = invocation.getArgument(0);
+                    ReflectionTestUtils.setField(order, "createdAt", LocalDateTime.now());
+                    return order;
+                });
 
             // when
             CreateOrderResponse response = orderService.createOrder(BUYER_ID, request);
@@ -119,7 +137,11 @@ class OrderServiceTest {
                 .willReturn(ORDER_NUMBER);
 
             given(orderRepository.save(any(Order.class)))
-                .willAnswer(invocation -> invocation.getArgument(0));
+                .willAnswer(invocation -> {
+                    Order order = invocation.getArgument(0);
+                    ReflectionTestUtils.setField(order, "createdAt", LocalDateTime.now());
+                    return order;
+                });
 
             ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
 
@@ -136,7 +158,7 @@ class OrderServiceTest {
             assertThat(savedOrder.getOrderNumber()).isEqualTo(ORDER_NUMBER);
             assertThat(savedOrder.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
             assertThat(savedOrder.getTotalOrderAmount()).isEqualTo(TOTAL_AMOUNT);
-            assertThat(savedOrder.getTotalItemCount()).isEqualTo(TOTAL_ITEM_COUNT);
+            assertThat(savedOrder.getTotalProductCount()).isEqualTo(TOTAL_ITEM_COUNT);
             assertThat(savedOrder.getOrderProducts()).hasSize(TOTAL_ITEM_COUNT);
 
             assertThat(savedOrder.getOrderProducts())
@@ -148,7 +170,7 @@ class OrderServiceTest {
                 .containsExactly(SELLER_ID_1, SELLER_ID_2);
 
             assertThat(savedOrder.getOrderProducts())
-                .extracting(OrderProduct::getProductAmountSnapshot)
+                .extracting(OrderProduct::getProductAmount)
                 .containsExactly(PRODUCT_AMOUNT_1, PRODUCT_AMOUNT_2);
 
             assertThat(savedOrder.getOrderProducts())
@@ -445,6 +467,268 @@ class OrderServiceTest {
 
             then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
             then(cartRepository).should(never()).findByBuyerIdWithCartProducts(any(UUID.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("내 주문 목록 조회")
+    class GetMyOrders {
+
+        @Test
+        @DisplayName("page와 size만 전달하면 구매자 기준 최신 주문상품 목록을 반환한다")
+        void getMyOrders_defaultFilters_success() {
+            // given
+            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
+            OrderListProjection projection = orderListProjection(
+                OrderStatus.PAID,
+                OrderStatus.PAID,
+                false,
+                4.5
+            );
+            PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+            given(orderRepository.searchOrderproducts(
+                BUYER_ID,
+                null,
+                null,
+                null,
+                pageable
+            )).willReturn(new PageImpl<>(List.of(projection), pageable, 1));
+
+            // when
+            PageResponse<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
+
+            // then
+            assertThat(response.success()).isTrue();
+            assertThat(response.data()).hasSize(1);
+            assertThat(response.meta().page()).isEqualTo(1);
+            assertThat(response.meta().size()).isEqualTo(20);
+            assertThat(response.meta().total()).isEqualTo(1);
+            assertThat(response.meta().hasNext()).isFalse();
+
+            OrderListResponse order = response.data().getFirst();
+            assertThat(order.orderId()).isEqualTo(ORDER_ID);
+            assertThat(order.orderProductId()).isEqualTo(ORDER_PRODUCT_ID);
+            assertThat(order.orderStatus()).isEqualTo(OrderStatus.PAID);
+            assertThat(order.isRefund()).isTrue();
+            assertThat(order.productType()).isEqualTo(PRODUCT_TYPE_PROMPT);
+            assertThat(order.title()).isEqualTo(PRODUCT_TITLE_1);
+            assertThat(order.model()).isEqualTo(PRODUCT_MODEL);
+            assertThat(order.rating()).isEqualTo(4.5);
+            assertThat(order.paidAt()).isEqualTo(PAID_AT);
+            assertThat(order.createdAt()).isEqualTo(CREATED_AT);
+
+            then(orderRepository).should().searchOrderproducts(
+                BUYER_ID,
+                null,
+                null,
+                null,
+                pageable
+            );
+        }
+
+        @Test
+        @DisplayName("status 필터는 Repository 조회 조건으로 전달한다")
+        void getMyOrders_statusFilter_success() {
+            // given
+            PageRequestParams request = new PageRequestParams(1, 20, OrderStatus.PAID, null, null);
+            PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+            given(orderRepository.searchOrderproducts(
+                BUYER_ID,
+                OrderStatus.PAID,
+                null,
+                null,
+                pageable
+            )).willReturn(new PageImpl<>(List.of(), pageable, 0));
+
+            // when
+            orderService.getOrders(BUYER_ID, request);
+
+            // then
+            then(orderRepository).should().searchOrderproducts(
+                BUYER_ID,
+                OrderStatus.PAID,
+                null,
+                null,
+                pageable
+            );
+        }
+
+        @Test
+        @DisplayName("from과 to는 하루 시작/끝 시각으로 변환해 Repository에 전달한다")
+        void getMyOrders_dateRange_success() {
+            // given
+            PageRequestParams request = new PageRequestParams(
+                1,
+                20,
+                null,
+                LocalDate.of(2026, 6, 1),
+                LocalDate.of(2026, 6, 30)
+            );
+            LocalDateTime from = LocalDateTime.of(2026, 6, 1, 0, 0);
+            LocalDateTime to = LocalDateTime.of(2026, 6, 30, 23, 59, 59);
+            PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+            given(orderRepository.searchOrderproducts(
+                BUYER_ID,
+                null,
+                from,
+                to,
+                pageable
+            )).willReturn(new PageImpl<>(List.of(), pageable, 0));
+
+            // when
+            orderService.getOrders(BUYER_ID, request);
+
+            // then
+            then(orderRepository).should().searchOrderproducts(
+                BUYER_ID,
+                null,
+                from,
+                to,
+                pageable
+            );
+        }
+
+        @Test
+        @DisplayName("리뷰 평점이 없으면 rating은 null이다")
+        void getMyOrders_withoutRating_success() {
+            // given
+            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
+            OrderListProjection projection = orderListProjection(
+                OrderStatus.PAID,
+                OrderStatus.PAID,
+                false,
+                null
+            );
+            PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+            given(orderRepository.searchOrderproducts(BUYER_ID, null, null, null, pageable))
+                .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
+
+            // when
+            PageResponse<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
+
+            // then
+            assertThat(response.data().getFirst().rating()).isNull();
+        }
+
+        @Test
+        @DisplayName("다운로드한 상품은 환불 가능하지 않다")
+        void getMyOrders_downloadedProduct_notRefundable() {
+            // given
+            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
+            OrderListProjection projection = orderListProjection(
+                OrderStatus.PAID,
+                OrderStatus.PAID,
+                true,
+                null
+            );
+            PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+            given(orderRepository.searchOrderproducts(BUYER_ID, null, null, null, pageable))
+                .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
+
+            // when
+            PageResponse<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
+
+            // then
+            assertThat(response.data().getFirst().isRefund()).isFalse();
+        }
+
+        @Test
+        @DisplayName("PAID가 아닌 주문은 환불 가능하지 않다")
+        void getMyOrders_notPaidOrder_notRefundable() {
+            // given
+            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
+            OrderListProjection projection = orderListProjection(
+                OrderStatus.CANCELED,
+                OrderStatus.CANCELED,
+                false,
+                null
+            );
+            PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+            given(orderRepository.searchOrderproducts(BUYER_ID, null, null, null, pageable))
+                .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
+
+            // when
+            PageResponse<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
+
+            // then
+            assertThat(response.data().getFirst().isRefund()).isFalse();
+        }
+
+        @Test
+        @DisplayName("조회 결과가 없으면 빈 목록과 total 0을 반환한다")
+        void getMyOrders_emptyResult_success() {
+            // given
+            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
+            PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+            given(orderRepository.searchOrderproducts(BUYER_ID, null, null, null, pageable))
+                .willReturn(new PageImpl<>(List.of(), pageable, 0));
+
+            // when
+            PageResponse<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
+
+            // then
+            assertThat(response.data()).isEmpty();
+            assertThat(response.meta().total()).isZero();
+            assertThat(response.meta().hasNext()).isFalse();
+        }
+
+        @Test
+        @DisplayName("size가 100을 초과하면 입력값 검증 예외가 발생한다")
+        void getMyOrders_sizeOverLimit_throwsException() {
+            // given
+            PageRequestParams request = new PageRequestParams(1, 101, null, null, null);
+
+            // when & then
+            assertThatThrownBy(() -> orderService.getOrders(BUYER_ID, request))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
+                );
+
+            then(orderRepository).should(never()).searchOrderproducts(
+                any(UUID.class),
+                any(),
+                any(),
+                any(),
+                any()
+            );
+        }
+
+        @Test
+        @DisplayName("from이 to보다 늦으면 입력값 검증 예외가 발생한다")
+        void getMyOrders_fromAfterTo_throwsException() {
+            // given
+            PageRequestParams request = new PageRequestParams(
+                1,
+                20,
+                null,
+                LocalDate.of(2026, 6, 30),
+                LocalDate.of(2026, 6, 1)
+            );
+
+            // when & then
+            assertThatThrownBy(() -> orderService.getOrders(BUYER_ID, request))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
+                );
+
+            then(orderRepository).should(never()).searchOrderproducts(
+                any(UUID.class),
+                any(),
+                any(),
+                any(),
+                any()
+            );
         }
     }
 }

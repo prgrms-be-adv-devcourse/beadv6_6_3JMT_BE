@@ -6,7 +6,7 @@ import org.springframework.http.HttpStatus;
 
 @Getter
 @RequiredArgsConstructor
-public enum ErrorCode {
+public enum ErrorCode implements com.prompthub.exception.ErrorCode {
 
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "V001", "입력값 검증 실패"),
     INVALID_AUTHENTICATION(HttpStatus.UNAUTHORIZED, "A003", "토큰이 만료되었거나 유효하지 않습니다."),
@@ -35,4 +35,9 @@ public enum ErrorCode {
     private final HttpStatus httpStatus;
     private final String code;
     private final String message;
+
+    @Override
+    public HttpStatus getStatus() {
+        return httpStatus;
+    }
 }

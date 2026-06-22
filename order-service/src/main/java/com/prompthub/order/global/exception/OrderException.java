@@ -1,5 +1,7 @@
 package com.prompthub.order.global.exception;
 
+import com.prompthub.exception.BusinessException;
+
 public class OrderException extends BusinessException {
 
     public OrderException(ErrorCode errorCode) {

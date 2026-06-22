@@ -8,7 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface OrderPersistence extends JpaRepository<Order, UUID> {
+public interface OrderPersistence extends JpaRepository<Order, UUID>, OrderPersistenceCustom {
 	@Query("""
     select distinct o
     from Order o
