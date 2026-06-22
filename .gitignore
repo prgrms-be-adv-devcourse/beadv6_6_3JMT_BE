@@ -179,3 +179,4 @@ gradle-app.setting
 /docs/superpowers/
 /.env
 /order-service/.env
+/CLAUDE.md

@@ -1,0 +1,29 @@
+{
+  "skill_name": "create-branch",
+  "evals": [
+    {
+      "id": 0,
+      "name": "normal-flow-feat-branch",
+      "prompt": "이슈 12번으로 feat 브랜치 만들어줘",
+      "expected_output": "gh auth status → git remote -v → git status --porcelain(변경 없음) → git fetch/checkout develop → gh issue list 출력 → feat/#12-<이슈제목slug> 형식으로 브랜치명 제안 → git checkout -b 시 브랜치명 따옴표 감싸기 → push 여부 질문 → 완료 메시지."
+    },
+    {
+      "id": 1,
+      "name": "uncommitted-changes-stash",
+      "prompt": "새 브랜치 만들어줘",
+      "expected_output": "git status --porcelain에서 uncommitted changes 감지 → stash(a) 또는 취소(b) 선택지 제시 → a 선택 시 git stash 실행 후 정상 흐름 진행 → 마지막에 'git stash pop' 안내 포함."
+    },
+    {
+      "id": 2,
+      "name": "no-open-issues",
+      "prompt": "브랜치 만들어줘",
+      "expected_output": "gh issue list 결과가 비어 있음 → '/create-github-issue 스킬로 이슈를 먼저 생성해주세요' 안내 후 종료. 브랜치 생성 시도 없음."
+    },
+    {
+      "id": 3,
+      "name": "branch-already-exists",
+      "prompt": "feat/#15-사용자-인증 브랜치 만들어줘",
+      "expected_output": "git branch --list 결과에서 동일 브랜치 감지 → '이미 존재하는 브랜치입니다' 경고 → 다른 이름 입력 요청. 기존 브랜치 덮어쓰기 없음."
+    }
+  ]
+}
