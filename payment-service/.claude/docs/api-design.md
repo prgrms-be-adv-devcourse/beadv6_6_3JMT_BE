@@ -1,6 +1,6 @@
 # API 설계 — Payment Service
 
-**Base URL (내부)**: `http://payment-service:8084`  
+**Base URL (내부)**: `http://payment-service:8081`  
 **Base URL (외부)**: `https://api.prompthub.io`
 
 ---

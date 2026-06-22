@@ -2,7 +2,7 @@
 
 payment-service가 소유하는 테이블 요약. **원본 DDL**: `src/main/resources/sql/ddl.sql`
 
-모노레포 전체 ERD: `../../docs/erd/schema.md`
+모노레포 전체 ERD: `../../../docs/erd/schema.md`
 
 ---
 

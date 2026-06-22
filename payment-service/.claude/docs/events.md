@@ -2,9 +2,9 @@
 
 payment-service가 **발행(Publish)** 하는 Kafka 이벤트 목록. 구독(Consume) 이벤트는 현재 없음.
 
-각 이벤트의 payload 상세 스키마는 `.claude/docs/api-design.yaml` → `components.schemas.Event_*` 참조.
+각 이벤트의 payload 상세 스키마는 이 문서의 "Payload 스키마" 섹션을 참조.
 
-모노레포 전체 이벤트 흐름: `../../docs/architecture/event-flow.md`
+모노레포 전체 이벤트 흐름: `../../../docs/architecture/event-flow.md`
 
 ---
 
