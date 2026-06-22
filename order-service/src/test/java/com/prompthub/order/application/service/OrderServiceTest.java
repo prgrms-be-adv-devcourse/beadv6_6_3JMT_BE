@@ -3,6 +3,7 @@ package com.prompthub.order.application.service;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
+import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.application.event.PaymentApprovedEvent;
 import com.prompthub.order.domain.enums.PaymentStatus;
@@ -20,6 +21,7 @@ import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
+import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
@@ -77,6 +79,168 @@ class OrderServiceTest {
 
     @InjectMocks
     private OrderService orderService;
+
+    @Nested
+    @DisplayName("구매 상품 콘텐츠 열람")
+    class GetOrderContent {
+
+        private static final String PRODUCT_CONTENT = "구매 후 확인 가능한 프롬프트 원문";
+
+        @Test
+        @DisplayName("결제 완료된 본인 주문상품이면 콘텐츠를 반환하고 다운로드 처리한다")
+        void getOrderContent_paidOwnerOrderProduct_success() {
+            // given
+            Order order = createPaidOrderWithProducts();
+            OrderProduct orderProduct = order.getOrderProducts().getFirst();
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+            given(productClient.getProductContent(orderProduct.getProductId()))
+                .willReturn(new ProductContent(orderProduct.getProductId(), PRODUCT_CONTENT));
+
+            // when
+            OrderContentResponse response = orderService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId());
+
+            // then
+            assertThat(response.orderId()).isEqualTo(order.getId());
+            assertThat(response.orderProductId()).isEqualTo(orderProduct.getId());
+            assertThat(response.orderNumber()).isEqualTo(ORDER_NUMBER);
+            assertThat(response.productId()).isEqualTo(orderProduct.getProductId());
+            assertThat(response.isDownload()).isTrue();
+            assertThat(response.productTitle()).isEqualTo(PRODUCT_TITLE_1);
+            assertThat(response.content()).isEqualTo(PRODUCT_CONTENT);
+            assertThat(orderProduct.isDownload()).isTrue();
+
+            then(orderRepository).should().findByIdWithOrderProducts(order.getId());
+            then(productClient).should().getProductContent(orderProduct.getProductId());
+        }
+
+        @Test
+        @DisplayName("이미 열람한 주문상품도 다시 콘텐츠를 조회할 수 있다")
+        void getOrderContent_alreadyDownloaded_success() {
+            // given
+            Order order = createPaidOrderWithProducts();
+            OrderProduct orderProduct = order.getOrderProducts().getFirst();
+            orderProduct.markDownloaded();
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+            given(productClient.getProductContent(orderProduct.getProductId()))
+                .willReturn(new ProductContent(orderProduct.getProductId(), PRODUCT_CONTENT));
+
+            // when
+            OrderContentResponse response = orderService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId());
+
+            // then
+            assertThat(response.isDownload()).isTrue();
+            assertThat(response.content()).isEqualTo(PRODUCT_CONTENT);
+            assertThat(orderProduct.isDownload()).isTrue();
+
+            then(productClient).should().getProductContent(orderProduct.getProductId());
+        }
+
+        @Test
+        @DisplayName("주문이 없으면 O001 예외가 발생한다")
+        void getOrderContent_orderNotFound_throwsException() {
+            // given
+            given(orderRepository.findByIdWithOrderProducts(ORDER_ID))
+                .willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> orderService.getOrderContent(BUYER_ID, ORDER_ID, ORDER_PRODUCT_ID))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ORDER_NOT_FOUND)
+                );
+
+            then(productClient).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("본인 주문이 아니면 A004 예외가 발생한다")
+        void getOrderContent_notOwner_throwsException() {
+            // given
+            UUID otherBuyerId = UUID.fromString("00000000-0000-0000-0000-000000000991");
+            Order order = createPaidOrderWithProducts();
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderService.getOrderContent(otherBuyerId, order.getId(), order.getOrderProducts().getFirst().getId()))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.FORBIDDEN)
+                );
+
+            then(productClient).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("주문 상태가 PAID가 아니면 E001 예외가 발생한다")
+        void getOrderContent_notPaidOrder_throwsException() {
+            // given
+            Order order = createPendingOrderWithProducts();
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderService.getOrderContent(BUYER_ID, order.getId(), order.getOrderProducts().getFirst().getId()))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ORDER_CONTENT_ACCESS_DENIED)
+                );
+
+            then(productClient).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("주문상품이 해당 주문에 포함되지 않으면 E001 예외가 발생한다")
+        void getOrderContent_orderProductNotIncluded_throwsException() {
+            // given
+            Order order = createPaidOrderWithProducts();
+            UUID otherOrderProductId = UUID.fromString("00000000-0000-0000-0000-000000000699");
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderService.getOrderContent(BUYER_ID, order.getId(), otherOrderProductId))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ORDER_CONTENT_ACCESS_DENIED)
+                );
+
+            then(productClient).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("주문상품 상태가 PAID가 아니면 E001 예외가 발생한다")
+        void getOrderContent_notPaidOrderProduct_throwsException() {
+            // given
+            Order order = createPaidOrderWithProducts();
+            OrderProduct orderProduct = order.getOrderProducts().getFirst();
+            ReflectionTestUtils.setField(orderProduct, "orderStatus", OrderStatus.REFUNDED);
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId()))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ORDER_CONTENT_ACCESS_DENIED)
+                );
+
+            then(productClient).shouldHaveNoInteractions();
+        }
+    }
 
     @Nested
     @DisplayName("내 주문 상세 조회")

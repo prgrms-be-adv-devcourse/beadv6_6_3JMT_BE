@@ -3,6 +3,7 @@ package com.prompthub.order.application.service;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
+import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.application.event.PaymentApprovedEvent;
 import com.prompthub.order.domain.enums.OrderStatus;
@@ -19,6 +20,7 @@ import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
+import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
@@ -119,6 +121,42 @@ public class OrderService implements OrderUseCase {
 			order.getRefundedAt(),
 			order.getCreatedAt(),
 			hasDownloadProduct
+		);
+	}
+
+	@Override
+	public OrderContentResponse getOrderContent(UUID buyerId, UUID orderId, UUID orderProductId) {
+		Order order = orderRepository.findByIdWithOrderProducts(orderId)
+			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
+
+		if (!order.getBuyerId().equals(buyerId)) {
+			throw new OrderException(ErrorCode.FORBIDDEN);
+		}
+
+		if (!order.isPaid()) {
+			throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
+		}
+
+		OrderProduct orderProduct = order.getOrderProducts().stream()
+			.filter(product -> product.getId().equals(orderProductId))
+			.findFirst()
+			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED));
+
+		if (!orderProduct.isPaid()) {
+			throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
+		}
+
+		ProductContent productContent = productClient.getProductContent(orderProduct.getProductId());
+		orderProduct.markDownloaded();
+
+		return new OrderContentResponse(
+			order.getId(),
+			orderProduct.getId(),
+			order.getOrderNumber(),
+			orderProduct.getProductId(),
+			orderProduct.isDownload(),
+			orderProduct.getProductTitle(),
+			productContent.content()
 		);
 	}
 
