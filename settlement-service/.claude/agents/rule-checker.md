@@ -13,7 +13,7 @@ model: sonnet
 ## 입력 (디스패치 프롬프트로 받는다)
 
 - `RULE_NAME`: 검증할 룰 이름 (예: `clean-architecture`)
-- `RULE_FILE`: 룰 정의 파일 경로 (예: `.claude/rules/clean-architecture.md`)
+- `RULE_FILE`: 룰 정의 파일 경로 (예: `settlement-service/.claude/rules/clean-architecture.md`)
 - `INPUT`: 검사 대상.
   - 대부분의 룰: 변경 파일 경로 목록(`CHANGED_FILES`).
   - `git-convention` 룰: 브랜치명 + 커밋 메시지 목록.
