@@ -98,10 +98,14 @@ public class Order extends BaseEntity {
 	}
 
 	public void markPaid() {
+		markPaid(LocalDateTime.now());
+	}
+
+	public void markPaid(LocalDateTime paidAt) {
 		validatePending();
 
 		this.orderStatus = OrderStatus.PAID;
-		this.paidAt = LocalDateTime.now();
+		this.paidAt = paidAt;
 		this.orderProducts.forEach(OrderProduct::markPaid);
 	}
 

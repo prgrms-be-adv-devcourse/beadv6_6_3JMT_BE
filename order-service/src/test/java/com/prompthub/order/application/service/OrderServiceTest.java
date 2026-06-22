@@ -1,14 +1,18 @@
 package com.prompthub.order.application.service;
 
 import com.prompthub.order.application.client.ProductClient;
-import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.application.dto.OrderListProjection;
+import com.prompthub.order.application.dto.OrderPaymentListProjection;
+import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.application.event.PaymentApprovedEvent;
+import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
+import com.prompthub.order.domain.model.OrderPayment;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.CartRepository;
+import com.prompthub.order.domain.repository.OrderPaymentRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
@@ -16,6 +20,7 @@ import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
+import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
 import com.prompthub.presentation.dto.PageResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
 import org.junit.jupiter.api.DisplayName;
@@ -56,6 +61,9 @@ class OrderServiceTest {
 
     @Mock
     private CartRepository cartRepository;
+
+    @Mock
+    private OrderPaymentRepository orderPaymentRepository;
 
     @Mock
     private OrderNumberGenerator orderNumberGenerator;
@@ -326,21 +334,38 @@ class OrderServiceTest {
             given(orderRepository.findByIdWithOrderProducts(event.orderId()))
                 .willReturn(Optional.of(order));
 
+            given(orderPaymentRepository.existsByOrderId(event.orderId()))
+                .willReturn(false);
+
             given(cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId()))
                 .willReturn(Optional.of(cart));
+
+            ArgumentCaptor<OrderPayment> paymentCaptor = ArgumentCaptor.forClass(OrderPayment.class);
 
             // when
             orderService.approveOrder(event);
 
             // then
             assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
-            assertThat(order.getPaidAt()).isNotNull();
+            assertThat(order.getPaidAt()).isEqualTo(APPROVED_OFFSET_AT.toLocalDateTime());
 
             assertThat(order.getOrderProducts())
                 .extracting(OrderProduct::getOrderStatus)
                 .containsOnly(OrderStatus.PAID);
 
+            then(orderPaymentRepository).should().save(paymentCaptor.capture());
+            OrderPayment savedPayment = paymentCaptor.getValue();
+            assertThat(savedPayment.getOrderId()).isEqualTo(order.getId());
+            assertThat(savedPayment.getPaymentId()).isEqualTo(PAYMENT_ID);
+            assertThat(savedPayment.getBuyerId()).isEqualTo(BUYER_ID);
+            assertThat(savedPayment.getPgTxId()).isEqualTo(PG_TX_ID);
+            assertThat(savedPayment.getPaymentMethod()).isEqualTo(PAYMENT_METHOD);
+            assertThat(savedPayment.getProvider()).isEqualTo(PAYMENT_PROVIDER);
+            assertThat(savedPayment.getApprovedAmount()).isEqualTo(TOTAL_AMOUNT);
+            assertThat(savedPayment.getApprovedAt()).isEqualTo(APPROVED_OFFSET_AT);
+
             then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
+            then(orderPaymentRepository).should().existsByOrderId(event.orderId());
             then(cartRepository).should().findByBuyerIdWithCartProducts(order.getBuyerId());
             then(cart).should().removeProductsByProductIds(productIds());
         }
@@ -354,6 +379,9 @@ class OrderServiceTest {
 
             given(orderRepository.findByIdWithOrderProducts(event.orderId()))
                 .willReturn(Optional.of(order));
+
+            given(orderPaymentRepository.existsByOrderId(event.orderId()))
+                .willReturn(false);
 
             given(cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId()))
                 .willReturn(Optional.empty());
@@ -369,12 +397,13 @@ class OrderServiceTest {
                 .containsOnly(OrderStatus.PAID);
 
             then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
+            then(orderPaymentRepository).should().save(any(OrderPayment.class));
             then(cartRepository).should().findByBuyerIdWithCartProducts(order.getBuyerId());
         }
 
         @Test
-        @DisplayName("이미 결제 완료된 주문이면 결제 승인 이벤트를 무시한다")
-        void approveOrder_alreadyPaid_doNothing() {
+        @DisplayName("이미 결제 내역이 있고 결제 완료된 주문이면 결제 승인 이벤트를 무시한다")
+        void approveOrder_alreadyPaidWithOrderPayment_doNothing() {
             // given
             Order order = createPendingOrderWithProducts();
             order.markPaid();
@@ -384,6 +413,9 @@ class OrderServiceTest {
             given(orderRepository.findByIdWithOrderProducts(event.orderId()))
                 .willReturn(Optional.of(order));
 
+            given(orderPaymentRepository.existsByOrderId(event.orderId()))
+                .willReturn(true);
+
             // when
             orderService.approveOrder(event);
 
@@ -391,6 +423,8 @@ class OrderServiceTest {
             assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
 
             then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
+            then(orderPaymentRepository).should().existsByOrderId(event.orderId());
+            then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
             then(cartRepository).should(never()).findByBuyerIdWithCartProducts(any(UUID.class));
         }
 
@@ -427,6 +461,9 @@ class OrderServiceTest {
             given(orderRepository.findByIdWithOrderProducts(event.orderId()))
                 .willReturn(Optional.of(order));
 
+            given(orderPaymentRepository.existsByOrderId(event.orderId()))
+                .willReturn(false);
+
             // when & then
             assertThatThrownBy(() -> orderService.approveOrder(event))
                 .isInstanceOf(OrderException.class)
@@ -438,6 +475,7 @@ class OrderServiceTest {
             assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
 
             then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
+            then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
             then(cartRepository).should(never()).findByBuyerIdWithCartProducts(any(UUID.class));
         }
 
@@ -450,6 +488,9 @@ class OrderServiceTest {
 
             given(orderRepository.findByIdWithOrderProducts(event.orderId()))
                 .willReturn(Optional.of(order));
+
+            given(orderPaymentRepository.existsByOrderId(event.orderId()))
+                .willReturn(false);
 
             // when & then
             assertThatThrownBy(() -> orderService.approveOrder(event))
@@ -466,6 +507,7 @@ class OrderServiceTest {
                 .containsOnly(OrderStatus.PENDING);
 
             then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
+            then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
             then(cartRepository).should(never()).findByBuyerIdWithCartProducts(any(UUID.class));
         }
     }
