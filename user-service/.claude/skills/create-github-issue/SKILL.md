@@ -65,22 +65,150 @@ CLI 플래그로 변환해야 한다.
 선택 항목(되묻지 않음): 환경, 스크린샷, 대안, 추가 정보 등. 사용자가 정보를 줬으면 채우고,
 없으면 비워두거나 섹션을 짧게 남긴다.
 
-### 5. 이슈 생성
+### 5. Priority / Effort 선택 받기
+
+이슈 생성 전에 사용자에게 아래 두 항목을 선택받는다.
+
+```
+Priority를 선택하세요:
+1) Low  2) Medium  3) High  4) Urgent
+```
+```
+Effort를 선택하세요:
+1) Low  2) Medium  3) High
+```
+
+선택값을 변수로 저장해 이후 REST API 설정에서 사용한다.
+
+### 6. 이슈 생성
 
 `gh`로 이슈를 만든다. 본문은 임시 파일이나 `--body-file`을 쓰면 줄바꿈·마크다운이 깨지지
 않아 안전하다.
 
 ```bash
-gh issue create \
+ISSUE_URL=$(gh issue create \
   --title "[BUG] 결제 완료 후 정산 금액이 0원으로 표시됨" \
   --label bug \
-  --body-file /tmp/issue-body.md
+  --assignee @me \
+  --project "Prompthub's Project" \
+  --body-file /tmp/issue-body.md)
+
+ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -o '[0-9]*$')
+ISSUE_NODE_ID=$(gh issue view "$ISSUE_NUMBER" --json id -q .id)
 ```
 
 `--body`에는 **frontmatter를 뺀 본문 섹션만** 넣는다. frontmatter가 본문에 그대로 들어가면
 안 된다.
 
-생성이 끝나면 `gh`가 출력한 이슈 URL을 사용자에게 그대로 전달한다.
+### 7. 이슈 필드 설정 (Priority / Effort / Type / Project Status)
+
+이슈 생성 후 두 가지 API를 사용해 필드를 설정한다.
+
+#### 7-A. Priority · Effort · Type — REST API
+
+Priority와 Effort는 조직 수준 네이티브 이슈 필드다. ProjectV2 GraphQL이 아니라
+`PATCH /repos/{owner}/{repo}/issues/{number}` REST API로 설정한다.
+
+**조직 이슈 필드 ID 조회** (필드 ID가 바뀔 경우를 대비해 실행 시점에 동적으로 조회한다):
+```bash
+ORG_FIELDS=$(gh api orgs/prgrms-be-adv-devcourse/issue-fields)
+PRIORITY_FIELD_ID=$(echo "$ORG_FIELDS" | jq '.[] | select(.name == "Priority") | .id')
+EFFORT_FIELD_ID=$(echo "$ORG_FIELDS"   | jq '.[] | select(.name == "Effort")   | .id')
+```
+
+**Type ID 조회** (버그면 Bug, 기능이면 Feature):
+```bash
+ISSUE_TYPES=$(gh api graphql -f query='
+  query {
+    repository(owner: "prgrms-be-adv-devcourse", name: "beadv6_6_3JMT_BE") {
+      issueTypes(first: 10) { nodes { id name } }
+    }
+  }' --jq '.data.repository.issueTypes.nodes')
+
+TYPE_ID=$(echo "$ISSUE_TYPES" | jq -r '.[] | select(.name == "Feature") | .id')
+# 버그일 경우: select(.name == "Bug")
+```
+
+**한 번의 PATCH로 Priority · Effort · Type 모두 설정**:
+```bash
+gh api --method PATCH \
+  repos/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/issues/$ISSUE_NUMBER \
+  --input - <<EOF
+{
+  "issue_type": { "id": $TYPE_ID },
+  "issue_field_values": [
+    { "field_id": $PRIORITY_FIELD_ID, "value": "Medium" },
+    { "field_id": $EFFORT_FIELD_ID,   "value": "Medium" }
+  ]
+}
+EOF
+```
+
+`value`는 옵션 이름 문자열을 그대로 사용한다 (숫자 ID 불필요).
+- Priority 허용값: `"Urgent"` / `"High"` / `"Medium"` / `"Low"`
+- Effort 허용값: `"High"` / `"Medium"` / `"Low"`
+
+#### 7-B. Project Status · Size — GraphQL
+
+프로젝트 커스텀 필드(Status, Size)는 ProjectV2 GraphQL로 설정한다.
+
+```bash
+# 프로젝트 ID 조회
+PROJECT_ID=$(gh api graphql -f query='
+  query {
+    repository(owner: "prgrms-be-adv-devcourse", name: "beadv6_6_3JMT_BE") {
+      projectsV2(first: 10) { nodes { id title } }
+    }
+  }' --jq '.data.repository.projectsV2.nodes[] | select(.title == "Prompthub'\''s Project") | .id')
+
+# 이슈를 프로젝트에 추가
+PROJECT_ITEM_ID=$(gh api graphql -f query="
+  mutation {
+    addProjectV2ItemById(input: {projectId: \"$PROJECT_ID\", contentId: \"$ISSUE_NODE_ID\"}) {
+      item { id }
+    }
+  }" --jq '.data.addProjectV2ItemById.item.id')
+
+# 필드 ID 조회 (Status, Size)
+gh api graphql -f query="
+  query {
+    node(id: \"$PROJECT_ID\") {
+      ... on ProjectV2 {
+        fields(first: 20) {
+          nodes {
+            ... on ProjectV2SingleSelectField { id name options { id name } }
+          }
+        }
+      }
+    }
+  }"
+# → Status: Todo 옵션 ID, Size: M 옵션 ID 추출 후 아래 mutation 실행
+
+# 각 필드 설정
+gh api graphql -f query="
+  mutation {
+    updateProjectV2ItemFieldValue(input: {
+      projectId: \"$PROJECT_ID\"
+      itemId: \"$PROJECT_ITEM_ID\"
+      fieldId: \"FIELD_ID\"
+      value: { singleSelectOptionId: \"OPTION_ID\" }
+    }) { projectV2Item { id } }
+  }"
+```
+
+Status는 항상 `Todo`로 설정한다. Size는 5단계에서 선택한 Effort 값을 기준으로
+`Low→S`, `Medium→M`, `High→L`로 매핑한다.
+
+### 8. 완료 메시지
+
+```
+✅ 이슈 생성 완료: #42 (https://github.com/.../issues/42)
+   Assignee : @me
+   Type     : Bug
+   Priority : Medium
+   Effort   : Low
+   Project  : Prompthub's Project
+```
 
 ## 톤 가이드 (본문 작성 규칙)
 
@@ -107,6 +235,13 @@ gh issue create \
 - **`gh` 미설치 / 미인증**: `gh auth status`로 확인되지 않으면 이슈를 만들지 말고, 설치
   (`brew install gh`)나 인증(`gh auth login`)이 필요하다고 안내한다. 사용자가 직접
   실행해야 하므로 `! gh auth login`처럼 세션에서 실행하도록 제안해도 좋다.
+- **`read:project` 스코프 없음**: GraphQL 호출 시 권한 오류가 발생하면 이슈 본체는 유지하고,
+  `gh auth refresh -s read:project` 실행을 안내한 뒤 Project Status/Size 설정(7-B)만 건너뛴다.
+  Priority·Effort·Type은 REST API이므로 프로젝트 스코프와 무관하게 동작한다.
+- **프로젝트를 찾지 못함**: "Prompthub's Project"가 조회되지 않으면 경고를 출력하고
+  필드 설정 단계를 건너뛴다. 이슈 URL은 반환한다.
+- **필드/옵션 ID 없음**: 조회된 필드 목록에 Priority·Effort·Type이 없으면 해당 필드만
+  건너뛰고 나머지는 계속 설정한다.
 - **템플릿 디렉토리/파일 없음**: `.github/ISSUE_TEMPLATE/`나 해당 템플릿 파일이 없으면
   추측으로 본문을 지어내지 말고, 사용자에게 알리고 멈춘다.
 - **여러 라벨**: `labels`에 값이 여러 개면 `--label a --label b`로 모두 넘긴다.
