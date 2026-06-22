@@ -2,6 +2,7 @@ package com.prompthub.order.infra.product;
 
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductContent;
+import com.prompthub.order.application.dto.ProductCartSnapshot;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.exception.BusinessException;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -24,6 +25,24 @@ public class ProductFeignClientAdapter implements ProductClient {
     public List<ProductOrderSnapshot> getOrderSnapshots(List<UUID> productIds) {
         try {
             return productFeignClient.getOrderSnapshots(new ProductOrderSnapshotRequest(productIds));
+        } catch (FeignException exception) {
+            throw new BusinessException(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE);
+        }
+    }
+
+    @Override
+    public ProductCartSnapshot getCartSnapshot(UUID productId) {
+        try {
+            return productFeignClient.getCartSnapshot(productId);
+        } catch (FeignException exception) {
+            throw new BusinessException(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE);
+        }
+    }
+
+    @Override
+    public List<ProductCartSnapshot> getCartSnapshots(List<UUID> productIds) {
+        try {
+            return productFeignClient.getCartSnapshots(new ProductCartSnapshotRequest(productIds));
         } catch (FeignException exception) {
             throw new BusinessException(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE);
         }

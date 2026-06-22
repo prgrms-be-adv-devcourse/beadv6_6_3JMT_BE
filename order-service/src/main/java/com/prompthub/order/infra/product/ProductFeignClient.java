@@ -1,6 +1,7 @@
 package com.prompthub.order.infra.product;
 
 import com.prompthub.order.application.dto.ProductContent;
+import com.prompthub.order.application.dto.ProductCartSnapshot;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,6 +17,12 @@ public interface ProductFeignClient {
 
     @PostMapping("/order-snapshots")
     List<ProductOrderSnapshot> getOrderSnapshots(@RequestBody ProductOrderSnapshotRequest request);
+
+    @GetMapping("/{productId}/cart-snapshot")
+    ProductCartSnapshot getCartSnapshot(@PathVariable UUID productId);
+
+    @PostMapping("/cart-snapshots")
+    List<ProductCartSnapshot> getCartSnapshots(@RequestBody ProductCartSnapshotRequest request);
 
     @GetMapping("/{productId}/content")
     ProductContent getProductContent(@PathVariable UUID productId);

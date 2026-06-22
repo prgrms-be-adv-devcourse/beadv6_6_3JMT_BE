@@ -2,6 +2,7 @@ package com.prompthub.order.infra.product;
 
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductContent;
+import com.prompthub.order.application.dto.ProductCartSnapshot;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -18,6 +19,9 @@ public class StubProductClient implements ProductClient {
     private static final String STUB_PRODUCT_TYPE = "PROMPT";
     private static final int STUB_AMOUNT = 10000;
     private static final String STUB_CONTENT = "테스트 상품 콘텐츠";
+    private static final String STUB_THUMBNAIL_URL = "https://example.com/test-product.png";
+    private static final String STUB_SELLER_NICKNAME = "테스트 판매자";
+    private static final String STUB_STATUS = "ON_SALE";
 
     @Override
     public List<ProductOrderSnapshot> getOrderSnapshots(List<UUID> productIds) {
@@ -29,6 +33,27 @@ public class StubProductClient implements ProductClient {
                         STUB_PRODUCT_TYPE,
                         STUB_AMOUNT
                 ))
+                .toList();
+    }
+
+    @Override
+    public ProductCartSnapshot getCartSnapshot(UUID productId) {
+        return new ProductCartSnapshot(
+                productId,
+                STUB_TITLE,
+                STUB_PRODUCT_TYPE,
+                STUB_AMOUNT,
+                STUB_THUMBNAIL_URL,
+                STUB_SELLER_ID,
+                STUB_SELLER_NICKNAME,
+                STUB_STATUS
+        );
+    }
+
+    @Override
+    public List<ProductCartSnapshot> getCartSnapshots(List<UUID> productIds) {
+        return productIds.stream()
+                .map(this::getCartSnapshot)
                 .toList();
     }
 
