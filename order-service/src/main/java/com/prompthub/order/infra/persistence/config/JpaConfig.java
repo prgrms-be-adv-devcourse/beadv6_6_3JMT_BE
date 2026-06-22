@@ -1,4 +1,4 @@
-package com.prompthub.order.infra.config;
+package com.prompthub.order.infra.persistence.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

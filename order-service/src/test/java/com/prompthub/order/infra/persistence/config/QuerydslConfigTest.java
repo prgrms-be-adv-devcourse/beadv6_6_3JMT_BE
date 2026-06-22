@@ -1,4 +1,4 @@
-package com.prompthub.order.global.config;
+package com.prompthub.order.infra.persistence.config;
 
 import com.prompthub.order.config.TestJpaConfig;
 import com.prompthub.order.domain.model.Order;

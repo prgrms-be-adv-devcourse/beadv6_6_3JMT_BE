@@ -1,4 +1,4 @@
-package com.prompthub.order.global.config;
+package com.prompthub.order.infra.persistence.config;
 
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
