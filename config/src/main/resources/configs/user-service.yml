@@ -1,0 +1,3 @@
+# user-service 전용 Config Server 관리 설정
+# DB·포트 등 서비스 고유 설정은 user-service/src/main/resources/application.yaml 에서 관리
+# 여기에는 환경별로 달라지는 설정(feature flag, 외부 서비스 URL 등)을 추가한다
