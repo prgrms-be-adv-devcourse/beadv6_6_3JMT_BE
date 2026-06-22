@@ -773,4 +773,102 @@ class OrderServiceTest {
             );
         }
     }
+
+    @Nested
+    @DisplayName("내 결제 내역 조회")
+    class GetMyOrderPayments {
+
+        @Test
+        @DisplayName("page와 size가 없으면 기본값으로 구매자 결제 내역을 반환한다")
+        void getMyOrderPayments_defaultPage_success() {
+            // given
+            PageRequestParams request = new PageRequestParams(null, null, null, null, null);
+            OrderPaymentListProjection projection = orderPaymentListProjection(
+                OrderStatus.PAID,
+                OrderStatus.PAID,
+                PAID_AT
+            );
+            PageRequest pageable = PageRequest.of(0, 20, Sort.by(
+                Sort.Order.desc("approvedAt"),
+                Sort.Order.asc("orderProductId")
+            ));
+
+            given(orderPaymentRepository.searchOrderPayments(BUYER_ID, pageable))
+                .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
+
+            // when
+            PageResponse<OrderPaymentListResponse> response = orderService.getOrderPayments(BUYER_ID, request);
+
+            // then
+            assertThat(response.success()).isTrue();
+            assertThat(response.meta().page()).isEqualTo(1);
+            assertThat(response.meta().size()).isEqualTo(20);
+            assertThat(response.meta().total()).isEqualTo(1);
+            assertThat(response.meta().hasNext()).isFalse();
+
+            OrderPaymentListResponse payment = response.data().getFirst();
+            assertThat(payment.orderId()).isEqualTo(ORDER_ID);
+            assertThat(payment.orderProductId()).isEqualTo(ORDER_PRODUCT_ID);
+            assertThat(payment.paymentId()).isEqualTo(PAYMENT_ID);
+            assertThat(payment.paymentStatus()).isEqualTo(PaymentStatus.PAID);
+            assertThat(payment.isRefund()).isFalse();
+            assertThat(payment.productType()).isEqualTo(PRODUCT_TYPE_PROMPT);
+            assertThat(payment.title()).isEqualTo(PRODUCT_TITLE_1);
+            assertThat(payment.amount()).isEqualTo(PRODUCT_AMOUNT_1);
+            assertThat(payment.paidAt()).isEqualTo(PAID_AT);
+
+            then(orderPaymentRepository).should().searchOrderPayments(BUYER_ID, pageable);
+        }
+
+        @Test
+        @DisplayName("주문 또는 주문상품이 환불 상태이면 isRefund가 true이다")
+        void getMyOrderPayments_refundedStatus_isRefund() {
+            // given
+            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
+            OrderPaymentListProjection projection = orderPaymentListProjection(
+                OrderStatus.PAID,
+                OrderStatus.REFUNDED,
+                PAID_AT
+            );
+            PageRequest pageable = PageRequest.of(0, 20, Sort.by(
+                Sort.Order.desc("approvedAt"),
+                Sort.Order.asc("orderProductId")
+            ));
+
+            given(orderPaymentRepository.searchOrderPayments(BUYER_ID, pageable))
+                .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
+
+            // when
+            PageResponse<OrderPaymentListResponse> response = orderService.getOrderPayments(BUYER_ID, request);
+
+            // then
+            assertThat(response.data().getFirst().paymentStatus()).isEqualTo(PaymentStatus.PAID);
+            assertThat(response.data().getFirst().isRefund()).isTrue();
+        }
+
+        @Test
+        @DisplayName("order.paidAt이 없으면 order_payment.approvedAt을 paidAt으로 반환한다")
+        void getMyOrderPayments_paidAtFallback_success() {
+            // given
+            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
+            OrderPaymentListProjection projection = orderPaymentListProjection(
+                OrderStatus.PAID,
+                OrderStatus.PAID,
+                null
+            );
+            PageRequest pageable = PageRequest.of(0, 20, Sort.by(
+                Sort.Order.desc("approvedAt"),
+                Sort.Order.asc("orderProductId")
+            ));
+
+            given(orderPaymentRepository.searchOrderPayments(BUYER_ID, pageable))
+                .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
+
+            // when
+            PageResponse<OrderPaymentListResponse> response = orderService.getOrderPayments(BUYER_ID, request);
+
+            // then
+            assertThat(response.data().getFirst().paidAt()).isEqualTo(APPROVED_OFFSET_AT.toLocalDateTime());
+        }
+    }
 }
