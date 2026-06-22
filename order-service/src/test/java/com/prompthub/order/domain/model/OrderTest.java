@@ -1,14 +1,18 @@
 package com.prompthub.order.domain.model;
 
+import com.prompthub.order.config.TestJpaConfig;
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.exception.InvalidOrderStatusTransitionException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Import;
 
 import static com.prompthub.order.fixture.OrderFixture.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@Import(TestJpaConfig.class)
 class OrderTest {
 
 	@Nested
@@ -26,7 +30,7 @@ class OrderTest {
 			assertThat(order.getBuyerId()).isEqualTo(BUYER_ID);
 			assertThat(order.getOrderNumber()).isEqualTo(ORDER_NUMBER);
 			assertThat(order.getTotalOrderAmount()).isEqualTo(TOTAL_AMOUNT);
-			assertThat(order.getTotalItemCount()).isEqualTo(TOTAL_ITEM_COUNT);
+			assertThat(order.getTotalProductCount()).isEqualTo(TOTAL_ITEM_COUNT);
 			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
 			assertThat(order.getCreatedAt()).isNotNull();
 			assertThat(order.getUpdatedAt()).isNotNull();
@@ -91,7 +95,7 @@ class OrderTest {
 
 			// when & then
 			assertThatThrownBy(order::markPaid)
-				.isInstanceOf(IllegalStateException.class)
+				.isInstanceOf(InvalidOrderStatusTransitionException.class)
 				.hasMessage("대기 상태의 주문만 처리할 수 있습니다.");
 		}
 	}
@@ -127,7 +131,7 @@ class OrderTest {
 
 			// when & then
 			assertThatThrownBy(order::markFailed)
-				.isInstanceOf(IllegalStateException.class)
+				.isInstanceOf(InvalidOrderStatusTransitionException.class)
 				.hasMessage("대기 상태의 주문만 처리할 수 있습니다.");
 		}
 	}
@@ -165,7 +169,7 @@ class OrderTest {
 
 			// when & then
 			assertThatThrownBy(order::cancel)
-				.isInstanceOf(IllegalStateException.class)
+				.isInstanceOf(InvalidOrderStatusTransitionException.class)
 				.hasMessage("대기 상태의 주문만 처리할 수 있습니다.");
 		}
 	}
@@ -203,7 +207,7 @@ class OrderTest {
 
 			// when & then
 			assertThatThrownBy(order::refund)
-				.isInstanceOf(IllegalStateException.class)
+				.isInstanceOf(InvalidOrderStatusTransitionException.class)
 				.hasMessage("결제 완료 상태의 주문만 환불할 수 있습니다.");
 		}
 	}

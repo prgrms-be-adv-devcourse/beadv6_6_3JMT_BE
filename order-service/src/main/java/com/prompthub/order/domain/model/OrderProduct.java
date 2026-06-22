@@ -1,6 +1,7 @@
 package com.prompthub.order.domain.model;
 
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.exception.InvalidOrderStatusTransitionException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Enumerated;
@@ -39,13 +40,13 @@ public class OrderProduct {
     private UUID sellerId;
 
     @Column(name = "product_title_snapshot", length = 200, nullable = false)
-    private String productTitleSnapshot;
+    private String productTitle;
 
     @Column(name = "product_type_snapshot", length = 30, nullable = false)
-    private String productTypeSnapshot;
+    private String productType;
 
     @Column(name = "product_amount_snapshot", nullable = false)
-    private int productAmountSnapshot;
+    private int productAmount;
 
     @Enumerated(STRING)
     @Column(name = "order_product_status", length = 20, nullable = false)
@@ -70,9 +71,9 @@ public class OrderProduct {
             UUID id,
             UUID productId,
             UUID sellerId,
-            String productTitleSnapshot,
-            String productTypeSnapshot,
-            int productAmountSnapshot,
+            String productTitle,
+            String productType,
+            int productAmount,
             OrderStatus orderStatus,
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
@@ -81,9 +82,9 @@ public class OrderProduct {
         this.id = id;
         this.productId = productId;
         this.sellerId = sellerId;
-        this.productTitleSnapshot = productTitleSnapshot;
-        this.productTypeSnapshot = productTypeSnapshot;
-        this.productAmountSnapshot = productAmountSnapshot;
+        this.productTitle = productTitle;
+        this.productType = productType;
+        this.productAmount = productAmount;
         this.orderStatus = orderStatus;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -93,9 +94,10 @@ public class OrderProduct {
     public static OrderProduct create(
             UUID productId,
             UUID sellerId,
-            String productTitleSnapshot,
-            String productTypeSnapshot,
-            int productAmountSnapshot
+            String productTitle,
+            String productType,
+            int productAmount
+            // String productThumbnailSnapshot
     ) {
         LocalDateTime now = LocalDateTime.now();
 
@@ -103,9 +105,10 @@ public class OrderProduct {
                 UUID.randomUUID(),
                 productId,
                 sellerId,
-                productTitleSnapshot,
-                productTypeSnapshot,
-                productAmountSnapshot,
+                productTitle,
+                productType,
+                productAmount,
+                // productThumbnailSnapshot,
                 OrderStatus.PENDING,
                 now,
                 now,
@@ -141,7 +144,7 @@ public class OrderProduct {
 
     public void refund() {
         if (this.orderStatus != OrderStatus.PAID) {
-            throw new IllegalStateException("결제 완료 상태의 주문 상품만 환불할 수 있습니다.");
+            throw new InvalidOrderStatusTransitionException("결제 완료 상태의 주문 상품만 환불할 수 있습니다.");
         }
 
         this.orderStatus = OrderStatus.REFUNDED;
@@ -151,7 +154,7 @@ public class OrderProduct {
 
     public void markDownloaded() {
         if (this.orderStatus != OrderStatus.PAID) {
-            throw new IllegalStateException("결제 완료된 주문 상품만 다운로드 처리할 수 있습니다.");
+            throw new InvalidOrderStatusTransitionException("결제 완료된 주문 상품만 다운로드 처리할 수 있습니다.");
         }
 
         this.download = true;
@@ -164,7 +167,7 @@ public class OrderProduct {
 
     private void validatePending() {
         if (this.orderStatus != OrderStatus.PENDING) {
-            throw new IllegalStateException("대기 상태의 주문 상품만 처리할 수 있습니다.");
+            throw new InvalidOrderStatusTransitionException("대기 상태의 주문 상품만 처리할 수 있습니다.");
         }
     }
 }

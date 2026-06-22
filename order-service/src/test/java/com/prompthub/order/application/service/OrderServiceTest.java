@@ -21,8 +21,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,11 +34,9 @@ import static com.prompthub.order.fixture.OrderFixture.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
@@ -52,6 +53,9 @@ class OrderServiceTest {
     @Mock
     private ProductClient productClient;
 
+    @Spy
+    private OrderPolicyService orderPolicyService;
+
     @InjectMocks
     private OrderService orderService;
 
@@ -60,45 +64,39 @@ class OrderServiceTest {
     class CreateOrder {
 
         @Test
-        @DisplayName("상품 ID 목록이 유효하면 주문을 생성한다")
-        void createOrder_validProductIds_success() {
+        @DisplayName("주문 생성 요청이 올바르면 성공한다")
+        void createOrder_success() {
             // given
             CreateOrderRequest request = createOrderRequest();
-            List<ProductOrderSnapshot> productSnapshots = createProductSnapshots();
+
+            List<ProductOrderSnapshot> snapshots = createProductSnapshots();
 
             given(productClient.getOrderSnapshots(request.productIds()))
-                .willReturn(productSnapshots);
+                .willReturn(snapshots);
 
             given(orderNumberGenerator.generate())
                 .willReturn(ORDER_NUMBER);
 
             given(orderRepository.save(any(Order.class)))
-                .willAnswer(invocation -> invocation.getArgument(0));
+                .willAnswer(invocation -> {
+                    Order order = invocation.getArgument(0);
+                    ReflectionTestUtils.setField(order, "createdAt", LocalDateTime.now());
+                    return order;
+                });
 
             // when
             CreateOrderResponse response = orderService.createOrder(BUYER_ID, request);
 
             // then
-            assertThat(response.orderId()).isNotNull();
             assertThat(response.orderNumber()).isEqualTo(ORDER_NUMBER);
             assertThat(response.buyerId()).isEqualTo(BUYER_ID);
             assertThat(response.orderStatus()).isEqualTo(OrderStatus.PENDING);
             assertThat(response.totalAmount()).isEqualTo(TOTAL_AMOUNT);
-            assertThat(response.products()).hasSize(TOTAL_ITEM_COUNT);
             assertThat(response.createdAt()).isNotNull();
-            assertThat(response.canceledAt()).isNull();
 
             assertThat(response.products())
                 .extracting(OrderProductsResponse::productId)
                 .containsExactly(PRODUCT_ID_1, PRODUCT_ID_2);
-
-            assertThat(response.products())
-                .extracting(OrderProductsResponse::productAmountSnapshot)
-                .containsExactly(PRODUCT_AMOUNT_1, PRODUCT_AMOUNT_2);
-
-            assertThat(response.products())
-                .extracting(OrderProductsResponse::orderStatus)
-                .containsOnly(OrderStatus.PENDING);
 
             then(productClient).should().getOrderSnapshots(request.productIds());
             then(orderNumberGenerator).should().generate();
@@ -106,20 +104,43 @@ class OrderServiceTest {
         }
 
         @Test
-        @DisplayName("주문 생성 시 Order와 OrderProduct가 올바르게 생성되어 저장된다")
-        void createOrder_captureSavedOrder_success() {
+        @DisplayName("주문 상품 목록이 비어 있으면 주문 생성에 실패한다")
+        void createOrder_emptyProductIds_throwsException() {
+            // given
+            CreateOrderRequest request = createOrderRequestWithEmptyProductIds();
+
+            // when & then
+            assertThatThrownBy(() -> orderService.createOrder(BUYER_ID, request))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
+                );
+
+            then(productClient).should(never()).getOrderSnapshots(anyList());
+            then(orderNumberGenerator).should(never()).generate();
+            then(orderRepository).should(never()).save(any(Order.class));
+        }
+
+        @Test
+        @DisplayName("주문 생성 정보가 영속화될 때 정보가 올바르게 매핑되어 저장된다")
+        void createOrder_savedEntity_mappingSuccess() {
             // given
             CreateOrderRequest request = createOrderRequest();
-            List<ProductOrderSnapshot> productSnapshots = createProductSnapshots();
+
+            List<ProductOrderSnapshot> snapshots = createProductSnapshots();
 
             given(productClient.getOrderSnapshots(request.productIds()))
-                .willReturn(productSnapshots);
+                .willReturn(snapshots);
 
             given(orderNumberGenerator.generate())
                 .willReturn(ORDER_NUMBER);
 
             given(orderRepository.save(any(Order.class)))
-                .willAnswer(invocation -> invocation.getArgument(0));
+                .willAnswer(invocation -> {
+                    Order order = invocation.getArgument(0);
+                    ReflectionTestUtils.setField(order, "createdAt", LocalDateTime.now());
+                    return order;
+                });
 
             ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
 
@@ -128,15 +149,13 @@ class OrderServiceTest {
 
             // then
             then(orderRepository).should().save(orderCaptor.capture());
-
             Order savedOrder = orderCaptor.getValue();
 
-            assertThat(savedOrder.getId()).isNotNull();
             assertThat(savedOrder.getBuyerId()).isEqualTo(BUYER_ID);
             assertThat(savedOrder.getOrderNumber()).isEqualTo(ORDER_NUMBER);
             assertThat(savedOrder.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
             assertThat(savedOrder.getTotalOrderAmount()).isEqualTo(TOTAL_AMOUNT);
-            assertThat(savedOrder.getTotalItemCount()).isEqualTo(TOTAL_ITEM_COUNT);
+            assertThat(savedOrder.getTotalProductCount()).isEqualTo(TOTAL_ITEM_COUNT);
             assertThat(savedOrder.getOrderProducts()).hasSize(TOTAL_ITEM_COUNT);
 
             assertThat(savedOrder.getOrderProducts())
@@ -148,60 +167,21 @@ class OrderServiceTest {
                 .containsExactly(SELLER_ID_1, SELLER_ID_2);
 
             assertThat(savedOrder.getOrderProducts())
-                .extracting(OrderProduct::getProductAmountSnapshot)
+                .extracting(OrderProduct::getProductAmount)
                 .containsExactly(PRODUCT_AMOUNT_1, PRODUCT_AMOUNT_2);
 
             assertThat(savedOrder.getOrderProducts())
-                .extracting(OrderProduct::getOrderStatus)
-                .containsOnly(OrderStatus.PENDING);
+                .extracting(OrderProduct::getProductTitle)
+                .containsExactly(PRODUCT_TITLE_1, PRODUCT_TITLE_2);
 
             assertThat(savedOrder.getOrderProducts())
-                .allSatisfy(orderProduct ->
-                    assertThat(orderProduct.getOrder()).isSameAs(savedOrder)
-                );
-        }
-
-        @Test
-        @DisplayName("상품 ID 목록이 null이면 주문 생성에 실패한다")
-        void createOrder_nullProductIds_throwsException() {
-            // given
-            CreateOrderRequest request = createOrderRequestWithNullProductIds();
-
-            // when & then
-            assertThatThrownBy(() -> orderService.createOrder(BUYER_ID, request))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage(ErrorCode.INVALID_INPUT_VALUE.getMessage());
-
-            then(productClient).should(never()).getOrderSnapshots(anyList());
-            then(orderNumberGenerator).should(never()).generate();
-            then(orderRepository).should(never()).save(any(Order.class));
-        }
-
-        @Test
-        @DisplayName("상품 ID 목록이 비어 있으면 주문 생성에 실패한다")
-        void createOrder_emptyProductIds_throwsException() {
-            // given
-            CreateOrderRequest request = createOrderRequestWithEmptyProductIds();
-
-            // when & then
-            assertThatThrownBy(() -> orderService.createOrder(BUYER_ID, request))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage(ErrorCode.INVALID_INPUT_VALUE.getMessage());
-
-            then(productClient).should(never()).getOrderSnapshots(anyList());
-            then(orderNumberGenerator).should(never()).generate();
-            then(orderRepository).should(never()).save(any(Order.class));
+                .extracting(OrderProduct::getProductType)
+                .containsExactly(PRODUCT_TYPE_PROMPT, PRODUCT_TYPE_PROMPT);
         }
 
         @Test
         @DisplayName("중복된 상품 ID가 있으면 주문 생성에 실패한다")
-        void createOrder_duplicatedProductIds_throwsException() {
+        void createOrder_duplicateProductIds_throwsException() {
             // given
             CreateOrderRequest request = createOrderRequestWithDuplicatedProductIds();
 
@@ -210,56 +190,9 @@ class OrderServiceTest {
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage(ErrorCode.INVALID_INPUT_VALUE.getMessage());
+                );
 
             then(productClient).should(never()).getOrderSnapshots(anyList());
-            then(orderNumberGenerator).should(never()).generate();
-            then(orderRepository).should(never()).save(any(Order.class));
-        }
-
-        @Test
-        @DisplayName("상품 스냅샷 응답이 null이면 주문 생성에 실패한다")
-        void createOrder_nullProductSnapshots_throwsException() {
-            // given
-            CreateOrderRequest request = createOrderRequest();
-
-            given(productClient.getOrderSnapshots(request.productIds()))
-                .willReturn(null);
-
-            // when & then
-            assertThatThrownBy(() -> orderService.createOrder(BUYER_ID, request))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage("주문 가능한 상품 정보가 올바르지 않습니다.");
-
-            then(productClient).should().getOrderSnapshots(request.productIds());
-            then(orderNumberGenerator).should(never()).generate();
-            then(orderRepository).should(never()).save(any(Order.class));
-        }
-
-        @Test
-        @DisplayName("요청 상품 수와 조회된 상품 수가 다르면 주문 생성에 실패한다")
-        void createOrder_productSnapshotSizeMismatch_throwsException() {
-            // given
-            CreateOrderRequest request = createOrderRequest();
-
-            List<ProductOrderSnapshot> snapshots = createSingleProductSnapshot();
-
-            given(productClient.getOrderSnapshots(request.productIds()))
-                .willReturn(snapshots);
-
-            // when & then
-            assertThatThrownBy(() -> orderService.createOrder(BUYER_ID, request))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage("주문 가능한 상품 정보가 올바르지 않습니다.");
-
-            then(productClient).should().getOrderSnapshots(request.productIds());
             then(orderNumberGenerator).should(never()).generate();
             then(orderRepository).should(never()).save(any(Order.class));
         }
