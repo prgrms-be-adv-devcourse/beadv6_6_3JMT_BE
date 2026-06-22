@@ -9,6 +9,7 @@ import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
+import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
@@ -64,6 +65,96 @@ class OrderControllerTest {
 			.setControllerAdvice(new GlobalExceptionHandler())
 			.setValidator(validator)
 			.build();
+	}
+
+	@Nested
+	@DisplayName("구매 상품 콘텐츠 열람 (GET /api/v1/orders/{orderId}/content/{orderProductId})")
+	class GetOrderContent {
+
+		@Nested
+		@DisplayName("성공 케이스")
+		class Success {
+
+			@Test
+			@DisplayName("구매 상품 콘텐츠 열람 성공")
+			void getOrderContent_success() throws Exception {
+				// given
+				String content = "구매 후 확인 가능한 프롬프트 원문";
+				OrderContentResponse response = new OrderContentResponse(
+					ORDER_ID,
+					ORDER_PRODUCT_ID,
+					ORDER_NUMBER,
+					PRODUCT_ID_1,
+					true,
+					PRODUCT_TITLE_1,
+					content
+				);
+
+				when(orderUseCase.getOrderContent(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID)))
+					.thenReturn(response);
+
+				// when & then
+				mockMvc.perform(get("/api/v1/orders/{orderId}/content/{orderProductId}", ORDER_ID, ORDER_PRODUCT_ID)
+						.header("X-User-Id", BUYER_ID.toString()))
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.success").value(true))
+					.andExpect(jsonPath("$.message").value("success"))
+					.andExpect(jsonPath("$.data.orderId").value(ORDER_ID.toString()))
+					.andExpect(jsonPath("$.data.orderProductId").value(ORDER_PRODUCT_ID.toString()))
+					.andExpect(jsonPath("$.data.orderNumber").value(ORDER_NUMBER))
+					.andExpect(jsonPath("$.data.productId").value(PRODUCT_ID_1.toString()))
+					.andExpect(jsonPath("$.data.isDownload").value(true))
+					.andExpect(jsonPath("$.data.productTitle").value(PRODUCT_TITLE_1))
+					.andExpect(jsonPath("$.data.content").value(content));
+
+				verify(orderUseCase).getOrderContent(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID));
+			}
+		}
+
+		@Nested
+		@DisplayName("실패 케이스")
+		class Failure {
+
+			@Test
+			@DisplayName("X-User-Id 헤더가 없으면 401 Unauthorized")
+			void getOrderContent_withoutUserIdHeader_unauthorized() throws Exception {
+				// when & then
+				mockMvc.perform(get("/api/v1/orders/{orderId}/content/{orderProductId}", ORDER_ID, ORDER_PRODUCT_ID))
+					.andExpect(status().isUnauthorized())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
+
+				verifyNoInteractions(orderUseCase);
+			}
+
+			@Test
+			@DisplayName("orderId가 UUID 형식이 아니면 400 Bad Request")
+			void getOrderContent_invalidOrderId_badRequest() throws Exception {
+				// when & then
+				mockMvc.perform(get("/api/v1/orders/{orderId}/content/{orderProductId}", "invalid-order-id", ORDER_PRODUCT_ID)
+						.header("X-User-Id", BUYER_ID.toString()))
+					.andExpect(status().isBadRequest())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
+
+				verifyNoInteractions(orderUseCase);
+			}
+
+			@Test
+			@DisplayName("구매 콘텐츠를 열람할 수 없으면 403 Forbidden과 E001을 반환한다")
+			void getOrderContent_accessDenied_forbidden() throws Exception {
+				// given
+				when(orderUseCase.getOrderContent(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID)))
+					.thenThrow(new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED));
+
+				// when & then
+				mockMvc.perform(get("/api/v1/orders/{orderId}/content/{orderProductId}", ORDER_ID, ORDER_PRODUCT_ID)
+						.header("X-User-Id", BUYER_ID.toString()))
+					.andExpect(status().isForbidden())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.code").value(ErrorCode.ORDER_CONTENT_ACCESS_DENIED.getCode()));
+			}
+		}
 	}
 
 	@Nested
