@@ -36,4 +36,8 @@ public class StubProductClient implements ProductClient {
     public ProductContent getProductContent(UUID productId) {
         return new ProductContent(productId, STUB_CONTENT);
     }
+
+    @Override
+    public void upsertReview(UUID buyerId, UUID productId, int rating) {
+    }
 }

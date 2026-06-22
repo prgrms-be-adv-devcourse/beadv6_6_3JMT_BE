@@ -37,4 +37,13 @@ public class ProductFeignClientAdapter implements ProductClient {
             throw new BusinessException(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE);
         }
     }
+
+    @Override
+    public void upsertReview(UUID buyerId, UUID productId, int rating) {
+        try {
+            productFeignClient.upsertReview(new ProductReviewUpsertRequest(buyerId, productId, rating));
+        } catch (FeignException exception) {
+            throw new BusinessException(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE);
+        }
+    }
 }

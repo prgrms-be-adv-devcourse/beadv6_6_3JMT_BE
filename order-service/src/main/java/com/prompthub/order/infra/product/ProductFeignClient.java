@@ -19,4 +19,7 @@ public interface ProductFeignClient {
 
     @GetMapping("/{productId}/content")
     ProductContent getProductContent(@PathVariable UUID productId);
+
+    @PostMapping("/reviews")
+    void upsertReview(@RequestBody ProductReviewUpsertRequest request);
 }
