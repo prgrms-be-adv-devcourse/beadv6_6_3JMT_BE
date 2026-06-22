@@ -1,7 +1,7 @@
 # 코드 스타일 컨벤션
 
 Java 코드의 네이밍 케이스와 기본 스타일 규칙을 정의한다.
-아래 규칙은 대부분 프로젝트 checkstyle 설정(`style/checkstyle/Prompthub-checkstyle-rules.xml`)으로 강제된다.
+아래 규칙은 대부분 프로젝트 checkstyle 설정(`style/checkstyle/prompthub-checkstyle-rules.xml`)으로 강제된다.
 
 > 관련 문서: 계층·역할별 클래스 접미사(`~Controller`, `~UseCase` 등) 규칙은 `clean-architecture.md` 참고.
 
