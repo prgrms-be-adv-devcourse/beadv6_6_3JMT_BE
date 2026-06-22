@@ -1,7 +1,7 @@
 package com.prompthub.order.domain.model;
 
 import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.domain.exception.InvalidOrderStatusTransitionException;
+import com.prompthub.order.global.exception.OrderException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -67,7 +67,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::markPaid)
-				.isInstanceOf(InvalidOrderStatusTransitionException.class)
+				.isInstanceOf(OrderException.class)
 				.hasMessage("대기 상태의 주문 상품만 처리할 수 있습니다.");
 		}
 	}
@@ -99,7 +99,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::markFailed)
-				.isInstanceOf(InvalidOrderStatusTransitionException.class)
+				.isInstanceOf(OrderException.class)
 				.hasMessage("대기 상태의 주문 상품만 처리할 수 있습니다.");
 		}
 	}
@@ -132,7 +132,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::cancel)
-				.isInstanceOf(InvalidOrderStatusTransitionException.class)
+				.isInstanceOf(OrderException.class)
 				.hasMessage("대기 상태의 주문 상품만 처리할 수 있습니다.");
 		}
 	}
@@ -165,7 +165,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::refund)
-				.isInstanceOf(InvalidOrderStatusTransitionException.class)
+				.isInstanceOf(OrderException.class)
 				.hasMessage("결제 완료 상태의 주문 상품만 환불할 수 있습니다.");
 		}
 	}
@@ -198,7 +198,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::markDownloaded)
-				.isInstanceOf(InvalidOrderStatusTransitionException.class)
+				.isInstanceOf(OrderException.class)
 				.hasMessage("결제 완료된 주문 상품만 다운로드 처리할 수 있습니다.");
 		}
 	}

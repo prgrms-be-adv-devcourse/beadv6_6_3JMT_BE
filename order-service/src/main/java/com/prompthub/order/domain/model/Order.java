@@ -2,7 +2,8 @@ package com.prompthub.order.domain.model;
 
 import com.prompthub.domain.model.BaseEntity;
 import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.domain.exception.InvalidOrderStatusTransitionException;
+import com.prompthub.order.global.exception.OrderException;
+import com.prompthub.order.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -121,7 +122,7 @@ public class Order extends BaseEntity {
 
 	public void refund() {
 		if (this.orderStatus != OrderStatus.PAID) {
-			throw new InvalidOrderStatusTransitionException("결제 완료 상태의 주문만 환불할 수 있습니다.");
+			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "결제 완료 상태의 주문만 환불할 수 있습니다.");
 		}
 
 		this.orderStatus = OrderStatus.REFUNDED;
@@ -139,7 +140,7 @@ public class Order extends BaseEntity {
 
 	private void validatePending() {
 		if (this.orderStatus != PENDING) {
-			throw new InvalidOrderStatusTransitionException("대기 상태의 주문만 처리할 수 있습니다.");
+			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "대기 상태의 주문만 처리할 수 있습니다.");
 		}
 	}
 }
