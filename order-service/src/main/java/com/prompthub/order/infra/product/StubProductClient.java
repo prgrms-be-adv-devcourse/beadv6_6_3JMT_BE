@@ -1,6 +1,7 @@
 package com.prompthub.order.infra.product;
 
 import com.prompthub.order.application.client.ProductClient;
+import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ public class StubProductClient implements ProductClient {
     private static final String STUB_TITLE = "테스트 상품";
     private static final String STUB_PRODUCT_TYPE = "PROMPT";
     private static final int STUB_AMOUNT = 10000;
+    private static final String STUB_CONTENT = "테스트 상품 콘텐츠";
 
     @Override
     public List<ProductOrderSnapshot> getOrderSnapshots(List<UUID> productIds) {
@@ -28,5 +30,10 @@ public class StubProductClient implements ProductClient {
                         STUB_AMOUNT
                 ))
                 .toList();
+    }
+
+    @Override
+    public ProductContent getProductContent(UUID productId) {
+        return new ProductContent(productId, STUB_CONTENT);
     }
 }

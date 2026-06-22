@@ -1,5 +1,6 @@
 package com.prompthub.order.infra.product;
 
+import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import org.junit.jupiter.api.DisplayName;
@@ -42,5 +43,17 @@ class StubProductClientTest {
             assertThat(snapshot.productType()).isEqualTo("PROMPT");
             assertThat(snapshot.amount()).isEqualTo(10000);
         });
+    }
+
+    @Test
+    @DisplayName("요청한 상품 ID에 대한 개발용 콘텐츠를 반환한다")
+    void getProductContentReturnsDevelopmentContentForRequestedProductId() {
+        StubProductClient productClient = new StubProductClient();
+        UUID productId = UUID.randomUUID();
+
+        ProductContent content = productClient.getProductContent(productId);
+
+        assertThat(content.productId()).isEqualTo(productId);
+        assertThat(content.content()).isEqualTo("테스트 상품 콘텐츠");
     }
 }
