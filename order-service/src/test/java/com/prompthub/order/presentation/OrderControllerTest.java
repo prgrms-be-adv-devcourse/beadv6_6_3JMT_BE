@@ -5,12 +5,14 @@ import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.GlobalExceptionHandler;
+import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
+import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
+import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
-import com.prompthub.presentation.dto.PageResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,6 +21,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -59,6 +64,139 @@ class OrderControllerTest {
 			.setControllerAdvice(new GlobalExceptionHandler())
 			.setValidator(validator)
 			.build();
+	}
+
+	@Nested
+	@DisplayName("내 주문 상세 조회 (GET /api/v1/orders/{orderId})")
+	class GetOrderDetail {
+
+		@Nested
+		@DisplayName("성공 케이스")
+		class Success {
+
+			@Test
+			@DisplayName("내 주문 상세 조회 성공")
+			void getOrderDetail_success() throws Exception {
+				// given
+				OrderDetailProductResponse product = new OrderDetailProductResponse(
+					ORDER_PRODUCT_ID,
+					PRODUCT_ID_1,
+					SELLER_ID_1,
+					PRODUCT_TITLE_1,
+					PRODUCT_TYPE_PROMPT,
+					PRODUCT_AMOUNT_1,
+					OrderStatus.PAID,
+					true,
+					false
+				);
+				OrderDetailResponse response = new OrderDetailResponse(
+					ORDER_ID,
+					ORDER_NUMBER,
+					BUYER_ID,
+					OrderStatus.PAID,
+					List.of(product),
+					TOTAL_AMOUNT,
+					TOTAL_ITEM_COUNT,
+					PAID_AT,
+					null,
+					null,
+					CREATED_AT,
+					false
+				);
+
+				when(orderUseCase.getOrderDetail(eq(BUYER_ID), eq(ORDER_ID)))
+					.thenReturn(response);
+
+				// when & then
+				mockMvc.perform(get("/api/v1/orders/{orderId}", ORDER_ID)
+						.header("X-User-Id", BUYER_ID.toString()))
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.success").value(true))
+					.andExpect(jsonPath("$.message").value("success"))
+					.andExpect(jsonPath("$.data.orderId").value(ORDER_ID.toString()))
+					.andExpect(jsonPath("$.data.orderNumber").value(ORDER_NUMBER))
+					.andExpect(jsonPath("$.data.buyerId").value(BUYER_ID.toString()))
+					.andExpect(jsonPath("$.data.orderStatus").value("PAID"))
+					.andExpect(jsonPath("$.data.totalAmount").value(TOTAL_AMOUNT))
+					.andExpect(jsonPath("$.data.totalProductCount").value(TOTAL_ITEM_COUNT))
+					.andExpect(jsonPath("$.data.paidAt").value("2026-06-20T12:00:00"))
+					.andExpect(jsonPath("$.data.canceledAt").doesNotExist())
+					.andExpect(jsonPath("$.data.refundedAt").doesNotExist())
+					.andExpect(jsonPath("$.data.createdAt").value("2026-06-20T11:58:00"))
+					.andExpect(jsonPath("$.data.hasDownloadProduct").value(false))
+					.andExpect(jsonPath("$.data.products[0].orderProductId").value(ORDER_PRODUCT_ID.toString()))
+					.andExpect(jsonPath("$.data.products[0].productId").value(PRODUCT_ID_1.toString()))
+					.andExpect(jsonPath("$.data.products[0].sellerId").value(SELLER_ID_1.toString()))
+					.andExpect(jsonPath("$.data.products[0].productTitleSnapshot").value(PRODUCT_TITLE_1))
+					.andExpect(jsonPath("$.data.products[0].productTypeSnapshot").value(PRODUCT_TYPE_PROMPT))
+					.andExpect(jsonPath("$.data.products[0].productAmountSnapshot").value(PRODUCT_AMOUNT_1))
+					.andExpect(jsonPath("$.data.products[0].orderStatus").value("PAID"))
+					.andExpect(jsonPath("$.data.products[0].isContentAccessible").value(true))
+					.andExpect(jsonPath("$.data.products[0].download").value(false));
+
+				verify(orderUseCase).getOrderDetail(eq(BUYER_ID), eq(ORDER_ID));
+			}
+		}
+
+		@Nested
+		@DisplayName("실패 케이스")
+		class Failure {
+
+			@Test
+			@DisplayName("X-User-Id 헤더가 없으면 401 Unauthorized")
+			void getOrderDetail_withoutUserIdHeader_unauthorized() throws Exception {
+				// when & then
+				mockMvc.perform(get("/api/v1/orders/{orderId}", ORDER_ID))
+					.andExpect(status().isUnauthorized())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
+
+				verifyNoInteractions(orderUseCase);
+			}
+
+			@Test
+			@DisplayName("orderId가 UUID 형식이 아니면 400 Bad Request")
+			void getOrderDetail_invalidOrderId_badRequest() throws Exception {
+				// when & then
+				mockMvc.perform(get("/api/v1/orders/{orderId}", "invalid-order-id")
+						.header("X-User-Id", BUYER_ID.toString()))
+					.andExpect(status().isBadRequest())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
+
+				verifyNoInteractions(orderUseCase);
+			}
+
+			@Test
+			@DisplayName("주문이 없으면 404 Not Found와 O001을 반환한다")
+			void getOrderDetail_orderNotFound_notFound() throws Exception {
+				// given
+				when(orderUseCase.getOrderDetail(eq(BUYER_ID), eq(ORDER_ID)))
+					.thenThrow(new OrderException(ErrorCode.ORDER_NOT_FOUND));
+
+				// when & then
+				mockMvc.perform(get("/api/v1/orders/{orderId}", ORDER_ID)
+						.header("X-User-Id", BUYER_ID.toString()))
+					.andExpect(status().isNotFound())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.code").value(ErrorCode.ORDER_NOT_FOUND.getCode()));
+			}
+
+			@Test
+			@DisplayName("본인 주문이 아니면 403 Forbidden과 A004를 반환한다")
+			void getOrderDetail_notOwner_forbidden() throws Exception {
+				// given
+				when(orderUseCase.getOrderDetail(eq(BUYER_ID), eq(ORDER_ID)))
+					.thenThrow(new OrderException(ErrorCode.FORBIDDEN));
+
+				// when & then
+				mockMvc.perform(get("/api/v1/orders/{orderId}", ORDER_ID)
+						.header("X-User-Id", BUYER_ID.toString()))
+					.andExpect(status().isForbidden())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
+			}
+		}
 	}
 
 	@Nested
@@ -228,7 +366,7 @@ class OrderControllerTest {
 					PAID_AT,
 					CREATED_AT
 				);
-				PageResponse<OrderListResponse> response = PageResponse.success(List.of(order), 1, 20, 1, false);
+				Page<OrderListResponse> response = new PageImpl<>(List.of(order), PageRequest.of(0, 20), 1);
 				PageRequestParams request = new PageRequestParams(
 					1,
 					20,
@@ -286,7 +424,7 @@ class OrderControllerTest {
 					PAID_AT,
 					CREATED_AT
 				);
-				PageResponse<OrderListResponse> response = PageResponse.success(List.of(order), 1, 20, 1, false);
+				Page<OrderListResponse> response = new PageImpl<>(List.of(order), PageRequest.of(0, 20), 1);
 				PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
 
 				when(orderUseCase.getOrders(eq(BUYER_ID), eq(request)))
@@ -372,7 +510,7 @@ class OrderControllerTest {
 					PRODUCT_AMOUNT_1,
 					PAID_AT
 				);
-				PageResponse<OrderPaymentListResponse> response = PageResponse.success(List.of(payment), 1, 20, 1, false);
+				Page<OrderPaymentListResponse> response = new PageImpl<>(List.of(payment), PageRequest.of(0, 20), 1);
 				PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
 
 				when(orderUseCase.getOrderPayments(eq(BUYER_ID), eq(request)))
