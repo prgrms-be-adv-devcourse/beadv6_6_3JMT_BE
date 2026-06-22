@@ -18,6 +18,7 @@ import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
+import com.prompthub.order.presentation.dto.request.OrderReviewRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
@@ -158,6 +159,20 @@ public class OrderService implements OrderUseCase {
 			orderProduct.getProductTitle(),
 			productContent.content()
 		);
+	}
+
+	@Override
+	public void upsertReview(UUID buyerId, OrderReviewRequest request) {
+		boolean reviewAllowed = orderRepository.existsPaidOrderProductByBuyerIdAndProductId(
+			buyerId,
+			request.productId()
+		);
+
+		if (!reviewAllowed) {
+			throw new OrderException(ErrorCode.ORDER_REVIEW_ACCESS_DENIED);
+		}
+
+		productClient.upsertReview(buyerId, request.productId(), request.rating());
 	}
 
 	@Override

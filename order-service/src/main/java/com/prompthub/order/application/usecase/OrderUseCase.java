@@ -1,6 +1,7 @@
 package com.prompthub.order.application.usecase;
 
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
+import com.prompthub.order.presentation.dto.request.OrderReviewRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
@@ -18,6 +19,8 @@ public interface OrderUseCase {
 	OrderDetailResponse getOrderDetail(UUID buyerId, UUID orderId);
 
 	OrderContentResponse getOrderContent(UUID buyerId, UUID orderId, UUID orderProductId);
+
+	void upsertReview(UUID buyerId, OrderReviewRequest request);
 
 	Page<OrderListResponse> getOrders(UUID buyerId, PageRequestParams request);
 

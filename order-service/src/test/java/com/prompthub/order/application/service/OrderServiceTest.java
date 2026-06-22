@@ -18,6 +18,7 @@ import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
+import com.prompthub.order.presentation.dto.request.OrderReviewRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
@@ -79,6 +80,47 @@ class OrderServiceTest {
 
     @InjectMocks
     private OrderService orderService;
+
+    @Nested
+    @DisplayName("리뷰 평점 생성 및 수정")
+    class UpsertReview {
+
+        @Test
+        @DisplayName("결제 완료된 본인 주문상품이면 Product Service에 리뷰 저장을 위임한다")
+        void upsertReview_paidOrderProduct_success() {
+            // given
+            OrderReviewRequest request = new OrderReviewRequest(PRODUCT_ID_1, 4);
+            given(orderRepository.existsPaidOrderProductByBuyerIdAndProductId(BUYER_ID, PRODUCT_ID_1))
+                .willReturn(true);
+
+            // when
+            orderService.upsertReview(BUYER_ID, request);
+
+            // then
+            then(orderRepository).should().existsPaidOrderProductByBuyerIdAndProductId(BUYER_ID, PRODUCT_ID_1);
+            then(productClient).should().upsertReview(BUYER_ID, PRODUCT_ID_1, 4);
+        }
+
+        @Test
+        @DisplayName("결제 완료된 주문상품이 없으면 E002 예외가 발생하고 Product Service를 호출하지 않는다")
+        void upsertReview_paidOrderProductNotFound_throwsException() {
+            // given
+            OrderReviewRequest request = new OrderReviewRequest(PRODUCT_ID_1, 4);
+            given(orderRepository.existsPaidOrderProductByBuyerIdAndProductId(BUYER_ID, PRODUCT_ID_1))
+                .willReturn(false);
+
+            // when & then
+            assertThatThrownBy(() -> orderService.upsertReview(BUYER_ID, request))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ORDER_REVIEW_ACCESS_DENIED)
+                );
+
+            then(orderRepository).should().existsPaidOrderProductByBuyerIdAndProductId(BUYER_ID, PRODUCT_ID_1);
+            then(productClient).should(never()).upsertReview(any(), any(), any(Integer.class));
+        }
+    }
 
     @Nested
     @DisplayName("구매 상품 콘텐츠 열람")
