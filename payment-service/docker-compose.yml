@@ -1,0 +1,15 @@
+services:
+  payment-db:
+    image: postgres:18.4
+    container_name: payment-db-dev
+    environment:
+      POSTGRES_USER: anjinpyo
+      POSTGRES_PASSWORD: "1234"
+      POSTGRES_DB: prompthub_payment_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - payment-db-data:/var/lib/postgresql
+
+volumes:
+  payment-db-data:
