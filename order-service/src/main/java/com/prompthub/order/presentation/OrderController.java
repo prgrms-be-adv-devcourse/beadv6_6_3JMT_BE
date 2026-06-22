@@ -3,6 +3,7 @@ package com.prompthub.order.presentation;
 import com.prompthub.order.application.usecase.OrderUseCase;
 import com.prompthub.presentation.dto.ApiResponse;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
+import com.prompthub.order.presentation.dto.request.OrderReviewRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
@@ -47,6 +48,15 @@ public class OrderController {
 		@PathVariable UUID orderProductId
 	) {
 		return ApiResponse.success(orderUseCase.getOrderContent(buyerId, orderId, orderProductId));
+	}
+
+	@PostMapping("/review")
+	public ApiResponse<Void> upsertReview(
+		@RequestHeader("X-User-Id") UUID buyerId,
+		@Valid @RequestBody OrderReviewRequest request
+	) {
+		orderUseCase.upsertReview(buyerId, request);
+		return ApiResponse.success();
 	}
 
 	@GetMapping
