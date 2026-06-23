@@ -1,4 +1,9 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew test*)"
+    ]
+  },
   "enabledPlugins": {
     "andrej-karpathy-skills@karpathy-skills": true
   }
