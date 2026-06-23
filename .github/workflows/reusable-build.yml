@@ -14,6 +14,26 @@ jobs:
   build:
     name: Build & Test (${{ inputs.module-name }})
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: prompthub_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: prompthub_test
+      DB_USERNAME: test
+      DB_PASSWORD: test
     steps:
       - uses: actions/checkout@v4
 

@@ -99,3 +99,26 @@ jobs:
     with:
       module-name: common-module
       module-path: common-module
+
+  ci-gate:
+    needs:
+      - changes
+      - user-service-ci
+      - product-service-ci
+      - payment-service-ci
+      - order-service-ci
+      - settlement-service-ci
+      - common-module-ci
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: CI 결과 확인
+        run: |
+          results="${{ join(needs.*.result, ' ') }}"
+          for result in $results; do
+            if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+              echo "CI 실패: $result"
+              exit 1
+            fi
+          done
+          echo "모든 CI 통과 (skipped 포함)"
