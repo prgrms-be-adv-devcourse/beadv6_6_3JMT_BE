@@ -16,7 +16,6 @@ payment-service가 **발행(Publish)** 하는 Kafka 이벤트 목록. 구독(Con
 | `payment.canceled` | PG 취소 성공 | Order | Order CANCELED 전환 + `is_download = false` |
 | `payment.cancel_failed` | PG 취소 실패 | Order | PAID 상태 복구 |
 | `payment.refunded` | PG 환불 성공 | Order | Order REFUNDED 전환 + `is_download = false` |
-| `payment.refund_failed` | PG 환불 실패 | Order | PAID 상태 복원 |
 
 ---
 
@@ -133,24 +132,3 @@ payment-service가 **발행(Publish)** 하는 Kafka 이벤트 목록. 구독(Con
 
 ---
 
-### payment.refund_failed
-
-```json
-{
-  "eventType": "payment.refund_failed",
-  "paymentId": "550e8400-e29b-41d4-a716-446655440000",
-  "orderId":   "660e8400-e29b-41d4-a716-446655440001",
-  "userId":    "770e8400-e29b-41d4-a716-446655440002",
-  "reason":    "PG 환불 요청 타임아웃",
-  "failedAt":  "2026-06-15T11:00:30Z"
-}
-```
-
-| 필드 | 타입 | 필수 | 설명 |
-|---|---|---|---|
-| `eventType` | String | ✅ | `"payment.refund_failed"` 고정 |
-| `paymentId` | UUID | ✅ | Payment ID |
-| `orderId` | UUID | ✅ | 주문 ID |
-| `userId` | UUID | ✅ | 환불 요청 사용자 ID |
-| `reason` | String | ✅ | 환불 실패 사유 |
-| `failedAt` | ISO 8601 | ✅ | 실패 일시 |
