@@ -12,6 +12,6 @@ services:
       - ${POSTGRES_INIT_DIR}:/docker-entrypoint-initdb.d
     restart: always
     ports:
-      - '54432:5432'
+      - '5432:5432'
     env_file:
       - ./.env

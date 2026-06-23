@@ -2,9 +2,9 @@ spring:
   application:
     name: settlement
   datasource:
-    url: jdbc:postgresql://localhost:54432/promptHub
-    username: promptHub
-    password: promptHub
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:promptHub}
+    username: ${DB_USERNAME:promptHub}
+    password: ${DB_PASSWORD:promptHub}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
