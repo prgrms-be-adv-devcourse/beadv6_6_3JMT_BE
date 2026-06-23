@@ -5,7 +5,7 @@ import com.prompthub.paymentservice.application.dto.result.PaymentResult;
 import com.prompthub.paymentservice.application.usecase.ConfirmPaymentUseCase;
 import com.prompthub.paymentservice.interfaces.web.dto.request.ConfirmPaymentRequest;
 import com.prompthub.paymentservice.interfaces.web.dto.response.ConfirmPaymentResponse;
-import com.prompthub.presentation.dto.ApiResponse;
+import com.prompthub.presentation.dto.ApiResult;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +24,7 @@ public class PaymentController {
     private final ConfirmPaymentUseCase confirmPaymentUseCase;
 
     @PostMapping("/confirm")
-    public ResponseEntity<ApiResponse<ConfirmPaymentResponse>> confirm(
+    public ResponseEntity<ApiResult<ConfirmPaymentResponse>> confirm(
         @RequestHeader("X-User-Id") UUID userId,
         @Valid @RequestBody ConfirmPaymentRequest request
     ) {
@@ -32,6 +32,6 @@ public class PaymentController {
             request.paymentKey(), request.orderId(), request.amount(), userId
         );
         PaymentResult result = confirmPaymentUseCase.confirm(command);
-        return ResponseEntity.ok(ApiResponse.success(new ConfirmPaymentResponse(result.paymentId())));
+        return ResponseEntity.ok(ApiResult.success(new ConfirmPaymentResponse(result.paymentId())));
     }
 }
