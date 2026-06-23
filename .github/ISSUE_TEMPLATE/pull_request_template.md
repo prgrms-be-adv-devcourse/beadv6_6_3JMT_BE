@@ -31,6 +31,7 @@
 - [ ] 코드 스타일: 네이밍 케이스·와일드카드 import 금지·빈 catch 금지
 - [ ] Swagger: 표현계층 한정·@Operation/@ApiResponses/@Schema 명시
 - [ ] Git 컨벤션: 커밋 메시지(`<타입>: <내용>`)·브랜치 명명 규칙
+- [ ] 보안: .env·시크릿 파일 미커밋·코드 내 하드코딩 시크릿 없음·민감정보 로깅/노출 없음·.gitignore 누락 없음
 
 ## 👀 리뷰어를 위한 참고 사항 (Notes for Reviewers)
 
