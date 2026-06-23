@@ -19,7 +19,7 @@ docker-compose up -d                   # 로컬 PostgreSQL (호스트 5433)
 ```
 
 - 실행 전 `.env` 필요: `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` (gitignore 대상, 커밋 금지).
-- 테스트는 Testcontainers + EmbeddedKafka를 쓰므로 compose DB 없이 동작한다.
+- 테스트는 Testcontainers(PostgreSQL + Kafka)를 쓰므로 compose DB 없이 동작한다.
 - `common-module`은 composite build(`includeBuild '../common-module'`)로 `com.prompthub:common-module`로 해석된다. 단독 빌드는 모노레포 전체 체크아웃이 전제.
 - Checkstyle은 공유 룰(`../style/checkstyle/prompthub-checkstyle-rules.xml`) 사용. 현재 `ignoreFailures = true`지만 위반 코드는 작성하지 않는다.
 
@@ -42,7 +42,8 @@ API 설계·DB·이벤트 관련 작업 시 아래 문서를 먼저 확인한다
 ## 테스트 정책
 
 - 새 기능은 **테스트와 함께** 추가(가능하면 TDD: 실패 테스트 → 구현 → 통과).
-- 통합/영속성 테스트는 **Testcontainers(PostgreSQL)**, Kafka는 **EmbeddedKafka**(`spring-kafka-test`). H2 등 인메모리 DB로 대체하지 않는다.
+- 통합/영속성 테스트는 **Testcontainers(PostgreSQL)**, Kafka는 **Testcontainers(`testcontainers-kafka`, `confluentinc/cp-kafka:7.6.1`)**. H2 등 인메모리 DB로 대체하지 않는다.
+- EmbeddedKafka(`spring-kafka-test`)는 macOS KRaft 브로커 충돌(`Exit.halt(1, null)`) 문제로 사용하지 않는다.
 - 단언은 **AssertJ**(`assertThat`).
 - 영속성 테스트는 엔티티 `create(...)` 팩토리로 객체를 만들어 라운드트립 + 감사 필드 검증(기존 `PaymentJpaRepositoryTest` 패턴).
 

@@ -1,0 +1,12 @@
+package com.prompthub.paymentservice.interfaces.web.dto.request;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import java.util.UUID;
+
+public record ConfirmPaymentRequest(
+    @NotBlank String paymentKey,
+    @NotNull UUID orderId,
+    @Positive int amount
+) {}
