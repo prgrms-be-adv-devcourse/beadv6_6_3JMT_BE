@@ -18,8 +18,10 @@
 도메인이 JPA에 의존하게 되는 대신, 다음을 지켜 모델이 단순 데이터 덩어리로 전락하지 않게 한다.
 
 - **비즈니스 상태 변경용 public setter 를 두지 않는다.** 상태 변경은 의도를 드러내는
-  도메인 메서드로 표현한다. (예: `order.markPaid()`, `settlement.complete()`)
+  도메인 메서드로 표현한다. (예: `order.markPaid()`, `settlement.confirm()`, `settlementBatch.complete()`)
 - 비즈니스 규칙·불변식은 도메인 메서드 안에서 보장한다.
+- **공통 생성일·수정일(`createdAt`·`updatedAt`)은 `BaseEntity` 에서 관리하고, 개별 엔티티에서
+  중복 선언하지 않는다.** 비즈니스 시각(`confirmedAt`·`paidAt`·`executedAt` 등)은 엔티티별 필드로 둔다.
 - **반복되는 비즈니스 규칙이 실제로 해당 aggregate 에 속한다면 도메인 모델로 이동한다.**
   서비스에 흩어진 규칙을 도메인이 끌어안는 방향으로 정리한다.
 - **Entity 를 단순 데이터 컨테이너로만 사용하지 않는다.** 행위 없는 getter/setter 덩어리는 지양한다.
@@ -158,7 +160,6 @@ public void complete() {
 **허용**
 
 - `@Getter`
-- `@RequiredArgsConstructor`
 - 필요한 경우 `@NoArgsConstructor(access = AccessLevel.PROTECTED)`
 
 **지양**
@@ -166,6 +167,9 @@ public void complete() {
 - `@Data` — setter·equals·hashCode 등을 무분별하게 생성한다.
 - `@Setter` — 의미 없는 상태 변경 통로를 연다.
 - 도메인 엔티티에 대한 public all-args constructor — 생성은 정적 팩토리로 한다.
+- **엔티티에 `@RequiredArgsConstructor`.** final 필드용 생성자가 열려 §4 의 "정적 팩토리 + private
+  생성자(필수값 검증·파생값 계산)" 규율을 우회한다. → 단, 도메인 서비스·값 객체·설정 객체 등
+  **엔티티가 아닌 클래스에서는** DI 등 필요 시 사용할 수 있다.
 - **상태·생명주기가 중요한 엔티티(`Settlement`·`SettlementBatch`·`Order`·`Payment` 등)에 `@Builder`.**
   필수값·초기 상태·상태 전이 규칙을 우회할 수 있다. → §4 의 정적 팩토리 + private 생성자를 쓴다.
 
