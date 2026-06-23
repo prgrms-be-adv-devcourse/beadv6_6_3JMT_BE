@@ -4,7 +4,7 @@ import com.prompthub.order.application.event.PaymentApprovedEvent;
 import com.prompthub.order.application.event.PaymentCanceledEvent;
 import com.prompthub.order.application.event.PaymentFailedEvent;
 import com.prompthub.order.application.event.PaymentRefundedEvent;
-import com.prompthub.order.application.service.OrderService;
+import com.prompthub.order.application.service.OrderPaymentEventService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -23,7 +23,7 @@ public class PaymentEventConsumer {
 	private static final String GROUP_ID = "order-service";
 
 	private final ObjectMapper objectMapper;
-	private final OrderService orderService;
+	private final OrderPaymentEventService orderPaymentEventService;
 
 	@KafkaListener(
 		topics = TOPIC,
@@ -35,10 +35,10 @@ public class PaymentEventConsumer {
 		String eventType = root.path("eventType").stringValue(null);
 
 		switch (eventType) {
-			case "PAYMENT_APPROVED" -> orderService.approveOrder(toEvent(root, PaymentApprovedEvent.class));
-			case "PAYMENT_FAILED" -> orderService.failOrder(toEvent(root, PaymentFailedEvent.class));
-			case "PAYMENT_CANCELED" -> orderService.cancelOrder(toEvent(root, PaymentCanceledEvent.class));
-			case "PAYMENT_REFUNDED" -> orderService.refundOrder(toEvent(root, PaymentRefundedEvent.class));
+			case "PAYMENT_APPROVED" -> orderPaymentEventService.handlePaymentApproved(toEvent(root, PaymentApprovedEvent.class));
+			case "PAYMENT_FAILED" -> orderPaymentEventService.handlePaymentFailed(toEvent(root, PaymentFailedEvent.class));
+			case "PAYMENT_CANCELED" -> orderPaymentEventService.handlePaymentCanceled(toEvent(root, PaymentCanceledEvent.class));
+			case "PAYMENT_REFUNDED" -> orderPaymentEventService.handlePaymentRefunded(toEvent(root, PaymentRefundedEvent.class));
 			default -> log.warn("Unsupported payment eventType received. eventType={}", eventType);
 		}
 

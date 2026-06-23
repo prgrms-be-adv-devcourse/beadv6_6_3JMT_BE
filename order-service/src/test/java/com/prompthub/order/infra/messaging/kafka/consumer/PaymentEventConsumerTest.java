@@ -4,7 +4,7 @@ import com.prompthub.order.application.event.PaymentApprovedEvent;
 import com.prompthub.order.application.event.PaymentCanceledEvent;
 import com.prompthub.order.application.event.PaymentFailedEvent;
 import com.prompthub.order.application.event.PaymentRefundedEvent;
-import com.prompthub.order.application.service.OrderService;
+import com.prompthub.order.application.service.OrderPaymentEventService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,15 +27,15 @@ class PaymentEventConsumerTest {
 	private static final UUID BUYER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 	private static final LocalDateTime EVENT_TIME = LocalDateTime.of(2026, 6, 23, 10, 30);
 
-	private OrderService orderService;
+	private OrderPaymentEventService orderPaymentEventService;
 	private Acknowledgment acknowledgment;
 	private PaymentEventConsumer consumer;
 
 	@BeforeEach
 	void setUp() {
-		orderService = mock(OrderService.class);
+		orderPaymentEventService = mock(OrderPaymentEventService.class);
 		acknowledgment = mock(Acknowledgment.class);
-		consumer = new PaymentEventConsumer(new ObjectMapper(), orderService);
+		consumer = new PaymentEventConsumer(new ObjectMapper(), orderPaymentEventService);
 	}
 
 	@Test
@@ -54,7 +54,7 @@ class PaymentEventConsumerTest {
 
 		consumer.consume(message, acknowledgment);
 
-		then(orderService).should().approveOrder(new PaymentApprovedEvent(
+		then(orderPaymentEventService).should().handlePaymentApproved(new PaymentApprovedEvent(
 			PAYMENT_ID,
 			ORDER_ID,
 			BUYER_ID,
@@ -80,7 +80,7 @@ class PaymentEventConsumerTest {
 
 		consumer.consume(message, acknowledgment);
 
-		then(orderService).should().failOrder(new PaymentFailedEvent(
+		then(orderPaymentEventService).should().handlePaymentFailed(new PaymentFailedEvent(
 			PAYMENT_ID,
 			ORDER_ID,
 			BUYER_ID,
@@ -105,7 +105,7 @@ class PaymentEventConsumerTest {
 
 		consumer.consume(message, acknowledgment);
 
-		then(orderService).should().cancelOrder(new PaymentCanceledEvent(
+		then(orderPaymentEventService).should().handlePaymentCanceled(new PaymentCanceledEvent(
 			PAYMENT_ID,
 			ORDER_ID,
 			BUYER_ID,
@@ -130,7 +130,7 @@ class PaymentEventConsumerTest {
 
 		consumer.consume(message, acknowledgment);
 
-		then(orderService).should().refundOrder(new PaymentRefundedEvent(
+		then(orderPaymentEventService).should().handlePaymentRefunded(new PaymentRefundedEvent(
 			PAYMENT_ID,
 			ORDER_ID,
 			BUYER_ID,
@@ -153,10 +153,10 @@ class PaymentEventConsumerTest {
 
 		consumer.consume(message, acknowledgment);
 
-		then(orderService).should(never()).approveOrder(any(PaymentApprovedEvent.class));
-		then(orderService).should(never()).failOrder(any(PaymentFailedEvent.class));
-		then(orderService).should(never()).cancelOrder(any(PaymentCanceledEvent.class));
-		then(orderService).should(never()).refundOrder(any(PaymentRefundedEvent.class));
+		then(orderPaymentEventService).should(never()).handlePaymentApproved(any(PaymentApprovedEvent.class));
+		then(orderPaymentEventService).should(never()).handlePaymentFailed(any(PaymentFailedEvent.class));
+		then(orderPaymentEventService).should(never()).handlePaymentCanceled(any(PaymentCanceledEvent.class));
+		then(orderPaymentEventService).should(never()).handlePaymentRefunded(any(PaymentRefundedEvent.class));
 		then(acknowledgment).should().acknowledge();
 	}
 
