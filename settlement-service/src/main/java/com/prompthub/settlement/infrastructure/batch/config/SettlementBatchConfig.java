@@ -1,4 +1,4 @@
-package com.prompthub.settlement.global.config;
+package com.prompthub.settlement.infrastructure.batch.config;
 
 import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;

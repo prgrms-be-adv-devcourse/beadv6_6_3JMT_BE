@@ -1,6 +1,6 @@
 package com.prompthub.settlement.domain.model;
 
-import com.prompthub.settlement.global.config.BaseEntity;
+import com.prompthub.settlement.global.common.BaseEntity;
 import com.prompthub.settlement.domain.exception.SettlementSourceLineAlreadySettledException;
 import com.prompthub.settlement.domain.model.enums.SettlementSourceEventType;
 import jakarta.persistence.Column;
