@@ -16,7 +16,7 @@ description: >-
 
 ## 룰 → 체크박스 매핑
 
-PR 템플릿(`.github/ISSUE_TEMPLATE/pull_request_template.md`) 체크리스트 6항목과 1:1로 대응한다.
+PR 템플릿(`.github/ISSUE_TEMPLATE/pull_request_template.md`) 체크리스트 7항목과 1:1로 대응한다.
 라벨은 템플릿을 단일 진실 공급원으로 보고, 검증 시점에 템플릿에서 읽어 맞춘다.
 
 | RULE_NAME | RULE_FILE | 입력 | 체크박스(템플릿 라벨 앞부분) |
