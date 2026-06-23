@@ -3,6 +3,7 @@ package com.prompthub.settlement.global.exception;
 import com.prompthub.exception.BusinessException;
 import com.prompthub.exception.ErrorCode;
 import com.prompthub.exception.response.ErrorResponse;
+import com.prompthub.settlement.domain.exception.SettlementBatchInvalidStateException;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,14 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity.status(errorCode.getStatus())
                 .body(ErrorResponse.of(errorCode, exception.getMessage()));
+    }
+
+    @ExceptionHandler(SettlementBatchInvalidStateException.class)
+    public ResponseEntity<ErrorResponse> handleSettlementBatchInvalidState(
+            SettlementBatchInvalidStateException exception) {
+        log.warn("정산 배치 상태 충돌 - {}", exception.getMessage());
+        ErrorCode errorCode = SettlementErrorCode.SETTLEMENT_BATCH_INVALID_STATE;
+        return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
     }
 
     @ExceptionHandler({
