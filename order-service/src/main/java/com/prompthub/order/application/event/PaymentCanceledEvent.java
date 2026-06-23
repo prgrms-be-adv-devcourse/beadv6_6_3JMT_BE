@@ -3,11 +3,10 @@ package com.prompthub.order.application.event;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public record PaymentApprovedEvent(
+public record PaymentCanceledEvent(
 	UUID paymentId,
 	UUID orderId,
 	UUID buyerId,
-	int approvedAmount,
-	LocalDateTime approvedAt
+	LocalDateTime canceledAt
 ) {
 }
