@@ -103,7 +103,7 @@ sequenceDiagram
 ```
 config/configs/
 ├── application.yml        # 모든 서비스 공통 (Eureka 주소 등)
-├── user-service.yml       # user-service 전용 (DB 등)
+├── user-service.yml       # user-service 전용 (feature flag, 외부 서비스 URL 등)
 ├── product-service.yml
 └── ...
 ```
