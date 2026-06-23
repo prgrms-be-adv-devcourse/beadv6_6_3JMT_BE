@@ -29,8 +29,14 @@ dependencyManagement {
 }
 
 dependencies {
+    // common
+    implementation("com.prompthub:common-module")
+
     // 웹 MVC (서블릿 기반)
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+
+    // Bean Validation (jakarta.validation)
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
 
     // Spring Cloud — Eureka 클라이언트 (서비스 등록/디스커버리)
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
