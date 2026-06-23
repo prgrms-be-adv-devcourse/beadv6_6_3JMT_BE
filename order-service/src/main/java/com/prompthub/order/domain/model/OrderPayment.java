@@ -9,7 +9,7 @@ import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static lombok.AccessLevel.PROTECTED;
@@ -26,6 +26,9 @@ import static lombok.AccessLevel.PROTECTED;
 )
 @NoArgsConstructor(access = PROTECTED)
 public class OrderPayment extends BaseEntity {
+
+	private static final String UNKNOWN_PAYMENT_METHOD = "UNKNOWN";
+	private static final String PAYMENT_EVENT_PROVIDER = "PAYMENT_SERVICE";
 
 	@Id
 	@Column(name = "id", columnDefinition = "char(36)")
@@ -53,7 +56,7 @@ public class OrderPayment extends BaseEntity {
 	private int approvedAmount;
 
 	@Column(name = "approved_at", nullable = false)
-	private OffsetDateTime approvedAt;
+	private LocalDateTime approvedAt;
 
 	private OrderPayment(
 		UUID id,
@@ -64,7 +67,7 @@ public class OrderPayment extends BaseEntity {
 		String paymentMethod,
 		String provider,
 		int approvedAmount,
-		OffsetDateTime approvedAt
+		LocalDateTime approvedAt
 	) {
 		this.id = id;
 		this.orderId = orderId;
@@ -81,20 +84,17 @@ public class OrderPayment extends BaseEntity {
 		UUID orderId,
 		UUID paymentId,
 		UUID buyerId,
-		String pgTxId,
-		String paymentMethod,
-		String provider,
 		int approvedAmount,
-		OffsetDateTime approvedAt
+		LocalDateTime approvedAt
 	) {
 		return new OrderPayment(
 			UUID.randomUUID(),
 			orderId,
 			paymentId,
 			buyerId,
-			pgTxId,
-			paymentMethod,
-			provider,
+			paymentId.toString(),
+			UNKNOWN_PAYMENT_METHOD,
+			PAYMENT_EVENT_PROVIDER,
 			approvedAmount,
 			approvedAt
 		);

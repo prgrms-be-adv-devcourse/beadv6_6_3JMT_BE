@@ -63,7 +63,7 @@ class OrderProductTest {
 		void markPaid_notPendingOrderProduct_throwsException() {
 			// given
 			OrderProduct orderProduct = createOrderProduct1();
-			orderProduct.cancel();
+			orderProduct.markFailed();
 
 			// when & then
 			assertThatThrownBy(orderProduct::markPaid)
@@ -109,10 +109,11 @@ class OrderProductTest {
 	class Cancel {
 
 		@Test
-		@DisplayName("PENDING 상태의 주문상품은 CANCELED 상태로 변경할 수 있다")
-		void cancel_pendingOrderProduct_success() {
+		@DisplayName("PAID 상태의 주문상품은 CANCELED 상태로 변경할 수 있다")
+		void cancel_paidOrderProduct_success() {
 			// given
 			OrderProduct orderProduct = createOrderProduct1();
+			orderProduct.markPaid();
 
 			// when
 			orderProduct.cancel();
@@ -124,16 +125,15 @@ class OrderProductTest {
 		}
 
 		@Test
-		@DisplayName("PENDING 상태가 아닌 주문상품은 취소할 수 없다")
-		void cancel_notPendingOrderProduct_throwsException() {
+		@DisplayName("PAID 상태가 아닌 주문상품은 취소할 수 없다")
+		void cancel_notPaidOrderProduct_throwsException() {
 			// given
 			OrderProduct orderProduct = createOrderProduct1();
-			orderProduct.markPaid();
 
 			// when & then
 			assertThatThrownBy(orderProduct::cancel)
 				.isInstanceOf(OrderException.class)
-				.hasMessage("대기 상태의 주문 상품만 처리할 수 있습니다.");
+				.hasMessage("결제 완료 상태의 주문 상품만 취소할 수 있습니다.");
 		}
 	}
 

@@ -3,7 +3,6 @@ package com.prompthub.order.application.dto;
 import com.prompthub.order.domain.enums.OrderStatus;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public record OrderPaymentListProjection(
@@ -16,6 +15,6 @@ public record OrderPaymentListProjection(
 	String title,
 	int amount,
 	LocalDateTime paidAt,
-	OffsetDateTime approvedAt
+	LocalDateTime approvedAt
 ) {
 }

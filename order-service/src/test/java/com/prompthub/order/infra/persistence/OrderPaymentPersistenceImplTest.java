@@ -20,13 +20,10 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.util.UUID;
 
-import static com.prompthub.order.fixture.OrderFixture.APPROVED_OFFSET_AT;
+import static com.prompthub.order.fixture.OrderFixture.APPROVED_AT;
 import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
 import static com.prompthub.order.fixture.OrderFixture.ORDER_NUMBER;
 import static com.prompthub.order.fixture.OrderFixture.PAYMENT_ID;
-import static com.prompthub.order.fixture.OrderFixture.PAYMENT_METHOD;
-import static com.prompthub.order.fixture.OrderFixture.PAYMENT_PROVIDER;
-import static com.prompthub.order.fixture.OrderFixture.PG_TX_ID;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_AMOUNT_1;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_ID_1;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TITLE_1;
@@ -60,18 +57,15 @@ class OrderPaymentPersistenceImplTest {
 			PRODUCT_AMOUNT_1
 		);
 		order.addOrderProduct(orderProduct);
-		order.markPaid(APPROVED_OFFSET_AT.toLocalDateTime());
+		order.markPaid(APPROVED_AT);
 
 		entityManager.persist(order);
 		entityManager.persist(OrderPayment.create(
 			order.getId(),
 			PAYMENT_ID,
 			BUYER_ID,
-			PG_TX_ID,
-			PAYMENT_METHOD,
-			PAYMENT_PROVIDER,
 			TOTAL_AMOUNT,
-			APPROVED_OFFSET_AT
+			APPROVED_AT
 		));
 
 		Order otherBuyerOrder = Order.create(
@@ -87,17 +81,14 @@ class OrderPaymentPersistenceImplTest {
 			PRODUCT_TYPE_PROMPT,
 			PRODUCT_AMOUNT_1
 		));
-		otherBuyerOrder.markPaid(APPROVED_OFFSET_AT.toLocalDateTime());
+		otherBuyerOrder.markPaid(APPROVED_AT);
 		entityManager.persist(otherBuyerOrder);
 		entityManager.persist(OrderPayment.create(
 			otherBuyerOrder.getId(),
 			UUID.fromString("00000000-0000-0000-0000-000000000992"),
 			otherBuyerOrder.getBuyerId(),
-			"other-pg-tx-id",
-			PAYMENT_METHOD,
-			PAYMENT_PROVIDER,
 			TOTAL_AMOUNT,
-			APPROVED_OFFSET_AT
+			APPROVED_AT
 		));
 
 		entityManager.flush();
@@ -124,7 +115,7 @@ class OrderPaymentPersistenceImplTest {
 		assertThat(projection.productType()).isEqualTo(PRODUCT_TYPE_PROMPT);
 		assertThat(projection.title()).isEqualTo(PRODUCT_TITLE_1);
 		assertThat(projection.amount()).isEqualTo(PRODUCT_AMOUNT_1);
-		assertThat(projection.paidAt()).isEqualTo(APPROVED_OFFSET_AT.toLocalDateTime());
-		assertThat(projection.approvedAt()).isEqualTo(APPROVED_OFFSET_AT);
+		assertThat(projection.paidAt()).isEqualTo(APPROVED_AT);
+		assertThat(projection.approvedAt()).isEqualTo(APPROVED_AT);
 	}
 }

@@ -117,21 +117,31 @@ public class Order extends BaseEntity {
 	}
 
 	public void cancel() {
-		validatePending();
+		cancel(LocalDateTime.now());
+	}
+
+	public void cancel(LocalDateTime canceledAt) {
+		if (this.orderStatus != OrderStatus.PAID) {
+			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "결제 완료 상태의 주문만 취소할 수 있습니다.");
+		}
 
 		this.orderStatus = OrderStatus.CANCELED;
-		this.canceledAt = LocalDateTime.now();
-		this.orderProducts.forEach(OrderProduct::cancel);
+		this.canceledAt = canceledAt;
+		this.orderProducts.forEach(orderProduct -> orderProduct.cancel(canceledAt));
 	}
 
 	public void refund() {
+		refund(LocalDateTime.now());
+	}
+
+	public void refund(LocalDateTime refundedAt) {
 		if (this.orderStatus != OrderStatus.PAID) {
 			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "결제 완료 상태의 주문만 환불할 수 있습니다.");
 		}
 
 		this.orderStatus = OrderStatus.REFUNDED;
-		this.refundedAt = LocalDateTime.now();
-		this.orderProducts.forEach(OrderProduct::refund);
+		this.refundedAt = refundedAt;
+		this.orderProducts.forEach(orderProduct -> orderProduct.refund(refundedAt));
 	}
 
 	public boolean isPending() {
