@@ -6,6 +6,9 @@ import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.application.event.PaymentApprovedEvent;
+import com.prompthub.order.application.event.PaymentCanceledEvent;
+import com.prompthub.order.application.event.PaymentFailedEvent;
+import com.prompthub.order.application.event.PaymentRefundedEvent;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.application.usecase.OrderUseCase;
@@ -211,14 +214,11 @@ public class OrderService implements OrderUseCase {
 		}
 
 		orderPolicyService.validatePaymentApproval(order, event);
-		order.markPaid(event.approvedAt().toLocalDateTime());
+		order.markPaid(event.approvedAt());
 		orderPaymentRepository.save(OrderPayment.create(
 			order.getId(),
 			event.paymentId(),
-			order.getBuyerId(),
-			event.pgTxId(),
-			event.paymentMethod(),
-			event.provider(),
+			event.buyerId(),
 			event.approvedAmount(),
 			event.approvedAt()
 		));
@@ -229,6 +229,30 @@ public class OrderService implements OrderUseCase {
 
 		cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId())
 			.ifPresent(cart -> cart.removeProductsByProductIds(orderedProductIds));
+	}
+
+	@Transactional
+	public void failOrder(PaymentFailedEvent event) throws OrderException {
+		Order order = orderRepository.findByIdWithOrderProducts(event.orderId())
+			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
+
+		order.markFailed();
+	}
+
+	@Transactional
+	public void cancelOrder(PaymentCanceledEvent event) throws OrderException {
+		Order order = orderRepository.findByIdWithOrderProducts(event.orderId())
+			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
+
+		order.cancel(event.canceledAt());
+	}
+
+	@Transactional
+	public void refundOrder(PaymentRefundedEvent event) throws OrderException {
+		Order order = orderRepository.findByIdWithOrderProducts(event.orderId())
+			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
+
+		order.refund(event.refundedAt());
 	}
 
 	@Override
@@ -291,7 +315,7 @@ public class OrderService implements OrderUseCase {
 			projection.productType(),
 			projection.title(),
 			projection.amount(),
-			projection.paidAt() == null ? projection.approvedAt().toLocalDateTime() : projection.paidAt()
+			projection.paidAt() == null ? projection.approvedAt() : projection.paidAt()
 		);
 	}
 

@@ -6,6 +6,9 @@ import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.application.event.PaymentApprovedEvent;
+import com.prompthub.order.application.event.PaymentCanceledEvent;
+import com.prompthub.order.application.event.PaymentFailedEvent;
+import com.prompthub.order.application.event.PaymentRefundedEvent;
 import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
@@ -650,7 +653,7 @@ class OrderServiceTest {
 
             // then
             assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
-            assertThat(order.getPaidAt()).isEqualTo(APPROVED_OFFSET_AT.toLocalDateTime());
+            assertThat(order.getPaidAt()).isEqualTo(APPROVED_AT);
 
             assertThat(order.getOrderProducts())
                 .extracting(OrderProduct::getOrderStatus)
@@ -661,11 +664,11 @@ class OrderServiceTest {
             assertThat(savedPayment.getOrderId()).isEqualTo(order.getId());
             assertThat(savedPayment.getPaymentId()).isEqualTo(PAYMENT_ID);
             assertThat(savedPayment.getBuyerId()).isEqualTo(BUYER_ID);
-            assertThat(savedPayment.getPgTxId()).isEqualTo(PG_TX_ID);
-            assertThat(savedPayment.getPaymentMethod()).isEqualTo(PAYMENT_METHOD);
-            assertThat(savedPayment.getProvider()).isEqualTo(PAYMENT_PROVIDER);
+            assertThat(savedPayment.getPgTxId()).isEqualTo(PAYMENT_ID.toString());
+            assertThat(savedPayment.getPaymentMethod()).isEqualTo("UNKNOWN");
+            assertThat(savedPayment.getProvider()).isEqualTo("PAYMENT_SERVICE");
             assertThat(savedPayment.getApprovedAmount()).isEqualTo(TOTAL_AMOUNT);
-            assertThat(savedPayment.getApprovedAt()).isEqualTo(APPROVED_OFFSET_AT);
+            assertThat(savedPayment.getApprovedAt()).isEqualTo(APPROVED_AT);
 
             then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
             then(orderPaymentRepository).should().existsByOrderId(event.orderId());
@@ -812,6 +815,131 @@ class OrderServiceTest {
             then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
             then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
             then(cartRepository).should(never()).findByBuyerIdWithCartProducts(any(UUID.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("결제 실패 이벤트 처리")
+    class FailOrder {
+
+        @Test
+        @DisplayName("결제 실패 이벤트를 받으면 주문을 FAILED 상태로 변경한다")
+        void failOrder_paymentFailed_success() {
+            Order order = createPendingOrderWithProducts();
+            PaymentFailedEvent event = createPaymentFailedEvent(order.getId());
+
+            given(orderRepository.findByIdWithOrderProducts(event.orderId()))
+                .willReturn(Optional.of(order));
+
+            orderService.failOrder(event);
+
+            assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.FAILED);
+            assertThat(order.getOrderProducts())
+                .extracting(OrderProduct::getOrderStatus)
+                .containsOnly(OrderStatus.FAILED);
+
+            then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
+        }
+
+        @Test
+        @DisplayName("결제 실패 이벤트의 주문 ID가 존재하지 않으면 예외가 발생한다")
+        void failOrder_orderNotFound_throwsException() {
+            PaymentFailedEvent event = createPaymentFailedEvent(ORDER_ID);
+
+            given(orderRepository.findByIdWithOrderProducts(event.orderId()))
+                .willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> orderService.failOrder(event))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.ORDER_NOT_FOUND)
+                );
+
+            then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
+        }
+    }
+
+    @Nested
+    @DisplayName("결제 취소 이벤트 처리")
+    class CancelOrder {
+
+        @Test
+        @DisplayName("결제 취소 이벤트를 받으면 결제 완료 주문을 CANCELED 상태로 변경한다")
+        void cancelOrder_paymentCanceled_success() {
+            Order order = createPaidOrderWithProducts();
+            PaymentCanceledEvent event = createPaymentCanceledEvent(order.getId());
+
+            given(orderRepository.findByIdWithOrderProducts(event.orderId()))
+                .willReturn(Optional.of(order));
+
+            orderService.cancelOrder(event);
+
+            assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+            assertThat(order.getCanceledAt()).isEqualTo(CANCELED_AT);
+            assertThat(order.getOrderProducts())
+                .extracting(OrderProduct::getOrderStatus)
+                .containsOnly(OrderStatus.CANCELED);
+
+            then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
+        }
+
+        @Test
+        @DisplayName("PENDING 주문은 결제 취소 이벤트로 취소할 수 없다")
+        void cancelOrder_pendingOrder_throwsException() {
+            Order order = createPendingOrderWithProducts();
+            PaymentCanceledEvent event = createPaymentCanceledEvent(order.getId());
+
+            given(orderRepository.findByIdWithOrderProducts(event.orderId()))
+                .willReturn(Optional.of(order));
+
+            assertThatThrownBy(() -> orderService.cancelOrder(event))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_ORDER_STATUS_TRANSITION)
+                );
+        }
+    }
+
+    @Nested
+    @DisplayName("결제 환불 이벤트 처리")
+    class RefundOrder {
+
+        @Test
+        @DisplayName("결제 환불 이벤트를 받으면 결제 완료 주문을 REFUNDED 상태로 변경한다")
+        void refundOrder_paymentRefunded_success() {
+            Order order = createPaidOrderWithProducts();
+            PaymentRefundedEvent event = createPaymentRefundedEvent(order.getId());
+
+            given(orderRepository.findByIdWithOrderProducts(event.orderId()))
+                .willReturn(Optional.of(order));
+
+            orderService.refundOrder(event);
+
+            assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.REFUNDED);
+            assertThat(order.getRefundedAt()).isEqualTo(REFUNDED_AT);
+            assertThat(order.getOrderProducts())
+                .extracting(OrderProduct::getOrderStatus)
+                .containsOnly(OrderStatus.REFUNDED);
+
+            then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
+        }
+
+        @Test
+        @DisplayName("PENDING 주문은 결제 환불 이벤트로 환불할 수 없다")
+        void refundOrder_pendingOrder_throwsException() {
+            Order order = createPendingOrderWithProducts();
+            PaymentRefundedEvent event = createPaymentRefundedEvent(order.getId());
+
+            given(orderRepository.findByIdWithOrderProducts(event.orderId()))
+                .willReturn(Optional.of(order));
+
+            assertThatThrownBy(() -> orderService.refundOrder(event))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_ORDER_STATUS_TRANSITION)
+                );
         }
     }
 
@@ -1118,7 +1246,7 @@ class OrderServiceTest {
             Page<OrderPaymentListResponse> response = orderService.getOrderPayments(BUYER_ID, request);
 
             // then
-            assertThat(response.getContent().getFirst().paidAt()).isEqualTo(APPROVED_OFFSET_AT.toLocalDateTime());
+            assertThat(response.getContent().getFirst().paidAt()).isEqualTo(APPROVED_AT);
         }
     }
 }
