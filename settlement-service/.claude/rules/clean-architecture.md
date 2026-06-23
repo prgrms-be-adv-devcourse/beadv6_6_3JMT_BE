@@ -38,6 +38,7 @@ com.prompthub.settlement
     ├── application
     │   ├── usecase                 ← 인바운드 포트(인터페이스)
     │   ├── service                 ← 유스케이스 구현
+    │   ├── port                    ← 아웃바운드 포트(비영속: 배치 실행·메시징 등)
     │   └── dto                     ← Command / Result
     ├── domain
     │   ├── model                   ← 도메인 모델(= JPA 엔티티 겸용)
@@ -47,9 +48,17 @@ com.prompthub.settlement
     │   ├── batch                   ← Job / Step / Reader / Processor / Writer
     │   └── event                   ← 메시징·이벤트 어댑터
     └── config                      ← 해당 기능 전용 설정
+
+com.prompthub.settlement.global       ← 기능 횡단(cross-cutting) 공통
+└── exception                         ← 전역 예외 핸들러·ErrorCode 매핑
 ```
 
 기능이 늘어나면 `settlement`와 같은 레벨에 새 기능 패키지를 추가한다.
+
+전역 예외 처리는 특정 기능에 속하지 않는 횡단 관심사이므로 `global/exception`에 둔다.
+`@RestControllerAdvice` 전역 핸들러와 `ErrorCode`(HttpStatus 매핑) 구현을 이곳에 모은다.
+`ErrorCode`는 `HttpStatus`(웹 프레임워크)에 의존하므로 **domain 에 두지 않는다.**
+공통 응답·예외 베이스(`ApiResponse`·`ErrorResponse`·`BusinessException`·`ErrorCode`)는 common-module 을 사용한다.
 
 ## 3. 계층별 책임
 
@@ -70,10 +79,16 @@ com.prompthub.settlement
 | --- | --- | --- |
 | 인바운드(유스케이스) | `application/usecase` | `application/service` |
 | 아웃바운드(영속성) | `domain/repository` | `infrastructure/persistence` |
+| 아웃바운드(비영속: 배치·메시징 등) | `application/port` | `infrastructure/batch` · `infrastructure/event` |
 
 - 인바운드: `SettlementUseCase`(포트) ← `SettlementApplicationService`(구현)
-- 아웃바운드: `SettlementRepository`(포트, domain) ← `SettlementRepositoryAdapter`(구현, infrastructure)
+- 아웃바운드(영속성): `SettlementRepository`(포트, domain) ← `SettlementRepositoryAdapter`(구현, infrastructure)
+- 아웃바운드(비영속): `SettlementJobLauncher`(포트, application) ← `SettlementJobLauncherAdapter`(구현, infrastructure)
 - 어댑터는 내부에서 `SettlementJpaRepository`(Spring Data) 를 호출한다.
+
+> **비영속 아웃바운드 포트는 `application/port`에 둔다.** 잡 실행·메시지 발행처럼 '영속성'이 아닌
+> 외부 연동은 도메인이 알 필요가 없으므로 `domain/repository`에 두지 않는다. application 이 필요로 하는
+> 인터페이스를 application 이 소유하고, 바깥 계층(infrastructure)이 구현한다(§1 의존 방향 부합).
 
 ```
 application/service/SettlementApplicationService   implements   application/usecase/SettlementUseCase
