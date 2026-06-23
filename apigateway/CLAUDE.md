@@ -29,7 +29,7 @@ Spring Cloud Gateway (reactive / WebFlux 기반). 모든 외부 요청의 진입
 
 - **WebMVC 의존성 추가 금지**: WebFlux 기반이므로 `spring-boot-starter-web`과 충돌한다.
 - **JWT 검증 필터**: `GlobalFilter`와 `Ordered`를 함께 구현한다.
-- **화이트리스트**: 인증이 불필요한 경로는 필터 내에서 명시적으로 우회 처리한다.
+- **화이트리스트**: 인증이 불필요한 경로는 `SecurityConfig`의 `WHITE_LIST`에서 관리한다.
 - **헤더 이름 고정**: 다운스트림 서비스와의 계약이므로 임의 변경 금지.
   - `X-User-Id`: 사용자 UUID
   - `X-User-Role`: 사용자 권한 (BUYER / SELLER / ADMIN)
