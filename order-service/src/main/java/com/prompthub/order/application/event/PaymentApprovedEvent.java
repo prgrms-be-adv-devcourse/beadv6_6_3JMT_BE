@@ -1,13 +1,16 @@
 package com.prompthub.order.application.event;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public record PaymentApprovedEvent(
-        UUID eventId,
-        UUID orderId,
-        UUID paymentId,
-        int approvedAmount,
-        LocalDateTime approvedAt
+	UUID eventId,
+	UUID orderId,
+	UUID paymentId,
+	String pgTxId,
+	String paymentMethod,
+	String provider,
+	int approvedAmount,
+	OffsetDateTime approvedAt
 ) {
 }

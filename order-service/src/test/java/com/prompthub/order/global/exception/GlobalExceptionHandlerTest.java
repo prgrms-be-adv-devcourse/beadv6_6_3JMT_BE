@@ -6,7 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.prompthub.exception.BusinessException;
-import com.prompthub.order.domain.exception.InvalidOrderStatusTransitionException;
+import com.prompthub.order.global.exception.OrderException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.BeforeEach;
@@ -106,7 +106,7 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/test/domain/order-status")
         void invalidOrderStatusTransition() {
-            throw new InvalidOrderStatusTransitionException("대기 상태의 주문만 처리할 수 있습니다.");
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "대기 상태의 주문만 처리할 수 있습니다.");
         }
 
         @PostMapping("/test/validation")

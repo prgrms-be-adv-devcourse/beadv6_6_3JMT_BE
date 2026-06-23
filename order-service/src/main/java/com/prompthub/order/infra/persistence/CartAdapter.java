@@ -1,6 +1,7 @@
 package com.prompthub.order.infra.persistence;
 
 import com.prompthub.order.domain.model.Cart;
+import com.prompthub.order.domain.model.CartProduct;
 import com.prompthub.order.domain.repository.CartRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -17,5 +18,15 @@ public class CartAdapter implements CartRepository {
 	@Override
 	public Optional<Cart> findByBuyerIdWithCartProducts(UUID buyerId) {
 		return cartPersistence.findByBuyerIdWithCartProducts(buyerId);
+	}
+
+	@Override
+	public Optional<CartProduct> findCartProductWithCart(UUID cartProductId) {
+		return cartPersistence.findCartProductWithCart(cartProductId);
+	}
+
+	@Override
+	public Cart save(Cart cart) {
+		return cartPersistence.save(cart);
 	}
 }

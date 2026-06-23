@@ -1,7 +1,8 @@
 package com.prompthub.order.domain.model;
 
 import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.domain.exception.InvalidOrderStatusTransitionException;
+import com.prompthub.order.global.exception.OrderException;
+import com.prompthub.order.global.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Enumerated;
@@ -144,7 +145,7 @@ public class OrderProduct {
 
     public void refund() {
         if (this.orderStatus != OrderStatus.PAID) {
-            throw new InvalidOrderStatusTransitionException("결제 완료 상태의 주문 상품만 환불할 수 있습니다.");
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "결제 완료 상태의 주문 상품만 환불할 수 있습니다.");
         }
 
         this.orderStatus = OrderStatus.REFUNDED;
@@ -154,7 +155,7 @@ public class OrderProduct {
 
     public void markDownloaded() {
         if (this.orderStatus != OrderStatus.PAID) {
-            throw new InvalidOrderStatusTransitionException("결제 완료된 주문 상품만 다운로드 처리할 수 있습니다.");
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "결제 완료된 주문 상품만 다운로드 처리할 수 있습니다.");
         }
 
         this.download = true;
@@ -167,7 +168,7 @@ public class OrderProduct {
 
     private void validatePending() {
         if (this.orderStatus != OrderStatus.PENDING) {
-            throw new InvalidOrderStatusTransitionException("대기 상태의 주문 상품만 처리할 수 있습니다.");
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "대기 상태의 주문 상품만 처리할 수 있습니다.");
         }
     }
 }

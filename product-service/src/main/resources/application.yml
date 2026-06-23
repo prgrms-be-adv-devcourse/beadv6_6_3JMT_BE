@@ -2,7 +2,9 @@ spring:
   application:
     name: product-service
   config:
-    import: optional:file:./.env[.properties]
+    import:
+      - optional:file:./.env[.properties]
+      - optional:file:./product-service/.env[.properties]
 
   datasource:
     url: ${DB_URL}
@@ -12,7 +14,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: ${JPA_DDL_AUTO:create}
     properties:
       hibernate:
         format_sql: true
@@ -20,6 +22,11 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+
+app:
+  cors:
+    # Local Next.js dev server. Override with CORS_ALLOWED_ORIGINS when needed.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
 
 logging:
   level:

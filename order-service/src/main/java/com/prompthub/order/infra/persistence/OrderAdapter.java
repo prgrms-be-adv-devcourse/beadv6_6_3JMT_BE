@@ -29,6 +29,11 @@ public class OrderAdapter implements OrderRepository {
 	}
 
 	@Override
+	public boolean existsPaidOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId) {
+		return orderPersistence.existsPaidOrderProductByBuyerIdAndProductId(buyerId, productId);
+	}
+
+	@Override
 	public Page<OrderListProjection> searchOrderproducts(
 		UUID buyerId,
 		OrderStatus status,
