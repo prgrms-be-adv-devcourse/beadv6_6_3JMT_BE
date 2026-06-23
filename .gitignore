@@ -179,3 +179,20 @@ gradle-app.setting
 /docs/superpowers/
 /.env
 /order-service/.env
+/settlement-service/.env
+
+### 모듈 .gitignore 통합 (STS / NetBeans / VS Code / Spring) ###
+HELP.md
+.apt_generated
+.factorypath
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+.vscode/

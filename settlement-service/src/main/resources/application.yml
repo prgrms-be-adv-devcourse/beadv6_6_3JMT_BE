@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: settlement
+  datasource:
+    url: jdbc:postgresql://localhost:54432/promptHub
+    username: promptHub
+    password: promptHub
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false
+
+settlement:
+  scheduler:
+    cron: "0 0 4 1 * *"
+
+api:
+  init: /api/v1
