@@ -16,8 +16,8 @@ public class UserHeaderFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         return ReactiveSecurityContextHolder.getContext()
-            .map(SecurityContext::getAuthentication)
-            .cast(JwtAuthenticationToken.class)
+            .flatMap(ctx -> Mono.justOrEmpty(ctx.getAuthentication()))
+            .ofType(JwtAuthenticationToken.class)
             .flatMap(auth -> {
                 var jwt = auth.getToken();
                 var userId = jwt.getSubject();
@@ -25,6 +25,7 @@ public class UserHeaderFilter implements GlobalFilter, Ordered {
 
                 ServerWebExchange mutated = exchange.mutate()
                     .request(r -> r
+                        .headers(headers -> headers.remove(org.springframework.http.HttpHeaders.AUTHORIZATION))
                         .header("X-User-Id", userId)
                         .header("X-User-Role", role))
                     .build();
