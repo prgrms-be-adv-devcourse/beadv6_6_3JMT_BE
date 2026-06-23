@@ -67,7 +67,7 @@ public class Payment {
     @Column(name = "canceled_amount", nullable = false)
     private int canceledAmount;
 
-    @Column(name = "idempotency_key", length = 255, nullable = false)
+    @Column(name = "idempotency_key", length = 255, nullable = false, unique = true)
     private String idempotencyKey;
 
     @Column(name = "failure_code", length = 100)
@@ -149,5 +149,36 @@ public class Payment {
             0,
             "pay-" + orderId
         );
+    }
+
+    public void markRequested(OffsetDateTime requestedAt) {
+        if (this.status != PaymentStatus.READY) {
+            throw new IllegalStateException("READY 상태에서만 REQUESTED로 전환할 수 있습니다.");
+        }
+        this.status = PaymentStatus.REQUESTED;
+        this.requestedAt = requestedAt;
+    }
+
+    public void approve(int approvedAmount, String paymentMethod, String responsePayload, OffsetDateTime approvedAt) {
+        if (this.status != PaymentStatus.REQUESTED) {
+            throw new IllegalStateException("REQUESTED 상태에서만 PAID로 전환할 수 있습니다.");
+        }
+        this.status = PaymentStatus.PAID;
+        this.approvedAmount = approvedAmount;
+        this.paymentMethod = paymentMethod;
+        this.responsePayload = responsePayload;
+        this.approvedAt = approvedAt;
+    }
+
+    public void fail(String failureCode, String failureReason, String requestPayload, String responsePayload, OffsetDateTime failedAt) {
+        if (this.status != PaymentStatus.REQUESTED) {
+            throw new IllegalStateException("REQUESTED 상태에서만 FAILED로 전환할 수 있습니다.");
+        }
+        this.status = PaymentStatus.FAILED;
+        this.failureCode = failureCode;
+        this.failureReason = failureReason;
+        this.requestPayload = requestPayload;
+        this.responsePayload = responsePayload;
+        this.failedAt = failedAt;
     }
 }
