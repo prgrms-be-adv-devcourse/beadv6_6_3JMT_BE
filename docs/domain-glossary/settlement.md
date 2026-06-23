@@ -61,3 +61,24 @@ settlement의 하위 엔티티.
 | 정산 항목 유형 * | line_type | settlement_line_type | ✓ | | SALE / REFUND / ADJUSTMENT |
 | 발생 일시 * | occurred_at | TIMESTAMPTZ | ✓ | | 원천 거래 발생 시각. 기간 귀속 판단 기준 |
 | 생성 일시 * | created_at | TIMESTAMPTZ | ✓ | | |
+
+---
+
+## 정산 소스 라인 (settlement_source_line)
+
+orderProduct 결제·환불 이벤트를 실시간 수신해 적재하는 정산 원장.
+정산 배치가 미정산 라인(`settlement_id IS NULL`)을 판매자·기간으로 모아 `settlement_detail`로 산정한다.
+
+| 이름 | 영문 | DB 타입 | NOT NULL | 기본값 | 설명 |
+|------|------|---------|:--------:|--------|------|
+| 식별자 * | settlement_source_line_id | UUID | ✓ | gen_random_uuid() | PK |
+| 멱등키 * | event_id | UUID | ✓ | | 이벤트 멱등키. 같은 이벤트 재수신 차단. UNIQUE |
+| 이벤트 유형 * | event_type | VARCHAR(30) | ✓ | | 수신한 원본 이벤트 종류. PAID / REFUND |
+| 주문 ID | order_id | UUID | | NULL | FK → order.order_id. 참조·추적용 |
+| 주문 상품 ID * | order_product_id | UUID | ✓ | | FK → order_product.order_product_id |
+| 판매자 ID * | seller_id | UUID | ✓ | | FK → seller.seller_id. 정산 기준 |
+| 거래 금액 * | line_amount | NUMERIC(12,2) | ✓ | | 결제는 양수, 환불(REFUND)은 음수 |
+| 발생 일시 * | occurred_at | TIMESTAMPTZ | ✓ | | 원천 이벤트 발생 시각. 기간 귀속 판단 기준 |
+| 정산 ID | settlement_id | UUID | | NULL | FK → settlement.settlement_id. NULL이면 미정산, 정산 반영 시 연결 |
+| 생성 일시 * | created_at | TIMESTAMPTZ | ✓ | | 수신 적재 시각 |
+| 수정 일시 * | updated_at | TIMESTAMPTZ | ✓ | | 정산 연결 시 갱신 |
