@@ -1,0 +1,24 @@
+server:
+  port: 8000
+
+spring:
+  application:
+    name: apigateway
+  config:
+    import: optional:configserver:http://localhost:8888
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/api/v1/auth/**, /api/v1/users/**, /api/v1/seller/**, /api/v1/sellers/**, /api/v1/wishlists/**, /api/v1/admin/**
+
+jwt:
+  public-key: ${JWT_PUBLIC_KEY}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info

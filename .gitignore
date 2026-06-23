@@ -180,3 +180,6 @@ gradle-app.setting
 /.env
 /order-service/.env
 /CLAUDE.md
+
+# Claude Code 루트 커맨드 (로컬 전용)
+/.claude/
