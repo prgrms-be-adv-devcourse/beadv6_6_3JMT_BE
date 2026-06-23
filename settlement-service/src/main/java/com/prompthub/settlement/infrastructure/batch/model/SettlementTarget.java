@@ -1,4 +1,4 @@
-package com.prompthub.settlement.infrastructure.batch;
+package com.prompthub.settlement.infrastructure.batch.model;
 
 import java.time.YearMonth;
 import java.util.UUID;

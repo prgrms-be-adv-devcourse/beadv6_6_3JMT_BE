@@ -1,4 +1,4 @@
-package com.prompthub.settlement.infrastructure.batch;
+package com.prompthub.settlement.infrastructure.batch.config;
 
 import com.prompthub.settlement.infrastructure.batch.listener.SettlementBatchFailureListener;
 import lombok.RequiredArgsConstructor;

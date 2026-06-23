@@ -1,4 +1,4 @@
-package com.prompthub.settlement.infrastructure.batch;
+package com.prompthub.settlement.infrastructure.batch.launcher;
 
 import com.prompthub.settlement.application.dto.RunSettlementJobCommand;
 import com.prompthub.settlement.application.dto.SettlementJobResult;

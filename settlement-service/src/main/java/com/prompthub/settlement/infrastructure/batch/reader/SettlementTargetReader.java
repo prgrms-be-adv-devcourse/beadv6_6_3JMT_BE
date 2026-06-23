@@ -1,7 +1,7 @@
 package com.prompthub.settlement.infrastructure.batch.reader;
 
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
-import com.prompthub.settlement.infrastructure.batch.SettlementTarget;
+import com.prompthub.settlement.infrastructure.batch.model.SettlementTarget;
 import java.time.YearMonth;
 import java.util.Iterator;
 import java.util.UUID;

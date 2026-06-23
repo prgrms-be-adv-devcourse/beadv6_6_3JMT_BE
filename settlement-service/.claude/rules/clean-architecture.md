@@ -45,7 +45,15 @@ com.prompthub.settlement
     │   └── repository              ← 아웃바운드 포트(인터페이스)
     ├── infrastructure
     │   ├── persistence             ← JpaRepository, RepositoryAdapter
-    │   ├── batch                   ← Job / Step / Reader / Processor / Writer
+    │   ├── batch                   ← Spring Batch 어댑터(역할별 하위 패키지로 분리)
+    │   │   ├── config              ← Job / Step 설정(JobConfig·StepConfig)
+    │   │   ├── reader              ← Reader
+    │   │   ├── processor           ← Processor
+    │   │   ├── writer              ← Writer
+    │   │   ├── tasklet             ← Tasklet
+    │   │   ├── listener            ← Job/Step 리스너
+    │   │   ├── launcher            ← 잡 실행·상태 조회 어댑터(JobOperator·JobRepository 연동)
+    │   │   └── model               ← 배치 내부 전용 DTO(예: SettlementTarget)
     │   └── event                   ← 메시징·이벤트 어댑터
     └── config                      ← 해당 기능 전용 설정
 
@@ -104,16 +112,23 @@ domain/repository/SettlementRepository  ◀ implements ◀  infrastructure/persi
 
 Spring Batch 구성은 기술 세부사항으로 보고 `infrastructure/batch`에 둔다.
 
-- Job / Step / Reader / Processor / Writer 설정은 모두 `infrastructure/batch`.
+- Job / Step / Reader / Processor / Writer / Tasklet / Listener 구성은 모두 `infrastructure/batch` 아래,
+  **역할별 하위 패키지로 분리**한다. (`config` · `reader` · `processor` · `writer` · `tasklet` · `listener` · `launcher` · `model`)
 - **배치는 흐름 제어만 한다.** 실제 정산 로직은 `application`의 유스케이스를 호출해 수행한다.
 - Reader/Writer가 도메인 모델을 직접 다루더라도, 비즈니스 규칙은 도메인·유스케이스에 위임한다.
+- 잡 실행·상태 조회처럼 `JobOperator`·`JobRepository`를 직접 다루는 어댑터는 `launcher`에 둔다.
+- 배치 단계 사이에서만 쓰는 내부 DTO(예: `SettlementTarget`)는 `model`에 둔다. 도메인 모델과 섞지 않는다.
 
 ```
-infrastructure/batch/SettlementJobConfig
-infrastructure/batch/SettlementStepConfig
+infrastructure/batch/config/SettlementJobConfig
+infrastructure/batch/config/SettlementStepConfig
 infrastructure/batch/reader/...
 infrastructure/batch/processor/...   ──▶ application/usecase 호출
 infrastructure/batch/writer/...
+infrastructure/batch/tasklet/...
+infrastructure/batch/listener/...
+infrastructure/batch/launcher/...    ──▶ JobOperator / JobRepository 연동
+infrastructure/batch/model/...       ← 배치 내부 전용 DTO
 ```
 
 ## 6. 계층 네이밍 규칙
