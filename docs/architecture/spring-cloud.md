@@ -82,19 +82,19 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant SVC as User Service
-    participant BS as bootstrap.yml
+    participant APP as application.yml
     participant CFG as Config Server
-    participant APP as application context
+    participant CTX as application context
 
-    SVC->>BS: 기동 시 bootstrap.yml 먼저 읽음
-    Note over BS: spring.application.name: user-service\nspring.cloud.config.uri: http://localhost:8888
+    SVC->>APP: 기동 시 application.yml 먼저 읽음
+    Note over APP: spring.application.name: user-service\nspring.config.import: optional:configserver:http://localhost:8888
 
-    BS->>CFG: GET /user-service/default 요청
-    CFG-->>BS: configs/user-service.yml 내용 반환
-    CFG-->>BS: configs/application.yml 내용 반환 (공통)
+    APP->>CFG: GET /user-service/default 요청
+    CFG-->>APP: configs/user-service.yml 내용 반환
+    CFG-->>APP: configs/application.yml 내용 반환 (공통)
 
-    BS->>APP: 가져온 설정으로 ApplicationContext 초기화
-    Note over APP: DB 연결, 포트 설정 등 완료
+    APP->>CTX: 가져온 설정으로 ApplicationContext 초기화
+    Note over CTX: DB 연결, 포트 설정 등 완료
 ```
 
 **핵심**: `spring.config.import`로 Config Server를 지정하면(예: `optional:configserver:http://localhost:8888`) 별도의 `bootstrap.yml` 없이도 애플리케이션 초기 단계에서 원격 설정을 로드한다.
