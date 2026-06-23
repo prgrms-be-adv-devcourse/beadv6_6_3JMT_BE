@@ -1,4 +1,4 @@
-package com.prompthub.paymentservice.interfaces.web.dto.request;
+package com.prompthub.paymentservice.presentation.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

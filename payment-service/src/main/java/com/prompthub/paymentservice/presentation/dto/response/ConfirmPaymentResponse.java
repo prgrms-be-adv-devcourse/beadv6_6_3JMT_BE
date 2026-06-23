@@ -1,4 +1,4 @@
-package com.prompthub.paymentservice.interfaces.web.dto.response;
+package com.prompthub.paymentservice.presentation.dto.response;
 
 import java.util.UUID;
 

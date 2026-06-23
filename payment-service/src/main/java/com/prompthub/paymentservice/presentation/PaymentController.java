@@ -1,10 +1,10 @@
-package com.prompthub.paymentservice.interfaces.web;
+package com.prompthub.paymentservice.presentation;
 
 import com.prompthub.paymentservice.application.dto.command.ConfirmPaymentCommand;
 import com.prompthub.paymentservice.application.dto.result.PaymentResult;
 import com.prompthub.paymentservice.application.usecase.ConfirmPaymentUseCase;
-import com.prompthub.paymentservice.interfaces.web.dto.request.ConfirmPaymentRequest;
-import com.prompthub.paymentservice.interfaces.web.dto.response.ConfirmPaymentResponse;
+import com.prompthub.paymentservice.presentation.dto.request.ConfirmPaymentRequest;
+import com.prompthub.paymentservice.presentation.dto.response.ConfirmPaymentResponse;
 import com.prompthub.presentation.dto.ApiResult;
 import jakarta.validation.Valid;
 import java.util.UUID;

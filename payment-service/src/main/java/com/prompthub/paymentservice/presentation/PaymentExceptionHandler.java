@@ -1,4 +1,4 @@
-package com.prompthub.paymentservice.interfaces.web;
+package com.prompthub.paymentservice.presentation;
 
 import com.prompthub.exception.BusinessException;
 import com.prompthub.exception.response.ErrorResponse;
