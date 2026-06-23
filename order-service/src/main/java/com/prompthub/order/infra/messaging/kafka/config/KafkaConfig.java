@@ -81,6 +81,20 @@ public class KafkaConfig {
 	}
 
 	@Bean
+	public ConsumerFactory<String, String> paymentEventConsumerFactory() {
+		Map<String, Object> properties = new HashMap<>();
+		properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+		properties.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+		properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset);
+		properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, enableAutoCommit);
+		properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+		properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+		properties.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
+		properties.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, StringDeserializer.class);
+		return new DefaultKafkaConsumerFactory<>(properties);
+	}
+
+	@Bean
 	public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory(
 		ConsumerFactory<String, Object> consumerFactory,
 		DefaultErrorHandler kafkaErrorHandler
@@ -88,6 +102,19 @@ public class KafkaConfig {
 		ConcurrentKafkaListenerContainerFactory<String, Object> factory =
 			new ConcurrentKafkaListenerContainerFactory<>();
 		factory.setConsumerFactory(consumerFactory);
+		factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
+		factory.setCommonErrorHandler(kafkaErrorHandler);
+		return factory;
+	}
+
+	@Bean
+	public ConcurrentKafkaListenerContainerFactory<String, String> paymentEventKafkaListenerContainerFactory(
+		ConsumerFactory<String, String> paymentEventConsumerFactory,
+		DefaultErrorHandler kafkaErrorHandler
+	) {
+		ConcurrentKafkaListenerContainerFactory<String, String> factory =
+			new ConcurrentKafkaListenerContainerFactory<>();
+		factory.setConsumerFactory(paymentEventConsumerFactory);
 		factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
 		factory.setCommonErrorHandler(kafkaErrorHandler);
 		return factory;

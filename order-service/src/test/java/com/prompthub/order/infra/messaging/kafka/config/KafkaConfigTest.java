@@ -76,12 +76,43 @@ class KafkaConfigTest {
 	}
 
 	@Test
+	void paymentEventConsumerFactory_usesStringValues() {
+		ConsumerFactory<String, String> consumerFactory = kafkaConfig.paymentEventConsumerFactory();
+
+		assertThat(consumerFactory).isInstanceOf(DefaultKafkaConsumerFactory.class);
+
+		Map<String, Object> properties = ((DefaultKafkaConsumerFactory<String, String>) consumerFactory)
+			.getConfigurationProperties();
+		assertThat(properties)
+			.containsEntry(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS)
+			.containsEntry(ConsumerConfig.GROUP_ID_CONFIG, "order-service")
+			.containsEntry(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+			.containsEntry(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false)
+			.containsEntry(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class)
+			.containsEntry(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class)
+			.containsEntry(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class)
+			.containsEntry(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, StringDeserializer.class);
+	}
+
+	@Test
 	void kafkaListenerContainerFactory_usesManualAckAndCommonErrorHandler() {
 		ConsumerFactory<String, Object> consumerFactory = kafkaConfig.consumerFactory();
 		DefaultErrorHandler errorHandler = kafkaConfig.kafkaErrorHandler(kafkaConfig.kafkaTemplate(kafkaConfig.producerFactory()));
 
 		ConcurrentKafkaListenerContainerFactory<String, Object> factory =
 			kafkaConfig.kafkaListenerContainerFactory(consumerFactory, errorHandler);
+
+		assertThat(factory.getConsumerFactory()).isSameAs(consumerFactory);
+		assertThat(factory.getContainerProperties().getAckMode()).isEqualTo(ContainerProperties.AckMode.MANUAL);
+	}
+
+	@Test
+	void paymentEventKafkaListenerContainerFactory_usesManualAckAndCommonErrorHandler() {
+		ConsumerFactory<String, String> consumerFactory = kafkaConfig.paymentEventConsumerFactory();
+		DefaultErrorHandler errorHandler = kafkaConfig.kafkaErrorHandler(kafkaConfig.kafkaTemplate(kafkaConfig.producerFactory()));
+
+		ConcurrentKafkaListenerContainerFactory<String, String> factory =
+			kafkaConfig.paymentEventKafkaListenerContainerFactory(consumerFactory, errorHandler);
 
 		assertThat(factory.getConsumerFactory()).isSameAs(consumerFactory);
 		assertThat(factory.getContainerProperties().getAckMode()).isEqualTo(ContainerProperties.AckMode.MANUAL);
