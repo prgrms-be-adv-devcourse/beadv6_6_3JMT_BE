@@ -64,9 +64,6 @@ public class Payment {
     @Column(name = "approved_amount")
     private Integer approvedAmount;
 
-    @Column(name = "canceled_amount", nullable = false)
-    private int canceledAmount;
-
     @Column(name = "idempotency_key", length = 255, nullable = false, unique = true)
     private String idempotencyKey;
 
@@ -75,9 +72,6 @@ public class Payment {
 
     @Column(name = "failure_reason", columnDefinition = "text")
     private String failureReason;
-
-    @Column(name = "cancel_reason", columnDefinition = "text")
-    private String cancelReason;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "request_payload", columnDefinition = "jsonb")
@@ -96,9 +90,6 @@ public class Payment {
     @Column(name = "failed_at")
     private OffsetDateTime failedAt;
 
-    @Column(name = "canceled_at")
-    private OffsetDateTime canceledAt;
-
     @Column(name = "refunded_at")
     private OffsetDateTime refundedAt;
 
@@ -115,7 +106,7 @@ public class Payment {
         String pgTxId, PaymentStatus status,
         String paymentMethod, String provider, boolean isTest,
         int totalAmount, int productAmount, int discountAmount,
-        Integer approvedAmount, int canceledAmount,
+        Integer approvedAmount,
         String idempotencyKey
     ) {
         this.id = id;
@@ -130,7 +121,6 @@ public class Payment {
         this.productAmount = productAmount;
         this.discountAmount = discountAmount;
         this.approvedAmount = approvedAmount;
-        this.canceledAmount = canceledAmount;
         this.idempotencyKey = idempotencyKey;
     }
 
@@ -146,7 +136,6 @@ public class Payment {
             productAmount - discountAmount,
             productAmount, discountAmount,
             null,
-            0,
             "pay-" + orderId
         );
     }

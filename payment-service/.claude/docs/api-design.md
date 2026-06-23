@@ -148,9 +148,6 @@
 | `REQUESTED` | PG사에 결제 요청 전송 완료 |
 | `PAID` | PG사 결제 승인 완료 |
 | `FAILED` | PG사 결제 실패 |
-| `CANCELING` | 취소 이벤트 수신, PG 취소 진행 중 |
-| `CANCELED` | PG 취소 완료 |
-| `CANCEL_FAILED` | PG 취소 실패 |
 | `REFUNDING` | 환불 요청 접수, PG 환불 진행 중 |
 | `REFUNDED` | 환불 완료 |
 | `UNKNOWN` | PG 응답 불명확, 수동 확인 필요 |

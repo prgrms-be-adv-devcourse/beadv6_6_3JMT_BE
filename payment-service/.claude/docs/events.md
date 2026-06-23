@@ -13,8 +13,6 @@ payment-service가 **발행(Publish)** 하는 Kafka 이벤트 목록. 구독(Con
 | 토픽 | 발행 시점 | 구독자 | 구독자 처리 내용 |
 |---|---|---|---|
 | `payment.approved` | Toss confirm 성공 | Order | Order PAID 전환 + `is_download = true` |
-| `payment.canceled` | PG 취소 성공 | Order | Order CANCELED 전환 + `is_download = false` |
-| `payment.cancel_failed` | PG 취소 실패 | Order | PAID 상태 복구 |
 | `payment.refunded` | PG 환불 성공 | Order | Order REFUNDED 전환 + `is_download = false` |
 
 ---
@@ -63,48 +61,6 @@ payment-service가 **발행(Publish)** 하는 Kafka 이벤트 목록. 구독(Con
 | `userId` | UUID | ✅ | 결제 사용자 ID |
 | `amount` | Int | ✅ | 승인된 결제 금액 |
 | `approvedAt` | ISO 8601 | ✅ | PG 승인 완료 일시 |
-
----
-
-### payment.canceled
-
-```json
-{
-  "eventType": "payment.canceled",
-  "paymentId": "550e8400-e29b-41d4-a716-446655440000",
-  "orderId":   "660e8400-e29b-41d4-a716-446655440001",
-  "canceledAt": "2026-06-15T10:05:00Z"
-}
-```
-
-| 필드 | 타입 | 필수 | 설명 |
-|---|---|---|---|
-| `eventType` | String | ✅ | `"payment.canceled"` 고정 |
-| `paymentId` | UUID | ✅ | Payment ID |
-| `orderId` | UUID | ✅ | 주문 ID |
-| `canceledAt` | ISO 8601 | ✅ | PG 취소 완료 일시 |
-
----
-
-### payment.cancel_failed
-
-```json
-{
-  "eventType": "payment.cancel_failed",
-  "paymentId": "550e8400-e29b-41d4-a716-446655440000",
-  "orderId":   "660e8400-e29b-41d4-a716-446655440001",
-  "reason":    "PG 취소 요청 타임아웃",
-  "failedAt":  "2026-06-15T10:05:00Z"
-}
-```
-
-| 필드 | 타입 | 필수 | 설명 |
-|---|---|---|---|
-| `eventType` | String | ✅ | `"payment.cancel_failed"` 고정 |
-| `paymentId` | UUID | ✅ | Payment ID |
-| `orderId` | UUID | ✅ | 주문 ID |
-| `reason` | String | ✅ | PG 취소 실패 사유 |
-| `failedAt` | ISO 8601 | ✅ | 실패 일시 |
 
 ---
 

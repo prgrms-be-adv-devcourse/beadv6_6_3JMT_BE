@@ -15,9 +15,6 @@ payment-service가 소유하는 테이블 요약. **원본 DDL**: `src/main/reso
 | `REQUESTED` | PG사에 결제 요청 전송 완료 |
 | `PAID` | PG사 결제 승인 완료 |
 | `FAILED` | PG사 결제 실패 |
-| `CANCELING` | 취소 이벤트 수신, PG 취소 진행 중 |
-| `CANCELED` | PG 취소 완료 |
-| `CANCEL_FAILED` | PG 취소 실패 |
 | `REFUNDING` | 환불 요청 접수, PG 환불 진행 중 |
 | `REFUNDED` | 환불 완료 |
 | `UNKNOWN` | PG 응답 불명확, 수동 확인 필요 |
@@ -47,17 +44,14 @@ payment-service가 소유하는 테이블 요약. **원본 DDL**: `src/main/reso
 | `product_amount` | INT | ✅ | — | 상품 원금액 |
 | `discount_amount` | INT | ✅ | `0` | 할인 금액 (쿠폰·포인트 확장 시 사용) |
 | `approved_amount` | INT | — | NULL | PG사 실제 승인 금액 (승인 전 NULL) |
-| `canceled_amount` | INT | ✅ | `0` | 취소된 금액 (부분 취소 도입 시 활용) |
 | `idempotency_key` | VARCHAR(255) | ✅ | — | 중복 결제 방지 키. 형식: `pay-{order_id}` |
 | `failure_code` | VARCHAR(100) | — | NULL | PG사 결제 실패 코드 |
 | `failure_reason` | TEXT | — | NULL | PG사 결제 실패 상세 사유 |
-| `cancel_reason` | TEXT | — | NULL | 구매자 취소 사유 |
 | `request_payload` | JSONB | — | NULL | PG사 결제 요청 원문 JSON (분쟁·디버깅용) |
 | `response_payload` | JSONB | — | NULL | PG사 응답 원문 JSON (분쟁·디버깅용) |
 | `requested_at` | TIMESTAMPTZ | — | NULL | PG사 결제 요청 전송 일시 |
 | `approved_at` | TIMESTAMPTZ | — | NULL | PG사 결제 승인 완료 일시 |
 | `failed_at` | TIMESTAMPTZ | — | NULL | PG사 결제 실패 일시 |
-| `canceled_at` | TIMESTAMPTZ | — | NULL | PG사 취소 완료 일시 |
 | `refunded_at` | TIMESTAMPTZ | — | NULL | PG사 환불 완료 일시 |
 | `created_at` | TIMESTAMPTZ | ✅ | `NOW()` | 생성 일시 |
 | `updated_at` | TIMESTAMPTZ | ✅ | `NOW()` | 수정 일시 |
