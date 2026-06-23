@@ -97,7 +97,7 @@ sequenceDiagram
     Note over APP: DB 연결, 포트 설정 등 완료
 ```
 
-**핵심**: `bootstrap.yml`이 `application.yml`보다 **먼저** 로드된다. Config Server URL은 반드시 `bootstrap.yml`에 있어야 한다.
+**핵심**: `spring.config.import`로 Config Server를 지정하면(예: `optional:configserver:http://localhost:8888`) 별도의 `bootstrap.yml` 없이도 애플리케이션 초기 단계에서 원격 설정을 로드한다.
 
 **Config Server가 관리하는 파일 구조**:
 ```
