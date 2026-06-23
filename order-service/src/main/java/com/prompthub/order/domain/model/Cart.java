@@ -2,6 +2,7 @@ package com.prompthub.order.domain.model;
 
 import com.prompthub.order.global.exception.CartException;
 import com.prompthub.order.global.exception.ErrorCode;
+import com.prompthub.order.global.config.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;

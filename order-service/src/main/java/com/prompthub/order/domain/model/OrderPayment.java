@@ -1,5 +1,6 @@
 package com.prompthub.order.domain.model;
 
+import com.prompthub.order.global.config.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
