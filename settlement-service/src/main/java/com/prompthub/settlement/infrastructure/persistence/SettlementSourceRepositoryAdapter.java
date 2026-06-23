@@ -2,7 +2,6 @@ package com.prompthub.settlement.infrastructure.persistence;
 
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
@@ -14,7 +13,7 @@ import org.springframework.stereotype.Repository;
 @RequiredArgsConstructor
 public class SettlementSourceRepositoryAdapter implements SettlementSourceRepository {
 
-    private final OrderProductSourceJpaRepository jpaRepository;
+    private final SettlementSourceLineJpaRepository jpaRepository;
 
     @Override
     public List<UUID> findSettleableSellerIds(YearMonth period) {
@@ -23,14 +22,7 @@ public class SettlementSourceRepositoryAdapter implements SettlementSourceReposi
 
     @Override
     public List<SettlementSourceLine> findSettleableLines(UUID sellerId, YearMonth period) {
-        return jpaRepository.findSettleableLines(sellerId, startOf(period), endOf(period))
-                .stream()
-                .map(source -> new SettlementSourceLine(
-                        source.getOrderProductId(),
-                        source.getSellerId(),
-                        BigDecimal.valueOf(source.getProductAmountSnapshot()),
-                        source.getCreatedAt()))
-                .toList();
+        return jpaRepository.findSettleableLines(sellerId, startOf(period), endOf(period));
     }
 
     private LocalDateTime startOf(YearMonth period) {

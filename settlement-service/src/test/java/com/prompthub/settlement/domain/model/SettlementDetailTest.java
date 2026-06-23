@@ -59,4 +59,22 @@ class SettlementDetailTest {
         assertThat(detail.getLineType()).isEqualTo(SettlementLineType.SALE);
         assertThat(detail.getOccurredAt()).isEqualTo(OCCURRED_AT);
     }
+
+    @Test
+    @DisplayName("환불 상세는 라인·수수료·실정산액을 음수로 계산해 정산에서 차감된다")
+    void refund_calculatesNegativeAmounts() {
+        // given 거래 금액은 양수로 들어오고, 환불은 정산에서 빠져야 한다
+        // when
+        SettlementDetail detail = SettlementDetail.refund(
+                UUID.randomUUID(),
+                new BigDecimal("100.00"),
+                new BigDecimal("0.15"),
+                OCCURRED_AT);
+
+        // then : 100.00 매출의 환불 -> 라인 -100.00, 수수료 -15.00, 실정산 -85.00
+        assertThat(detail.getLineAmount()).isEqualByComparingTo("-100.00");
+        assertThat(detail.getFeeAmount()).isEqualByComparingTo("-15.00");
+        assertThat(detail.getLineSettlementAmount()).isEqualByComparingTo("-85.00");
+        assertThat(detail.getLineType()).isEqualTo(SettlementLineType.REFUND);
+    }
 }

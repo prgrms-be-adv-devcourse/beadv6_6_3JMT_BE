@@ -4,6 +4,7 @@ import com.prompthub.exception.BusinessException;
 import com.prompthub.exception.ErrorCode;
 import com.prompthub.exception.response.ErrorResponse;
 import com.prompthub.settlement.domain.exception.SettlementBatchInvalidStateException;
+import com.prompthub.settlement.domain.exception.SettlementSourceLineAlreadySettledException;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -34,6 +35,14 @@ public class GlobalExceptionHandler {
             SettlementBatchInvalidStateException exception) {
         log.warn("정산 배치 상태 충돌 - {}", exception.getMessage());
         ErrorCode errorCode = SettlementErrorCode.SETTLEMENT_BATCH_INVALID_STATE;
+        return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
+    }
+
+    @ExceptionHandler(SettlementSourceLineAlreadySettledException.class)
+    public ResponseEntity<ErrorResponse> handleSettlementSourceLineAlreadySettled(
+            SettlementSourceLineAlreadySettledException exception) {
+        log.warn("정산 소스 라인 중복 정산 - {}", exception.getMessage());
+        ErrorCode errorCode = SettlementErrorCode.SETTLEMENT_SOURCE_LINE_ALREADY_SETTLED;
         return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
     }
 

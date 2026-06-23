@@ -57,13 +57,23 @@ public class SettlementDetail {
 
     public static SettlementDetail sale(UUID orderProductId, BigDecimal lineAmount, BigDecimal feeRate,
                                         LocalDateTime occurredAt) {
+        return create(orderProductId, lineAmount, feeRate, SettlementLineType.SALE, occurredAt);
+    }
+
+    public static SettlementDetail refund(UUID orderProductId, BigDecimal lineAmount, BigDecimal feeRate,
+                                          LocalDateTime occurredAt) {
+        return create(orderProductId, lineAmount.negate(), feeRate, SettlementLineType.REFUND, occurredAt);
+    }
+
+    private static SettlementDetail create(UUID orderProductId, BigDecimal lineAmount, BigDecimal feeRate,
+                                           SettlementLineType lineType, LocalDateTime occurredAt) {
         SettlementDetail detail = new SettlementDetail();
         detail.orderProductId = orderProductId;
         detail.lineAmount = lineAmount;
         detail.feeRate = feeRate;
         detail.feeAmount = lineAmount.multiply(feeRate).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
         detail.lineSettlementAmount = lineAmount.subtract(detail.feeAmount);
-        detail.lineType = SettlementLineType.SALE;
+        detail.lineType = lineType;
         detail.occurredAt = occurredAt;
         detail.createdAt = LocalDateTime.now();
         return detail;

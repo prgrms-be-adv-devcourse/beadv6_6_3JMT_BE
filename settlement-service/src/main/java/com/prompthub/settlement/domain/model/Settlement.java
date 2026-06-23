@@ -98,7 +98,7 @@ public class Settlement extends BaseEntity {
         settlement.sellerId = sellerId;
         settlement.periodStart = period.atDay(1);
         settlement.periodEnd = period.atEndOfMonth();
-        settlement.details = new ArrayList<>(details);
+        settlement.details.addAll(details);
         settlement.productCount = details.size();
         settlement.totalAmount = sum(details, SettlementDetail::getLineAmount);
         settlement.feeTotalAmount = sum(details, SettlementDetail::getFeeAmount);

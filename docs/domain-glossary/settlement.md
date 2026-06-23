@@ -77,7 +77,7 @@ orderProduct 결제·환불 이벤트를 실시간 수신해 적재하는 정산
 | 주문 ID | order_id | UUID | | NULL | FK → order.order_id. 참조·추적용 |
 | 주문 상품 ID * | order_product_id | UUID | ✓ | | FK → order_product.order_product_id |
 | 판매자 ID * | seller_id | UUID | ✓ | | FK → seller.seller_id. 정산 기준 |
-| 거래 금액 * | line_amount | NUMERIC(12,2) | ✓ | | 결제는 양수, 환불(REFUND)은 음수 |
+| 거래 금액 * | line_amount | NUMERIC(12,2) | ✓ | | 거래 금액(항상 양수). 가산/차감은 event_type으로 구분 |
 | 발생 일시 * | occurred_at | TIMESTAMPTZ | ✓ | | 원천 이벤트 발생 시각. 기간 귀속 판단 기준 |
 | 정산 ID | settlement_id | UUID | | NULL | FK → settlement.settlement_id. NULL이면 미정산, 정산 반영 시 연결 |
 | 생성 일시 * | created_at | TIMESTAMPTZ | ✓ | | 수신 적재 시각 |

@@ -12,15 +12,14 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class SettlementProcessor implements ItemProcessor<SettlementTarget, Settlement> {
 
-	private final CalculateSettlementUseCase calculateSettlementUseCase;
+    private final CalculateSettlementUseCase calculateSettlementUseCase;
 
-	@Override
-	public Settlement process(SettlementTarget target) {
-		Settlement settlement = calculateSettlementUseCase.calculate(new CalculateSettlementCommand(
-			target.settlementBatchId(),
-			target.sellerId(),
-			target.period()
-		));
-		return settlement.getProductCount() == 0 ? null : settlement;
-	}
+    @Override
+    public Settlement process(SettlementTarget target) {
+        // 정산 대상 라인이 없으면 calculate 가 null 을 반환하고, chunk 는 해당 아이템을 건너뛴다.
+        return calculateSettlementUseCase.calculate(new CalculateSettlementCommand(
+                target.settlementBatchId(),
+                target.sellerId(),
+                target.period()));
+    }
 }
