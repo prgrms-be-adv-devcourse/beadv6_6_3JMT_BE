@@ -124,19 +124,9 @@
 
 ```
 버튼 클릭
-  → Kakao 인증 페이지 (아래 URL로 리다이렉트)
-  → /auth/kakao/callback?code=... 콜백
-  → 이 API 호출
-  → 로그인 완료
-```
-
-**Kakao 인증 URL**
-
-```
-https://kauth.kakao.com/oauth/authorize
-  ?client_id={KAKAO_CLIENT_ID}
-  &redirect_uri={origin}/auth/kakao/callback
-  &response_type=code
+  → 프론트엔드에서 Kakao SDK로 사용자 정보 직접 조회
+  → 이 API 호출 (kakaoId, nickname 등 전달)
+  → 로그인/자동 회원가입 완료
 ```
 
 #### Path Parameters
@@ -151,13 +141,19 @@ https://kauth.kakao.com/oauth/authorize
 
 ```json
 {
-  "code": "authorization-code-from-kakao"
+  "kakaoId": "123456789",
+  "nickname": "카카오사용자",
+  "profileImage": "https://k.kakaocdn.net/...",
+  "email": "kakao@user.com"
 }
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| code | string | Y | 카카오 OAuth 인가코드 |
+| kakaoId | string | Y | 카카오 고유 식별자 |
+| nickname | string | Y | 카카오 닉네임 |
+| profileImage | string | Y | 프로필 이미지 URL |
+| email | string | Y | 이메일 |
 
 #### Response
 
