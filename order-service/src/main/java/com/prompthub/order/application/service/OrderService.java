@@ -5,17 +5,11 @@ import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
-import com.prompthub.order.application.event.PaymentApprovedEvent;
-import com.prompthub.order.application.event.PaymentCanceledEvent;
-import com.prompthub.order.application.event.PaymentFailedEvent;
-import com.prompthub.order.application.event.PaymentRefundedEvent;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.application.usecase.OrderUseCase;
 import com.prompthub.order.domain.model.Order;
-import com.prompthub.order.domain.model.OrderPayment;
 import com.prompthub.order.domain.model.OrderProduct;
-import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.domain.repository.OrderPaymentRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -47,7 +41,6 @@ import java.util.UUID;
 public class OrderService implements OrderUseCase {
 
 	private final OrderRepository orderRepository;
-	private final CartRepository cartRepository;
 	private final OrderPaymentRepository orderPaymentRepository;
 	private final OrderNumberGenerator orderNumberGenerator;
 	private final ProductClient productClient;
@@ -201,58 +194,6 @@ public class OrderService implements OrderUseCase {
 		);
 
 		return orders.map(this::toOrderListResponse);
-	}
-
-	@Transactional
-	public void approveOrder(PaymentApprovedEvent event) throws OrderException {
-		Order order = orderRepository.findByIdWithOrderProducts(event.orderId())
-			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
-
-		boolean orderPaymentExists = orderPaymentRepository.existsByOrderId(event.orderId());
-		if (orderPaymentExists && order.isPaid()) {
-			return;
-		}
-
-		orderPolicyService.validatePaymentApproval(order, event);
-		order.markPaid(event.approvedAt());
-		orderPaymentRepository.save(OrderPayment.create(
-			order.getId(),
-			event.paymentId(),
-			event.buyerId(),
-			event.approvedAmount(),
-			event.approvedAt()
-		));
-
-		List<UUID> orderedProductIds = order.getOrderProducts().stream()
-			.map(OrderProduct::getProductId)
-			.toList();
-
-		cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId())
-			.ifPresent(cart -> cart.removeProductsByProductIds(orderedProductIds));
-	}
-
-	@Transactional
-	public void failOrder(PaymentFailedEvent event) throws OrderException {
-		Order order = orderRepository.findByIdWithOrderProducts(event.orderId())
-			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
-
-		order.markFailed();
-	}
-
-	@Transactional
-	public void cancelOrder(PaymentCanceledEvent event) throws OrderException {
-		Order order = orderRepository.findByIdWithOrderProducts(event.orderId())
-			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
-
-		order.cancel(event.canceledAt());
-	}
-
-	@Transactional
-	public void refundOrder(PaymentRefundedEvent event) throws OrderException {
-		Order order = orderRepository.findByIdWithOrderProducts(event.orderId())
-			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
-
-		order.refund(event.refundedAt());
 	}
 
 	@Override
