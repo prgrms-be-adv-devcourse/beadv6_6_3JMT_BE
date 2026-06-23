@@ -73,6 +73,12 @@
 - 인증: 필요
 - 필요 역할: BUYER
 
+#### Request Header
+
+| 헤더 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| X-User-Id | UUID | O | API Gateway가 주입한 구매자 ID |
+
 #### Query Parameters
 
 | 파라미터 | 타입 | 필수 | 기본값 | 설명 |
@@ -117,6 +123,7 @@
       "title": "면접 답변 프롬프트",
       "model": "gpt-4o",
       "rating": 4.5,
+      "thumbnailUrl": "https://cdn.prompthub.io/products/thumbnail-1.png",
       "paidAt": "2026-06-18T10:45:00",
       "createdAt": "2026-06-18T10:40:00"
     }
@@ -130,6 +137,30 @@
   }
 }
 ```
+
+빈 목록도 `200 OK`로 반환한다.
+
+```json
+{
+  "success": true,
+  "data": [],
+  "message": "success",
+  "meta": {
+    "page": 1,
+    "size": 20,
+    "total": 0,
+    "hasNext": false
+  }
+}
+```
+
+#### Error
+
+| Status Code | Error Code | 설명 |
+|-------------|------------|------|
+| 400 | V001 | 잘못된 쿼리 파라미터 |
+| 401 | A003 | 인증 실패 |
+| 403 | A004 | 권한 없음 |
 
 ---
 

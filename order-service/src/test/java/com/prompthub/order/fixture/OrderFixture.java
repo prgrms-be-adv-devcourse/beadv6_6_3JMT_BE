@@ -1,13 +1,18 @@
 package com.prompthub.order.fixture;
 
+import com.prompthub.order.application.dto.OrderListProjection;
+import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.application.event.PaymentApprovedEvent;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,8 +45,29 @@ public final class OrderFixture {
 	public static final UUID PAYMENT_ID =
 		UUID.fromString("00000000-0000-0000-0000-000000000401");
 
+	public static final String PG_TX_ID = "tosspayments-tx-20260619-0001";
+
+	public static final String PAYMENT_METHOD = "CARD";
+
+	public static final String PAYMENT_PROVIDER = "TOSS_PAYMENTS";
+
+	public static final UUID ORDER_ID =
+		UUID.fromString("00000000-0000-0000-0000-000000000501");
+
+	public static final UUID ORDER_PRODUCT_ID =
+		UUID.fromString("00000000-0000-0000-0000-000000000601");
+
 	public static final LocalDateTime APPROVED_AT =
 		LocalDateTime.of(2026, 6, 19, 12, 0);
+
+	public static final OffsetDateTime APPROVED_OFFSET_AT =
+		OffsetDateTime.of(2026, 6, 19, 12, 0, 0, 0, ZoneOffset.ofHours(9));
+
+	public static final LocalDateTime PAID_AT =
+		LocalDateTime.of(2026, 6, 20, 12, 0);
+
+	public static final LocalDateTime CREATED_AT =
+		LocalDateTime.of(2026, 6, 20, 11, 58);
 
 	public static final String ORDER_NUMBER = "ORD-20260619-0001";
 
@@ -50,6 +76,8 @@ public final class OrderFixture {
 	public static final String UNKNOWN_PRODUCT_TITLE = "요청하지 않은 상품";
 
 	public static final String PRODUCT_TYPE_PROMPT = "PROMPT";
+	public static final String PRODUCT_MODEL = "GPT-4.1";
+	public static final String PRODUCT_THUMBNAIL_URL = "https://example.com/thumbnail.png";
 
 	public static final int PRODUCT_AMOUNT_1 = 10_000;
 	public static final int PRODUCT_AMOUNT_2 = 20_000;
@@ -117,12 +145,15 @@ public final class OrderFixture {
 	}
 
 	public static Order createPendingOrder() {
-		return Order.create(
+		Order order = Order.create(
 			BUYER_ID,
 			ORDER_NUMBER,
 			TOTAL_AMOUNT,
 			TOTAL_ITEM_COUNT
 		);
+		ReflectionTestUtils.setField(order, "createdAt", LocalDateTime.now());
+		ReflectionTestUtils.setField(order, "updatedAt", LocalDateTime.now());
+		return order;
 	}
 
 	public static Order createPendingOrderWithProducts() {
@@ -182,8 +213,51 @@ public final class OrderFixture {
 			EVENT_ID,
 			orderId,
 			PAYMENT_ID,
+			PG_TX_ID,
+			PAYMENT_METHOD,
+			PAYMENT_PROVIDER,
 			approvedAmount,
-			APPROVED_AT
+			APPROVED_OFFSET_AT
+		);
+	}
+
+	public static OrderListProjection orderListProjection(
+		OrderStatus orderStatus,
+		OrderStatus orderProductStatus,
+		boolean download,
+		Double rating
+	) {
+		return new OrderListProjection(
+			ORDER_ID,
+			ORDER_PRODUCT_ID,
+			orderStatus,
+			orderProductStatus,
+			download,
+			PRODUCT_TYPE_PROMPT,
+			PRODUCT_TITLE_1,
+			PRODUCT_MODEL,
+			rating,
+			PAID_AT,
+			CREATED_AT
+		);
+	}
+
+	public static OrderPaymentListProjection orderPaymentListProjection(
+		OrderStatus orderStatus,
+		OrderStatus orderProductStatus,
+		LocalDateTime paidAt
+	) {
+		return new OrderPaymentListProjection(
+			ORDER_ID,
+			ORDER_PRODUCT_ID,
+			PAYMENT_ID,
+			orderStatus,
+			orderProductStatus,
+			PRODUCT_TYPE_PROMPT,
+			PRODUCT_TITLE_1,
+			PRODUCT_AMOUNT_1,
+			paidAt,
+			APPROVED_OFFSET_AT
 		);
 	}
 }

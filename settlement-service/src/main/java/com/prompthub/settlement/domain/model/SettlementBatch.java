@@ -1,6 +1,6 @@
 package com.prompthub.settlement.domain.model;
 
-import com.prompthub.domain.model.BaseEntity;
+import com.prompthub.settlement.global.config.BaseEntity;
 import com.prompthub.settlement.domain.exception.SettlementBatchInvalidStateException;
 import com.prompthub.settlement.domain.model.enums.SettlementBatchStatus;
 import com.prompthub.settlement.domain.model.enums.TriggerType;

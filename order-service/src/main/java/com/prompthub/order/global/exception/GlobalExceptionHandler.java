@@ -1,6 +1,8 @@
 package com.prompthub.order.global.exception;
 
-import com.prompthub.order.global.response.ErrorResponse;
+import com.prompthub.exception.BusinessException;
+import com.prompthub.exception.response.ErrorResponse;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +27,7 @@ public class GlobalExceptionHandler {
             BusinessException exception,
             HttpServletRequest request
     ) {
-        ErrorCode errorCode = exception.getErrorCode();
+        com.prompthub.exception.ErrorCode errorCode = exception.getErrorCode();
 
         log.warn(
                 "[{}] 비즈니스 예외가 발생했습니다. code={}, message={}",
@@ -35,9 +37,11 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity
-                .status(errorCode.getHttpStatus())
+                .status(errorCode.getStatus())
                 .body(ErrorResponse.of(errorCode, exception.getMessage()));
     }
+
+
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(
@@ -49,7 +53,7 @@ public class GlobalExceptionHandler {
         log.warn("[{}] 요청 본문 검증에 실패했습니다. reason={}", getRequestId(request), exception.getMessage());
 
         return ResponseEntity
-                .status(errorCode.getHttpStatus())
+                .status(errorCode.getStatus())
                 .body(ErrorResponse.of(errorCode));
     }
 
@@ -63,7 +67,7 @@ public class GlobalExceptionHandler {
         log.warn("[{}] 요청 값 검증에 실패했습니다. reason={}", getRequestId(request), exception.getMessage());
 
         return ResponseEntity
-                .status(errorCode.getHttpStatus())
+                .status(errorCode.getStatus())
                 .body(ErrorResponse.of(errorCode));
     }
 
@@ -82,7 +86,7 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity
-                .status(errorCode.getHttpStatus())
+                .status(errorCode.getStatus())
                 .body(ErrorResponse.of(errorCode));
     }
 
@@ -96,7 +100,7 @@ public class GlobalExceptionHandler {
         log.warn("[{}] 요청 본문을 읽을 수 없습니다. reason={}", getRequestId(request), exception.getMessage());
 
         return ResponseEntity
-                .status(errorCode.getHttpStatus())
+                .status(errorCode.getStatus())
                 .body(ErrorResponse.of(errorCode));
     }
 
@@ -110,7 +114,7 @@ public class GlobalExceptionHandler {
         log.warn("[{}] 필수 요청 헤더가 누락되었습니다. headerName={}", getRequestId(request), exception.getHeaderName());
 
         return ResponseEntity
-                .status(errorCode.getHttpStatus())
+                .status(errorCode.getStatus())
                 .body(ErrorResponse.of(errorCode));
     }
 
@@ -124,7 +128,7 @@ public class GlobalExceptionHandler {
         log.error("[{}] 예상하지 못한 서버 오류가 발생했습니다.", getRequestId(request), exception);
 
         return ResponseEntity
-                .status(errorCode.getHttpStatus())
+                .status(errorCode.getStatus())
                 .body(ErrorResponse.of(errorCode));
     }
 

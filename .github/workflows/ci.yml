@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    outputs:
+      user-service:       ${{ steps.filter.outputs.user-service_any_changed }}
+      product-service:    ${{ steps.filter.outputs.product-service_any_changed }}
+      payment-service:    ${{ steps.filter.outputs.payment-service_any_changed }}
+      order-service:      ${{ steps.filter.outputs.order-service_any_changed }}
+      settlement-service: ${{ steps.filter.outputs.settlement-service_any_changed }}
+      common-module:      ${{ steps.filter.outputs.common-module_any_changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 변경된 파일 감지
+        id: filter
+        uses: tj-actions/changed-files@v46
+        with:
+          files_yaml: |
+            user-service:
+              - user-service/**
+            product-service:
+              - product-service/**
+            payment-service:
+              - payment-service/**
+            order-service:
+              - order-service/**
+            settlement-service:
+              - settlement-service/**
+            common-module:
+              - common-module/**
+
+  user-service-ci:
+    needs: changes
+    if: needs.changes.outputs.user-service == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: user-service
+      module-path: user-service
+
+  product-service-ci:
+    needs: changes
+    if: needs.changes.outputs.product-service == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: product-service
+      module-path: product-service
+
+  payment-service-ci:
+    needs: changes
+    if: needs.changes.outputs.payment-service == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: payment-service
+      module-path: payment-service
+
+  order-service-ci:
+    needs: changes
+    if: needs.changes.outputs.order-service == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: order-service
+      module-path: order-service
+
+  settlement-service-ci:
+    needs: changes
+    if: needs.changes.outputs.settlement-service == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: settlement-service
+      module-path: settlement-service
+
+  common-module-ci:
+    needs: changes
+    if: needs.changes.outputs.common-module == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: common-module
+      module-path: common-module
+
+  ci-gate:
+    needs:
+      - changes
+      - user-service-ci
+      - product-service-ci
+      - payment-service-ci
+      - order-service-ci
+      - settlement-service-ci
+      - common-module-ci
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: CI 결과 확인
+        run: |
+          results="${{ join(needs.*.result, ' ') }}"
+          for result in $results; do
+            if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+              echo "CI 실패: $result"
+              exit 1
+            fi
+          done
+          echo "모든 CI 통과 (skipped 포함)"

@@ -1,27 +1,41 @@
 package com.prompthub.order.application.service;
 
 import com.prompthub.order.application.client.ProductClient;
+import com.prompthub.order.application.dto.OrderListProjection;
+import com.prompthub.order.application.dto.OrderPaymentListProjection;
+import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.application.event.PaymentApprovedEvent;
-import com.prompthub.order.application.usecase.OrderUseCase;
 import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.domain.model.Cart;
+import com.prompthub.order.domain.enums.PaymentStatus;
+import com.prompthub.order.application.usecase.OrderUseCase;
 import com.prompthub.order.domain.model.Order;
+import com.prompthub.order.domain.model.OrderPayment;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.CartRepository;
+import com.prompthub.order.domain.repository.OrderPaymentRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
+import com.prompthub.order.presentation.dto.request.OrderReviewRequest;
+import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
+import com.prompthub.order.presentation.dto.response.OrderContentResponse;
+import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
+import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
+import com.prompthub.order.presentation.dto.response.OrderListResponse;
+import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -31,23 +45,22 @@ public class OrderService implements OrderUseCase {
 
 	private final OrderRepository orderRepository;
 	private final CartRepository cartRepository;
+	private final OrderPaymentRepository orderPaymentRepository;
 	private final OrderNumberGenerator orderNumberGenerator;
 	private final ProductClient productClient;
+	private final OrderPolicyService orderPolicyService;
 
 	@Override
 	public CreateOrderResponse createOrder(UUID buyerId, CreateOrderRequest request) {
-		//TODO: 1.요청 값 검증, buyerId는 이미 검증된 id
-		validateRequest(request);
+		orderPolicyService.validateCreateOrderRequest(request);
 
-		//TODO: 2. product-service에서 productIds로 각각 주문용 상품 정보 조회 (productId, sellerId, title, productType, amount, status)
+		//TODO: product-service에서 productIds로 각각 주문용 상품 정보 조회 (productId, sellerId, title, productType, amount, status)
 		List<ProductOrderSnapshot> products = productClient.getOrderSnapshots(request.productIds());
-		validateProductSnapshots(request.productIds(), products);
+		orderPolicyService.validateProductSnapshots(request.productIds(), products);
 
-		//TODO: 3. 주문 금액 계산
 		int totalAmount = products.stream().mapToInt(ProductOrderSnapshot::amount).sum();
 		int totalCount = products.size();
 
-		//TODO: 4. Order, OrderProduct 생성
 		String orderNumber = orderNumberGenerator.generate();
 		Order order = Order.create(buyerId, orderNumber, totalAmount, totalCount);
 		products.stream()
@@ -60,9 +73,9 @@ public class OrderService implements OrderUseCase {
 				it.getId(),
 				it.getProductId(),
 				it.getSellerId(),
-				it.getProductTitleSnapshot(),
-				it.getProductTypeSnapshot(),
-				it.getProductAmountSnapshot(),
+				it.getProductTitle(),
+				it.getProductType(),
+				it.getProductAmount(),
 				it.getOrderStatus()
 			))
 			.toList();
@@ -79,24 +92,136 @@ public class OrderService implements OrderUseCase {
 		);
 	}
 
+	@Override
+	@Transactional(readOnly = true)
+	public OrderDetailResponse getOrderDetail(UUID buyerId, UUID orderId) {
+		Order order = orderRepository.findByIdWithOrderProducts(orderId)
+			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
+
+		if (!order.getBuyerId().equals(buyerId)) {
+			throw new OrderException(ErrorCode.FORBIDDEN);
+		}
+
+		List<OrderDetailProductResponse> products = order.getOrderProducts().stream()
+			.map(this::toOrderDetailProductResponse)
+			.toList();
+
+		boolean hasDownloadProduct = order.getOrderProducts().stream()
+			.anyMatch(OrderProduct::isDownload);
+
+		return new OrderDetailResponse(
+			order.getId(),
+			order.getOrderNumber(),
+			order.getBuyerId(),
+			order.getOrderStatus(),
+			products,
+			order.getTotalOrderAmount(),
+			order.getTotalProductCount(),
+			order.getPaidAt(),
+			order.getCanceledAt(),
+			order.getRefundedAt(),
+			order.getCreatedAt(),
+			hasDownloadProduct
+		);
+	}
+
+	@Override
+	public OrderContentResponse getOrderContent(UUID buyerId, UUID orderId, UUID orderProductId) {
+		Order order = orderRepository.findByIdWithOrderProducts(orderId)
+			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
+
+		if (!order.getBuyerId().equals(buyerId)) {
+			throw new OrderException(ErrorCode.FORBIDDEN);
+		}
+
+		if (!order.isPaid()) {
+			throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
+		}
+
+		OrderProduct orderProduct = order.getOrderProducts().stream()
+			.filter(product -> product.getId().equals(orderProductId))
+			.findFirst()
+			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED));
+
+		if (!orderProduct.isPaid()) {
+			throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
+		}
+
+		ProductContent productContent = productClient.getProductContent(orderProduct.getProductId());
+		orderProduct.markDownloaded();
+
+		return new OrderContentResponse(
+			order.getId(),
+			orderProduct.getId(),
+			order.getOrderNumber(),
+			orderProduct.getProductId(),
+			orderProduct.isDownload(),
+			orderProduct.getProductTitle(),
+			productContent.content()
+		);
+	}
+
+	@Override
+	public void upsertReview(UUID buyerId, OrderReviewRequest request) {
+		boolean reviewAllowed = orderRepository.existsPaidOrderProductByBuyerIdAndProductId(
+			buyerId,
+			request.productId()
+		);
+
+		if (!reviewAllowed) {
+			throw new OrderException(ErrorCode.ORDER_REVIEW_ACCESS_DENIED);
+		}
+
+		productClient.upsertReview(buyerId, request.productId(), request.rating());
+	}
+
+	@Override
+	public Page<OrderListResponse> getOrders(UUID buyerId, PageRequestParams request) {
+		int page = request.page();
+		int size = request.size();
+
+		LocalDateTime from = request.from() == null ? null : request.from().atStartOfDay();
+		LocalDateTime to = request.to() == null ? null : request.to().atTime(23, 59, 59);
+
+		PageRequest pageable = PageRequest.of(
+			page - 1,
+			size,
+			Sort.by(Sort.Direction.DESC, "createdAt")
+		);
+
+		Page<OrderListProjection> orders = orderRepository.searchOrderproducts(
+			buyerId,
+			request.status(),
+			from,
+			to,
+			pageable
+		);
+
+		return orders.map(this::toOrderListResponse);
+	}
+
 	@Transactional
-	public void approveOrder(PaymentApprovedEvent event) {
+	public void approveOrder(PaymentApprovedEvent event) throws OrderException {
 		Order order = orderRepository.findByIdWithOrderProducts(event.orderId())
 			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
-		if (order.isPaid()) {
+		boolean orderPaymentExists = orderPaymentRepository.existsByOrderId(event.orderId());
+		if (orderPaymentExists && order.isPaid()) {
 			return;
 		}
 
-		if (!order.isPending()) {
-			throw new OrderException(ErrorCode.ORDER_PAYMENT_STATUS_INVALID);
-		}
-
-		if (order.getTotalOrderAmount() != event.approvedAmount()) {
-			throw new OrderException(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
-		}
-
-		order.markPaid();
+		orderPolicyService.validatePaymentApproval(order, event);
+		order.markPaid(event.approvedAt().toLocalDateTime());
+		orderPaymentRepository.save(OrderPayment.create(
+			order.getId(),
+			event.paymentId(),
+			order.getBuyerId(),
+			event.pgTxId(),
+			event.paymentMethod(),
+			event.provider(),
+			event.approvedAmount(),
+			event.approvedAt()
+		));
 
 		List<UUID> orderedProductIds = order.getOrderProducts().stream()
 			.map(OrderProduct::getProductId)
@@ -106,33 +231,71 @@ public class OrderService implements OrderUseCase {
 			.ifPresent(cart -> cart.removeProductsByProductIds(orderedProductIds));
 	}
 
-	private void validateRequest(CreateOrderRequest request) {
-		if (request.productIds() == null || request.productIds().isEmpty()) {
-			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
-		}
+	@Override
+	public Page<OrderPaymentListResponse> getOrderPayments(UUID buyerId, PageRequestParams request) {
+		int page = request.page();
+		int size = request.size();
 
-		Set<UUID> uniqueProductIds = new HashSet<>(request.productIds());
+		PageRequest pageable = PageRequest.of(
+			page - 1,
+			size,
+			Sort.by(
+				Sort.Order.desc("approvedAt"),
+				Sort.Order.asc("orderProductId")
+			)
+		);
 
-		if (uniqueProductIds.size() != request.productIds().size()) {
-			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
-		}
+		Page<OrderPaymentListProjection> orderPayments = orderPaymentRepository.searchOrderPayments(buyerId, pageable);
+
+		return orderPayments.map(this::toOrderPaymentListResponse);
 	}
 
-	private void validateProductSnapshots(
-		List<UUID> requestedProductIds,
-		List<ProductOrderSnapshot> products
-	) {
-		if (products == null || products.size() != requestedProductIds.size()) {
-			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE, "주문 가능한 상품 정보가 올바르지 않습니다.");
-		}
+	private OrderListResponse toOrderListResponse(OrderListProjection projection) {
+		return new OrderListResponse(
+			projection.orderId(),
+			projection.orderProductId(),
+			projection.orderStatus(),
+			orderPolicyService.isRefundable(projection.orderStatus(), projection.orderProductStatus(),
+				projection.download()),
+			projection.productType(),
+			projection.title(),
+			projection.model(),
+			projection.rating(),
+			// projection.thumbnailUrl(),
+			projection.paidAt(),
+			projection.createdAt()
+		);
+	}
 
-		Set<UUID> requestedIds = new HashSet<>(requestedProductIds);
-		Set<UUID> responseIds = products.stream()
-			.map(ProductOrderSnapshot::productId)
-			.collect(java.util.stream.Collectors.toSet());
+	private OrderDetailProductResponse toOrderDetailProductResponse(OrderProduct orderProduct) {
+		return new OrderDetailProductResponse(
+			orderProduct.getId(),
+			orderProduct.getProductId(),
+			orderProduct.getSellerId(),
+			orderProduct.getProductTitle(),
+			orderProduct.getProductType(),
+			orderProduct.getProductAmount(),
+			orderProduct.getOrderStatus(),
+			orderProduct.isPaid(),
+			orderProduct.isDownload()
+		);
+	}
 
-		if (!responseIds.containsAll(requestedIds)) {
-			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE, "조회되지 않은 상품이 포함되어 있습니다.");
-		}
+	private OrderPaymentListResponse toOrderPaymentListResponse(OrderPaymentListProjection projection) {
+		return new OrderPaymentListResponse(
+			projection.orderId(),
+			projection.orderProductId(),
+			projection.paymentId(),
+			PaymentStatus.from(projection.orderStatus()),
+			isRefunded(projection.orderStatus(), projection.orderProductStatus()),
+			projection.productType(),
+			projection.title(),
+			projection.amount(),
+			projection.paidAt() == null ? projection.approvedAt().toLocalDateTime() : projection.paidAt()
+		);
+	}
+
+	private boolean isRefunded(OrderStatus orderStatus, OrderStatus orderProductStatus) {
+		return orderStatus == OrderStatus.REFUNDED || orderProductStatus == OrderStatus.REFUNDED;
 	}
 }

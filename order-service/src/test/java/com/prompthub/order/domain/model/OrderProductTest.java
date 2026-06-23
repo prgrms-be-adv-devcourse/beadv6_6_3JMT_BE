@@ -1,6 +1,7 @@
 package com.prompthub.order.domain.model;
 
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.global.exception.OrderException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -26,9 +27,9 @@ class OrderProductTest {
 			assertThat(orderProduct.getOrder()).isNull();
 			assertThat(orderProduct.getProductId()).isEqualTo(PRODUCT_ID_1);
 			assertThat(orderProduct.getSellerId()).isEqualTo(SELLER_ID_1);
-			assertThat(orderProduct.getProductTitleSnapshot()).isEqualTo(PRODUCT_TITLE_1);
-			assertThat(orderProduct.getProductTypeSnapshot()).isEqualTo(PRODUCT_TYPE_PROMPT);
-			assertThat(orderProduct.getProductAmountSnapshot()).isEqualTo(PRODUCT_AMOUNT_1);
+			assertThat(orderProduct.getProductTitle()).isEqualTo(PRODUCT_TITLE_1);
+			assertThat(orderProduct.getProductType()).isEqualTo(PRODUCT_TYPE_PROMPT);
+			assertThat(orderProduct.getProductAmount()).isEqualTo(PRODUCT_AMOUNT_1);
 			assertThat(orderProduct.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
 			assertThat(orderProduct.getCreatedAt()).isNotNull();
 			assertThat(orderProduct.getUpdatedAt()).isNotNull();
@@ -66,7 +67,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::markPaid)
-				.isInstanceOf(IllegalStateException.class)
+				.isInstanceOf(OrderException.class)
 				.hasMessage("대기 상태의 주문 상품만 처리할 수 있습니다.");
 		}
 	}
@@ -98,7 +99,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::markFailed)
-				.isInstanceOf(IllegalStateException.class)
+				.isInstanceOf(OrderException.class)
 				.hasMessage("대기 상태의 주문 상품만 처리할 수 있습니다.");
 		}
 	}
@@ -131,7 +132,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::cancel)
-				.isInstanceOf(IllegalStateException.class)
+				.isInstanceOf(OrderException.class)
 				.hasMessage("대기 상태의 주문 상품만 처리할 수 있습니다.");
 		}
 	}
@@ -164,7 +165,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::refund)
-				.isInstanceOf(IllegalStateException.class)
+				.isInstanceOf(OrderException.class)
 				.hasMessage("결제 완료 상태의 주문 상품만 환불할 수 있습니다.");
 		}
 	}
@@ -197,7 +198,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::markDownloaded)
-				.isInstanceOf(IllegalStateException.class)
+				.isInstanceOf(OrderException.class)
 				.hasMessage("결제 완료된 주문 상품만 다운로드 처리할 수 있습니다.");
 		}
 	}

@@ -1,6 +1,6 @@
 package com.prompthub.settlement.domain.model;
 
-import com.prompthub.domain.model.BaseEntity;
+import com.prompthub.settlement.global.config.BaseEntity;
 import com.prompthub.settlement.domain.model.enums.PayoutStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementStatus;
 import jakarta.persistence.CascadeType;

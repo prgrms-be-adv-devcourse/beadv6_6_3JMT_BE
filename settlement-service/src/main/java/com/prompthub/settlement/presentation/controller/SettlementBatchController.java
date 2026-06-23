@@ -1,7 +1,7 @@
 package com.prompthub.settlement.presentation.controller;
 
 import com.prompthub.exception.response.ErrorResponse;
-import com.prompthub.presentation.dto.ApiResponse;
+import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.settlement.application.dto.SettlementJobResult;
 import com.prompthub.settlement.application.dto.SettlementJobStatusResult;
 import com.prompthub.settlement.application.usecase.GetSettlementJobStatusUseCase;
@@ -60,12 +60,12 @@ public class SettlementBatchController {
 		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "정산 배치 잡 실행 실패",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	})
-	public ApiResponse<SettlementJobResponse> run(
+	public ApiResult<SettlementJobResponse> run(
 		@Parameter(description = "게이트웨이가 주입하는 관리자 ID") @RequestHeader(AuthHeaders.USER_ID) UUID actorId,
 		@Valid @RequestBody RunSettlementJobRequest request
 	) {
 		SettlementJobResult result = runSettlementBatchUseCase.run(request.toCommand(actorId));
-		return ApiResponse.success(SettlementJobResponse.from(result));
+		return ApiResult.success(SettlementJobResponse.from(result));
 	}
 
 	@GetMapping("/{jobExecutionId}")
@@ -84,10 +84,10 @@ public class SettlementBatchController {
 		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "잡 실행 이력 없음",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	})
-	public ApiResponse<SettlementJobStatusResponse> getStatus(
+	public ApiResult<SettlementJobStatusResponse> getStatus(
 		@Parameter(description = "조회할 Job Execution ID") @PathVariable Long jobExecutionId
 	) {
 		SettlementJobStatusResult result = getSettlementJobStatusUseCase.getStatus(jobExecutionId);
-		return ApiResponse.success(SettlementJobStatusResponse.from(result));
+		return ApiResult.success(SettlementJobStatusResponse.from(result));
 	}
 }

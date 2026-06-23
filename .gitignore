@@ -180,6 +180,10 @@ gradle-app.setting
 /.env
 /order-service/.env
 /settlement-service/.env
+/CLAUDE.md
+
+# Claude Code 루트 커맨드 (로컬 전용)
+/.claude/
 
 # 개인 키 / 인증서 (커밋 금지)
 *.pem

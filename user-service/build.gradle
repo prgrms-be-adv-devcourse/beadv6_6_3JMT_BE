@@ -1,0 +1,78 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.1.0'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.prompthub'
+version = '0.0.1-SNAPSHOT'
+description = 'user-service'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    set('springCloudVersion', "2025.1.2")
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
+}
+
+dependencies {
+    // common
+    implementation("com.prompthub:common-module")
+
+    // 웹 MVC (서블릿 기반)
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+
+    // Bean Validation (jakarta.validation)
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // Spring Cloud — Eureka 클라이언트 (서비스 등록/디스커버리)
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+
+    // JPA & PostgreSQL
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // 컴파일 타임 코드 생성 — 런타임 classpath에 포함되지 않음
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // 테스트
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    testCompileOnly 'org.projectlombok:lombok'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+bootRun {
+    // .env 파일이 존재하면 KEY=VALUE 형식으로 파싱해 환경변수로 주입한다.
+    // IntelliJ Run Configuration 없이 `./gradlew bootRun`만으로 로컬 환경변수를 적용하기 위한 설정.
+    // .env는 .gitignore에 등록되어 있으므로 민감 정보를 커밋하지 않아도 된다.
+    def envFile = file('.env')
+    if (envFile.exists()) {
+        envFile.readLines().each { line ->
+            if (line && !line.startsWith('#')) {
+                def idx = line.indexOf('=')
+                if (idx > 0) {
+                    environment line[0..<idx].trim(), line[(idx + 1)..-1].trim()
+                }
+            }
+        }
+    }
+}

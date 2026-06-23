@@ -3,7 +3,7 @@ package com.prompthub.settlement.infrastructure.batch.launcher;
 import com.prompthub.settlement.application.dto.RunSettlementJobCommand;
 import com.prompthub.settlement.application.dto.SettlementJobResult;
 import com.prompthub.settlement.application.port.SettlementJobLauncher;
-import com.prompthub.settlement.config.SettlementBatchConfig;
+import com.prompthub.settlement.global.config.SettlementBatchConfig;
 import com.prompthub.settlement.domain.model.enums.TriggerType;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
 import com.prompthub.settlement.global.exception.SettlementException;

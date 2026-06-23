@@ -1,0 +1,3 @@
+rootProject.name = 'product-service'
+
+includeBuild '../common-module'
