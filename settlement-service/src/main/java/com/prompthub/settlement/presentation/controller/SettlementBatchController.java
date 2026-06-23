@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -49,15 +50,15 @@ public class SettlementBatchController {
 		parameters = @Parameter(name = AuthHeaders.USER_ROLE, in = ParameterIn.HEADER, required = true,
 			description = "게이트웨이가 주입하는 사용자 역할 (ADMIN 필요)"))
 	@ApiResponses({
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "202", description = "실행 접수(비동기 시작)",
+		@ApiResponse(responseCode = "202", description = "실행 접수(비동기 시작)",
 			content = @Content(schema = @Schema(implementation = SettlementJobResponse.class))),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "요청 값 오류",
+		@ApiResponse(responseCode = "400", description = "요청 값 오류",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 정보 없음",
+		@ApiResponse(responseCode = "401", description = "인증 정보 없음",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "ADMIN 권한 없음",
+		@ApiResponse(responseCode = "403", description = "ADMIN 권한 없음",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "정산 배치 잡 실행 실패",
+		@ApiResponse(responseCode = "500", description = "정산 배치 잡 실행 실패",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public ApiResult<SettlementJobResponse> run(
@@ -75,13 +76,13 @@ public class SettlementBatchController {
 		parameters = @Parameter(name = AuthHeaders.USER_ROLE, in = ParameterIn.HEADER, required = true,
 			description = "게이트웨이가 주입하는 사용자 역할 (ADMIN 필요)"))
 	@ApiResponses({
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공",
+		@ApiResponse(responseCode = "200", description = "조회 성공",
 			content = @Content(schema = @Schema(implementation = SettlementJobStatusResponse.class))),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 정보 없음",
+		@ApiResponse(responseCode = "401", description = "인증 정보 없음",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "ADMIN 권한 없음",
+		@ApiResponse(responseCode = "403", description = "ADMIN 권한 없음",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "잡 실행 이력 없음",
+		@ApiResponse(responseCode = "404", description = "잡 실행 이력 없음",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public ApiResult<SettlementJobStatusResponse> getStatus(
