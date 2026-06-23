@@ -28,6 +28,24 @@ public class CartProduct {
 	@Column(name = "added_at", nullable = false)
 	private LocalDateTime addedAt;
 
+	private CartProduct(
+		UUID id,
+		UUID productId,
+		LocalDateTime addedAt
+	) {
+		this.id = id;
+		this.productId = productId;
+		this.addedAt = addedAt;
+	}
+
+	public static CartProduct create(UUID productId) {
+		return new CartProduct(
+			UUID.randomUUID(),
+			productId,
+			LocalDateTime.now()
+		);
+	}
+
 	protected void assignCart(Cart cart) {
 		this.cart = cart;
 	}

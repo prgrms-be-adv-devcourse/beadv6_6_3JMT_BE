@@ -2,7 +2,7 @@ package com.prompthub.order.domain.model;
 
 import com.prompthub.order.config.TestJpaConfig;
 import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.domain.exception.InvalidOrderStatusTransitionException;
+import com.prompthub.order.global.exception.OrderException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -95,7 +95,7 @@ class OrderTest {
 
 			// when & then
 			assertThatThrownBy(order::markPaid)
-				.isInstanceOf(InvalidOrderStatusTransitionException.class)
+				.isInstanceOf(OrderException.class)
 				.hasMessage("대기 상태의 주문만 처리할 수 있습니다.");
 		}
 	}
@@ -131,7 +131,7 @@ class OrderTest {
 
 			// when & then
 			assertThatThrownBy(order::markFailed)
-				.isInstanceOf(InvalidOrderStatusTransitionException.class)
+				.isInstanceOf(OrderException.class)
 				.hasMessage("대기 상태의 주문만 처리할 수 있습니다.");
 		}
 	}
@@ -169,7 +169,7 @@ class OrderTest {
 
 			// when & then
 			assertThatThrownBy(order::cancel)
-				.isInstanceOf(InvalidOrderStatusTransitionException.class)
+				.isInstanceOf(OrderException.class)
 				.hasMessage("대기 상태의 주문만 처리할 수 있습니다.");
 		}
 	}
@@ -207,7 +207,7 @@ class OrderTest {
 
 			// when & then
 			assertThatThrownBy(order::refund)
-				.isInstanceOf(InvalidOrderStatusTransitionException.class)
+				.isInstanceOf(OrderException.class)
 				.hasMessage("결제 완료 상태의 주문만 환불할 수 있습니다.");
 		}
 	}

@@ -1,5 +1,7 @@
 package com.prompthub.order.domain.model;
 
+import com.prompthub.order.global.exception.CartException;
+import com.prompthub.order.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -39,6 +41,61 @@ public class Cart {
 		orphanRemoval = true
 	)
 	private List<CartProduct> cartProducts = new ArrayList<>();
+
+	private Cart(
+		UUID id,
+		UUID buyerId,
+		int totalAmount,
+		LocalDateTime createdAt,
+		LocalDateTime updatedAt
+	) {
+		this.id = id;
+		this.buyerId = buyerId;
+		this.totalAmount = totalAmount;
+		this.createdAt = createdAt;
+		this.updatedAt = updatedAt;
+	}
+
+	public static Cart create(UUID buyerId) {
+		LocalDateTime now = LocalDateTime.now();
+
+		return new Cart(
+			UUID.randomUUID(),
+			buyerId,
+			0,
+			now,
+			now
+		);
+	}
+
+	public CartProduct addProduct(UUID productId) {
+		if (containsProduct(productId)) {
+			throw new CartException(ErrorCode.CART_ITEM_DUPLICATED);
+		}
+
+		CartProduct cartProduct = CartProduct.create(productId);
+		this.cartProducts.add(cartProduct);
+		cartProduct.assignCart(this);
+		this.updatedAt = LocalDateTime.now();
+
+		return cartProduct;
+	}
+
+	public void removeProduct(UUID cartProductId) {
+		boolean removed = this.cartProducts.removeIf(
+			cartProduct -> cartProduct.getId().equals(cartProductId)
+		);
+
+		if (removed) {
+			this.updatedAt = LocalDateTime.now();
+			recalculateTotalAmount();
+		}
+	}
+
+	public boolean containsProduct(UUID productId) {
+		return this.cartProducts.stream()
+			.anyMatch(cartProduct -> cartProduct.getProductId().equals(productId));
+	}
 
 	public void removeProductsByProductIds(Collection<UUID> productIds) {
 		if (productIds == null || productIds.isEmpty()) {

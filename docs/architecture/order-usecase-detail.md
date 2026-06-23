@@ -331,13 +331,15 @@ sequenceDiagram
     participant Gateway as API Gateway
     participant Order as Order Service
     participant DB as Order DB
+    participant Product as Product Service
 
     Buyer->>Gateway: POST /orders/review
     Gateway->>Order: productId, rating 전달
     Order->>DB: 구매자의 결제 완료 주문항목 조회
     DB-->>Order: 구매 이력
     Order->>Order: 평점 범위 확인
-    Order->>DB: 리뷰 평점 생성 또는 수정
+    Order->>Product: 리뷰 평점 생성 또는 수정 요청
+    Product-->>Order: 처리 완료
     Order-->>Buyer: 리뷰 평점 저장 응답
 ```
 
@@ -346,7 +348,7 @@ sequenceDiagram
 1. 구매자가 상품 ID와 평점으로 리뷰 평점 저장을 요청한다.
 2. Order Service는 구매자가 해당 상품을 결제 완료했는지 확인한다.
 3. 평점이 허용 범위 안에 있는지 확인한다.
-4. 기존 리뷰 평점이 있으면 수정하고, 없으면 생성한다.
+4. Order Service는 Product Service에 리뷰 평점 생성 또는 수정을 위임한다.
 5. 성공 응답을 반환한다.
 
 대안/예외:

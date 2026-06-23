@@ -15,6 +15,8 @@ public interface OrderRepository {
 
 	Optional<Order> findByIdWithOrderProducts(UUID orderId);
 
+	boolean existsPaidOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId);
+
 	Page<OrderListProjection> searchOrderproducts(
 		UUID buyerId,
 		OrderStatus status,
