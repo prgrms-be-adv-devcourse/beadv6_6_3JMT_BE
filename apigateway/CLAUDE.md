@@ -12,7 +12,7 @@ Spring Cloud Gateway (reactive / WebFlux 기반). 모든 외부 요청의 진입
 | 파일 | 역할 |
 |------|------|
 | `src/main/resources/application.yml` | 라우트 규칙, Eureka 연동 설정 |
-| `GlobalFilter` 구현체 | JWT 검증 + X-User-Id, X-User-Role 헤더 주입 |
+| `GlobalFilter` 구현체 | 인증 결과(JwtAuthenticationToken)에서 claim 추출 → X-User-Id, X-User-Role 헤더 주입 (서명 검증은 Resource Server가 수행) |
 
 ---
 
