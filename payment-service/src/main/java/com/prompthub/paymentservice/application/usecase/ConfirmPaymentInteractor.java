@@ -13,6 +13,7 @@ import com.prompthub.paymentservice.domain.model.Payment;
 import java.time.OffsetDateTime;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,7 +51,11 @@ public class ConfirmPaymentInteractor implements ConfirmPaymentUseCase {
             command.paymentKey(), "TOSS_PAYMENTS", "CARD", testMode,
             command.amount(), 0
         );
-        paymentRepository.save(payment);
+        try {
+            paymentRepository.saveAndFlush(payment);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(PaymentErrorCode.DUPLICATE_PAYMENT);
+        }
 
         payment.markRequested(OffsetDateTime.now());
         paymentRepository.save(payment);

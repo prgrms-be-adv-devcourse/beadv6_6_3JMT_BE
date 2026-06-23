@@ -1,7 +1,5 @@
 package com.prompthub.paymentservice.infrastructure.messaging.config;
 
-import org.springframework.context.annotation.Configuration;
-
 import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

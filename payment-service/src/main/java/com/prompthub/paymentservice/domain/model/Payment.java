@@ -67,7 +67,7 @@ public class Payment {
     @Column(name = "canceled_amount", nullable = false)
     private int canceledAmount;
 
-    @Column(name = "idempotency_key", length = 255, nullable = false)
+    @Column(name = "idempotency_key", length = 255, nullable = false, unique = true)
     private String idempotencyKey;
 
     @Column(name = "failure_code", length = 100)

@@ -36,6 +36,6 @@ server:
 
 payment:
   toss:
-    secret-key: ${TOSS_SECRET_KEY:test_secret_key}
+    secret-key: ${TOSS_SECRET_KEY}
     base-url: https://api.tosspayments.com/v1
     test-mode: ${TOSS_TEST_MODE:false}
