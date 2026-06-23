@@ -1,4 +1,4 @@
-package com.prompthub.order.infra.persistence.config;
+package com.prompthub.order.domain.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;

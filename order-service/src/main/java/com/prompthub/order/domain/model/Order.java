@@ -1,6 +1,5 @@
 package com.prompthub.order.domain.model;
 
-import com.prompthub.order.infra.persistence.config.BaseEntity;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.global.exception.ErrorCode;

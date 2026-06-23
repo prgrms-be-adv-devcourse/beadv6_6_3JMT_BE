@@ -1,6 +1,5 @@
 package com.prompthub.order.domain.model;
 
-import com.prompthub.order.infra.persistence.config.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;

@@ -2,13 +2,11 @@ package com.prompthub.order.domain.model;
 
 import com.prompthub.order.global.exception.CartException;
 import com.prompthub.order.global.exception.ErrorCode;
-import com.prompthub.order.infra.persistence.config.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
