@@ -2,8 +2,7 @@ package com.prompthub.order.infra.persistence;
 
 import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.domain.model.QOrder;
-import com.prompthub.order.domain.model.QOrderProduct;
+
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQuery;

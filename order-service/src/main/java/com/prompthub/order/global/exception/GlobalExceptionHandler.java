@@ -2,7 +2,7 @@ package com.prompthub.order.global.exception;
 
 import com.prompthub.exception.BusinessException;
 import com.prompthub.exception.response.ErrorResponse;
-import com.prompthub.order.domain.exception.InvalidOrderStatusTransitionException;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -41,24 +41,7 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(errorCode, exception.getMessage()));
     }
 
-    @ExceptionHandler(InvalidOrderStatusTransitionException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidOrderStatusTransitionException(
-            InvalidOrderStatusTransitionException exception,
-            HttpServletRequest request
-    ) {
-        ErrorCode errorCode = ErrorCode.INVALID_ORDER_STATUS_TRANSITION;
 
-        log.warn(
-                "[{}] 주문 상태 변경 예외가 발생했습니다. code={}, message={}",
-                getRequestId(request),
-                errorCode.getCode(),
-                exception.getMessage()
-        );
-
-        return ResponseEntity
-                .status(errorCode.getStatus())
-                .body(ErrorResponse.of(errorCode, exception.getMessage()));
-    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(
