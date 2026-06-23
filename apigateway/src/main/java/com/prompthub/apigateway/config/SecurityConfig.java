@@ -1,0 +1,43 @@
+package com.prompthub.apigateway.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
+import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
+import org.springframework.security.web.server.SecurityWebFilterChain;
+
+@EnableWebFluxSecurity
+@Configuration
+public class SecurityConfig {
+
+    private static final String[] WHITE_LIST = {
+        "/api/v1/auth/signup",
+        "/api/v1/auth/login",
+        "/api/v1/auth/oauth/**",
+        "/api/v1/auth/token/refresh",
+        "/actuator/**"
+    };
+
+    private final ReactiveJwtDecoder reactiveJwtDecoder;
+
+    public SecurityConfig(ReactiveJwtDecoder reactiveJwtDecoder) {
+        this.reactiveJwtDecoder = reactiveJwtDecoder;
+    }
+
+    @Bean
+    public SecurityWebFilterChain securityFilterChain(ServerHttpSecurity http) {
+        return http
+            .authorizeExchange(ex -> ex
+                .pathMatchers(WHITE_LIST).permitAll()
+                .anyExchange().authenticated()
+            )
+            .oauth2ResourceServer(oauth2 -> oauth2
+                .jwt(jwt -> jwt.jwtDecoder(reactiveJwtDecoder))
+            )
+            .csrf(ServerHttpSecurity.CsrfSpec::disable)
+            .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
+            .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
+            .build();
+    }
+}
