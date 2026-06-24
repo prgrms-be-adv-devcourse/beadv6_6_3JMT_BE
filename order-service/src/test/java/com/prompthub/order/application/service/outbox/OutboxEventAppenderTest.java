@@ -18,8 +18,13 @@ import java.time.LocalDateTime;
 
 import static com.prompthub.order.fixture.OrderFixture.APPROVED_AT;
 import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
-import static com.prompthub.order.fixture.OrderFixture.PAYMENT_ID;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_AMOUNT_1;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_ID_1;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TITLE_1;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TYPE_PROMPT;
+import static com.prompthub.order.fixture.OrderFixture.SELLER_ID_1;
 import static com.prompthub.order.fixture.OrderFixture.TOTAL_AMOUNT;
+import static com.prompthub.order.fixture.OrderFixture.TOTAL_ITEM_COUNT;
 import static com.prompthub.order.fixture.OrderFixture.createPaymentApprovedEvent;
 import static com.prompthub.order.fixture.OrderFixture.createPendingOrderWithProducts;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,12 +60,28 @@ class OutboxEventAppenderTest {
 		assertThat(saved.getOccurredAt()).isEqualTo(APPROVED_AT);
 		assertThat(saved.getPublishedAt()).isNull();
 
-		JsonNode payload = objectMapper.readTree(saved.getPayload());
+		JsonNode envelope = objectMapper.readTree(saved.getPayload());
+		assertThat(envelope.path("eventId").stringValue()).isEqualTo(saved.getId().toString());
+		assertThat(envelope.path("eventType").stringValue()).isEqualTo("ORDER_PAID");
+		assertThat(envelope.path("version").intValue()).isEqualTo(1);
+		assertThat(LocalDateTime.parse(envelope.path("occurredAt").stringValue())).isEqualTo(APPROVED_AT);
+		assertThat(envelope.path("aggregateId").stringValue()).isEqualTo(order.getId().toString());
+
+		JsonNode payload = envelope.path("payload");
 		assertThat(payload.path("orderId").stringValue()).isEqualTo(order.getId().toString());
 		assertThat(payload.path("buyerId").stringValue()).isEqualTo(BUYER_ID.toString());
-		assertThat(payload.path("paymentId").stringValue()).isEqualTo(PAYMENT_ID.toString());
-		assertThat(payload.path("totalAmount").intValue()).isEqualTo(TOTAL_AMOUNT);
+		assertThat(payload.path("totalOrderAmount").intValue()).isEqualTo(TOTAL_AMOUNT);
+		assertThat(payload.path("totalProductCount").intValue()).isEqualTo(TOTAL_ITEM_COUNT);
 		assertThat(LocalDateTime.parse(payload.path("paidAt").stringValue())).isEqualTo(APPROVED_AT);
-		assertThat(payload.path("orderProductIds")).hasSize(order.getOrderProducts().size());
+		assertThat(payload.path("products")).hasSize(order.getOrderProducts().size());
+
+		JsonNode firstProduct = payload.path("products").get(0);
+		assertThat(firstProduct.path("orderProductId").stringValue())
+			.isEqualTo(order.getOrderProducts().get(0).getId().toString());
+		assertThat(firstProduct.path("productId").stringValue()).isEqualTo(PRODUCT_ID_1.toString());
+		assertThat(firstProduct.path("sellerId").stringValue()).isEqualTo(SELLER_ID_1.toString());
+		assertThat(firstProduct.path("productTitle").stringValue()).isEqualTo(PRODUCT_TITLE_1);
+		assertThat(firstProduct.path("productType").stringValue()).isEqualTo(PRODUCT_TYPE_PROMPT);
+		assertThat(firstProduct.path("productAmount").intValue()).isEqualTo(PRODUCT_AMOUNT_1);
 	}
 }
