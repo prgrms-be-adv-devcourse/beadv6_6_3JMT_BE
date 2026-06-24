@@ -2,7 +2,10 @@ spring:
   application:
     name: order-service
   config:
-    import: optional:file:order-service/.env[.properties]
+    import: optional:file:.env[.properties]
+  sql:
+    init:
+      mode: always
   profiles:
     default: local
 
@@ -13,7 +16,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true

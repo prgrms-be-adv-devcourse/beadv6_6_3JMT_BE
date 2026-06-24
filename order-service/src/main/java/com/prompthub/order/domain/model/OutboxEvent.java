@@ -12,6 +12,9 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -34,9 +37,11 @@ public class OutboxEvent extends BaseEntity {
 	private static final String ORDER_EVENTS_TOPIC = "order-events";
 
 	@Id
+	@JdbcTypeCode(SqlTypes.VARCHAR)
 	@Column(name = "id", columnDefinition = "char(36)")
 	private UUID id;
 
+	@JdbcTypeCode(SqlTypes.VARCHAR)
 	@Column(name = "aggregate_id", columnDefinition = "char(36)", nullable = false)
 	private UUID aggregateId;
 
