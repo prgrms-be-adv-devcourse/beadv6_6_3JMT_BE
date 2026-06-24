@@ -2,16 +2,23 @@ package com.prompthub.settlement.application.service;
 
 import com.prompthub.settlement.application.dto.SettlementListQuery;
 import com.prompthub.settlement.application.usecase.SettlementUseCase;
+import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.settlement.domain.repository.SettlementQueryRepository;
+import com.prompthub.settlement.domain.repository.SettlementRepository;
 import com.prompthub.settlement.domain.repository.SettlementStatusAggregate;
+import com.prompthub.settlement.global.exception.SettlementErrorCode;
+import com.prompthub.settlement.global.exception.SettlementException;
 import com.prompthub.settlement.presentation.dto.response.SettlementListResponse;
+import com.prompthub.settlement.presentation.dto.response.SettlementStatusResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementSummaryResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementSummaryResponse.Card;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +35,7 @@ public class SettlementApplicationService implements SettlementUseCase {
             SettlementDisplayStatus.PAID);
 
     private final SettlementQueryRepository settlementQueryRepository;
+    private final SettlementRepository settlementRepository;
 
     @Override
     public SettlementSummaryResponse getSummary() {
@@ -59,5 +67,64 @@ public class SettlementApplicationService implements SettlementUseCase {
         SettlementQueryRepository.SettlementPage page =
                 settlementQueryRepository.findPage(query.status(), query.page(), query.size());
         return SettlementListResponse.from(page.content(), page.totalElements(), query.page(), query.size());
+    }
+
+    @Override
+    @Transactional
+    public SettlementStatusResponse approve(UUID settlementId) {
+        Settlement settlement = findSettlement(settlementId);
+        settlement.approve(LocalDateTime.now());
+        settlementRepository.save(settlement);
+        return SettlementStatusResponse.from(settlement);
+    }
+
+    @Override
+    @Transactional
+    public SettlementStatusResponse hold(UUID settlementId) {
+        Settlement settlement = findSettlement(settlementId);
+        settlement.hold();
+        settlementRepository.save(settlement);
+        return SettlementStatusResponse.from(settlement);
+    }
+
+    @Override
+    @Transactional
+    public SettlementStatusResponse releaseHold(UUID settlementId) {
+        Settlement settlement = findSettlement(settlementId);
+        settlement.releaseHold();
+        settlementRepository.save(settlement);
+        return SettlementStatusResponse.from(settlement);
+    }
+
+    @Override
+    @Transactional
+    public SettlementStatusResponse payout(UUID settlementId) {
+        Settlement settlement = findSettlement(settlementId);
+        settlement.payout(LocalDateTime.now());
+        settlementRepository.save(settlement);
+        return SettlementStatusResponse.from(settlement);
+    }
+
+    @Override
+    @Transactional
+    public SettlementStatusResponse payoutHold(UUID settlementId) {
+        Settlement settlement = findSettlement(settlementId);
+        settlement.payoutHold();
+        settlementRepository.save(settlement);
+        return SettlementStatusResponse.from(settlement);
+    }
+
+    @Override
+    @Transactional
+    public SettlementStatusResponse releasePayoutHold(UUID settlementId) {
+        Settlement settlement = findSettlement(settlementId);
+        settlement.releasePayoutHold();
+        settlementRepository.save(settlement);
+        return SettlementStatusResponse.from(settlement);
+    }
+
+    private Settlement findSettlement(UUID settlementId) {
+        return settlementRepository.findById(settlementId)
+                .orElseThrow(() -> new SettlementException(SettlementErrorCode.SETTLEMENT_NOT_FOUND));
     }
 }
