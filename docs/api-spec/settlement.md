@@ -716,49 +716,50 @@ Authorization: Bearer {accessToken}
 
 ## 관리자 — 정산 배치
 
-### POST /admin/settlement-batches — 정산 배치 수동 실행
+> 정산 배치(수동 실행)는 **비동기**다. POST 는 잡을 실행 접수만 하고 즉시 응답하며,
+> 완료 여부는 상태 조회 API 를 폴링해서 확인한다. 잡이 완료(`COMPLETED`)되면 정산 목록
+> (`GET /admin/settlements`)을 다시 조회해 새로 생성된 정산 건을 표시한다.
+
+### POST /admin/settlements/batch — 정산 배치 수동 실행(비동기)
 
 - 인증: 필요
 - 필요 역할: ADMIN
-- trigger_type: MANUAL
+- triggerType: MANUAL (수동 실행은 비동기로 접수)
 
 #### Request
+
+**Headers**
+
+| 헤더 | 필수 | 설명 |
+|------|------|------|
+| `X-User-Id` | Y | 게이트웨이가 주입하는 관리자 ID. 실행자(actorId)로 기록 |
+| `X-User-Role` | Y | 게이트웨이가 주입하는 사용자 역할. `ADMIN` 필요 |
 
 **Body**
 
 ```json
 {
-  "periodStart": "2026-05-01",
-  "periodEnd": "2026-05-31",
-  "recalculate": false
+  "period": "2026-06"
 }
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `periodStart` | Date | Y | 정산 기간 시작일 |
-| `periodEnd` | Date | Y | 정산 기간 종료일 |
-| `recalculate` | Boolean | N | 기존 정산 재산정 여부. 기본값 `false` |
+| `period` | String | Y | 정산 대상 월 (`YYYY-MM`) |
 
-#### Response 200
+#### Response 202
+
+비동기 실행을 접수했음을 의미한다. 응답은 잡 실행 식별자와 시작 시점 상태만 담는다.
+정산 건수·금액 합계 같은 결과 정보는 이 응답에 없으며, 완료 후 정산 목록 조회로 얻는다.
 
 ```json
 {
   "success": true,
   "data": {
-    "settlementBatchId": "9f1caaaa-1111-2222-3333-444455556666",
-    "batchNo": "SETTLE-202605-MANUAL-001",
-    "periodStart": "2026-05-01",
-    "periodEnd": "2026-05-31",
-    "status": "COMPLETED",
-    "triggerType": "MANUAL",
-    "createdSettlementCount": 8,
-    "totalAmount": 57000000,
-    "refundAmount": 1200000,
-    "feeAmount": 8370000,
-    "settlementTotalAmount": 47430000,
-    "failureReason": null,
-    "executedAt": "2026-06-01T10:00:00Z"
+    "jobExecutionId": 1024,
+    "jobName": "settlementJob",
+    "status": "STARTING",
+    "startTime": null
   },
   "message": "success"
 }
@@ -768,44 +769,34 @@ Authorization: Bearer {accessToken}
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| `settlementBatchId` | UUID | 정산 배치 ID |
-| `batchNo` | String | 배치 식별 번호. 형식: `SETTLE-{YYYYMM}-{triggerType}-{순번}` |
-| `periodStart` | Date | 정산 기간 시작일 |
-| `periodEnd` | Date | 정산 기간 종료일 |
-| `status` | String | 배치 실행 상태. `COMPLETED` / `FAILED` |
-| `triggerType` | String | 배치 실행 유형. `MANUAL` / `SCHEDULED` |
-| `createdSettlementCount` | Integer | 생성된 정산 건수 |
-| `totalAmount` | Long | 총 거래액 합계 |
-| `refundAmount` | Long | 환불 차감액 합계 |
-| `feeAmount` | Long | 수수료 합계 |
-| `settlementTotalAmount` | Long | 최종 정산 금액 합계 |
-| `failureReason` | String | 실패 사유. 정상 처리 시 `null` |
-| `executedAt` | DateTime | 배치 실행 시각 |
+| `jobExecutionId` | Long | 잡 실행 식별자. 상태 조회 API 의 path 로 사용 |
+| `jobName` | String | 잡 이름. `settlementJob` 고정 |
+| `status` | String | 접수 시점 실행 상태. 비동기라 보통 `STARTING` / `STARTED` |
+| `startTime` | DateTime | 시작 시각. 접수 직후에는 아직 시작 전이라 `null` 일 수 있음 |
 
 ---
 
-## 내부 API (Internal)
+### GET /admin/settlements/batch/{jobExecutionId} — 정산 배치 잡 상태 조회
 
-### 정산 배치 자동 실행 (잡 스케줄링)
+비동기로 실행한 배치 잡의 진행/완료 상태를 조회한다. 프론트는 이 API 를 폴링(예: 2~5초 간격)해
+`status` 가 `COMPLETED`(또는 `FAILED`)가 되면 폴링을 멈추고 정산 목록을 재조회한다.
 
-- 호출 대상: Settlement Service 내부 스케줄러
-- trigger_type: SCHEDULED
+- 인증: 필요
+- 필요 역할: ADMIN
 
-#### Request
+#### Path Parameters
 
-**Body**
+| 파라미터 | 타입 | 설명 |
+|---------|------|------|
+| `jobExecutionId` | Long | 수동 실행 응답으로 받은 잡 실행 식별자 |
 
-```json
-{
-  "periodStart": "2026-05-01",
-  "periodEnd": "2026-05-31"
-}
+#### Request Example
+
 ```
-
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `periodStart` | Date | Y | 정산 기간 시작일 |
-| `periodEnd` | Date | Y | 정산 기간 종료일 |
+GET /api/v1/admin/settlements/batch/1024
+X-User-Id: 88aaaaaa-1111-2222-3333-444455556666
+X-User-Role: ADMIN
+```
 
 #### Response 200
 
@@ -813,22 +804,57 @@ Authorization: Bearer {accessToken}
 {
   "success": true,
   "data": {
-    "settlementBatchId": "9f1caaaa-1111-2222-3333-444455556666",
-    "batchNo": "SETTLE-202605-SCHEDULED-001",
-    "periodStart": "2026-05-01",
-    "periodEnd": "2026-05-31",
+    "jobExecutionId": 1024,
+    "jobName": "settlementJob",
     "status": "COMPLETED",
-    "triggerType": "SCHEDULED",
-    "createdSettlementCount": 8,
-    "totalAmount": 57000000,
-    "refundAmount": 1200000,
-    "feeAmount": 8370000,
-    "settlementTotalAmount": 47430000,
-    "failureReason": null,
-    "executedAt": "2026-06-01T01:00:00Z"
+    "exitCode": "COMPLETED",
+    "startTime": "2026-06-03T02:00:00",
+    "endTime": "2026-06-03T02:00:12",
+    "failureMessage": null
   },
   "message": "success"
 }
 ```
 
-응답 필드는 `POST /admin/settlement-batches` 와 동일. `triggerType`은 `SCHEDULED`로 고정.
+#### Response Fields
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `jobExecutionId` | Long | 잡 실행 식별자 |
+| `jobName` | String | 잡 이름. `settlementJob` 고정 |
+| `status` | String | 실행 상태. `STARTING` / `STARTED` / `COMPLETED` / `FAILED` / `STOPPED` 등 |
+| `exitCode` | String | 종료 코드. `COMPLETED` / `FAILED` 등. 실행 중에는 `UNKNOWN` |
+| `startTime` | DateTime | 시작 시각 |
+| `endTime` | DateTime | 종료 시각. 실행 중이면 `null` |
+| `failureMessage` | String | 실패 사유. 실패가 아니면 `null` |
+
+#### 폴링 플로우
+
+```
+POST  /admin/settlements/batch        → 202 { jobExecutionId, status: STARTING }
+GET   /admin/settlements/batch/{id}   → 200 { status: STARTED }      ┐ 반복
+GET   /admin/settlements/batch/{id}   → 200 { status: STARTED }      ┘
+GET   /admin/settlements/batch/{id}   → 200 { status: COMPLETED }    → 폴링 종료 → 정산 목록 재조회
+```
+
+#### Error Responses
+
+| 상태 | 설명 |
+|------|------|
+| `404` | 해당 `jobExecutionId` 의 잡 실행 이력이 없음 (`S-008`) |
+
+---
+
+## 내부 API (Internal)
+
+### 정산 배치 자동 실행 (잡 스케줄링)
+
+- 호출 대상: Settlement Service 내부 스케줄러 (`@Scheduled` cron)
+- triggerType: SCHEDULED
+- HTTP 엔드포인트가 아니다. 스케줄러가 유스케이스를 직접 호출한다.
+- 기본 주기: 매월 1일 04:00 (`settlement.scheduler.cron` 프로퍼티로 변경 가능)
+- 정산 대상 월: 실행 시점의 직전 월 (`now - 1개월`)
+- 수동(MANUAL)과 달리 스케줄 실행은 **동기**로 동작한다(호출 스레드가 cron 스레드라 블로킹해도 무방).
+
+실행 결과(성공/실패)는 별도 응답 없이 `settlement_batch` 레코드의 상태로 남는다.
+실패 시 잡 리스너가 해당 배치를 `FAILED` 로 마감하고 사유를 기록한다.

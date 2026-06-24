@@ -2,12 +2,12 @@ package com.prompthub.order.domain.model;
 
 import com.prompthub.order.global.exception.CartException;
 import com.prompthub.order.global.exception.ErrorCode;
+import com.prompthub.order.global.config.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -17,7 +17,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "cart")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Cart {
+public class Cart extends BaseEntity {
 
 	@Id
 	@Column(name = "id", columnDefinition = "char(36)")
@@ -29,12 +29,6 @@ public class Cart {
 	@Column(name = "total_amount", nullable = false)
 	private int totalAmount;
 
-	@Column(name = "created_at", nullable = false)
-	private LocalDateTime createdAt;
-
-	@Column(name = "updated_at", nullable = false)
-	private LocalDateTime updatedAt;
-
 	@OneToMany(
 		mappedBy = "cart",
 		cascade = CascadeType.ALL,
@@ -45,27 +39,15 @@ public class Cart {
 	private Cart(
 		UUID id,
 		UUID buyerId,
-		int totalAmount,
-		LocalDateTime createdAt,
-		LocalDateTime updatedAt
+		int totalAmount
 	) {
 		this.id = id;
 		this.buyerId = buyerId;
 		this.totalAmount = totalAmount;
-		this.createdAt = createdAt;
-		this.updatedAt = updatedAt;
 	}
 
 	public static Cart create(UUID buyerId) {
-		LocalDateTime now = LocalDateTime.now();
-
-		return new Cart(
-			UUID.randomUUID(),
-			buyerId,
-			0,
-			now,
-			now
-		);
+		return new Cart(UUID.randomUUID(), buyerId, 0);
 	}
 
 	public CartProduct addProduct(UUID productId) {
@@ -76,7 +58,6 @@ public class Cart {
 		CartProduct cartProduct = CartProduct.create(productId);
 		this.cartProducts.add(cartProduct);
 		cartProduct.assignCart(this);
-		this.updatedAt = LocalDateTime.now();
 
 		return cartProduct;
 	}
@@ -87,7 +68,6 @@ public class Cart {
 		);
 
 		if (removed) {
-			this.updatedAt = LocalDateTime.now();
 			recalculateTotalAmount();
 		}
 	}
@@ -107,7 +87,6 @@ public class Cart {
 		);
 
 		if (removed) {
-			this.updatedAt = LocalDateTime.now();
 			recalculateTotalAmount();
 		}
 	}

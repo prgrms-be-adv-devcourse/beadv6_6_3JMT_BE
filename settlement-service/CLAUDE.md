@@ -29,6 +29,10 @@ Controller·예외 처리 규칙은 아래 문서를 따른다.
 
 @.claude/rules/code-style.md
 
+API 문서화(Swagger/OpenAPI 애너테이션) 규칙은 아래 문서를 따른다.
+
+@.claude/rules/swagger.md
+
 ## Git 컨벤션
 
 커밋 메시지, 브랜치 명명, 병합 전략은 아래 문서를 따른다.

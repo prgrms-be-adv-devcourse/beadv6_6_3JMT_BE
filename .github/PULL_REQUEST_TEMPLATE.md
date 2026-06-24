@@ -25,13 +25,14 @@
 
 ## ☑️ 체크리스트 (Checklist)
 
-- [ ] 레이어 격리: Domain 패키지에 Spring/JPA/OpenAI SDK 등 외부 의존성 침투 없음
-- [ ] 단방향 의존: Controller → Service → Repository 흐름 엄수 (순환 참조 없음)
-- [ ] 비용 방어: LLM·임베딩 호출 전 `source_hash` 멱등성 검증 로직 포함
-- [ ] 보안: `.env` 값이나 API Key가 코드에 하드코딩되지 않음
+- [ ] 클린아키텍처: 의존성 방향(presentation→application→domain←infrastructure)·포트&어댑터·계층 책임 준수
+- [ ] 도메인 모델: 비즈니스 setter 금지·상태변경은 도메인 메서드·Lombok 허용 범위 준수
+- [ ] Controller/예외: 얇은 컨트롤러(Repository 직접 접근 금지)·커스텀 예외·전역 예외 핸들러
+- [ ] 코드 스타일: 네이밍 케이스·와일드카드 import 금지·빈 catch 금지
+- [ ] Swagger: 표현계층 한정·@Operation/@ApiResponses/@Schema 명시
+- [ ] Git 컨벤션: 커밋 메시지(`<타입>: <내용>`)·브랜치 명명 규칙
+- [ ] 보안: .env·시크릿 파일 미커밋·코드 내 하드코딩 시크릿 없음·민감정보 로깅/노출 없음·.gitignore 누락 없음
 
 ## 👀 리뷰어를 위한 참고 사항 (Notes for Reviewers)
 
 ## ➕ 추가 정보 (Additional Information)
-
-TODO: 추후 자가점검 항목은 아키텍처에 맞게 변동해야 합니다.
