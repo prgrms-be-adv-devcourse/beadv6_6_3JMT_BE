@@ -3,9 +3,11 @@ package com.prompthub.settlement.application.service;
 import com.prompthub.settlement.application.dto.SettlementListQuery;
 import com.prompthub.settlement.application.usecase.SettlementUseCase;
 import com.prompthub.settlement.domain.model.Settlement;
+import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.settlement.domain.repository.SettlementQueryRepository;
 import com.prompthub.settlement.domain.repository.SettlementRepository;
+import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import com.prompthub.settlement.domain.repository.SettlementStatusAggregate;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
 import com.prompthub.settlement.global.exception.SettlementException;
@@ -36,6 +38,7 @@ public class SettlementApplicationService implements SettlementUseCase {
 
     private final SettlementQueryRepository settlementQueryRepository;
     private final SettlementRepository settlementRepository;
+    private final SettlementSourceRepository settlementSourceRepository;
 
     @Override
     public SettlementSummaryResponse getSummary() {
@@ -121,6 +124,16 @@ public class SettlementApplicationService implements SettlementUseCase {
         settlement.releasePayoutHold();
         settlementRepository.save(settlement);
         return SettlementStatusResponse.from(settlement);
+    }
+
+    @Override
+    @Transactional
+    public Settlement cancel(UUID settlementId) {
+        Settlement settlement = findSettlement(settlementId);
+        settlement.cancel(LocalDateTime.now());
+        List<SettlementSourceLine> lines = settlementSourceRepository.findBySettlementId(settlementId);
+        lines.forEach(line -> line.release(settlementId));
+        return settlement;
     }
 
     private Settlement findSettlement(UUID settlementId) {

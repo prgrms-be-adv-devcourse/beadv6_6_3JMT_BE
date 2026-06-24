@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import com.prompthub.settlement.application.dto.SettlementListQuery;
@@ -14,9 +15,11 @@ import com.prompthub.settlement.domain.model.SettlementDetail;
 import com.prompthub.settlement.domain.model.enums.PayoutStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementStatus;
+import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.repository.SettlementQueryRepository;
 import com.prompthub.settlement.domain.repository.SettlementQueryRepository.SettlementPage;
 import com.prompthub.settlement.domain.repository.SettlementRepository;
+import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import com.prompthub.settlement.domain.repository.SettlementStatusAggregate;
 import com.prompthub.settlement.global.exception.SettlementException;
 import com.prompthub.settlement.presentation.dto.response.SettlementListResponse;
@@ -44,6 +47,9 @@ class SettlementApplicationServiceTest {
 
     @Mock
     private SettlementRepository settlementRepository;
+
+    @Mock
+    private SettlementSourceRepository settlementSourceRepository;
 
     @InjectMocks
     private SettlementApplicationService settlementApplicationService;
@@ -276,5 +282,46 @@ class SettlementApplicationServiceTest {
 
         assertThatThrownBy(() -> settlementApplicationService.payout(settlementId))
                 .isInstanceOf(SettlementException.class);
+    }
+
+    @Test
+    @DisplayName("취소: 정산을 CANCELLED로 바꾸고 묶인 소스 라인을 모두 푼다")
+    void cancel_cancelsSettlementAndReleasesLines() {
+        UUID settlementId = UUID.randomUUID();
+        Settlement target = settlement(UUID.randomUUID());
+        ReflectionTestUtils.setField(target, "id", settlementId);
+
+        SettlementSourceLine line1 = settledLine(settlementId);
+        SettlementSourceLine line2 = settledLine(settlementId);
+        given(settlementRepository.findById(settlementId)).willReturn(Optional.of(target));
+        given(settlementSourceRepository.findBySettlementId(settlementId))
+                .willReturn(List.of(line1, line2));
+
+        Settlement result = settlementApplicationService.cancel(settlementId);
+
+        assertThat(result.getSettlementStatus()).isEqualTo(SettlementStatus.CANCELLED);
+        assertThat(result.getCanceledAt()).isNotNull();
+        assertThat(line1.isSettled()).isFalse();
+        assertThat(line2.isSettled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("취소: 정산이 없으면 SettlementException(SETTLEMENT_NOT_FOUND)을 던지고 소스 라인을 조회하지 않는다")
+    void cancel_notFound_throws() {
+        UUID settlementId = UUID.randomUUID();
+        given(settlementRepository.findById(settlementId)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> settlementApplicationService.cancel(settlementId))
+                .isInstanceOf(SettlementException.class);
+
+        then(settlementSourceRepository).should(never()).findBySettlementId(settlementId);
+    }
+
+    private SettlementSourceLine settledLine(UUID settlementId) {
+        SettlementSourceLine line = SettlementSourceLine.paid(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                new BigDecimal("100.00"), LocalDateTime.of(2026, 6, 15, 10, 0));
+        line.markSettled(settlementId);
+        return line;
     }
 }
