@@ -141,6 +141,30 @@ class AdminOrderQueryRepositoryImplTest {
 		assertThat(result.getFirst().transactionAmount()).isEqualTo(PRODUCT_AMOUNT_1);
 	}
 
+	@Test
+	@DisplayName("최근 거래 추이는 취소일 기준으로 거래액을 차감한다")
+	void findDailyTransactions_subtractsCanceledAmountByCanceledDate() {
+		LocalDate approvedDay = LocalDate.of(2026, 6, 23);
+		LocalDate canceledDay = LocalDate.of(2026, 6, 24);
+		Order canceledOrder = createSingleProductPaidOrder("ORD-20260624-0009", approvedDay.atTime(11, 0));
+		persistPayment(canceledOrder, UUID.fromString("00000000-0000-0000-0000-000000000416"), PRODUCT_AMOUNT_2, approvedDay.atTime(11, 1));
+		canceledOrder.cancel(canceledDay.atTime(12, 0));
+		entityManager.flush();
+		entityManager.clear();
+
+		List<AdminDailyTransactionProjection> result = adminOrderQueryRepository.findDailyTransactions(
+			approvedDay.atStartOfDay(),
+			canceledDay.plusDays(1).atStartOfDay()
+		);
+
+		assertThat(result).extracting(AdminDailyTransactionProjection::date)
+			.containsExactly(approvedDay, canceledDay);
+		assertThat(result.get(0).transactionCount()).isEqualTo(1L);
+		assertThat(result.get(0).transactionAmount()).isEqualTo(PRODUCT_AMOUNT_2);
+		assertThat(result.get(1).transactionCount()).isZero();
+		assertThat(result.get(1).transactionAmount()).isEqualTo(-PRODUCT_AMOUNT_2);
+	}
+
 	private Order createSingleProductPaidOrder(String orderNumber, LocalDateTime createdAt) {
 		Order order = createOrder(orderNumber, OrderStatus.PAID, createdAt);
 		order.addOrderProduct(OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, PRODUCT_TYPE_PROMPT, PRODUCT_AMOUNT_1));

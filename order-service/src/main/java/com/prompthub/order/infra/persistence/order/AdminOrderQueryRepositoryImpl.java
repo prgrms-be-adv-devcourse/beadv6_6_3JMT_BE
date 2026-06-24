@@ -7,6 +7,10 @@ import com.prompthub.order.domain.repository.AdminOrderQueryRepository;
 import com.prompthub.order.presentation.dto.request.AdminOrderSearchCondition;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.DateExpression;
+import com.querydsl.core.types.dsl.DateTimePath;
+import com.querydsl.core.types.dsl.Expressions;
+import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
@@ -114,16 +118,31 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
 	) {
 		Map<LocalDate, DailyTransactionAccumulator> dailyTransactions = new LinkedHashMap<>();
 
-		for (Tuple row : fetchApprovedDailyRows(startInclusive, endExclusive)) {
-			LocalDateTime approvedAt = row.get(orderPayment.approvedAt);
-			LocalDate date = approvedAt.toLocalDate();
-			Integer amount = row.get(orderPayment.approvedAmount);
+		DateExpression<java.sql.Date> approvedDate = toDate(orderPayment.approvedAt);
+		NumberExpression<Long> approvedCount = orderPayment.count();
+		NumberExpression<Integer> approvedAmountSum = orderPayment.approvedAmount.sum();
+		for (Tuple row : fetchApprovedDailySummaries(startInclusive, endExclusive, approvedDate, approvedCount, approvedAmountSum)) {
+			LocalDate date = toLocalDate(row.get(approvedDate));
+			Long transactionCount = row.get(approvedCount);
+			Integer amount = row.get(approvedAmountSum);
 			dailyTransactions.computeIfAbsent(date, ignored -> new DailyTransactionAccumulator())
-				.addApproved(1L, amount == null ? 0L : amount);
+				.addApproved(transactionCount == null ? 0L : transactionCount, amount == null ? 0L : amount);
 		}
 
-		subtractDailyAmounts(dailyTransactions, fetchCanceledDailyRows(startInclusive, endExclusive), order.canceledAt);
-		subtractDailyAmounts(dailyTransactions, fetchRefundedDailyRows(startInclusive, endExclusive), order.refundedAt);
+		DateExpression<java.sql.Date> canceledDate = toDate(order.canceledAt);
+		subtractDailyAmounts(
+			dailyTransactions,
+			fetchCanceledDailySummaries(startInclusive, endExclusive, canceledDate, approvedAmountSum),
+			canceledDate,
+			approvedAmountSum
+		);
+		DateExpression<java.sql.Date> refundedDate = toDate(order.refundedAt);
+		subtractDailyAmounts(
+			dailyTransactions,
+			fetchRefundedDailySummaries(startInclusive, endExclusive, refundedDate, approvedAmountSum),
+			refundedDate,
+			approvedAmountSum
+		);
 
 		return dailyTransactions.entrySet().stream()
 			.sorted(Map.Entry.comparingByKey())
@@ -139,17 +158,29 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
 		return orderStatus == null ? null : order.orderStatus.eq(orderStatus);
 	}
 
-	private List<Tuple> fetchApprovedDailyRows(LocalDateTime startInclusive, LocalDateTime endExclusive) {
+	private List<Tuple> fetchApprovedDailySummaries(
+		LocalDateTime startInclusive,
+		LocalDateTime endExclusive,
+		DateExpression<java.sql.Date> approvedDate,
+		NumberExpression<Long> approvedCount,
+		NumberExpression<Integer> approvedAmountSum
+	) {
 		return queryFactory
-			.select(orderPayment.approvedAt, orderPayment.approvedAmount)
+			.select(approvedDate, approvedCount, approvedAmountSum)
 			.from(orderPayment)
 			.where(dateTimeGoe(orderPayment.approvedAt, startInclusive), dateTimeLt(orderPayment.approvedAt, endExclusive))
+			.groupBy(approvedDate)
 			.fetch();
 	}
 
-	private List<Tuple> fetchCanceledDailyRows(LocalDateTime startInclusive, LocalDateTime endExclusive) {
+	private List<Tuple> fetchCanceledDailySummaries(
+		LocalDateTime startInclusive,
+		LocalDateTime endExclusive,
+		DateExpression<java.sql.Date> canceledDate,
+		NumberExpression<Integer> approvedAmountSum
+	) {
 		return queryFactory
-			.select(order.canceledAt, orderPayment.approvedAmount)
+			.select(canceledDate, approvedAmountSum)
 			.from(orderPayment)
 			.join(order).on(order.id.eq(orderPayment.orderId))
 			.where(
@@ -157,12 +188,18 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
 				dateTimeGoe(order.canceledAt, startInclusive),
 				dateTimeLt(order.canceledAt, endExclusive)
 			)
+			.groupBy(canceledDate)
 			.fetch();
 	}
 
-	private List<Tuple> fetchRefundedDailyRows(LocalDateTime startInclusive, LocalDateTime endExclusive) {
+	private List<Tuple> fetchRefundedDailySummaries(
+		LocalDateTime startInclusive,
+		LocalDateTime endExclusive,
+		DateExpression<java.sql.Date> refundedDate,
+		NumberExpression<Integer> approvedAmountSum
+	) {
 		return queryFactory
-			.select(order.refundedAt, orderPayment.approvedAmount)
+			.select(refundedDate, approvedAmountSum)
 			.from(orderPayment)
 			.join(order).on(order.id.eq(orderPayment.orderId))
 			.where(
@@ -170,18 +207,19 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
 				dateTimeGoe(order.refundedAt, startInclusive),
 				dateTimeLt(order.refundedAt, endExclusive)
 			)
+			.groupBy(refundedDate)
 			.fetch();
 	}
 
 	private void subtractDailyAmounts(
 		Map<LocalDate, DailyTransactionAccumulator> dailyTransactions,
 		List<Tuple> rows,
-		com.querydsl.core.types.dsl.DateTimePath<LocalDateTime> dateTimePath
+		DateExpression<java.sql.Date> transactionDate,
+		NumberExpression<Integer> approvedAmountSum
 	) {
 		for (Tuple row : rows) {
-			LocalDateTime occurredAt = row.get(dateTimePath);
-			LocalDate date = occurredAt.toLocalDate();
-			Integer amount = row.get(orderPayment.approvedAmount);
+			LocalDate date = toLocalDate(row.get(transactionDate));
+			Integer amount = row.get(approvedAmountSum);
 			dailyTransactions.computeIfAbsent(date, ignored -> new DailyTransactionAccumulator())
 				.subtract(amount == null ? 0L : amount);
 		}
@@ -225,17 +263,25 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
 	}
 
 	private BooleanExpression dateTimeGoe(
-		com.querydsl.core.types.dsl.DateTimePath<LocalDateTime> dateTimePath,
+		DateTimePath<LocalDateTime> dateTimePath,
 		LocalDateTime value
 	) {
 		return value == null ? null : dateTimePath.goe(value);
 	}
 
 	private BooleanExpression dateTimeLt(
-		com.querydsl.core.types.dsl.DateTimePath<LocalDateTime> dateTimePath,
+		DateTimePath<LocalDateTime> dateTimePath,
 		LocalDateTime value
 	) {
 		return value == null ? null : dateTimePath.lt(value);
+	}
+
+	private DateExpression<java.sql.Date> toDate(DateTimePath<LocalDateTime> dateTimePath) {
+		return Expressions.dateTemplate(java.sql.Date.class, "cast({0} as date)", dateTimePath);
+	}
+
+	private LocalDate toLocalDate(java.sql.Date date) {
+		return date == null ? null : date.toLocalDate();
 	}
 
 	private int valueOrZero(Integer value) {
