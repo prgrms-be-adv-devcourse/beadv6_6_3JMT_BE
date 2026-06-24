@@ -1,6 +1,6 @@
 # User Service API
 
-**Base:** `http://localhost:xxxx/api/v1`
+**Base:** `http://localhost:8081/api/v1`
 
 ## 공통 사항
 
@@ -15,6 +15,7 @@
 
 - 인증: 필요
 - 필요 역할: BUYER / SELLER
+- 프로필 정보와 판매자 신청 상태를 함께 반환 — 마이페이지 배너 표시 여부 판단에 사용
 
 #### Response
 
@@ -28,7 +29,9 @@
     "name": "김민서",
     "email": "user@example.com",
     "profileImageUrl": "https://cdn.example.com/images/profile.jpg",
-    "role": "BUYER"
+    "role": "BUYER",
+    "sellerStatus": "PENDING",
+    "provider": "local"
   },
   "message": "success"
 }
@@ -41,14 +44,27 @@
 | email | string | 이메일 |
 | profileImageUrl | string \| null | 프로필 이미지 URL |
 | role | string | 역할 (`BUYER` / `SELLER`) |
+| sellerStatus | string \| null | 판매자 신청 상태 (`PENDING` / `APPROVED` / `REJECTED` / `null`) |
+
+**sellerStatus 값 규칙**
+
+| sellerStatus | 설명 |
+|---|---|
+| `null` | 판매자 신청 이력 없는 BUYER |
+| `PENDING` | 심사 대기 중 |
+| `APPROVED` | 승인됨 (role이 `SELLER`이면 항상 이 값) |
+| `REJECTED` | 반려됨 |
+| provider | string | 가입 방식 (`local` / `kakao`) |
 
 ---
 
-### PUT /users/me — 프로필 수정
+### PATCH /users/me — 프로필 수정
 
 - 인증: 필요
 - 필요 역할: BUYER / SELLER
 - 수정할 필드만 포함 (Partial Update)
+- 응답 `data`에는 요청에서 실제로 수정된 필드만 포함됨
+- `password` 필드는 `provider=local` 사용자만 허용. OAuth 사용자(`kakao` 등)가 포함하면 400 반환
 
 #### Request
 
@@ -56,7 +72,7 @@
 
 ```json
 {
-  "nickname": "새이름",
+  "name": "새이름",
   "email": "new@example.com",
   "password": "password"
 }
@@ -64,20 +80,34 @@
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| nickname | string | N | 닉네임 |
+| name | string | N | 이름 |
 | email | string | N | 이메일 |
-| password | string | N | 비밀번호 |
+| password | string | N | 비밀번호 — `local` 가입 사용자만 허용 |
 
 #### Response
 
-**200 OK**
+**200 OK** — 수정된 필드만 포함 (미수정 필드는 응답에서 생략)
 
+예: `name`만 수정한 경우
 ```json
 {
   "success": true,
   "data": {
     "id": "uuid",
-    "nickname": "새닉네임"
+    "name": "새이름"
+  },
+  "message": "success"
+}
+```
+
+예: `name`과 `email` 모두 수정한 경우
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "name": "새이름",
+    "email": "new@example.com"
   },
   "message": "success"
 }
@@ -85,8 +115,9 @@
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| id | string | 사용자 ID |
-| nickname | string | 변경된 닉네임 |
+| id | string | 사용자 ID (항상 포함) |
+| name | string \| 생략 | 변경된 이름 (수정 시에만 포함) |
+| email | string \| 생략 | 변경된 이메일 (수정 시에만 포함) |
 
 ---
 
@@ -94,6 +125,12 @@
 
 - 인증: 필요
 - 필요 역할: BUYER / SELLER
+
+처리 순서
+
+1. 진행 중인 주문 있으면 → 400 반환
+2. 없으면 → deleted_at 채워서 Soft Delete
+3. RT 삭제
 
 #### Response
 
@@ -124,7 +161,7 @@
 
 ```json
 {
-  "categories": ["마케팅", "코딩"],
+  "categories": ["marketing", "coding"],
   "introduction": "마케팅 카피·블로그 글쓰기용 GPT 프롬프트를 주로 만듭니다.",
   "portfolioUrl": "https://blog.example.com",
   "agreedToTerms": true
@@ -162,11 +199,12 @@
 
 ---
 
-### GET /sellers/register/me — 내 판매자 등록 신청 조회
+### GET /sellers/register/me — 내 판매자 등록 신청 상세 조회(구현 금지)
 
 - 인증: 필요
 - 필요 역할: BUYER
-- 마이페이지 "심사 중" 상태 배너 표시 등에 활용
+- 신청 상세 정보 조회용 — 심사 현황 상세 페이지에서 사용
+- 마이페이지 프로필 화면(배너)에서는 `GET /users/me`의 `sellerStatus` 사용
 
 #### Response
 
@@ -178,7 +216,7 @@
   "data": {
     "sellerRequestId": "uuid",
     "status": "PENDING",
-    "categories": ["마케팅", "코딩"],
+    "categories": ["marketing", "coding"],
     "introduction": "마케팅 카피·블로그 글쓰기용 GPT 프롬프트를 주로 만듭니다.",
     "portfolioUrl": "https://blog.example.com",
     "submittedAt": "2025-06-17T10:00:00Z",
@@ -292,6 +330,9 @@
       "price": 3900,
       "sellerNickname": "프롬작가",
       "averageRating": 4.7,
+      "salesCount": 128,
+      "category": "marketing",
+      "model": "GPT-4",
       "addedAt": "2025-03-01T12:00:00Z"
     }
   ],
@@ -314,6 +355,9 @@
 | price | integer | 가격 |
 | sellerNickname | string | 판매자 닉네임 |
 | averageRating | number | 평균 별점 |
+| salesCount | integer | 판매 수량 (UI PromptCard 표시용) |
+| category | string | 카테고리 (UI PromptCard 표시용) |
+| model | string | AI 모델 (UI PromptCard 표시용) |
 | addedAt | string | 찜 등록일시 (ISO 8601) |
 | meta.page | integer | 현재 페이지 번호 |
 | meta.size | integer | 페이지당 항목 수 |
@@ -367,8 +411,8 @@
 |---------|------|------|------|
 | page | int | N | `1` | 페이지 번호 |
 | size | int | N | `20` | 페이지당 항목 수 |
-| status | string | N | `ALL` | 계정 상태 필터 (`ACTIVE` \| `SUSPENDED` \| `WITHDRAWN` \| `ALL`) |
-| role | string | N | `ALL` | 역할 필터 (`BUYER` \| `SELLER` \| `ALL`) |
+| status | string | N | `ALL` | 계정 상태 필터 (`active` \| `suspended` \| `withdrawn` \| `ALL`) |
+| role | string | N | `ALL` | 역할 필터 (`buyer` \| `seller` \| `ALL`) |
 | keyword | string | N | - | 이름·이메일·회원ID 검색 |
 
 #### Response
@@ -380,14 +424,11 @@
   "success": true,
   "data": [
     {
-      "userId": "uuid",
-      "displayId": "U-10293",
-      "nickname": "김도윤",
+      "id": "uuid",
+      "name": "김도윤",
       "email": "doyoon.kim@gmail.com",
-      "role": "BUYER",
-      "orderCount": 0,
-      "status": "ACTIVE",
-      "createdAt": "2026-06-14T00:00:00Z"
+      "role": "buyer",
+      "status": "active"
     }
   ],
   "message": "success",
@@ -402,14 +443,11 @@
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| userId | string | 사용자 ID |
-| displayId | string | 표시용 사용자 ID |
-| nickname | string | 닉네임 |
+| id | string | 사용자 ID |
+| name | string | 이름 |
 | email | string | 이메일 |
-| role | string | 역할 (`BUYER` / `SELLER`) |
-| orderCount | integer | 주문 수 |
-| status | string | 계정 상태 (`ACTIVE` / `SUSPENDED` / `WITHDRAWN`) |
-| createdAt | string | 가입일시 (ISO 8601) |
+| role | string | 역할 (`buyer` / `seller`) |
+| status | string | 계정 상태 (`active` / `suspended` / `withdrawn`) |
 | meta.page | integer | 현재 페이지 번호 |
 | meta.size | integer | 페이지당 항목 수 |
 | meta.total | integer | 전체 항목 수 |
@@ -434,19 +472,19 @@
 
 ```json
 {
-  "status": "SUSPENDED"
+  "status": "suspended"
 }
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| status | string | Y | 변경할 계정 상태 (`ACTIVE` / `SUSPENDED` / `WITHDRAWN`) |
+| status | string | Y | 변경할 계정 상태 (`active` / `suspended` / `withdrawn`) |
 
 | status 값 | 설명 |
 |-----------|------|
-| `ACTIVE` | 활성으로 변경 |
-| `SUSPENDED` | 정지 처리 |
-| `WITHDRAWN` | 탈퇴 처리 |
+| `active` | 활성으로 변경 |
+| `suspended` | 정지 처리 |
+| `withdrawn` | 탈퇴 처리 |
 
 #### Response
 
@@ -457,7 +495,7 @@
   "success": true,
   "data": {
     "id": "uuid",
-    "status": "SUSPENDED",
+    "status": "suspended",
     "updatedAt": "2026-06-17T10:00:00Z"
   },
   "message": "success"
@@ -469,6 +507,33 @@
 | id | string | 사용자 ID |
 | status | string | 변경된 계정 상태 |
 | updatedAt | string | 변경일시 (ISO 8601) |
+
+---
+
+### GET /admin/stats/users — 회원 통계 조회
+
+- 인증: 필요
+- 필요 역할: ADMIN
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "totalUsers": 1240,
+    "todayNewUsers": 13
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| totalUsers | integer | 누적 회원 수 |
+| todayNewUsers | integer | 오늘 신규 가입 수 |
 
 ---
 
@@ -503,7 +568,7 @@
       "introduction": "미드저니·DALL·E 기반 제품 목업과 광고 컷 프롬프트를 전문으로 제작합니다.",
       "categories": ["이미지 생성"],
       "portfolioUrl": "https://blog.example.com",
-      "status": "PENDING",
+      "status": "pending",
       "submittedAt": "2026-06-14T00:00:00Z"
     }
   ],
@@ -517,21 +582,21 @@
 }
 ```
 
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| registerId | string | 판매자 등록 신청 ID |
-| userId | string | 신청자 ID |
-| nickname | string | 신청자 닉네임 |
-| email | string | 신청자 이메일 |
-| introduction | string \| null | 판매자 소개 |
-| categories | string[] | 주력 카테고리 |
-| portfolioUrl | string \| null | 포트폴리오 URL |
-| status | string | 신청 상태 (`PENDING` / `APPROVED` / `REJECTED`) |
-| submittedAt | string | 신청일시 (ISO 8601) |
-| meta.page | integer | 현재 페이지 번호 |
-| meta.size | integer | 페이지당 항목 수 |
-| meta.total | integer | 전체 항목 수 |
-| meta.hasNext | boolean | 다음 페이지 존재 여부 |
+| 필드           | 타입 | 설명                                          |
+|--------------|------|---------------------------------------------|
+| registerId   | string | 판매자 등록 신청 ID                                |
+| userId       | string | 신청자 ID                                      |
+| name           | string | 신청자 닉네임                                     |
+| email        | string | 신청자 이메일                                     |
+| introduction | string \| null | 판매자 소개                                      |
+| categories   | string[] | 주력 카테고리                                     |
+| portfolioUrl | string \| null | 포트폴리오 URL                                   |
+| status       | string | 신청 상태 (`pending` / `approved` / `rejected`) |
+| submittedAt  | string | 신청일시 (ISO 8601)                             |
+| meta.page    | integer | 현재 페이지 번호                                   |
+| meta.size    | integer | 페이지당 항목 수                                   |
+| meta.total   | integer | 전체 항목 수                                     |
+| meta.hasNext | boolean | 다음 페이지 존재 여부                                |
 
 ---
 
@@ -623,3 +688,55 @@
 | status | string | 처리 상태 (`REJECTED`) |
 | rejectReason | string | 반려 사유 |
 | reviewedAt | string | 심사 완료일시 (ISO 8601) |
+
+---
+
+## product-service 연동 — Kafka 이벤트 구독 스펙
+
+> 찜 목록 응답에 `salesCount`, `category`, `model`, `icon` 필드를 포함하기 위해  
+> user-service는 product-service가 발행하는 아래 이벤트를 구독한다.
+
+### 요청 토픽: `product.created` / `product.updated`
+
+**페이로드 스펙 (product-service 담당자 발행 기준)**
+
+> `sellerId`는 `user.user_id`와 동일하다. 별도 seller 테이블을 두지 않으며, 서비스 간 판매자 식별자는 `user_id`로 통일한다.
+
+```json
+{
+  "eventType": "PRODUCT_CREATED",
+  "productId": "uuid",
+  "sellerId": "uuid (= user_id)",
+  "title": "...",
+  "price": 9900,
+  "thumbnailUrl": "...",
+  "category": "marketing",
+  "model": "GPT-4",
+  "salesCount": 0,
+  "averageRating": 0.0,
+  "status": "ACTIVE",
+  "occurredAt": "2025-06-17T10:00:00Z"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| eventType | string | `PRODUCT_CREATED` / `PRODUCT_UPDATED` |
+| productId | string | 상품 ID |
+| sellerId | string | 판매자 ID (= user_id) |
+| title | string | 상품명 |
+| price | integer | 가격 |
+| thumbnailUrl | string \| null | 썸네일 이미지 URL |
+| category | string | 카테고리 |
+| model | string | AI 모델 |
+| salesCount | integer | 판매 수량 |
+| averageRating | number | 평균 별점 |
+| status | string | 상품 상태 (`ACTIVE` / `INACTIVE`) |
+| occurredAt | string | 이벤트 발생일시 (ISO 8601) |
+
+**발행 시점**
+
+| 이벤트 | 발행 조건 |
+|--------|----------|
+| `PRODUCT_CREATED` | 상품 등록 시 |
+| `PRODUCT_UPDATED` | 상품 수정 시, 리뷰 변경으로 `averageRating` 갱신 시 |

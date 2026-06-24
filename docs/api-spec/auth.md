@@ -1,6 +1,6 @@
 # Auth API
 
-**Base:** `http://localhost:xxxx/api/v1`
+**Base:** `http://localhost:8081/api/v1`
 
 ## 공통 사항
 
@@ -47,7 +47,7 @@
   "data": {
     "userId": "uuid",
     "email": "user@example.com",
-    "nickname": "민서",
+    "name": "민서",
     "role": "BUYER"
   },
   "message": "success"
@@ -58,7 +58,7 @@
 |------|------|------|
 | userId | string | 생성된 사용자 ID |
 | email | string | 이메일 |
-| nickname | string | 닉네임 |
+| name | string | 닉네임 |
 | role | string | 기본 역할 (`BUYER`) |
 
 ---
@@ -124,19 +124,9 @@
 
 ```
 버튼 클릭
-  → Kakao 인증 페이지 (아래 URL로 리다이렉트)
-  → /auth/kakao/callback?code=... 콜백
-  → 이 API 호출
-  → 로그인 완료
-```
-
-**Kakao 인증 URL**
-
-```
-https://kauth.kakao.com/oauth/authorize
-  ?client_id={KAKAO_CLIENT_ID}
-  &redirect_uri={origin}/auth/kakao/callback
-  &response_type=code
+  → 프론트엔드에서 Kakao SDK로 사용자 정보 직접 조회
+  → 이 API 호출 (kakaoId, nickname 등 전달)
+  → 로그인/자동 회원가입 완료
 ```
 
 #### Path Parameters
@@ -151,13 +141,19 @@ https://kauth.kakao.com/oauth/authorize
 
 ```json
 {
-  "code": "authorization-code-from-kakao"
+  "oauthId": "123456789",
+  "name": "카카오사용자",
+  "profileImage": "https://k.kakaocdn.net/...",
+  "email": "kakao@user.com"
 }
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| code | string | Y | 카카오 OAuth 인가코드 |
+| oauthId | string | Y | OAuth 제공자의 고유 식별자 |
+| name | string | Y | 닉네임 |
+| profileImage | string | N | 프로필 이미지 URL (없으면 null) |
+| email | string | Y | 이메일 |
 
 #### Response
 
@@ -237,13 +233,48 @@ https://kauth.kakao.com/oauth/authorize
 | accessToken | string | 새로 발급된 JWT 액세스 토큰 |
 | expiresAt | string | 액세스 토큰 만료일시 (ISO 8601) |
 
+> **TODO (RTR — Refresh Token Rotation)**
+>
+> 현재 스펙은 AT만 재발급하고 RT는 재사용하는 구조다.
+> 기능 개발 완료 후 Redis 기반 RT 관리로 전환하면서 아래 방식으로 변경할 것.
+>
+> - **RT도 함께 교체**: 재발급 요청마다 기존 RT를 폐기하고 새 RT를 발급해 응답에 포함
+> - **Redis 저장**: 발급된 RT를 `refresh:{userId}` 키로 Redis에 저장, TTL은 RT 만료 시간과 동일하게 설정
+> - **재사용 감지(Replay Detection)**: 이미 폐기된 RT로 재발급 시도가 들어오면 해당 유저의 모든 세션 강제 만료 처리 (탈취 시나리오 대응)
+> - **로그아웃**: DB 삭제 대신 Redis 키 삭제로 변경
+>
+> 변경 시 응답 스펙에 `refreshToken` 필드 추가 필요:
+>
+> ```json
+> {
+>   "success": true,
+>   "data": {
+>     "accessToken": "eyJhbGci...",
+>     "refreshToken": "eyJhbGci...(새 RT)",
+>     "expiresAt": "2025-06-17T11:00:00Z"
+>   },
+>   "message": "success"
+> }
+> ```
+
 ---
 
 ### POST /auth/logout — 로그아웃
 
-- 인증: 필요
+- UC: UC-AUTH-04
+- 인증: 필요 (AT)
 - 필요 역할: 없음
-- RT 무효화 (DB에서 삭제)
+- API Gateway에서 AT 검증 후 `X-User-Id` 헤더를 user-service에 전달
+- user-service는 해당 유저의 RT를 DB에서 삭제
+- AT 무효화: 없음 (AT는 만료될 때까지 유효)
+
+#### Request
+
+**Headers**
+
+| 헤더 | 설명 |
+|------|------|
+| Authorization | `Bearer {accessToken}` |
 
 #### Response
 

@@ -162,21 +162,16 @@ git checkout -b "<브랜치명>"
 
 ---
 
-### 7. remote push 여부 확인
+### 7. remote push
 
-```
-원격 저장소에 브랜치를 올릴까요?
-a) 예 — git push -u origin으로 tracking branch 설정
-b) 아니오 — 로컬에만 유지
+```bash
+git push -u origin "<브랜치명>"
 ```
 
-- a 선택 시:
-  ```bash
-  git push -u origin "<브랜치명>"
-  ```
-  완료 후: "✅ origin에 push 완료. 이제 작업을 시작하세요."
-
-- b 선택 시: "✅ 로컬 브랜치만 생성했습니다. 이제 작업을 시작하세요."
+완료 후 출력:
+```
+✅ origin에 push 완료. 이제 작업을 시작하세요.
+```
 
 stash를 저장했다면 마지막에 안내:
 ```

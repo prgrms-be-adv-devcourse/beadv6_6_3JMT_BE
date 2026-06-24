@@ -1,5 +1,6 @@
 package com.prompthub.settlement.application.service;
 
+import com.prompthub.settlement.application.dto.SellerSettlementListQuery;
 import com.prompthub.settlement.application.dto.SettlementListQuery;
 import com.prompthub.settlement.application.usecase.SettlementUseCase;
 import com.prompthub.settlement.domain.model.Settlement;
@@ -11,6 +12,8 @@ import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import com.prompthub.settlement.domain.repository.SettlementStatusAggregate;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
 import com.prompthub.settlement.global.exception.SettlementException;
+import com.prompthub.settlement.presentation.dto.response.SellerSettlementListResponse;
+import com.prompthub.settlement.presentation.dto.response.SellerSettlementSummaryResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementListResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementStatusResponse;
@@ -74,6 +77,24 @@ public class SettlementApplicationService implements SettlementUseCase {
     }
 
     @Override
+    public SellerSettlementListResponse getMySettlements(SellerSettlementListQuery query) {
+        SettlementQueryRepository.SettlementPage page = settlementQueryRepository.findPageBySeller(
+                query.sellerId(), query.status(), query.period(), query.page(), query.size());
+        return SellerSettlementListResponse.from(page.content(), page.totalElements(), query.page(), query.size());
+    }
+
+    @Override
+    public SellerSettlementSummaryResponse getMySummary(UUID sellerId) {
+        long totalSalesCount = settlementSourceRepository.countPaidBySeller(sellerId);
+        BigDecimal totalRevenueAmount = settlementSourceRepository.sumPaidAmountBySeller(sellerId);
+        BigDecimal totalSettlementAmount = settlementRepository.sumPaidSettlementAmountBySeller(sellerId);
+        // TODO: registeredPromptCount는 product 프롬프트 등록 이벤트를 수신해 채운다(별도 이슈). 현재는 0.
+        int registeredPromptCount = 0;
+        return SellerSettlementSummaryResponse.of(
+                registeredPromptCount, totalSalesCount, totalRevenueAmount, totalSettlementAmount);
+    }
+
+    @Override
     @Transactional
     public SettlementStatusResponse approve(UUID settlementId) {
         Settlement settlement = findSettlement(settlementId);
@@ -132,10 +153,24 @@ public class SettlementApplicationService implements SettlementUseCase {
     public SettlementResponse cancel(UUID settlementId) {
         Settlement settlement = findSettlement(settlementId);
         settlement.cancel(LocalDateTime.now());
+
         List<SettlementSourceLine> lines = settlementSourceRepository.findBySettlementId(settlementId);
         lines.forEach(line -> line.release(settlementId));
+
         settlementRepository.save(settlement);
         return SettlementResponse.from(settlement);
+    }
+
+    @Override
+    @Transactional
+    public SettlementStatusResponse requestPayout(UUID sellerId, UUID settlementId) {
+        Settlement settlement = findSettlement(settlementId);
+        if (!settlement.getSellerId().equals(sellerId)) {
+            throw new SettlementException(SettlementErrorCode.SETTLEMENT_ACCESS_DENIED);
+        }
+        settlement.requestPayout();
+        settlementRepository.save(settlement);
+        return SettlementStatusResponse.from(settlement);
     }
 
     private Settlement findSettlement(UUID settlementId) {
