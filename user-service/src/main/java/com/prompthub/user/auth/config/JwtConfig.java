@@ -8,7 +8,9 @@ import com.nimbusds.jose.proc.SecurityContext;
 import com.prompthub.user.global.config.JwtProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
 import java.security.KeyFactory;
@@ -39,6 +41,12 @@ public class JwtConfig {
     @Bean
     public JwtEncoder jwtEncoder(JWKSource<SecurityContext> jwkSource) {
         return new NimbusJwtEncoder(jwkSource);
+    }
+
+    @Bean
+    public JwtDecoder jwtDecoder(JwtProperties jwtProperties) throws Exception {
+        RSAPublicKey publicKey = loadPublicKey(jwtProperties.getPublicKey());
+        return NimbusJwtDecoder.withPublicKey(publicKey).build();
     }
 
     private RSAPrivateKey loadPrivateKey(String pem) throws Exception {
