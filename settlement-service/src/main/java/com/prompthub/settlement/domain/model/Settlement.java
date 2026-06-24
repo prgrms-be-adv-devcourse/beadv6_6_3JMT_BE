@@ -1,5 +1,7 @@
 package com.prompthub.settlement.domain.model;
 
+import com.prompthub.settlement.domain.exception.SettlementAlreadyCancelledException;
+import com.prompthub.settlement.domain.exception.SettlementAlreadyPaidException;
 import com.prompthub.settlement.domain.exception.SettlementInvalidStateException;
 import com.prompthub.settlement.domain.model.enums.PayoutStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
@@ -87,6 +89,9 @@ public class Settlement extends BaseEntity {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    @Column(name = "canceled_at")
+    private LocalDateTime canceledAt;
+
     @Column(name = "payout_reference", length = 100)
     private String payoutReference;
 
@@ -171,5 +176,16 @@ public class Settlement extends BaseEntity {
 
     public SettlementDisplayStatus displayStatus() {
         return SettlementDisplayStatus.from(this.settlementStatus, this.payoutStatus);
+    }
+
+    public void cancel(LocalDateTime canceledAt) {
+        if (this.payoutStatus == PayoutStatus.PAID) {
+            throw new SettlementAlreadyPaidException(this.id);
+        }
+        if (this.settlementStatus == SettlementStatus.CANCELLED) {
+            throw new SettlementAlreadyCancelledException(this.id);
+        }
+        this.settlementStatus = SettlementStatus.CANCELLED;
+        this.canceledAt = canceledAt;
     }
 }

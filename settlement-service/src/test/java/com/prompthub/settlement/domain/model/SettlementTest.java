@@ -3,6 +3,8 @@ package com.prompthub.settlement.domain.model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.prompthub.settlement.domain.exception.SettlementAlreadyCancelledException;
+import com.prompthub.settlement.domain.exception.SettlementAlreadyPaidException;
 import com.prompthub.settlement.domain.exception.SettlementInvalidStateException;
 import com.prompthub.settlement.domain.model.enums.PayoutStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
@@ -221,5 +223,51 @@ class SettlementTest {
         Settlement settlement = pendingSettlement();
 
         assertThatThrownBy(settlement::releasePayoutHold).isInstanceOf(SettlementInvalidStateException.class);
+    }
+
+    @Test
+    @DisplayName("취소: PENDING_APPROVAL 정산을 취소하면 CANCELLED로 전이하고 canceledAt을 기록한다")
+    void cancel_fromPending_setsCancelled() {
+        Settlement settlement = pendingSettlement();
+        LocalDateTime canceledAt = LocalDateTime.of(2026, 6, 24, 9, 0);
+
+        settlement.cancel(canceledAt);
+
+        assertThat(settlement.getSettlementStatus()).isEqualTo(SettlementStatus.CANCELLED);
+        assertThat(settlement.getCanceledAt()).isEqualTo(canceledAt);
+        assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.CANCELLED);
+    }
+
+    @Test
+    @DisplayName("취소: APPROVED 정산도 PAID 전이면 취소할 수 있다")
+    void cancel_fromApproved_setsCancelled() {
+        Settlement settlement = pendingSettlement();
+        ReflectionTestUtils.setField(settlement, "settlementStatus", SettlementStatus.APPROVED);
+        ReflectionTestUtils.setField(settlement, "payoutStatus", PayoutStatus.PAYOUT_ON_HOLD);
+
+        settlement.cancel(LocalDateTime.of(2026, 6, 24, 9, 0));
+
+        assertThat(settlement.getSettlementStatus()).isEqualTo(SettlementStatus.CANCELLED);
+    }
+
+    @Test
+    @DisplayName("취소: 이미 지급 완료(PAID)된 정산은 취소할 수 없다")
+    void cancel_whenPaid_throws() {
+        Settlement settlement = pendingSettlement();
+        ReflectionTestUtils.setField(settlement, "settlementStatus", SettlementStatus.APPROVED);
+        ReflectionTestUtils.setField(settlement, "payoutStatus", PayoutStatus.PAID);
+
+        assertThatThrownBy(() -> settlement.cancel(LocalDateTime.of(2026, 6, 24, 9, 0)))
+                .isInstanceOf(SettlementAlreadyPaidException.class);
+    }
+
+    @Test
+    @DisplayName("취소: 이미 취소된 정산을 다시 취소하면 예외를 던진다")
+    void cancel_whenAlreadyCancelled_throws() {
+        Settlement settlement = pendingSettlement();
+        settlement.cancel(LocalDateTime.of(2026, 6, 24, 9, 0));
+
+        assertThatThrownBy(() -> settlement.cancel(LocalDateTime.of(2026, 6, 24, 10, 0)))
+                .isInstanceOf(SettlementAlreadyCancelledException.class);
     }
 }
