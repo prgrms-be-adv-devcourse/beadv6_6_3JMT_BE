@@ -49,6 +49,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     runtimeOnly 'org.postgresql:postgresql'
 
+    // JWT (RSA 서명/검증 — NimbusJwtEncoder 포함)
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+
     // 컴파일 타임 코드 생성 — 런타임 classpath에 포함되지 않음
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
@@ -86,6 +89,7 @@ bootRun {
     // .env 파일이 존재하면 KEY=VALUE 형식으로 파싱해 환경변수로 주입한다.
     // IntelliJ Run Configuration 없이 `./gradlew bootRun`만으로 로컬 환경변수를 적용하기 위한 설정.
     // .env는 .gitignore에 등록되어 있으므로 민감 정보를 커밋하지 않아도 된다.
+    jvmArgs = ['-Dspring.profiles.active=local']
     def envFile = file('.env')
     if (envFile.exists()) {
         envFile.readLines().each { line ->
