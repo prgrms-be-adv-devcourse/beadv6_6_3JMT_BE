@@ -5,6 +5,8 @@ import com.prompthub.user.auth.application.dto.OAuthLoginResult;
 import com.prompthub.user.auth.application.dto.TokenRefreshCommand;
 import com.prompthub.user.auth.application.dto.TokenRefreshResult;
 import com.prompthub.user.auth.application.usecase.AuthUseCase;
+import com.prompthub.user.auth.domain.exception.InvalidRefreshTokenException;
+import com.prompthub.user.auth.domain.exception.OAuthEmailAlreadyUsedException;
 import com.prompthub.user.auth.domain.model.Auth;
 import com.prompthub.user.auth.domain.model.RefreshToken;
 import com.prompthub.user.auth.domain.repository.AuthRepository;
@@ -45,25 +47,21 @@ public class AuthApplicationService implements AuthUseCase {
                             "auth 레코드에 연결된 user를 찾을 수 없습니다. userId=" + existingAuth.get().getUserId()));
             isNewUser = false;
         } else {
-            Optional<User> existingUser = userRepository.findByEmail(command.email());
-
-            if (existingUser.isPresent()) {
-                user = existingUser.get();
-                authRepository.save(Auth.create(user.getUserId(), command.provider(), command.providerUserId()));
-                isNewUser = false;
-            } else {
-                User newUser = User.create(
-                        command.nickname(),
-                        command.email(),
-                        command.profileImage(),
-                        UserRole.BUYER,
-                        true
-                );
-                userRepository.save(newUser);
-                authRepository.save(Auth.create(newUser.getUserId(), command.provider(), command.providerUserId()));
-                user = newUser;
-                isNewUser = true;
+            if (userRepository.existsByEmail(command.email())) {
+                throw new OAuthEmailAlreadyUsedException();
             }
+
+            User newUser = User.create(
+                    command.nickname(),
+                    command.email(),
+                    command.profileImage(),
+                    UserRole.BUYER,
+                    true
+            );
+            userRepository.save(newUser);
+            authRepository.save(Auth.create(newUser.getUserId(), command.provider(), command.providerUserId()));
+            user = newUser;
+            isNewUser = true;
         }
 
         String accessToken = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getRole());
@@ -90,6 +88,10 @@ public class AuthApplicationService implements AuthUseCase {
     @Transactional(readOnly = true)
     public TokenRefreshResult refresh(TokenRefreshCommand command) {
         UUID userId = jwtTokenProvider.parseRefreshToken(command.refreshToken());
+
+        refreshTokenRepository.findByToken(command.refreshToken())
+                .orElseThrow(InvalidRefreshTokenException::new);
+
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
 
         String accessToken = jwtTokenProvider.generateAccessToken(userId, user.getRole());
