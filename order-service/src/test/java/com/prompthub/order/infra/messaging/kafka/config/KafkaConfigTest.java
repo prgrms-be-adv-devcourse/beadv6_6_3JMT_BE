@@ -8,6 +8,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
@@ -33,6 +34,7 @@ class KafkaConfigTest {
 	);
 
 	@Test
+	@DisplayName("프로듀서 팩토리는 키를 String, 값을 JSON으로 직렬화한다")
 	void producerFactory_usesStringKeysAndJsonValues() {
 		ProducerFactory<String, Object> producerFactory = kafkaConfig.producerFactory();
 
@@ -47,6 +49,7 @@ class KafkaConfigTest {
 	}
 
 	@Test
+	@DisplayName("카프카 템플릿은 설정된 프로듀서 팩토리를 사용한다")
 	void kafkaTemplate_usesConfiguredProducerFactory() {
 		ProducerFactory<String, Object> producerFactory = kafkaConfig.producerFactory();
 
@@ -56,6 +59,7 @@ class KafkaConfigTest {
 	}
 
 	@Test
+	@DisplayName("컨슈머 팩토리는 수동 커밋과 에러 핸들링 역직렬화기를 사용한다")
 	void consumerFactory_usesManualCommitAndErrorHandlingDeserializers() {
 		ConsumerFactory<String, Object> consumerFactory = kafkaConfig.consumerFactory();
 
@@ -76,6 +80,7 @@ class KafkaConfigTest {
 	}
 
 	@Test
+	@DisplayName("결제 이벤트 컨슈머 팩토리는 값을 String으로 역직렬화한다")
 	void paymentEventConsumerFactory_usesStringValues() {
 		ConsumerFactory<String, String> consumerFactory = kafkaConfig.paymentEventConsumerFactory();
 
@@ -95,6 +100,7 @@ class KafkaConfigTest {
 	}
 
 	@Test
+	@DisplayName("카프카 리스너 컨테이너 팩토리는 수동 Ack와 공통 에러 핸들러를 사용한다")
 	void kafkaListenerContainerFactory_usesManualAckAndCommonErrorHandler() {
 		ConsumerFactory<String, Object> consumerFactory = kafkaConfig.consumerFactory();
 		DefaultErrorHandler errorHandler = kafkaConfig.kafkaErrorHandler(kafkaConfig.kafkaTemplate(kafkaConfig.producerFactory()));
@@ -107,6 +113,7 @@ class KafkaConfigTest {
 	}
 
 	@Test
+	@DisplayName("결제 이벤트 카프카 리스너 컨테이너 팩토리는 수동 Ack와 공통 에러 핸들러를 사용한다")
 	void paymentEventKafkaListenerContainerFactory_usesManualAckAndCommonErrorHandler() {
 		ConsumerFactory<String, String> consumerFactory = kafkaConfig.paymentEventConsumerFactory();
 		DefaultErrorHandler errorHandler = kafkaConfig.kafkaErrorHandler(kafkaConfig.kafkaTemplate(kafkaConfig.producerFactory()));
@@ -119,6 +126,7 @@ class KafkaConfigTest {
 	}
 
 	@Test
+	@DisplayName("상품 이벤트 컨슈머 팩토리는 값을 String으로 역직렬화한다")
 	void productEventConsumerFactory_usesStringValues() {
 		ConsumerFactory<String, String> consumerFactory = kafkaConfig.productEventConsumerFactory();
 
@@ -138,6 +146,7 @@ class KafkaConfigTest {
 	}
 
 	@Test
+	@DisplayName("상품 이벤트 카프카 리스너 컨테이너 팩토리는 수동 Ack와 공통 에러 핸들러를 사용한다")
 	void productEventKafkaListenerContainerFactory_usesManualAckAndCommonErrorHandler() {
 		ConsumerFactory<String, String> consumerFactory = kafkaConfig.productEventConsumerFactory();
 		DefaultErrorHandler errorHandler = kafkaConfig.kafkaErrorHandler(kafkaConfig.kafkaTemplate(kafkaConfig.producerFactory()));
@@ -150,6 +159,7 @@ class KafkaConfigTest {
 	}
 
 	@Test
+	@DisplayName("카프카 에러 핸들러는 DLT 복구를 위한 DefaultErrorHandler를 반환한다")
 	void kafkaErrorHandler_isDefaultErrorHandlerForDltRecovery() {
 		DefaultErrorHandler errorHandler = kafkaConfig.kafkaErrorHandler(
 			kafkaConfig.kafkaTemplate(kafkaConfig.producerFactory())
