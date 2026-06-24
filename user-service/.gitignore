@@ -50,3 +50,5 @@ src/main/resources/application-secret.yaml
 # 로그
 *.log
 logs/
+
+docs/superpowers

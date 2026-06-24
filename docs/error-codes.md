@@ -5,6 +5,7 @@
 | enum | code | 의미 (message) | HTTP |
 |------|------|----------------|------|
 | `VALIDATION_FAILED` | V001 | 입력값이 올바르지 않습니다. | 400 |
+| `INTERNAL_SERVER_ERROR` | SYS001 | 서버 내부 오류가 발생했습니다. | 500 |
 
 ---
 
@@ -20,6 +21,8 @@
 | `AUTH_INVALID_REFRESH_TOKEN` | A006 | 리프레시 토큰이 유효하지 않습니다. | 401 |
 | `AUTH_EMAIL_DUPLICATED` | A007 | 이미 사용 중인 이메일입니다. | 409 |
 | `AUTH_SELLER_APPLICATION_NOT_FOUND` | A008 | 판매자 등록 신청 내역이 없습니다. | 404 |
+| `AUTH_OAUTH_PASSWORD_FORBIDDEN` | A009 | 소셜 로그인 사용자는 비밀번호를 변경할 수 없습니다. | 400 |
+| `AUTH_WITHDRAW_ORDER_IN_PROGRESS` | A010 | 진행 중인 주문이 있어 탈퇴할 수 없습니다. | 400 |
 
 ---
 

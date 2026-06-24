@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
+import com.prompthub.settlement.application.dto.SellerSettlementListQuery;
 import com.prompthub.settlement.application.dto.SettlementListQuery;
 import com.prompthub.settlement.domain.exception.SettlementInvalidStateException;
 import com.prompthub.settlement.domain.model.Settlement;
@@ -22,6 +23,10 @@ import com.prompthub.settlement.domain.repository.SettlementRepository;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import com.prompthub.settlement.domain.repository.SettlementStatusAggregate;
 import com.prompthub.settlement.global.exception.SettlementException;
+import com.prompthub.settlement.presentation.dto.response.SellerSettlementListResponse;
+import com.prompthub.settlement.presentation.dto.response.SellerSettlementListResponse.Action;
+import com.prompthub.settlement.presentation.dto.response.SellerSettlementListResponse.Item;
+import com.prompthub.settlement.presentation.dto.response.SellerSettlementSummaryResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementListResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementStatusResponse;
@@ -234,7 +239,7 @@ class SettlementApplicationServiceTest {
         UUID settlementId = UUID.randomUUID();
         Settlement target = settlement(UUID.randomUUID());
         ReflectionTestUtils.setField(target, "settlementStatus", SettlementStatus.APPROVED);
-        ReflectionTestUtils.setField(target, "payoutStatus", PayoutStatus.READY);
+        ReflectionTestUtils.setField(target, "payoutStatus", PayoutStatus.PAYOUT_REQUESTED);
         given(settlementRepository.findById(settlementId)).willReturn(Optional.of(target));
 
         SettlementStatusResponse response = settlementApplicationService.payout(settlementId);
@@ -251,7 +256,7 @@ class SettlementApplicationServiceTest {
         UUID settlementId = UUID.randomUUID();
         Settlement target = settlement(UUID.randomUUID());
         ReflectionTestUtils.setField(target, "settlementStatus", SettlementStatus.APPROVED);
-        ReflectionTestUtils.setField(target, "payoutStatus", PayoutStatus.READY);
+        ReflectionTestUtils.setField(target, "payoutStatus", PayoutStatus.PAYOUT_REQUESTED);
         given(settlementRepository.findById(settlementId)).willReturn(Optional.of(target));
 
         SettlementStatusResponse response = settlementApplicationService.payoutHold(settlementId);
@@ -261,8 +266,8 @@ class SettlementApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("지급 보류 해제: payout READY 응답을 반환한다")
-    void releasePayoutHold_returnsReady() {
+    @DisplayName("지급 보류 해제: payout PAYOUT_REQUESTED 응답을 반환한다")
+    void releasePayoutHold_returnsRequested() {
         UUID settlementId = UUID.randomUUID();
         Settlement target = settlement(UUID.randomUUID());
         ReflectionTestUtils.setField(target, "settlementStatus", SettlementStatus.APPROVED);
@@ -271,7 +276,7 @@ class SettlementApplicationServiceTest {
 
         SettlementStatusResponse response = settlementApplicationService.releasePayoutHold(settlementId);
 
-        assertThat(response.payoutStatus()).isEqualTo(PayoutStatus.READY);
+        assertThat(response.payoutStatus()).isEqualTo(PayoutStatus.PAYOUT_REQUESTED);
         then(settlementRepository).should().save(target);
     }
 
@@ -325,5 +330,131 @@ class SettlementApplicationServiceTest {
                 new BigDecimal("100.00"), LocalDateTime.of(2026, 6, 15, 10, 0));
         line.markSettled(settlementId);
         return line;
+    }
+
+    private Settlement approvedSettlement(UUID sellerId) {
+        Settlement settlement = settlement(sellerId);
+        settlement.approve(LocalDateTime.of(2026, 6, 24, 9, 0)); // APPROVED + READY
+        return settlement;
+    }
+
+    @Test
+    @DisplayName("판매자 목록: 본인 정산을 sellerId로 조회해 스펙 필드로 매핑하고 페이징을 조립한다")
+    void getMySettlements_mapsItemsAndPaging() {
+        UUID sellerId = UUID.randomUUID();
+        SellerSettlementListQuery query = new SellerSettlementListQuery(
+                sellerId, SettlementDisplayStatus.APPROVED, YearMonth.of(2026, 6), 0, 10);
+        given(settlementQueryRepository.findPageBySeller(
+                sellerId, SettlementDisplayStatus.APPROVED, YearMonth.of(2026, 6), 0, 10))
+                .willReturn(new SettlementPage(List.of(approvedSettlement(sellerId)), 3L));
+
+        SellerSettlementListResponse response = settlementApplicationService.getMySettlements(query);
+
+        assertThat(response.totalElements()).isEqualTo(3L);
+        assertThat(response.page()).isZero();
+        assertThat(response.size()).isEqualTo(10);
+        assertThat(response.items()).hasSize(1);
+
+        Item item = response.items().get(0);
+        assertThat(item.period()).isEqualTo("2026-06");
+        assertThat(item.periodStart()).isEqualTo("2026-06-01");
+        assertThat(item.periodEnd()).isEqualTo("2026-06-30");
+        assertThat(item.salesCount()).isEqualTo(1);
+        assertThat(item.grossAmount()).isEqualByComparingTo("100.00");
+        assertThat(item.feeAmount()).isEqualByComparingTo("15.00");
+        assertThat(item.refundAmount()).isEqualByComparingTo("0");
+        assertThat(item.adjustmentAmount()).isEqualByComparingTo("0");
+        assertThat(item.payoutAmount()).isEqualByComparingTo("85.00");
+        assertThat(item.status()).isEqualTo("APPROVED");
+        assertThat(item.displayStatus()).isEqualTo("승인");
+    }
+
+    @Test
+    @DisplayName("판매자 목록: 승인 완료(APPROVED) 항목에는 지급 신청 액션이 노출된다")
+    void getMySettlements_approvedItem_exposesRequestPayout() {
+        UUID sellerId = UUID.randomUUID();
+        given(settlementQueryRepository.findPageBySeller(sellerId, null, null, 0, 10))
+                .willReturn(new SettlementPage(List.of(approvedSettlement(sellerId)), 1L));
+
+        SellerSettlementListResponse response = settlementApplicationService.getMySettlements(
+                new SellerSettlementListQuery(sellerId, null, null, 0, 10));
+
+        List<Action> actions = response.items().get(0).availableActions();
+        assertThat(actions).extracting(Action::type).containsExactly("REQUEST_PAYOUT");
+        assertThat(actions.get(0).label()).isEqualTo("지급 신청하기");
+    }
+
+    @Test
+    @DisplayName("판매자 목록: 승인 대기(WAITING) 항목에는 수행 가능한 액션이 없다")
+    void getMySettlements_waitingItem_hasNoActions() {
+        UUID sellerId = UUID.randomUUID();
+        given(settlementQueryRepository.findPageBySeller(sellerId, null, null, 0, 10))
+                .willReturn(new SettlementPage(List.of(settlement(sellerId)), 1L));
+
+        SellerSettlementListResponse response = settlementApplicationService.getMySettlements(
+                new SellerSettlementListQuery(sellerId, null, null, 0, 10));
+
+        Item item = response.items().get(0);
+        assertThat(item.status()).isEqualTo("WAITING");
+        assertThat(item.displayStatus()).isEqualTo("대기");
+        assertThat(item.availableActions()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("판매자 요약: source/settlement 집계로 4개 지표를 채우고 registeredPromptCount는 0이다")
+    void getMySummary_assemblesFourMetricsWithZeroPromptCount() {
+        UUID sellerId = UUID.randomUUID();
+        given(settlementSourceRepository.countPaidBySeller(sellerId)).willReturn(1342L);
+        given(settlementSourceRepository.sumPaidAmountBySeller(sellerId))
+                .willReturn(new BigDecimal("10449800"));
+        given(settlementRepository.sumPaidSettlementAmountBySeller(sellerId))
+                .willReturn(new BigDecimal("170000"));
+
+        SellerSettlementSummaryResponse response = settlementApplicationService.getMySummary(sellerId);
+
+        assertThat(response.registeredPromptCount()).isZero();
+        assertThat(response.totalSalesCount()).isEqualTo(1342L);
+        assertThat(response.totalRevenueAmount()).isEqualByComparingTo("10449800");
+        assertThat(response.totalSettlementAmount()).isEqualByComparingTo("170000");
+    }
+
+    @Test
+    @DisplayName("지급 신청: 본인 정산을 PAYOUT_REQUESTED로 바꾸고 응답을 반환한다")
+    void requestPayout_success() {
+        UUID sellerId = UUID.randomUUID();
+        UUID settlementId = UUID.randomUUID();
+        Settlement target = approvedSettlement(sellerId); // APPROVED + READY
+        ReflectionTestUtils.setField(target, "id", settlementId);
+        given(settlementRepository.findById(settlementId)).willReturn(Optional.of(target));
+
+        SettlementStatusResponse response = settlementApplicationService.requestPayout(sellerId, settlementId);
+
+        assertThat(response.payoutStatus()).isEqualTo(PayoutStatus.PAYOUT_REQUESTED);
+        assertThat(response.displayStatus()).isEqualTo(SettlementDisplayStatus.PAYOUT_REQUESTED);
+        then(settlementRepository).should().save(target);
+    }
+
+    @Test
+    @DisplayName("지급 신청: 본인 정산이 아니면 SettlementException(403)을 던지고 저장하지 않는다")
+    void requestPayout_notOwner_throws() {
+        UUID sellerId = UUID.randomUUID();
+        UUID settlementId = UUID.randomUUID();
+        Settlement target = approvedSettlement(UUID.randomUUID()); // 다른 판매자
+        given(settlementRepository.findById(settlementId)).willReturn(Optional.of(target));
+
+        assertThatThrownBy(() -> settlementApplicationService.requestPayout(sellerId, settlementId))
+                .isInstanceOf(SettlementException.class);
+        then(settlementRepository).should(never()).save(target);
+    }
+
+    @Test
+    @DisplayName("지급 신청: 정산이 없으면 SettlementException을 던진다")
+    void requestPayout_notFound_throws() {
+        UUID sellerId = UUID.randomUUID();
+        UUID settlementId = UUID.randomUUID();
+        given(settlementRepository.findById(settlementId)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> settlementApplicationService.requestPayout(sellerId, settlementId))
+                .isInstanceOf(SettlementException.class);
     }
 }

@@ -13,12 +13,16 @@
 의존성은 항상 안쪽(도메인)을 향한다.
 
 ```
-presentation ──▶ application ──▶ domain ◀── infrastructure
+infrastructure ──▶ application ◀── presentation
+                        │
+                        ▼
+                      domain
 ```
 
 - `domain`은 다른 어떤 계층도 import 하지 않는다. (단, 엔티티 겸용 정책상 JPA는 예외 — `domain-model.md` 참고)
-- `application`은 `domain`만 의존한다. presentation·infrastructure를 모른다.
-- `presentation`·`infrastructure`는 바깥 계층이며, 안쪽(application·domain)에 의존한다.
+- `application`은 `domain`에만 의존한다. `presentation`·`infrastructure`를 모른다.
+- `presentation`은 바깥 계층이며, `application`에 의존한다. HTTP 요청을 받아 유스케이스를 호출한다.
+- `infrastructure`는 바깥 계층이며, `application`에 의존한다. 포트를 구현해 기술 세부사항을 연동한다.
 - 바깥에서 안쪽으로의 호출은 **포트(인터페이스)**를 통한다.
 
 이 방향이 깨지면(예: domain이 infrastructure를 import) 구조 위반으로 본다.

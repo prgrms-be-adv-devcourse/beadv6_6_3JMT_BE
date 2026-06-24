@@ -1,6 +1,6 @@
 # User Service API
 
-**Base:** `http://localhost:xxxx/api/v1`
+**Base:** `http://localhost:8081/api/v1`
 
 ## 공통 사항
 
@@ -15,6 +15,7 @@
 
 - 인증: 필요
 - 필요 역할: BUYER / SELLER
+- 프로필 정보와 판매자 신청 상태를 함께 반환 — 마이페이지 배너 표시 여부 판단에 사용
 
 #### Response
 
@@ -28,7 +29,9 @@
     "name": "김민서",
     "email": "user@example.com",
     "profileImageUrl": "https://cdn.example.com/images/profile.jpg",
-    "role": "BUYER"
+    "role": "BUYER",
+    "sellerStatus": "PENDING",
+    "provider": "local"
   },
   "message": "success"
 }
@@ -41,14 +44,27 @@
 | email | string | 이메일 |
 | profileImageUrl | string \| null | 프로필 이미지 URL |
 | role | string | 역할 (`BUYER` / `SELLER`) |
+| sellerStatus | string \| null | 판매자 신청 상태 (`PENDING` / `APPROVED` / `REJECTED` / `null`) |
+
+**sellerStatus 값 규칙**
+
+| sellerStatus | 설명 |
+|---|---|
+| `null` | 판매자 신청 이력 없는 BUYER |
+| `PENDING` | 심사 대기 중 |
+| `APPROVED` | 승인됨 (role이 `SELLER`이면 항상 이 값) |
+| `REJECTED` | 반려됨 |
+| provider | string | 가입 방식 (`local` / `kakao`) |
 
 ---
 
-### PUT /users/me — 프로필 수정
+### PATCH /users/me — 프로필 수정
 
 - 인증: 필요
 - 필요 역할: BUYER / SELLER
 - 수정할 필드만 포함 (Partial Update)
+- 응답 `data`에는 요청에서 실제로 수정된 필드만 포함됨
+- `password` 필드는 `provider=local` 사용자만 허용. OAuth 사용자(`kakao` 등)가 포함하면 400 반환
 
 #### Request
 
@@ -56,7 +72,7 @@
 
 ```json
 {
-  "nickname": "새이름",
+  "name": "새이름",
   "email": "new@example.com",
   "password": "password"
 }
@@ -64,20 +80,34 @@
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| nickname | string | N | 닉네임 |
+| name | string | N | 이름 |
 | email | string | N | 이메일 |
-| password | string | N | 비밀번호 |
+| password | string | N | 비밀번호 — `local` 가입 사용자만 허용 |
 
 #### Response
 
-**200 OK**
+**200 OK** — 수정된 필드만 포함 (미수정 필드는 응답에서 생략)
 
+예: `name`만 수정한 경우
 ```json
 {
   "success": true,
   "data": {
     "id": "uuid",
-    "nickname": "새닉네임"
+    "name": "새이름"
+  },
+  "message": "success"
+}
+```
+
+예: `name`과 `email` 모두 수정한 경우
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "name": "새이름",
+    "email": "new@example.com"
   },
   "message": "success"
 }
@@ -85,8 +115,9 @@
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| id | string | 사용자 ID |
-| nickname | string | 변경된 닉네임 |
+| id | string | 사용자 ID (항상 포함) |
+| name | string \| 생략 | 변경된 이름 (수정 시에만 포함) |
+| email | string \| 생략 | 변경된 이메일 (수정 시에만 포함) |
 
 ---
 
@@ -94,6 +125,12 @@
 
 - 인증: 필요
 - 필요 역할: BUYER / SELLER
+
+처리 순서
+
+1. 진행 중인 주문 있으면 → 400 반환
+2. 없으면 → deleted_at 채워서 Soft Delete
+3. RT 삭제
 
 #### Response
 
@@ -124,7 +161,7 @@
 
 ```json
 {
-  "categories": ["마케팅", "코딩"],
+  "categories": ["marketing", "coding"],
   "introduction": "마케팅 카피·블로그 글쓰기용 GPT 프롬프트를 주로 만듭니다.",
   "portfolioUrl": "https://blog.example.com",
   "agreedToTerms": true
@@ -162,11 +199,12 @@
 
 ---
 
-### GET /sellers/register/me — 내 판매자 등록 신청 조회
+### GET /sellers/register/me — 내 판매자 등록 신청 상세 조회(구현 금지)
 
 - 인증: 필요
 - 필요 역할: BUYER
-- 마이페이지 "심사 중" 상태 배너 표시 등에 활용
+- 신청 상세 정보 조회용 — 심사 현황 상세 페이지에서 사용
+- 마이페이지 프로필 화면(배너)에서는 `GET /users/me`의 `sellerStatus` 사용
 
 #### Response
 
@@ -178,7 +216,7 @@
   "data": {
     "sellerRequestId": "uuid",
     "status": "PENDING",
-    "categories": ["마케팅", "코딩"],
+    "categories": ["marketing", "coding"],
     "introduction": "마케팅 카피·블로그 글쓰기용 GPT 프롬프트를 주로 만듭니다.",
     "portfolioUrl": "https://blog.example.com",
     "submittedAt": "2025-06-17T10:00:00Z",

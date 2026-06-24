@@ -32,53 +32,53 @@
 
 ### user
 
-| 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
-|------|------|:--------:|--------|------|
-| user_id | UUID | ✓ | | PK |
-| name | VARCHAR(100) | ✓ | | 사용자 이름 |
-| email | VARCHAR(255) | ✓ | | 이메일 |
+| 컬럼                | 타입 | NOT NULL | 기본값 | 설명 |
+|-------------------|------|:--------:|--------|------|
+| id                | UUID | ✓ | | PK |
+| name              | VARCHAR(100) | ✓ | | 사용자 이름 |
+| email             | VARCHAR(255) | ✓ | | 이메일 |
 | profile_image_url | VARCHAR(500) | | NULL | 프로필 이미지 URL |
-| status | user_status_type | ✓ | ACTIVE | ACTIVE / BLOCKED / WITHDRAWN |
-| terms_agreed | BOOLEAN | ✓ | FALSE | 서비스 이용약관 동의 여부 |
-| role | user_role_type | ✓ | | USER / SELLER / ADMIN |
-| created_at | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
-| updated_at | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
+| status            | user_status_type | ✓ | ACTIVE | ACTIVE / BLOCKED / WITHDRAWN |
+| terms_agreed      | BOOLEAN | ✓ | FALSE | 서비스 이용약관 동의 여부 |
+| role              | user_role_type | ✓ | | USER / SELLER / ADMIN |
+| created_at        | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
+| updated_at        | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
 
 ---
 
 ### auth
 
-| 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
-|------|------|:--------:|--------|------|
-| auth_id | UUID | ✓ | gen_random_uuid() | PK |
-| user_id | UUID | ✓ | | FK → user.user_id |
-| provider | auth_provider_type | ✓ | | KAKAO / NAVER / GOOGLE |
-| provider_user_id | VARCHAR(100) | ✓ | | 소셜 플랫폼 고유 ID. UNIQUE(provider, provider_user_id) |
+| 컬럼           | 타입 | NOT NULL | 기본값 | 설명 |
+|--------------|------|:--------:|--------|------|
+| id           | UUID | ✓ | gen_random_uuid() | PK |
+| user_id      | UUID | ✓ | | FK → user.user_id |
+| provider     | auth_provider_type | ✓ | | KAKAO / NAVER / GOOGLE |
+| oauth_id     | VARCHAR(100) | ✓ | | 소셜 플랫폼 고유 ID. UNIQUE(provider, provider_user_id) |
 | connected_at | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | 소셜 계정 연동 일시 |
 
 ---
 
 ### seller
 
-| 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
-|------|------|:--------:|--------|------|
-| seller_id | UUID | ✓ | gen_random_uuid() | PK |
-| user_id | UUID | ✓ | | FK → user.user_id |
-| seller_name | VARCHAR(100) | ✓ | | 상호명 또는 판매자 노출 이름 |
+| 컬럼              | 타입 | NOT NULL | 기본값 | 설명 |
+|-----------------|------|:--------:|--------|------|
+| id              | UUID | ✓ | gen_random_uuid() | PK |
+| user_id         | UUID | ✓ | | FK → user.user_id |
+| seller_name     | VARCHAR(100) | ✓ | | 상호명 또는 판매자 노출 이름 |
 | business_number | VARCHAR(50) | | NULL | 사업자등록번호. 개인/해외 판매자 확장성을 위해 NULL 허용 |
-| status | seller_status_type | ✓ | PENDING | PENDING / ACTIVE / SUSPENDED |
-| approved_at | TIMESTAMPTZ | | NULL | 판매자 승인 일시. 미승인 시 NULL |
-| created_at | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
-| updated_at | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
+| status          | seller_status_type | ✓ | PENDING | PENDING / ACTIVE / SUSPENDED |
+| approved_at     | TIMESTAMPTZ | | NULL | 판매자 승인 일시. 미승인 시 NULL |
+| created_at      | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
+| updated_at      | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
 
 ---
 
 ### wishlist
 
-| 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
-|------|------|:--------:|--------|------|
-| wishlist_id | UUID | ✓ | gen_random_uuid() | PK |
-| user_id | UUID | ✓ | | FK → user.user_id |
+| 컬럼         | 타입 | NOT NULL | 기본값 | 설명 |
+|------------|------|:--------:|--------|------|
+| id         | UUID | ✓ | gen_random_uuid() | PK |
+| user_id    | UUID | ✓ | | FK → user.user_id |
 | product_id | UUID | ✓ | | FK → product.product_id |
 | created_at | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
 
