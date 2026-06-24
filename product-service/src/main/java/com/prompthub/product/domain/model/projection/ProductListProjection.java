@@ -1,23 +1,22 @@
-package com.prompthub.product.presentation.dto;
+package com.prompthub.product.domain.model.projection;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public record ProductListItemResponse(
+public record ProductListProjection(
 	UUID id,
 	String title,
 	String category,
-	String icon,
+	String categoryCode,
+	String categoryIcon,
 	String model,
 	int amount,
-	Integer originalAmount,
 	double rating,
 	int salesCount,
-	String seller,
 	UUID sellerId,
-	String badge,
-	String desc,
-	String thumbnail_url,
+	String sellerName,
+	String description,
+	String thumbnailUrl,
 	LocalDateTime createdAt,
 	LocalDateTime updatedAt
 ) {
