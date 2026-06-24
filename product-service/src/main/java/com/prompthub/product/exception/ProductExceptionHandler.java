@@ -37,6 +37,20 @@ public class ProductExceptionHandler {
 			.body(ErrorResponse.of(errorCode, exception.getMessage()));
 	}
 
+	@ExceptionHandler(IllegalStateException.class)
+	public ResponseEntity<ErrorResponse> handleIllegalStateException(
+		IllegalStateException exception,
+		HttpServletRequest request
+	) {
+		ProductErrorCode errorCode = ProductErrorCode.PRODUCT_INVALID_STATUS;
+
+		log.warn("[{}] Product 상태 오류가 발생했습니다. reason={}", getRequestId(request), exception.getMessage());
+
+		return ResponseEntity
+			.status(errorCode.getStatus())
+			.body(ErrorResponse.of(errorCode, exception.getMessage()));
+	}
+
 	@ExceptionHandler({
 		MethodArgumentNotValidException.class,
 		ConstraintViolationException.class,

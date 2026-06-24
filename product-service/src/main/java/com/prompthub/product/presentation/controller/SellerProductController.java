@@ -10,6 +10,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -44,6 +45,16 @@ public class SellerProductController {
 		@Valid @RequestBody ProductUpdateRequest request
 	) {
 		productSellerUseCase.updateProduct(sellerId, productId, request);
+		return ApiResult.success(null);
+	}
+
+	@PatchMapping("/{productId}/submit")
+	public ApiResult<Void> submitForReview(
+		@RequestHeader("X-User-Id") UUID sellerId,
+		@RequestHeader("X-User-Role") String role,
+		@PathVariable UUID productId
+	) {
+		productSellerUseCase.submitForReview(sellerId, productId);
 		return ApiResult.success(null);
 	}
 

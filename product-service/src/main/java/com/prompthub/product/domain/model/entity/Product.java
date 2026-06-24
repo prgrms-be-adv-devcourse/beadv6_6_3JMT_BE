@@ -2,7 +2,9 @@ package com.prompthub.product.domain.model.entity;
 
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
+import com.prompthub.product.infra.persistence.converter.TagsConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -12,8 +14,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
-import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -72,6 +75,10 @@ public class Product {
 	@Column(name = "badge", length = 50)
 	private String badge;
 
+	@Convert(converter = TagsConverter.class)
+	@Column(name = "tags")
+	private List<String> tags = new ArrayList<>();
+
 	@Enumerated(EnumType.STRING)
 	@Column(name = "status", nullable = false)
 	private ProductStatus status;
@@ -106,7 +113,8 @@ public class Product {
 		AmountType amountType,
 		int amount,
 		String thumbnailUrl,
-		String content
+		String content,
+		List<String> tags
 	) {
 		Product product = new Product();
 		product.id = UUID.randomUUID();
@@ -120,6 +128,7 @@ public class Product {
 		product.amount = amount;
 		product.thumbnailUrl = thumbnailUrl;
 		product.content = content;
+		product.tags = tags != null ? tags : new ArrayList<>();
 		product.majorVersion = 1;
 		product.patchVersion = 0;
 		product.status = ProductStatus.DRAFT;
@@ -140,6 +149,7 @@ public class Product {
 		int amount,
 		String thumbnailUrl,
 		String content,
+		List<String> tags,
 		String changeReason,
 		boolean isMajor
 	) {
@@ -152,6 +162,7 @@ public class Product {
 		this.amount = amount;
 		this.thumbnailUrl = thumbnailUrl;
 		this.content = content;
+		this.tags = tags != null ? tags : new ArrayList<>();
 		this.changeReason = changeReason;
 		if (isMajor) {
 			this.majorVersion++;
@@ -163,6 +174,11 @@ public class Product {
 		this.updatedAt = LocalDateTime.now();
 	}
 
+	public void stop() {
+		this.status = ProductStatus.STOPPED;
+		this.updatedAt = LocalDateTime.now();
+	}
+
 	public void softDelete() {
 		this.deletedAt = LocalDateTime.now();
 		this.status = ProductStatus.STOPPED;
@@ -171,5 +187,40 @@ public class Product {
 
 	public boolean isOwnedBy(UUID userId) {
 		return this.sellerId.equals(userId);
+	}
+
+	public void submitForReview() {
+		if (this.status != ProductStatus.DRAFT && this.status != ProductStatus.REJECTED) {
+			throw new IllegalStateException("검수 요청할 수 없는 상태입니다. current=" + this.status);
+		}
+		this.rejectionReason = null;
+		this.status = ProductStatus.PENDING_REVIEW;
+		this.updatedAt = LocalDateTime.now();
+	}
+
+	public void approve() {
+		if (this.status != ProductStatus.PENDING_REVIEW) {
+			throw new IllegalStateException("검수 대기 상태의 상품만 승인할 수 있습니다. current=" + this.status);
+		}
+		this.status = ProductStatus.ON_SALE;
+		this.updatedAt = LocalDateTime.now();
+	}
+
+	public void reject(String reason) {
+		if (this.status != ProductStatus.PENDING_REVIEW) {
+			throw new IllegalStateException("검수 대기 상태의 상품만 반려할 수 있습니다. current=" + this.status);
+		}
+		this.status = ProductStatus.REJECTED;
+		this.rejectionReason = reason;
+		this.updatedAt = LocalDateTime.now();
+	}
+
+	public void revertToPendingReview() {
+		if (this.status != ProductStatus.ON_SALE && this.status != ProductStatus.REJECTED) {
+			throw new IllegalStateException("승인 또는 반려 상태의 상품만 검수 대기로 되돌릴 수 있습니다. current=" + this.status);
+		}
+		this.status = ProductStatus.PENDING_REVIEW;
+		this.rejectionReason = null;
+		this.updatedAt = LocalDateTime.now();
 	}
 }
