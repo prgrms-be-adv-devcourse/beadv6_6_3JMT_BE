@@ -1,6 +1,6 @@
 package com.prompthub.product.presentation.controller;
 
-import com.prompthub.product.application.usecase.catalog.ProductQueryUseCase;
+import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
 import com.prompthub.product.exception.ProductExceptionHandler;

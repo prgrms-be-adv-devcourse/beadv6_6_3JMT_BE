@@ -1,8 +1,9 @@
-package com.prompthub.product.application.service.catalog;
+package com.prompthub.product.application.service;
 
+import com.prompthub.product.application.client.SellerClient;
+import com.prompthub.product.application.client.SellerInfo;
 import com.prompthub.product.domain.model.entity.Category;
 import com.prompthub.product.domain.model.entity.Product;
-import com.prompthub.product.domain.model.entity.User;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
@@ -34,7 +35,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 @ExtendWith(MockitoExtension.class)
-class ProductCatalogServiceTest {
+class ProductQueryServiceTest {
 
 	private static final UUID PRODUCT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
 	private static final UUID RELATED_PRODUCT_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
@@ -46,8 +47,11 @@ class ProductCatalogServiceTest {
 	@Mock
 	private ProductRepository productRepository;
 
+	@Mock
+	private SellerClient sellerClient;
+
 	@InjectMocks
-	private ProductCatalogService productCatalogService;
+	private ProductQueryService productQueryService;
 
 	@Nested
 	@DisplayName("상품 목록 조회")
@@ -61,8 +65,10 @@ class ProductCatalogServiceTest {
 				.willReturn(List.of(projection));
 			given(productRepository.countPublicProducts("react", "coding"))
 				.willReturn(1L);
+			given(sellerClient.getSellerInfo(SELLER_ID))
+				.willReturn(new SellerInfo(SELLER_ID, "테스트판매자", null, "ACTIVE"));
 
-			PageResponse<ProductListItemResponse> response = productCatalogService.getProducts(
+			PageResponse<ProductListItemResponse> response = productQueryService.getProducts(
 				" React ",
 				"coding",
 				"unknown",
@@ -92,7 +98,7 @@ class ProductCatalogServiceTest {
 			)).willReturn(List.of());
 			given(productRepository.countPublicProducts("", "all")).willReturn(0L);
 
-			productCatalogService.getProducts(null, null, "popular", -1, -10);
+			productQueryService.getProducts(null, null, "popular", -1, -10);
 
 			assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
 			assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(1);
@@ -109,8 +115,10 @@ class ProductCatalogServiceTest {
 			Product product = product(ProductStatus.ON_SALE, null);
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 			given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(4.5);
+			given(sellerClient.getSellerInfo(SELLER_ID))
+				.willReturn(new SellerInfo(SELLER_ID, "테스트판매자", null, "ACTIVE"));
 
-			ProductDetailResponse response = productCatalogService.getProduct(PRODUCT_ID);
+			ProductDetailResponse response = productQueryService.getProduct(PRODUCT_ID);
 
 			assertThat(response.id()).isEqualTo(PRODUCT_ID);
 			assertThat(response.title()).isEqualTo("리액트 컴포넌트 리팩터링 도우미");
@@ -126,7 +134,7 @@ class ProductCatalogServiceTest {
 		void getProduct_notFound() {
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> productCatalogService.getProduct(PRODUCT_ID))
+			assertThatThrownBy(() -> productQueryService.getProduct(PRODUCT_ID))
 				.isInstanceOf(ProductException.class)
 				.satisfies(exception ->
 					assertThat(((ProductException) exception).getErrorCode())
@@ -139,7 +147,7 @@ class ProductCatalogServiceTest {
 		void getProduct_notOnSale() {
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product(ProductStatus.DRAFT, null)));
 
-			assertThatThrownBy(() -> productCatalogService.getProduct(PRODUCT_ID))
+			assertThatThrownBy(() -> productQueryService.getProduct(PRODUCT_ID))
 				.isInstanceOf(ProductException.class);
 		}
 	}
@@ -155,8 +163,10 @@ class ProductCatalogServiceTest {
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 			given(productRepository.findRelatedProducts(PRODUCT_ID, CATEGORY_ID, 4))
 				.willReturn(List.of(productListProjection(RELATED_PRODUCT_ID, "coding")));
+			given(sellerClient.getSellerInfo(SELLER_ID))
+				.willReturn(new SellerInfo(SELLER_ID, "테스트판매자", null, "ACTIVE"));
 
-			List<ProductListItemResponse> response = productCatalogService.getRelatedProducts(PRODUCT_ID, 0);
+			List<ProductListItemResponse> response = productQueryService.getRelatedProducts(PRODUCT_ID, 0);
 
 			assertThat(response).hasSize(1);
 			assertThat(response.getFirst().id()).isEqualTo(RELATED_PRODUCT_ID);
@@ -184,7 +194,7 @@ class ProductCatalogServiceTest {
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 			given(productRepository.findActiveReviews(PRODUCT_ID)).willReturn(List.of(projection));
 
-			List<ProductReviewResponse> response = productCatalogService.getProductReviews(PRODUCT_ID);
+			List<ProductReviewResponse> response = productQueryService.getProductReviews(PRODUCT_ID);
 
 			assertThat(response).hasSize(1);
 			assertThat(response.getFirst().id()).isEqualTo(reviewId);
@@ -204,7 +214,6 @@ class ProductCatalogServiceTest {
 			4.7,
 			760,
 			SELLER_ID,
-			"테스트판매자",
 			"컴포넌트 분리, 상태 정리, 타입 개선",
 			null,
 			CREATED_AT,
@@ -218,13 +227,8 @@ class ProductCatalogServiceTest {
 		ReflectionTestUtils.setField(category, "name", "coding");
 
 		Product product = instantiate(Product.class);
-		User seller = instantiate(User.class);
-		ReflectionTestUtils.setField(seller, "id", SELLER_ID);
-		ReflectionTestUtils.setField(seller, "name", "테스트판매자");
-
 		ReflectionTestUtils.setField(product, "id", PRODUCT_ID);
 		ReflectionTestUtils.setField(product, "sellerId", SELLER_ID);
-		ReflectionTestUtils.setField(product, "seller", seller);
 		ReflectionTestUtils.setField(product, "category", category);
 		ReflectionTestUtils.setField(product, "categoryId", CATEGORY_ID);
 		ReflectionTestUtils.setField(product, "majorVersion", (short) 1);

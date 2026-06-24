@@ -1,6 +1,6 @@
 package com.prompthub.product.presentation.controller;
 
-import com.prompthub.product.application.usecase.catalog.ProductQueryUseCase;
+import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductReviewResponse;

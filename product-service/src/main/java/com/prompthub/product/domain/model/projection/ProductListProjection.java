@@ -14,7 +14,6 @@ public record ProductListProjection(
 	double rating,
 	int salesCount,
 	UUID sellerId,
-	String sellerName,
 	String description,
 	String thumbnailUrl,
 	LocalDateTime createdAt,
