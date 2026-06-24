@@ -23,6 +23,7 @@ import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import com.prompthub.settlement.domain.repository.SettlementStatusAggregate;
 import com.prompthub.settlement.global.exception.SettlementException;
 import com.prompthub.settlement.presentation.dto.response.SettlementListResponse;
+import com.prompthub.settlement.presentation.dto.response.SettlementResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementStatusResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementSummaryResponse;
 import java.math.BigDecimal;
@@ -297,10 +298,10 @@ class SettlementApplicationServiceTest {
         given(settlementSourceRepository.findBySettlementId(settlementId))
                 .willReturn(List.of(line1, line2));
 
-        Settlement result = settlementApplicationService.cancel(settlementId);
+        SettlementResponse result = settlementApplicationService.cancel(settlementId);
 
-        assertThat(result.getSettlementStatus()).isEqualTo(SettlementStatus.CANCELLED);
-        assertThat(result.getCanceledAt()).isNotNull();
+        assertThat(result.displayStatus()).isEqualTo("CANCELLED");
+        assertThat(result.canceledAt()).isNotNull();
         assertThat(line1.isSettled()).isFalse();
         assertThat(line2.isSettled()).isFalse();
         then(settlementRepository).should().save(target);

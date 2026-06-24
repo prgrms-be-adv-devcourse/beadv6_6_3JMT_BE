@@ -225,6 +225,6 @@ public class SettlementController {
             @Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId,
             @Parameter(description = "요청 수행자 ID(UUID)", in = ParameterIn.HEADER) @RequestHeader("X-User-Id") UUID actorId) {
         log.info("정산 취소 요청 - settlementId={}, actorId={}", settlementId, actorId);
-        return ApiResult.success(SettlementResponse.from(settlementUseCase.cancel(settlementId)));
+        return ApiResult.success(settlementUseCase.cancel(settlementId));
     }
 }

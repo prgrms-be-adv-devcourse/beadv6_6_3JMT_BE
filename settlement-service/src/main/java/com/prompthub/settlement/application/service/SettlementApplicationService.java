@@ -12,6 +12,7 @@ import com.prompthub.settlement.domain.repository.SettlementStatusAggregate;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
 import com.prompthub.settlement.global.exception.SettlementException;
 import com.prompthub.settlement.presentation.dto.response.SettlementListResponse;
+import com.prompthub.settlement.presentation.dto.response.SettlementResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementStatusResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementSummaryResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementSummaryResponse.Card;
@@ -128,13 +129,13 @@ public class SettlementApplicationService implements SettlementUseCase {
 
     @Override
     @Transactional
-    public Settlement cancel(UUID settlementId) {
+    public SettlementResponse cancel(UUID settlementId) {
         Settlement settlement = findSettlement(settlementId);
         settlement.cancel(LocalDateTime.now());
         List<SettlementSourceLine> lines = settlementSourceRepository.findBySettlementId(settlementId);
         lines.forEach(line -> line.release(settlementId));
         settlementRepository.save(settlement);
-        return settlement;
+        return SettlementResponse.from(settlement);
     }
 
     private Settlement findSettlement(UUID settlementId) {
