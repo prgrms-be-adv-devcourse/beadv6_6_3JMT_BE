@@ -239,7 +239,7 @@ class SettlementApplicationServiceTest {
         UUID settlementId = UUID.randomUUID();
         Settlement target = settlement(UUID.randomUUID());
         ReflectionTestUtils.setField(target, "settlementStatus", SettlementStatus.APPROVED);
-        ReflectionTestUtils.setField(target, "payoutStatus", PayoutStatus.READY);
+        ReflectionTestUtils.setField(target, "payoutStatus", PayoutStatus.PAYOUT_REQUESTED);
         given(settlementRepository.findById(settlementId)).willReturn(Optional.of(target));
 
         SettlementStatusResponse response = settlementApplicationService.payout(settlementId);
@@ -256,7 +256,7 @@ class SettlementApplicationServiceTest {
         UUID settlementId = UUID.randomUUID();
         Settlement target = settlement(UUID.randomUUID());
         ReflectionTestUtils.setField(target, "settlementStatus", SettlementStatus.APPROVED);
-        ReflectionTestUtils.setField(target, "payoutStatus", PayoutStatus.READY);
+        ReflectionTestUtils.setField(target, "payoutStatus", PayoutStatus.PAYOUT_REQUESTED);
         given(settlementRepository.findById(settlementId)).willReturn(Optional.of(target));
 
         SettlementStatusResponse response = settlementApplicationService.payoutHold(settlementId);
@@ -266,8 +266,8 @@ class SettlementApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("지급 보류 해제: payout READY 응답을 반환한다")
-    void releasePayoutHold_returnsReady() {
+    @DisplayName("지급 보류 해제: payout PAYOUT_REQUESTED 응답을 반환한다")
+    void releasePayoutHold_returnsRequested() {
         UUID settlementId = UUID.randomUUID();
         Settlement target = settlement(UUID.randomUUID());
         ReflectionTestUtils.setField(target, "settlementStatus", SettlementStatus.APPROVED);
@@ -276,7 +276,7 @@ class SettlementApplicationServiceTest {
 
         SettlementStatusResponse response = settlementApplicationService.releasePayoutHold(settlementId);
 
-        assertThat(response.payoutStatus()).isEqualTo(PayoutStatus.READY);
+        assertThat(response.payoutStatus()).isEqualTo(PayoutStatus.PAYOUT_REQUESTED);
         then(settlementRepository).should().save(target);
     }
 

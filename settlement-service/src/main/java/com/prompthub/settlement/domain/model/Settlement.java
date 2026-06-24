@@ -154,7 +154,7 @@ public class Settlement extends BaseEntity {
 	}
 
 	public void payout(LocalDateTime paidAt) {
-		if (this.settlementStatus != SettlementStatus.APPROVED || this.payoutStatus != PayoutStatus.READY) {
+		if (this.settlementStatus != SettlementStatus.APPROVED || this.payoutStatus != PayoutStatus.PAYOUT_REQUESTED) {
 			throw new SettlementInvalidStateException("payout", this.settlementStatus, this.payoutStatus);
 		}
 		this.payoutStatus = PayoutStatus.PAID;
@@ -162,7 +162,7 @@ public class Settlement extends BaseEntity {
 	}
 
 	public void payoutHold() {
-		if (this.settlementStatus != SettlementStatus.APPROVED || this.payoutStatus != PayoutStatus.READY) {
+		if (this.settlementStatus != SettlementStatus.APPROVED || this.payoutStatus != PayoutStatus.PAYOUT_REQUESTED) {
 			throw new SettlementInvalidStateException("payoutHold", this.settlementStatus, this.payoutStatus);
 		}
 		this.payoutStatus = PayoutStatus.PAYOUT_ON_HOLD;
@@ -173,7 +173,7 @@ public class Settlement extends BaseEntity {
 			|| this.payoutStatus != PayoutStatus.PAYOUT_ON_HOLD) {
 			throw new SettlementInvalidStateException("releasePayoutHold", this.settlementStatus, this.payoutStatus);
 		}
-		this.payoutStatus = PayoutStatus.READY;
+		this.payoutStatus = PayoutStatus.PAYOUT_REQUESTED;
 	}
 
 	public void requestPayout() {
