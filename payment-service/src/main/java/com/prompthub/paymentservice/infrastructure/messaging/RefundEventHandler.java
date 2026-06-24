@@ -3,11 +3,12 @@ package com.prompthub.paymentservice.infrastructure.messaging;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
 import com.prompthub.paymentservice.application.gateway.external.TossRefundResult;
-import com.prompthub.paymentservice.application.gateway.persistence.PaymentRepository;
-import com.prompthub.paymentservice.application.gateway.persistence.RefundRepository;
 import com.prompthub.paymentservice.domain.event.PaymentRefundRequestedEvent;
+import com.prompthub.paymentservice.domain.exception.InvalidRefundStateException;
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.Refund;
+import com.prompthub.paymentservice.domain.repository.PaymentRepository;
+import com.prompthub.paymentservice.domain.repository.RefundRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -56,6 +57,11 @@ public class RefundEventHandler {
                 refund.fail();
                 paymentRepository.save(payment);
                 refundRepository.save(refund);
+                return null;
+            } catch (InvalidRefundStateException e) {
+                log.error("환불 상태 불변 위반 — paymentId={}, refundId={}, message={}",
+                    payment.getId(), refund.getId(), e.getMessage());
+                status.setRollbackOnly();
                 return null;
             }
         });

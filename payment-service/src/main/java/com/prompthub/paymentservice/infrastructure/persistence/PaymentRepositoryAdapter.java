@@ -1,6 +1,6 @@
 package com.prompthub.paymentservice.infrastructure.persistence;
 
-import com.prompthub.paymentservice.application.gateway.persistence.PaymentRepository;
+import com.prompthub.paymentservice.domain.repository.PaymentRepository;
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;
 import java.time.OffsetDateTime;

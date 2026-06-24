@@ -1,4 +1,4 @@
-package com.prompthub.paymentservice.application.gateway.persistence;
+package com.prompthub.paymentservice.domain.repository;
 
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;

@@ -3,11 +3,12 @@ package com.prompthub.paymentservice.infrastructure.scheduling;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
 import com.prompthub.paymentservice.application.gateway.external.TossRefundResult;
-import com.prompthub.paymentservice.application.gateway.persistence.PaymentRepository;
-import com.prompthub.paymentservice.application.gateway.persistence.RefundRepository;
+import com.prompthub.paymentservice.domain.exception.InvalidRefundStateException;
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;
 import com.prompthub.paymentservice.domain.model.Refund;
+import com.prompthub.paymentservice.domain.repository.PaymentRepository;
+import com.prompthub.paymentservice.domain.repository.RefundRepository;
 import com.prompthub.paymentservice.infrastructure.messaging.KafkaPaymentEventPublisher;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -65,6 +66,9 @@ public class PaymentRefundRetryScheduler {
                 refund.fail();
                 paymentRepository.save(payment);
                 refundRepository.save(refund);
+            } catch (InvalidRefundStateException e) {
+                log.error("스케줄러 환불 상태 불변 위반 — paymentId={}, refundId={}, message={}",
+                    payment.getId(), refund.getId(), e.getMessage());
             }
         }
     }

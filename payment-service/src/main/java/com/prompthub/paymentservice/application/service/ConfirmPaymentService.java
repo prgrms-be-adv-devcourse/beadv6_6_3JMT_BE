@@ -7,7 +7,7 @@ import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
 import com.prompthub.paymentservice.application.gateway.external.TossConfirmResult;
-import com.prompthub.paymentservice.application.gateway.persistence.PaymentRepository;
+import com.prompthub.paymentservice.domain.repository.PaymentRepository;
 import com.prompthub.paymentservice.application.usecase.ConfirmPaymentUseCase;
 import com.prompthub.paymentservice.domain.event.PaymentApprovedEvent;
 import com.prompthub.paymentservice.domain.model.Payment;
