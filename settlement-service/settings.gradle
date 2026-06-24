@@ -1,1 +1,3 @@
 rootProject.name = 'settlement-service'
+
+includeBuild '../common-module'

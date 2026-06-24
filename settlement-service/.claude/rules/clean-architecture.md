@@ -38,18 +38,35 @@ com.prompthub.settlement
     ├── application
     │   ├── usecase                 ← 인바운드 포트(인터페이스)
     │   ├── service                 ← 유스케이스 구현
+    │   ├── port                    ← 아웃바운드 포트(비영속: 배치 실행·메시징 등)
     │   └── dto                     ← Command / Result
     ├── domain
     │   ├── model                   ← 도메인 모델(= JPA 엔티티 겸용)
     │   └── repository              ← 아웃바운드 포트(인터페이스)
     ├── infrastructure
     │   ├── persistence             ← JpaRepository, RepositoryAdapter
-    │   ├── batch                   ← Job / Step / Reader / Processor / Writer
+    │   ├── batch                   ← Spring Batch 어댑터(역할별 하위 패키지로 분리)
+    │   │   ├── config              ← Job / Step 설정(JobConfig·StepConfig)
+    │   │   ├── reader              ← Reader
+    │   │   ├── processor           ← Processor
+    │   │   ├── writer              ← Writer
+    │   │   ├── tasklet             ← Tasklet
+    │   │   ├── listener            ← Job/Step 리스너
+    │   │   ├── launcher            ← 잡 실행·상태 조회 어댑터(JobOperator·JobRepository 연동)
+    │   │   └── model               ← 배치 내부 전용 DTO(예: SettlementTarget)
     │   └── event                   ← 메시징·이벤트 어댑터
     └── config                      ← 해당 기능 전용 설정
+
+com.prompthub.settlement.global       ← 기능 횡단(cross-cutting) 공통
+└── exception                         ← 전역 예외 핸들러·ErrorCode 매핑
 ```
 
 기능이 늘어나면 `settlement`와 같은 레벨에 새 기능 패키지를 추가한다.
+
+전역 예외 처리는 특정 기능에 속하지 않는 횡단 관심사이므로 `global/exception`에 둔다.
+`@RestControllerAdvice` 전역 핸들러와 `ErrorCode`(HttpStatus 매핑) 구현을 이곳에 모은다.
+`ErrorCode`는 `HttpStatus`(웹 프레임워크)에 의존하므로 **domain 에 두지 않는다.**
+공통 응답·예외 베이스(`ApiResponse`·`ErrorResponse`·`BusinessException`·`ErrorCode`)는 common-module 을 사용한다.
 
 ## 3. 계층별 책임
 
@@ -70,10 +87,16 @@ com.prompthub.settlement
 | --- | --- | --- |
 | 인바운드(유스케이스) | `application/usecase` | `application/service` |
 | 아웃바운드(영속성) | `domain/repository` | `infrastructure/persistence` |
+| 아웃바운드(비영속: 배치·메시징 등) | `application/port` | `infrastructure/batch` · `infrastructure/event` |
 
 - 인바운드: `SettlementUseCase`(포트) ← `SettlementApplicationService`(구현)
-- 아웃바운드: `SettlementRepository`(포트, domain) ← `SettlementRepositoryAdapter`(구현, infrastructure)
+- 아웃바운드(영속성): `SettlementRepository`(포트, domain) ← `SettlementRepositoryAdapter`(구현, infrastructure)
+- 아웃바운드(비영속): `SettlementJobLauncher`(포트, application) ← `SettlementJobLauncherAdapter`(구현, infrastructure)
 - 어댑터는 내부에서 `SettlementJpaRepository`(Spring Data) 를 호출한다.
+
+> **비영속 아웃바운드 포트는 `application/port`에 둔다.** 잡 실행·메시지 발행처럼 '영속성'이 아닌
+> 외부 연동은 도메인이 알 필요가 없으므로 `domain/repository`에 두지 않는다. application 이 필요로 하는
+> 인터페이스를 application 이 소유하고, 바깥 계층(infrastructure)이 구현한다(§1 의존 방향 부합).
 
 ```
 application/service/SettlementApplicationService   implements   application/usecase/SettlementUseCase
@@ -89,16 +112,23 @@ domain/repository/SettlementRepository  ◀ implements ◀  infrastructure/persi
 
 Spring Batch 구성은 기술 세부사항으로 보고 `infrastructure/batch`에 둔다.
 
-- Job / Step / Reader / Processor / Writer 설정은 모두 `infrastructure/batch`.
+- Job / Step / Reader / Processor / Writer / Tasklet / Listener 구성은 모두 `infrastructure/batch` 아래,
+  **역할별 하위 패키지로 분리**한다. (`config` · `reader` · `processor` · `writer` · `tasklet` · `listener` · `launcher` · `model`)
 - **배치는 흐름 제어만 한다.** 실제 정산 로직은 `application`의 유스케이스를 호출해 수행한다.
 - Reader/Writer가 도메인 모델을 직접 다루더라도, 비즈니스 규칙은 도메인·유스케이스에 위임한다.
+- 잡 실행·상태 조회처럼 `JobOperator`·`JobRepository`를 직접 다루는 어댑터는 `launcher`에 둔다.
+- 배치 단계 사이에서만 쓰는 내부 DTO(예: `SettlementTarget`)는 `model`에 둔다. 도메인 모델과 섞지 않는다.
 
 ```
-infrastructure/batch/SettlementJobConfig
-infrastructure/batch/SettlementStepConfig
+infrastructure/batch/config/SettlementJobConfig
+infrastructure/batch/config/SettlementStepConfig
 infrastructure/batch/reader/...
 infrastructure/batch/processor/...   ──▶ application/usecase 호출
 infrastructure/batch/writer/...
+infrastructure/batch/tasklet/...
+infrastructure/batch/listener/...
+infrastructure/batch/launcher/...    ──▶ JobOperator / JobRepository 연동
+infrastructure/batch/model/...       ← 배치 내부 전용 DTO
 ```
 
 ## 6. 계층 네이밍 규칙
