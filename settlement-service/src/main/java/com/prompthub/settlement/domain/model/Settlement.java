@@ -2,6 +2,7 @@ package com.prompthub.settlement.domain.model;
 
 import com.prompthub.settlement.global.common.BaseEntity;
 import com.prompthub.settlement.domain.model.enums.PayoutStatus;
+import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementStatus;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -112,5 +113,9 @@ public class Settlement extends BaseEntity {
 
     private static BigDecimal sum(List<SettlementDetail> details, Function<SettlementDetail, BigDecimal> field) {
         return details.stream().map(field).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public SettlementDisplayStatus displayStatus() {
+        return SettlementDisplayStatus.from(this.settlementStatus, this.payoutStatus);
     }
 }
