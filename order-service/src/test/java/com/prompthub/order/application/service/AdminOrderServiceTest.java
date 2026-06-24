@@ -5,6 +5,7 @@ import com.prompthub.order.application.dto.AdminOrderListProjection;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.repository.AdminOrderQueryRepository;
 import com.prompthub.order.presentation.dto.request.AdminOrderSearchCondition;
+import com.prompthub.order.presentation.dto.response.AdminMonthlyTradeAmountResponse;
 import com.prompthub.order.presentation.dto.response.AdminOrderListResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -100,6 +101,18 @@ class AdminOrderServiceTest {
 
 			assertThat(response.getContent().getFirst().sellerNickname()).isEqualTo("알 수 없음");
 		}
+	}
+
+	@Test
+	@DisplayName("이번 달 실제 거래액을 조회한다")
+	void getMonthlyTransactionAmount_success() {
+		given(adminOrderQueryRepository.sumMonthlyTransactionAmount(any(), any()))
+			.willReturn(25_000L);
+
+		AdminMonthlyTradeAmountResponse response = adminOrderService.getMonthlyTransactionAmount();
+
+		assertThat(response.monthlyTransactionAmount()).isEqualTo(25_000L);
+		then(adminOrderQueryRepository).should().sumMonthlyTransactionAmount(any(), any());
 	}
 
 	private AdminOrderListProjection adminOrderProjection(UUID sellerId) {

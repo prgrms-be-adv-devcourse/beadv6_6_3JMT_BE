@@ -4,6 +4,7 @@ import com.prompthub.order.application.dto.AdminOrderListProjection;
 import com.prompthub.order.config.TestJpaConfig;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
+import com.prompthub.order.domain.model.OrderPayment;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.infra.persistence.config.QuerydslConfig;
 import com.prompthub.order.infra.persistence.order.AdminOrderQueryRepositoryImpl;
@@ -20,6 +21,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_AMOUNT_1;
@@ -90,6 +92,29 @@ class AdminOrderQueryRepositoryImplTest {
 			.containsExactly(paidOrder.getId());
 	}
 
+	@Test
+	@DisplayName("실제 거래액은 승인 금액에서 기간 내 취소/환불 금액을 차감한다")
+	void sumMonthlyTransactionAmount_subtractsCanceledAndRefunded() {
+		LocalDateTime start = LocalDateTime.of(2026, 6, 1, 0, 0);
+		LocalDateTime endExclusive = LocalDateTime.of(2026, 7, 1, 0, 0);
+		Order paidOrder = createSingleProductPaidOrder("ORD-20260624-0004", LocalDateTime.of(2026, 6, 10, 10, 0));
+		persistPayment(paidOrder, UUID.fromString("00000000-0000-0000-0000-000000000411"), PRODUCT_AMOUNT_1, LocalDateTime.of(2026, 6, 10, 10, 1));
+
+		Order canceledOrder = createSingleProductPaidOrder("ORD-20260624-0005", LocalDateTime.of(2026, 6, 11, 10, 0));
+		persistPayment(canceledOrder, UUID.fromString("00000000-0000-0000-0000-000000000412"), PRODUCT_AMOUNT_2, LocalDateTime.of(2026, 6, 11, 10, 1));
+		canceledOrder.cancel(LocalDateTime.of(2026, 6, 12, 10, 0));
+
+		Order refundedOrder = createSingleProductPaidOrder("ORD-20260624-0006", LocalDateTime.of(2026, 6, 13, 10, 0));
+		persistPayment(refundedOrder, UUID.fromString("00000000-0000-0000-0000-000000000413"), PRODUCT_AMOUNT_1, LocalDateTime.of(2026, 6, 13, 10, 1));
+		refundedOrder.refund(LocalDateTime.of(2026, 6, 14, 10, 0));
+		entityManager.flush();
+		entityManager.clear();
+
+		long actualAmount = adminOrderQueryRepository.sumMonthlyTransactionAmount(start, endExclusive);
+
+		assertThat(actualAmount).isEqualTo(PRODUCT_AMOUNT_1);
+	}
+
 	private Order createSingleProductPaidOrder(String orderNumber, LocalDateTime createdAt) {
 		Order order = createOrder(orderNumber, OrderStatus.PAID, createdAt);
 		order.addOrderProduct(OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, PRODUCT_TYPE_PROMPT, PRODUCT_AMOUNT_1));
@@ -106,5 +131,9 @@ class AdminOrderQueryRepositoryImplTest {
 			order.markFailed();
 		}
 		return order;
+	}
+
+	private void persistPayment(Order order, UUID paymentId, int approvedAmount, LocalDateTime approvedAt) {
+		entityManager.persist(OrderPayment.create(order.getId(), paymentId, BUYER_ID, approvedAmount, approvedAt));
 	}
 }

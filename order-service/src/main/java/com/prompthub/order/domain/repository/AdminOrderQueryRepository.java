@@ -5,7 +5,11 @@ import com.prompthub.order.presentation.dto.request.AdminOrderSearchCondition;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDateTime;
+
 public interface AdminOrderQueryRepository {
 
 	Page<AdminOrderListProjection> searchAdminOrders(AdminOrderSearchCondition condition, Pageable pageable);
+
+	long sumMonthlyTransactionAmount(LocalDateTime startInclusive, LocalDateTime endExclusive);
 }

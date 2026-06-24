@@ -5,6 +5,7 @@ import com.prompthub.order.application.dto.AdminOrderListProjection;
 import com.prompthub.order.application.usecase.AdminOrderUseCase;
 import com.prompthub.order.domain.repository.AdminOrderQueryRepository;
 import com.prompthub.order.presentation.dto.request.AdminOrderSearchCondition;
+import com.prompthub.order.presentation.dto.response.AdminMonthlyTradeAmountResponse;
 import com.prompthub.order.presentation.dto.response.AdminOrderListResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +15,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -40,6 +43,17 @@ public class AdminOrderService implements AdminOrderUseCase {
 		Map<UUID, String> sellerNicknames = getSellerNicknames(orders.getContent());
 
 		return orders.map(order -> toAdminOrderListResponse(order, sellerNicknames));
+	}
+
+	@Override
+	public AdminMonthlyTradeAmountResponse getMonthlyTransactionAmount() {
+		LocalDate today = LocalDate.now();
+		LocalDateTime start = today.withDayOfMonth(1).atStartOfDay();
+		LocalDateTime endExclusive = today.plusMonths(1).withDayOfMonth(1).atStartOfDay();
+
+		return new AdminMonthlyTradeAmountResponse(
+			adminOrderQueryRepository.sumMonthlyTransactionAmount(start, endExclusive)
+		);
 	}
 
 	private Map<UUID, String> getSellerNicknames(List<AdminOrderListProjection> orders) {

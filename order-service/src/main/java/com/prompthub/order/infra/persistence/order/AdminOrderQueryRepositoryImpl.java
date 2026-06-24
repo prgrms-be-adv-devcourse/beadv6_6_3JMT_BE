@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static com.prompthub.order.domain.model.QOrder.order;
+import static com.prompthub.order.domain.model.QOrderPayment.orderPayment;
 import static com.prompthub.order.domain.model.QOrderProduct.orderProduct;
 
 @Repository
@@ -96,8 +97,67 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
 		return new PageImpl<>(content, pageable, total == null ? 0L : total);
 	}
 
+	@Override
+	public long sumMonthlyTransactionAmount(LocalDateTime startInclusive, LocalDateTime endExclusive) {
+		long approvedAmount = sumApprovedAmount(startInclusive, endExclusive);
+		long canceledAmount = sumCanceledAmount(startInclusive, endExclusive);
+		long refundedAmount = sumRefundedAmount(startInclusive, endExclusive);
+		return approvedAmount - canceledAmount - refundedAmount;
+	}
+
 	private BooleanExpression orderStatusEq(OrderStatus orderStatus) {
 		return orderStatus == null ? null : order.orderStatus.eq(orderStatus);
+	}
+
+	private long sumApprovedAmount(LocalDateTime startInclusive, LocalDateTime endExclusive) {
+		Integer amount = queryFactory
+			.select(orderPayment.approvedAmount.sum())
+			.from(orderPayment)
+			.where(dateTimeGoe(orderPayment.approvedAt, startInclusive), dateTimeLt(orderPayment.approvedAt, endExclusive))
+			.fetchOne();
+		return amount == null ? 0L : amount;
+	}
+
+	private long sumCanceledAmount(LocalDateTime startInclusive, LocalDateTime endExclusive) {
+		Integer amount = queryFactory
+			.select(orderPayment.approvedAmount.sum())
+			.from(orderPayment)
+			.join(order).on(order.id.eq(orderPayment.orderId))
+			.where(
+				order.orderStatus.eq(OrderStatus.CANCELED),
+				dateTimeGoe(order.canceledAt, startInclusive),
+				dateTimeLt(order.canceledAt, endExclusive)
+			)
+			.fetchOne();
+		return amount == null ? 0L : amount;
+	}
+
+	private long sumRefundedAmount(LocalDateTime startInclusive, LocalDateTime endExclusive) {
+		Integer amount = queryFactory
+			.select(orderPayment.approvedAmount.sum())
+			.from(orderPayment)
+			.join(order).on(order.id.eq(orderPayment.orderId))
+			.where(
+				order.orderStatus.eq(OrderStatus.REFUNDED),
+				dateTimeGoe(order.refundedAt, startInclusive),
+				dateTimeLt(order.refundedAt, endExclusive)
+			)
+			.fetchOne();
+		return amount == null ? 0L : amount;
+	}
+
+	private BooleanExpression dateTimeGoe(
+		com.querydsl.core.types.dsl.DateTimePath<LocalDateTime> dateTimePath,
+		LocalDateTime value
+	) {
+		return value == null ? null : dateTimePath.goe(value);
+	}
+
+	private BooleanExpression dateTimeLt(
+		com.querydsl.core.types.dsl.DateTimePath<LocalDateTime> dateTimePath,
+		LocalDateTime value
+	) {
+		return value == null ? null : dateTimePath.lt(value);
 	}
 
 	private int valueOrZero(Integer value) {

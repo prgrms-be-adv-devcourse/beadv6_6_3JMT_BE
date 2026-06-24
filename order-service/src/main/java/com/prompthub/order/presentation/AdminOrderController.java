@@ -3,7 +3,9 @@ package com.prompthub.order.presentation;
 import com.prompthub.order.application.usecase.AdminOrderUseCase;
 import com.prompthub.order.global.web.AuthHeaders;
 import com.prompthub.order.presentation.dto.request.AdminOrderSearchCondition;
+import com.prompthub.order.presentation.dto.response.AdminMonthlyTradeAmountResponse;
 import com.prompthub.order.presentation.dto.response.AdminOrderListResponse;
+import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.presentation.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -54,5 +56,19 @@ public class AdminOrderController {
 			orders.getTotalElements(),
 			orders.hasNext()
 		);
+	}
+
+	@GetMapping("/month")
+	@Operation(summary = "이번 달 실제 거래액 조회", description = "이번 달 승인 금액에서 취소/환불 금액을 차감한 실제 거래액을 조회합니다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "월간 실제 거래액 조회 성공"),
+		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음"),
+		@ApiResponse(responseCode = "403", description = "A004 권한 없음")
+	})
+	public ApiResult<AdminMonthlyTradeAmountResponse> getMonthlyTransactionAmount(
+		@Parameter(in = ParameterIn.HEADER, name = USER_ROLE, description = "Gateway가 주입하는 사용자 권한", required = true)
+		@RequestHeader(USER_ROLE) String userRole
+	) {
+		return ApiResult.success(adminOrderUseCase.getMonthlyTransactionAmount());
 	}
 }

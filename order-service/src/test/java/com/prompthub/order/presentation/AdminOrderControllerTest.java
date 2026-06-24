@@ -7,6 +7,7 @@ import com.prompthub.order.global.exception.GlobalExceptionHandler;
 import com.prompthub.order.global.web.AdminAuthInterceptor;
 import com.prompthub.order.global.web.AuthHeaders;
 import com.prompthub.order.presentation.dto.request.AdminOrderSearchCondition;
+import com.prompthub.order.presentation.dto.response.AdminMonthlyTradeAmountResponse;
 import com.prompthub.order.presentation.dto.response.AdminOrderListResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -118,6 +119,19 @@ class AdminOrderControllerTest {
 			.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
 
 		verifyNoInteractions(adminOrderUseCase);
+	}
+
+	@Test
+	@DisplayName("ADMIN 권한으로 이번 달 실제 거래액을 조회한다")
+	void getMonthlyTransactionAmount_admin_success() throws Exception {
+		given(adminOrderUseCase.getMonthlyTransactionAmount())
+			.willReturn(new AdminMonthlyTradeAmountResponse(25_000L));
+
+		mockMvc.perform(get("/api/v1/admin/orders/month")
+				.header(AuthHeaders.USER_ROLE, AuthHeaders.ADMIN))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.success").value(true))
+			.andExpect(jsonPath("$.data.monthlyTransactionAmount").value(25_000L));
 	}
 
 }
