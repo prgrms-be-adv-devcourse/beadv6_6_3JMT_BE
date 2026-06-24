@@ -6,6 +6,7 @@ import com.prompthub.settlement.application.dto.SettlementListQuery;
 import com.prompthub.settlement.application.usecase.SettlementUseCase;
 import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.settlement.presentation.dto.response.SettlementListResponse;
+import com.prompthub.settlement.presentation.dto.response.SettlementResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementStatusResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementSummaryResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -203,5 +204,27 @@ public class SettlementController {
             @Parameter(description = "요청 수행자 ID(UUID)", in = ParameterIn.HEADER) @RequestHeader("X-User-Id") UUID actorId) {
         log.info("정산 지급 보류 해제 요청 - settlementId={}, actorId={}", settlementId, actorId);
         return ApiResult.success(settlementUseCase.releasePayoutHold(settlementId));
+    }
+
+    @PatchMapping("/{settlementId}/cancel")
+    @Operation(summary = "정산 취소",
+            description = "지급 완료(PAID) 전 정산을 취소하고, 묶인 소스 라인을 풀어 재정산 대상으로 되돌립니다. ADMIN 권한이 필요합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "취소 성공",
+                    content = @Content(schema = @Schema(implementation = SettlementResponse.class))),
+            @ApiResponse(responseCode = "401", description = "인증 정보 없음",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "ADMIN 권한 없음",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "정산 없음",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "이미 지급 완료됨 / 이미 취소됨",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ApiResult<SettlementResponse> cancel(
+            @Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId,
+            @Parameter(description = "요청 수행자 ID(UUID)", in = ParameterIn.HEADER) @RequestHeader("X-User-Id") UUID actorId) {
+        log.info("정산 취소 요청 - settlementId={}, actorId={}", settlementId, actorId);
+        return ApiResult.success(SettlementResponse.from(settlementUseCase.cancel(settlementId)));
     }
 }
