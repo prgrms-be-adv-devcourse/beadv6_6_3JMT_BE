@@ -94,7 +94,7 @@ class AuthControllerTest {
     }
 
     @Test
-    void oAuthLogin_kakaoId_누락_400() throws Exception {
+    void oAuthLogin_providerUserId_누락_400() throws Exception {
         String body = """
                 {
                     "nickname": "테스트유저",
@@ -217,8 +217,8 @@ class AuthControllerTest {
     }
 
     @Test
-    void logout_XUserId_헤더_누락_401() throws Exception {
+    void logout_XUserId_헤더_누락_403() throws Exception {
         mockMvc.perform(post("/api/v1/auth/logout"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isForbidden());
     }
 }

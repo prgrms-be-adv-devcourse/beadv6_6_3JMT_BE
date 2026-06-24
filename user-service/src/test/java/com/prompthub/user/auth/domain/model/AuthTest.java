@@ -2,7 +2,7 @@ package com.prompthub.user.auth.domain.model;
 
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,11 +31,11 @@ class AuthTest {
 
     @Test
     void create_connectedAt_자동_설정() {
-        LocalDateTime before = LocalDateTime.now().minusSeconds(1);
+        Instant before = Instant.now().minusSeconds(1);
 
         Auth auth = Auth.create(UUID.randomUUID(), OAuthProvider.KAKAO, "provider_id");
 
-        assertThat(auth.getConnectedAt()).isAfter(before).isBefore(LocalDateTime.now().plusSeconds(1));
+        assertThat(auth.getConnectedAt()).isAfter(before).isBefore(Instant.now().plusSeconds(1));
     }
 
     @Test

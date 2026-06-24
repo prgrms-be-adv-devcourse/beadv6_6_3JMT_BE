@@ -7,6 +7,7 @@ import com.prompthub.user.auth.application.dto.TokenRefreshResult;
 import com.prompthub.user.auth.application.usecase.AuthUseCase;
 import com.prompthub.user.auth.domain.exception.InvalidRefreshTokenException;
 import com.prompthub.user.auth.domain.exception.OAuthEmailAlreadyUsedException;
+import com.prompthub.user.auth.domain.exception.OrphanedAuthRecordException;
 import com.prompthub.user.auth.domain.model.Auth;
 import com.prompthub.user.auth.domain.model.RefreshToken;
 import com.prompthub.user.auth.domain.repository.AuthRepository;
@@ -43,8 +44,8 @@ public class AuthApplicationService implements AuthUseCase {
 
         if (existingAuth.isPresent()) {
             user = userRepository.findById(existingAuth.get().getUserId())
-                    .orElseThrow(() -> new IllegalStateException(
-                            "auth 레코드에 연결된 user를 찾을 수 없습니다. userId=" + existingAuth.get().getUserId()));
+                    .orElseThrow(() -> new OrphanedAuthRecordException(
+                            existingAuth.get().getUserId().toString()));
             isNewUser = false;
         } else {
             if (userRepository.existsByEmail(command.email())) {
@@ -64,11 +65,12 @@ public class AuthApplicationService implements AuthUseCase {
             isNewUser = true;
         }
 
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getRole());
-        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUserId());
+        JwtTokenProvider.TokenResult accessTokenResult = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getRole());
+        JwtTokenProvider.TokenResult refreshTokenResult = jwtTokenProvider.generateRefreshToken(user.getUserId());
 
+        refreshTokenRepository.deleteByUserId(user.getUserId());
         refreshTokenRepository.save(
-                RefreshToken.create(user.getUserId(), refreshToken, jwtTokenProvider.getRefreshTokenExpiresAt())
+                RefreshToken.create(user.getUserId(), refreshTokenResult.token(), refreshTokenResult.expiresAt())
         );
 
         return new OAuthLoginResult(
@@ -76,10 +78,10 @@ public class AuthApplicationService implements AuthUseCase {
                 user.getName(),
                 user.getEmail(),
                 user.getRole(),
-                accessToken,
-                refreshToken,
+                accessTokenResult.token(),
+                refreshTokenResult.token(),
                 "Bearer",
-                jwtTokenProvider.getAccessTokenExpiresAt(),
+                accessTokenResult.expiresAt(),
                 isNewUser
         );
     }
@@ -94,8 +96,8 @@ public class AuthApplicationService implements AuthUseCase {
 
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
 
-        String accessToken = jwtTokenProvider.generateAccessToken(userId, user.getRole());
-        return new TokenRefreshResult(accessToken, jwtTokenProvider.getAccessTokenExpiresAt());
+        JwtTokenProvider.TokenResult result = jwtTokenProvider.generateAccessToken(userId, user.getRole());
+        return new TokenRefreshResult(result.token(), result.expiresAt());
     }
 
     @Override

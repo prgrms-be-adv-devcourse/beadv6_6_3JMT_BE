@@ -2,6 +2,8 @@ package com.prompthub.user.auth.application.service;
 
 import com.prompthub.user.auth.application.dto.OAuthLoginCommand;
 import com.prompthub.user.auth.application.dto.OAuthLoginResult;
+import com.prompthub.user.auth.domain.exception.OAuthEmailAlreadyUsedException;
+import com.prompthub.user.auth.domain.exception.OrphanedAuthRecordException;
 import com.prompthub.user.auth.domain.model.Auth;
 import com.prompthub.user.auth.domain.model.OAuthProvider;
 import com.prompthub.user.auth.domain.model.RefreshToken;
@@ -46,6 +48,9 @@ class OAuthApplicationServiceTest {
     @InjectMocks
     private AuthApplicationService authApplicationService;
 
+    private static final Instant ACCESS_EXPIRES_AT = Instant.now().plusSeconds(3600);
+    private static final Instant REFRESH_EXPIRES_AT = Instant.now().plusSeconds(2592000);
+
     private static final OAuthLoginCommand COMMAND = new OAuthLoginCommand(
             OAuthProvider.KAKAO,
             "kakao_123456",
@@ -63,10 +68,10 @@ class OAuthApplicationServiceTest {
                 .willReturn(Optional.of(existingAuth));
         given(userRepository.findById(existingUser.getUserId()))
                 .willReturn(Optional.of(existingUser));
-        given(jwtTokenProvider.generateAccessToken(any(), any())).willReturn("access-token");
-        given(jwtTokenProvider.generateRefreshToken(any())).willReturn("refresh-token");
-        given(jwtTokenProvider.getAccessTokenExpiresAt()).willReturn(Instant.now().plusSeconds(3600));
-        given(jwtTokenProvider.getRefreshTokenExpiresAt()).willReturn(Instant.now().plusSeconds(2592000));
+        given(jwtTokenProvider.generateAccessToken(any(), any()))
+                .willReturn(new JwtTokenProvider.TokenResult("access-token", ACCESS_EXPIRES_AT));
+        given(jwtTokenProvider.generateRefreshToken(any()))
+                .willReturn(new JwtTokenProvider.TokenResult("refresh-token", REFRESH_EXPIRES_AT));
         given(refreshTokenRepository.save(any(RefreshToken.class))).willAnswer(inv -> inv.getArgument(0));
 
         OAuthLoginResult result = authApplicationService.oAuthLogin(COMMAND);
@@ -79,40 +84,30 @@ class OAuthApplicationServiceTest {
     }
 
     @Test
-    void login_이메일_존재_연동_없을_때_auth만_신규_생성() {
-        User existingUser = User.create("테스트유저", "test@kakao.com", null, UserRole.BUYER, true);
-
+    void login_이메일_이미_존재하면_OAuthEmailAlreadyUsedException() {
         given(authRepository.findByProviderAndProviderUserId(OAuthProvider.KAKAO, "kakao_123456"))
                 .willReturn(Optional.empty());
-        given(userRepository.findByEmail("test@kakao.com"))
-                .willReturn(Optional.of(existingUser));
-        given(authRepository.save(any(Auth.class))).willAnswer(inv -> inv.getArgument(0));
-        given(jwtTokenProvider.generateAccessToken(any(), any())).willReturn("access-token");
-        given(jwtTokenProvider.generateRefreshToken(any())).willReturn("refresh-token");
-        given(jwtTokenProvider.getAccessTokenExpiresAt()).willReturn(Instant.now().plusSeconds(3600));
-        given(jwtTokenProvider.getRefreshTokenExpiresAt()).willReturn(Instant.now().plusSeconds(2592000));
-        given(refreshTokenRepository.save(any(RefreshToken.class))).willAnswer(inv -> inv.getArgument(0));
+        given(userRepository.existsByEmail("test@kakao.com"))
+                .willReturn(true);
 
-        OAuthLoginResult result = authApplicationService.oAuthLogin(COMMAND);
+        assertThatThrownBy(() -> authApplicationService.oAuthLogin(COMMAND))
+                .isInstanceOf(OAuthEmailAlreadyUsedException.class);
 
-        assertThat(result.isNewUser()).isFalse();
-        assertThat(result.email()).isEqualTo("test@kakao.com");
-        then(userRepository).should(never()).save(any(User.class));
-        then(authRepository).should().save(any(Auth.class));
+        then(userRepository).should(never()).save(any());
+        then(authRepository).should(never()).save(any());
     }
 
     @Test
     void login_신규_사용자_자동_회원가입() {
         given(authRepository.findByProviderAndProviderUserId(OAuthProvider.KAKAO, "kakao_123456"))
                 .willReturn(Optional.empty());
-        given(userRepository.findByEmail("test@kakao.com"))
-                .willReturn(Optional.empty());
+        given(userRepository.existsByEmail("test@kakao.com")).willReturn(false);
         given(userRepository.save(any(User.class))).willAnswer(inv -> inv.getArgument(0));
         given(authRepository.save(any(Auth.class))).willAnswer(inv -> inv.getArgument(0));
-        given(jwtTokenProvider.generateAccessToken(any(), any())).willReturn("access-token");
-        given(jwtTokenProvider.generateRefreshToken(any())).willReturn("refresh-token");
-        given(jwtTokenProvider.getAccessTokenExpiresAt()).willReturn(Instant.now().plusSeconds(3600));
-        given(jwtTokenProvider.getRefreshTokenExpiresAt()).willReturn(Instant.now().plusSeconds(2592000));
+        given(jwtTokenProvider.generateAccessToken(any(), any()))
+                .willReturn(new JwtTokenProvider.TokenResult("access-token", ACCESS_EXPIRES_AT));
+        given(jwtTokenProvider.generateRefreshToken(any()))
+                .willReturn(new JwtTokenProvider.TokenResult("refresh-token", REFRESH_EXPIRES_AT));
         given(refreshTokenRepository.save(any(RefreshToken.class))).willAnswer(inv -> inv.getArgument(0));
 
         OAuthLoginResult result = authApplicationService.oAuthLogin(COMMAND);
@@ -128,14 +123,13 @@ class OAuthApplicationServiceTest {
     void login_신규_사용자_tokenType_Bearer() {
         given(authRepository.findByProviderAndProviderUserId(OAuthProvider.KAKAO, "kakao_123456"))
                 .willReturn(Optional.empty());
-        given(userRepository.findByEmail("test@kakao.com"))
-                .willReturn(Optional.empty());
+        given(userRepository.existsByEmail("test@kakao.com")).willReturn(false);
         given(userRepository.save(any(User.class))).willAnswer(inv -> inv.getArgument(0));
         given(authRepository.save(any(Auth.class))).willAnswer(inv -> inv.getArgument(0));
-        given(jwtTokenProvider.generateAccessToken(any(), any())).willReturn("access-token");
-        given(jwtTokenProvider.generateRefreshToken(any())).willReturn("refresh-token");
-        given(jwtTokenProvider.getAccessTokenExpiresAt()).willReturn(Instant.now().plusSeconds(3600));
-        given(jwtTokenProvider.getRefreshTokenExpiresAt()).willReturn(Instant.now().plusSeconds(2592000));
+        given(jwtTokenProvider.generateAccessToken(any(), any()))
+                .willReturn(new JwtTokenProvider.TokenResult("access-token", ACCESS_EXPIRES_AT));
+        given(jwtTokenProvider.generateRefreshToken(any()))
+                .willReturn(new JwtTokenProvider.TokenResult("refresh-token", REFRESH_EXPIRES_AT));
         given(refreshTokenRepository.save(any(RefreshToken.class))).willAnswer(inv -> inv.getArgument(0));
 
         OAuthLoginResult result = authApplicationService.oAuthLogin(COMMAND);
@@ -145,7 +139,7 @@ class OAuthApplicationServiceTest {
     }
 
     @Test
-    void login_auth_존재하지만_user_없으면_IllegalStateException() {
+    void login_auth_존재하지만_user_없으면_OrphanedAuthRecordException() {
         UUID missingUserId = UUID.randomUUID();
         Auth orphanAuth = Auth.create(missingUserId, OAuthProvider.KAKAO, "kakao_123456");
 
@@ -155,7 +149,7 @@ class OAuthApplicationServiceTest {
                 .willReturn(Optional.empty());
 
         assertThatThrownBy(() -> authApplicationService.oAuthLogin(COMMAND))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(OrphanedAuthRecordException.class)
                 .hasMessageContaining(missingUserId.toString());
     }
 }

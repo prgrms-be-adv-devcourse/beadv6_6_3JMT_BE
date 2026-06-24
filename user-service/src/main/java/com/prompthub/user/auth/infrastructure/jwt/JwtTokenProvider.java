@@ -25,39 +25,37 @@ public class JwtTokenProvider {
     private final JwtDecoder jwtDecoder;
     private final JwtProperties jwtProperties;
 
-    public String generateAccessToken(UUID userId, UserRole role) {
+    public record TokenResult(String token, Instant expiresAt) {}
+
+    public TokenResult generateAccessToken(UUID userId, UserRole role) {
         Instant now = Instant.now();
+        Instant expiresAt = now.plusSeconds(jwtProperties.getAccessTokenExpireSeconds());
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .subject(userId.toString())
                 .issuedAt(now)
-                .expiresAt(now.plusSeconds(jwtProperties.getAccessTokenExpireSeconds()))
+                .expiresAt(expiresAt)
                 .claim("role", role.name())
                 .claim("type", "access")
                 .build();
 
-        return jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        String token = jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        return new TokenResult(token, expiresAt);
     }
 
-    public String generateRefreshToken(UUID userId) {
+    public TokenResult generateRefreshToken(UUID userId) {
         Instant now = Instant.now();
+        Instant expiresAt = now.plusSeconds(jwtProperties.getRefreshTokenExpireSeconds());
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .subject(userId.toString())
                 .issuedAt(now)
-                .expiresAt(now.plusSeconds(jwtProperties.getRefreshTokenExpireSeconds()))
+                .expiresAt(expiresAt)
                 .claim("type", "refresh")
                 .build();
 
-        return jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
-    }
-
-    public Instant getAccessTokenExpiresAt() {
-        return Instant.now().plusSeconds(jwtProperties.getAccessTokenExpireSeconds());
-    }
-
-    public Instant getRefreshTokenExpiresAt() {
-        return Instant.now().plusSeconds(jwtProperties.getRefreshTokenExpireSeconds());
+        String token = jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        return new TokenResult(token, expiresAt);
     }
 
     public UUID parseRefreshToken(String token) {

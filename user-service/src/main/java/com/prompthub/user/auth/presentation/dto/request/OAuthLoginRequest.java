@@ -6,12 +6,12 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
 public record OAuthLoginRequest(
-        @NotBlank String kakaoId,
+        @NotBlank String providerUserId,
         @NotBlank String nickname,
         String profileImage,
         @NotBlank @Email String email
 ) {
     public OAuthLoginCommand toCommand(OAuthProvider provider) {
-        return new OAuthLoginCommand(provider, kakaoId, nickname, profileImage, email);
+        return new OAuthLoginCommand(provider, providerUserId, nickname, profileImage, email);
     }
 }

@@ -139,7 +139,7 @@ public class GlobalExceptionHandler {
     private ErrorCode resolveMissingHeaderErrorCode(String headerName) {
         if (USER_ID_HEADER.equalsIgnoreCase(headerName)
                 || USER_ROLE_HEADER.equalsIgnoreCase(headerName)) {
-            return UserErrorCode.AUTH_TOKEN_EXPIRED;
+            return UserErrorCode.AUTH_FORBIDDEN;
         }
 
         return UserErrorCode.VALIDATION_FAILED;

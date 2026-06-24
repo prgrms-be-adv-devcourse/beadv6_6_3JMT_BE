@@ -141,7 +141,7 @@
 
 ```json
 {
-  "kakaoId": "123456789",
+  "providerUserId": "123456789",
   "nickname": "카카오사용자",
   "profileImage": "https://k.kakaocdn.net/...",
   "email": "kakao@user.com"
@@ -150,8 +150,8 @@
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| kakaoId | string | Y | 카카오 고유 식별자 |
-| nickname | string | Y | 카카오 닉네임 |
+| providerUserId | string | Y | OAuth 제공자의 고유 식별자 |
+| nickname | string | Y | 닉네임 |
 | profileImage | string | N | 프로필 이미지 URL (없으면 null) |
 | email | string | Y | 이메일 |
 

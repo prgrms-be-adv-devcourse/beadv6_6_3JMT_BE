@@ -13,7 +13,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -41,7 +41,7 @@ public class Auth {
     private String providerUserId;
 
     @Column(name = "connected_at", nullable = false)
-    private LocalDateTime connectedAt;
+    private Instant connectedAt;
 
     public static Auth create(UUID userId, OAuthProvider provider, String providerUserId) {
         Auth auth = new Auth();
@@ -49,7 +49,7 @@ public class Auth {
         auth.userId = userId;
         auth.provider = provider;
         auth.providerUserId = providerUserId;
-        auth.connectedAt = LocalDateTime.now();
+        auth.connectedAt = Instant.now();
         return auth;
     }
 }
