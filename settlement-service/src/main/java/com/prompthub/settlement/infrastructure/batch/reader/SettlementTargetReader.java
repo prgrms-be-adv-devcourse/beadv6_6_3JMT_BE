@@ -1,7 +1,7 @@
 package com.prompthub.settlement.infrastructure.batch.reader;
 
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
-import com.prompthub.settlement.infrastructure.batch.model.SettlementTarget;
+import com.prompthub.settlement.infrastructure.batch.model.SettlementItem;
 import java.time.YearMonth;
 import java.util.Iterator;
 import java.util.UUID;
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 @Component
 @StepScope
 @RequiredArgsConstructor
-public class SettlementTargetReader implements ItemReader<SettlementTarget> {
+public class SettlementTargetReader implements ItemReader<SettlementItem> {
 
     private final SettlementSourceRepository settlementSourceRepository;
 
@@ -27,7 +27,7 @@ public class SettlementTargetReader implements ItemReader<SettlementTarget> {
     private Iterator<UUID> sellerIdIterator;
 
     @Override
-    public SettlementTarget read() {
+    public SettlementItem read() {
         YearMonth period = YearMonth.parse(periodParam);
 
         if (sellerIdIterator == null) {
@@ -38,6 +38,6 @@ public class SettlementTargetReader implements ItemReader<SettlementTarget> {
             return null;
         }
 
-        return new SettlementTarget(sellerIdIterator.next(), period, UUID.fromString(settlementBatchIdParam));
+        return new SettlementItem(sellerIdIterator.next(), period, UUID.fromString(settlementBatchIdParam));
     }
 }
