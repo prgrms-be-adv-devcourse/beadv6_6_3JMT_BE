@@ -93,4 +93,45 @@ class SettlementSourceLineTest {
         assertThatThrownBy(() -> line.markSettled(UUID.randomUUID()))
                 .isInstanceOf(SettlementSourceLineAlreadySettledException.class);
     }
+
+    @Test
+    @DisplayName("release: 일치하는 settlementId면 미정산 상태로 되돌린다")
+    void release_matchingSettlementId_clears() {
+        UUID settlementId = UUID.randomUUID();
+        SettlementSourceLine line = SettlementSourceLine.paid(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                new BigDecimal("100.00"), LocalDateTime.of(2026, 6, 15, 10, 0));
+        line.markSettled(settlementId);
+
+        line.release(settlementId);
+
+        assertThat(line.isSettled()).isFalse();
+        assertThat(line.getSettlementId()).isNull();
+    }
+
+    @Test
+    @DisplayName("release: 다른 settlementId면 풀지 않는다")
+    void release_differentSettlementId_keeps() {
+        UUID settlementId = UUID.randomUUID();
+        SettlementSourceLine line = SettlementSourceLine.paid(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                new BigDecimal("100.00"), LocalDateTime.of(2026, 6, 15, 10, 0));
+        line.markSettled(settlementId);
+
+        line.release(UUID.randomUUID());
+
+        assertThat(line.getSettlementId()).isEqualTo(settlementId);
+    }
+
+    @Test
+    @DisplayName("release: 미정산 라인은 그대로 둔다")
+    void release_unsettled_noop() {
+        SettlementSourceLine line = SettlementSourceLine.paid(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                new BigDecimal("100.00"), LocalDateTime.of(2026, 6, 15, 10, 0));
+
+        line.release(UUID.randomUUID());
+
+        assertThat(line.isSettled()).isFalse();
+    }
 }
