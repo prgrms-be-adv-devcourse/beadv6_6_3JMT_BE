@@ -3,7 +3,10 @@ package com.prompthub.settlement.global.exception;
 import com.prompthub.exception.BusinessException;
 import com.prompthub.exception.ErrorCode;
 import com.prompthub.exception.response.ErrorResponse;
+import com.prompthub.settlement.domain.exception.SettlementAlreadyCancelledException;
+import com.prompthub.settlement.domain.exception.SettlementAlreadyPaidException;
 import com.prompthub.settlement.domain.exception.SettlementBatchInvalidStateException;
+import com.prompthub.settlement.domain.exception.SettlementInvalidStateException;
 import com.prompthub.settlement.domain.exception.SettlementSourceLineAlreadySettledException;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +46,30 @@ public class GlobalExceptionHandler {
             SettlementSourceLineAlreadySettledException exception) {
         log.warn("정산 소스 라인 중복 정산 - {}", exception.getMessage());
         ErrorCode errorCode = SettlementErrorCode.SETTLEMENT_SOURCE_LINE_ALREADY_SETTLED;
+        return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
+    }
+
+    @ExceptionHandler(SettlementInvalidStateException.class)
+    public ResponseEntity<ErrorResponse> handleSettlementInvalidState(
+            SettlementInvalidStateException exception) {
+        log.warn("정산 상태 전이 충돌 - {}", exception.getMessage());
+        ErrorCode errorCode = SettlementErrorCode.SETTLEMENT_INVALID_STATE;
+        return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
+    }
+
+    @ExceptionHandler(SettlementAlreadyPaidException.class)
+    public ResponseEntity<ErrorResponse> handleSettlementAlreadyPaid(
+            SettlementAlreadyPaidException exception) {
+        log.warn("정산 취소 불가(이미 지급 완료) - {}", exception.getMessage());
+        ErrorCode errorCode = SettlementErrorCode.SETTLEMENT_ALREADY_PAID;
+        return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
+    }
+
+    @ExceptionHandler(SettlementAlreadyCancelledException.class)
+    public ResponseEntity<ErrorResponse> handleSettlementAlreadyCancelled(
+            SettlementAlreadyCancelledException exception) {
+        log.warn("정산 취소 불가(이미 취소됨) - {}", exception.getMessage());
+        ErrorCode errorCode = SettlementErrorCode.SETTLEMENT_ALREADY_CANCELLED;
         return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
     }
 

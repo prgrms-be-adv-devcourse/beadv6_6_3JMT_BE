@@ -30,4 +30,6 @@ public interface SettlementSourceLineJpaRepository extends JpaRepository<Settlem
     List<SettlementSourceLine> findSettleableLines(@Param("sellerId") UUID sellerId,
                                                    @Param("start") LocalDateTime start,
                                                    @Param("end") LocalDateTime end);
+
+    List<SettlementSourceLine> findBySettlementId(UUID settlementId);
 }

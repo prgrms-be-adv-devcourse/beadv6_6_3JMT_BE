@@ -1,9 +1,12 @@
 package com.prompthub.settlement.domain.model;
 
-import com.prompthub.settlement.global.common.BaseEntity;
+import com.prompthub.settlement.domain.exception.SettlementAlreadyCancelledException;
+import com.prompthub.settlement.domain.exception.SettlementAlreadyPaidException;
+import com.prompthub.settlement.domain.exception.SettlementInvalidStateException;
 import com.prompthub.settlement.domain.model.enums.PayoutStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementStatus;
+import com.prompthub.settlement.global.common.BaseEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -86,6 +89,9 @@ public class Settlement extends BaseEntity {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    @Column(name = "canceled_at")
+    private LocalDateTime canceledAt;
+
     @Column(name = "payout_reference", length = 100)
     private String payoutReference;
 
@@ -122,7 +128,64 @@ public class Settlement extends BaseEntity {
         return details.stream().map(field).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    public void approve(LocalDateTime confirmedAt) {
+        if (this.settlementStatus != SettlementStatus.PENDING_APPROVAL) {
+            throw new SettlementInvalidStateException("approve", this.settlementStatus, this.payoutStatus);
+        }
+        this.settlementStatus = SettlementStatus.APPROVED;
+        this.payoutStatus = PayoutStatus.READY;
+        this.confirmedAt = confirmedAt;
+    }
+
+    public void hold() {
+        if (this.settlementStatus != SettlementStatus.PENDING_APPROVAL) {
+            throw new SettlementInvalidStateException("hold", this.settlementStatus, this.payoutStatus);
+        }
+        this.settlementStatus = SettlementStatus.SETTLEMENT_ON_HOLD;
+    }
+
+    public void releaseHold() {
+        if (this.settlementStatus != SettlementStatus.SETTLEMENT_ON_HOLD) {
+            throw new SettlementInvalidStateException("releaseHold", this.settlementStatus, this.payoutStatus);
+        }
+        this.settlementStatus = SettlementStatus.PENDING_APPROVAL;
+    }
+
+    public void payout(LocalDateTime paidAt) {
+        if (this.settlementStatus != SettlementStatus.APPROVED || this.payoutStatus != PayoutStatus.READY) {
+            throw new SettlementInvalidStateException("payout", this.settlementStatus, this.payoutStatus);
+        }
+        this.payoutStatus = PayoutStatus.PAID;
+        this.paidAt = paidAt;
+    }
+
+    public void payoutHold() {
+        if (this.settlementStatus != SettlementStatus.APPROVED || this.payoutStatus != PayoutStatus.READY) {
+            throw new SettlementInvalidStateException("payoutHold", this.settlementStatus, this.payoutStatus);
+        }
+        this.payoutStatus = PayoutStatus.PAYOUT_ON_HOLD;
+    }
+
+    public void releasePayoutHold() {
+        if (this.settlementStatus != SettlementStatus.APPROVED
+                || this.payoutStatus != PayoutStatus.PAYOUT_ON_HOLD) {
+            throw new SettlementInvalidStateException("releasePayoutHold", this.settlementStatus, this.payoutStatus);
+        }
+        this.payoutStatus = PayoutStatus.READY;
+    }
+
     public SettlementDisplayStatus displayStatus() {
         return SettlementDisplayStatus.from(this.settlementStatus, this.payoutStatus);
+    }
+
+    public void cancel(LocalDateTime canceledAt) {
+        if (this.payoutStatus == PayoutStatus.PAID) {
+            throw new SettlementAlreadyPaidException(this.id);
+        }
+        if (this.settlementStatus == SettlementStatus.CANCELLED) {
+            throw new SettlementAlreadyCancelledException(this.id);
+        }
+        this.settlementStatus = SettlementStatus.CANCELLED;
+        this.canceledAt = canceledAt;
     }
 }

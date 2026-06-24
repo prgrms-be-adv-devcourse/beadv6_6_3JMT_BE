@@ -18,14 +18,15 @@ presentation ──▶ application ──▶ domain ◀── infrastructure
 
 - `domain`은 다른 어떤 계층도 import 하지 않는다. (단, 엔티티 겸용 정책상 JPA는 예외 — `domain-model.md` 참고)
 - `application`은 `domain`만 의존한다. presentation·infrastructure를 모른다.
-  - **예외: 조회(읽기) 유스케이스는 application 서비스가 presentation `~Response`를 직접 만들어 반환할 수 있다.**
-    중간 `~Result` DTO를 따로 두지 않아 중복 객체·변환을 줄이려는 실용적 타협이다. 이때만 application →
-    presentation 의존을 허용한다. (명령/상태 변경 흐름은 이 예외를 쓰지 않는다 — §7 참고)
+  - **예외: 조회(읽기) 유스케이스, 그리고 상태 변경이 단순해 `~Result`가 불필요한 명령 흐름은 application
+    서비스가 presentation `~Response`를 직접 만들어 반환할 수 있다.** 중간 `~Result` DTO를 따로 두지 않아
+    중복 객체·변환을 줄이려는 실용적 타협이다. 이때만 application → presentation 의존을 허용한다.
+    (단순 상태 변경 명령으로 이 예외를 쓰는 기준은 §7 참고)
 - `presentation`·`infrastructure`는 바깥 계층이며, 안쪽(application·domain)에 의존한다.
 - 바깥에서 안쪽으로의 호출은 **포트(인터페이스)**를 통한다.
 
 이 방향이 깨지면(예: domain이 infrastructure를 import) 구조 위반으로 본다.
-단, 위 조회 응답 예외(application 서비스가 `~Response` 반환)는 허용으로 본다.
+단, 위 응답 예외(조회·단순 상태 변경 명령에서 application 서비스가 `~Response` 반환)는 허용으로 본다.
 
 ## 2. 패키지 구조
 
@@ -203,6 +204,16 @@ Request ──▶ Command ──▶ (domain) ──▶ Result ──▶ Response
  표현         애플리케이션      도메인        애플리케이션    표현
 ```
 
+다만 **상태 변경이 단순한 명령**(입력이 식별자뿐이라 `~Command`가 불필요하고, 산출도 변경된 단일
+엔티티 상태뿐)은 중간 `~Result`를 생략하고 조회 흐름처럼 application 서비스가 `~Response`를 직접
+만들어 반환할 수 있다. 컨트롤러는 변환 없이 받아 내려준다.
+(예: 정산 상태 변경 PATCH — `settlementId`만 받아 상태만 전이시키고 변경된 정산 상태를 반환)
+
+```
+PathVariable(식별자) ──▶ (domain 상태 전이) ──▶ Response
+ 표현                       도메인                  표현(application 서비스가 생성)
+```
+
 **조회(읽기) 흐름** — 중복 객체를 줄이려 중간 `~Result`를 생략하고, application 서비스가
 `~Response`를 직접 만들어 반환한다. 컨트롤러는 변환 없이 그대로 받아 내려준다.
 
@@ -214,7 +225,7 @@ Request(파라미터) ──▶ Query ──▶ (domain 조회) ──▶ Respon
 - 도메인 모델(`@Entity`)을 컨트롤러 응답으로 직접 반환하지 않는다. 반드시 `~Response`로 변환한다.
 - 변환 코드는 각 DTO의 정적 팩토리 메서드(`from`, `of`)에 둔다.
   (예: `SettlementResponse.from(settlementResult)`, `SettlementListResponse.from(settlements)`, `request.toCommand()`)
-- **조회 응답은 `~Result`를 따로 두지 않고 서비스가 `~Response`를 반환할 수 있다.** 이때 application 이
-  presentation `~Response`에 의존하는 것을 허용한다(§1 예외). `@Schema` 등 문서화 애너테이션은 여전히
+- **조회 응답, 그리고 위 단순 상태 변경 명령 응답은 `~Result`를 따로 두지 않고 서비스가 `~Response`를
+  반환할 수 있다.** 이때 application 이 presentation `~Response`에 의존하는 것을 허용한다(§1 예외). `@Schema` 등 문서화 애너테이션은 여전히
   presentation 의 `~Response` 에만 둔다(application 코드에 Swagger 애너테이션을 넣지 않는다).
 - 변환 로직이 복잡해지면 표현/애플리케이션 계층에 전용 매퍼를 둘 수 있다.
