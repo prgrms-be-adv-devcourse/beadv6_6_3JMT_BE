@@ -5,11 +5,13 @@ import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.presentation.dto.PageResponse;
 import com.prompthub.user.admin.application.dto.AdminUserListQuery;
 import com.prompthub.user.admin.application.dto.AdminUserPageResult;
+import com.prompthub.user.admin.application.dto.AdminUserStatsResult;
 import com.prompthub.user.admin.application.dto.AdminUserStatusResult;
 import com.prompthub.user.admin.application.dto.ChangeUserStatusCommand;
 import com.prompthub.user.admin.application.usecase.AdminUserUseCase;
 import com.prompthub.user.admin.presentation.dto.request.ChangeUserStatusRequest;
 import com.prompthub.user.admin.presentation.dto.response.AdminUserResponse;
+import com.prompthub.user.admin.presentation.dto.response.AdminUserStatsResponse;
 import com.prompthub.user.admin.presentation.dto.response.AdminUserStatusResponse;
 import com.prompthub.user.global.exception.UserErrorCode;
 import com.prompthub.user.user.domain.model.UserRole;
@@ -52,6 +54,12 @@ public class AdminUserController {
                 .toList();
 
         return PageResponse.success(responseData, result.page(), result.size(), result.total(), result.hasNext());
+    }
+
+    @GetMapping("/stats/users")
+    public ApiResult<AdminUserStatsResponse> getUserStats() {
+        AdminUserStatsResult result = adminUserUseCase.getUserStats();
+        return ApiResult.success(AdminUserStatsResponse.from(result));
     }
 
     @PatchMapping("/users/{userId}/status")

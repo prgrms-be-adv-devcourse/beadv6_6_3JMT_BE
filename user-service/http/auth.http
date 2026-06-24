@@ -48,10 +48,10 @@ POST {{baseUrl}}/api/v1/auth/oauth/kakao
 Content-Type: application/json
 
 {
-  "kakaoId": "999888777",
-  "nickname": "신규카카오",
+  "oauthId": "1999888777",
+  "name": "신규카카오",
   "profileImage": null,
-  "email": "new-kakao@example.com"
+  "email": "new-kakao2@example.com"
 }
 
 ###

@@ -203,6 +203,14 @@ X-User-Role: ADMIN
 
 ###
 
+### GET /admin/stats/users — 회원 통계 조회
+
+GET {{baseUrl}}/api/v1/admin/stats/users
+X-User-Id: {{adminUserId}}
+X-User-Role: ADMIN
+
+###
+
 ### PATCH /admin/users/{userId}/status — 사용자 상태 변경 (미구현)
 
 PATCH {{baseUrl}}/api/v1/admin/users/{{userId}}/status

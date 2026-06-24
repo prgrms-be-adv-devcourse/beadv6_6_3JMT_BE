@@ -9,6 +9,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -49,6 +50,11 @@ public class UserRepositoryAdapter implements UserRepository {
     public long countUsers(UserStatus status, UserRole role, String keyword) {
         Specification<User> spec = buildSpec(status, role, keyword);
         return userJpaRepository.count(spec);
+    }
+
+    @Override
+    public long countCreatedBetween(LocalDateTime from, LocalDateTime to) {
+        return userJpaRepository.countByCreatedAtBetween(from, to);
     }
 
     private Specification<User> buildSpec(UserStatus status, UserRole role, String keyword) {

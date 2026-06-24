@@ -3,6 +3,7 @@ package com.prompthub.user.admin.application.service;
 import com.prompthub.exception.BusinessException;
 import com.prompthub.user.admin.application.dto.AdminUserListQuery;
 import com.prompthub.user.admin.application.dto.AdminUserPageResult;
+import com.prompthub.user.admin.application.dto.AdminUserStatsResult;
 import com.prompthub.user.admin.application.dto.AdminUserStatusResult;
 import com.prompthub.user.admin.application.dto.AdminUserSummaryResult;
 import com.prompthub.user.admin.application.dto.ChangeUserStatusCommand;
@@ -15,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -52,6 +55,17 @@ public class AdminUserApplicationService implements AdminUserUseCase {
 
         userRepository.save(user);
         return AdminUserStatusResult.from(user);
+    }
+
+    @Override
+    public AdminUserStatsResult getUserStats() {
+        long totalUsers = userRepository.countUsers(null, null, null);
+
+        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
+        LocalDateTime startOfNextDay = startOfDay.plusDays(1);
+        long todayNewUsers = userRepository.countCreatedBetween(startOfDay, startOfNextDay);
+
+        return new AdminUserStatsResult(totalUsers, todayNewUsers);
     }
 
     private static void applyStatus(User user, UserStatus status) {
