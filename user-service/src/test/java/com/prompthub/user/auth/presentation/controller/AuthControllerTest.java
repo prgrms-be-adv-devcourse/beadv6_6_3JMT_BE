@@ -3,8 +3,7 @@ package com.prompthub.user.auth.presentation.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prompthub.user.auth.application.dto.OAuthLoginResult;
 import com.prompthub.user.auth.application.dto.TokenRefreshResult;
-import com.prompthub.user.auth.application.usecase.OAuthUseCase;
-import com.prompthub.user.auth.application.usecase.TokenRefreshUseCase;
+import com.prompthub.user.auth.application.usecase.AuthUseCase;
 import com.prompthub.user.auth.domain.exception.InvalidRefreshTokenException;
 import com.prompthub.user.auth.domain.exception.TokenExpiredException;
 import com.prompthub.user.auth.domain.exception.UnsupportedOAuthProviderException;
@@ -25,6 +24,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willDoNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -40,10 +40,7 @@ class AuthControllerTest {
     private ObjectMapper objectMapper;
 
     @MockitoBean
-    private OAuthUseCase oAuthUseCase;
-
-    @MockitoBean
-    private TokenRefreshUseCase tokenRefreshUseCase;
+    private AuthUseCase authUseCase;
 
     private static final UUID USER_ID = UUID.randomUUID();
     private static final Instant EXPIRES_AT = Instant.now().plusSeconds(3600);
@@ -64,7 +61,7 @@ class AuthControllerTest {
 
     @Test
     void oAuthLogin_kakao_기존_사용자_200() throws Exception {
-        given(oAuthUseCase.login(any())).willReturn(successResult(false));
+        given(authUseCase.oAuthLogin(any())).willReturn(successResult(false));
 
         OAuthLoginRequest request = new OAuthLoginRequest(
                 "kakao_123456", "테스트유저", "https://img.kakao.com/profile.jpg", "test@kakao.com"
@@ -83,7 +80,7 @@ class AuthControllerTest {
 
     @Test
     void oAuthLogin_kakao_신규_사용자_isNewUser_true() throws Exception {
-        given(oAuthUseCase.login(any())).willReturn(successResult(true));
+        given(authUseCase.oAuthLogin(any())).willReturn(successResult(true));
 
         OAuthLoginRequest request = new OAuthLoginRequest(
                 "kakao_new_user", "신규유저", "https://img.kakao.com/profile.jpg", "newuser@kakao.com"
@@ -138,7 +135,7 @@ class AuthControllerTest {
 
     @Test
     void oAuthLogin_미지원_provider_400() throws Exception {
-        given(oAuthUseCase.login(any())).willThrow(new UnsupportedOAuthProviderException("twitter"));
+        given(authUseCase.oAuthLogin(any())).willThrow(new UnsupportedOAuthProviderException("twitter"));
 
         OAuthLoginRequest request = new OAuthLoginRequest(
                 "twitter_123", "트위터유저", "https://img.twitter.com/profile.jpg", "test@twitter.com"
@@ -160,7 +157,7 @@ class AuthControllerTest {
     @Test
     void refreshToken_유효한_RT_새_AT_발급_200() throws Exception {
         TokenRefreshResult result = new TokenRefreshResult("new-access-token", EXPIRES_AT);
-        given(tokenRefreshUseCase.refresh(any())).willReturn(result);
+        given(authUseCase.refresh(any())).willReturn(result);
 
         TokenRefreshRequest request = new TokenRefreshRequest("valid-refresh-token");
 
@@ -174,7 +171,7 @@ class AuthControllerTest {
 
     @Test
     void refreshToken_만료된_RT_401() throws Exception {
-        given(tokenRefreshUseCase.refresh(any())).willThrow(new TokenExpiredException());
+        given(authUseCase.refresh(any())).willThrow(new TokenExpiredException());
 
         TokenRefreshRequest request = new TokenRefreshRequest("expired-refresh-token");
 
@@ -187,7 +184,7 @@ class AuthControllerTest {
 
     @Test
     void refreshToken_유효하지_않은_RT_401() throws Exception {
-        given(tokenRefreshUseCase.refresh(any())).willThrow(new InvalidRefreshTokenException());
+        given(authUseCase.refresh(any())).willThrow(new InvalidRefreshTokenException());
 
         TokenRefreshRequest request = new TokenRefreshRequest("invalid-refresh-token");
 
@@ -206,5 +203,22 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void logout_정상_200() throws Exception {
+        willDoNothing().given(authUseCase).logout(any(UUID.class));
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("X-User-Id", USER_ID.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    void logout_XUserId_헤더_누락_401() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isUnauthorized());
     }
 }

@@ -56,6 +56,10 @@ public class JwtTokenProvider {
         return Instant.now().plusSeconds(jwtProperties.getAccessTokenExpireSeconds());
     }
 
+    public Instant getRefreshTokenExpiresAt() {
+        return Instant.now().plusSeconds(jwtProperties.getRefreshTokenExpireSeconds());
+    }
+
     public UUID parseRefreshToken(String token) {
         Jwt jwt;
         try {

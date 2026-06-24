@@ -4,6 +4,8 @@ import com.prompthub.user.auth.application.dto.TokenRefreshCommand;
 import com.prompthub.user.auth.application.dto.TokenRefreshResult;
 import com.prompthub.user.auth.domain.exception.InvalidRefreshTokenException;
 import com.prompthub.user.auth.domain.exception.TokenExpiredException;
+import com.prompthub.user.auth.domain.repository.AuthRepository;
+import com.prompthub.user.auth.domain.repository.RefreshTokenRepository;
 import com.prompthub.user.auth.infrastructure.jwt.JwtTokenProvider;
 import com.prompthub.user.user.domain.exception.UserNotFoundException;
 import com.prompthub.user.user.domain.model.User;
@@ -30,13 +32,19 @@ import static org.mockito.BDDMockito.then;
 class TokenApplicationServiceTest {
 
     @Mock
+    private AuthRepository authRepository;
+
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
     private JwtTokenProvider jwtTokenProvider;
 
     @Mock
     private UserRepository userRepository;
 
     @InjectMocks
-    private TokenApplicationService tokenApplicationService;
+    private AuthApplicationService authApplicationService;
 
     private static final String REFRESH_TOKEN = "valid-refresh-token";
     private static final UUID USER_ID = UUID.randomUUID();
@@ -50,7 +58,7 @@ class TokenApplicationServiceTest {
         given(jwtTokenProvider.generateAccessToken(any(UUID.class), eq(UserRole.BUYER))).willReturn("new-access-token");
         given(jwtTokenProvider.getAccessTokenExpiresAt()).willReturn(EXPIRES_AT);
 
-        TokenRefreshResult result = tokenApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN));
+        TokenRefreshResult result = authApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN));
 
         assertThat(result.accessToken()).isEqualTo("new-access-token");
         assertThat(result.expiresAt()).isEqualTo(EXPIRES_AT);
@@ -64,7 +72,7 @@ class TokenApplicationServiceTest {
         given(jwtTokenProvider.generateAccessToken(any(UUID.class), eq(UserRole.SELLER))).willReturn("seller-access-token");
         given(jwtTokenProvider.getAccessTokenExpiresAt()).willReturn(EXPIRES_AT);
 
-        TokenRefreshResult result = tokenApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN));
+        TokenRefreshResult result = authApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN));
 
         assertThat(result.accessToken()).isEqualTo("seller-access-token");
         then(jwtTokenProvider).should().generateAccessToken(any(UUID.class), eq(UserRole.SELLER));
@@ -74,7 +82,7 @@ class TokenApplicationServiceTest {
     void refresh_만료된_RT_TokenExpiredException_전파() {
         given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willThrow(new TokenExpiredException());
 
-        assertThatThrownBy(() -> tokenApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN)))
+        assertThatThrownBy(() -> authApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN)))
                 .isInstanceOf(TokenExpiredException.class);
 
         then(userRepository).shouldHaveNoInteractions();
@@ -84,7 +92,7 @@ class TokenApplicationServiceTest {
     void refresh_유효하지_않은_RT_InvalidRefreshTokenException_전파() {
         given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willThrow(new InvalidRefreshTokenException());
 
-        assertThatThrownBy(() -> tokenApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN)))
+        assertThatThrownBy(() -> authApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN)))
                 .isInstanceOf(InvalidRefreshTokenException.class);
 
         then(userRepository).shouldHaveNoInteractions();
@@ -95,7 +103,7 @@ class TokenApplicationServiceTest {
         given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(USER_ID);
         given(userRepository.findById(USER_ID)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> tokenApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN)))
+        assertThatThrownBy(() -> authApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN)))
                 .isInstanceOf(UserNotFoundException.class);
 
         then(jwtTokenProvider).should().parseRefreshToken(REFRESH_TOKEN);

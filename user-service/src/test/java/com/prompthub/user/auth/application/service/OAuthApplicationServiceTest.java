@@ -4,7 +4,9 @@ import com.prompthub.user.auth.application.dto.OAuthLoginCommand;
 import com.prompthub.user.auth.application.dto.OAuthLoginResult;
 import com.prompthub.user.auth.domain.model.Auth;
 import com.prompthub.user.auth.domain.model.OAuthProvider;
+import com.prompthub.user.auth.domain.model.RefreshToken;
 import com.prompthub.user.auth.domain.repository.AuthRepository;
+import com.prompthub.user.auth.domain.repository.RefreshTokenRepository;
 import com.prompthub.user.auth.infrastructure.jwt.JwtTokenProvider;
 import com.prompthub.user.user.domain.model.User;
 import com.prompthub.user.user.domain.model.UserRole;
@@ -33,13 +35,16 @@ class OAuthApplicationServiceTest {
     private AuthRepository authRepository;
 
     @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
     private UserRepository userRepository;
 
     @Mock
     private JwtTokenProvider jwtTokenProvider;
 
     @InjectMocks
-    private OAuthApplicationService oAuthApplicationService;
+    private AuthApplicationService authApplicationService;
 
     private static final OAuthLoginCommand COMMAND = new OAuthLoginCommand(
             OAuthProvider.KAKAO,
@@ -61,8 +66,10 @@ class OAuthApplicationServiceTest {
         given(jwtTokenProvider.generateAccessToken(any(), any())).willReturn("access-token");
         given(jwtTokenProvider.generateRefreshToken(any())).willReturn("refresh-token");
         given(jwtTokenProvider.getAccessTokenExpiresAt()).willReturn(Instant.now().plusSeconds(3600));
+        given(jwtTokenProvider.getRefreshTokenExpiresAt()).willReturn(Instant.now().plusSeconds(2592000));
+        given(refreshTokenRepository.save(any(RefreshToken.class))).willAnswer(inv -> inv.getArgument(0));
 
-        OAuthLoginResult result = oAuthApplicationService.login(COMMAND);
+        OAuthLoginResult result = authApplicationService.oAuthLogin(COMMAND);
 
         assertThat(result.isNewUser()).isFalse();
         assertThat(result.email()).isEqualTo("test@kakao.com");
@@ -83,8 +90,10 @@ class OAuthApplicationServiceTest {
         given(jwtTokenProvider.generateAccessToken(any(), any())).willReturn("access-token");
         given(jwtTokenProvider.generateRefreshToken(any())).willReturn("refresh-token");
         given(jwtTokenProvider.getAccessTokenExpiresAt()).willReturn(Instant.now().plusSeconds(3600));
+        given(jwtTokenProvider.getRefreshTokenExpiresAt()).willReturn(Instant.now().plusSeconds(2592000));
+        given(refreshTokenRepository.save(any(RefreshToken.class))).willAnswer(inv -> inv.getArgument(0));
 
-        OAuthLoginResult result = oAuthApplicationService.login(COMMAND);
+        OAuthLoginResult result = authApplicationService.oAuthLogin(COMMAND);
 
         assertThat(result.isNewUser()).isFalse();
         assertThat(result.email()).isEqualTo("test@kakao.com");
@@ -103,8 +112,10 @@ class OAuthApplicationServiceTest {
         given(jwtTokenProvider.generateAccessToken(any(), any())).willReturn("access-token");
         given(jwtTokenProvider.generateRefreshToken(any())).willReturn("refresh-token");
         given(jwtTokenProvider.getAccessTokenExpiresAt()).willReturn(Instant.now().plusSeconds(3600));
+        given(jwtTokenProvider.getRefreshTokenExpiresAt()).willReturn(Instant.now().plusSeconds(2592000));
+        given(refreshTokenRepository.save(any(RefreshToken.class))).willAnswer(inv -> inv.getArgument(0));
 
-        OAuthLoginResult result = oAuthApplicationService.login(COMMAND);
+        OAuthLoginResult result = authApplicationService.oAuthLogin(COMMAND);
 
         assertThat(result.isNewUser()).isTrue();
         assertThat(result.email()).isEqualTo("test@kakao.com");
@@ -124,8 +135,10 @@ class OAuthApplicationServiceTest {
         given(jwtTokenProvider.generateAccessToken(any(), any())).willReturn("access-token");
         given(jwtTokenProvider.generateRefreshToken(any())).willReturn("refresh-token");
         given(jwtTokenProvider.getAccessTokenExpiresAt()).willReturn(Instant.now().plusSeconds(3600));
+        given(jwtTokenProvider.getRefreshTokenExpiresAt()).willReturn(Instant.now().plusSeconds(2592000));
+        given(refreshTokenRepository.save(any(RefreshToken.class))).willAnswer(inv -> inv.getArgument(0));
 
-        OAuthLoginResult result = oAuthApplicationService.login(COMMAND);
+        OAuthLoginResult result = authApplicationService.oAuthLogin(COMMAND);
 
         assertThat(result.tokenType()).isEqualTo("Bearer");
         assertThat(result.refreshToken()).isEqualTo("refresh-token");
@@ -141,7 +154,7 @@ class OAuthApplicationServiceTest {
         given(userRepository.findById(missingUserId))
                 .willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> oAuthApplicationService.login(COMMAND))
+        assertThatThrownBy(() -> authApplicationService.oAuthLogin(COMMAND))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(missingUserId.toString());
     }

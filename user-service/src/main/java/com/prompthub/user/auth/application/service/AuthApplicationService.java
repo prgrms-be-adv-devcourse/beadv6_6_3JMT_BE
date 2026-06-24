@@ -2,10 +2,15 @@ package com.prompthub.user.auth.application.service;
 
 import com.prompthub.user.auth.application.dto.OAuthLoginCommand;
 import com.prompthub.user.auth.application.dto.OAuthLoginResult;
-import com.prompthub.user.auth.application.usecase.OAuthUseCase;
+import com.prompthub.user.auth.application.dto.TokenRefreshCommand;
+import com.prompthub.user.auth.application.dto.TokenRefreshResult;
+import com.prompthub.user.auth.application.usecase.AuthUseCase;
 import com.prompthub.user.auth.domain.model.Auth;
+import com.prompthub.user.auth.domain.model.RefreshToken;
 import com.prompthub.user.auth.domain.repository.AuthRepository;
+import com.prompthub.user.auth.domain.repository.RefreshTokenRepository;
 import com.prompthub.user.auth.infrastructure.jwt.JwtTokenProvider;
+import com.prompthub.user.user.domain.exception.UserNotFoundException;
 import com.prompthub.user.user.domain.model.User;
 import com.prompthub.user.user.domain.model.UserRole;
 import com.prompthub.user.user.domain.repository.UserRepository;
@@ -14,18 +19,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class OAuthApplicationService implements OAuthUseCase {
+public class AuthApplicationService implements AuthUseCase {
 
     private final AuthRepository authRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
 
     @Override
-    public OAuthLoginResult login(OAuthLoginCommand command) {
+    public OAuthLoginResult oAuthLogin(OAuthLoginCommand command) {
         Optional<Auth> existingAuth = authRepository
                 .findByProviderAndProviderUserId(command.provider(), command.providerUserId());
 
@@ -62,6 +69,10 @@ public class OAuthApplicationService implements OAuthUseCase {
         String accessToken = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getRole());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUserId());
 
+        refreshTokenRepository.save(
+                RefreshToken.create(user.getUserId(), refreshToken, jwtTokenProvider.getRefreshTokenExpiresAt())
+        );
+
         return new OAuthLoginResult(
                 user.getUserId(),
                 user.getName(),
@@ -73,5 +84,20 @@ public class OAuthApplicationService implements OAuthUseCase {
                 jwtTokenProvider.getAccessTokenExpiresAt(),
                 isNewUser
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TokenRefreshResult refresh(TokenRefreshCommand command) {
+        UUID userId = jwtTokenProvider.parseRefreshToken(command.refreshToken());
+        User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+
+        String accessToken = jwtTokenProvider.generateAccessToken(userId, user.getRole());
+        return new TokenRefreshResult(accessToken, jwtTokenProvider.getAccessTokenExpiresAt());
+    }
+
+    @Override
+    public void logout(UUID userId) {
+        refreshTokenRepository.deleteByUserId(userId);
     }
 }
