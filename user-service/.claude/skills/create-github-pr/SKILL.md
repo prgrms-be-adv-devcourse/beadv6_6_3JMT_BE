@@ -46,7 +46,7 @@ git diff <base>...HEAD                   # 실제 diff
 
 ### 3. 템플릿 읽기
 
-`.github/ISSUE_TEMPLATE/pull_request_template.md`를 읽는다. 파일이 없으면 멈춘다.
+`.github/PULL_REQUEST_TEMPLATE.md`를 읽는다. 파일이 없으면 멈춘다.
 
 PR 템플릿에는 frontmatter가 없는 게 보통이다(`gh pr create`는 본문을 그대로 받는다). 섹션 구조와
 **체크리스트 항목을 파일에서 그대로 가져온다.** 항목을 외워서 쓰거나 스킬에 적힌 예시로 대체하지
