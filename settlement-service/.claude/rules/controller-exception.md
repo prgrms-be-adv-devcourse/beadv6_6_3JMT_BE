@@ -12,9 +12,10 @@ Controller 는 표현 계층의 진입점이며, HTTP 관심사만 책임진다.
 - **검증은 요청 경계에서 수행한다.** request DTO 에 `@Valid` / Bean Validation 으로 처리한다.
 - **Controller 안에 비즈니스 규칙을 넣지 않는다.** 분기·계산·상태 판단은 도메인·유스케이스로.
 - **Controller 가 Repository 에 직접 접근하지 않는다.** 반드시 유스케이스(포트)를 통한다.
-- **조회(읽기) 흐름은 유스케이스가 `~Response` 를 직접 반환할 수 있다.** 이때 컨트롤러는 변환 없이
-  받아 내려준다(application 서비스가 `~Response` 를 만든다 — `clean-architecture.md` §1/§7 예외).
-  아래 예시는 명령(상태 변경) 흐름이며, 이 경우 컨트롤러가 `~Result` → `~Response` 변환을 한다.
+- **조회(읽기) 흐름, 그리고 상태 변경이 단순한 명령 흐름은 유스케이스가 `~Response` 를 직접 반환할 수 있다.**
+  이때 컨트롤러는 변환 없이 받아 내려준다(application 서비스가 `~Response` 를 만든다 —
+  `clean-architecture.md` §1/§7 예외). 아래 예시는 `~Result` 를 거치는 일반 명령(상태 변경) 흐름이며,
+  이 경우 컨트롤러가 `~Result` → `~Response` 변환을 한다.
 
 ```java
 @RestController
