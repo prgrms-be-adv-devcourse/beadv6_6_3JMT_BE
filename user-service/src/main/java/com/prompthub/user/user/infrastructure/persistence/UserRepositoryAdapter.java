@@ -57,6 +57,11 @@ public class UserRepositoryAdapter implements UserRepository {
         return userJpaRepository.countByCreatedAtBetween(from, to);
     }
 
+    @Override
+    public List<User> findAllByIds(List<UUID> userIds) {
+        return userJpaRepository.findAllById(userIds);
+    }
+
     private Specification<User> buildSpec(UserStatus status, UserRole role, String keyword) {
         return UserSpecifications.withStatus(status)
                 .and(UserSpecifications.withRole(role))

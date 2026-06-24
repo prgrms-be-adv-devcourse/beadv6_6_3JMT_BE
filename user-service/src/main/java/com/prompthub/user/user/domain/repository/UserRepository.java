@@ -17,4 +17,5 @@ public interface UserRepository {
     List<User> findUsers(UserStatus status, UserRole role, String keyword, int page, int size);
     long countUsers(UserStatus status, UserRole role, String keyword);
     long countCreatedBetween(LocalDateTime from, LocalDateTime to);
+    List<User> findAllByIds(List<UUID> userIds);
 }

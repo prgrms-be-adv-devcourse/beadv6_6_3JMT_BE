@@ -211,7 +211,7 @@ X-User-Role: ADMIN
 
 ###
 
-### PATCH /admin/users/{userId}/status — 사용자 상태 변경 (미구현)
+### PATCH /admin/users/{userId}/status — 사용자 상태 변경
 
 PATCH {{baseUrl}}/api/v1/admin/users/{{userId}}/status
 Content-Type: application/json

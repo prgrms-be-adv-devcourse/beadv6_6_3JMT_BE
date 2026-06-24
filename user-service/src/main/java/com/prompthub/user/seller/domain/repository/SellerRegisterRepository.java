@@ -11,4 +11,6 @@ public interface SellerRegisterRepository {
     Optional<SellerRegister> findLatestByUserId(UUID userId);
     boolean existsByUserIdAndStatusIn(UUID userId, List<SellerRegisterStatus> statuses);
     SellerRegister save(SellerRegister sellerRegister);
+    List<SellerRegister> findAll(SellerRegisterStatus status, int page, int size);
+    long count(SellerRegisterStatus status);
 }

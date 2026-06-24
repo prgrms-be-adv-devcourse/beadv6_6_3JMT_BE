@@ -4,6 +4,8 @@ import com.prompthub.user.seller.domain.model.SellerRegister;
 import com.prompthub.user.seller.domain.model.SellerRegisterStatus;
 import com.prompthub.user.seller.domain.repository.SellerRegisterRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -29,5 +31,22 @@ public class SellerRegisterRepositoryAdapter implements SellerRegisterRepository
     @Override
     public SellerRegister save(SellerRegister sellerRegister) {
         return jpaRepository.save(sellerRegister);
+    }
+
+    @Override
+    public List<SellerRegister> findAll(SellerRegisterStatus status, int page, int size) {
+        PageRequest pageable = PageRequest.of(page, size, Sort.by("submittedAt").descending());
+        if (status == null) {
+            return jpaRepository.findAll(pageable).getContent();
+        }
+        return jpaRepository.findAllByStatus(status, pageable).getContent();
+    }
+
+    @Override
+    public long count(SellerRegisterStatus status) {
+        if (status == null) {
+            return jpaRepository.count();
+        }
+        return jpaRepository.countByStatus(status);
     }
 }
