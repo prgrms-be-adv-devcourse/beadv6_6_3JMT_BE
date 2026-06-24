@@ -1,4 +1,4 @@
-package com.prompthub.order.infra.messaging.kafka.consumer;
+package com.prompthub.order.infra.messaging.kafka.consumer.product;
 
 import com.prompthub.order.application.event.ProductDeletedEvent;
 import com.prompthub.order.application.event.ProductPriceChangedEvent;

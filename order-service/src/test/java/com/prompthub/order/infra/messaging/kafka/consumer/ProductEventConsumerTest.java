@@ -5,6 +5,7 @@ import com.prompthub.order.application.event.ProductPriceChangedEvent;
 import com.prompthub.order.application.event.ProductStoppedEvent;
 import com.prompthub.order.application.service.OrderProductEventService;
 import com.prompthub.order.global.exception.OrderException;
+import com.prompthub.order.infra.messaging.kafka.consumer.product.ProductEventConsumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

@@ -4,6 +4,7 @@ import com.prompthub.order.config.TestJpaConfig;
 import com.prompthub.order.domain.enums.OutboxEventStatus;
 import com.prompthub.order.domain.model.OutboxEvent;
 import com.prompthub.order.infra.persistence.config.QuerydslConfig;
+import com.prompthub.order.infra.persistence.outbox.OutboxEventPersistence;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

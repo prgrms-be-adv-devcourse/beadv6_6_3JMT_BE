@@ -1,4 +1,4 @@
-package com.prompthub.order.infra.persistence;
+package com.prompthub.order.infra.persistence.outbox;
 
 import com.prompthub.order.domain.enums.OutboxEventStatus;
 import com.prompthub.order.domain.model.OutboxEvent;
