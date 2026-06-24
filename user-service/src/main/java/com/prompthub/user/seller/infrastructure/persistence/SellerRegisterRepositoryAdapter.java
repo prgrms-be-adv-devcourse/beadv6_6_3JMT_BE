@@ -19,6 +19,11 @@ public class SellerRegisterRepositoryAdapter implements SellerRegisterRepository
     private final SellerRegisterJpaRepository jpaRepository;
 
     @Override
+    public Optional<SellerRegister> findById(UUID registerId) {
+        return jpaRepository.findById(registerId);
+    }
+
+    @Override
     public Optional<SellerRegister> findLatestByUserId(UUID userId) {
         return jpaRepository.findTopByUserIdOrderBySubmittedAtDesc(userId);
     }

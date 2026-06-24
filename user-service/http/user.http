@@ -238,7 +238,7 @@ X-User-Role: ADMIN
 
 ### PATCH /admin/sellers/register/{registerId}/approve — 승인
 
-PATCH {{baseUrl}}/api/v1/admin/sellers/register/00000000-0000-0000-0000-000000000020/approve
+PATCH {{baseUrl}}/api/v1/admin/sellers/register/a5e01f76-9764-4c53-8571-c843177614db/approve
 X-User-Id: {{adminUserId}}
 X-User-Role: ADMIN
 
@@ -246,7 +246,7 @@ X-User-Role: ADMIN
 
 ### PATCH /admin/sellers/register/{registerId}/reject — 반려
 
-PATCH {{baseUrl}}/api/v1/admin/sellers/register/00000000-0000-0000-0000-000000000020/reject
+PATCH {{baseUrl}}/api/v1/admin/sellers/register/16588492-69f7-481a-85ff-7ce00cec1200/reject
 Content-Type: application/json
 X-User-Id: {{adminUserId}}
 X-User-Role: ADMIN

@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface SellerRegisterRepository {
+    Optional<SellerRegister> findById(UUID registerId);
     Optional<SellerRegister> findLatestByUserId(UUID userId);
     boolean existsByUserIdAndStatusIn(UUID userId, List<SellerRegisterStatus> statuses);
     SellerRegister save(SellerRegister sellerRegister);

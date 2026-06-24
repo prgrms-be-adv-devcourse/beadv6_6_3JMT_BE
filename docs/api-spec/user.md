@@ -700,11 +700,13 @@
 
 **페이로드 스펙 (product-service 담당자 발행 기준)**
 
+> `sellerId`는 `user.user_id`와 동일하다. 별도 seller 테이블을 두지 않으며, 서비스 간 판매자 식별자는 `user_id`로 통일한다.
+
 ```json
 {
   "eventType": "PRODUCT_CREATED",
   "productId": "uuid",
-  "sellerId": "uuid",
+  "sellerId": "uuid (= user_id)",
   "title": "...",
   "price": 9900,
   "thumbnailUrl": "...",
@@ -721,7 +723,7 @@
 |------|------|------|
 | eventType | string | `PRODUCT_CREATED` / `PRODUCT_UPDATED` |
 | productId | string | 상품 ID |
-| sellerId | string | 판매자 ID |
+| sellerId | string | 판매자 ID (= user_id) |
 | title | string | 상품명 |
 | price | integer | 가격 |
 | thumbnailUrl | string \| null | 썸네일 이미지 URL |
