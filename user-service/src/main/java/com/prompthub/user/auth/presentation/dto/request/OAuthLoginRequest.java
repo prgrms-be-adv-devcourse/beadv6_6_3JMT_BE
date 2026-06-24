@@ -7,11 +7,11 @@ import jakarta.validation.constraints.NotBlank;
 
 public record OAuthLoginRequest(
         @NotBlank String oauthId,
-        @NotBlank String nickname,
+        @NotBlank String name,
         String profileImage,
         @NotBlank @Email String email
 ) {
     public OAuthLoginCommand toCommand(OAuthProvider provider) {
-        return new OAuthLoginCommand(provider, oauthId, nickname, profileImage, email);
+        return new OAuthLoginCommand(provider, oauthId, name, profileImage, email);
     }
 }

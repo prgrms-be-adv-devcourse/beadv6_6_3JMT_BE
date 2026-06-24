@@ -62,6 +62,17 @@ public class SellerRegister {
     @Column(name = "reject_reason", columnDefinition = "TEXT")
     private String rejectReason;
 
+    public void approve() {
+        this.status = SellerRegisterStatus.APPROVED;
+        this.reviewedAt = LocalDateTime.now();
+    }
+
+    public void reject(String reason) {
+        this.status = SellerRegisterStatus.REJECTED;
+        this.reviewedAt = LocalDateTime.now();
+        this.rejectReason = reason;
+    }
+
     public static SellerRegister create(
             UUID userId,
             List<String> categories,
