@@ -1,6 +1,6 @@
 # User Service API
 
-**Base:** `http://localhost:xxxx/api/v1`
+**Base:** `http://localhost:8081/api/v1`
 
 ## 공통 사항
 
@@ -30,7 +30,8 @@
     "email": "user@example.com",
     "profileImageUrl": "https://cdn.example.com/images/profile.jpg",
     "role": "BUYER",
-    "sellerStatus": "PENDING"
+    "sellerStatus": "PENDING",
+    "provider": "local"
   },
   "message": "success"
 }
@@ -53,6 +54,7 @@
 | `PENDING` | 심사 대기 중 |
 | `APPROVED` | 승인됨 (role이 `SELLER`이면 항상 이 값) |
 | `REJECTED` | 반려됨 |
+| provider | string | 가입 방식 (`local` / `kakao`) |
 
 ---
 
@@ -62,6 +64,7 @@
 - 필요 역할: BUYER / SELLER
 - 수정할 필드만 포함 (Partial Update)
 - 응답 `data`에는 요청에서 실제로 수정된 필드만 포함됨
+- `password` 필드는 `provider=local` 사용자만 허용. OAuth 사용자(`kakao` 등)가 포함하면 400 반환
 
 #### Request
 
@@ -79,7 +82,7 @@
 |------|------|------|------|
 | name | string | N | 이름 |
 | email | string | N | 이메일 |
-| password | string | N | 비밀번호 |
+| password | string | N | 비밀번호 — `local` 가입 사용자만 허용 |
 
 #### Response
 
@@ -123,6 +126,12 @@
 - 인증: 필요
 - 필요 역할: BUYER / SELLER
 
+처리 순서
+
+1. 진행 중인 주문 있으면 → 400 반환
+2. 없으면 → deleted_at 채워서 Soft Delete
+3. RT 삭제
+
 #### Response
 
 **200 OK**
@@ -152,7 +161,7 @@
 
 ```json
 {
-  "categories": ["마케팅", "코딩"],
+  "categories": ["marketing", "coding"],
   "introduction": "마케팅 카피·블로그 글쓰기용 GPT 프롬프트를 주로 만듭니다.",
   "portfolioUrl": "https://blog.example.com",
   "agreedToTerms": true
