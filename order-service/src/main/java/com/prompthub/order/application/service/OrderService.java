@@ -172,6 +172,7 @@ public class OrderService implements OrderUseCase {
 	}
 
 	@Override
+	@Transactional(readOnly = true)
 	public Page<OrderListResponse> getOrders(UUID buyerId, PageRequestParams request) {
 		int page = request.page();
 		int size = request.size();
@@ -197,6 +198,7 @@ public class OrderService implements OrderUseCase {
 	}
 
 	@Override
+	@Transactional(readOnly = true)
 	public Page<OrderPaymentListResponse> getOrderPayments(UUID buyerId, PageRequestParams request) {
 		int page = request.page();
 		int size = request.size();
