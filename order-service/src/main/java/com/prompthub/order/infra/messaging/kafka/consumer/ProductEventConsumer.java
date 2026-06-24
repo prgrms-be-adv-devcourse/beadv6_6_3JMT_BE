@@ -33,13 +33,14 @@ public class ProductEventConsumer {
 	)
 	public void consume(String message, Acknowledgment acknowledgment) {
 		JsonNode root = readTree(message);
-		String eventType = root.path("eventType").stringValue(null);
+		String eventTypeStr = root.path("eventType").stringValue(null);
+		ProductEventType eventType = ProductEventType.from(eventTypeStr);
 
 		switch (eventType) {
-			case "PRODUCT_STOPPED" -> orderProductEventService.handleProductStopped(toEvent(root, ProductStoppedEvent.class));
-			case "PRODUCT_DELETED" -> orderProductEventService.handleProductDeleted(toEvent(root, ProductDeletedEvent.class));
-			case "PRODUCT_PRICE_CHANGED" -> orderProductEventService.handleProductPriceChanged(toEvent(root, ProductPriceChangedEvent.class));
-			default -> log.warn("지원하지 않는 상품 이벤트 타입입니다. eventType={}", eventType);
+			case PRODUCT_STOPPED -> orderProductEventService.handleProductStopped(toEvent(root, ProductStoppedEvent.class));
+			case PRODUCT_DELETED -> orderProductEventService.handleProductDeleted(toEvent(root, ProductDeletedEvent.class));
+			case PRODUCT_PRICE_CHANGED -> orderProductEventService.handleProductPriceChanged(toEvent(root, ProductPriceChangedEvent.class));
+			case UNKNOWN -> log.warn("지원하지 않는 상품 이벤트 타입입니다. eventType={}", eventTypeStr);
 		}
 
 		acknowledgment.acknowledge();
