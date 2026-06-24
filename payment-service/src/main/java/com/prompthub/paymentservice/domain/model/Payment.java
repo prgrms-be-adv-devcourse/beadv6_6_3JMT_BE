@@ -170,4 +170,26 @@ public class Payment {
         this.responsePayload = responsePayload;
         this.failedAt = failedAt;
     }
+
+    public void startRefunding() {
+        if (this.status != PaymentStatus.PAID) {
+            throw new IllegalStateException("PAID 상태에서만 REFUNDING으로 전환할 수 있습니다.");
+        }
+        this.status = PaymentStatus.REFUNDING;
+    }
+
+    public void completeRefund(OffsetDateTime refundedAt) {
+        if (this.status != PaymentStatus.REFUNDING) {
+            throw new IllegalStateException("REFUNDING 상태에서만 REFUNDED로 전환할 수 있습니다.");
+        }
+        this.status = PaymentStatus.REFUNDED;
+        this.refundedAt = refundedAt;
+    }
+
+    public void restoreToRefundFailed() {
+        if (this.status != PaymentStatus.REFUNDING) {
+            throw new IllegalStateException("REFUNDING 상태에서만 PAID로 복원할 수 있습니다.");
+        }
+        this.status = PaymentStatus.PAID;
+    }
 }

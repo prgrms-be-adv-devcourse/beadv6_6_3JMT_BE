@@ -90,4 +90,19 @@ public class Refund {
             null
         );
     }
+
+    public void complete(OffsetDateTime completedAt) {
+        if (this.status != RefundStatus.REQUESTED) {
+            throw new IllegalStateException("REQUESTED 상태에서만 COMPLETED로 전환할 수 있습니다.");
+        }
+        this.status = RefundStatus.COMPLETED;
+        this.completedAt = completedAt;
+    }
+
+    public void fail() {
+        if (this.status != RefundStatus.REQUESTED) {
+            throw new IllegalStateException("REQUESTED 상태에서만 FAILED로 전환할 수 있습니다.");
+        }
+        this.status = RefundStatus.FAILED;
+    }
 }
