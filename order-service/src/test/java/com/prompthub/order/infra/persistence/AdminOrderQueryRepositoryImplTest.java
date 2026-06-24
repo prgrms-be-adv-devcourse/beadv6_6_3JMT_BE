@@ -1,6 +1,7 @@
 package com.prompthub.order.infra.persistence;
 
 import com.prompthub.order.application.dto.AdminOrderListProjection;
+import com.prompthub.order.application.dto.AdminDailyTransactionProjection;
 import com.prompthub.order.config.TestJpaConfig;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
@@ -21,6 +22,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
@@ -113,6 +116,29 @@ class AdminOrderQueryRepositoryImplTest {
 		long actualAmount = adminOrderQueryRepository.sumMonthlyTransactionAmount(start, endExclusive);
 
 		assertThat(actualAmount).isEqualTo(PRODUCT_AMOUNT_1);
+	}
+
+	@Test
+	@DisplayName("최근 거래 추이는 일자별 승인 건수와 실제 거래액을 조회한다")
+	void findDailyTransactions_success() {
+		LocalDate day = LocalDate.of(2026, 6, 24);
+		Order paidOrder = createSingleProductPaidOrder("ORD-20260624-0007", day.atTime(10, 0));
+		persistPayment(paidOrder, UUID.fromString("00000000-0000-0000-0000-000000000414"), PRODUCT_AMOUNT_1, day.atTime(10, 1));
+		Order canceledOrder = createSingleProductPaidOrder("ORD-20260624-0008", day.atTime(11, 0));
+		persistPayment(canceledOrder, UUID.fromString("00000000-0000-0000-0000-000000000415"), PRODUCT_AMOUNT_2, day.atTime(11, 1));
+		canceledOrder.cancel(day.atTime(12, 0));
+		entityManager.flush();
+		entityManager.clear();
+
+		List<AdminDailyTransactionProjection> result = adminOrderQueryRepository.findDailyTransactions(
+			day.atStartOfDay(),
+			day.plusDays(1).atStartOfDay()
+		);
+
+		assertThat(result).hasSize(1);
+		assertThat(result.getFirst().date()).isEqualTo(day);
+		assertThat(result.getFirst().transactionCount()).isEqualTo(2L);
+		assertThat(result.getFirst().transactionAmount()).isEqualTo(PRODUCT_AMOUNT_1);
 	}
 
 	private Order createSingleProductPaidOrder(String orderNumber, LocalDateTime createdAt) {

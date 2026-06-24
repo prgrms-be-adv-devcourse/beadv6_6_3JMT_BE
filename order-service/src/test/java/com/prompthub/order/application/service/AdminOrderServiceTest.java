@@ -1,12 +1,14 @@
 package com.prompthub.order.application.service;
 
 import com.prompthub.order.application.client.SellerClient;
+import com.prompthub.order.application.dto.AdminDailyTransactionProjection;
 import com.prompthub.order.application.dto.AdminOrderListProjection;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.repository.AdminOrderQueryRepository;
 import com.prompthub.order.presentation.dto.request.AdminOrderSearchCondition;
 import com.prompthub.order.presentation.dto.response.AdminMonthlyTradeAmountResponse;
 import com.prompthub.order.presentation.dto.response.AdminOrderListResponse;
+import com.prompthub.order.presentation.dto.response.AdminWeeklyTransactionResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -113,6 +116,27 @@ class AdminOrderServiceTest {
 
 		assertThat(response.monthlyTransactionAmount()).isEqualTo(25_000L);
 		then(adminOrderQueryRepository).should().sumMonthlyTransactionAmount(any(), any());
+	}
+
+	@Test
+	@DisplayName("최근 7일 거래량은 누락된 날짜를 0으로 채우고 합계를 계산한다")
+	void getWeeklyTransactions_success() {
+		LocalDate today = LocalDate.now();
+		given(adminOrderQueryRepository.findDailyTransactions(any(), any()))
+			.willReturn(List.of(new AdminDailyTransactionProjection(today, 2L, 30_000L)));
+
+		AdminWeeklyTransactionResponse response = adminOrderService.getWeeklyTransactions();
+
+		assertThat(response.dailyTransactions()).hasSize(7);
+		assertThat(response.period().endDate()).isEqualTo(today);
+		assertThat(response.period().startDate()).isEqualTo(today.minusDays(6));
+		assertThat(response.totalTransactionCount()).isEqualTo(2L);
+		assertThat(response.totalTransactionAmount()).isEqualTo(30_000L);
+		assertThat(response.dailyTransactions().getLast().date()).isEqualTo(today);
+		assertThat(response.dailyTransactions().getLast().transactionCount()).isEqualTo(2L);
+		assertThat(response.dailyTransactions().getLast().transactionAmount()).isEqualTo(30_000L);
+		assertThat(response.dailyTransactions().getFirst().transactionCount()).isZero();
+		assertThat(response.dailyTransactions().getFirst().transactionAmount()).isZero();
 	}
 
 	private AdminOrderListProjection adminOrderProjection(UUID sellerId) {

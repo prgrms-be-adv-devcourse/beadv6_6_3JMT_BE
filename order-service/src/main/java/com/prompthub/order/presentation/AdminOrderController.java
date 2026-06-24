@@ -5,6 +5,7 @@ import com.prompthub.order.global.web.AuthHeaders;
 import com.prompthub.order.presentation.dto.request.AdminOrderSearchCondition;
 import com.prompthub.order.presentation.dto.response.AdminMonthlyTradeAmountResponse;
 import com.prompthub.order.presentation.dto.response.AdminOrderListResponse;
+import com.prompthub.order.presentation.dto.response.AdminWeeklyTransactionResponse;
 import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.presentation.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -70,5 +71,19 @@ public class AdminOrderController {
 		@RequestHeader(USER_ROLE) String userRole
 	) {
 		return ApiResult.success(adminOrderUseCase.getMonthlyTransactionAmount());
+	}
+
+	@GetMapping("/weekend")
+	@Operation(summary = "최근 7일 거래량 조회", description = "최근 7일의 일자별 결제 승인 건수와 실제 거래액을 조회합니다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "최근 7일 거래량 조회 성공"),
+		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음"),
+		@ApiResponse(responseCode = "403", description = "A004 권한 없음")
+	})
+	public ApiResult<AdminWeeklyTransactionResponse> getWeeklyTransactions(
+		@Parameter(in = ParameterIn.HEADER, name = USER_ROLE, description = "Gateway가 주입하는 사용자 권한", required = true)
+		@RequestHeader(USER_ROLE) String userRole
+	) {
+		return ApiResult.success(adminOrderUseCase.getWeeklyTransactions());
 	}
 }

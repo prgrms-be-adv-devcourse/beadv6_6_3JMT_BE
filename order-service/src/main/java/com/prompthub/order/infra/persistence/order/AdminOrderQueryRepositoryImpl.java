@@ -1,6 +1,7 @@
 package com.prompthub.order.infra.persistence.order;
 
 import com.prompthub.order.application.dto.AdminOrderListProjection;
+import com.prompthub.order.application.dto.AdminDailyTransactionProjection;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.repository.AdminOrderQueryRepository;
 import com.prompthub.order.presentation.dto.request.AdminOrderSearchCondition;
@@ -15,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -105,8 +107,84 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
 		return approvedAmount - canceledAmount - refundedAmount;
 	}
 
+	@Override
+	public List<AdminDailyTransactionProjection> findDailyTransactions(
+		LocalDateTime startInclusive,
+		LocalDateTime endExclusive
+	) {
+		Map<LocalDate, DailyTransactionAccumulator> dailyTransactions = new LinkedHashMap<>();
+
+		for (Tuple row : fetchApprovedDailyRows(startInclusive, endExclusive)) {
+			LocalDateTime approvedAt = row.get(orderPayment.approvedAt);
+			LocalDate date = approvedAt.toLocalDate();
+			Integer amount = row.get(orderPayment.approvedAmount);
+			dailyTransactions.computeIfAbsent(date, ignored -> new DailyTransactionAccumulator())
+				.addApproved(1L, amount == null ? 0L : amount);
+		}
+
+		subtractDailyAmounts(dailyTransactions, fetchCanceledDailyRows(startInclusive, endExclusive), order.canceledAt);
+		subtractDailyAmounts(dailyTransactions, fetchRefundedDailyRows(startInclusive, endExclusive), order.refundedAt);
+
+		return dailyTransactions.entrySet().stream()
+			.sorted(Map.Entry.comparingByKey())
+			.map(entry -> new AdminDailyTransactionProjection(
+				entry.getKey(),
+				entry.getValue().transactionCount,
+				entry.getValue().transactionAmount
+			))
+			.toList();
+	}
+
 	private BooleanExpression orderStatusEq(OrderStatus orderStatus) {
 		return orderStatus == null ? null : order.orderStatus.eq(orderStatus);
+	}
+
+	private List<Tuple> fetchApprovedDailyRows(LocalDateTime startInclusive, LocalDateTime endExclusive) {
+		return queryFactory
+			.select(orderPayment.approvedAt, orderPayment.approvedAmount)
+			.from(orderPayment)
+			.where(dateTimeGoe(orderPayment.approvedAt, startInclusive), dateTimeLt(orderPayment.approvedAt, endExclusive))
+			.fetch();
+	}
+
+	private List<Tuple> fetchCanceledDailyRows(LocalDateTime startInclusive, LocalDateTime endExclusive) {
+		return queryFactory
+			.select(order.canceledAt, orderPayment.approvedAmount)
+			.from(orderPayment)
+			.join(order).on(order.id.eq(orderPayment.orderId))
+			.where(
+				order.orderStatus.eq(OrderStatus.CANCELED),
+				dateTimeGoe(order.canceledAt, startInclusive),
+				dateTimeLt(order.canceledAt, endExclusive)
+			)
+			.fetch();
+	}
+
+	private List<Tuple> fetchRefundedDailyRows(LocalDateTime startInclusive, LocalDateTime endExclusive) {
+		return queryFactory
+			.select(order.refundedAt, orderPayment.approvedAmount)
+			.from(orderPayment)
+			.join(order).on(order.id.eq(orderPayment.orderId))
+			.where(
+				order.orderStatus.eq(OrderStatus.REFUNDED),
+				dateTimeGoe(order.refundedAt, startInclusive),
+				dateTimeLt(order.refundedAt, endExclusive)
+			)
+			.fetch();
+	}
+
+	private void subtractDailyAmounts(
+		Map<LocalDate, DailyTransactionAccumulator> dailyTransactions,
+		List<Tuple> rows,
+		com.querydsl.core.types.dsl.DateTimePath<LocalDateTime> dateTimePath
+	) {
+		for (Tuple row : rows) {
+			LocalDateTime occurredAt = row.get(dateTimePath);
+			LocalDate date = occurredAt.toLocalDate();
+			Integer amount = row.get(orderPayment.approvedAmount);
+			dailyTransactions.computeIfAbsent(date, ignored -> new DailyTransactionAccumulator())
+				.subtract(amount == null ? 0L : amount);
+		}
 	}
 
 	private long sumApprovedAmount(LocalDateTime startInclusive, LocalDateTime endExclusive) {
@@ -169,5 +247,19 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
 			return firstProductTitle;
 		}
 		return firstProductTitle + " 외 " + (totalProductCount - 1) + "건";
+	}
+
+	private static class DailyTransactionAccumulator {
+		private long transactionCount;
+		private long transactionAmount;
+
+		private void addApproved(long transactionCount, long amount) {
+			this.transactionCount += transactionCount;
+			this.transactionAmount += amount;
+		}
+
+		private void subtract(long amount) {
+			this.transactionAmount -= amount;
+		}
 	}
 }
