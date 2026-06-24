@@ -10,6 +10,7 @@ import com.prompthub.settlement.presentation.dto.response.SettlementStatusRespon
 import com.prompthub.settlement.presentation.dto.response.SettlementSummaryResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -30,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("${api.init}/admin/settlements")
 @RequiredArgsConstructor
-@Tag(name = "Settlement", description = "정산 조회 API(관리자)")
+@Tag(name = "Settlement", description = "정산 API(관리자)")
 public class SettlementController {
 
     private final SettlementUseCase settlementUseCase;
@@ -89,7 +90,7 @@ public class SettlementController {
     })
     public ApiResult<SettlementStatusResponse> approve(
             @Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId,
-            @Parameter(description = "요청 수행자 ID(UUID)") @RequestHeader("X-User-Id") UUID actorId) {
+            @Parameter(description = "요청 수행자 ID(UUID)", in = ParameterIn.HEADER) @RequestHeader("X-User-Id") UUID actorId) {
         log.info("정산 승인 요청 - settlementId={}, actorId={}", settlementId, actorId);
         return ApiResult.success(settlementUseCase.approve(settlementId));
     }
@@ -111,7 +112,7 @@ public class SettlementController {
     })
     public ApiResult<SettlementStatusResponse> hold(
             @Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId,
-            @Parameter(description = "요청 수행자 ID(UUID)") @RequestHeader("X-User-Id") UUID actorId) {
+            @Parameter(description = "요청 수행자 ID(UUID)", in = ParameterIn.HEADER) @RequestHeader("X-User-Id") UUID actorId) {
         log.info("정산 승인 보류 요청 - settlementId={}, actorId={}", settlementId, actorId);
         return ApiResult.success(settlementUseCase.hold(settlementId));
     }
@@ -133,7 +134,7 @@ public class SettlementController {
     })
     public ApiResult<SettlementStatusResponse> releaseHold(
             @Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId,
-            @Parameter(description = "요청 수행자 ID(UUID)") @RequestHeader("X-User-Id") UUID actorId) {
+            @Parameter(description = "요청 수행자 ID(UUID)", in = ParameterIn.HEADER) @RequestHeader("X-User-Id") UUID actorId) {
         log.info("정산 승인 보류 해제 요청 - settlementId={}, actorId={}", settlementId, actorId);
         return ApiResult.success(settlementUseCase.releaseHold(settlementId));
     }
@@ -155,7 +156,7 @@ public class SettlementController {
     })
     public ApiResult<SettlementStatusResponse> payout(
             @Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId,
-            @Parameter(description = "요청 수행자 ID(UUID)") @RequestHeader("X-User-Id") UUID actorId) {
+            @Parameter(description = "요청 수행자 ID(UUID)", in = ParameterIn.HEADER) @RequestHeader("X-User-Id") UUID actorId) {
         log.info("정산 지급 요청 - settlementId={}, actorId={}", settlementId, actorId);
         return ApiResult.success(settlementUseCase.payout(settlementId));
     }
@@ -177,7 +178,7 @@ public class SettlementController {
     })
     public ApiResult<SettlementStatusResponse> payoutHold(
             @Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId,
-            @Parameter(description = "요청 수행자 ID(UUID)") @RequestHeader("X-User-Id") UUID actorId) {
+            @Parameter(description = "요청 수행자 ID(UUID)", in = ParameterIn.HEADER) @RequestHeader("X-User-Id") UUID actorId) {
         log.info("정산 지급 보류 요청 - settlementId={}, actorId={}", settlementId, actorId);
         return ApiResult.success(settlementUseCase.payoutHold(settlementId));
     }
@@ -199,7 +200,7 @@ public class SettlementController {
     })
     public ApiResult<SettlementStatusResponse> releasePayoutHold(
             @Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId,
-            @Parameter(description = "요청 수행자 ID(UUID)") @RequestHeader("X-User-Id") UUID actorId) {
+            @Parameter(description = "요청 수행자 ID(UUID)", in = ParameterIn.HEADER) @RequestHeader("X-User-Id") UUID actorId) {
         log.info("정산 지급 보류 해제 요청 - settlementId={}, actorId={}", settlementId, actorId);
         return ApiResult.success(settlementUseCase.releasePayoutHold(settlementId));
     }
