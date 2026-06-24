@@ -12,7 +12,7 @@
 | 프로필 이미지 | profile_image_url | VARCHAR(500) | | NULL | 프로필 이미지 URL |
 | 상태 * | status | user_status_type | ✓ | ACTIVE | ACTIVE / BLOCKED / WITHDRAWN |
 | 약관 동의 * | terms_agreed | BOOLEAN | ✓ | FALSE | 서비스 이용약관 동의 여부 |
-| 역할 * | role | user_role_type | ✓ | | USER / SELLER / ADMIN |
+| 역할 * | role | user_role_type | ✓ | | BUYER / SELLER / ADMIN |
 | 생성 일시 * | created_at | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
 | 수정 일시 * | updated_at | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
 

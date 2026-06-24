@@ -152,7 +152,7 @@
 |------|------|------|------|
 | kakaoId | string | Y | 카카오 고유 식별자 |
 | nickname | string | Y | 카카오 닉네임 |
-| profileImage | string | Y | 프로필 이미지 URL |
+| profileImage | string | N | 프로필 이미지 URL (없으면 null) |
 | email | string | Y | 이메일 |
 
 #### Response
@@ -232,6 +232,30 @@
 |------|------|------|
 | accessToken | string | 새로 발급된 JWT 액세스 토큰 |
 | expiresAt | string | 액세스 토큰 만료일시 (ISO 8601) |
+
+> **TODO (RTR — Refresh Token Rotation)**
+>
+> 현재 스펙은 AT만 재발급하고 RT는 재사용하는 구조다.
+> 기능 개발 완료 후 Redis 기반 RT 관리로 전환하면서 아래 방식으로 변경할 것.
+>
+> - **RT도 함께 교체**: 재발급 요청마다 기존 RT를 폐기하고 새 RT를 발급해 응답에 포함
+> - **Redis 저장**: 발급된 RT를 `refresh:{userId}` 키로 Redis에 저장, TTL은 RT 만료 시간과 동일하게 설정
+> - **재사용 감지(Replay Detection)**: 이미 폐기된 RT로 재발급 시도가 들어오면 해당 유저의 모든 세션 강제 만료 처리 (탈취 시나리오 대응)
+> - **로그아웃**: DB 삭제 대신 Redis 키 삭제로 변경
+>
+> 변경 시 응답 스펙에 `refreshToken` 필드 추가 필요:
+>
+> ```json
+> {
+>   "success": true,
+>   "data": {
+>     "accessToken": "eyJhbGci...",
+>     "refreshToken": "eyJhbGci...(새 RT)",
+>     "expiresAt": "2025-06-17T11:00:00Z"
+>   },
+>   "message": "success"
+> }
+> ```
 
 ---
 
