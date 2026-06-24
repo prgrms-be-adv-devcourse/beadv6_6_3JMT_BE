@@ -18,7 +18,9 @@ public enum SettlementErrorCode implements ErrorCode {
 	SETTLEMENT_JOB_EXECUTION_FAILED("S-002", "정산 배치 잡 실행에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 	SETTLEMENT_BATCH_INVALID_STATE("S-007", "정산 배치가 처리 중 상태가 아닙니다.", HttpStatus.CONFLICT),
 	SETTLEMENT_JOB_NOT_FOUND("S-008", "정산 배치 잡 실행 이력을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-	SETTLEMENT_SOURCE_LINE_ALREADY_SETTLED("S-009", "이미 정산에 포함된 소스 라인입니다.", HttpStatus.CONFLICT);
+	SETTLEMENT_SOURCE_LINE_ALREADY_SETTLED("S-009", "이미 정산에 포함된 소스 라인입니다.", HttpStatus.CONFLICT),
+	SETTLEMENT_NOT_FOUND("S-010", "정산을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+	SETTLEMENT_INVALID_STATE("S-013", "현재 상태에서 변경할 수 없는 정산입니다.", HttpStatus.CONFLICT);
 
 	private final String code;
 	private final String message;
