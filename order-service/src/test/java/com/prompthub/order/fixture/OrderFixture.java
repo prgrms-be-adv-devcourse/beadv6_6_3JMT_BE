@@ -4,6 +4,9 @@ import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.application.event.PaymentApprovedEvent;
+import com.prompthub.order.application.event.PaymentCanceledEvent;
+import com.prompthub.order.application.event.PaymentFailedEvent;
+import com.prompthub.order.application.event.PaymentRefundedEvent;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -11,8 +14,6 @@ import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,12 +46,6 @@ public final class OrderFixture {
 	public static final UUID PAYMENT_ID =
 		UUID.fromString("00000000-0000-0000-0000-000000000401");
 
-	public static final String PG_TX_ID = "tosspayments-tx-20260619-0001";
-
-	public static final String PAYMENT_METHOD = "CARD";
-
-	public static final String PAYMENT_PROVIDER = "TOSS_PAYMENTS";
-
 	public static final UUID ORDER_ID =
 		UUID.fromString("00000000-0000-0000-0000-000000000501");
 
@@ -60,8 +55,16 @@ public final class OrderFixture {
 	public static final LocalDateTime APPROVED_AT =
 		LocalDateTime.of(2026, 6, 19, 12, 0);
 
-	public static final OffsetDateTime APPROVED_OFFSET_AT =
-		OffsetDateTime.of(2026, 6, 19, 12, 0, 0, 0, ZoneOffset.ofHours(9));
+	public static final LocalDateTime FAILED_AT =
+		LocalDateTime.of(2026, 6, 19, 12, 5);
+
+	public static final LocalDateTime CANCELED_AT =
+		LocalDateTime.of(2026, 6, 19, 12, 10);
+
+	public static final LocalDateTime REFUNDED_AT =
+		LocalDateTime.of(2026, 6, 19, 12, 20);
+
+	public static final String PAYMENT_FAILED_REASON = "PG 승인 실패";
 
 	public static final LocalDateTime PAID_AT =
 		LocalDateTime.of(2026, 6, 20, 12, 0);
@@ -210,14 +213,55 @@ public final class OrderFixture {
 		int approvedAmount
 	) {
 		return new PaymentApprovedEvent(
-			EVENT_ID,
-			orderId,
+			EVENT_ID.toString(),
+			"PAYMENT_APPROVED",
 			PAYMENT_ID,
-			PG_TX_ID,
-			PAYMENT_METHOD,
-			PAYMENT_PROVIDER,
+			orderId,
+			BUYER_ID,
 			approvedAmount,
-			APPROVED_OFFSET_AT
+			"CARD",
+			"TOSS",
+			"txId-1234",
+			APPROVED_AT,
+			APPROVED_AT
+		);
+	}
+
+	public static PaymentFailedEvent createPaymentFailedEvent(UUID orderId) {
+		return new PaymentFailedEvent(
+			EVENT_ID.toString(),
+			"PAYMENT_FAILED",
+			PAYMENT_ID,
+			orderId,
+			BUYER_ID,
+			PAYMENT_FAILED_REASON,
+			FAILED_AT,
+			FAILED_AT
+		);
+	}
+
+	public static PaymentCanceledEvent createPaymentCanceledEvent(UUID orderId) {
+		return new PaymentCanceledEvent(
+			EVENT_ID.toString(),
+			"PAYMENT_CANCELED",
+			PAYMENT_ID,
+			orderId,
+			BUYER_ID,
+			CANCELED_AT,
+			CANCELED_AT
+		);
+	}
+
+	public static PaymentRefundedEvent createPaymentRefundedEvent(UUID orderId) {
+		return new PaymentRefundedEvent(
+			EVENT_ID.toString(),
+			"PAYMENT_REFUNDED",
+			PAYMENT_ID,
+			orderId,
+			BUYER_ID,
+			TOTAL_AMOUNT,
+			REFUNDED_AT,
+			REFUNDED_AT
 		);
 	}
 
@@ -257,7 +301,7 @@ public final class OrderFixture {
 			PRODUCT_TITLE_1,
 			PRODUCT_AMOUNT_1,
 			paidAt,
-			APPROVED_OFFSET_AT
+			APPROVED_AT
 		);
 	}
 }

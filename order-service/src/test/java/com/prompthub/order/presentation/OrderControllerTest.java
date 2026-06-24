@@ -6,6 +6,8 @@ import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.GlobalExceptionHandler;
 import com.prompthub.order.global.exception.OrderException;
+import com.prompthub.order.global.web.AuthHeaders;
+import com.prompthub.order.global.web.OrderServiceAuthInterceptor;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.request.OrderReviewRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
@@ -66,6 +68,7 @@ class OrderControllerTest {
 
 		mockMvc = MockMvcBuilders.standaloneSetup(new OrderController(orderUseCase))
 			.setControllerAdvice(new GlobalExceptionHandler())
+			.addInterceptors(new OrderServiceAuthInterceptor())
 			.setValidator(validator)
 			.build();
 	}
@@ -86,7 +89,8 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(post("/api/v1/orders/review")
-						.header("X-User-Id", BUYER_ID.toString())
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 					.andExpect(status().isOk())
@@ -124,7 +128,8 @@ class OrderControllerTest {
 			void upsertReview_withoutProductId_badRequest() throws Exception {
 				// when & then
 				mockMvc.perform(post("/api/v1/orders/review")
-						.header("X-User-Id", BUYER_ID.toString())
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"rating\":4}"))
 					.andExpect(status().isBadRequest())
@@ -139,7 +144,8 @@ class OrderControllerTest {
 			void upsertReview_withoutRating_badRequest() throws Exception {
 				// when & then
 				mockMvc.perform(post("/api/v1/orders/review")
-						.header("X-User-Id", BUYER_ID.toString())
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"productId\":\"" + PRODUCT_ID_1 + "\"}"))
 					.andExpect(status().isBadRequest())
@@ -154,7 +160,8 @@ class OrderControllerTest {
 			void upsertReview_ratingLessThanOne_badRequest() throws Exception {
 				// when & then
 				mockMvc.perform(post("/api/v1/orders/review")
-						.header("X-User-Id", BUYER_ID.toString())
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"productId\":\"" + PRODUCT_ID_1 + "\",\"rating\":0}"))
 					.andExpect(status().isBadRequest())
@@ -169,7 +176,8 @@ class OrderControllerTest {
 			void upsertReview_ratingGreaterThanFive_badRequest() throws Exception {
 				// when & then
 				mockMvc.perform(post("/api/v1/orders/review")
-						.header("X-User-Id", BUYER_ID.toString())
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"productId\":\"" + PRODUCT_ID_1 + "\",\"rating\":6}"))
 					.andExpect(status().isBadRequest())
@@ -189,7 +197,8 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(post("/api/v1/orders/review")
-						.header("X-User-Id", BUYER_ID.toString())
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 					.andExpect(status().isForbidden())
@@ -227,7 +236,8 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(get("/api/v1/orders/{orderId}/content/{orderProductId}", ORDER_ID, ORDER_PRODUCT_ID)
-						.header("X-User-Id", BUYER_ID.toString()))
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER))
 					.andExpect(status().isOk())
 					.andExpect(jsonPath("$.success").value(true))
 					.andExpect(jsonPath("$.message").value("success"))
@@ -264,7 +274,8 @@ class OrderControllerTest {
 			void getOrderContent_invalidOrderId_badRequest() throws Exception {
 				// when & then
 				mockMvc.perform(get("/api/v1/orders/{orderId}/content/{orderProductId}", "invalid-order-id", ORDER_PRODUCT_ID)
-						.header("X-User-Id", BUYER_ID.toString()))
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER))
 					.andExpect(status().isBadRequest())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
@@ -281,7 +292,8 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(get("/api/v1/orders/{orderId}/content/{orderProductId}", ORDER_ID, ORDER_PRODUCT_ID)
-						.header("X-User-Id", BUYER_ID.toString()))
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER))
 					.andExpect(status().isForbidden())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.ORDER_CONTENT_ACCESS_DENIED.getCode()));
@@ -332,7 +344,8 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(get("/api/v1/orders/{orderId}", ORDER_ID)
-						.header("X-User-Id", BUYER_ID.toString()))
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER))
 					.andExpect(status().isOk())
 					.andExpect(jsonPath("$.success").value(true))
 					.andExpect(jsonPath("$.message").value("success"))
@@ -382,7 +395,8 @@ class OrderControllerTest {
 			void getOrderDetail_invalidOrderId_badRequest() throws Exception {
 				// when & then
 				mockMvc.perform(get("/api/v1/orders/{orderId}", "invalid-order-id")
-						.header("X-User-Id", BUYER_ID.toString()))
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER))
 					.andExpect(status().isBadRequest())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
@@ -399,7 +413,8 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(get("/api/v1/orders/{orderId}", ORDER_ID)
-						.header("X-User-Id", BUYER_ID.toString()))
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER))
 					.andExpect(status().isNotFound())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.ORDER_NOT_FOUND.getCode()));
@@ -414,7 +429,8 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(get("/api/v1/orders/{orderId}", ORDER_ID)
-						.header("X-User-Id", BUYER_ID.toString()))
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER))
 					.andExpect(status().isForbidden())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
@@ -475,7 +491,8 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(post("/api/v1/orders")
-						.header("X-User-Id", BUYER_ID.toString())
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 					.andExpect(status().isOk())
@@ -503,6 +520,37 @@ class OrderControllerTest {
 
 				verify(orderUseCase).createOrder(eq(BUYER_ID), eq(request));
 			}
+
+			@Test
+			@DisplayName("USER 권한과 SELLER 권한을 함께 가진 사용자는 주문을 생성할 수 있다")
+			void createOrder_userWithSellerRole_success() throws Exception {
+				UUID orderId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+				CreateOrderRequest request = createOrderRequest();
+				CreateOrderResponse response = new CreateOrderResponse(
+					orderId,
+					ORDER_NUMBER,
+					BUYER_ID,
+					OrderStatus.PENDING,
+					List.of(),
+					TOTAL_AMOUNT,
+					LocalDateTime.of(2026, 6, 19, 10, 0),
+					null
+				);
+
+				when(orderUseCase.createOrder(eq(BUYER_ID), eq(request)))
+					.thenReturn(response);
+
+				mockMvc.perform(post("/api/v1/orders")
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER + "," + AuthHeaders.SELLER)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(request)))
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.success").value(true))
+					.andExpect(jsonPath("$.data.orderId").value(orderId.toString()));
+
+				verify(orderUseCase).createOrder(eq(BUYER_ID), eq(request));
+			}
 		}
 
 		@Nested
@@ -525,6 +573,39 @@ class OrderControllerTest {
 			}
 
 			@Test
+			@DisplayName("X-User-Role 헤더가 없으면 401 Unauthorized")
+			void createOrder_withoutUserRoleHeader_unauthorized() throws Exception {
+				CreateOrderRequest request = createOrderRequest();
+
+				mockMvc.perform(post("/api/v1/orders")
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(request)))
+					.andExpect(status().isUnauthorized())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
+
+				verifyNoInteractions(orderUseCase);
+			}
+
+			@Test
+			@DisplayName("X-User-Role이 USER가 아니면 403 Forbidden")
+			void createOrder_nonUserRole_forbidden() throws Exception {
+				CreateOrderRequest request = createOrderRequest();
+
+				mockMvc.perform(post("/api/v1/orders")
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.SELLER)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(request)))
+					.andExpect(status().isForbidden())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
+
+				verifyNoInteractions(orderUseCase);
+			}
+
+			@Test
 			@DisplayName("X-User-Id 헤더가 UUID 형식이 아니면 400 Bad Request")
 			void createOrder_invalidUserIdHeader_badRequest() throws Exception {
 				// given
@@ -532,7 +613,8 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(post("/api/v1/orders")
-						.header("X-User-Id", "invalid-uuid")
+						.header(AuthHeaders.USER_ID, "invalid-uuid")
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 					.andExpect(status().isBadRequest());
@@ -544,7 +626,8 @@ class OrderControllerTest {
 				// given
 				// when & then
 				mockMvc.perform(post("/api/v1/orders")
-						.header("X-User-Id", BUYER_ID.toString())
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
 						.contentType(MediaType.APPLICATION_JSON))
 					.andExpect(status().isBadRequest());
 			}
@@ -557,7 +640,8 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(post("/api/v1/orders")
-						.header("X-User-Id", BUYER_ID.toString())
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 					.andExpect(status().isBadRequest());
@@ -603,7 +687,8 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(get("/api/v1/orders")
-						.header("X-User-Id", BUYER_ID.toString())
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
 						.param("page", "1")
 						.param("size", "20")
 						.param("status", "PAID")
@@ -655,7 +740,8 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(get("/api/v1/orders")
-						.header("X-User-Id", BUYER_ID.toString()))
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER))
 					.andExpect(status().isOk())
 					.andExpect(jsonPath("$.data[0].rating").doesNotExist());
 			}
@@ -670,7 +756,8 @@ class OrderControllerTest {
 			void getOrders_invalidDate_badRequest() throws Exception {
 				// when & then
 				mockMvc.perform(get("/api/v1/orders")
-						.header("X-User-Id", BUYER_ID.toString())
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
 						.param("from", "2026/06/01"))
 					.andExpect(status().isBadRequest())
 					.andExpect(jsonPath("$.success").value(false))
@@ -684,7 +771,8 @@ class OrderControllerTest {
 			void getOrders_sizeOverLimit_badRequest() throws Exception {
 				// when & then
 				mockMvc.perform(get("/api/v1/orders")
-						.header("X-User-Id", BUYER_ID.toString())
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
 						.param("size", "101"))
 					.andExpect(status().isBadRequest())
 					.andExpect(jsonPath("$.success").value(false))
@@ -698,7 +786,8 @@ class OrderControllerTest {
 			void getOrders_fromAfterTo_badRequest() throws Exception {
 				// when & then
 				mockMvc.perform(get("/api/v1/orders")
-						.header("X-User-Id", BUYER_ID.toString())
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
 						.param("from", "2026-06-30")
 						.param("to", "2026-06-01"))
 					.andExpect(status().isBadRequest())
@@ -741,7 +830,8 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(get("/api/v1/orders/payments")
-						.header("X-User-Id", BUYER_ID.toString())
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
 						.param("page", "1")
 						.param("size", "20"))
 					.andExpect(status().isOk())
@@ -786,7 +876,8 @@ class OrderControllerTest {
 			void getOrderPayments_sizeOverLimit_badRequest() throws Exception {
 				// when & then
 				mockMvc.perform(get("/api/v1/orders/payments")
-						.header("X-User-Id", BUYER_ID.toString())
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+						.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
 						.param("size", "101"))
 					.andExpect(status().isBadRequest())
 					.andExpect(jsonPath("$.success").value(false))
