@@ -12,7 +12,10 @@ public enum ProductErrorCode implements ErrorCode {
 	INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "V001", "입력값이 올바르지 않습니다."),
 	INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "SYS001", "서버 내부 오류가 발생했습니다."),
 	PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "상품이 존재하지 않습니다."),
-	PRODUCT_NOT_ON_SALE(HttpStatus.BAD_REQUEST, "P002", "판매 중인 상품이 아닙니다.");
+	PRODUCT_NOT_ON_SALE(HttpStatus.BAD_REQUEST, "P002", "판매 중인 상품이 아닙니다."),
+	PRODUCT_FORBIDDEN(HttpStatus.FORBIDDEN, "P003", "본인의 상품만 수정/삭제할 수 있습니다."),
+	CATEGORY_NOT_FOUND(HttpStatus.BAD_REQUEST, "P004", "존재하지 않는 카테고리입니다."),
+	SELLER_NOT_ACTIVE(HttpStatus.FORBIDDEN, "P005", "승인된 판매자만 상품을 등록할 수 있습니다.");
 
 	private final HttpStatus status;
 	private final String code;

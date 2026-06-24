@@ -1,5 +1,6 @@
 package com.prompthub.paymentservice.domain.model;
 
+import com.prompthub.paymentservice.domain.exception.InvalidRefundStateException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -89,5 +90,20 @@ public class Refund {
             OffsetDateTime.now(),
             null
         );
+    }
+
+    public void complete(OffsetDateTime completedAt) {
+        if (this.status != RefundStatus.REQUESTED) {
+            throw new InvalidRefundStateException("REQUESTED 상태에서만 COMPLETED로 전환할 수 있습니다.");
+        }
+        this.status = RefundStatus.COMPLETED;
+        this.completedAt = completedAt;
+    }
+
+    public void fail() {
+        if (this.status != RefundStatus.REQUESTED) {
+            throw new InvalidRefundStateException("REQUESTED 상태에서만 FAILED로 전환할 수 있습니다.");
+        }
+        this.status = RefundStatus.FAILED;
     }
 }

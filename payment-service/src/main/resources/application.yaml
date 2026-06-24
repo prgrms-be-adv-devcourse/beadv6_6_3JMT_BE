@@ -20,6 +20,8 @@ spring:
 
   kafka:
     bootstrap-servers: localhost:9092
+    admin:
+      auto-create: false
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -32,7 +34,16 @@ spring:
         spring.json.trusted.packages: "com.prompthub.paymentservice.*"
 
 server:
-  port: 8081
+  port: 8084
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+    display-request-duration: true
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
 
 payment:
   toss:

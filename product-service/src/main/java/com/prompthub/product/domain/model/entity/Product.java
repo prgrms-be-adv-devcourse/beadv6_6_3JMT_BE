@@ -13,6 +13,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -29,10 +30,6 @@ public class Product {
 
 	@Column(name = "seller_id", nullable = false)
 	private UUID sellerId;
-
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "seller_id", insertable = false, updatable = false)
-	private User seller;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "category_id")
@@ -99,4 +96,80 @@ public class Product {
 
 	@Column(name = "deleted_at")
 	private LocalDateTime deletedAt;
+
+	public static Product create(
+		UUID sellerId,
+		Category category,
+		String name,
+		String description,
+		String productType,
+		AmountType amountType,
+		int amount,
+		String thumbnailUrl,
+		String content
+	) {
+		Product product = new Product();
+		product.id = UUID.randomUUID();
+		product.sellerId = sellerId;
+		product.category = category;
+		product.categoryId = category != null ? category.getId() : null;
+		product.name = name;
+		product.description = description;
+		product.productType = productType;
+		product.amountType = amountType;
+		product.amount = amount;
+		product.thumbnailUrl = thumbnailUrl;
+		product.content = content;
+		product.majorVersion = 1;
+		product.patchVersion = 0;
+		product.status = ProductStatus.DRAFT;
+		product.salesCount = 0;
+		product.viewCount = 0;
+		product.wishCount = 0;
+		product.createdAt = LocalDateTime.now();
+		product.updatedAt = LocalDateTime.now();
+		return product;
+	}
+
+	public void update(
+		Category category,
+		String name,
+		String description,
+		String productType,
+		AmountType amountType,
+		int amount,
+		String thumbnailUrl,
+		String content,
+		String changeReason,
+		boolean isMajor
+	) {
+		this.category = category;
+		this.categoryId = category != null ? category.getId() : null;
+		this.name = name;
+		this.description = description;
+		this.productType = productType;
+		this.amountType = amountType;
+		this.amount = amount;
+		this.thumbnailUrl = thumbnailUrl;
+		this.content = content;
+		this.changeReason = changeReason;
+		if (isMajor) {
+			this.majorVersion++;
+			this.patchVersion = 0;
+			this.status = ProductStatus.PENDING_REVIEW;
+		} else {
+			this.patchVersion++;
+		}
+		this.updatedAt = LocalDateTime.now();
+	}
+
+	public void softDelete() {
+		this.deletedAt = LocalDateTime.now();
+		this.status = ProductStatus.STOPPED;
+		this.updatedAt = LocalDateTime.now();
+	}
+
+	public boolean isOwnedBy(UUID userId) {
+		return this.sellerId.equals(userId);
+	}
 }

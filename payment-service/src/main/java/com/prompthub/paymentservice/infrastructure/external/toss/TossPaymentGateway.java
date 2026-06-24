@@ -4,9 +4,12 @@ import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
 import com.prompthub.paymentservice.application.gateway.external.TossConfirmResult;
+import com.prompthub.paymentservice.application.gateway.external.TossRefundResult;
 import com.prompthub.paymentservice.infrastructure.external.toss.dto.TossConfirmRequest;
 import com.prompthub.paymentservice.infrastructure.external.toss.dto.TossConfirmResponse;
 import com.prompthub.paymentservice.infrastructure.external.toss.dto.TossErrorResponse;
+import com.prompthub.paymentservice.infrastructure.external.toss.dto.TossRefundRequest;
+import com.prompthub.paymentservice.infrastructure.external.toss.dto.TossRefundResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -72,6 +75,38 @@ public class TossPaymentGateway implements PaymentGateway {
             toJson(response),
             response.approvedAt()
         );
+    }
+
+    @Override
+    public TossRefundResult refund(String pgTxId, UUID paymentId, int amount) {
+        TossRefundRequest request = new TossRefundRequest("구매자 환불 요청", null);
+
+        TossRefundResponse response = restClient.post()
+            .uri("/payments/{paymentKey}/cancels", pgTxId)
+            .header("Idempotency-Key", "refund-" + paymentId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(request)
+            .retrieve()
+            .onStatus(HttpStatusCode::is4xxClientError, (req, resp) -> {
+                TossErrorResponse error = parseError(resp);
+                throw new PaymentGatewayException(
+                    PaymentErrorCode.PG_ERROR,
+                    error.code(), error.message(),
+                    null, null
+                );
+            })
+            .onStatus(HttpStatusCode::is5xxServerError, (req, resp) -> {
+                TossErrorResponse error = parseError(resp);
+                throw new PaymentGatewayException(
+                    PaymentErrorCode.PG_ERROR,
+                    error.code(), error.message(),
+                    null, null
+                );
+            })
+            .body(TossRefundResponse.class);
+
+        TossRefundResponse.TossCancel lastCancel = response.cancels().get(response.cancels().size() - 1);
+        return new TossRefundResult(lastCancel.canceledAt());
     }
 
     private String toJson(Object obj) {

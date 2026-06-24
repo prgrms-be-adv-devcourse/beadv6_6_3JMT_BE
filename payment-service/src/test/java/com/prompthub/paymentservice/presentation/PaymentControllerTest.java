@@ -4,6 +4,7 @@ import com.prompthub.exception.BusinessException;
 import com.prompthub.paymentservice.application.dto.result.PaymentResult;
 import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.usecase.ConfirmPaymentUseCase;
+import com.prompthub.paymentservice.application.usecase.RefundPaymentUseCase;
 import com.prompthub.paymentservice.presentation.dto.request.ConfirmPaymentRequest;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +29,8 @@ class PaymentControllerTest {
 
     @Mock
     ConfirmPaymentUseCase confirmPaymentUseCase;
+    @Mock
+    RefundPaymentUseCase refundPaymentUseCase;
 
     MockMvc mockMvc;
     ObjectMapper objectMapper = new ObjectMapper();
@@ -36,7 +39,7 @@ class PaymentControllerTest {
     void setUp() {
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
-        mockMvc = MockMvcBuilders.standaloneSetup(new PaymentController(confirmPaymentUseCase))
+        mockMvc = MockMvcBuilders.standaloneSetup(new PaymentController(confirmPaymentUseCase, refundPaymentUseCase))
             .setControllerAdvice(new PaymentExceptionHandler())
             .setValidator(validator)
             .build();

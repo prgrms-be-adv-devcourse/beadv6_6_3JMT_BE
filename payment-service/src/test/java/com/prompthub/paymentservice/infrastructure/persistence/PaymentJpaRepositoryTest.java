@@ -66,7 +66,6 @@ class PaymentJpaRepositoryTest {
         assertThat(found.getTotalAmount()).isEqualTo(9_000);
         assertThat(found.getStatus()).isEqualTo(PaymentStatus.READY);
         assertThat(found.getApprovedAmount()).isNull();
-        assertThat(found.getCanceledAmount()).isZero();
         assertThat(found.getCreatedAt()).isNotNull();
         assertThat(found.getUpdatedAt()).isNotNull();
     }

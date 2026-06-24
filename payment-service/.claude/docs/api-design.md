@@ -98,11 +98,15 @@
 **처리 흐름**
 1. `paymentId`로 Payment 조회 → 본인 결제 확인
 2. Payment 상태 `PAID` 검증 → 아니면 `400` 반환
-3. Payment 상태 `PAID` → `REFUNDING` 전환
-4. PG사에 환불 요청 → 즉시 `202` 반환
-5. PG 환불 완료 후 → `@Transactional`: `REFUNDING` → `REFUNDED` 저장 → `payment.refunded` 발행
+3. Payment 상태 `PAID` → `REFUNDING` 전환 + `202` 반환
+4. `@TransactionalEventListener(AFTER_COMMIT)`: PG사에 환불 요청 (`Idempotency-Key: refund-{paymentId}`)
+5. PG 환불 완료 → `REFUNDING` → `REFUNDED` 저장 → `payment.refunded` 발행
 
-> PG사 환불 실패 시 → `REFUNDING` → `PAID` 복원 → `payment.refund_failed` 발행
+> PG사 환불 실패 시 → `REFUNDING` → `PAID` 복원 (이벤트 발행 없음)
+
+**장애 복구 (Scheduled Retry)**
+- `@Scheduled` (10분 주기): `REFUNDING` 상태가 일정 시간 이상 지속된 건을 조회해 PG 환불 재요청
+- 재요청 시 `Idempotency-Key: refund-{paymentId}` 를 동일하게 사용해 이중 환불 방지 (토스페이먼츠 멱등키 유효 기간 15일)
 
 **이후 비동기 흐름**
 
@@ -123,8 +127,13 @@
 | `202` | 환불 요청 접수 완료 | — |
 | `400` | 환불 불가 상태 | `PAY004` |
 | `401` | 토큰 만료 | `A003` |
-| `403` | 권한 없음 | `A004` |
-| `502` | PG 환불 처리 실패 | `PAY006` |
+| `403` | 권한 없음 (역할) | `A004` |
+| `403` | 본인 결제 건이 아님 | `PAY006` |
+| `404` | 결제 건 없음 | `PAY005` |
+
+> **PG 환불 실패는 동기 응답으로 전달되지 않습니다.**
+> 202 반환 후 PG 호출이 이루어지므로, PG 실패 시 Payment 상태가 `REFUNDING → PAID`로 복원됩니다.
+> 클라이언트는 Payment 상태 조회 API를 폴링하여 `REFUNDING` / `REFUNDED` / `PAID`(실패 복원) 를 구분해야 합니다.
 
 **202 응답 예시**
 ```json
@@ -141,9 +150,6 @@
 | `REQUESTED` | PG사에 결제 요청 전송 완료 |
 | `PAID` | PG사 결제 승인 완료 |
 | `FAILED` | PG사 결제 실패 |
-| `CANCELING` | 취소 이벤트 수신, PG 취소 진행 중 |
-| `CANCELED` | PG 취소 완료 |
-| `CANCEL_FAILED` | PG 취소 실패 |
 | `REFUNDING` | 환불 요청 접수, PG 환불 진행 중 |
 | `REFUNDED` | 환불 완료 |
 | `UNKNOWN` | PG 응답 불명확, 수동 확인 필요 |
