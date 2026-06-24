@@ -12,7 +12,7 @@ import java.util.UUID;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Schema(description = "정산 상태 변경 응답")
 public record SettlementStatusResponse(
-        @Schema(description = "정산 ID(UUID)")
+        @Schema(description = "정산 ID(UUID)", example = "550e8400-e29b-41d4-a716-446655440000")
         UUID settlementId,
 
         @Schema(description = "정산 상태", example = "APPROVED")
@@ -30,7 +30,7 @@ public record SettlementStatusResponse(
         @Schema(description = "지급 완료 시각", example = "2026-06-24T15:00:00")
         LocalDateTime paidAt,
 
-        @Schema(description = "지급 참조 번호")
+        @Schema(description = "지급 참조 번호", example = "PAY-20260624-001")
         String payoutReference,
 
         @Schema(description = "정산 실패 사유")

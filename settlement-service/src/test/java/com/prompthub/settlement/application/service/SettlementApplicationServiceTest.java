@@ -204,6 +204,7 @@ class SettlementApplicationServiceTest {
 
         assertThat(response.settlementStatus()).isEqualTo(SettlementStatus.SETTLEMENT_ON_HOLD);
         assertThat(response.displayStatus()).isEqualTo(SettlementDisplayStatus.APPROVAL_ON_HOLD);
+        then(settlementRepository).should().save(target);
     }
 
     @Test
@@ -217,6 +218,7 @@ class SettlementApplicationServiceTest {
         SettlementStatusResponse response = settlementApplicationService.releaseHold(settlementId);
 
         assertThat(response.settlementStatus()).isEqualTo(SettlementStatus.PENDING_APPROVAL);
+        then(settlementRepository).should().save(target);
     }
 
     @Test
@@ -233,6 +235,7 @@ class SettlementApplicationServiceTest {
         assertThat(response.payoutStatus()).isEqualTo(PayoutStatus.PAID);
         assertThat(response.paidAt()).isNotNull();
         assertThat(response.displayStatus()).isEqualTo(SettlementDisplayStatus.PAID);
+        then(settlementRepository).should().save(target);
     }
 
     @Test
@@ -247,6 +250,7 @@ class SettlementApplicationServiceTest {
         SettlementStatusResponse response = settlementApplicationService.payoutHold(settlementId);
 
         assertThat(response.payoutStatus()).isEqualTo(PayoutStatus.PAYOUT_ON_HOLD);
+        then(settlementRepository).should().save(target);
     }
 
     @Test
@@ -261,5 +265,16 @@ class SettlementApplicationServiceTest {
         SettlementStatusResponse response = settlementApplicationService.releasePayoutHold(settlementId);
 
         assertThat(response.payoutStatus()).isEqualTo(PayoutStatus.READY);
+        then(settlementRepository).should().save(target);
+    }
+
+    @Test
+    @DisplayName("지급: 정산이 없으면 SettlementException을 던진다")
+    void payout_notFound_throws() {
+        UUID settlementId = UUID.randomUUID();
+        given(settlementRepository.findById(settlementId)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> settlementApplicationService.payout(settlementId))
+                .isInstanceOf(SettlementException.class);
     }
 }
