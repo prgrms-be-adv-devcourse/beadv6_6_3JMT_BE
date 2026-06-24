@@ -4,13 +4,12 @@ import com.prompthub.order.application.event.PaymentApprovedEvent;
 import com.prompthub.order.application.event.PaymentCanceledEvent;
 import com.prompthub.order.application.event.PaymentFailedEvent;
 import com.prompthub.order.application.event.PaymentRefundedEvent;
+import com.prompthub.order.application.service.outbox.OutboxEventAppender;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
-import com.prompthub.order.domain.model.OrderOutbox;
 import com.prompthub.order.domain.model.OrderPayment;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.CartRepository;
-import com.prompthub.order.domain.repository.OrderOutboxRepository;
 import com.prompthub.order.domain.repository.OrderPaymentRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -20,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -30,7 +28,7 @@ public class OrderPaymentEventService {
 	private final OrderRepository orderRepository;
 	private final CartRepository cartRepository;
 	private final OrderPaymentRepository orderPaymentRepository;
-	private final OrderOutboxRepository orderOutboxRepository;
+	private final OutboxEventAppender outboxEventAppender;
 	private final OrderPolicyService orderPolicyService;
 
 	public void handlePaymentApproved(PaymentApprovedEvent event) {
@@ -52,11 +50,7 @@ public class OrderPaymentEventService {
 			event.approvedAmount(),
 			event.approvedAt()
 		));
-		orderOutboxRepository.save(OrderOutbox.orderPaid(
-			order.getId(),
-			createOrderPaidPayload(order, event),
-			event.approvedAt()
-		));
+		outboxEventAppender.appendOrderPaid(order, event);
 
 		var orderedProductIds = order.getOrderProducts().stream()
 			.map(OrderProduct::getProductId)
@@ -116,21 +110,4 @@ public class OrderPaymentEventService {
 		}
 	}
 
-	private String createOrderPaidPayload(Order order, PaymentApprovedEvent event) {
-		String orderProductIds = order.getOrderProducts().stream()
-			.map(OrderProduct::getId)
-			.map(id -> "\"" + id + "\"")
-			.collect(Collectors.joining(","));
-
-		return """
-			{"orderId":"%s","buyerId":"%s","paymentId":"%s","totalAmount":%d,"paidAt":"%s","orderProductIds":[%s]}"""
-			.formatted(
-				order.getId(),
-				event.buyerId(),
-				event.paymentId(),
-				order.getTotalOrderAmount(),
-				event.approvedAt(),
-				orderProductIds
-			);
-	}
 }

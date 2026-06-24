@@ -4,14 +4,13 @@ import com.prompthub.order.application.event.PaymentApprovedEvent;
 import com.prompthub.order.application.event.PaymentCanceledEvent;
 import com.prompthub.order.application.event.PaymentFailedEvent;
 import com.prompthub.order.application.event.PaymentRefundedEvent;
+import com.prompthub.order.application.service.outbox.OutboxEventAppender;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
-import com.prompthub.order.domain.model.OrderOutbox;
 import com.prompthub.order.domain.model.OrderPayment;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.CartRepository;
-import com.prompthub.order.domain.repository.OrderOutboxRepository;
 import com.prompthub.order.domain.repository.OrderPaymentRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -51,7 +50,7 @@ class OrderPaymentEventServiceTest {
 	private OrderPaymentRepository orderPaymentRepository;
 
 	@Mock
-	private OrderOutboxRepository orderOutboxRepository;
+	private OutboxEventAppender outboxEventAppender;
 
 	@Spy
 	private OrderPolicyService orderPolicyService;
@@ -79,7 +78,6 @@ class OrderPaymentEventServiceTest {
 				.willReturn(Optional.of(cart));
 
 			ArgumentCaptor<OrderPayment> paymentCaptor = ArgumentCaptor.forClass(OrderPayment.class);
-			ArgumentCaptor<OrderOutbox> outboxCaptor = ArgumentCaptor.forClass(OrderOutbox.class);
 
 			orderPaymentEventService.handlePaymentApproved(event);
 
@@ -97,26 +95,7 @@ class OrderPaymentEventServiceTest {
 			assertThat(savedPayment.getApprovedAmount()).isEqualTo(TOTAL_AMOUNT);
 			assertThat(savedPayment.getApprovedAt()).isEqualTo(APPROVED_AT);
 
-			then(orderOutboxRepository).should().save(outboxCaptor.capture());
-			OrderOutbox savedOutbox = outboxCaptor.getValue();
-			assertThat(savedOutbox.getEventType()).isEqualTo("ORDER_PAID");
-			assertThat(savedOutbox.getAggregateType()).isEqualTo("ORDER");
-			assertThat(savedOutbox.getAggregateId()).isEqualTo(order.getId());
-			assertThat(savedOutbox.getOccurredAt()).isEqualTo(APPROVED_AT);
-			assertThat(savedOutbox.getStatus()).isEqualTo("PENDING");
-			
-			String expectedProductIds = order.getOrderProducts().stream()
-				.map(p -> "\"" + p.getId() + "\"")
-				.collect(java.util.stream.Collectors.joining(","));
-
-			assertThat(savedOutbox.getPayload()).contains(
-				"\"orderId\":\"" + order.getId() + "\"",
-				"\"buyerId\":\"" + BUYER_ID + "\"",
-				"\"paymentId\":\"" + PAYMENT_ID + "\"",
-				"\"totalAmount\":" + TOTAL_AMOUNT,
-				"\"paidAt\":\"" + APPROVED_AT + "\"",
-				"\"orderProductIds\":[" + expectedProductIds + "]"
-			);
+			then(outboxEventAppender).should().appendOrderPaid(order, event);
 
 			then(cart).should().removeProductsByProductIds(productIds());
 		}
@@ -142,7 +121,7 @@ class OrderPaymentEventServiceTest {
 				.extracting(OrderProduct::getOrderStatus)
 				.containsOnly(OrderStatus.PENDING);
 			then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
-			then(orderOutboxRepository).should(never()).save(any(OrderOutbox.class));
+			then(outboxEventAppender).should(never()).appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class));
 			then(cartRepository).should(never()).findByBuyerIdWithCartProducts(any(UUID.class));
 		}
 
@@ -161,7 +140,7 @@ class OrderPaymentEventServiceTest {
 
 			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
 			then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
-			then(orderOutboxRepository).should(never()).save(any(OrderOutbox.class));
+			then(outboxEventAppender).should(never()).appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class));
 			then(cartRepository).should(never()).findByBuyerIdWithCartProducts(any(UUID.class));
 		}
 
@@ -179,7 +158,7 @@ class OrderPaymentEventServiceTest {
 					.isEqualTo(ErrorCode.ORDER_NOT_FOUND));
 
 			then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
-			then(orderOutboxRepository).should(never()).save(any(OrderOutbox.class));
+			then(outboxEventAppender).should(never()).appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class));
 		}
 
 		@Test
@@ -199,7 +178,7 @@ class OrderPaymentEventServiceTest {
 					.isEqualTo(ErrorCode.ORDER_ALREADY_PROCESSED));
 			
 			then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
-			then(orderOutboxRepository).should(never()).save(any(OrderOutbox.class));
+			then(outboxEventAppender).should(never()).appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class));
 		}
 
 		@Test
@@ -212,7 +191,7 @@ class OrderPaymentEventServiceTest {
 				.willReturn(Optional.of(order));
 			given(orderPaymentRepository.existsByOrderId(event.orderId()))
 				.willReturn(false);
-			given(orderOutboxRepository.save(any(OrderOutbox.class)))
+			given(outboxEventAppender.appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class)))
 				.willThrow(new RuntimeException("DB Connection Error"));
 
 			assertThatThrownBy(() -> orderPaymentEventService.handlePaymentApproved(event))
@@ -240,9 +219,9 @@ class OrderPaymentEventServiceTest {
 				.isInstanceOf(RuntimeException.class)
 				.hasMessage("Redis Timeout");
 
-			// orderPayment, orderOutbox 저장은 mock 호출 자체는 진행되었지만 예외가 던져졌으므로 실제 런타임에선 @Transactional로 롤백됨
+			// orderPayment, outbox 저장은 mock 호출 자체는 진행되었지만 예외가 던져졌으므로 실제 런타임에선 @Transactional로 롤백됨
 			then(orderPaymentRepository).should().save(any(OrderPayment.class));
-			then(orderOutboxRepository).should().save(any(OrderOutbox.class));
+			then(outboxEventAppender).should().appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class));
 		}
 
 		@Test
