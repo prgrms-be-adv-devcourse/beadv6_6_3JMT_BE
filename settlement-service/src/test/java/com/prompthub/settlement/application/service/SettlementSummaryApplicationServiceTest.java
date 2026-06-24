@@ -55,6 +55,25 @@ class SettlementSummaryApplicationServiceTest {
     }
 
     @Test
+    @DisplayName("APPROVED와 PAYOUT_REQUESTED는 같은 승인 완료 카드로 합산된다")
+    void getSummary_mergesApprovedAndPayoutRequestedIntoApprovedCard() {
+        given(settlementSummaryQueryRepository.aggregateByStatus()).willReturn(List.of(
+                new SettlementStatusAggregate(SettlementStatus.APPROVED, PayoutStatus.NOT_READY,
+                        new BigDecimal("1000000"), 3L),
+                new SettlementStatusAggregate(SettlementStatus.APPROVED, PayoutStatus.PAYOUT_REQUESTED,
+                        new BigDecimal("250000"), 1L)));
+
+        SettlementSummaryResult result = service.getSummary();
+
+        SettlementSummaryResult.Card approved = result.cards().stream()
+                .filter(card -> card.status() == SettlementDisplayStatus.APPROVED)
+                .findFirst()
+                .orElseThrow();
+        assertThat(approved.totalAmount()).isEqualByComparingTo("1250000");
+        assertThat(approved.count()).isEqualTo(4L);
+    }
+
+    @Test
     @DisplayName("취소(CANCELLED)는 어느 카드에도 합산되지 않는다")
     void getSummary_excludesCancelled() {
         given(settlementSummaryQueryRepository.aggregateByStatus()).willReturn(List.of(
