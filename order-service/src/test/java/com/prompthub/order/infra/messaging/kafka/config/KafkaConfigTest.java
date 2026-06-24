@@ -119,6 +119,37 @@ class KafkaConfigTest {
 	}
 
 	@Test
+	void productEventConsumerFactory_usesStringValues() {
+		ConsumerFactory<String, String> consumerFactory = kafkaConfig.productEventConsumerFactory();
+
+		assertThat(consumerFactory).isInstanceOf(DefaultKafkaConsumerFactory.class);
+
+		Map<String, Object> properties = ((DefaultKafkaConsumerFactory<String, String>) consumerFactory)
+			.getConfigurationProperties();
+		assertThat(properties)
+			.containsEntry(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS)
+			.containsEntry(ConsumerConfig.GROUP_ID_CONFIG, "order-service")
+			.containsEntry(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+			.containsEntry(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false)
+			.containsEntry(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class)
+			.containsEntry(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class)
+			.containsEntry(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class)
+			.containsEntry(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, StringDeserializer.class);
+	}
+
+	@Test
+	void productEventKafkaListenerContainerFactory_usesManualAckAndCommonErrorHandler() {
+		ConsumerFactory<String, String> consumerFactory = kafkaConfig.productEventConsumerFactory();
+		DefaultErrorHandler errorHandler = kafkaConfig.kafkaErrorHandler(kafkaConfig.kafkaTemplate(kafkaConfig.producerFactory()));
+
+		ConcurrentKafkaListenerContainerFactory<String, String> factory =
+			kafkaConfig.productEventKafkaListenerContainerFactory(consumerFactory, errorHandler);
+
+		assertThat(factory.getConsumerFactory()).isSameAs(consumerFactory);
+		assertThat(factory.getContainerProperties().getAckMode()).isEqualTo(ContainerProperties.AckMode.MANUAL);
+	}
+
+	@Test
 	void kafkaErrorHandler_isDefaultErrorHandlerForDltRecovery() {
 		DefaultErrorHandler errorHandler = kafkaConfig.kafkaErrorHandler(
 			kafkaConfig.kafkaTemplate(kafkaConfig.producerFactory())
