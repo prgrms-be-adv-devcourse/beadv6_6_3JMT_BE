@@ -133,6 +133,7 @@ public class SettlementApplicationService implements SettlementUseCase {
         settlement.cancel(LocalDateTime.now());
         List<SettlementSourceLine> lines = settlementSourceRepository.findBySettlementId(settlementId);
         lines.forEach(line -> line.release(settlementId));
+        settlementRepository.save(settlement);
         return settlement;
     }
 

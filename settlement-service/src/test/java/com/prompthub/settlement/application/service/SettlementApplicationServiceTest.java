@@ -303,6 +303,7 @@ class SettlementApplicationServiceTest {
         assertThat(result.getCanceledAt()).isNotNull();
         assertThat(line1.isSettled()).isFalse();
         assertThat(line2.isSettled()).isFalse();
+        then(settlementRepository).should().save(target);
     }
 
     @Test
