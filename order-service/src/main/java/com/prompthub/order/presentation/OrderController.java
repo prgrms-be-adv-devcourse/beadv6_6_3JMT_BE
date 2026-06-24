@@ -1,6 +1,7 @@
 package com.prompthub.order.presentation;
 
 import com.prompthub.order.application.usecase.OrderUseCase;
+import com.prompthub.order.global.web.AuthHeaders;
 import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.request.OrderReviewRequest;
@@ -18,6 +19,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+import static com.prompthub.order.global.web.AuthHeaders.USER_ID;
+
 @RestController
 @RequestMapping("/api/v1/orders")
 @RequiredArgsConstructor
@@ -27,7 +30,7 @@ public class OrderController {
 
 	@PostMapping
 	public ApiResult<CreateOrderResponse> createOrder(
-		@RequestHeader("X-User-Id") UUID buyerId,
+		@RequestHeader(USER_ID) UUID buyerId,
 		@Valid @RequestBody CreateOrderRequest request
 	) {
 		return ApiResult.success(orderUseCase.createOrder(buyerId, request));
@@ -35,7 +38,7 @@ public class OrderController {
 
 	@GetMapping("/{orderId}")
 	public ApiResult<OrderDetailResponse> getOrderDetail(
-		@RequestHeader("X-User-Id") UUID buyerId,
+		@RequestHeader(USER_ID) UUID buyerId,
 		@PathVariable UUID orderId
 	) {
 		return ApiResult.success(orderUseCase.getOrderDetail(buyerId, orderId));
@@ -43,7 +46,7 @@ public class OrderController {
 
 	@GetMapping("/{orderId}/content/{orderProductId}")
 	public ApiResult<OrderContentResponse> getOrderContent(
-		@RequestHeader("X-User-Id") UUID buyerId,
+		@RequestHeader(USER_ID) UUID buyerId,
 		@PathVariable UUID orderId,
 		@PathVariable UUID orderProductId
 	) {
@@ -52,7 +55,7 @@ public class OrderController {
 
 	@PostMapping("/review")
 	public ApiResult<Void> upsertReview(
-		@RequestHeader("X-User-Id") UUID buyerId,
+		@RequestHeader(USER_ID) UUID buyerId,
 		@Valid @RequestBody OrderReviewRequest request
 	) {
 		orderUseCase.upsertReview(buyerId, request);
@@ -61,7 +64,7 @@ public class OrderController {
 
 	@GetMapping
 	public PageResponse<OrderListResponse> getOrders(
-		@RequestHeader("X-User-Id") UUID buyerId,
+		@RequestHeader(USER_ID) UUID buyerId,
 		@ModelAttribute PageRequestParams request
 	) {
 		PageRequestParams resolvedRequest = request.resolve();
@@ -78,7 +81,7 @@ public class OrderController {
 
 	@GetMapping("/payments")
 	public PageResponse<OrderPaymentListResponse> getOrderPayments(
-		@RequestHeader("X-User-Id") UUID buyerId,
+		@RequestHeader(USER_ID) UUID buyerId,
 		@ModelAttribute PageRequestParams request
 	) {
 		PageRequestParams resolvedRequest = request.resolve();
@@ -92,4 +95,5 @@ public class OrderController {
 			orderPayments.hasNext()
 		);
 	}
+
 }

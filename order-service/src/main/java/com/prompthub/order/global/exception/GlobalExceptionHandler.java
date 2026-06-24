@@ -2,6 +2,7 @@ package com.prompthub.order.global.exception;
 
 import com.prompthub.exception.BusinessException;
 import com.prompthub.exception.response.ErrorResponse;
+import com.prompthub.order.global.web.AuthHeaders;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -19,8 +20,6 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 public class GlobalExceptionHandler {
 
     private static final String REQUEST_ID_HEADER = "X-Request-Id";
-    private static final String USER_ID_HEADER = "X-User-Id";
-    private static final String USER_ROLE_HEADER = "X-User-Role";
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(
@@ -133,8 +132,8 @@ public class GlobalExceptionHandler {
     }
 
     private ErrorCode resolveMissingHeaderErrorCode(String headerName) {
-        if (USER_ID_HEADER.equalsIgnoreCase(headerName)
-                || USER_ROLE_HEADER.equalsIgnoreCase(headerName)) {
+        if (AuthHeaders.USER_ID.equalsIgnoreCase(headerName)
+                || AuthHeaders.USER_ROLE.equalsIgnoreCase(headerName)) {
             return ErrorCode.INVALID_AUTHENTICATION;
         }
 

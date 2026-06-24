@@ -1,6 +1,7 @@
 package com.prompthub.order.presentation;
 
 import com.prompthub.order.application.usecase.CartUseCase;
+import com.prompthub.order.global.web.AuthHeaders;
 import com.prompthub.order.presentation.dto.request.AddCartProductRequest;
 import com.prompthub.order.presentation.dto.response.AddCartProductResponse;
 import com.prompthub.order.presentation.dto.response.CartResponse;
@@ -27,14 +28,14 @@ public class CartController {
 
 	@GetMapping
 	public ApiResult<CartResponse> getCart(
-		@RequestHeader("X-User-Id") UUID buyerId
+		@RequestHeader(AuthHeaders.USER_ID) UUID buyerId
 	) {
 		return ApiResult.success(cartUseCase.getCart(buyerId));
 	}
 
 	@PostMapping("/products")
 	public ApiResult<AddCartProductResponse> addCartProduct(
-		@RequestHeader("X-User-Id") UUID buyerId,
+		@RequestHeader(AuthHeaders.USER_ID) UUID buyerId,
 		@Valid @RequestBody AddCartProductRequest request
 	) {
 		return ApiResult.success(cartUseCase.addCartProduct(buyerId, request));
@@ -42,7 +43,7 @@ public class CartController {
 
 	@DeleteMapping("/products/{cartProductId}")
 	public ApiResult<Void> deleteCartProduct(
-		@RequestHeader("X-User-Id") UUID buyerId,
+		@RequestHeader(AuthHeaders.USER_ID) UUID buyerId,
 		@PathVariable UUID cartProductId
 	) {
 		cartUseCase.deleteCartProduct(buyerId, cartProductId);
