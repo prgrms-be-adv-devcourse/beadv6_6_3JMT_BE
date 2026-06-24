@@ -57,11 +57,22 @@ code=writing, name=글쓰기
 code=coding, name=코딩
 ```
 
-Product API 응답은 category code를 반환한다.
+DB category 테이블은 `code`와 `name` 두 컬럼을 모두 가진다.
+
+| 컬럼 | 역할 | 예시 |
+|------|------|------|
+| `code` | 필터 query param 매칭값 | `image`, `coding` |
+| `name` | 화면 표시명 | `이미지 생성`, `코딩` |
+| `icon` | FE ICON_MAP key (Lucide 아이콘 slug) | `pen-line`, `code-xml` |
+
+**필터링**: 프론트가 `?category=coding`으로 보내면 `c.code = :category`로 매칭한다.
+
+**API 응답**: `category` 필드는 `c.name`(표시명), `icon` 필드는 `c.code`(코드)를 반환한다.
 
 ```json
 {
-  "category": "coding"
+  "category": "코딩",
+  "icon": "coding"
 }
 ```
 
@@ -87,6 +98,17 @@ ID 타입은 API 명세와 현재 DDL을 확인한 뒤 구현한다.
 ```
 
 목록/페이지 응답은 `docs/api-spec/product.md`를 따른다.
+
+## DDL과 docs 일치 확인
+
+`docs/erd/schema.md`는 실제 DDL의 열람용 미러이므로 최신 상태가 아닐 수 있다.
+
+엔티티/컬럼과 관련된 구현을 시작하기 전에 아래를 확인한다.
+
+- 실제 DB DDL(`init-script/postgres/schema.sql` 또는 DB 직접 조회)과 `schema.md`를 대조한다.
+- 컬럼이 추가·변경·삭제됐는데 `schema.md`에 반영되지 않은 경우 `schema.md`를 먼저 수정한다.
+- 도메인 모델(`@Entity`)이 실제 DDL과 다른 경우 엔티티도 함께 수정한다.
+- docs와 실제 DB가 다르면 임의로 결정하지 않고 사용자에게 확인받는다.
 
 ## 프론트 호환성
 

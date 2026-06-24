@@ -1,6 +1,7 @@
 package com.prompthub.order.presentation;
 
 import com.prompthub.order.application.usecase.OrderUseCase;
+import com.prompthub.order.global.web.AuthHeaders;
 import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.request.OrderReviewRequest;
@@ -25,6 +26,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+import static com.prompthub.order.global.web.AuthHeaders.USER_ID;
+
 @RestController
 @RequestMapping("/api/v1/orders")
 @RequiredArgsConstructor
@@ -43,8 +46,8 @@ public class OrderController {
 		@ApiResponse(responseCode = "409", description = "O010 이미 처리된 주문, O011 상품 가격 변경")
 	})
 	public ApiResult<CreateOrderResponse> createOrder(
-		@Parameter(in = ParameterIn.HEADER, name = "X-User-Id", description = "Gateway가 주입하는 구매자 ID", required = true)
-		@RequestHeader("X-User-Id") UUID buyerId,
+		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@RequestHeader(USER_ID) UUID buyerId,
 		@Valid @RequestBody CreateOrderRequest request
 	) {
 		return ApiResult.success(orderUseCase.createOrder(buyerId, request));
@@ -59,8 +62,8 @@ public class OrderController {
 		@ApiResponse(responseCode = "404", description = "O001 주문 없음")
 	})
 	public ApiResult<OrderDetailResponse> getOrderDetail(
-		@Parameter(in = ParameterIn.HEADER, name = "X-User-Id", description = "Gateway가 주입하는 구매자 ID", required = true)
-		@RequestHeader("X-User-Id") UUID buyerId,
+		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@RequestHeader(USER_ID) UUID buyerId,
 		@Parameter(description = "주문 ID", example = "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111")
 		@PathVariable UUID orderId
 	) {
@@ -76,8 +79,8 @@ public class OrderController {
 		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "O001 주문 없음, O012 주문 상품 없음")
 	})
 	public ApiResult<OrderContentResponse> getOrderContent(
-		@Parameter(in = ParameterIn.HEADER, name = "X-User-Id", description = "Gateway가 주입하는 구매자 ID", required = true)
-		@RequestHeader("X-User-Id") UUID buyerId,
+		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@RequestHeader(USER_ID) UUID buyerId,
 		@Parameter(description = "주문 ID", example = "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111")
 		@PathVariable UUID orderId,
 		@Parameter(description = "주문 상품 ID", example = "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa")
@@ -95,8 +98,8 @@ public class OrderController {
 		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "E002 구매한 상품에만 리뷰 작성 가능")
 	})
 	public ApiResult<Void> upsertReview(
-		@Parameter(in = ParameterIn.HEADER, name = "X-User-Id", description = "Gateway가 주입하는 구매자 ID", required = true)
-		@RequestHeader("X-User-Id") UUID buyerId,
+		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@RequestHeader(USER_ID) UUID buyerId,
 		@Valid @RequestBody OrderReviewRequest request
 	) {
 		orderUseCase.upsertReview(buyerId, request);
@@ -111,8 +114,8 @@ public class OrderController {
 		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음")
 	})
 	public PageResponse<OrderListResponse> getOrders(
-		@Parameter(in = ParameterIn.HEADER, name = "X-User-Id", description = "Gateway가 주입하는 구매자 ID", required = true)
-		@RequestHeader("X-User-Id") UUID buyerId,
+		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@RequestHeader(USER_ID) UUID buyerId,
 		@ModelAttribute PageRequestParams request
 	) {
 		PageRequestParams resolvedRequest = request.resolve();
@@ -135,8 +138,8 @@ public class OrderController {
 		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음")
 	})
 	public PageResponse<OrderPaymentListResponse> getOrderPayments(
-		@Parameter(in = ParameterIn.HEADER, name = "X-User-Id", description = "Gateway가 주입하는 구매자 ID", required = true)
-		@RequestHeader("X-User-Id") UUID buyerId,
+		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@RequestHeader(USER_ID) UUID buyerId,
 		@ModelAttribute PageRequestParams request
 	) {
 		PageRequestParams resolvedRequest = request.resolve();
@@ -150,4 +153,5 @@ public class OrderController {
 			orderPayments.hasNext()
 		);
 	}
+
 }

@@ -92,7 +92,9 @@
 |------|------|:--------:|--------|------|
 | category_id | UUID | ✓ | gen_random_uuid() | PK |
 | parent_id | UUID | | NULL | 부모 카테고리 FK (자기 참조). 최상위는 NULL |
-| name | VARCHAR(100) | ✓ | | 카테고리명 |
+| code | VARCHAR(50) | ✓ | | 카테고리 코드. API 필터/응답 식별값. UNIQUE |
+| name | VARCHAR(100) | ✓ | | 카테고리 표시명 (화면 노출용) |
+| icon | VARCHAR(50) | | NULL | 아이콘 slug. FE ICON_MAP key (예: `pen-line`, `code-xml`) |
 | display_order | INT | ✓ | 0 | 노출 순서 |
 | created_at | TIMESTAMPTZ | ✓ | | |
 | updated_at | TIMESTAMPTZ | ✓ | | |
