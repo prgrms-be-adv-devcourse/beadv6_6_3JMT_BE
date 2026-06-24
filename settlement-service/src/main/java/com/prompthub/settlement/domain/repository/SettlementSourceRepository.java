@@ -10,4 +10,6 @@ public interface SettlementSourceRepository {
     List<UUID> findSettleableSellerIds(YearMonth period);
 
     List<SettlementSourceLine> findSettleableLines(UUID sellerId, YearMonth period);
+
+    List<SettlementSourceLine> findBySettlementId(UUID settlementId);
 }

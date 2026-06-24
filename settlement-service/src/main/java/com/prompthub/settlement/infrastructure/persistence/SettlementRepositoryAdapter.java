@@ -3,6 +3,7 @@ package com.prompthub.settlement.infrastructure.persistence;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.repository.SettlementRepository;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -26,5 +27,10 @@ public class SettlementRepositoryAdapter implements SettlementRepository {
     @Override
     public List<Settlement> findBySettlementBatchId(UUID settlementBatchId) {
         return jpaRepository.findBySettlementBatchId(settlementBatchId);
+    }
+
+    @Override
+    public Optional<Settlement> findById(UUID id) {
+        return jpaRepository.findById(id);
     }
 }
