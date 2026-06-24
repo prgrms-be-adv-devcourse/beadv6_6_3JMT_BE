@@ -180,6 +180,10 @@ public class Settlement extends BaseEntity {
 		return SettlementDisplayStatus.from(this.settlementStatus, this.payoutStatus);
 	}
 
+	public boolean canRequestPayout() {
+		return displayStatus() == SettlementDisplayStatus.APPROVED;
+	}
+
 	public void cancel(LocalDateTime canceledAt) {
 		if (this.payoutStatus == PayoutStatus.PAID) {
 			throw new SettlementAlreadyPaidException(this.id);

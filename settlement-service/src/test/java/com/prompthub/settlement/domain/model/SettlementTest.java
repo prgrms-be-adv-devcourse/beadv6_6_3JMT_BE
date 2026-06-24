@@ -270,4 +270,53 @@ class SettlementTest {
         assertThatThrownBy(() -> settlement.cancel(LocalDateTime.of(2026, 6, 24, 10, 0)))
                 .isInstanceOf(SettlementAlreadyCancelledException.class);
     }
+
+    @Test
+    @DisplayName("지급 신청 가능: 승인 완료(displayStatus=APPROVED) 상태면 판매자가 지급 신청할 수 있다")
+    void canRequestPayout_whenApproved_true() {
+        Settlement settlement = pendingSettlement();
+        settlement.approve(LocalDateTime.of(2026, 6, 24, 9, 0)); // APPROVED + READY
+
+        assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.APPROVED);
+        assertThat(settlement.canRequestPayout()).isTrue();
+    }
+
+    @Test
+    @DisplayName("지급 신청 불가: 승인 대기(WAITING) 상태면 지급 신청할 수 없다")
+    void canRequestPayout_whenWaiting_false() {
+        Settlement settlement = pendingSettlement();
+
+        assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.WAITING);
+        assertThat(settlement.canRequestPayout()).isFalse();
+    }
+
+    @Test
+    @DisplayName("지급 신청 불가: 지급 보류·지급 완료·취소 상태면 지급 신청할 수 없다")
+    void canRequestPayout_whenPayoutHoldOrPaidOrCancelled_false() {
+        Settlement payoutOnHold = pendingSettlement();
+        ReflectionTestUtils.setField(payoutOnHold, "settlementStatus", SettlementStatus.APPROVED);
+        ReflectionTestUtils.setField(payoutOnHold, "payoutStatus", PayoutStatus.PAYOUT_ON_HOLD);
+
+        Settlement paid = pendingSettlement();
+        ReflectionTestUtils.setField(paid, "settlementStatus", SettlementStatus.APPROVED);
+        ReflectionTestUtils.setField(paid, "payoutStatus", PayoutStatus.PAID);
+
+        Settlement cancelled = pendingSettlement();
+        ReflectionTestUtils.setField(cancelled, "settlementStatus", SettlementStatus.CANCELLED);
+
+        assertThat(payoutOnHold.canRequestPayout()).isFalse();
+        assertThat(paid.canRequestPayout()).isFalse();
+        assertThat(cancelled.canRequestPayout()).isFalse();
+    }
+
+    @Test
+    @DisplayName("지급 신청 불가: 이미 지급 신청(PAYOUT_REQUESTED)한 정산은 다시 신청할 수 없다")
+    void canRequestPayout_whenAlreadyRequested_false() {
+        Settlement settlement = pendingSettlement();
+        ReflectionTestUtils.setField(settlement, "settlementStatus", SettlementStatus.APPROVED);
+        ReflectionTestUtils.setField(settlement, "payoutStatus", PayoutStatus.PAYOUT_REQUESTED);
+
+        assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.PAYOUT_REQUESTED);
+        assertThat(settlement.canRequestPayout()).isFalse();
+    }
 }

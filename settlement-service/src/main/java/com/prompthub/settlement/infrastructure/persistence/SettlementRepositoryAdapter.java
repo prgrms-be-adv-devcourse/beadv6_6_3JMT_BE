@@ -1,7 +1,9 @@
 package com.prompthub.settlement.infrastructure.persistence;
 
 import com.prompthub.settlement.domain.model.Settlement;
+import com.prompthub.settlement.domain.model.enums.PayoutStatus;
 import com.prompthub.settlement.domain.repository.SettlementRepository;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,5 +34,10 @@ public class SettlementRepositoryAdapter implements SettlementRepository {
     @Override
     public Optional<Settlement> findById(UUID id) {
         return jpaRepository.findById(id);
+    }
+
+    @Override
+    public BigDecimal sumPaidSettlementAmountBySeller(UUID sellerId) {
+        return jpaRepository.sumSettlementTotalBySellerIdAndPayoutStatus(sellerId, PayoutStatus.PAID);
     }
 }
