@@ -10,6 +10,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebMvcConfig implements WebMvcConfigurer {
 
 	private final OrderServiceAuthInterceptor orderServiceAuthInterceptor;
+	private final AdminAuthInterceptor adminAuthInterceptor;
 
 	@Override
 	public void addInterceptors(InterceptorRegistry registry) {
@@ -19,6 +20,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
 				"/api/v1/orders/**",
 				"/api/v1/cart",
 				"/api/v1/cart/**"
+			);
+		registry.addInterceptor(adminAuthInterceptor)
+			.addPathPatterns(
+				"/api/v1/admin/orders",
+				"/api/v1/admin/orders/**"
 			);
 	}
 }
