@@ -132,8 +132,10 @@ public class SettlementApplicationService implements SettlementUseCase {
     public SettlementResponse cancel(UUID settlementId) {
         Settlement settlement = findSettlement(settlementId);
         settlement.cancel(LocalDateTime.now());
+
         List<SettlementSourceLine> lines = settlementSourceRepository.findBySettlementId(settlementId);
         lines.forEach(line -> line.release(settlementId));
+
         settlementRepository.save(settlement);
         return SettlementResponse.from(settlement);
     }
