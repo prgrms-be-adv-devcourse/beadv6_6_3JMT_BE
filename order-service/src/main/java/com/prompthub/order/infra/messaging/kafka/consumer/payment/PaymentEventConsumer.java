@@ -1,14 +1,12 @@
-package com.prompthub.order.infra.messaging.kafka.consumer;
+package com.prompthub.order.infra.messaging.kafka.consumer.payment;
 
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.UnexpectedRollbackException;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -47,13 +45,7 @@ public class PaymentEventConsumer {
 		} catch (Exception e) {
 			log.error("메시지 처리 중 에러 발생: {}", e.getMessage(), e);
 
-			if (e instanceof UnexpectedRollbackException ||
-				e instanceof DataIntegrityViolationException) {
-				log.warn("중복 이벤트 처리 중 Rollback 예외 발생. 이미 처리된 것으로 간주하고 ack 합니다.");
-				acknowledgment.acknowledge();
-			} else {
-				throw e;
-			}
+			throw e;
 		}
 	}
 

@@ -1,4 +1,4 @@
-package com.prompthub.order.infra.messaging.kafka.consumer;
+package com.prompthub.order.infra.messaging.kafka.consumer.payment;
 
 import java.util.Arrays;
 

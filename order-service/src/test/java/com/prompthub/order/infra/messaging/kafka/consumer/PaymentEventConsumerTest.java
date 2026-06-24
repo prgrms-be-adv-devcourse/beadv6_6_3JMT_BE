@@ -1,11 +1,13 @@
 package com.prompthub.order.infra.messaging.kafka.consumer;
 
 import com.prompthub.order.global.exception.OrderException;
+import com.prompthub.order.infra.messaging.kafka.consumer.payment.PaymentEventConsumer;
+import com.prompthub.order.infra.messaging.kafka.consumer.payment.PaymentEventHandler;
+import com.prompthub.order.infra.messaging.kafka.consumer.payment.PaymentEventType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.kafka.support.Acknowledgment;
-import org.springframework.transaction.UnexpectedRollbackException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.UUID;
@@ -69,26 +71,6 @@ class PaymentEventConsumerTest {
 		consumer.consume(message, acknowledgment);
 
 		then(paymentEventHandler).should(never()).handle(any(), any(), any(), any(), any());
-		then(acknowledgment).should().acknowledge();
-	}
-
-	@Test
-	@DisplayName("중복 이벤트 처리 중 Rollback 예외가 발생하면 예외 없이 ack 한다")
-	void consume_duplicateEventRollback_ignoresAndAcknowledges() {
-		String message = """
-			{
-			  "eventId": "%s",
-			  "eventType": "PAYMENT_APPROVED",
-			  "paymentId": "%s",
-			  "orderId": "%s"
-			}
-			""".formatted(EVENT_ID, PAYMENT_ID, ORDER_ID);
-
-		willThrow(new UnexpectedRollbackException("Transaction rolled back because it has been marked as rollback-only"))
-			.given(paymentEventHandler).handle(any(), any(), any(), any(), any());
-
-		consumer.consume(message, acknowledgment);
-
 		then(acknowledgment).should().acknowledge();
 	}
 
