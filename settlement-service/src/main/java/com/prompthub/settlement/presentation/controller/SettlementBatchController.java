@@ -12,7 +12,6 @@ import com.prompthub.settlement.presentation.dto.response.SettlementJobResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementJobStatusResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -46,9 +45,7 @@ public class SettlementBatchController {
 	@ResponseStatus(HttpStatus.ACCEPTED)
 	@Operation(summary = "정산 배치잡 실행(비동기)",
 		description = "정산 대상 월의 미정산 PAID 주문을 정산하는 Batch Job을 비동기로 실행 접수합니다. "
-			+ "응답은 잡 실행 식별자와 시작 상태만 담으며, 완료 여부는 별도로 조회합니다. ADMIN 권한이 필요합니다.",
-		parameters = @Parameter(name = AuthHeaders.USER_ROLE, in = ParameterIn.HEADER, required = true,
-			description = "게이트웨이가 주입하는 사용자 역할 (ADMIN 필요)"))
+			+ "응답은 잡 실행 식별자와 시작 상태만 담으며, 완료 여부는 별도로 조회합니다. ADMIN 권한이 필요합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "202", description = "실행 접수(비동기 시작)",
 			content = @Content(schema = @Schema(implementation = SettlementJobResponse.class))),
@@ -62,7 +59,7 @@ public class SettlementBatchController {
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public ApiResult<SettlementJobResponse> run(
-		@Parameter(description = "게이트웨이가 주입하는 관리자 ID") @RequestHeader(AuthHeaders.USER_ID) UUID actorId,
+		@Parameter(hidden = true) @RequestHeader(AuthHeaders.USER_ID) UUID actorId,
 		@Valid @RequestBody RunSettlementJobRequest request
 	) {
 		SettlementJobResult result = runSettlementBatchUseCase.run(request.toCommand(actorId));
@@ -72,9 +69,7 @@ public class SettlementBatchController {
 	@GetMapping("/{jobExecutionId}")
 	@Operation(summary = "정산 배치잡 상태 조회",
 		description = "비동기로 실행한 정산 배치 잡의 진행/완료 상태를 조회합니다. "
-			+ "프론트는 이 API를 폴링해 완료(COMPLETED)/실패(FAILED)를 감지합니다. ADMIN 권한이 필요합니다.",
-		parameters = @Parameter(name = AuthHeaders.USER_ROLE, in = ParameterIn.HEADER, required = true,
-			description = "게이트웨이가 주입하는 사용자 역할 (ADMIN 필요)"))
+			+ "프론트는 이 API를 폴링해 완료(COMPLETED)/실패(FAILED)를 감지합니다. ADMIN 권한이 필요합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
 			content = @Content(schema = @Schema(implementation = SettlementJobStatusResponse.class))),

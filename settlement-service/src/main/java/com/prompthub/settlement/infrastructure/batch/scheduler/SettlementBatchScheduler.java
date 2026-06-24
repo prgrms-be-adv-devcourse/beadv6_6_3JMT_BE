@@ -1,19 +1,17 @@
-package com.prompthub.settlement.infrastructure.batch.config;
+package com.prompthub.settlement.infrastructure.batch.scheduler;
 
 import com.prompthub.settlement.application.dto.RunSettlementJobCommand;
 import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
 import java.time.YearMonth;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 
-@Configuration
-@EnableScheduling
+@Component
 @RequiredArgsConstructor
 @Slf4j
-public class SettlementSchedulerConfig {
+public class SettlementBatchScheduler {
 
     private final RunSettlementBatchUseCase runSettlementBatchUseCase;
 
