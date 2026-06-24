@@ -22,7 +22,8 @@ public enum SettlementErrorCode implements ErrorCode {
 	SETTLEMENT_NOT_FOUND("S-010", "정산을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 	SETTLEMENT_ALREADY_PAID("S-011", "이미 지급 완료된 정산은 취소할 수 없습니다.", HttpStatus.CONFLICT),
 	SETTLEMENT_ALREADY_CANCELLED("S-012", "이미 취소된 정산입니다.", HttpStatus.CONFLICT),
-	SETTLEMENT_INVALID_STATE("S-013", "현재 상태에서 변경할 수 없는 정산입니다.", HttpStatus.CONFLICT);
+	SETTLEMENT_INVALID_STATE("S-013", "현재 상태에서 변경할 수 없는 정산입니다.", HttpStatus.CONFLICT),
+	SETTLEMENT_ACCESS_DENIED("S-014", "본인 정산이 아닙니다.", HttpStatus.FORBIDDEN);
 
 	private final String code;
 	private final String message;
