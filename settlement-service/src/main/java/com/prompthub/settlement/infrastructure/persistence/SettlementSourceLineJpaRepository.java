@@ -33,6 +33,8 @@ public interface SettlementSourceLineJpaRepository extends JpaRepository<Settlem
                                                    @Param("start") LocalDateTime start,
                                                    @Param("end") LocalDateTime end);
 
+    boolean existsByEventId(UUID eventId);
+
     List<SettlementSourceLine> findBySettlementId(UUID settlementId);
 
     long countBySellerIdAndEventType(UUID sellerId, SettlementSourceEventType eventType);

@@ -23,7 +23,8 @@ public enum SettlementErrorCode implements ErrorCode {
 	SETTLEMENT_ALREADY_PAID("S-011", "이미 지급 완료된 정산은 취소할 수 없습니다.", HttpStatus.CONFLICT),
 	SETTLEMENT_ALREADY_CANCELLED("S-012", "이미 취소된 정산입니다.", HttpStatus.CONFLICT),
 	SETTLEMENT_INVALID_STATE("S-013", "현재 상태에서 변경할 수 없는 정산입니다.", HttpStatus.CONFLICT),
-	SETTLEMENT_ACCESS_DENIED("S-014", "본인 정산이 아닙니다.", HttpStatus.FORBIDDEN);
+	SETTLEMENT_ACCESS_DENIED("S-014", "본인 정산이 아닙니다.", HttpStatus.FORBIDDEN),
+	SETTLEMENT_EVENT_DESERIALIZE_FAILED("S-016", "정산 이벤트 메시지 역직렬화에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
 
 	private final String code;
 	private final String message;
