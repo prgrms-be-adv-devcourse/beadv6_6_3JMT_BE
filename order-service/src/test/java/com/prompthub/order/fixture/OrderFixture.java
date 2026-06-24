@@ -213,39 +213,54 @@ public final class OrderFixture {
 		int approvedAmount
 	) {
 		return new PaymentApprovedEvent(
+			EVENT_ID.toString(),
+			"PAYMENT_APPROVED",
 			PAYMENT_ID,
 			orderId,
 			BUYER_ID,
 			approvedAmount,
+			"CARD",
+			"TOSS",
+			"txId-1234",
+			APPROVED_AT,
 			APPROVED_AT
 		);
 	}
 
 	public static PaymentFailedEvent createPaymentFailedEvent(UUID orderId) {
 		return new PaymentFailedEvent(
+			EVENT_ID.toString(),
+			"PAYMENT_FAILED",
 			PAYMENT_ID,
 			orderId,
 			BUYER_ID,
 			PAYMENT_FAILED_REASON,
+			FAILED_AT,
 			FAILED_AT
 		);
 	}
 
 	public static PaymentCanceledEvent createPaymentCanceledEvent(UUID orderId) {
 		return new PaymentCanceledEvent(
+			EVENT_ID.toString(),
+			"PAYMENT_CANCELED",
 			PAYMENT_ID,
 			orderId,
 			BUYER_ID,
+			CANCELED_AT,
 			CANCELED_AT
 		);
 	}
 
 	public static PaymentRefundedEvent createPaymentRefundedEvent(UUID orderId) {
 		return new PaymentRefundedEvent(
+			EVENT_ID.toString(),
+			"PAYMENT_REFUNDED",
 			PAYMENT_ID,
 			orderId,
 			BUYER_ID,
 			TOTAL_AMOUNT,
+			REFUNDED_AT,
 			REFUNDED_AT
 		);
 	}
