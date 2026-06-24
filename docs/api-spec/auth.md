@@ -47,7 +47,7 @@
   "data": {
     "userId": "uuid",
     "email": "user@example.com",
-    "nickname": "민서",
+    "name": "민서",
     "role": "BUYER"
   },
   "message": "success"
@@ -58,7 +58,7 @@
 |------|------|------|
 | userId | string | 생성된 사용자 ID |
 | email | string | 이메일 |
-| nickname | string | 닉네임 |
+| name | string | 닉네임 |
 | role | string | 기본 역할 (`BUYER`) |
 
 ---
@@ -142,7 +142,7 @@
 ```json
 {
   "oauthId": "123456789",
-  "nickname": "카카오사용자",
+  "name": "카카오사용자",
   "profileImage": "https://k.kakaocdn.net/...",
   "email": "kakao@user.com"
 }
@@ -151,7 +151,7 @@
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | oauthId | string | Y | OAuth 제공자의 고유 식별자 |
-| nickname | string | Y | 닉네임 |
+| name | string | Y | 닉네임 |
 | profileImage | string | N | 프로필 이미지 URL (없으면 null) |
 | email | string | Y | 이메일 |
 
