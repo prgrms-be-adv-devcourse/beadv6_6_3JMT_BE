@@ -3,6 +3,7 @@ package com.prompthub.user.user.domain.model;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class UserTest {
 
@@ -13,7 +14,7 @@ class UserTest {
         assertThat(user.getName()).isEqualTo("홍길동");
         assertThat(user.getEmail()).isEqualTo("hong@example.com");
         assertThat(user.getProfileImageUrl()).isEqualTo("https://img.example.com/profile.jpg");
-        assertThat(user.getRole()).isEqualTo(UserRole.BUYER);
+        assertThat(user.getPrimaryRole()).isEqualTo(UserRole.BUYER);
         assertThat(user.isTermsAgreed()).isTrue();
     }
 
@@ -71,6 +72,54 @@ class UserTest {
         user.updateEmail("new@example.com");
 
         assertThat(user.getEmail()).isEqualTo("new@example.com");
+    }
+
+    @Test
+    void create_초기_역할_roles에_포함됨() {
+        User user = User.create("홍길동", "hong@example.com", null, UserRole.BUYER, true);
+
+        assertThat(user.getRoles()).containsExactly(UserRole.BUYER);
+    }
+
+    @Test
+    void addRole_역할_추가됨() {
+        User user = User.create("홍길동", "hong@example.com", null, UserRole.BUYER, true);
+
+        user.addRole(UserRole.SELLER);
+
+        assertThat(user.getRoles()).containsExactlyInAnyOrder(UserRole.BUYER, UserRole.SELLER);
+    }
+
+    @Test
+    void getPrimaryRole_단일_BUYER_이면_BUYER_반환() {
+        User user = User.create("홍길동", "hong@example.com", null, UserRole.BUYER, true);
+
+        assertThat(user.getPrimaryRole()).isEqualTo(UserRole.BUYER);
+    }
+
+    @Test
+    void getPrimaryRole_BUYER_SELLER_보유시_SELLER_반환() {
+        User user = User.create("홍길동", "hong@example.com", null, UserRole.BUYER, true);
+        user.addRole(UserRole.SELLER);
+
+        assertThat(user.getPrimaryRole()).isEqualTo(UserRole.SELLER);
+    }
+
+    @Test
+    void getPrimaryRole_ADMIN_보유시_ADMIN_반환() {
+        User user = User.create("홍길동", "hong@example.com", null, UserRole.BUYER, true);
+        user.addRole(UserRole.SELLER);
+        user.addRole(UserRole.ADMIN);
+
+        assertThat(user.getPrimaryRole()).isEqualTo(UserRole.ADMIN);
+    }
+
+    @Test
+    void getRoles_반환값_외부_수정_불가() {
+        User user = User.create("홍길동", "hong@example.com", null, UserRole.BUYER, true);
+
+        assertThatThrownBy(() -> user.getRoles().add(UserRole.SELLER))
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
