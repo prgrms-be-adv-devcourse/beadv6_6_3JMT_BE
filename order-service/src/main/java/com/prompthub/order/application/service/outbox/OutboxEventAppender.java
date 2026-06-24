@@ -8,6 +8,8 @@ import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.model.OutboxEvent;
 import com.prompthub.order.domain.repository.OutboxEventRepository;
+import com.prompthub.order.global.exception.ErrorCode;
+import com.prompthub.order.global.exception.OrderException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
@@ -69,7 +71,7 @@ public class OutboxEventAppender {
 		try {
 			return objectMapper.writeValueAsString(payload);
 		} catch (JacksonException exception) {
-			throw new IllegalStateException("Failed to serialize ORDER_PAID outbox payload.", exception);
+			throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR, "ORDER_PAID 아웃박스 페이로드 직렬화에 실패했습니다.");
 		}
 	}
 }

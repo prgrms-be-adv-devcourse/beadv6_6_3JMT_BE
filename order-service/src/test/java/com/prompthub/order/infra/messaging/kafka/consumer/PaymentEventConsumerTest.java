@@ -5,6 +5,7 @@ import com.prompthub.order.application.event.PaymentCanceledEvent;
 import com.prompthub.order.application.event.PaymentFailedEvent;
 import com.prompthub.order.application.event.PaymentRefundedEvent;
 import com.prompthub.order.application.service.OrderPaymentEventService;
+import com.prompthub.order.global.exception.OrderException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -166,7 +167,7 @@ class PaymentEventConsumerTest {
 		String message = "{";
 
 		assertThatThrownBy(() -> consumer.consume(message, acknowledgment))
-			.isInstanceOf(IllegalArgumentException.class);
+			.isInstanceOf(OrderException.class);
 
 		then(acknowledgment).should(never()).acknowledge();
 	}

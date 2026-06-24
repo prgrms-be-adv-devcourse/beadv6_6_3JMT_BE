@@ -7,6 +7,8 @@ import com.prompthub.order.application.event.PaymentRefundedEvent;
 import com.prompthub.order.application.service.OrderPaymentEventService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.prompthub.order.global.exception.ErrorCode;
+import com.prompthub.order.global.exception.OrderException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
@@ -49,7 +51,7 @@ public class PaymentEventConsumer {
 		try {
 			return objectMapper.readTree(message);
 		} catch (JacksonException exception) {
-			throw new IllegalArgumentException("Failed to parse payment event message.", exception);
+			throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 이벤트 메시지 파싱에 실패했습니다.");
 		}
 	}
 
@@ -57,7 +59,7 @@ public class PaymentEventConsumer {
 		try {
 			return objectMapper.treeToValue(root, eventType);
 		} catch (JacksonException exception) {
-			throw new IllegalArgumentException("Failed to deserialize payment event payload.", exception);
+			throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 이벤트 페이로드 역직렬화에 실패했습니다.");
 		}
 	}
 }
