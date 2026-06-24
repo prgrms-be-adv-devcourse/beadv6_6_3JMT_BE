@@ -147,6 +147,63 @@ Authorization: Bearer {accessToken}
 
 ---
 
+### PATCH /sellers/me/settlements/{settlementId}/payout-request — 판매자 지급 신청
+
+- 인증: 필요
+- 필요 역할: SELLER
+- 본인(`seller_id = X-User-Id`) 정산만 신청 가능
+- 상태 전이: `settlementStatus` 유지 (APPROVED) / `payoutStatus` READY → PAYOUT_REQUESTED
+
+판매자가 승인 완료(지급 준비) 상태의 정산을 지급 신청한다. 신청을 거쳐야 어드민이 지급(PAID)을
+처리할 수 있다. 정산 내역 조회 응답의 `availableActions`에 노출되는 `REQUEST_PAYOUT` 액션에 대응한다.
+
+#### Path Parameters
+
+| 파라미터 | 타입 | 설명 |
+|---------|------|------|
+| `settlementId` | UUID | 정산 ID |
+
+#### Request Example
+
+```
+PATCH /api/v1/sellers/me/settlements/b1e2c3d4-1111-2222-3333-444455556666/payout-request
+Authorization: Bearer {accessToken}
+```
+
+#### Response 200
+
+```json
+{
+  "success": true,
+  "data": {
+    "settlementId": "b1e2c3d4-1111-2222-3333-444455556666",
+    "settlementStatus": "APPROVED",
+    "payoutStatus": "PAYOUT_REQUESTED",
+    "updatedAt": "2026-06-24T11:00:00Z"
+  },
+  "message": "success"
+}
+```
+
+#### Response Fields
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `settlementId` | UUID | 정산 ID |
+| `settlementStatus` | String | 정산 승인 상태 (APPROVED 유지) |
+| `payoutStatus` | String | 변경된 지급 처리 상태 (PAYOUT_REQUESTED) |
+| `updatedAt` | DateTime | 최종 수정 시각 |
+
+#### Error Responses
+
+| 상태 | 설명 |
+|------|------|
+| `403` | 본인 정산이 아님 |
+| `404` | 정산을 찾을 수 없음 |
+| `409` | 지급 준비(READY) 상태가 아니라 신청할 수 없음 |
+
+---
+
 ## 관리자 — 정산 관리
 
 ### GET /admin/settlements — 정산 목록 전체 조회
@@ -159,7 +216,7 @@ Authorization: Bearer {accessToken}
 | 파라미터 | 타입 | 필수 | 기본값 | 설명 |
 |---------|------|------|--------|------|
 | period | String | N | - | 정산 월 (`YYYY-MM`) |
-| status | String | N | `ALL` | 정산 상태 필터 (`ALL` \| `PENDING_APPROVAL` \| `APPROVED` \| `SETTLEMENT_ON_HOLD` \| `PAYOUT_ON_HOLD` \| `PAID`) |
+| status | String | N | `ALL` | 정산 상태 필터 (`ALL` \| `PENDING_APPROVAL` \| `APPROVED` \| `SETTLEMENT_ON_HOLD` \| `PAYOUT_REQUESTED` \| `PAYOUT_ON_HOLD` \| `PAID`) |
 | sellerName | String | N | - | 판매자명 검색 |
 | page | Integer | N | `1` | 페이지 번호 |
 | size | Integer | N | `20` | 페이지당 항목 수 |
@@ -589,12 +646,15 @@ Authorization: Bearer {accessToken}
 
 ## 관리자 — 지급 관리
 
+> 지급은 판매자 지급 신청을 선행으로 한다. 어드민의 지급·지급 보류는 판매자가 지급 신청한 정산
+> (`payoutStatus = PAYOUT_REQUESTED`)에 대해서만 수행한다. (판매자 지급 신청: `PATCH /sellers/me/settlements/{id}/payout-request`)
+
 ### PATCH /admin/settlements/{settlementId}/payout — 정산 지급
 
 - UC: UC-SETTLEMENT-03
 - 인증: 필요
 - 필요 역할: ADMIN
-- 상태 전이: `settlementStatus` 유지 (APPROVED) / `payoutStatus` READY → PAID
+- 상태 전이: `settlementStatus` 유지 (APPROVED) / `payoutStatus` PAYOUT_REQUESTED → PAID
 
 #### Path Parameters
 
@@ -637,7 +697,7 @@ Authorization: Bearer {accessToken}
 - UC: UC-SETTLEMENT-03
 - 인증: 필요
 - 필요 역할: ADMIN
-- 상태 전이: `settlementStatus` 유지 (APPROVED) / `payoutStatus` READY → PAYOUT_ON_HOLD
+- 상태 전이: `settlementStatus` 유지 (APPROVED) / `payoutStatus` PAYOUT_REQUESTED → PAYOUT_ON_HOLD
 
 #### Path Parameters
 
@@ -678,7 +738,7 @@ Authorization: Bearer {accessToken}
 - UC: UC-SETTLEMENT-03
 - 인증: 필요
 - 필요 역할: ADMIN
-- 상태 전이: `settlementStatus` 유지 (APPROVED) / `payoutStatus` PAYOUT_ON_HOLD → READY
+- 상태 전이: `settlementStatus` 유지 (APPROVED) / `payoutStatus` PAYOUT_ON_HOLD → PAYOUT_REQUESTED
 
 #### Path Parameters
 
@@ -694,7 +754,7 @@ Authorization: Bearer {accessToken}
   "data": {
     "settlementId": "b1e2c3d4-1111-2222-3333-444455556666",
     "settlementStatus": "APPROVED",
-    "payoutStatus": "READY",
+    "payoutStatus": "PAYOUT_REQUESTED",
     "failureReason": null,
     "updatedAt": "2026-06-02T15:20:00Z"
   },
