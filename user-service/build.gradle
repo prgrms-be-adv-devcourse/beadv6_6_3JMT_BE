@@ -83,6 +83,18 @@ dependencyManagement {
 
 tasks.named('test') {
     useJUnitPlatform()
+    jvmArgs = ['-Dspring.profiles.active=test']
+    def envFile = file('.env')
+    if (envFile.exists()) {
+        envFile.readLines().each { line ->
+            if (line && !line.startsWith('#')) {
+                def idx = line.indexOf('=')
+                if (idx > 0) {
+                    environment line[0..<idx].trim(), line[(idx + 1)..-1].trim()
+                }
+            }
+        }
+    }
 }
 
 bootRun {
