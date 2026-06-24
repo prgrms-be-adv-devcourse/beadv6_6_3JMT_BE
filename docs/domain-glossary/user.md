@@ -45,6 +45,23 @@
 
 ---
 
+## 판매자 등록 신청 (seller_register)
+
+| 이름 | 영문 | DB 타입 | NOT NULL | 기본값 | 설명 |
+|------|------|---------|:--------:|--------|------|
+| 식별자 * | id | UUID | ✓ | gen_random_uuid() | PK |
+| 사용자 ID * | user_id | UUID | ✓ | | FK → user.id |
+| 상태 * | status | seller_register_status_type | ✓ | PENDING | PENDING / APPROVED / REJECTED |
+| 신청 일시 * | submitted_at | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
+| 심사 완료 일시 | reviewed_at | TIMESTAMPTZ | | NULL | 심사 전 NULL |
+| 반려 사유 | reject_reason | TEXT | | NULL | 반려된 경우에만 값 존재 |
+
+> **참고**: `seller` 테이블(판매자 계정, PENDING/ACTIVE/SUSPENDED)과 별개 테이블.
+> - `seller_register`: 판매자 등록 신청·심사 이력 (PENDING → APPROVED / REJECTED)
+> - `seller`: 승인 완료된 판매자 계정 정보 (추후 구현)
+
+---
+
 ## 찜 (wishlist)
 
 | 이름 | 영문 | DB 타입 | NOT NULL | 기본값 | 설명 |

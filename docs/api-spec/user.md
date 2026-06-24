@@ -15,6 +15,7 @@
 
 - 인증: 필요
 - 필요 역할: BUYER / SELLER
+- 프로필 정보와 판매자 신청 상태를 함께 반환 — 마이페이지 배너 표시 여부 판단에 사용
 
 #### Response
 
@@ -28,7 +29,8 @@
     "name": "김민서",
     "email": "user@example.com",
     "profileImageUrl": "https://cdn.example.com/images/profile.jpg",
-    "role": "BUYER"
+    "role": "BUYER",
+    "sellerStatus": "PENDING"
   },
   "message": "success"
 }
@@ -41,6 +43,16 @@
 | email | string | 이메일 |
 | profileImageUrl | string \| null | 프로필 이미지 URL |
 | role | string | 역할 (`BUYER` / `SELLER`) |
+| sellerStatus | string \| null | 판매자 신청 상태 (`PENDING` / `APPROVED` / `REJECTED` / `null`) |
+
+**sellerStatus 값 규칙**
+
+| sellerStatus | 설명 |
+|---|---|
+| `null` | 판매자 신청 이력 없는 BUYER |
+| `PENDING` | 심사 대기 중 |
+| `APPROVED` | 승인됨 (role이 `SELLER`이면 항상 이 값) |
+| `REJECTED` | 반려됨 |
 
 ---
 
@@ -178,11 +190,12 @@
 
 ---
 
-### GET /sellers/register/me — 내 판매자 등록 신청 조회
+### GET /sellers/register/me — 내 판매자 등록 신청 상세 조회(구현 금지)
 
 - 인증: 필요
 - 필요 역할: BUYER
-- 마이페이지 "심사 중" 상태 배너 표시 등에 활용
+- 신청 상세 정보 조회용 — 심사 현황 상세 페이지에서 사용
+- 마이페이지 프로필 화면(배너)에서는 `GET /users/me`의 `sellerStatus` 사용
 
 #### Response
 
