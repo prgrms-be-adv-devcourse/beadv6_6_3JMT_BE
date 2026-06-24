@@ -4,7 +4,6 @@ import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.dto.AdminDailyTransactionProjection;
 import com.prompthub.order.application.dto.AdminOrderListProjection;
 import com.prompthub.order.application.usecase.AdminOrderUseCase;
-import com.prompthub.order.domain.repository.AdminOrderQueryRepository;
 import com.prompthub.order.presentation.dto.request.AdminOrderSearchCondition;
 import com.prompthub.order.presentation.dto.response.AdminDailyTransactionResponse;
 import com.prompthub.order.presentation.dto.response.AdminMonthlyTradeAmountResponse;
@@ -17,7 +16,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -28,14 +26,13 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-@Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class AdminOrderService implements AdminOrderUseCase {
 
 	private static final String UNKNOWN_SELLER_NICKNAME = "알 수 없음";
 	private static final int RECENT_DAYS = 7;
 
-	private final AdminOrderQueryRepository adminOrderQueryRepository;
+	private final AdminOrderQueryService adminOrderQueryService;
 	private final SellerClient sellerClient;
 
 	@Override
@@ -45,7 +42,7 @@ public class AdminOrderService implements AdminOrderUseCase {
 			condition.size(),
 			Sort.by(Sort.Direction.DESC, "createdAt")
 		);
-		Page<AdminOrderListProjection> orders = adminOrderQueryRepository.searchAdminOrders(condition, pageable);
+		Page<AdminOrderListProjection> orders = adminOrderQueryService.searchAdminOrders(condition, pageable);
 		Map<UUID, String> sellerNicknames = getSellerNicknames(orders.getContent());
 
 		return orders.map(order -> toAdminOrderListResponse(order, sellerNicknames));
@@ -58,7 +55,7 @@ public class AdminOrderService implements AdminOrderUseCase {
 		LocalDateTime endExclusive = today.plusMonths(1).withDayOfMonth(1).atStartOfDay();
 
 		return new AdminMonthlyTradeAmountResponse(
-			adminOrderQueryRepository.sumMonthlyTransactionAmount(start, endExclusive)
+			adminOrderQueryService.sumMonthlyTransactionAmount(start, endExclusive)
 		);
 	}
 
@@ -70,7 +67,7 @@ public class AdminOrderService implements AdminOrderUseCase {
 		LocalDateTime endExclusive = endDate.plusDays(1).atStartOfDay();
 
 		Map<LocalDate, AdminDailyTransactionProjection> dailyTransactions = new LinkedHashMap<>();
-		adminOrderQueryRepository.findDailyTransactions(start, endExclusive)
+		adminOrderQueryService.findDailyTransactions(start, endExclusive)
 			.forEach(dailyTransaction -> dailyTransactions.put(dailyTransaction.date(), dailyTransaction));
 
 		List<AdminDailyTransactionResponse> responses = startDate.datesUntil(endDate.plusDays(1))
