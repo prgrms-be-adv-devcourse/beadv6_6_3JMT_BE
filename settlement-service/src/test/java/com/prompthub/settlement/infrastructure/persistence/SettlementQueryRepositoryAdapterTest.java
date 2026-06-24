@@ -7,7 +7,7 @@ import com.prompthub.settlement.domain.model.SettlementDetail;
 import com.prompthub.settlement.domain.model.enums.PayoutStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementStatus;
-import com.prompthub.settlement.domain.repository.SettlementListQueryRepository.SettlementPage;
+import com.prompthub.settlement.domain.repository.SettlementQueryRepository.SettlementPage;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -30,12 +30,12 @@ import org.springframework.transaction.annotation.Transactional;
         "spring.datasource.password=promptHub",
         "spring.jpa.hibernate.ddl-auto=create-drop"
 })
-class SettlementListQueryRepositoryAdapterTest {
+class SettlementQueryRepositoryAdapterTest {
 
     private static final LocalDateTime OCCURRED_AT = LocalDateTime.of(2026, 6, 15, 10, 0);
 
     @Autowired
-    private SettlementListQueryRepositoryAdapter adapter;
+    private SettlementQueryRepositoryAdapter adapter;
 
     @Autowired
     private EntityManager em;
