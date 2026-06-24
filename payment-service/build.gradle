@@ -39,6 +39,8 @@ dependencies {
     testImplementation 'org.testcontainers:testcontainers-postgresql'
     testImplementation 'org.testcontainers:testcontainers-kafka'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9'
 }
 
 tasks.named('test') {
