@@ -7,6 +7,7 @@ import com.prompthub.settlement.application.usecase.SettlementUseCase;
 import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.settlement.presentation.dto.response.SellerSettlementListResponse;
 import com.prompthub.settlement.presentation.dto.response.SellerSettlementSummaryResponse;
+import com.prompthub.settlement.presentation.dto.response.SettlementStatusResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
@@ -23,6 +24,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -78,5 +81,25 @@ public class SellerSettlementController {
 		@Parameter(description = "페이지 크기") @RequestParam(defaultValue = "10") int size) {
 		return ApiResult.success(settlementUseCase.getMySettlements(
 			new SellerSettlementListQuery(sellerId, status, period, page, size)));
+	}
+
+	@PatchMapping("/{settlementId}/payout-request")
+	@Operation(summary = "판매자 지급 신청",
+		description = "승인 완료(지급 준비)된 본인 정산을 지급 신청(PAYOUT_REQUESTED)합니다. SELLER 권한이 필요합니다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "지급 신청 성공",
+			content = @Content(schema = @Schema(implementation = SettlementStatusResponse.class))),
+		@ApiResponse(responseCode = "403", description = "본인 정산이 아님",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "404", description = "정산 없음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "409", description = "지급 준비(READY) 상태가 아니라 신청 불가",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	})
+	public ApiResult<SettlementStatusResponse> requestPayout(
+		@Parameter(description = "판매자 ID(UUID)", in = ParameterIn.HEADER)
+		@RequestHeader("X-User-Id") UUID sellerId,
+		@Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId) {
+		return ApiResult.success(settlementUseCase.requestPayout(sellerId, settlementId));
 	}
 }
