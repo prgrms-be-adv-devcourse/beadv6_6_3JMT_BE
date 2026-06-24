@@ -37,12 +37,11 @@
 
 **처리 흐름**
 1. `idempotency_key` 중복 확인 → 중복이면 `409` 즉시 반환
-2. Order 서비스에서 주문 금액 조회 (동기 REST) → `amount` 검증
-3. Payment 레코드 생성 (`READY`)
-4. 토스페이먼츠 confirm API 동기 호출 → `REQUESTED` → `PAID` / `FAILED`
-5. `@Transactional`: Payment 상태 저장 → COMMIT → `200` 반환
+2. Payment 레코드 생성 (`READY`)
+3. 토스페이먼츠 confirm API 동기 호출 → `REQUESTED` → `PAID` / `FAILED`
+4. `@Transactional`: Payment 상태 저장 → COMMIT → `200` 반환
 
-> 동일 `orderId`로 재요청 시 기존 Payment를 그대로 반환합니다 (멱등성).
+> 동일 `orderId`로 재요청 시 `409(PAY002)`를 반환합니다 (중복 결제 방지).
 
 **이후 비동기 흐름**
 - 승인 시 → `payment.approved` 발행 (Order PAID 전환 + `is_download = true`)
@@ -62,7 +61,7 @@
 |---|---|---|---|
 | `paymentKey` | String | ✅ | 토스페이먼츠 SDK에서 전달받은 paymentKey |
 | `orderId` | UUID | ✅ | 결제할 주문 ID |
-| `amount` | Int | ✅ | 결제 금액 (원화). Order 서비스 금액과 서버 검증 |
+| `amount` | Int | ✅ | 결제 금액 (원화) |
 
 #### Responses
 
@@ -70,7 +69,6 @@
 |---|---|---|
 | `200` | 결제 승인 완료 | — |
 | `400` | 입력값 오류 | `V001` |
-| `400` | 금액 불일치 | `PAY001` |
 | `400` | PG사 결제 실패 | `PAY_FAILED` |
 | `401` | 토큰 만료 | `A003` |
 | `403` | 권한 없음 | `A004` |

@@ -10,7 +10,9 @@
 |------|------|---------|:--------:|--------|------|
 | 식별자 * | category_id | UUID | ✓ | gen_random_uuid() | PK |
 | 부모 카테고리 ID | parent_id | UUID | | NULL | FK → category.category_id (자기 참조) |
-| 이름 * | name | VARCHAR(100) | ✓ | | 카테고리명 |
+| 코드 * | code | VARCHAR(50) | ✓ | | API 필터/응답 식별값 (`image`, `writing` 등). UNIQUE |
+| 이름 * | name | VARCHAR(100) | ✓ | | 화면 표시명 (`이미지 생성`, `글쓰기` 등) |
+| 아이콘 | icon | VARCHAR(50) | | NULL | FE ICON_MAP key (`pen-line`, `code-xml` 등) |
 | 노출 순서 * | display_order | INT | ✓ | 0 | |
 | 생성 일시 * | created_at | TIMESTAMPTZ | ✓ | | |
 | 수정 일시 * | updated_at | TIMESTAMPTZ | ✓ | | |

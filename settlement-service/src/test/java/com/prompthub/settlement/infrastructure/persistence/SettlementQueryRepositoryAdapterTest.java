@@ -1,0 +1,86 @@
+package com.prompthub.settlement.infrastructure.persistence;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.prompthub.settlement.domain.model.Settlement;
+import com.prompthub.settlement.domain.model.SettlementDetail;
+import com.prompthub.settlement.domain.model.enums.PayoutStatus;
+import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
+import com.prompthub.settlement.domain.model.enums.SettlementStatus;
+import com.prompthub.settlement.domain.repository.SettlementQueryRepository.SettlementPage;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import jakarta.persistence.EntityManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.annotation.Transactional;
+
+@SpringBootTest
+@Transactional
+class SettlementQueryRepositoryAdapterTest {
+
+    private static final LocalDateTime OCCURRED_AT = LocalDateTime.of(2026, 6, 15, 10, 0);
+
+    @Autowired
+    private SettlementQueryRepositoryAdapter adapter;
+
+    @Autowired
+    private EntityManager em;
+
+    private UUID persist(SettlementStatus settlementStatus, PayoutStatus payoutStatus) {
+        UUID sellerId = UUID.randomUUID();
+        SettlementDetail detail = SettlementDetail.sale(
+                UUID.randomUUID(), new BigDecimal("100.00"), new BigDecimal("0.15"), OCCURRED_AT);
+        Settlement settlement = Settlement.create(
+                UUID.randomUUID(), sellerId, YearMonth.of(2026, 6), List.of(detail));
+        ReflectionTestUtils.setField(settlement, "settlementStatus", settlementStatus);
+        ReflectionTestUtils.setField(settlement, "payoutStatus", payoutStatus);
+        em.persist(settlement);
+        return sellerId;
+    }
+
+    @Test
+    @DisplayName("표시 상태 필터는 해당 상태로 파생되는 행만 선택한다")
+    void findPage_filtersByDisplayStatus() {
+        UUID waitingA = persist(SettlementStatus.PENDING_APPROVAL, PayoutStatus.NOT_READY);
+        UUID waitingB = persist(SettlementStatus.PENDING_APPROVAL, PayoutStatus.NOT_READY);
+        UUID approvedSeller = persist(SettlementStatus.APPROVED, PayoutStatus.READY);
+        persist(SettlementStatus.APPROVED, PayoutStatus.PAID);
+        persist(SettlementStatus.APPROVED, PayoutStatus.PAYOUT_ON_HOLD);
+        em.flush();
+        em.clear();
+
+        SettlementPage waiting = adapter.findPage(SettlementDisplayStatus.WAITING, 0, 100);
+        SettlementPage approved = adapter.findPage(SettlementDisplayStatus.APPROVED, 0, 100);
+
+        assertThat(waiting.content()).allMatch(s -> s.displayStatus() == SettlementDisplayStatus.WAITING);
+        assertThat(approved.content()).allMatch(s -> s.displayStatus() == SettlementDisplayStatus.APPROVED);
+        assertThat(waiting.content()).extracting(Settlement::getSellerId)
+                .contains(waitingA, waitingB).doesNotContain(approvedSeller);
+        assertThat(approved.content()).extracting(Settlement::getSellerId)
+                .contains(approvedSeller).doesNotContain(waitingA, waitingB);
+    }
+
+    @Test
+    @DisplayName("status 가 null 이면 전체를 페이지 크기만큼 잘라 조회한다")
+    void findPage_nullStatus_returnsAllPaged() {
+        persist(SettlementStatus.PENDING_APPROVAL, PayoutStatus.NOT_READY);
+        persist(SettlementStatus.SETTLEMENT_ON_HOLD, PayoutStatus.NOT_READY);
+        persist(SettlementStatus.APPROVED, PayoutStatus.READY);
+        persist(SettlementStatus.APPROVED, PayoutStatus.PAID);
+        persist(SettlementStatus.CANCELLED, PayoutStatus.NOT_READY);
+        em.flush();
+        em.clear();
+
+        SettlementPage firstPage = adapter.findPage(null, 0, 2);
+
+        assertThat(firstPage.content()).hasSize(2);
+        assertThat(firstPage.totalElements()).isGreaterThanOrEqualTo(5L);
+    }
+}
