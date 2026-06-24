@@ -319,4 +319,25 @@ class SettlementTest {
         assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.PAYOUT_REQUESTED);
         assertThat(settlement.canRequestPayout()).isFalse();
     }
+
+    @Test
+    @DisplayName("지급 신청: APPROVED & READY 정산을 신청하면 payout PAYOUT_REQUESTED로 전이한다")
+    void requestPayout_fromApprovedReady() {
+        Settlement settlement = pendingSettlement();
+        settlement.approve(LocalDateTime.of(2026, 6, 24, 9, 0)); // APPROVED + READY
+
+        settlement.requestPayout();
+
+        assertThat(settlement.getPayoutStatus()).isEqualTo(PayoutStatus.PAYOUT_REQUESTED);
+        assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.PAYOUT_REQUESTED);
+    }
+
+    @Test
+    @DisplayName("지급 신청: APPROVED & READY가 아니면 예외를 던진다")
+    void requestPayout_whenNotApprovedReady_throws() {
+        Settlement settlement = pendingSettlement(); // PENDING_APPROVAL
+
+        assertThatThrownBy(settlement::requestPayout)
+                .isInstanceOf(SettlementInvalidStateException.class);
+    }
 }

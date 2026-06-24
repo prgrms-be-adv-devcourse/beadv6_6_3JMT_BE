@@ -176,6 +176,13 @@ public class Settlement extends BaseEntity {
 		this.payoutStatus = PayoutStatus.READY;
 	}
 
+	public void requestPayout() {
+		if (this.settlementStatus != SettlementStatus.APPROVED || this.payoutStatus != PayoutStatus.READY) {
+			throw new SettlementInvalidStateException("requestPayout", this.settlementStatus, this.payoutStatus);
+		}
+		this.payoutStatus = PayoutStatus.PAYOUT_REQUESTED;
+	}
+
 	public SettlementDisplayStatus displayStatus() {
 		return SettlementDisplayStatus.from(this.settlementStatus, this.payoutStatus);
 	}
