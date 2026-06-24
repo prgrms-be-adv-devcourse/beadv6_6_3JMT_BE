@@ -33,4 +33,6 @@ public interface SettlementUseCase {
     SettlementStatusResponse releasePayoutHold(UUID settlementId);
 
     SettlementResponse cancel(UUID settlementId);
+
+    SettlementStatusResponse requestPayout(UUID sellerId, UUID settlementId);
 }

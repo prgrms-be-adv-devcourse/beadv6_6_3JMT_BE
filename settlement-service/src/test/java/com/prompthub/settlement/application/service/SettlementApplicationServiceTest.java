@@ -417,4 +417,44 @@ class SettlementApplicationServiceTest {
         assertThat(response.totalRevenueAmount()).isEqualByComparingTo("10449800");
         assertThat(response.totalSettlementAmount()).isEqualByComparingTo("170000");
     }
+
+    @Test
+    @DisplayName("지급 신청: 본인 정산을 PAYOUT_REQUESTED로 바꾸고 응답을 반환한다")
+    void requestPayout_success() {
+        UUID sellerId = UUID.randomUUID();
+        UUID settlementId = UUID.randomUUID();
+        Settlement target = approvedSettlement(sellerId); // APPROVED + READY
+        ReflectionTestUtils.setField(target, "id", settlementId);
+        given(settlementRepository.findById(settlementId)).willReturn(Optional.of(target));
+
+        SettlementStatusResponse response = settlementApplicationService.requestPayout(sellerId, settlementId);
+
+        assertThat(response.payoutStatus()).isEqualTo(PayoutStatus.PAYOUT_REQUESTED);
+        assertThat(response.displayStatus()).isEqualTo(SettlementDisplayStatus.PAYOUT_REQUESTED);
+        then(settlementRepository).should().save(target);
+    }
+
+    @Test
+    @DisplayName("지급 신청: 본인 정산이 아니면 SettlementException(403)을 던지고 저장하지 않는다")
+    void requestPayout_notOwner_throws() {
+        UUID sellerId = UUID.randomUUID();
+        UUID settlementId = UUID.randomUUID();
+        Settlement target = approvedSettlement(UUID.randomUUID()); // 다른 판매자
+        given(settlementRepository.findById(settlementId)).willReturn(Optional.of(target));
+
+        assertThatThrownBy(() -> settlementApplicationService.requestPayout(sellerId, settlementId))
+                .isInstanceOf(SettlementException.class);
+        then(settlementRepository).should(never()).save(target);
+    }
+
+    @Test
+    @DisplayName("지급 신청: 정산이 없으면 SettlementException을 던진다")
+    void requestPayout_notFound_throws() {
+        UUID sellerId = UUID.randomUUID();
+        UUID settlementId = UUID.randomUUID();
+        given(settlementRepository.findById(settlementId)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> settlementApplicationService.requestPayout(sellerId, settlementId))
+                .isInstanceOf(SettlementException.class);
+    }
 }

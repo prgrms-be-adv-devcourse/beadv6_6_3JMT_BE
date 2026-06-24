@@ -161,6 +161,18 @@ public class SettlementApplicationService implements SettlementUseCase {
         return SettlementResponse.from(settlement);
     }
 
+    @Override
+    @Transactional
+    public SettlementStatusResponse requestPayout(UUID sellerId, UUID settlementId) {
+        Settlement settlement = findSettlement(settlementId);
+        if (!settlement.getSellerId().equals(sellerId)) {
+            throw new SettlementException(SettlementErrorCode.SETTLEMENT_ACCESS_DENIED);
+        }
+        settlement.requestPayout();
+        settlementRepository.save(settlement);
+        return SettlementStatusResponse.from(settlement);
+    }
+
     private Settlement findSettlement(UUID settlementId) {
         return settlementRepository.findById(settlementId)
                 .orElseThrow(() -> new SettlementException(SettlementErrorCode.SETTLEMENT_NOT_FOUND));
