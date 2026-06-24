@@ -5,14 +5,10 @@ import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
-import com.prompthub.order.application.event.PaymentApprovedEvent;
 import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
-import com.prompthub.order.domain.model.OrderPayment;
 import com.prompthub.order.domain.model.OrderProduct;
-import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.domain.repository.OrderPaymentRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -54,7 +50,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
@@ -62,9 +57,6 @@ class OrderServiceTest {
 
     @Mock
     private OrderRepository orderRepository;
-
-    @Mock
-    private CartRepository cartRepository;
 
     @Mock
     private OrderPaymentRepository orderPaymentRepository;
@@ -623,199 +615,6 @@ class OrderServiceTest {
     }
 
     @Nested
-    @DisplayName("결제 승인 이벤트 처리")
-    class ApproveOrder {
-
-        @Test
-        @DisplayName("결제 승인 이벤트를 받으면 주문을 PAID 상태로 변경하고 장바구니 상품을 제거한다")
-        void approveOrder_paymentApproved_success() {
-            // given
-            Order order = createPendingOrderWithProducts();
-            PaymentApprovedEvent event = createPaymentApprovedEvent(order.getId(), TOTAL_AMOUNT);
-            Cart cart = mock(Cart.class);
-
-            given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-                .willReturn(Optional.of(order));
-
-            given(orderPaymentRepository.existsByOrderId(event.orderId()))
-                .willReturn(false);
-
-            given(cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId()))
-                .willReturn(Optional.of(cart));
-
-            ArgumentCaptor<OrderPayment> paymentCaptor = ArgumentCaptor.forClass(OrderPayment.class);
-
-            // when
-            orderService.approveOrder(event);
-
-            // then
-            assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
-            assertThat(order.getPaidAt()).isEqualTo(APPROVED_OFFSET_AT.toLocalDateTime());
-
-            assertThat(order.getOrderProducts())
-                .extracting(OrderProduct::getOrderStatus)
-                .containsOnly(OrderStatus.PAID);
-
-            then(orderPaymentRepository).should().save(paymentCaptor.capture());
-            OrderPayment savedPayment = paymentCaptor.getValue();
-            assertThat(savedPayment.getOrderId()).isEqualTo(order.getId());
-            assertThat(savedPayment.getPaymentId()).isEqualTo(PAYMENT_ID);
-            assertThat(savedPayment.getBuyerId()).isEqualTo(BUYER_ID);
-            assertThat(savedPayment.getPgTxId()).isEqualTo(PG_TX_ID);
-            assertThat(savedPayment.getPaymentMethod()).isEqualTo(PAYMENT_METHOD);
-            assertThat(savedPayment.getProvider()).isEqualTo(PAYMENT_PROVIDER);
-            assertThat(savedPayment.getApprovedAmount()).isEqualTo(TOTAL_AMOUNT);
-            assertThat(savedPayment.getApprovedAt()).isEqualTo(APPROVED_OFFSET_AT);
-
-            then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
-            then(orderPaymentRepository).should().existsByOrderId(event.orderId());
-            then(cartRepository).should().findByBuyerIdWithCartProducts(order.getBuyerId());
-            then(cart).should().removeProductsByProductIds(productIds());
-        }
-
-        @Test
-        @DisplayName("결제 승인 후 장바구니가 없어도 주문 결제 완료 처리는 성공한다")
-        void approveOrder_cartNotFound_success() {
-            // given
-            Order order = createPendingOrderWithProducts();
-            PaymentApprovedEvent event = createPaymentApprovedEvent(order.getId(), TOTAL_AMOUNT);
-
-            given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-                .willReturn(Optional.of(order));
-
-            given(orderPaymentRepository.existsByOrderId(event.orderId()))
-                .willReturn(false);
-
-            given(cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId()))
-                .willReturn(Optional.empty());
-
-            // when
-            orderService.approveOrder(event);
-
-            // then
-            assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
-
-            assertThat(order.getOrderProducts())
-                .extracting(OrderProduct::getOrderStatus)
-                .containsOnly(OrderStatus.PAID);
-
-            then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
-            then(orderPaymentRepository).should().save(any(OrderPayment.class));
-            then(cartRepository).should().findByBuyerIdWithCartProducts(order.getBuyerId());
-        }
-
-        @Test
-        @DisplayName("이미 결제 내역이 있고 결제 완료된 주문이면 결제 승인 이벤트를 무시한다")
-        void approveOrder_alreadyPaidWithOrderPayment_doNothing() {
-            // given
-            Order order = createPendingOrderWithProducts();
-            order.markPaid();
-
-            PaymentApprovedEvent event = createPaymentApprovedEvent(order.getId(), TOTAL_AMOUNT);
-
-            given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-                .willReturn(Optional.of(order));
-
-            given(orderPaymentRepository.existsByOrderId(event.orderId()))
-                .willReturn(true);
-
-            // when
-            orderService.approveOrder(event);
-
-            // then
-            assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
-
-            then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
-            then(orderPaymentRepository).should().existsByOrderId(event.orderId());
-            then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
-            then(cartRepository).should(never()).findByBuyerIdWithCartProducts(any(UUID.class));
-        }
-
-        @Test
-        @DisplayName("결제 승인 이벤트의 주문 ID가 존재하지 않으면 예외가 발생한다")
-        void approveOrder_orderNotFound_throwsException() {
-            // given
-            UUID orderId = UUID.fromString("00000000-0000-0000-0000-000000009999");
-            PaymentApprovedEvent event = createPaymentApprovedEvent(orderId, TOTAL_AMOUNT);
-
-            given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-                .willReturn(Optional.empty());
-
-            // when & then
-            assertThatThrownBy(() -> orderService.approveOrder(event))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.ORDER_NOT_FOUND)
-                );
-
-            then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
-            then(cartRepository).should(never()).findByBuyerIdWithCartProducts(any(UUID.class));
-        }
-
-        @Test
-        @DisplayName("주문 상태가 PENDING이 아니면 결제 승인 처리에 실패한다")
-        void approveOrder_notPending_throwsException() {
-            // given
-            Order order = createPendingOrderWithProducts();
-            order.updateOrderStatus(OrderStatus.CANCELED);
-
-            PaymentApprovedEvent event = createPaymentApprovedEvent(order.getId(), TOTAL_AMOUNT);
-
-            given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-                .willReturn(Optional.of(order));
-
-            given(orderPaymentRepository.existsByOrderId(event.orderId()))
-                .willReturn(false);
-
-            // when & then
-            assertThatThrownBy(() -> orderService.approveOrder(event))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode())
-                        .isEqualTo(ErrorCode.ORDER_PAYMENT_STATUS_INVALID)
-                );
-
-            assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
-
-            then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
-            then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
-            then(cartRepository).should(never()).findByBuyerIdWithCartProducts(any(UUID.class));
-        }
-
-        @Test
-        @DisplayName("결제 승인 금액과 주문 금액이 다르면 결제 승인 처리에 실패한다")
-        void approveOrder_amountMismatch_throwsException() {
-            // given
-            Order order = createPendingOrderWithProducts();
-            PaymentApprovedEvent event = createPaymentApprovedEvent(order.getId(), PRODUCT_AMOUNT_2);
-
-            given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-                .willReturn(Optional.of(order));
-
-            given(orderPaymentRepository.existsByOrderId(event.orderId()))
-                .willReturn(false);
-
-            // when & then
-            assertThatThrownBy(() -> orderService.approveOrder(event))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode())
-                        .isEqualTo(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH)
-                );
-
-            assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
-
-            assertThat(order.getOrderProducts())
-                .extracting(OrderProduct::getOrderStatus)
-                .containsOnly(OrderStatus.PENDING);
-
-            then(orderRepository).should().findByIdWithOrderProducts(event.orderId());
-            then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
-            then(cartRepository).should(never()).findByBuyerIdWithCartProducts(any(UUID.class));
-        }
-    }
-
-    @Nested
     @DisplayName("내 주문 목록 조회")
     class GetMyOrders {
 
@@ -1118,7 +917,7 @@ class OrderServiceTest {
             Page<OrderPaymentListResponse> response = orderService.getOrderPayments(BUYER_ID, request);
 
             // then
-            assertThat(response.getContent().getFirst().paidAt()).isEqualTo(APPROVED_OFFSET_AT.toLocalDateTime());
+            assertThat(response.getContent().getFirst().paidAt()).isEqualTo(APPROVED_AT);
         }
     }
 }

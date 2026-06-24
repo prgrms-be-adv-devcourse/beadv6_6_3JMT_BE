@@ -1,8 +1,9 @@
-package com.prompthub.order.infra.persistence;
+package com.prompthub.order.infra.persistence.order;
 
 import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.domain.enums.OrderStatus;
 
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQuery;
@@ -41,7 +42,8 @@ public class OrderPersistenceImpl implements OrderPersistenceCustom {
                 orderProduct.download,
                 orderProduct.productType,
                 orderProduct.productTitle,
-                // orderProduct.productThumbnailSnapshot,
+                Expressions.nullExpression(String.class),
+                Expressions.nullExpression(Double.class),
                 order.paidAt,
                 order.createdAt
             ))
@@ -53,9 +55,9 @@ public class OrderPersistenceImpl implements OrderPersistenceCustom {
                 createdAtGoe(from),
                 createdAtLoe(to)
             )
+            .orderBy(order.createdAt.desc(), orderProduct.id.asc())
             .offset(pageable.getOffset())
             .limit(pageable.getPageSize())
-            // Add order by if needed, or get from pageable
             .fetch();
 
         JPAQuery<Long> countQuery = queryFactory

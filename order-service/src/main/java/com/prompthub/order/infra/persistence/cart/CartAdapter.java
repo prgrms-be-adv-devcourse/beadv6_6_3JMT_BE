@@ -1,4 +1,4 @@
-package com.prompthub.order.infra.persistence;
+package com.prompthub.order.infra.persistence.cart;
 
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.CartProduct;

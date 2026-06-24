@@ -136,20 +136,30 @@ public class OrderProduct {
     }
 
     public void cancel() {
-        validatePending();
+        cancel(LocalDateTime.now());
+    }
+
+    public void cancel(LocalDateTime canceledAt) {
+        if (this.orderStatus != OrderStatus.PAID) {
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "결제 완료 상태의 주문 상품만 취소할 수 있습니다.");
+        }
 
         this.orderStatus = OrderStatus.CANCELED;
-        this.canceledAt = LocalDateTime.now();
+        this.canceledAt = canceledAt;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void refund() {
+        refund(LocalDateTime.now());
+    }
+
+    public void refund(LocalDateTime refundedAt) {
         if (this.orderStatus != OrderStatus.PAID) {
             throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "결제 완료 상태의 주문 상품만 환불할 수 있습니다.");
         }
 
         this.orderStatus = OrderStatus.REFUNDED;
-        this.refundedAt = LocalDateTime.now();
+        this.refundedAt = refundedAt;
         this.updatedAt = LocalDateTime.now();
     }
 

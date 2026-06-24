@@ -1,4 +1,4 @@
-package com.prompthub.order.infra.persistence;
+package com.prompthub.order.infra.persistence.order;
 
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.querydsl.core.types.Projections;

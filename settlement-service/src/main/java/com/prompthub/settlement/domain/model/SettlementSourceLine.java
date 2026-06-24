@@ -112,6 +112,12 @@ public class SettlementSourceLine extends BaseEntity {
 		this.settlementId = require(settlementId, "settlementId");
 	}
 
+	public void release(UUID settlementId) {
+		if (this.settlementId != null && this.settlementId.equals(settlementId)) {
+			this.settlementId = null;
+		}
+	}
+
 	public boolean isSettled() {
 		return this.settlementId != null;
 	}

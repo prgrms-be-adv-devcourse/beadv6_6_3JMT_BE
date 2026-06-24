@@ -1,4 +1,4 @@
-package com.prompthub.order.infra.persistence;
+package com.prompthub.order.infra.persistence.order;
 
 import com.prompthub.order.domain.model.Order;
 import org.springframework.data.jpa.repository.JpaRepository;

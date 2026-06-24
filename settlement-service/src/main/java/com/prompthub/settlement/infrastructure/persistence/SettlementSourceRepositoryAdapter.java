@@ -25,6 +25,11 @@ public class SettlementSourceRepositoryAdapter implements SettlementSourceReposi
         return jpaRepository.findSettleableLines(sellerId, startOf(period), endOf(period));
     }
 
+    @Override
+    public List<SettlementSourceLine> findBySettlementId(UUID settlementId) {
+        return jpaRepository.findBySettlementId(settlementId);
+    }
+
     private LocalDateTime startOf(YearMonth period) {
         return period.atDay(1).atStartOfDay();
     }
