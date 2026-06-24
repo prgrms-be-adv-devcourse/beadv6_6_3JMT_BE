@@ -4,7 +4,8 @@ import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.enums.PayoutStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementStatus;
-import com.prompthub.settlement.domain.repository.SettlementListQueryRepository;
+import com.prompthub.settlement.domain.repository.SettlementQueryRepository;
+import com.prompthub.settlement.domain.repository.SettlementStatusAggregate;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,15 +19,20 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor
-public class SettlementListQueryRepositoryAdapter implements SettlementListQueryRepository {
+public class SettlementQueryRepositoryAdapter implements SettlementQueryRepository {
 
-    private final SettlementListQueryJpaRepository jpaRepository;
+    private final SettlementQueryJpaRepository jpaRepository;
 
     @Override
     public SettlementPage findPage(SettlementDisplayStatus status, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "calculatedAt"));
         Page<Settlement> result = jpaRepository.findAll(displayStatusSpec(status), pageable);
         return new SettlementPage(result.getContent(), result.getTotalElements());
+    }
+
+    @Override
+    public List<SettlementStatusAggregate> aggregateByStatus() {
+        return jpaRepository.aggregateByStatus();
     }
 
     private static Specification<Settlement> displayStatusSpec(SettlementDisplayStatus status) {

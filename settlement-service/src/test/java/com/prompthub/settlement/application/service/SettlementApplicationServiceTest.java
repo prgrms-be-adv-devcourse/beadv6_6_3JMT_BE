@@ -11,10 +11,9 @@ import com.prompthub.settlement.domain.model.SettlementDetail;
 import com.prompthub.settlement.domain.model.enums.PayoutStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementStatus;
-import com.prompthub.settlement.domain.repository.SettlementListQueryRepository;
-import com.prompthub.settlement.domain.repository.SettlementListQueryRepository.SettlementPage;
+import com.prompthub.settlement.domain.repository.SettlementQueryRepository;
+import com.prompthub.settlement.domain.repository.SettlementQueryRepository.SettlementPage;
 import com.prompthub.settlement.domain.repository.SettlementStatusAggregate;
-import com.prompthub.settlement.domain.repository.SettlementSummaryQueryRepository;
 import com.prompthub.settlement.presentation.dto.response.SettlementListResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementSummaryResponse;
 import java.math.BigDecimal;
@@ -33,10 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class SettlementApplicationServiceTest {
 
     @Mock
-    private SettlementSummaryQueryRepository settlementSummaryQueryRepository;
-
-    @Mock
-    private SettlementListQueryRepository settlementListQueryRepository;
+    private SettlementQueryRepository settlementQueryRepository;
 
     @InjectMocks
     private SettlementApplicationService settlementApplicationService;
@@ -51,7 +47,7 @@ class SettlementApplicationServiceTest {
     @Test
     @DisplayName("요약: 상태쌍 집계를 카드 버킷으로 접어 고정 4카드를 순서대로 반환한다")
     void getSummary_foldsAggregatesIntoFourCards() {
-        given(settlementSummaryQueryRepository.aggregateByStatus()).willReturn(List.of(
+        given(settlementQueryRepository.aggregateByStatus()).willReturn(List.of(
                 new SettlementStatusAggregate(SettlementStatus.PENDING_APPROVAL, PayoutStatus.NOT_READY,
                         new BigDecimal("719000"), 2L),
                 new SettlementStatusAggregate(SettlementStatus.SETTLEMENT_ON_HOLD, PayoutStatus.NOT_READY,
@@ -77,7 +73,7 @@ class SettlementApplicationServiceTest {
     @Test
     @DisplayName("요약: APPROVED와 PAYOUT_REQUESTED는 같은 승인 완료 카드로 합산된다")
     void getSummary_mergesApprovedAndPayoutRequestedIntoApprovedCard() {
-        given(settlementSummaryQueryRepository.aggregateByStatus()).willReturn(List.of(
+        given(settlementQueryRepository.aggregateByStatus()).willReturn(List.of(
                 new SettlementStatusAggregate(SettlementStatus.APPROVED, PayoutStatus.NOT_READY,
                         new BigDecimal("1000000"), 3L),
                 new SettlementStatusAggregate(SettlementStatus.APPROVED, PayoutStatus.PAYOUT_REQUESTED,
@@ -96,7 +92,7 @@ class SettlementApplicationServiceTest {
     @Test
     @DisplayName("요약: 취소(CANCELLED)는 어느 카드에도 합산되지 않는다")
     void getSummary_excludesCancelled() {
-        given(settlementSummaryQueryRepository.aggregateByStatus()).willReturn(List.of(
+        given(settlementQueryRepository.aggregateByStatus()).willReturn(List.of(
                 new SettlementStatusAggregate(SettlementStatus.CANCELLED, PayoutStatus.NOT_READY,
                         new BigDecimal("178000"), 2L)));
 
@@ -111,7 +107,7 @@ class SettlementApplicationServiceTest {
     @Test
     @DisplayName("요약: 집계가 비어도 0건 4카드를 반환한다")
     void getSummary_emptyAggregates_returnsZeroCards() {
-        given(settlementSummaryQueryRepository.aggregateByStatus()).willReturn(List.of());
+        given(settlementQueryRepository.aggregateByStatus()).willReturn(List.of());
 
         SettlementSummaryResponse response = settlementApplicationService.getSummary();
 
@@ -124,7 +120,7 @@ class SettlementApplicationServiceTest {
     void getList_mapsSettlementsAndAssemblesPaging() {
         UUID sellerA = UUID.randomUUID();
         UUID sellerB = UUID.randomUUID();
-        when(settlementListQueryRepository.findPage(SettlementDisplayStatus.WAITING, 0, 20))
+        when(settlementQueryRepository.findPage(SettlementDisplayStatus.WAITING, 0, 20))
                 .thenReturn(new SettlementPage(List.of(settlement(sellerA), settlement(sellerB)), 5L));
 
         SettlementListResponse response = settlementApplicationService.getList(

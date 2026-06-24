@@ -3,9 +3,8 @@ package com.prompthub.settlement.application.service;
 import com.prompthub.settlement.application.dto.SettlementListQuery;
 import com.prompthub.settlement.application.usecase.SettlementUseCase;
 import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
-import com.prompthub.settlement.domain.repository.SettlementListQueryRepository;
+import com.prompthub.settlement.domain.repository.SettlementQueryRepository;
 import com.prompthub.settlement.domain.repository.SettlementStatusAggregate;
-import com.prompthub.settlement.domain.repository.SettlementSummaryQueryRepository;
 import com.prompthub.settlement.presentation.dto.response.SettlementListResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementSummaryResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementSummaryResponse.Card;
@@ -28,8 +27,7 @@ public class SettlementApplicationService implements SettlementUseCase {
             SettlementDisplayStatus.PAYOUT_ON_HOLD,
             SettlementDisplayStatus.PAID);
 
-    private final SettlementSummaryQueryRepository settlementSummaryQueryRepository;
-    private final SettlementListQueryRepository settlementListQueryRepository;
+    private final SettlementQueryRepository settlementQueryRepository;
 
     @Override
     public SettlementSummaryResponse getSummary() {
@@ -40,7 +38,7 @@ public class SettlementApplicationService implements SettlementUseCase {
             countByCard.put(card, 0L);
         }
 
-        for (SettlementStatusAggregate aggregate : settlementSummaryQueryRepository.aggregateByStatus()) {
+        for (SettlementStatusAggregate aggregate : settlementQueryRepository.aggregateByStatus()) {
             SettlementDisplayStatus card =
                     SettlementDisplayStatus.from(aggregate.settlementStatus(), aggregate.payoutStatus()).toCard();
             if (card == null) {
@@ -58,8 +56,8 @@ public class SettlementApplicationService implements SettlementUseCase {
 
     @Override
     public SettlementListResponse getList(SettlementListQuery query) {
-        SettlementListQueryRepository.SettlementPage page =
-                settlementListQueryRepository.findPage(query.status(), query.page(), query.size());
+        SettlementQueryRepository.SettlementPage page =
+                settlementQueryRepository.findPage(query.status(), query.page(), query.size());
         return SettlementListResponse.from(page.content(), page.totalElements(), query.page(), query.size());
     }
 }
