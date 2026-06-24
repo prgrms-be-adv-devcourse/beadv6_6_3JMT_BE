@@ -2,9 +2,14 @@ package com.prompthub.user.auth.presentation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prompthub.user.auth.application.dto.OAuthLoginResult;
+import com.prompthub.user.auth.application.dto.TokenRefreshResult;
 import com.prompthub.user.auth.application.usecase.OAuthUseCase;
+import com.prompthub.user.auth.application.usecase.TokenRefreshUseCase;
+import com.prompthub.user.auth.domain.exception.InvalidRefreshTokenException;
+import com.prompthub.user.auth.domain.exception.TokenExpiredException;
 import com.prompthub.user.auth.domain.exception.UnsupportedOAuthProviderException;
 import com.prompthub.user.auth.presentation.dto.request.OAuthLoginRequest;
+import com.prompthub.user.auth.presentation.dto.request.TokenRefreshRequest;
 import com.prompthub.user.global.config.SecurityConfig;
 import com.prompthub.user.user.domain.model.UserRole;
 import org.junit.jupiter.api.Test;
@@ -36,6 +41,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private OAuthUseCase oAuthUseCase;
+
+    @MockitoBean
+    private TokenRefreshUseCase tokenRefreshUseCase;
 
     private static final UUID USER_ID = UUID.randomUUID();
     private static final Instant EXPIRES_AT = Instant.now().plusSeconds(3600);
@@ -146,6 +154,57 @@ class AuthControllerTest {
     void oAuthLogin_요청_본문_없음_400() throws Exception {
         mockMvc.perform(post("/api/v1/auth/oauth/kakao")
                         .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void refreshToken_유효한_RT_새_AT_발급_200() throws Exception {
+        TokenRefreshResult result = new TokenRefreshResult("new-access-token", EXPIRES_AT);
+        given(tokenRefreshUseCase.refresh(any())).willReturn(result);
+
+        TokenRefreshRequest request = new TokenRefreshRequest("valid-refresh-token");
+
+        mockMvc.perform(post("/api/v1/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").value("new-access-token"));
+    }
+
+    @Test
+    void refreshToken_만료된_RT_401() throws Exception {
+        given(tokenRefreshUseCase.refresh(any())).willThrow(new TokenExpiredException());
+
+        TokenRefreshRequest request = new TokenRefreshRequest("expired-refresh-token");
+
+        mockMvc.perform(post("/api/v1/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("A003"));
+    }
+
+    @Test
+    void refreshToken_유효하지_않은_RT_401() throws Exception {
+        given(tokenRefreshUseCase.refresh(any())).willThrow(new InvalidRefreshTokenException());
+
+        TokenRefreshRequest request = new TokenRefreshRequest("invalid-refresh-token");
+
+        mockMvc.perform(post("/api/v1/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("A006"));
+    }
+
+    @Test
+    void refreshToken_RT_누락_400() throws Exception {
+        String body = "{}";
+
+        mockMvc.perform(post("/api/v1/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
                 .andExpect(status().isBadRequest());
     }
 }
