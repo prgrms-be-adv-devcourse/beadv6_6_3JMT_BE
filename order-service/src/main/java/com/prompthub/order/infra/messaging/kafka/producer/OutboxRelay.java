@@ -55,7 +55,7 @@ public class OutboxRelay {
 	private void recordFailure(OutboxEvent event, Exception exception) {
 		event.recordPublishFailure(properties.maxRetryCount());
 		log.warn(
-			"Failed to publish outbox event. outboxEventId={}, eventType={}, retryCount={}, status={}",
+			"아웃박스 이벤트 발행에 실패했습니다. outboxEventId={}, eventType={}, retryCount={}, status={}",
 			event.getId(),
 			event.getEventType(),
 			event.getRetryCount(),

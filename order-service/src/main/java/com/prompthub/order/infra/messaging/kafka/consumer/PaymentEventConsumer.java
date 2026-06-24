@@ -41,7 +41,7 @@ public class PaymentEventConsumer {
 			case "PAYMENT_FAILED" -> orderPaymentEventService.handlePaymentFailed(toEvent(root, PaymentFailedEvent.class));
 			case "PAYMENT_CANCELED" -> orderPaymentEventService.handlePaymentCanceled(toEvent(root, PaymentCanceledEvent.class));
 			case "PAYMENT_REFUNDED" -> orderPaymentEventService.handlePaymentRefunded(toEvent(root, PaymentRefundedEvent.class));
-			default -> log.warn("Unsupported payment eventType received. eventType={}", eventType);
+			default -> log.warn("지원하지 않는 결제 이벤트 타입입니다. eventType={}", eventType);
 		}
 
 		acknowledgment.acknowledge();
