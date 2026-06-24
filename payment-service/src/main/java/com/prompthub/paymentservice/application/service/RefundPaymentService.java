@@ -1,10 +1,11 @@
-package com.prompthub.paymentservice.application.usecase;
+package com.prompthub.paymentservice.application.service;
 
 import com.prompthub.exception.BusinessException;
 import com.prompthub.paymentservice.application.dto.command.RefundPaymentCommand;
 import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.gateway.persistence.PaymentRepository;
 import com.prompthub.paymentservice.application.gateway.persistence.RefundRepository;
+import com.prompthub.paymentservice.application.usecase.RefundPaymentUseCase;
 import com.prompthub.paymentservice.domain.event.PaymentRefundRequestedEvent;
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;
@@ -17,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 @RequiredArgsConstructor
-public class RefundPaymentInteractor implements RefundPaymentUseCase {
+public class RefundPaymentService implements RefundPaymentUseCase {
 
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;

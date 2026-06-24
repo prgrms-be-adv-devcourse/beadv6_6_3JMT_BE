@@ -1,4 +1,4 @@
-package com.prompthub.paymentservice.application.usecase;
+package com.prompthub.paymentservice.application.service;
 
 import com.prompthub.exception.BusinessException;
 import com.prompthub.paymentservice.application.dto.command.ConfirmPaymentCommand;
@@ -34,7 +34,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class ConfirmPaymentInteractorTest {
+class ConfirmPaymentServiceTest {
 
     @Mock
     PaymentRepository paymentRepository;
@@ -43,11 +43,11 @@ class ConfirmPaymentInteractorTest {
     @Mock
     ApplicationEventPublisher applicationEventPublisher;
 
-    ConfirmPaymentInteractor interactor;
+    ConfirmPaymentService service;
 
     @BeforeEach
     void setUp() {
-        interactor = new ConfirmPaymentInteractor(paymentRepository, paymentGateway, applicationEventPublisher, false);
+        service = new ConfirmPaymentService(paymentRepository, paymentGateway, applicationEventPublisher, false);
     }
 
     @Test
@@ -58,7 +58,7 @@ class ConfirmPaymentInteractorTest {
 
         ConfirmPaymentCommand command = new ConfirmPaymentCommand("toss-key", orderId, 10_000, UUID.randomUUID());
 
-        assertThatThrownBy(() -> interactor.confirm(command))
+        assertThatThrownBy(() -> service.confirm(command))
             .isInstanceOf(BusinessException.class)
             .extracting(e -> ((BusinessException) e).getErrorCode())
             .isEqualTo(PaymentErrorCode.DUPLICATE_PAYMENT);
@@ -80,7 +80,7 @@ class ConfirmPaymentInteractorTest {
             .thenReturn(new TossConfirmResult("카드", 10_000, "{}", approvedAt));
 
         ConfirmPaymentCommand command = new ConfirmPaymentCommand("toss-key", orderId, 10_000, userId);
-        PaymentResult result = interactor.confirm(command);
+        PaymentResult result = service.confirm(command);
 
         assertThat(result.paymentId()).isNotNull();
 
@@ -104,7 +104,7 @@ class ConfirmPaymentInteractorTest {
 
         ConfirmPaymentCommand command = new ConfirmPaymentCommand("toss-key", orderId, 10_000, UUID.randomUUID());
 
-        assertThatThrownBy(() -> interactor.confirm(command))
+        assertThatThrownBy(() -> service.confirm(command))
             .isInstanceOf(BusinessException.class)
             .extracting(e -> ((BusinessException) e).getErrorCode())
             .isEqualTo(PaymentErrorCode.PAYMENT_FAILED);

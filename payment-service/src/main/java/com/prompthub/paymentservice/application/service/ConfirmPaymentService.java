@@ -1,4 +1,4 @@
-package com.prompthub.paymentservice.application.usecase;
+package com.prompthub.paymentservice.application.service;
 
 import com.prompthub.exception.BusinessException;
 import com.prompthub.paymentservice.application.dto.command.ConfirmPaymentCommand;
@@ -8,6 +8,7 @@ import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
 import com.prompthub.paymentservice.application.gateway.external.TossConfirmResult;
 import com.prompthub.paymentservice.application.gateway.persistence.PaymentRepository;
+import com.prompthub.paymentservice.application.usecase.ConfirmPaymentUseCase;
 import com.prompthub.paymentservice.domain.event.PaymentApprovedEvent;
 import com.prompthub.paymentservice.domain.model.Payment;
 import java.time.OffsetDateTime;
@@ -19,14 +20,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
-public class ConfirmPaymentInteractor implements ConfirmPaymentUseCase {
+public class ConfirmPaymentService implements ConfirmPaymentUseCase {
 
     private final PaymentRepository paymentRepository;
     private final PaymentGateway paymentGateway;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final boolean testMode;
 
-    public ConfirmPaymentInteractor(
+    public ConfirmPaymentService(
         PaymentRepository paymentRepository,
         PaymentGateway paymentGateway,
         ApplicationEventPublisher applicationEventPublisher,

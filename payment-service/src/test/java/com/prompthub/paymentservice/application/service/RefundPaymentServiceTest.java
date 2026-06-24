@@ -1,4 +1,4 @@
-package com.prompthub.paymentservice.application.usecase;
+package com.prompthub.paymentservice.application.service;
 
 import com.prompthub.exception.BusinessException;
 import com.prompthub.paymentservice.application.dto.command.RefundPaymentCommand;
@@ -28,7 +28,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class RefundPaymentInteractorTest {
+class RefundPaymentServiceTest {
 
     @Mock
     PaymentRepository paymentRepository;
@@ -37,11 +37,11 @@ class RefundPaymentInteractorTest {
     @Mock
     ApplicationEventPublisher applicationEventPublisher;
 
-    RefundPaymentInteractor interactor;
+    RefundPaymentService service;
 
     @BeforeEach
     void setUp() {
-        interactor = new RefundPaymentInteractor(paymentRepository, refundRepository, applicationEventPublisher);
+        service = new RefundPaymentService(paymentRepository, refundRepository, applicationEventPublisher);
     }
 
     @Test
@@ -51,7 +51,7 @@ class RefundPaymentInteractorTest {
 
         RefundPaymentCommand command = new RefundPaymentCommand(paymentId, UUID.randomUUID());
 
-        assertThatThrownBy(() -> interactor.refund(command))
+        assertThatThrownBy(() -> service.refund(command))
             .isInstanceOf(BusinessException.class)
             .extracting(e -> ((BusinessException) e).getErrorCode())
             .isEqualTo(PaymentErrorCode.PAYMENT_NOT_FOUND);
@@ -67,7 +67,7 @@ class RefundPaymentInteractorTest {
 
         RefundPaymentCommand command = new RefundPaymentCommand(payment.getId(), otherId);
 
-        assertThatThrownBy(() -> interactor.refund(command))
+        assertThatThrownBy(() -> service.refund(command))
             .isInstanceOf(BusinessException.class)
             .extracting(e -> ((BusinessException) e).getErrorCode())
             .isEqualTo(PaymentErrorCode.UNAUTHORIZED_REFUND);
@@ -84,7 +84,7 @@ class RefundPaymentInteractorTest {
 
         RefundPaymentCommand command = new RefundPaymentCommand(payment.getId(), userId);
 
-        assertThatThrownBy(() -> interactor.refund(command))
+        assertThatThrownBy(() -> service.refund(command))
             .isInstanceOf(BusinessException.class)
             .extracting(e -> ((BusinessException) e).getErrorCode())
             .isEqualTo(PaymentErrorCode.REFUND_NOT_ALLOWED);
@@ -100,7 +100,7 @@ class RefundPaymentInteractorTest {
         when(refundRepository.save(any(Refund.class))).thenAnswer(inv -> inv.getArgument(0));
 
         RefundPaymentCommand command = new RefundPaymentCommand(payment.getId(), payment.getUserId());
-        interactor.refund(command);
+        service.refund(command);
 
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REFUNDING);
 
