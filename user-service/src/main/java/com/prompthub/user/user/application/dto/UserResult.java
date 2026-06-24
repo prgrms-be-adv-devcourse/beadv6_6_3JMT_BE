@@ -20,7 +20,7 @@ public record UserResult(
                 user.getName(),
                 user.getEmail(),
                 user.getProfileImageUrl(),
-                user.getRole(),
+                user.getPrimaryRole(),
                 sellerStatus
         );
     }

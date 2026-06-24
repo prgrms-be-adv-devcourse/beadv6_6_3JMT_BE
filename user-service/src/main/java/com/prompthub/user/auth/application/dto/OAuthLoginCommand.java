@@ -5,7 +5,7 @@ import com.prompthub.user.auth.domain.model.OAuthProvider;
 public record OAuthLoginCommand(
         OAuthProvider provider,
         String oauthId,
-        String nickname,
+        String name,
         String profileImage,
         String email
 ) {}

@@ -1,0 +1,258 @@
+### ============================================================
+### 테스트 준비
+###
+### [BUYER 유저]
+###   auth.http → "POST /auth/oauth/kakao" 실행
+###   → {{userId}}, {{accessToken}}, {{refreshToken}} 자동 세팅
+###
+### [ADMIN 유저] 최초 1회 설정 필요
+###   1. 아래 "ADMIN 테스트 유저 생성" 요청 실행 → {{adminUserId}} 세팅
+###   2. DB에서 ADMIN 역할 부여:
+###      INSERT INTO user_role (user_id, role) VALUES ('<adminUserId>', 'ADMIN');
+### ============================================================
+
+### ADMIN 테스트 유저 생성 (최초 1회)
+
+POST {{baseUrl}}/api/v1/auth/oauth/kakao
+Content-Type: application/json
+
+{
+  "oauthId": "admin-test-001",
+  "name": "관리자",
+  "profileImage": null,
+  "email": "admin@example.com"
+}
+
+> {% client.global.set("adminUserId", response.body.data.user.id); %}
+
+###
+
+### ============================================================
+### 회원 프로필
+### ============================================================
+
+### GET /users/me — 내 프로필 조회
+
+GET {{baseUrl}}/api/v1/users/me
+X-User-Id: {{adminUserId}}
+X-User-Role: BUYER
+
+###
+
+### PATCH /users/me — 프로필 수정 (name만)
+
+PATCH {{baseUrl}}/api/v1/users/me
+Content-Type: application/json
+X-User-Id: {{userId}}
+X-User-Role: BUYER
+
+{
+  "name": "수정된이름"
+}
+
+###
+
+### PATCH /users/me — 프로필 수정 (email만)
+
+PATCH {{baseUrl}}/api/v1/users/me
+Content-Type: application/json
+X-User-Id: {{userId}}
+X-User-Role: BUYER
+
+{
+  "email": "updated@example.com"
+}
+
+###
+
+### DELETE /users/me — 회원 탈퇴 (미구현)
+
+DELETE {{baseUrl}}/api/v1/users/me
+X-User-Id: {{userId}}
+X-User-Role: BUYER
+
+###
+
+### ============================================================
+### 판매자 등록
+### ============================================================
+
+### POST /seller/register — 판매자 등록 신청
+
+POST {{baseUrl}}/api/v1/seller/register
+Content-Type: application/json
+X-User-Id: {{userId}}
+X-User-Role: BUYER
+
+{
+  "categories": ["marketing", "coding"],
+  "introduction": "마케팅 카피·블로그 글쓰기용 GPT 프롬프트를 주로 만듭니다.",
+  "portfolioUrl": "https://blog.example.com",
+  "agreedToTerms": true
+}
+
+###
+
+### GET /sellers/register/me — 내 판매자 신청 조회 (구현 금지)
+
+GET {{baseUrl}}/api/v1/sellers/register/me
+X-User-Id: {{userId}}
+X-User-Role: BUYER
+
+###
+
+### ============================================================
+### 찜 (Wishlist) — 미구현
+### ============================================================
+
+### POST /wishlists — 찜 등록
+
+POST {{baseUrl}}/api/v1/wishlists
+Content-Type: application/json
+X-User-Id: {{userId}}
+X-User-Role: BUYER
+
+{
+  "productId": "00000000-0000-0000-0000-000000000099"
+}
+
+###
+
+### DELETE /wishlists/{wishlistId} — 찜 삭제
+
+DELETE {{baseUrl}}/api/v1/wishlists/00000000-0000-0000-0000-000000000010
+X-User-Id: {{userId}}
+X-User-Role: BUYER
+
+###
+
+### GET /wishlists — 찜한 상품 목록
+
+GET {{baseUrl}}/api/v1/wishlists?page=0&size=20
+X-User-Id: {{userId}}
+X-User-Role: BUYER
+
+###
+
+### GET /wishlists/exists — 찜 여부 확인
+
+GET {{baseUrl}}/api/v1/wishlists/exists?productId=00000000-0000-0000-0000-000000000099
+X-User-Id: {{userId}}
+X-User-Role: BUYER
+
+###
+
+### ============================================================
+### 관리자 — 사용자 관리
+### X-User-Id에 {{adminUserId}} 사용
+### ============================================================
+
+### GET /admin/users — 전체 조회 (필터 없음)
+
+GET {{baseUrl}}/api/v1/admin/users
+X-User-Id: {{adminUserId}}
+X-User-Role: ADMIN
+
+###
+
+### GET /admin/users — status=active 필터
+
+GET {{baseUrl}}/api/v1/admin/users?status=active
+X-User-Id: {{adminUserId}}
+X-User-Role: ADMIN
+
+###
+
+### GET /admin/users — status=suspended 필터
+
+GET {{baseUrl}}/api/v1/admin/users?status=suspended
+X-User-Id: {{adminUserId}}
+X-User-Role: ADMIN
+
+###
+
+### GET /admin/users — role=buyer 필터
+
+GET {{baseUrl}}/api/v1/admin/users?role=buyer
+X-User-Id: {{adminUserId}}
+X-User-Role: ADMIN
+
+###
+
+### GET /admin/users — keyword 검색
+
+GET {{baseUrl}}/api/v1/admin/users?keyword=관리자
+X-User-Id: {{adminUserId}}
+X-User-Role: ADMIN
+
+###
+
+### GET /admin/users — 페이지네이션
+
+GET {{baseUrl}}/api/v1/admin/users?page=1&size=5
+X-User-Id: {{adminUserId}}
+X-User-Role: ADMIN
+
+###
+
+### GET /admin/users — 유효하지 않은 status (에러: 400 예상)
+
+GET {{baseUrl}}/api/v1/admin/users?status=INVALID
+X-User-Id: {{adminUserId}}
+X-User-Role: ADMIN
+
+###
+
+### GET /admin/stats/users — 회원 통계 조회
+
+GET {{baseUrl}}/api/v1/admin/stats/users
+X-User-Id: {{adminUserId}}
+X-User-Role: ADMIN
+
+###
+
+### PATCH /admin/users/{userId}/status — 사용자 상태 변경
+
+PATCH {{baseUrl}}/api/v1/admin/users/{{userId}}/status
+Content-Type: application/json
+X-User-Id: {{adminUserId}}
+X-User-Role: ADMIN
+
+{
+  "status": "suspended"
+}
+
+###
+
+### ============================================================
+### 관리자 — 판매자 심사 (미구현)
+### ============================================================
+
+### GET /admin/sellers/register — 판매자 신청 목록
+
+GET {{baseUrl}}/api/v1/admin/sellers/register?page=1&size=20&status=ALL
+X-User-Id: {{adminUserId}}
+X-User-Role: ADMIN
+
+###
+
+### PATCH /admin/sellers/register/{registerId}/approve — 승인
+
+PATCH {{baseUrl}}/api/v1/admin/sellers/register/a5e01f76-9764-4c53-8571-c843177614db/approve
+X-User-Id: {{adminUserId}}
+X-User-Role: ADMIN
+
+###
+
+### PATCH /admin/sellers/register/{registerId}/reject — 반려
+
+PATCH {{baseUrl}}/api/v1/admin/sellers/register/16588492-69f7-481a-85ff-7ce00cec1200/reject
+Content-Type: application/json
+X-User-Id: {{adminUserId}}
+X-User-Role: ADMIN
+
+{
+  "rejectReason": "포트폴리오가 확인되지 않습니다. 샘플을 보완 후 재신청해 주세요."
+}
+
+###

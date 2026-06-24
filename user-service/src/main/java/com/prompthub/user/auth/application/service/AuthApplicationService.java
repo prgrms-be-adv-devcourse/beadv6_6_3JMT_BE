@@ -1,5 +1,11 @@
 package com.prompthub.user.auth.application.service;
 
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.prompthub.user.auth.application.dto.OAuthLoginCommand;
 import com.prompthub.user.auth.application.dto.OAuthLoginResult;
 import com.prompthub.user.auth.application.dto.TokenRefreshCommand;
@@ -17,12 +23,8 @@ import com.prompthub.user.user.domain.exception.UserNotFoundException;
 import com.prompthub.user.user.domain.model.User;
 import com.prompthub.user.user.domain.model.UserRole;
 import com.prompthub.user.user.domain.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
-import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -53,7 +55,7 @@ public class AuthApplicationService implements AuthUseCase {
             }
 
             User newUser = User.create(
-                    command.nickname(),
+                    command.name(),
                     command.email(),
                     command.profileImage(),
                     UserRole.BUYER,
@@ -65,7 +67,7 @@ public class AuthApplicationService implements AuthUseCase {
             isNewUser = true;
         }
 
-        JwtTokenProvider.TokenResult accessTokenResult = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getRole());
+        JwtTokenProvider.TokenResult accessTokenResult = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getPrimaryRole());
         JwtTokenProvider.TokenResult refreshTokenResult = jwtTokenProvider.generateRefreshToken(user.getUserId());
 
         refreshTokenRepository.deleteByUserId(user.getUserId());
@@ -77,7 +79,7 @@ public class AuthApplicationService implements AuthUseCase {
                 user.getUserId(),
                 user.getName(),
                 user.getEmail(),
-                user.getRole(),
+                user.getPrimaryRole(),
                 accessTokenResult.token(),
                 refreshTokenResult.token(),
                 "Bearer",
@@ -96,7 +98,7 @@ public class AuthApplicationService implements AuthUseCase {
 
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
 
-        JwtTokenProvider.TokenResult result = jwtTokenProvider.generateAccessToken(userId, user.getRole());
+        JwtTokenProvider.TokenResult result = jwtTokenProvider.generateAccessToken(userId, user.getPrimaryRole());
         return new TokenRefreshResult(result.token(), result.expiresAt());
     }
 

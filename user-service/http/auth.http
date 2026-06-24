@@ -1,0 +1,104 @@
+### [UC-AUTH-01] POST /auth/signup — 이메일 회원가입 (미구현)
+
+POST {{baseUrl}}/api/v1/auth/signup
+Content-Type: application/json
+
+{
+  "name": "홍길동",
+  "email": "user@example.com",
+  "password": "password123",
+  "serviceAgree": true
+}
+
+###
+
+### [UC-AUTH-02] POST /auth/login — 이메일 로그인 (미구현)
+
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+
+> {% client.global.set("accessToken", response.body.data.accessToken); client.global.set("refreshToken", response.body.data.refreshToken); %}
+
+###
+
+### [UC-AUTH-02b] POST /auth/oauth/kakao — Kakao OAuth 소셜 로그인 (구현 완료)
+
+POST {{baseUrl}}/api/v1/auth/oauth/kakao
+Content-Type: application/json
+
+{
+  "oauthId": "123456789",
+  "name": "민서",
+  "profileImage": "https://k.kakaocdn.net/example.jpg",
+  "email": "kakao@example.com"
+}
+
+> {% client.global.set("accessToken", response.body.data.accessToken); client.global.set("refreshToken", response.body.data.refreshToken); client.global.set("userId", response.body.data.user.id); %}
+
+###
+
+### [UC-AUTH-02b] POST /auth/oauth/kakao — 신규 가입 케이스 (isNewUser: true)
+
+POST {{baseUrl}}/api/v1/auth/oauth/kakao
+Content-Type: application/json
+
+{
+  "oauthId": "1999888777",
+  "name": "신규카카오",
+  "profileImage": null,
+  "email": "new-kakao2@example.com"
+}
+
+###
+
+### [UC-AUTH-02b] POST /auth/oauth/{provider} — 지원하지 않는 provider (에러: 400 예상)
+
+POST {{baseUrl}}/api/v1/auth/oauth/naver
+Content-Type: application/json
+
+{
+  "kakaoId": "123456789",
+  "nickname": "네이버사용자",
+  "profileImage": null,
+  "email": "naver@example.com"
+}
+
+###
+
+### [UC-AUTH-02b] POST /auth/oauth/kakao — 필수 필드 누락 (에러: 400 예상)
+
+POST {{baseUrl}}/api/v1/auth/oauth/kakao
+Content-Type: application/json
+
+{
+  "nickname": "필드누락",
+  "email": "missing@example.com"
+}
+
+###
+
+### [UC-AUTH-03] POST /auth/token/refresh — 토큰 재발급
+
+POST {{baseUrl}}/api/v1/auth/token/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+> {% client.global.set("accessToken", response.body.data.accessToken); %}
+
+###
+
+### POST /auth/logout — 로그아웃
+
+POST {{baseUrl}}/api/v1/auth/logout
+X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
+
+###
