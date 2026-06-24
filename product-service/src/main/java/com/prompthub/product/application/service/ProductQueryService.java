@@ -1,6 +1,8 @@
-package com.prompthub.product.application.service.catalog;
+package com.prompthub.product.application.service;
 
-import com.prompthub.product.application.usecase.catalog.ProductQueryUseCase;
+import com.prompthub.product.application.client.SellerClient;
+import com.prompthub.product.application.client.SellerInfo;
+import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
@@ -15,7 +17,9 @@ import com.prompthub.product.presentation.dto.response.ProductVersionResponse;
 import com.prompthub.presentation.dto.PageResponse;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -24,12 +28,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class ProductCatalogService implements ProductQueryUseCase {
+public class ProductQueryService implements ProductQueryUseCase {
 
 	private static final String DEFAULT_CATEGORY = "all";
 	private static final int DEFAULT_LIMIT = 4;
 
 	private final ProductRepository productRepository;
+	private final SellerClient sellerClient;
 
 	public PageResponse<ProductListItemResponse> getProducts(
 		String q,
@@ -53,9 +58,14 @@ public class ProductCatalogService implements ProductQueryUseCase {
 		long total = productRepository.countPublicProducts(keyword, selectedCategory);
 		boolean hasNext = (long) (normalizedPage - 1) * normalizedSize + products.size() < total;
 
+		Map<UUID, String> sellerNames = products.stream()
+			.map(ProductListProjection::sellerId)
+			.distinct()
+			.collect(Collectors.toMap(id -> id, id -> sellerClient.getSellerInfo(id).sellerName()));
+
 		return PageResponse.success(
 			products.stream()
-				.map(this::toListItemResponse)
+				.map(p -> toListItemResponse(p, sellerNames.getOrDefault(p.sellerId(), "")))
 				.toList(),
 			normalizedPage,
 			normalizedSize,
@@ -67,6 +77,7 @@ public class ProductCatalogService implements ProductQueryUseCase {
 	public ProductDetailResponse getProduct(UUID productId) {
 		Product product = getOnSaleProduct(productId);
 		double rating = productRepository.getAverageRating(productId);
+		SellerInfo seller = sellerClient.getSellerInfo(product.getSellerId());
 
 		return new ProductDetailResponse(
 			product.getId(),
@@ -77,7 +88,7 @@ public class ProductCatalogService implements ProductQueryUseCase {
 			product.getAmount(),
 			rating,
 			product.getSalesCount(),
-			resolveSellerName(product),
+			seller.sellerName(),
 			product.getSellerId(),
 			null,
 			product.getDescription(),
@@ -94,9 +105,16 @@ public class ProductCatalogService implements ProductQueryUseCase {
 		Product product = getOnSaleProduct(productId);
 		int normalizedLimit = limit > 0 ? limit : DEFAULT_LIMIT;
 
-		return productRepository.findRelatedProducts(product.getId(), product.getCategoryId(), normalizedLimit)
-			.stream()
-			.map(this::toListItemResponse)
+		List<ProductListProjection> related = productRepository.findRelatedProducts(
+			product.getId(), product.getCategoryId(), normalizedLimit);
+
+		Map<UUID, String> sellerNames = related.stream()
+			.map(ProductListProjection::sellerId)
+			.distinct()
+			.collect(Collectors.toMap(id -> id, id -> sellerClient.getSellerInfo(id).sellerName()));
+
+		return related.stream()
+			.map(p -> toListItemResponse(p, sellerNames.getOrDefault(p.sellerId(), "")))
 			.toList();
 	}
 
@@ -120,7 +138,7 @@ public class ProductCatalogService implements ProductQueryUseCase {
 		return product;
 	}
 
-	private ProductListItemResponse toListItemResponse(ProductListProjection product) {
+	private ProductListItemResponse toListItemResponse(ProductListProjection product, String sellerName) {
 		return new ProductListItemResponse(
 			product.id(),
 			product.title(),
@@ -131,7 +149,7 @@ public class ProductCatalogService implements ProductQueryUseCase {
 			null,
 			product.rating(),
 			product.salesCount(),
-			product.sellerName(),
+			sellerName,
 			product.sellerId(),
 			null,
 			product.description(),
@@ -187,13 +205,6 @@ public class ProductCatalogService implements ProductQueryUseCase {
 		}
 
 		return categoryCode;
-	}
-
-	private String resolveSellerName(Product product) {
-		if (product.getSeller() == null || product.getSeller().getName() == null) {
-			return "";
-		}
-		return product.getSeller().getName();
 	}
 
 	private int normalizePositive(int value) {

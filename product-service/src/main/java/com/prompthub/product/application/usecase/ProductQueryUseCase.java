@@ -1,4 +1,4 @@
-package com.prompthub.product.application.usecase.catalog;
+package com.prompthub.product.application.usecase;
 
 import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.ProductListItemResponse;

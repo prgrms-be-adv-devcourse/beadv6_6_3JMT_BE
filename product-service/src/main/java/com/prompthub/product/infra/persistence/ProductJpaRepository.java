@@ -27,7 +27,6 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			coalesce(avg(r.rating), 0.0),
 			p.salesCount,
 			p.sellerId,
-			coalesce(u.name, ''),
 			p.description,
 			p.thumbnailUrl,
 			p.createdAt,
@@ -35,7 +34,6 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 		)
 		from Product p
 		left join p.category c
-		left join User u on u.id = p.sellerId
 		left join Review r on r.product = p and r.status = :activeReviewStatus and r.deletedAt is null
 		where p.status = :onSaleStatus
 			and p.deletedAt is null
@@ -44,7 +42,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 				or lower(p.name) like concat('%', :keyword, '%')
 				or lower(p.description) like concat('%', :keyword, '%'))
 		group by p.id, p.name, c.name, c.code, c.icon, p.productType, p.amount, p.salesCount, p.sellerId,
-			u.name, p.description, p.thumbnailUrl, p.createdAt, p.updatedAt
+			p.description, p.thumbnailUrl, p.createdAt, p.updatedAt
 		order by
 			case when :sort = 'rating' then coalesce(avg(r.rating), 0.0) end desc,
 			case when :sort = 'price-asc' then p.amount end asc,
@@ -119,7 +117,6 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			coalesce(avg(r.rating), 0.0),
 			p.salesCount,
 			p.sellerId,
-			coalesce(u.name, ''),
 			p.description,
 			p.thumbnailUrl,
 			p.createdAt,
@@ -127,14 +124,13 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 		)
 		from Product p
 		left join p.category c
-		left join User u on u.id = p.sellerId
 		left join Review r on r.product = p and r.status = :activeReviewStatus and r.deletedAt is null
 		where p.status = :onSaleStatus
 			and p.deletedAt is null
 			and p.id <> :productId
 			and (:categoryId is null or p.categoryId = :categoryId)
 		group by p.id, p.name, c.name, c.code, c.icon, p.productType, p.amount, p.salesCount, p.sellerId,
-			u.name, p.description, p.thumbnailUrl, p.createdAt, p.updatedAt
+			p.description, p.thumbnailUrl, p.createdAt, p.updatedAt
 		order by p.salesCount desc, p.createdAt desc
 		""")
 	List<ProductListProjection> findRelatedProducts(
@@ -178,4 +174,13 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 	default List<ProductReviewProjection> findActiveReviews(UUID productId) {
 		return findActiveReviews(productId, ReviewStatus.ACTIVE);
 	}
+
+	@Query("""
+		select p
+		from Product p
+		where p.sellerId = :sellerId
+			and p.deletedAt is null
+		order by p.createdAt desc
+		""")
+	List<Product> findBySellerId(@Param("sellerId") UUID sellerId);
 }

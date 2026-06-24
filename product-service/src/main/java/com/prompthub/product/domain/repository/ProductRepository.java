@@ -1,5 +1,6 @@
 package com.prompthub.product.domain.repository;
 
+import com.prompthub.product.domain.model.entity.Category;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
@@ -12,6 +13,10 @@ public interface ProductRepository {
 
 	Optional<Product> findById(UUID productId);
 
+	Product save(Product product);
+
+	Optional<Category> findCategoryByCode(String code);
+
 	List<ProductListProjection> findPublicProducts(String keyword, String category, String sort, Pageable pageable);
 
 	long countPublicProducts(String keyword, String category);
@@ -21,4 +26,6 @@ public interface ProductRepository {
 	List<ProductListProjection> findRelatedProducts(UUID productId, UUID categoryId, int limit);
 
 	List<ProductReviewProjection> findActiveReviews(UUID productId);
+
+	List<Product> findBySellerId(UUID sellerId);
 }
