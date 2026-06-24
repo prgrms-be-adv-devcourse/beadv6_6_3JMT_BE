@@ -34,6 +34,15 @@ spring:
 server:
   port: 8084
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+    display-request-duration: true
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+
 payment:
   toss:
     secret-key: ${TOSS_SECRET_KEY:test-dummy-key}
