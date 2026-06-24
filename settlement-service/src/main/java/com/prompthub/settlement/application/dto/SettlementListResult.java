@@ -1,5 +1,6 @@
 package com.prompthub.settlement.application.dto;
 
+import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -20,6 +21,11 @@ public record SettlementListResult(
         int size
 ) {
 
+    public static SettlementListResult from(List<Settlement> settlements, long totalElements, int page, int size) {
+        List<Item> items = settlements.stream().map(Item::from).toList();
+        return new SettlementListResult(items, totalElements, page, size);
+    }
+
     public record Item(
             UUID settlementId,
             UUID sellerId,
@@ -31,5 +37,18 @@ public record SettlementListResult(
             BigDecimal settlementTotalAmount,
             SettlementDisplayStatus displayStatus
     ) {
+
+        public static Item from(Settlement settlement) {
+            return new Item(
+                    settlement.getId(),
+                    settlement.getSellerId(),
+                    settlement.getPeriodStart(),
+                    settlement.getPeriodEnd(),
+                    settlement.getProductCount(),
+                    settlement.getTotalAmount(),
+                    settlement.getFeeTotalAmount(),
+                    settlement.getSettlementTotalAmount(),
+                    settlement.displayStatus());
+        }
     }
 }

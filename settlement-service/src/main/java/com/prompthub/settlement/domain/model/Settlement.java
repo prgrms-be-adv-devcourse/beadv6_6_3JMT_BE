@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import lombok.AccessLevel;
@@ -94,21 +95,27 @@ public class Settlement extends BaseEntity {
 
     public static Settlement create(UUID settlementBatchId, UUID sellerId, YearMonth period,
                                     List<SettlementDetail> details) {
-        Settlement settlement = new Settlement();
-        settlement.settlementBatchId = settlementBatchId;
-        settlement.sellerId = sellerId;
-        settlement.periodStart = period.atDay(1);
-        settlement.periodEnd = period.atEndOfMonth();
-        settlement.details.addAll(details);
-        settlement.productCount = details.size();
-        settlement.totalAmount = sum(details, SettlementDetail::getLineAmount);
-        settlement.feeTotalAmount = sum(details, SettlementDetail::getFeeAmount);
-        settlement.settlementTotalAmount = sum(details, SettlementDetail::getLineSettlementAmount);
-        settlement.refundAmount = BigDecimal.ZERO;
-        settlement.settlementStatus = SettlementStatus.PENDING_APPROVAL;
-        settlement.payoutStatus = PayoutStatus.NOT_READY;
-        settlement.calculatedAt = LocalDateTime.now();
-        return settlement;
+        return new Settlement(settlementBatchId, sellerId, period, details);
+    }
+
+    private Settlement(UUID settlementBatchId, UUID sellerId, YearMonth period,
+                       List<SettlementDetail> details) {
+        Objects.requireNonNull(sellerId, "sellerId는 필수입니다.");
+        Objects.requireNonNull(period, "정산 기간은 필수입니다.");
+        Objects.requireNonNull(details, "정산 상세는 필수입니다.");
+        this.settlementBatchId = settlementBatchId;
+        this.sellerId = sellerId;
+        this.periodStart = period.atDay(1);
+        this.periodEnd = period.atEndOfMonth();
+        this.details.addAll(details);
+        this.productCount = details.size();
+        this.totalAmount = sum(details, SettlementDetail::getLineAmount);
+        this.feeTotalAmount = sum(details, SettlementDetail::getFeeAmount);
+        this.settlementTotalAmount = sum(details, SettlementDetail::getLineSettlementAmount);
+        this.refundAmount = BigDecimal.ZERO;
+        this.settlementStatus = SettlementStatus.PENDING_APPROVAL;
+        this.payoutStatus = PayoutStatus.NOT_READY;
+        this.calculatedAt = LocalDateTime.now();
     }
 
     private static BigDecimal sum(List<SettlementDetail> details, Function<SettlementDetail, BigDecimal> field) {
