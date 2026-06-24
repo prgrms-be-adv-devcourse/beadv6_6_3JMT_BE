@@ -32,4 +32,16 @@ class SettlementDisplayStatusTest {
         assertThat(SettlementDisplayStatus.from(SettlementStatus.APPROVED, PayoutStatus.PAID))
                 .isEqualTo(SettlementDisplayStatus.PAID);
     }
+
+    @Test
+    @DisplayName("toCard는 7종 표시 상태를 요약 4카드로 접고 취소는 카드가 없다")
+    void toCard_foldsIntoFourCardsAndExcludesCancelled() {
+        assertThat(SettlementDisplayStatus.WAITING.toCard()).isEqualTo(SettlementDisplayStatus.WAITING);
+        assertThat(SettlementDisplayStatus.APPROVAL_ON_HOLD.toCard()).isEqualTo(SettlementDisplayStatus.WAITING);
+        assertThat(SettlementDisplayStatus.APPROVED.toCard()).isEqualTo(SettlementDisplayStatus.APPROVED);
+        assertThat(SettlementDisplayStatus.PAYOUT_REQUESTED.toCard()).isEqualTo(SettlementDisplayStatus.APPROVED);
+        assertThat(SettlementDisplayStatus.PAYOUT_ON_HOLD.toCard()).isEqualTo(SettlementDisplayStatus.PAYOUT_ON_HOLD);
+        assertThat(SettlementDisplayStatus.PAID.toCard()).isEqualTo(SettlementDisplayStatus.PAID);
+        assertThat(SettlementDisplayStatus.CANCELLED.toCard()).isNull();
+    }
 }

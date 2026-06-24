@@ -43,8 +43,8 @@ public class SettlementApplicationService implements SettlementUseCase {
 		}
 
 		for (SettlementStatusAggregate aggregate : settlementSummaryQueryRepository.aggregateByStatus()) {
-			SettlementDisplayStatus card = toCard(
-				SettlementDisplayStatus.from(aggregate.settlementStatus(), aggregate.payoutStatus()));
+			SettlementDisplayStatus card =
+				SettlementDisplayStatus.from(aggregate.settlementStatus(), aggregate.payoutStatus()).toCard();
 			if (card == null) {
 				continue;
 			}
@@ -63,15 +63,5 @@ public class SettlementApplicationService implements SettlementUseCase {
 		SettlementListQueryRepository.SettlementPage page =
 			settlementListQueryRepository.findPage(query.status(), query.page(), query.size());
 		return SettlementListResult.from(page.content(), page.totalElements(), query.page(), query.size());
-	}
-
-	private static SettlementDisplayStatus toCard(SettlementDisplayStatus displayStatus) {
-		return switch (displayStatus) {
-			case WAITING, APPROVAL_ON_HOLD -> SettlementDisplayStatus.WAITING;
-			case APPROVED, PAYOUT_REQUESTED -> SettlementDisplayStatus.APPROVED;
-			case PAYOUT_ON_HOLD -> SettlementDisplayStatus.PAYOUT_ON_HOLD;
-			case PAID -> SettlementDisplayStatus.PAID;
-			case CANCELLED -> null;
-		};
 	}
 }
