@@ -1,5 +1,6 @@
 package com.prompthub.product.infra.persistence;
 
+import com.prompthub.product.domain.model.entity.Category;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
@@ -16,10 +17,21 @@ import org.springframework.stereotype.Repository;
 public class ProductRepositoryAdapter implements ProductRepository {
 
 	private final ProductJpaRepository productJpaRepository;
+	private final CategoryJpaRepository categoryJpaRepository;
 
 	@Override
 	public Optional<Product> findById(UUID productId) {
 		return productJpaRepository.findById(productId);
+	}
+
+	@Override
+	public Product save(Product product) {
+		return productJpaRepository.save(product);
+	}
+
+	@Override
+	public Optional<Category> findCategoryByCode(String code) {
+		return categoryJpaRepository.findByCode(code);
 	}
 
 	@Override
@@ -45,5 +57,10 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	@Override
 	public List<ProductReviewProjection> findActiveReviews(UUID productId) {
 		return productJpaRepository.findActiveReviews(productId);
+	}
+
+	@Override
+	public List<Product> findBySellerId(UUID sellerId) {
+		return productJpaRepository.findBySellerId(sellerId);
 	}
 }
