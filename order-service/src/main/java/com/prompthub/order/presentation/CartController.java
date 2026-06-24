@@ -1,6 +1,7 @@
 package com.prompthub.order.presentation;
 
 import com.prompthub.order.application.usecase.CartUseCase;
+import com.prompthub.order.global.web.AuthHeaders;
 import com.prompthub.order.presentation.dto.request.AddCartProductRequest;
 import com.prompthub.order.presentation.dto.response.AddCartProductResponse;
 import com.prompthub.order.presentation.dto.response.CartResponse;
@@ -35,8 +36,8 @@ public class CartController {
 		@ApiResponse(responseCode = "404", description = "O005 장바구니 없음")
 	})
 	public ApiResult<CartResponse> getCart(
-		@Parameter(in = ParameterIn.HEADER, name = "X-User-Id", description = "Gateway가 주입하는 구매자 ID", required = true)
-		@RequestHeader("X-User-Id") UUID buyerId
+		@Parameter(in = ParameterIn.HEADER, name = AuthHeaders.USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@RequestHeader(AuthHeaders.USER_ID) UUID buyerId
 	) {
 		return ApiResult.success(cartUseCase.getCart(buyerId));
 	}
@@ -50,8 +51,8 @@ public class CartController {
 		@ApiResponse(responseCode = "409", description = "C001 이미 장바구니에 담긴 상품")
 	})
 	public ApiResult<AddCartProductResponse> addCartProduct(
-		@Parameter(in = ParameterIn.HEADER, name = "X-User-Id", description = "Gateway가 주입하는 구매자 ID", required = true)
-		@RequestHeader("X-User-Id") UUID buyerId,
+		@Parameter(in = ParameterIn.HEADER, name = AuthHeaders.USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@RequestHeader(AuthHeaders.USER_ID) UUID buyerId,
 		@Valid @RequestBody AddCartProductRequest request
 	) {
 		return ApiResult.success(cartUseCase.addCartProduct(buyerId, request));
@@ -67,8 +68,8 @@ public class CartController {
 		@ApiResponse(responseCode = "404", description = "O006 장바구니 상품 없음")
 	})
 	public ApiResult<Void> deleteCartProduct(
-		@Parameter(in = ParameterIn.HEADER, name = "X-User-Id", description = "Gateway가 주입하는 구매자 ID", required = true)
-		@RequestHeader("X-User-Id") UUID buyerId,
+		@Parameter(in = ParameterIn.HEADER, name = AuthHeaders.USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@RequestHeader(AuthHeaders.USER_ID) UUID buyerId,
 		@Parameter(description = "장바구니 상품 ID", example = "00000000-0000-0000-0000-000000000701")
 		@PathVariable UUID cartProductId
 	) {

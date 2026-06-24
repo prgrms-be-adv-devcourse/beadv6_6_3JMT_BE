@@ -2,7 +2,10 @@ spring:
   application:
     name: order-service
   config:
-    import: optional:file:order-service/.env[.properties]
+    import: optional:file:.env[.properties]
+  sql:
+    init:
+      mode: always
   profiles:
     default: local
 
@@ -19,12 +22,31 @@ spring:
         format_sql: true
     open-in-view: false
 
-#  cloud:
-#    openfeign:
-#      client:
-#        config:
-#          product-service:
-#            url: ${PRODUCT_SERVICE_URL:http://localhost:8081}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+    consumer:
+      group-id: order-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+        spring.json.trusted.packages: com.prompthub.order.*
+    listener:
+      ack-mode: manual
+
+  cloud:
+    openfeign:
+      client:
+        config:
+          product-service:
+            connect-timeout: ${PRODUCT_SERVICE_CONNECT_TIMEOUT_MS:2000}
+            read-timeout: ${PRODUCT_SERVICE_READ_TIMEOUT_MS:3000}
 
 server:
   port: 8080
@@ -33,6 +55,13 @@ server:
 #  clients:
 #    product-service:
 #      url: ${PRODUCT_SERVICE_URL:http://localhost:8081}
+
+prompthub:
+  outbox-relay:
+    enabled: true
+    fixed-delay-ms: 5000
+    batch-size: 100
+    max-retry-count: 3
 
 logging:
   level:
@@ -71,6 +100,10 @@ spring:
     hibernate:
       ddl-auto: create-drop
     open-in-view: false
+
+prompthub:
+  outbox-relay:
+    enabled: false
 
 logging:
   level:
