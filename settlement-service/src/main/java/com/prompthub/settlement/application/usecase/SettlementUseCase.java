@@ -1,12 +1,12 @@
 package com.prompthub.settlement.application.usecase;
 
 import com.prompthub.settlement.application.dto.SettlementListQuery;
-import com.prompthub.settlement.application.dto.SettlementListResult;
-import com.prompthub.settlement.application.dto.SettlementSummaryResult;
+import com.prompthub.settlement.presentation.dto.response.SettlementListResponse;
+import com.prompthub.settlement.presentation.dto.response.SettlementSummaryResponse;
 
 public interface SettlementUseCase {
 
-    SettlementSummaryResult getSummary();
+    SettlementSummaryResponse getSummary();
 
-    SettlementListResult getList(SettlementListQuery query);
+    SettlementListResponse getList(SettlementListQuery query);
 }

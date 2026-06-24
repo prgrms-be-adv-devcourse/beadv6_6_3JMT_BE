@@ -3,16 +3,12 @@ package com.prompthub.settlement.presentation.controller;
 import com.prompthub.exception.response.ErrorResponse;
 import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.settlement.application.dto.SettlementListQuery;
-import com.prompthub.settlement.application.dto.SettlementListResult;
-import com.prompthub.settlement.application.dto.SettlementSummaryResult;
 import com.prompthub.settlement.application.usecase.SettlementUseCase;
 import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
-import com.prompthub.settlement.global.web.AuthHeaders;
 import com.prompthub.settlement.presentation.dto.response.SettlementListResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementSummaryResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -34,9 +30,7 @@ public class SettlementController {
 
     @GetMapping("/summary")
     @Operation(summary = "정산 요약 카드 조회",
-            description = "정산 관리 화면 상단 요약 카드(상태별 합계·건수)를 조회합니다. ADMIN 권한이 필요합니다.",
-            parameters = @Parameter(name = AuthHeaders.USER_ROLE, in = ParameterIn.HEADER, required = true,
-                    description = "게이트웨이가 주입하는 사용자 역할 (ADMIN 필요)"))
+            description = "정산 관리 화면 상단 요약 카드(상태별 합계·건수)를 조회합니다. ADMIN 권한이 필요합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 성공",
                     content = @Content(schema = @Schema(implementation = SettlementSummaryResponse.class))),
@@ -46,15 +40,12 @@ public class SettlementController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ApiResult<SettlementSummaryResponse> getSummary() {
-        SettlementSummaryResult result = settlementUseCase.getSummary();
-        return ApiResult.success(SettlementSummaryResponse.from(result));
+        return ApiResult.success(settlementUseCase.getSummary());
     }
 
     @GetMapping
     @Operation(summary = "정산 목록 조회",
-            description = "정산 건을 표시 상태로 필터링하고 페이징해 조회합니다. ADMIN 권한이 필요합니다.",
-            parameters = @Parameter(name = AuthHeaders.USER_ROLE, in = ParameterIn.HEADER, required = true,
-                    description = "게이트웨이가 주입하는 사용자 역할 (ADMIN 필요)"))
+            description = "정산 건을 표시 상태로 필터링하고 페이징해 조회합니다. ADMIN 권한이 필요합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 성공",
                     content = @Content(schema = @Schema(implementation = SettlementListResponse.class))),
@@ -71,7 +62,6 @@ public class SettlementController {
             @Parameter(description = "0-base 페이지 번호") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "페이지 크기") @RequestParam(defaultValue = "20") int size
     ) {
-        SettlementListResult result = settlementUseCase.getList(new SettlementListQuery(status, page, size));
-        return ApiResult.success(SettlementListResponse.from(result));
+        return ApiResult.success(settlementUseCase.getList(new SettlementListQuery(status, page, size)));
     }
 }

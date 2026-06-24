@@ -6,8 +6,6 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.when;
 
 import com.prompthub.settlement.application.dto.SettlementListQuery;
-import com.prompthub.settlement.application.dto.SettlementListResult;
-import com.prompthub.settlement.application.dto.SettlementSummaryResult;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementDetail;
 import com.prompthub.settlement.domain.model.enums.PayoutStatus;
@@ -17,6 +15,8 @@ import com.prompthub.settlement.domain.repository.SettlementListQueryRepository;
 import com.prompthub.settlement.domain.repository.SettlementListQueryRepository.SettlementPage;
 import com.prompthub.settlement.domain.repository.SettlementStatusAggregate;
 import com.prompthub.settlement.domain.repository.SettlementSummaryQueryRepository;
+import com.prompthub.settlement.presentation.dto.response.SettlementListResponse;
+import com.prompthub.settlement.presentation.dto.response.SettlementSummaryResponse;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -63,15 +63,15 @@ class SettlementApplicationServiceTest {
                 new SettlementStatusAggregate(SettlementStatus.APPROVED, PayoutStatus.PAID,
                         new BigDecimal("1224000"), 4L)));
 
-        SettlementSummaryResult result = settlementApplicationService.getSummary();
+        SettlementSummaryResponse response = settlementApplicationService.getSummary();
 
-        assertThat(result.cards())
+        assertThat(response.cards())
                 .extracting(c -> c.status(), c -> c.totalAmount().stripTrailingZeros(), c -> c.count())
                 .containsExactly(
-                        tuple(SettlementDisplayStatus.WAITING, new BigDecimal("1135500").stripTrailingZeros(), 4L),
-                        tuple(SettlementDisplayStatus.APPROVED, new BigDecimal("1448500").stripTrailingZeros(), 4L),
-                        tuple(SettlementDisplayStatus.PAYOUT_ON_HOLD, new BigDecimal("757000").stripTrailingZeros(), 2L),
-                        tuple(SettlementDisplayStatus.PAID, new BigDecimal("1224000").stripTrailingZeros(), 4L));
+                        tuple("WAITING", new BigDecimal("1135500").stripTrailingZeros(), 4L),
+                        tuple("APPROVED", new BigDecimal("1448500").stripTrailingZeros(), 4L),
+                        tuple("PAYOUT_ON_HOLD", new BigDecimal("757000").stripTrailingZeros(), 2L),
+                        tuple("PAID", new BigDecimal("1224000").stripTrailingZeros(), 4L));
     }
 
     @Test
@@ -83,10 +83,10 @@ class SettlementApplicationServiceTest {
                 new SettlementStatusAggregate(SettlementStatus.APPROVED, PayoutStatus.PAYOUT_REQUESTED,
                         new BigDecimal("250000"), 1L)));
 
-        SettlementSummaryResult result = settlementApplicationService.getSummary();
+        SettlementSummaryResponse response = settlementApplicationService.getSummary();
 
-        SettlementSummaryResult.Card approved = result.cards().stream()
-                .filter(card -> card.status() == SettlementDisplayStatus.APPROVED)
+        SettlementSummaryResponse.Card approved = response.cards().stream()
+                .filter(card -> card.status().equals("APPROVED"))
                 .findFirst()
                 .orElseThrow();
         assertThat(approved.totalAmount()).isEqualByComparingTo("1250000");
@@ -100,13 +100,12 @@ class SettlementApplicationServiceTest {
                 new SettlementStatusAggregate(SettlementStatus.CANCELLED, PayoutStatus.NOT_READY,
                         new BigDecimal("178000"), 2L)));
 
-        SettlementSummaryResult result = settlementApplicationService.getSummary();
+        SettlementSummaryResponse response = settlementApplicationService.getSummary();
 
-        assertThat(result.cards()).extracting(c -> c.status())
-                .containsExactly(SettlementDisplayStatus.WAITING, SettlementDisplayStatus.APPROVED,
-                        SettlementDisplayStatus.PAYOUT_ON_HOLD, SettlementDisplayStatus.PAID);
-        assertThat(result.cards()).allMatch(c -> c.count() == 0L);
-        assertThat(result.cards()).allMatch(c -> c.totalAmount().signum() == 0);
+        assertThat(response.cards()).extracting(c -> c.status())
+                .containsExactly("WAITING", "APPROVED", "PAYOUT_ON_HOLD", "PAID");
+        assertThat(response.cards()).allMatch(c -> c.count() == 0L);
+        assertThat(response.cards()).allMatch(c -> c.totalAmount().signum() == 0);
     }
 
     @Test
@@ -114,10 +113,10 @@ class SettlementApplicationServiceTest {
     void getSummary_emptyAggregates_returnsZeroCards() {
         given(settlementSummaryQueryRepository.aggregateByStatus()).willReturn(List.of());
 
-        SettlementSummaryResult result = settlementApplicationService.getSummary();
+        SettlementSummaryResponse response = settlementApplicationService.getSummary();
 
-        assertThat(result.cards()).hasSize(4);
-        assertThat(result.cards()).allMatch(c -> c.count() == 0L && c.totalAmount().signum() == 0);
+        assertThat(response.cards()).hasSize(4);
+        assertThat(response.cards()).allMatch(c -> c.count() == 0L && c.totalAmount().signum() == 0);
     }
 
     @Test
@@ -128,21 +127,22 @@ class SettlementApplicationServiceTest {
         when(settlementListQueryRepository.findPage(SettlementDisplayStatus.WAITING, 0, 20))
                 .thenReturn(new SettlementPage(List.of(settlement(sellerA), settlement(sellerB)), 5L));
 
-        SettlementListResult result = settlementApplicationService.getList(
+        SettlementListResponse response = settlementApplicationService.getList(
                 new SettlementListQuery(SettlementDisplayStatus.WAITING, 0, 20));
 
-        assertThat(result.totalElements()).isEqualTo(5L);
-        assertThat(result.page()).isEqualTo(0);
-        assertThat(result.size()).isEqualTo(20);
-        assertThat(result.items()).hasSize(2);
+        assertThat(response.totalElements()).isEqualTo(5L);
+        assertThat(response.page()).isEqualTo(0);
+        assertThat(response.size()).isEqualTo(20);
+        assertThat(response.items()).hasSize(2);
 
-        SettlementListResult.Item first = result.items().get(0);
+        SettlementListResponse.Item first = response.items().get(0);
         assertThat(first.sellerId()).isEqualTo(sellerA);
+        assertThat(first.sellerName()).isNull();
         assertThat(first.productCount()).isEqualTo(1);
         assertThat(first.totalAmount()).isEqualByComparingTo("100.00");
         assertThat(first.feeTotalAmount()).isEqualByComparingTo("15.00");
         assertThat(first.settlementTotalAmount()).isEqualByComparingTo("85.00");
-        assertThat(first.displayStatus()).isEqualTo(SettlementDisplayStatus.WAITING);
-        assertThat(result.items().get(1).sellerId()).isEqualTo(sellerB);
+        assertThat(first.displayStatus()).isEqualTo("WAITING");
+        assertThat(response.items().get(1).sellerId()).isEqualTo(sellerB);
     }
 }
