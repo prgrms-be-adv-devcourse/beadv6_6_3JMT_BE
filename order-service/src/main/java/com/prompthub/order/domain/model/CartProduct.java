@@ -1,5 +1,6 @@
 package com.prompthub.order.domain.model;
 
+import com.prompthub.order.global.config.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -12,7 +13,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "cart_product")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class CartProduct {
+public class CartProduct extends BaseEntity {
 
 	@Id
 	@Column(name = "id", columnDefinition = "char(36)")
