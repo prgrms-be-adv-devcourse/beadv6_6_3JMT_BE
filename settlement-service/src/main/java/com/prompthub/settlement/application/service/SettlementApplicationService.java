@@ -1,9 +1,12 @@
 package com.prompthub.settlement.application.service;
 
+import com.prompthub.settlement.application.dto.SettlementListQuery;
+import com.prompthub.settlement.application.dto.SettlementListResult;
 import com.prompthub.settlement.application.dto.SettlementSummaryResult;
 import com.prompthub.settlement.application.dto.SettlementSummaryResult.Card;
-import com.prompthub.settlement.application.usecase.GetSettlementSummaryUseCase;
+import com.prompthub.settlement.application.usecase.SettlementUseCase;
 import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
+import com.prompthub.settlement.domain.repository.SettlementListQueryRepository;
 import com.prompthub.settlement.domain.repository.SettlementStatusAggregate;
 import com.prompthub.settlement.domain.repository.SettlementSummaryQueryRepository;
 import java.math.BigDecimal;
@@ -15,15 +18,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 정산 요약 카드 조회 구현체.
+ * 정산(Settlement) 애그리거트 조회 구현체.
  *
- * <p>상태쌍 집계를 표시 상태(SettlementDisplayStatus.from)로 파생한 뒤, 화면 고정 4카드 버킷으로
- * 접어 합산한다. 카드는 항상 WAITING/APPROVED/PAYOUT_ON_HOLD/PAID 4종을 순서대로 반환한다.
+ * <p>요약 카드는 상태쌍 집계를 표시 상태({@link SettlementDisplayStatus#from})로 파생한 뒤
+ * 화면 고정 4카드(WAITING/APPROVED/PAYOUT_ON_HOLD/PAID)로 접어 합산한다.
+ * 목록은 표시 상태 필터·페이징을 {@link SettlementListQueryRepository}에 위임하고 결과를 변환한다.
  */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class SettlementSummaryApplicationService implements GetSettlementSummaryUseCase {
+public class SettlementApplicationService implements SettlementUseCase {
 
     private static final List<SettlementDisplayStatus> CARD_ORDER = List.of(
             SettlementDisplayStatus.WAITING,
@@ -32,6 +36,7 @@ public class SettlementSummaryApplicationService implements GetSettlementSummary
             SettlementDisplayStatus.PAID);
 
     private final SettlementSummaryQueryRepository settlementSummaryQueryRepository;
+    private final SettlementListQueryRepository settlementListQueryRepository;
 
     @Override
     public SettlementSummaryResult getSummary() {
@@ -56,6 +61,13 @@ public class SettlementSummaryApplicationService implements GetSettlementSummary
                 .map(card -> new Card(card, amountByCard.get(card), countByCard.get(card)))
                 .toList();
         return new SettlementSummaryResult(cards);
+    }
+
+    @Override
+    public SettlementListResult getList(SettlementListQuery query) {
+        SettlementListQueryRepository.SettlementPage page =
+                settlementListQueryRepository.findPage(query.status(), query.page(), query.size());
+        return SettlementListResult.from(page.content(), page.totalElements(), query.page(), query.size());
     }
 
     private static SettlementDisplayStatus toCard(SettlementDisplayStatus displayStatus) {

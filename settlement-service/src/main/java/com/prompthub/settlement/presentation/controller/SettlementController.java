@@ -5,8 +5,7 @@ import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.settlement.application.dto.SettlementListQuery;
 import com.prompthub.settlement.application.dto.SettlementListResult;
 import com.prompthub.settlement.application.dto.SettlementSummaryResult;
-import com.prompthub.settlement.application.usecase.GetSettlementListUseCase;
-import com.prompthub.settlement.application.usecase.GetSettlementSummaryUseCase;
+import com.prompthub.settlement.application.usecase.SettlementUseCase;
 import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.settlement.global.web.AuthHeaders;
 import com.prompthub.settlement.presentation.dto.response.SettlementListResponse;
@@ -28,11 +27,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("${api.init}/admin/settlements")
 @RequiredArgsConstructor
-@Tag(name = "Settlement Query", description = "정산 조회 API(관리자)")
-public class SettlementQueryController {
+@Tag(name = "Settlement", description = "정산 조회 API(관리자)")
+public class SettlementController {
 
-    private final GetSettlementSummaryUseCase getSettlementSummaryUseCase;
-    private final GetSettlementListUseCase getSettlementListUseCase;
+    private final SettlementUseCase settlementUseCase;
 
     @GetMapping("/summary")
     @Operation(summary = "정산 요약 카드 조회",
@@ -48,7 +46,7 @@ public class SettlementQueryController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ApiResult<SettlementSummaryResponse> getSummary() {
-        SettlementSummaryResult result = getSettlementSummaryUseCase.getSummary();
+        SettlementSummaryResult result = settlementUseCase.getSummary();
         return ApiResult.success(SettlementSummaryResponse.from(result));
     }
 
@@ -73,7 +71,7 @@ public class SettlementQueryController {
             @Parameter(description = "0-base 페이지 번호") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "페이지 크기") @RequestParam(defaultValue = "20") int size
     ) {
-        SettlementListResult result = getSettlementListUseCase.getList(new SettlementListQuery(status, page, size));
+        SettlementListResult result = settlementUseCase.getList(new SettlementListQuery(status, page, size));
         return ApiResult.success(SettlementListResponse.from(result));
     }
 }

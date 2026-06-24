@@ -115,28 +115,32 @@ domain/repository/SettlementRepository  ◀ implements ◀  infrastructure/persi
                                                         infrastructure/persistence/SettlementJpaRepository
 ```
 
-### 4-1. 유스케이스 분리 기준 — 구현체 기준으로 묶고 쪼갠다
+### 4-1. 유스케이스 분리 기준 — 애그리거트(엔티티) 단위로 묶는다
 
-인바운드 포트(`~UseCase`)는 **행위마다 1-메서드 인터페이스로 무조건 잘게 쪼개지 않는다.**
-분리/통합의 기준은 **구현체(`~ApplicationService`)**다.
+인바운드 포트(`~UseCase`)는 **행위(화면)마다 1-메서드 인터페이스로 잘게 쪼개지 않는다.**
+묶음의 기준은 **도메인 애그리거트(엔티티)**다. 한 애그리거트의 조회/명령 연산을 그 엔티티 이름의
+한 포트(`Settlement~UseCase`)에 모은다. 네이밍도 화면·행위가 아니라 엔티티를 따른다.
 
-- **묶는다(크게):** 같은 구현체가 처리하는 응집된 행위들은 하나의 `~UseCase` 인터페이스에 모은다.
-  같은 리소스·트랜잭션 경계·의존을 공유하는 행위를 굳이 인터페이스로 갈라 보일러플레이트를 늘리지 않는다.
-- **쪼갠다(분리):** 구현체가 다르면(의존 리포지토리·쿼리·로직·트랜잭션 특성이 다르면) 별도 `~UseCase`로 분리한다.
-  구현이 갈리는데 한 인터페이스에 욱여넣으면, 서로 다른 관심사가 한 구현체로 끌려와 응집도가 깨진다.
+- **묶는다(크게):** 같은 애그리거트를 다루는 연산은 한 `~UseCase`에 모은다. 구현 세부(집계 쿼리 vs
+  페이징 쿼리)가 달라도, **같은 엔티티의 조회면 한 포트**로 본다. 구현체(`~ApplicationService`)도
+  하나로 두고 내부에서 필요한 리포지토리(집계용·페이징용)를 각각 주입해 처리한다.
+- **쪼갠다(분리):** 애그리거트 자체 연산과 결이 다른 관심사(잡 실행·배치 상태 조회·정산 계산 등
+  '작업/잡' 성격)는 별도 `~UseCase`로 둔다. 이들은 Settlement 엔티티 조회가 아니라 배치 잡을 다룬다.
 
-> 한 문장 규칙: **"같은 `~ApplicationService`로 구현될 행위면 한 `~UseCase`에, 다른 구현체로 갈릴 행위면 다른 `~UseCase`에."**
+> 한 문장 규칙: **"같은 엔티티(애그리거트)의 연산이면 한 `~UseCase`(`Settlement~UseCase`)에, 잡/배치처럼
+> 결이 다른 관심사면 별도 `~UseCase`에."**
 
-예시 — 정산 조회(관리자 화면 하나)지만 요약과 목록은 의존하는 쿼리가 다르다.
+예시 — 정산 조회는 요약·목록 모두 `Settlement` 엔티티 조회이므로 한 포트에 모은다.
 
 ```
-GetSettlementSummaryUseCase  ← SettlementSummaryApplicationService  (집계 쿼리에 의존)
-GetSettlementListUseCase     ← SettlementListApplicationService     (페이징 쿼리에 의존)
+SettlementUseCase  ← SettlementApplicationService   getSummary()  (집계 리포지토리에 의존)
+                                                    getList()     (페이징 리포지토리에 의존)
 ```
 
-→ 같은 화면이라고 `SettlementQueryUseCase` 하나에 `getSummary()`·`getList()`를 함께 두지 않는다.
-구현체가 다르므로(집계 vs 페이징) 포트도 구현도 분리한다. 반대로, 한 구현체가 여러 조회를
-함께 처리하는 게 자연스러우면 그때는 한 `~UseCase`로 묶는다.
+→ 화면이 요약/목록으로 나뉘어도 `Settlement` 엔티티 조회이므로 `SettlementUseCase` 하나에
+`getSummary()`·`getList()`를 함께 둔다. 컨트롤러도 `SettlementController` 하나가 받는다. 반면 배치
+잡 실행·상태 조회(`RunSettlementBatchUseCase`·`GetSettlementJobStatusUseCase`)는 엔티티 조회가
+아닌 잡 관심사라 분리 유지한다.
 
 ## 5. 배치 규칙
 
