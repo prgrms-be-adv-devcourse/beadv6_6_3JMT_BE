@@ -15,8 +15,8 @@ public class AuthRepositoryAdapter implements AuthRepository {
     private final AuthJpaRepository authJpaRepository;
 
     @Override
-    public Optional<Auth> findByProviderAndProviderUserId(OAuthProvider provider, String providerUserId) {
-        return authJpaRepository.findByProviderAndProviderUserId(provider, providerUserId);
+    public Optional<Auth> findByProviderAndOauthId(OAuthProvider provider, String oauthId) {
+        return authJpaRepository.findByProviderAndOauthId(provider, oauthId);
     }
 
     @Override

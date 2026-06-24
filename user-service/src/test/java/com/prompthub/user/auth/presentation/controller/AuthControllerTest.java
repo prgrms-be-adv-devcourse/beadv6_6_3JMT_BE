@@ -94,7 +94,7 @@ class AuthControllerTest {
     }
 
     @Test
-    void oAuthLogin_providerUserId_누락_400() throws Exception {
+    void oAuthLogin_oauthId_누락_400() throws Exception {
         String body = """
                 {
                     "nickname": "테스트유저",

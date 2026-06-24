@@ -13,13 +13,13 @@ class AuthTest {
     void create_모든_필드_정상_설정() {
         UUID userId = UUID.randomUUID();
         OAuthProvider provider = OAuthProvider.KAKAO;
-        String providerUserId = "kakao_123456";
+        String oauthId = "kakao_123456";
 
-        Auth auth = Auth.create(userId, provider, providerUserId);
+        Auth auth = Auth.create(userId, provider, oauthId);
 
         assertThat(auth.getUserId()).isEqualTo(userId);
         assertThat(auth.getProvider()).isEqualTo(provider);
-        assertThat(auth.getProviderUserId()).isEqualTo(providerUserId);
+        assertThat(auth.getOauthId()).isEqualTo(oauthId);
     }
 
     @Test

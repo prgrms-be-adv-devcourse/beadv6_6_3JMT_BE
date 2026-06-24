@@ -1,5 +1,8 @@
 package com.prompthub.user.auth.domain.model;
 
+import java.time.Instant;
+import java.util.UUID;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -8,9 +11,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.Instant;
-import java.util.UUID;
-
 @Entity
 @Table(name = "refresh_token")
 @Getter
@@ -18,7 +18,7 @@ import java.util.UUID;
 public class RefreshToken {
 
     @Id
-    @Column(name = "refresh_token_id", columnDefinition = "uuid")
+    @Column(name = "id", columnDefinition = "uuid")
     private UUID refreshTokenId;
 
     @Column(name = "user_id", nullable = false, columnDefinition = "uuid")

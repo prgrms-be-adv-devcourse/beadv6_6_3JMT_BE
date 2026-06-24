@@ -1,5 +1,11 @@
 package com.prompthub.user.auth.domain.model;
 
+import java.time.Instant;
+import java.util.UUID;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -7,14 +13,9 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.Instant;
-import java.util.UUID;
 
 @Entity
 @Table(
@@ -26,7 +27,7 @@ import java.util.UUID;
 public class Auth {
 
     @Id
-    @Column(name = "auth_id", columnDefinition = "uuid")
+    @Column(name = "id", columnDefinition = "uuid")
     private UUID authId;
 
     @Column(name = "user_id", nullable = false, columnDefinition = "uuid")
@@ -37,18 +38,18 @@ public class Auth {
     @Column(name = "provider", nullable = false, columnDefinition = "auth_provider_type")
     private OAuthProvider provider;
 
-    @Column(name = "provider_user_id", nullable = false, length = 100)
-    private String providerUserId;
+    @Column(name = "oauth_id", nullable = false, length = 100)
+    private String oauthId;
 
     @Column(name = "connected_at", nullable = false)
     private Instant connectedAt;
 
-    public static Auth create(UUID userId, OAuthProvider provider, String providerUserId) {
+    public static Auth create(UUID userId, OAuthProvider provider, String oauthId) {
         Auth auth = new Auth();
         auth.authId = UUID.randomUUID();
         auth.userId = userId;
         auth.provider = provider;
-        auth.providerUserId = providerUserId;
+        auth.oauthId = oauthId;
         auth.connectedAt = Instant.now();
         return auth;
     }

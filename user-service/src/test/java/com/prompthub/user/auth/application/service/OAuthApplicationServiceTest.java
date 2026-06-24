@@ -64,7 +64,7 @@ class OAuthApplicationServiceTest {
         User existingUser = User.create("테스트유저", "test@kakao.com", null, UserRole.BUYER, true);
         Auth existingAuth = Auth.create(existingUser.getUserId(), OAuthProvider.KAKAO, "kakao_123456");
 
-        given(authRepository.findByProviderAndProviderUserId(OAuthProvider.KAKAO, "kakao_123456"))
+        given(authRepository.findByProviderAndOauthId(OAuthProvider.KAKAO, "kakao_123456"))
                 .willReturn(Optional.of(existingAuth));
         given(userRepository.findById(existingUser.getUserId()))
                 .willReturn(Optional.of(existingUser));
@@ -85,7 +85,7 @@ class OAuthApplicationServiceTest {
 
     @Test
     void login_이메일_이미_존재하면_OAuthEmailAlreadyUsedException() {
-        given(authRepository.findByProviderAndProviderUserId(OAuthProvider.KAKAO, "kakao_123456"))
+        given(authRepository.findByProviderAndOauthId(OAuthProvider.KAKAO, "kakao_123456"))
                 .willReturn(Optional.empty());
         given(userRepository.existsByEmail("test@kakao.com"))
                 .willReturn(true);
@@ -99,7 +99,7 @@ class OAuthApplicationServiceTest {
 
     @Test
     void login_신규_사용자_자동_회원가입() {
-        given(authRepository.findByProviderAndProviderUserId(OAuthProvider.KAKAO, "kakao_123456"))
+        given(authRepository.findByProviderAndOauthId(OAuthProvider.KAKAO, "kakao_123456"))
                 .willReturn(Optional.empty());
         given(userRepository.existsByEmail("test@kakao.com")).willReturn(false);
         given(userRepository.save(any(User.class))).willAnswer(inv -> inv.getArgument(0));
@@ -121,7 +121,7 @@ class OAuthApplicationServiceTest {
 
     @Test
     void login_신규_사용자_tokenType_Bearer() {
-        given(authRepository.findByProviderAndProviderUserId(OAuthProvider.KAKAO, "kakao_123456"))
+        given(authRepository.findByProviderAndOauthId(OAuthProvider.KAKAO, "kakao_123456"))
                 .willReturn(Optional.empty());
         given(userRepository.existsByEmail("test@kakao.com")).willReturn(false);
         given(userRepository.save(any(User.class))).willAnswer(inv -> inv.getArgument(0));
@@ -143,7 +143,7 @@ class OAuthApplicationServiceTest {
         UUID missingUserId = UUID.randomUUID();
         Auth orphanAuth = Auth.create(missingUserId, OAuthProvider.KAKAO, "kakao_123456");
 
-        given(authRepository.findByProviderAndProviderUserId(OAuthProvider.KAKAO, "kakao_123456"))
+        given(authRepository.findByProviderAndOauthId(OAuthProvider.KAKAO, "kakao_123456"))
                 .willReturn(Optional.of(orphanAuth));
         given(userRepository.findById(missingUserId))
                 .willReturn(Optional.empty());

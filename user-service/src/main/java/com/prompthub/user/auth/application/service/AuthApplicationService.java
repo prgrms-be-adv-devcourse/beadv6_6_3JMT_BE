@@ -37,7 +37,7 @@ public class AuthApplicationService implements AuthUseCase {
     @Override
     public OAuthLoginResult oAuthLogin(OAuthLoginCommand command) {
         Optional<Auth> existingAuth = authRepository
-                .findByProviderAndProviderUserId(command.provider(), command.providerUserId());
+                .findByProviderAndOauthId(command.provider(), command.oauthId());
 
         final User user;
         final boolean isNewUser;
@@ -60,7 +60,7 @@ public class AuthApplicationService implements AuthUseCase {
                     true
             );
             userRepository.save(newUser);
-            authRepository.save(Auth.create(newUser.getUserId(), command.provider(), command.providerUserId()));
+            authRepository.save(Auth.create(newUser.getUserId(), command.provider(), command.oauthId()));
             user = newUser;
             isNewUser = true;
         }
