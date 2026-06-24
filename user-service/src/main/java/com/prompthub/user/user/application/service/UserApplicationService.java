@@ -1,8 +1,12 @@
 package com.prompthub.user.user.application.service;
 
+import com.prompthub.user.user.application.dto.UpdateProfileCommand;
+import com.prompthub.user.user.application.dto.UpdateProfileResult;
 import com.prompthub.user.user.application.dto.UserResult;
 import com.prompthub.user.user.application.usecase.UserUseCase;
+import com.prompthub.user.user.domain.exception.EmailAlreadyUsedException;
 import com.prompthub.user.user.domain.exception.UserNotFoundException;
+import com.prompthub.user.user.domain.model.User;
 import com.prompthub.user.user.domain.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,5 +26,30 @@ public class UserApplicationService implements UserUseCase {
         return userRepository.findById(userId)
                 .map(UserResult::from)
                 .orElseThrow(UserNotFoundException::new);
+    }
+
+    @Override
+    @Transactional
+    public UpdateProfileResult updateProfile(UpdateProfileCommand command) {
+        User user = userRepository.findById(command.userId())
+                .orElseThrow(UserNotFoundException::new);
+
+        String updatedName = null;
+        String updatedEmail = null;
+
+        if (command.name() != null) {
+            user.updateName(command.name());
+            updatedName = command.name();
+        }
+
+        if (command.email() != null && !command.email().equals(user.getEmail())) {
+            if (userRepository.existsByEmail(command.email())) {
+                throw new EmailAlreadyUsedException();
+            }
+            user.updateEmail(command.email());
+            updatedEmail = command.email();
+        }
+
+        return new UpdateProfileResult(user.getUserId(), updatedName, updatedEmail);
     }
 }

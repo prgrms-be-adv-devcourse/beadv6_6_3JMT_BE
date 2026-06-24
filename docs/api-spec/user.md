@@ -44,11 +44,12 @@
 
 ---
 
-### PUT /users/me — 프로필 수정
+### PATCH /users/me — 프로필 수정
 
 - 인증: 필요
 - 필요 역할: BUYER / SELLER
 - 수정할 필드만 포함 (Partial Update)
+- 응답 `data`에는 요청에서 실제로 수정된 필드만 포함됨
 
 #### Request
 
@@ -56,7 +57,7 @@
 
 ```json
 {
-  "nickname": "새이름",
+  "name": "새이름",
   "email": "new@example.com",
   "password": "password"
 }
@@ -64,20 +65,34 @@
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| nickname | string | N | 닉네임 |
+| name | string | N | 이름 |
 | email | string | N | 이메일 |
 | password | string | N | 비밀번호 |
 
 #### Response
 
-**200 OK**
+**200 OK** — 수정된 필드만 포함 (미수정 필드는 응답에서 생략)
 
+예: `name`만 수정한 경우
 ```json
 {
   "success": true,
   "data": {
     "id": "uuid",
-    "nickname": "새닉네임"
+    "name": "새이름"
+  },
+  "message": "success"
+}
+```
+
+예: `name`과 `email` 모두 수정한 경우
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "name": "새이름",
+    "email": "new@example.com"
   },
   "message": "success"
 }
@@ -85,8 +100,9 @@
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| id | string | 사용자 ID |
-| nickname | string | 변경된 닉네임 |
+| id | string | 사용자 ID (항상 포함) |
+| name | string \| 생략 | 변경된 이름 (수정 시에만 포함) |
+| email | string \| 생략 | 변경된 이메일 (수정 시에만 포함) |
 
 ---
 
@@ -178,7 +194,7 @@
   "data": {
     "sellerRequestId": "uuid",
     "status": "PENDING",
-    "categories": ["마케팅", "코딩"],
+    "categories": ["marketing", "coding"],
     "introduction": "마케팅 카피·블로그 글쓰기용 GPT 프롬프트를 주로 만듭니다.",
     "portfolioUrl": "https://blog.example.com",
     "submittedAt": "2025-06-17T10:00:00Z",
