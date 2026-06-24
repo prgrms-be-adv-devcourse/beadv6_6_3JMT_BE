@@ -1,12 +1,13 @@
 package com.prompthub.order.domain.model;
 
 import com.prompthub.order.domain.enums.OutboxEventStatus;
-import com.prompthub.order.global.config.BaseEntity;
+import com.prompthub.order.infra.persistence.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -18,7 +19,13 @@ import static lombok.AccessLevel.PROTECTED;
 
 @Getter
 @Entity
-@Table(name = "outbox_event")
+@Table(
+	name = "outbox_event",
+	indexes = @Index(
+		name = "idx_outbox_event_status_occurred_at",
+		columnList = "status, occurred_at"
+	)
+)
 @NoArgsConstructor(access = PROTECTED)
 public class OutboxEvent extends BaseEntity {
 
@@ -87,8 +94,17 @@ public class OutboxEvent extends BaseEntity {
 		String payload,
 		LocalDateTime occurredAt
 	) {
+		return orderPaid(UUID.randomUUID(), orderId, payload, occurredAt);
+	}
+
+	public static OutboxEvent orderPaid(
+		UUID eventId,
+		UUID orderId,
+		String payload,
+		LocalDateTime occurredAt
+	) {
 		return new OutboxEvent(
-			UUID.randomUUID(),
+			eventId,
 			orderId,
 			ORDER,
 			ORDER_PAID,
@@ -99,5 +115,17 @@ public class OutboxEvent extends BaseEntity {
 			occurredAt,
 			null
 		);
+	}
+
+	public void markPublished(LocalDateTime publishedAt) {
+		this.status = OutboxEventStatus.PUBLISHED;
+		this.publishedAt = publishedAt;
+	}
+
+	public void recordPublishFailure(int maxRetryCount) {
+		this.retryCount++;
+		if (this.retryCount >= maxRetryCount) {
+			this.status = OutboxEventStatus.FAILED;
+		}
 	}
 }
