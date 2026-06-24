@@ -37,12 +37,13 @@ spring:
     listener:
       ack-mode: manual
 
-#  cloud:
-#    openfeign:
-#      client:
-#        config:
-#          product-service:
-#            url: ${PRODUCT_SERVICE_URL:http://localhost:8081}
+  cloud:
+    openfeign:
+      client:
+        config:
+          product-service:
+            connect-timeout: ${PRODUCT_SERVICE_CONNECT_TIMEOUT_MS:2000}
+            read-timeout: ${PRODUCT_SERVICE_READ_TIMEOUT_MS:3000}
 
 server:
   port: 8080
@@ -51,6 +52,13 @@ server:
 #  clients:
 #    product-service:
 #      url: ${PRODUCT_SERVICE_URL:http://localhost:8081}
+
+prompthub:
+  outbox-relay:
+    enabled: true
+    fixed-delay-ms: 5000
+    batch-size: 100
+    max-retry-count: 3
 
 logging:
   level:
@@ -89,6 +97,10 @@ spring:
     hibernate:
       ddl-auto: create-drop
     open-in-view: false
+
+prompthub:
+  outbox-relay:
+    enabled: false
 
 logging:
   level:
