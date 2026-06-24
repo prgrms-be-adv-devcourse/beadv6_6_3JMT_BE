@@ -1,7 +1,11 @@
 package com.prompthub.user.user.application.service;
 
+import com.prompthub.user.seller.domain.model.SellerRegister;
+import com.prompthub.user.seller.domain.model.SellerRegisterStatus;
+import com.prompthub.user.seller.domain.repository.SellerRegisterRepository;
 import com.prompthub.user.user.application.dto.UpdateProfileCommand;
 import com.prompthub.user.user.application.dto.UpdateProfileResult;
+import com.prompthub.user.user.application.dto.UserResult;
 import com.prompthub.user.user.domain.exception.EmailAlreadyUsedException;
 import com.prompthub.user.user.domain.exception.UserNotFoundException;
 import com.prompthub.user.user.domain.model.User;
@@ -21,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,6 +33,9 @@ class UserApplicationServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private SellerRegisterRepository sellerRegisterRepository;
 
     @InjectMocks
     private UserApplicationService userApplicationService;
@@ -137,5 +145,38 @@ class UserApplicationServiceTest {
 
         assertThat(result.email()).isNull();
         then(userRepository).should(never()).existsByEmail(any());
+    }
+
+    @Test
+    void getMyProfile_판매자_신청_없는_BUYER_sellerStatus_null() {
+        User user = createUser();
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+        given(sellerRegisterRepository.findLatestByUserId(USER_ID)).willReturn(Optional.empty());
+
+        UserResult result = userApplicationService.getMyProfile(USER_ID);
+
+        assertThat(result.sellerStatus()).isNull();
+        assertThat(result.role()).isEqualTo(UserRole.BUYER);
+    }
+
+    @Test
+    void getMyProfile_PENDING_신청_있으면_sellerStatus_PENDING() {
+        User user = createUser();
+        SellerRegister pending = mock(SellerRegister.class);
+        given(pending.getStatus()).willReturn(SellerRegisterStatus.PENDING);
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+        given(sellerRegisterRepository.findLatestByUserId(USER_ID)).willReturn(Optional.of(pending));
+
+        UserResult result = userApplicationService.getMyProfile(USER_ID);
+
+        assertThat(result.sellerStatus()).isEqualTo(SellerRegisterStatus.PENDING);
+    }
+
+    @Test
+    void getMyProfile_존재하지_않는_유저_UserNotFoundException() {
+        given(userRepository.findById(USER_ID)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userApplicationService.getMyProfile(USER_ID))
+                .isInstanceOf(UserNotFoundException.class);
     }
 }

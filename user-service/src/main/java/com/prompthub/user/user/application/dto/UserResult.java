@@ -1,5 +1,6 @@
 package com.prompthub.user.user.application.dto;
 
+import com.prompthub.user.seller.domain.model.SellerRegisterStatus;
 import com.prompthub.user.user.domain.model.User;
 import com.prompthub.user.user.domain.model.UserRole;
 
@@ -10,15 +11,17 @@ public record UserResult(
         String name,
         String email,
         String profileImageUrl,
-        UserRole role
+        UserRole role,
+        SellerRegisterStatus sellerStatus
 ) {
-    public static UserResult from(User user) {
+    public static UserResult from(User user, SellerRegisterStatus sellerStatus) {
         return new UserResult(
                 user.getUserId(),
                 user.getName(),
                 user.getEmail(),
                 user.getProfileImageUrl(),
-                user.getRole()
+                user.getRole(),
+                sellerStatus
         );
     }
 }

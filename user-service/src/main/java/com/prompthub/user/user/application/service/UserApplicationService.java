@@ -1,5 +1,7 @@
 package com.prompthub.user.user.application.service;
 
+import com.prompthub.user.seller.domain.model.SellerRegisterStatus;
+import com.prompthub.user.seller.domain.repository.SellerRegisterRepository;
 import com.prompthub.user.user.application.dto.UpdateProfileCommand;
 import com.prompthub.user.user.application.dto.UpdateProfileResult;
 import com.prompthub.user.user.application.dto.UserResult;
@@ -20,12 +22,18 @@ import java.util.UUID;
 public class UserApplicationService implements UserUseCase {
 
     private final UserRepository userRepository;
+    private final SellerRegisterRepository sellerRegisterRepository;
 
     @Override
     public UserResult getMyProfile(UUID userId) {
-        return userRepository.findById(userId)
-                .map(UserResult::from)
+        User user = userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
+
+        SellerRegisterStatus sellerStatus = sellerRegisterRepository.findLatestByUserId(userId)
+                .map(sr -> sr.getStatus())
+                .orElse(null);
+
+        return UserResult.from(user, sellerStatus);
     }
 
     @Override
