@@ -1,7 +1,9 @@
 package com.prompthub.user.admin.presentation.controller;
 
 import com.prompthub.user.admin.application.dto.AdminUserPageResult;
+import com.prompthub.user.admin.application.dto.AdminUserStatusResult;
 import com.prompthub.user.admin.application.dto.AdminUserSummaryResult;
+import com.prompthub.user.admin.application.dto.ChangeUserStatusCommand;
 import com.prompthub.user.admin.application.usecase.AdminUserUseCase;
 import com.prompthub.user.global.config.SecurityConfig;
 import com.prompthub.user.user.domain.model.UserRole;
@@ -11,9 +13,11 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -215,5 +220,84 @@ class AdminUserControllerTest {
                 .andExpect(jsonPath("$.meta.size").value(20))
                 .andExpect(jsonPath("$.meta.total").value(15))
                 .andExpect(jsonPath("$.meta.hasNext").value(false));
+    }
+
+    @Test
+    void changeUserStatus_suspended_200_반환() throws Exception {
+        UUID userId = UUID.randomUUID();
+        LocalDateTime now = LocalDateTime.now();
+        given(adminUserUseCase.changeUserStatus(any()))
+                .willReturn(new AdminUserStatusResult(userId, UserStatus.BLOCKED, now));
+
+        mockMvc.perform(patch("/api/v1/admin/users/{userId}/status", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"suspended\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(userId.toString()))
+                .andExpect(jsonPath("$.data.status").value("suspended"));
+    }
+
+    @Test
+    void changeUserStatus_active_200_반환() throws Exception {
+        UUID userId = UUID.randomUUID();
+        given(adminUserUseCase.changeUserStatus(any()))
+                .willReturn(new AdminUserStatusResult(userId, UserStatus.ACTIVE, LocalDateTime.now()));
+
+        mockMvc.perform(patch("/api/v1/admin/users/{userId}/status", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"active\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("active"));
+    }
+
+    @Test
+    void changeUserStatus_withdrawn_200_반환() throws Exception {
+        UUID userId = UUID.randomUUID();
+        given(adminUserUseCase.changeUserStatus(any()))
+                .willReturn(new AdminUserStatusResult(userId, UserStatus.WITHDRAWN, LocalDateTime.now()));
+
+        mockMvc.perform(patch("/api/v1/admin/users/{userId}/status", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"withdrawn\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("withdrawn"));
+    }
+
+    @Test
+    void changeUserStatus_유효하지않은_status_400() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(patch("/api/v1/admin/users/{userId}/status", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"INVALID\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("V001"));
+    }
+
+    @Test
+    void changeUserStatus_status_빈값_400() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(patch("/api/v1/admin/users/{userId}/status", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void changeUserStatus_command에_userId_전달됨() throws Exception {
+        UUID userId = UUID.randomUUID();
+        given(adminUserUseCase.changeUserStatus(any()))
+                .willReturn(new AdminUserStatusResult(userId, UserStatus.BLOCKED, LocalDateTime.now()));
+
+        mockMvc.perform(patch("/api/v1/admin/users/{userId}/status", userId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\":\"suspended\"}"));
+
+        var captor = ArgumentCaptor.forClass(ChangeUserStatusCommand.class);
+        verify(adminUserUseCase).changeUserStatus(captor.capture());
+        assertThat(captor.getValue().userId()).isEqualTo(userId);
+        assertThat(captor.getValue().status()).isEqualTo(UserStatus.BLOCKED);
     }
 }

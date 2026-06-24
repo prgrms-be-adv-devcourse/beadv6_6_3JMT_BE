@@ -1,21 +1,31 @@
 package com.prompthub.user.admin.presentation.controller;
 
 import com.prompthub.exception.BusinessException;
+import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.presentation.dto.PageResponse;
 import com.prompthub.user.admin.application.dto.AdminUserListQuery;
 import com.prompthub.user.admin.application.dto.AdminUserPageResult;
+import com.prompthub.user.admin.application.dto.AdminUserStatusResult;
+import com.prompthub.user.admin.application.dto.ChangeUserStatusCommand;
 import com.prompthub.user.admin.application.usecase.AdminUserUseCase;
+import com.prompthub.user.admin.presentation.dto.request.ChangeUserStatusRequest;
 import com.prompthub.user.admin.presentation.dto.response.AdminUserResponse;
+import com.prompthub.user.admin.presentation.dto.response.AdminUserStatusResponse;
 import com.prompthub.user.global.exception.UserErrorCode;
 import com.prompthub.user.user.domain.model.UserRole;
 import com.prompthub.user.user.domain.model.UserStatus;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -42,6 +52,18 @@ public class AdminUserController {
                 .toList();
 
         return PageResponse.success(responseData, result.page(), result.size(), result.total(), result.hasNext());
+    }
+
+    @PatchMapping("/users/{userId}/status")
+    public ApiResult<AdminUserStatusResponse> changeUserStatus(
+            @PathVariable UUID userId,
+            @Valid @RequestBody ChangeUserStatusRequest request
+    ) {
+        UserStatus targetStatus = parseStatus(request.status());
+        ChangeUserStatusCommand command = new ChangeUserStatusCommand(userId, targetStatus);
+
+        AdminUserStatusResult result = adminUserUseCase.changeUserStatus(command);
+        return ApiResult.success(AdminUserStatusResponse.from(result));
     }
 
     private static UserStatus parseStatus(String statusParam) {

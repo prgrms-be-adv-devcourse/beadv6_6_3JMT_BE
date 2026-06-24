@@ -48,6 +48,25 @@ class UserTest {
     }
 
     @Test
+    void block_상태가_BLOCKED로_변경() {
+        User user = User.create("홍길동", "hong@example.com", null, UserRole.BUYER, true);
+
+        user.block();
+
+        assertThat(user.getStatus()).isEqualTo(UserStatus.BLOCKED);
+    }
+
+    @Test
+    void activate_상태가_ACTIVE로_변경() {
+        User user = User.create("홍길동", "hong@example.com", null, UserRole.BUYER, true);
+        user.block();
+
+        user.activate();
+
+        assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
+    }
+
+    @Test
     void withdraw_상태가_WITHDRAWN으로_변경() {
         User user = User.create("홍길동", "hong@example.com", null, UserRole.BUYER, true);
 

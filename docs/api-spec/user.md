@@ -510,6 +510,33 @@
 
 ---
 
+### GET /admin/stats/users — 회원 통계 조회
+
+- 인증: 필요
+- 필요 역할: ADMIN
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "totalUsers": 1240,
+    "todayNewUsers": 13
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| totalUsers | integer | 누적 회원 수 |
+| todayNewUsers | integer | 오늘 신규 가입 수 |
+
+---
+
 ## 관리자 — 판매자 등록 심사
 
 ### GET /admin/sellers/register — 판매자 신청 목록

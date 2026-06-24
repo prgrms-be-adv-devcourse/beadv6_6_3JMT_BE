@@ -21,6 +21,9 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "\"user\"")
@@ -48,6 +51,10 @@ public class User {
 
     @Column(name = "terms_agreed", nullable = false)
     private boolean termsAgreed;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_role", joinColumns = @JoinColumn(name = "user_id"))
@@ -88,6 +95,14 @@ public class User {
 
     public void addRole(UserRole role) {
         this.roles.add(role);
+    }
+
+    public void activate() {
+        this.status = UserStatus.ACTIVE;
+    }
+
+    public void block() {
+        this.status = UserStatus.BLOCKED;
     }
 
     public void withdraw() {

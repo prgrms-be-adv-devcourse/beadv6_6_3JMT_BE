@@ -1,8 +1,11 @@
 package com.prompthub.user.admin.application.service;
 
+import com.prompthub.exception.BusinessException;
 import com.prompthub.user.admin.application.dto.AdminUserListQuery;
 import com.prompthub.user.admin.application.dto.AdminUserPageResult;
+import com.prompthub.user.admin.application.dto.AdminUserStatusResult;
 import com.prompthub.user.admin.application.dto.AdminUserSummaryResult;
+import com.prompthub.user.admin.application.dto.ChangeUserStatusCommand;
 import com.prompthub.user.user.domain.model.User;
 import com.prompthub.user.user.domain.model.UserRole;
 import com.prompthub.user.user.domain.model.UserStatus;
@@ -13,10 +16,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
@@ -162,5 +168,66 @@ class AdminUserApplicationServiceTest {
         AdminUserPageResult result = adminUserApplicationService.listUsers(query);
 
         assertThat(result.hasNext()).isFalse();
+    }
+
+    @Test
+    void changeUserStatus_사용자_없으면_예외() {
+        UUID userId = UUID.randomUUID();
+        given(userRepository.findById(userId)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() ->
+                adminUserApplicationService.changeUserStatus(
+                        new ChangeUserStatusCommand(userId, UserStatus.BLOCKED)))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void changeUserStatus_BLOCKED_요청시_block_호출() {
+        UUID userId = UUID.randomUUID();
+        User user = mock(User.class);
+        given(user.getUserId()).willReturn(userId);
+        given(user.getStatus()).willReturn(UserStatus.BLOCKED);
+        given(user.getUpdatedAt()).willReturn(LocalDateTime.now());
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(userRepository.save(user)).willReturn(user);
+
+        AdminUserStatusResult result = adminUserApplicationService.changeUserStatus(
+                new ChangeUserStatusCommand(userId, UserStatus.BLOCKED));
+
+        then(user).should().block();
+        assertThat(result.status()).isEqualTo(UserStatus.BLOCKED);
+    }
+
+    @Test
+    void changeUserStatus_ACTIVE_요청시_activate_호출() {
+        UUID userId = UUID.randomUUID();
+        User user = mock(User.class);
+        given(user.getUserId()).willReturn(userId);
+        given(user.getStatus()).willReturn(UserStatus.ACTIVE);
+        given(user.getUpdatedAt()).willReturn(LocalDateTime.now());
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(userRepository.save(user)).willReturn(user);
+
+        AdminUserStatusResult result = adminUserApplicationService.changeUserStatus(
+                new ChangeUserStatusCommand(userId, UserStatus.ACTIVE));
+
+        then(user).should().activate();
+        assertThat(result.status()).isEqualTo(UserStatus.ACTIVE);
+    }
+
+    @Test
+    void changeUserStatus_WITHDRAWN_요청시_withdraw_호출() {
+        UUID userId = UUID.randomUUID();
+        User user = mock(User.class);
+        given(user.getUserId()).willReturn(userId);
+        given(user.getStatus()).willReturn(UserStatus.WITHDRAWN);
+        given(user.getUpdatedAt()).willReturn(LocalDateTime.now());
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(userRepository.save(user)).willReturn(user);
+
+        adminUserApplicationService.changeUserStatus(
+                new ChangeUserStatusCommand(userId, UserStatus.WITHDRAWN));
+
+        then(user).should().withdraw();
     }
 }

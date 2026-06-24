@@ -1,10 +1,15 @@
 package com.prompthub.user.admin.application.service;
 
+import com.prompthub.exception.BusinessException;
 import com.prompthub.user.admin.application.dto.AdminUserListQuery;
 import com.prompthub.user.admin.application.dto.AdminUserPageResult;
+import com.prompthub.user.admin.application.dto.AdminUserStatusResult;
 import com.prompthub.user.admin.application.dto.AdminUserSummaryResult;
+import com.prompthub.user.admin.application.dto.ChangeUserStatusCommand;
 import com.prompthub.user.admin.application.usecase.AdminUserUseCase;
+import com.prompthub.user.global.exception.UserErrorCode;
 import com.prompthub.user.user.domain.model.User;
+import com.prompthub.user.user.domain.model.UserStatus;
 import com.prompthub.user.user.domain.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -35,5 +40,25 @@ public class AdminUserApplicationService implements AdminUserUseCase {
         boolean hasNext = total > (long) query.page() * query.size();
 
         return new AdminUserPageResult(results, query.page(), query.size(), total, hasNext);
+    }
+
+    @Override
+    @Transactional
+    public AdminUserStatusResult changeUserStatus(ChangeUserStatusCommand command) {
+        User user = userRepository.findById(command.userId())
+                .orElseThrow(() -> new BusinessException(UserErrorCode.AUTH_NOT_FOUND));
+
+        applyStatus(user, command.status());
+
+        userRepository.save(user);
+        return AdminUserStatusResult.from(user);
+    }
+
+    private static void applyStatus(User user, UserStatus status) {
+        switch (status) {
+            case ACTIVE -> user.activate();
+            case BLOCKED -> user.block();
+            case WITHDRAWN -> user.withdraw();
+        }
     }
 }
