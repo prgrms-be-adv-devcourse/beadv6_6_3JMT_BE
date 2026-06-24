@@ -1,6 +1,6 @@
 # Auth API
 
-**Base:** `http://localhost:xxxx/api/v1`
+**Base:** `http://localhost:8081/api/v1`
 
 ## 공통 사항
 
@@ -261,9 +261,20 @@
 
 ### POST /auth/logout — 로그아웃
 
-- 인증: 필요
+- UC: UC-AUTH-04
+- 인증: 필요 (AT)
 - 필요 역할: 없음
-- RT 무효화 (DB에서 삭제)
+- API Gateway에서 AT 검증 후 `X-User-Id` 헤더를 user-service에 전달
+- user-service는 해당 유저의 RT를 DB에서 삭제
+- AT 무효화: 없음 (AT는 만료될 때까지 유효)
+
+#### Request
+
+**Headers**
+
+| 헤더 | 설명 |
+|------|------|
+| Authorization | `Bearer {accessToken}` |
 
 #### Response
 
