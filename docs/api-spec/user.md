@@ -740,3 +740,60 @@
 |--------|----------|
 | `PRODUCT_CREATED` | 상품 등록 시 |
 | `PRODUCT_UPDATED` | 상품 수정 시, 리뷰 변경으로 `averageRating` 갱신 시 |
+
+---
+
+## 내부 서비스 통신 (gRPC)
+
+> 외부 노출 없음. 서비스 간 내부 통신 전용.
+> 프로토콜: gRPC
+
+---
+
+### 1. 판매자 단건 조회
+
+- **호출 방향**: product-service → user-service
+- **호출 시점**: 상품 목록/상세 조회 시 판매자 정보 필요할 때
+
+**Request**
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| userId | string (UUID) | Y | 조회할 판매자 ID |
+
+**Response**
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| sellerId | string (UUID) | 판매자 ID |
+| sellerName | string | 판매자 닉네임 |
+| profileImageUrl | string \| null | 프로필 이미지 URL |
+| status | string | 판매자 상태 (`ACTIVE` 등) |
+
+---
+
+### 2. 판매자 다건 조회 (batch)
+
+- **호출 방향**: settlement-service → user-service
+- **호출 시점**: 어드민 판매자별 정산 목록 조회 시
+
+**Request**
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| sellerIds | repeated string (UUID) | Y | 조회할 판매자 ID 목록 (중복 제거 권장) |
+
+**Response**
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| sellers | repeated Seller | 판매자 정보 목록 |
+
+**Seller 객체**
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| sellerId | string (UUID) | 판매자 ID |
+| sellerName | string | 판매자 닉네임 |
+| profileImageUrl | string \| null | 프로필 이미지 URL |
+| status | string | 판매자 상태 (`ACTIVE` 등) |

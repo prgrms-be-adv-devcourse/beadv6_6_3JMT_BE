@@ -8,67 +8,69 @@ spring:
     import: optional:configserver:http://localhost:8888
   cloud:
     gateway:
-      routes:
-        - id: settlement-service
-          uri: lb://SETTLEMENT-SERVICE
-          predicates:
-            - Path=/api/v1/sellers/me/settlements/**, /api/v1/admin/settlements/**
+      server:
+        webflux:
+          routes:
+            - id: settlement-service
+              uri: lb://SETTLEMENT-SERVICE
+              predicates:
+                - Path=/api/v1/sellers/me/settlements/**, /api/v1/admin/settlements/**
 
-        - id: order-service
-          uri: lb://ORDER-SERVICE
-          predicates:
-            - Path=/api/v1/orders, /api/v1/orders/**, /api/v1/cart, /api/v1/cart/**, /api/v1/admin/orders, /api/v1/admin/orders/**, /api/v1/internal/orders/**
+            - id: order-service
+              uri: lb://ORDER-SERVICE
+              predicates:
+                - Path=/api/v1/orders, /api/v1/orders/**, /api/v1/cart, /api/v1/cart/**, /api/v1/admin/orders, /api/v1/admin/orders/**, /api/v1/internal/orders/**
 
-        - id: product-service
-          uri: lb://PRODUCT-SERVICE
-          predicates:
-            - Path=/api/v1/products/**
+            - id: product-service
+              uri: lb://PRODUCT-SERVICE
+              predicates:
+                - Path=/api/v1/products/**
 
-        - id: payment-service
-          uri: lb://PAYMENT-SERVICE
-          predicates:
-            - Path=/api/v1/payments/**
+            - id: payment-service
+              uri: lb://PAYMENT-SERVICE
+              predicates:
+                - Path=/api/v1/payments/**
 
-        - id: user-service
-          uri: lb://USER-SERVICE
-          predicates:
-            - Path=/api/v1/auth/**, /api/v1/users/**, /api/v1/seller/**, /api/v1/sellers/**, /api/v1/wishlists/**, /api/v1/admin/**
+            - id: user-service
+              uri: lb://USER-SERVICE
+              predicates:
+                - Path=/api/v1/auth/**, /api/v1/users/**, /api/v1/seller/**, /api/v1/sellers/**, /api/v1/wishlists/**, /api/v1/admin/**
 
-        # Swagger API docs 프록시 라우트 (각 서비스 /v3/api-docs를 prefix 경로로 노출)
-        - id: user-service-docs
-          uri: lb://USER-SERVICE
-          predicates:
-            - Path=/user-service/v3/api-docs
-          filters:
-            - RewritePath=/user-service/v3/api-docs, /v3/api-docs
+            # Swagger API docs 프록시 라우트 (각 서비스 /v3/api-docs를 prefix 경로로 노출)
+            - id: user-service-docs
+              uri: lb://USER-SERVICE
+              predicates:
+                - Path=/user-service/v3/api-docs
+              filters:
+                - RewritePath=/user-service/v3/api-docs, /v3/api-docs
 
-        - id: product-service-docs
-          uri: lb://PRODUCT-SERVICE
-          predicates:
-            - Path=/product-service/v3/api-docs
-          filters:
-            - RewritePath=/product-service/v3/api-docs, /v3/api-docs
+            - id: product-service-docs
+              uri: lb://PRODUCT-SERVICE
+              predicates:
+                - Path=/product-service/v3/api-docs
+              filters:
+                - RewritePath=/product-service/v3/api-docs, /v3/api-docs
 
-        - id: order-service-docs
-          uri: lb://ORDER-SERVICE
-          predicates:
-            - Path=/order-service/v3/api-docs
-          filters:
-            - RewritePath=/order-service/v3/api-docs, /v3/api-docs
+            - id: order-service-docs
+              uri: lb://ORDER-SERVICE
+              predicates:
+                - Path=/order-service/v3/api-docs
+              filters:
+                - RewritePath=/order-service/v3/api-docs, /v3/api-docs
 
-        - id: payment-service-docs
-          uri: lb://PAYMENT-SERVICE
-          predicates:
-            - Path=/payment-service/v3/api-docs
-          filters:
-            - RewritePath=/payment-service/v3/api-docs, /v3/api-docs
+            - id: payment-service-docs
+              uri: lb://PAYMENT-SERVICE
+              predicates:
+                - Path=/payment-service/v3/api-docs
+              filters:
+                - RewritePath=/payment-service/v3/api-docs, /v3/api-docs
 
-        - id: settlement-service-docs
-          uri: lb://SETTLEMENT-SERVICE
-          predicates:
-            - Path=/settlement-service/v3/api-docs
-          filters:
-            - RewritePath=/settlement-service/v3/api-docs, /v3/api-docs
+            - id: settlement-service-docs
+              uri: lb://SETTLEMENT-SERVICE
+              predicates:
+                - Path=/settlement-service/v3/api-docs
+              filters:
+                - RewritePath=/settlement-service/v3/api-docs, /v3/api-docs
 
 springdoc:
   swagger-ui:
@@ -93,4 +95,4 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info
+        include: health, info, gateway
