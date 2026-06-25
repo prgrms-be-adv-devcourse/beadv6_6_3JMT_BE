@@ -31,4 +31,5 @@ app:
 logging:
   level:
     com.prompthub.product: INFO
-    org.hibernate.SQL: debug
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE

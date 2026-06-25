@@ -74,8 +74,11 @@ public class ProductQueryService implements ProductQueryUseCase {
 		);
 	}
 
+	@Transactional
 	public ProductDetailResponse getProduct(UUID productId) {
 		Product product = getOnSaleProduct(productId);
+		product.incrementViewCount();
+		productRepository.save(product);
 		double rating = productRepository.getAverageRating(productId);
 		SellerInfo seller = sellerClient.getSellerInfo(product.getSellerId());
 

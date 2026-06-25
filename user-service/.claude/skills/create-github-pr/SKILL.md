@@ -1,7 +1,7 @@
 ---
 name: create-github-pr
 description: >-
-  현재 브랜치의 커밋·diff를 분석해 레포의 PR 템플릿(.github/ISSUE_TEMPLATE/pull_request_template.md)을
+  현재 브랜치의 커밋·diff를 분석해 레포의 PR 템플릿(.github/PULL_REQUEST_TEMPLATE.md)을
   채우고, 사용자 승인 후 gh pr create로 Pull Request를 생성합니다. 사용자가 "PR 만들어줘",
   "풀리퀘 올려줘", "이 브랜치 PR 생성해줘", "리뷰 요청 PR 열어줘"라고 하거나, 작업한 브랜치를
   올려 PR로 만들고 싶어 할 때 사용하세요. PR을 새로 만드는 상황이면 사용자가 "템플릿"이나 "gh"를
@@ -14,8 +14,12 @@ description: >-
 레포의 PR 템플릿을 단일 진실 공급원으로 삼아, 현재 브랜치의 커밋·diff를 분석해 템플릿을 채우고,
 사용자 승인을 받은 뒤 `gh pr create`로 Pull Request를 만든다.
 
+> **핵심 규칙**: PR 본문은 반드시 **우리 서비스의 PR 템플릿 구조를 유지**해서 작성한다.
+> 섹션 순서·제목(이모지 포함)·체크리스트 항목을 `.github/PULL_REQUEST_TEMPLATE.md`에서 그대로 가져오고,
+> 임의로 구조를 바꾸거나 섹션을 추가·제거하지 않는다.
+
 핵심 원칙은 세 가지다. 첫째, 템플릿 내용을 이 스킬에 복사해두지 않고 **실행 시점에
-`.github/ISSUE_TEMPLATE/pull_request_template.md`에서 직접 읽는다**. 특히 체크리스트는 앞으로
+`.github/PULL_REQUEST_TEMPLATE.md`에서 직접 읽는다**. 특히 체크리스트는 앞으로
 컨벤션·검증 rule이 정해지면 템플릿에서 바뀔 부분이므로, 스킬에 항목을 박아두면 안 된다. 템플릿이
 바뀌면 스킬을 안 고쳐도 자동 반영돼야 한다. 둘째, PR 본문은 **사람이 직접 쓴 것처럼 담백하게**
 채운다. 톤 규칙은 아래 "톤 가이드"를 따른다. 셋째, **승인 전에는 push도 PR 생성도 하지 않는다**.

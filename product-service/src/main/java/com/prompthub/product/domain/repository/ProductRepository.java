@@ -28,4 +28,12 @@ public interface ProductRepository {
 	List<ProductReviewProjection> findActiveReviews(UUID productId);
 
 	List<Product> findBySellerId(UUID sellerId);
+
+	List<Product> findAllByIdIn(List<UUID> productIds);
+
+	long countBySellerId(UUID sellerId);
+
+	List<Product> findPendingReviewProducts();
+
+	List<Product> findAllAdminProducts();
 }
