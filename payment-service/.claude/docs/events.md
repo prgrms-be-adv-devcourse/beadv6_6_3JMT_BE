@@ -21,10 +21,19 @@ payment-service가 **발행(Publish)** 하는 Kafka 이벤트 목록. 구독(Con
 
 | 파일 | 역할 |
 |---|---|
-| `infrastructure/messaging/config/PaymentTopic.java` | 토픽 상수 정의 (현재 플레이스홀더) |
-| `infrastructure/messaging/config/KafkaConfig.java` | NewTopic 빈 설정 (현재 플레이스홀더) |
-| `application/gateway/messaging/` | EventPublisher 인터페이스 (출력 경계) |
-| `infrastructure/messaging/` | EventPublisher 구현체 |
+| `infrastructure/messaging/config/PaymentTopic.java` | 토픽 상수 정의 |
+| `infrastructure/messaging/config/KafkaConfig.java` | NewTopic 빈 설정 |
+| `infrastructure/messaging/KafkaPaymentEventPublisher.java` | Kafka 메시지 발행 구현체 |
+| `infrastructure/messaging/RefundEventHandler.java` | 환불 도메인 이벤트 처리 (`@TransactionalEventListener`) |
+
+---
+
+## 발행 경로
+
+| 발생 시점 | 경로 |
+|---|---|
+| 일반 서비스 (결제 승인 등) | `ApplicationEventPublisher` → `@TransactionalEventListener(AFTER_COMMIT)` → `KafkaPaymentEventPublisher` |
+| 스케줄러 (환불 retry) | `TransactionSynchronizationManager.registerSynchronization().afterCommit()` → `KafkaPaymentEventPublisher.publishRefunded()` 직접 호출 |
 
 ---
 
