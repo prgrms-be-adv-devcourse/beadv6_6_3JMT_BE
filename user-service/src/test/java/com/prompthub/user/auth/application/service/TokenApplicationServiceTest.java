@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -61,7 +62,7 @@ class TokenApplicationServiceTest {
         given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(USER_ID);
         given(refreshTokenRepository.findByToken(REFRESH_TOKEN)).willReturn(Optional.of(storedToken()));
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
-        given(jwtTokenProvider.generateAccessToken(any(UUID.class), eq(UserRole.BUYER)))
+        given(jwtTokenProvider.generateAccessToken(any(UUID.class), eq(Set.of(UserRole.BUYER))))
                 .willReturn(new JwtTokenProvider.TokenResult("new-access-token", EXPIRES_AT));
 
         TokenRefreshResult result = authApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN));
@@ -76,13 +77,13 @@ class TokenApplicationServiceTest {
         given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(USER_ID);
         given(refreshTokenRepository.findByToken(REFRESH_TOKEN)).willReturn(Optional.of(storedToken()));
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(seller));
-        given(jwtTokenProvider.generateAccessToken(any(UUID.class), eq(UserRole.SELLER)))
+        given(jwtTokenProvider.generateAccessToken(any(UUID.class), eq(Set.of(UserRole.SELLER))))
                 .willReturn(new JwtTokenProvider.TokenResult("seller-access-token", EXPIRES_AT));
 
         TokenRefreshResult result = authApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN));
 
         assertThat(result.accessToken()).isEqualTo("seller-access-token");
-        then(jwtTokenProvider).should().generateAccessToken(any(UUID.class), eq(UserRole.SELLER));
+        then(jwtTokenProvider).should().generateAccessToken(any(UUID.class), eq(Set.of(UserRole.SELLER)));
     }
 
     @Test
