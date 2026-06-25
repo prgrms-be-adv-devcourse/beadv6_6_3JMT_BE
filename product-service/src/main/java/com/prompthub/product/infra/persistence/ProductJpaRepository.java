@@ -184,6 +184,8 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 		""")
 	List<Product> findBySellerId(@Param("sellerId") UUID sellerId);
 
+	long countBySellerIdAndDeletedAtIsNull(UUID sellerId);
+
 	@Query("""
 		select p
 		from Product p

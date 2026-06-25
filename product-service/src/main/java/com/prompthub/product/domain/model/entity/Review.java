@@ -51,4 +51,21 @@ public class Review {
 
 	@Column(name = "deleted_at")
 	private LocalDateTime deletedAt;
+
+	public static Review create(UUID userId, Product product, short rating) {
+		Review review = new Review();
+		review.id = UUID.randomUUID();
+		review.userId = userId;
+		review.product = product;
+		review.rating = rating;
+		review.status = ReviewStatus.ACTIVE;
+		review.createdAt = LocalDateTime.now();
+		review.updatedAt = LocalDateTime.now();
+		return review;
+	}
+
+	public void updateRating(short rating) {
+		this.rating = rating;
+		this.updatedAt = LocalDateTime.now();
+	}
 }
