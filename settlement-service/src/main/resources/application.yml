@@ -31,6 +31,13 @@ spring:
     listener:
       ack-mode: manual
 
+grpc:
+  client:
+    user-service:
+      address: ${USER_SERVICE_GRPC_ADDRESS:localhost:9091}
+    product-service:
+      address: ${PRODUCT_SERVICE_GRPC_ADDRESS:localhost:9092}
+
 settlement:
   scheduler:
     cron: "0 0 4 1 * *"

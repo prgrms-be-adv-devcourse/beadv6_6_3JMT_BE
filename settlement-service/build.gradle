@@ -2,12 +2,18 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.0.6'
 	id 'io.spring.dependency-management' version '1.1.7'
+	id 'com.google.protobuf' version '0.9.4'
 	id 'checkstyle'
 }
 
 group = 'com.prompthub'
 version = '0.0.1-SNAPSHOT'
 description = 'settlement'
+
+ext {
+	grpcVersion = '1.69.0'
+	protobufVersion = '4.28.2'
+}
 
 java {
 	toolchain {
@@ -50,12 +56,37 @@ dependencies {
 	//kafka
 	implementation 'org.springframework.boot:spring-boot-starter-kafka'
 
+	//grpc (타 서비스 동기 호출 — User 판매자명, Product 상품 수)
+	implementation "io.grpc:grpc-stub:${grpcVersion}"
+	implementation "io.grpc:grpc-protobuf:${grpcVersion}"
+	runtimeOnly "io.grpc:grpc-netty-shaded:${grpcVersion}"
+	implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
+	compileOnly 'org.apache.tomcat:annotations-api:6.0.53'
+
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+protobuf {
+	protoc {
+		artifact = "com.google.protobuf:protoc:${protobufVersion}"
+	}
+	plugins {
+		grpc {
+			artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+		}
+	}
+	generateProtoTasks {
+		all().each { task ->
+			task.plugins {
+				grpc {}
+			}
+		}
+	}
 }
 
 tasks.named('test') {

@@ -67,7 +67,13 @@ com.prompthub.settlement
     │   │       ├── consumer        ← 수신 어댑터(@KafkaListener → usecase 호출). 발행처별 하위 패키지(consumer/order 등)
     │   │       │   └── order       ← order 이벤트 컨슈머(OrderEventConsumer·OrderEventType)
     │   │       └── producer        ← 발행 어댑터(OutboxRelay 등, 도입 시). 메시지 envelope·페이로드 DTO 는 application/event
-    │   └── client                  ← 타 서비스 동기 호출(REST/Feign) 어댑터
+    │   └── client                  ← 타 서비스 동기 호출(gRPC) 어댑터. 호출 대상 서비스별 하위 패키지로 분리
+    │       ├── product             ← Product 서비스 gRPC 호출
+    │       │   ├── ProductQueryClient
+    │       │   └── config          ← 채널·스텁 빈 설정(ProductGrpcClientConfig)
+    │       └── seller              ← User(Seller) 서비스 gRPC 호출
+    │           ├── SellerQueryClient
+    │           └── config          ← 채널·스텁 빈 설정(SellerGrpcClientConfig)
     └── config                      ← 해당 기능 전용 설정
 
 com.prompthub.settlement.global       ← 기능 횡단(cross-cutting) 공통
@@ -107,8 +113,14 @@ com.prompthub.settlement.global       ← 기능 횡단(cross-cutting) 공통
 - 인바운드: `SettlementUseCase`(포트) ← `SettlementApplicationService`(구현)
 - 아웃바운드(영속성): `SettlementRepository`(포트, domain) ← `SettlementRepositoryAdapter`(구현, infrastructure)
 - 아웃바운드(비영속): `SettlementJobLauncher`(포트, application) ← `SettlementJobLauncherAdapter`(구현, infrastructure)
-- 아웃바운드(타 서비스 동기 조회): `SellerQueryPort`(포트, application) ← `SellerQueryClient`(구현, `infrastructure/client`).
-  다른 서비스의 internal REST API 를 Spring Cloud `lb://` + OpenFeign/WebClient 로 호출한다. (메시징이 아니므로 `messaging/kafka` 와 분리)
+- 아웃바운드(타 서비스 동기 조회): `SellerQueryPort`(포트, application) ← `SellerQueryClient`(구현, `infrastructure/client/seller`).
+  다른 서비스의 gRPC 서버를 블로킹 스텁으로 호출한다. (메시징이 아니므로 `messaging/kafka` 와 분리)
+  - **호출 대상 서비스별로 하위 패키지를 나눈다.** `client/product`(Product), `client/seller`(User/Seller)처럼
+    서비스마다 어댑터(`~QueryClient`)와 그 서비스 전용 채널·스텁 빈 설정(`config/~Config`)을 함께 둔다.
+  - 채널·블로킹 스텁 빈은 서비스별 `config` 패키지의 `@Configuration`(`ProductGrpcClientConfig`·`SellerGrpcClientConfig`)에서
+    각자 생성한다(`ProductGrpcClientConfig`·`SellerGrpcClientConfig`). 단일 공용 config 로 묶지 않고 서비스 단위로 분리해, 주소·옵션을 서비스별로 독립 관리한다.
+  - 채널 주소는 yml(`grpc.client.<service>.address`)로 주입한다. proto/생성 스텁 패키지(`com.prompthub.settlement.grpc.*`)는
+    `src/main/proto` 기준이며 이 client 패키지 분리와 무관하다.
 - 어댑터는 내부에서 `SettlementJpaRepository`(Spring Data) 를 호출한다.
 - **포트가 반환하는 조회결과 record(예: 페이징 묶음·집계 결과)는 `domain/repository`에 둘 수 있다.**
   도메인 포트의 반환 타입이라 도메인에 있어야 하고(application/dto로 빼면 domain→application 역의존), 포트
