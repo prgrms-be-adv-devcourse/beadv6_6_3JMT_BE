@@ -352,7 +352,7 @@ class OrderPaymentEventServiceTest {
 	class HandlePaymentRefunded {
 
 		@Test
-		@DisplayName("환불 이벤트를 받으면 PAID 주문/주문상품을 REFUNDED로 변경한다")
+		@DisplayName("환불 이벤트를 받으면 PAID 주문/주문상품을 REFUNDED로 변경하고 ORDER_REFUND Outbox를 저장한다")
 		void handlePaymentRefunded_success() {
 			Order order = createPaidOrderWithProducts();
 			PaymentRefundedEvent event = createPaymentRefundedEvent(order.getId());
@@ -367,6 +367,7 @@ class OrderPaymentEventServiceTest {
 			assertThat(order.getOrderProducts())
 				.extracting(OrderProduct::getOrderStatus)
 				.containsOnly(OrderStatus.REFUNDED);
+			then(outboxEventAppender).should().appendOrderRefund(order, event);
 		}
 
 		@Test
@@ -382,6 +383,7 @@ class OrderPaymentEventServiceTest {
 			orderPaymentEventService.handlePaymentRefunded(event);
 
 			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.REFUNDED);
+			then(outboxEventAppender).should(never()).appendOrderRefund(any(Order.class), any(PaymentRefundedEvent.class));
 		}
 
 		@Test
@@ -397,6 +399,7 @@ class OrderPaymentEventServiceTest {
 				.isInstanceOf(OrderException.class)
 				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
 					.isEqualTo(ErrorCode.INVALID_ORDER_STATUS_TRANSITION));
+			then(outboxEventAppender).should(never()).appendOrderRefund(any(Order.class), any(PaymentRefundedEvent.class));
 		}
 	}
 }

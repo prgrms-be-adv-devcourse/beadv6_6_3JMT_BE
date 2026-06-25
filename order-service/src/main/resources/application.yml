@@ -10,13 +10,13 @@ spring:
     default: local
 
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/prompthub}
+    username: ${DB_USERNAME:chan}
+    password: ${DB_PASSWORD:123}
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     properties:
       hibernate:
         format_sql: true

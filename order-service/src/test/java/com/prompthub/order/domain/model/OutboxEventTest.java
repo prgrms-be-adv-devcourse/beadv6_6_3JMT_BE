@@ -48,6 +48,25 @@ class OutboxEventTest {
 	}
 
 	@Test
+	@DisplayName("ORDER_REFUND Outbox 이벤트는 주문 이벤트 토픽과 PENDING 상태로 생성된다")
+	void orderRefund_createsPendingOutboxEvent() {
+		String payload = "{\"orderId\":\"%s\"}".formatted(ORDER_ID);
+
+		OutboxEvent outboxEvent = OutboxEvent.orderRefund(ORDER_ID, payload, APPROVED_AT);
+
+		assertThat(outboxEvent.getId()).isInstanceOf(UUID.class);
+		assertThat(outboxEvent.getAggregateId()).isEqualTo(ORDER_ID);
+		assertThat(outboxEvent.getAggregateType()).isEqualTo("ORDER");
+		assertThat(outboxEvent.getEventType()).isEqualTo("ORDER_REFUND");
+		assertThat(outboxEvent.getTopic()).isEqualTo("order-events");
+		assertThat(outboxEvent.getPayload()).isEqualTo(payload);
+		assertThat(outboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
+		assertThat(outboxEvent.getRetryCount()).isZero();
+		assertThat(outboxEvent.getOccurredAt()).isEqualTo(APPROVED_AT);
+		assertThat(outboxEvent.getPublishedAt()).isNull();
+	}
+
+	@Test
 	@DisplayName("Outbox 이벤트 발행 성공 시 PUBLISHED 상태와 발행 시각을 기록한다")
 	void markPublished_changesStatusAndPublishedAt() {
 		OutboxEvent outboxEvent = OutboxEvent.orderPaid(

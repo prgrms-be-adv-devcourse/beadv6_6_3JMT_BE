@@ -91,6 +91,7 @@ public class OrderPaymentEventService {
 
 		validateOrderStatus(order, OrderStatus.PAID);
 		order.refund(event.refundedAt());
+		outboxEventAppender.appendOrderRefund(order, event);
 	}
 
 	private Order findOrder(UUID orderId) {
