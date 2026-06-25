@@ -67,7 +67,7 @@ public class AuthApplicationService implements AuthUseCase {
             isNewUser = true;
         }
 
-        JwtTokenProvider.TokenResult accessTokenResult = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getRoles());
+        JwtTokenProvider.TokenResult accessTokenResult = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getRoles(), user.getStatus());
         JwtTokenProvider.TokenResult refreshTokenResult = jwtTokenProvider.generateRefreshToken(user.getUserId());
 
         refreshTokenRepository.deleteByUserId(user.getUserId());
@@ -98,7 +98,7 @@ public class AuthApplicationService implements AuthUseCase {
 
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
 
-        JwtTokenProvider.TokenResult result = jwtTokenProvider.generateAccessToken(userId, user.getRoles());
+        JwtTokenProvider.TokenResult result = jwtTokenProvider.generateAccessToken(userId, user.getRoles(), user.getStatus());
         return new TokenRefreshResult(result.token(), result.expiresAt());
     }
 

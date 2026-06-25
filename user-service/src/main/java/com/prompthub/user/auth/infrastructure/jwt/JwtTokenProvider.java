@@ -4,6 +4,7 @@ import com.prompthub.user.auth.domain.exception.InvalidRefreshTokenException;
 import com.prompthub.user.auth.domain.exception.TokenExpiredException;
 import com.prompthub.user.global.config.JwtProperties;
 import com.prompthub.user.user.domain.model.UserRole;
+import com.prompthub.user.user.domain.model.UserStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -29,7 +30,7 @@ public class JwtTokenProvider {
 
     public record TokenResult(String token, Instant expiresAt) {}
 
-    public TokenResult generateAccessToken(UUID userId, Set<UserRole> roles) {
+    public TokenResult generateAccessToken(UUID userId, Set<UserRole> roles, UserStatus status) {
         Instant now = Instant.now();
         Instant expiresAt = now.plusSeconds(jwtProperties.getAccessTokenExpireSeconds());
 
@@ -40,6 +41,7 @@ public class JwtTokenProvider {
                 .issuedAt(now)
                 .expiresAt(expiresAt)
                 .claim("roles", roleNames)
+                .claim("status", status.name())
                 .claim("type", "access")
                 .build();
 
