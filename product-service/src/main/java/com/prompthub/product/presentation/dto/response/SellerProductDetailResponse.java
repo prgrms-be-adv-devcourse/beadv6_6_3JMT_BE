@@ -1,35 +1,35 @@
 package com.prompthub.product.presentation.dto.response;
 
 import com.prompthub.product.domain.model.entity.Product;
-import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
-public record SellerProductListItemResponse(
+public record SellerProductDetailResponse(
 	UUID productId,
 	String title,
 	String category,
 	String model,
 	int amount,
+	String desc,
+	String content,
 	String status,
-	int salesCount,
+	String version,
 	String thumbnailUrl,
-	String rejectionReason,
-	LocalDateTime createdAt,
-	LocalDateTime updatedAt
+	List<String> tags
 ) {
-	public static SellerProductListItemResponse from(Product product) {
-		return new SellerProductListItemResponse(
+	public static SellerProductDetailResponse from(Product product) {
+		return new SellerProductDetailResponse(
 			product.getId(),
 			product.getName(),
 			product.getCategory() != null ? product.getCategory().getCode() : null,
 			product.getProductType(),
 			product.getAmount(),
+			product.getDescription(),
+			product.getContent(),
 			product.getStatus().name(),
-			product.getSalesCount(),
+			product.getMajorVersion() + "." + product.getPatchVersion(),
 			product.getThumbnailUrl(),
-			product.getRejectionReason(),
-			product.getCreatedAt(),
-			product.getUpdatedAt()
+			product.getTags()
 		);
 	}
 }

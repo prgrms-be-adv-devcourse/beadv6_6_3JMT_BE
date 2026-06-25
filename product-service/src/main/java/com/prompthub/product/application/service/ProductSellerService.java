@@ -12,6 +12,7 @@ import com.prompthub.product.exception.enums.ProductErrorCode;
 import com.prompthub.product.presentation.dto.request.ProductCreateRequest;
 import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
 import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
+import com.prompthub.product.presentation.dto.response.SellerProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductListItemResponse;
 import java.util.List;
 import java.util.UUID;
@@ -47,7 +48,8 @@ public class ProductSellerService implements ProductSellerUseCase {
 			amountType,
 			request.amount(),
 			request.thumbnailUrl(),
-			request.content()
+			request.content(),
+			request.tags()
 		);
 
 		Product saved = productRepository.save(product);
@@ -83,6 +85,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 			request.amount(),
 			request.thumbnailUrl(),
 			request.content(),
+			request.tags(),
 			request.changeReason(),
 			isMajor
 		);
@@ -99,7 +102,11 @@ public class ProductSellerService implements ProductSellerUseCase {
 			throw new ProductException(ProductErrorCode.PRODUCT_FORBIDDEN);
 		}
 
-		product.softDelete();
+		if (product.getStatus() == com.prompthub.product.domain.model.enums.ProductStatus.DRAFT) {
+			product.softDelete();
+		} else {
+			product.stop();
+		}
 		productRepository.save(product);
 	}
 
@@ -109,6 +116,20 @@ public class ProductSellerService implements ProductSellerUseCase {
 		return productRepository.findBySellerId(sellerId).stream()
 			.map(SellerProductListItemResponse::from)
 			.toList();
+	}
+
+	@Override
+	public void submitForReview(UUID sellerId, UUID productId) {
+		Product product = getProductForSeller(sellerId, productId);
+		product.submitForReview();
+		productRepository.save(product);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public SellerProductDetailResponse getMyProduct(UUID sellerId, UUID productId) {
+		Product product = getProductForSeller(sellerId, productId);
+		return SellerProductDetailResponse.from(product);
 	}
 
 	private Product getProductForSeller(UUID sellerId, UUID productId) {
