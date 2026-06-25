@@ -1,6 +1,6 @@
 spring:
   application:
-    name: settlement
+    name: settlement-service
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:promptHub}
     username: ${DB_USERNAME:promptHub}
@@ -13,10 +13,38 @@ spring:
   batch:
     job:
       enabled: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+    consumer:
+      group-id: settlement-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+        spring.json.trusted.packages: com.prompthub.settlement.*
+    listener:
+      ack-mode: manual
+
+grpc:
+  client:
+    user-service:
+      address: ${USER_SERVICE_GRPC_ADDRESS:localhost:9091}
+    product-service:
+      address: ${PRODUCT_SERVICE_GRPC_ADDRESS:localhost:9092}
 
 settlement:
   scheduler:
     cron: "0 0 4 1 * *"
+  kafka:
+    listener:
+      order:
+        enabled: false
 
 api:
   init: /api/v1

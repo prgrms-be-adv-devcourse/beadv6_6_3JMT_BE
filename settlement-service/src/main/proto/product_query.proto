@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package settlement.product;
+
+option java_multiple_files = true;
+option java_package = "com.prompthub.settlement.grpc.product";
+option java_outer_classname = "ProductQueryProto";
+
+// 정산이 Product 서비스에서 판매자 등록 상품 수를 동기 조회하는 gRPC 계약(정산 제안안).
+service ProductQueryService {
+  rpc CountBySeller(ProductCountRequest) returns (ProductCountResponse);
+}
+
+message ProductCountRequest {
+  // 판매자(사용자) ID. UUID 문자열.
+  string seller_id = 1;
+}
+
+message ProductCountResponse {
+  string seller_id = 1;
+  int32 product_count = 2;
+}

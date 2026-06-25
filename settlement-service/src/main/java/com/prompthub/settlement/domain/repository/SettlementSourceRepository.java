@@ -8,6 +8,10 @@ import java.util.UUID;
 
 public interface SettlementSourceRepository {
 
+    void save(SettlementSourceLine line);
+
+    boolean existsByEventId(UUID eventId);
+
     List<UUID> findSettleableSellerIds(YearMonth period);
 
     List<SettlementSourceLine> findSettleableLines(UUID sellerId, YearMonth period);

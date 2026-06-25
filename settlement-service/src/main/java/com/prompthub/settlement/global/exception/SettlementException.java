@@ -17,4 +17,9 @@ public class SettlementException extends BusinessException {
         super(errorCode);
         initCause(cause);
     }
+
+    public SettlementException(ErrorCode errorCode, String message, Throwable cause) {
+        super(errorCode, message);
+        initCause(cause);
+    }
 }
