@@ -106,6 +106,7 @@
 | 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
 |------|------|:--------:|--------|------|
 | id | UUID | ✓ | gen_random_uuid() | PK |
+| parent_id | UUID | | NULL | FK → product.id. 최초 등록 시 NULL, 버전업 시 원본 상품 id |
 | seller_id | UUID | ✓ | | FK → seller.seller_id |
 | category_id | UUID | | NULL | FK → category.category_id |
 | major_version | SMALLINT | ✓ | 1 | 메이저 버전. MAJOR 선택 시 +1, patch_version 0 리셋 |
