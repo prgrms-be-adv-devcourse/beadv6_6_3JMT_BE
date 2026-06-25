@@ -15,6 +15,8 @@ import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Component
@@ -27,15 +29,17 @@ public class JwtTokenProvider {
 
     public record TokenResult(String token, Instant expiresAt) {}
 
-    public TokenResult generateAccessToken(UUID userId, UserRole role) {
+    public TokenResult generateAccessToken(UUID userId, Set<UserRole> roles) {
         Instant now = Instant.now();
         Instant expiresAt = now.plusSeconds(jwtProperties.getAccessTokenExpireSeconds());
+
+        List<String> roleNames = roles.stream().map(UserRole::name).toList();
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .subject(userId.toString())
                 .issuedAt(now)
                 .expiresAt(expiresAt)
-                .claim("role", role.name())
+                .claim("roles", roleNames)
                 .claim("type", "access")
                 .build();
 
