@@ -31,6 +31,9 @@ public class Product {
 	@Column(name = "id", nullable = false)
 	private UUID id;
 
+	@Column(name = "parent_id")
+	private UUID parentId;
+
 	@Column(name = "seller_id", nullable = false)
 	private UUID sellerId;
 
@@ -187,6 +190,18 @@ public class Product {
 
 	public boolean isOwnedBy(UUID userId) {
 		return this.sellerId.equals(userId);
+	}
+
+	public void incrementSalesCount() {
+		this.salesCount++;
+		this.updatedAt = LocalDateTime.now();
+	}
+
+	public void decrementSalesCount() {
+		if (this.salesCount > 0) {
+			this.salesCount--;
+			this.updatedAt = LocalDateTime.now();
+		}
 	}
 
 	public void incrementViewCount() {
