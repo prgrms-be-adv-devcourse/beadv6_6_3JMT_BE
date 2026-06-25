@@ -18,7 +18,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.prompthub.exception.BusinessException;
+import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import jakarta.validation.Valid;
+import java.util.Arrays;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -84,6 +87,17 @@ public class PaymentController {
                       "code": "PAY002"
                     }
                     """))),
+        @ApiResponse(responseCode = "403", description = "BUYER 역할 없음(PAY007)",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponse.class),
+                examples = @ExampleObject(value = """
+                    {
+                      "success": false,
+                      "data": null,
+                      "message": "결제/환불 권한이 없습니다.",
+                      "code": "PAY007"
+                    }
+                    """))),
         @ApiResponse(responseCode = "502", description = "PG사 처리 오류(PAY003)",
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = ErrorResponse.class),
@@ -101,8 +115,14 @@ public class PaymentController {
         @Parameter(description = "사용자 UUID (Gateway 주입)", required = true,
             example = "550e8400-e29b-41d4-a716-446655440000")
         @RequestHeader("X-User-Id") UUID userId,
+        @Parameter(description = "사용자 역할 목록 (Gateway 주입, 쉼표 구분)", required = true,
+            example = "BUYER,SELLER")
+        @RequestHeader("X-User-Role") String userRoles,
         @Valid @RequestBody ConfirmPaymentRequest request
     ) {
+        if (Arrays.stream(userRoles.split(",")).noneMatch("BUYER"::equals)) {
+            throw new BusinessException(PaymentErrorCode.INSUFFICIENT_ROLE);
+        }
         ConfirmPaymentCommand command = new ConfirmPaymentCommand(
             request.paymentKey(), request.orderId(), request.amount(), userId
         );
@@ -133,10 +153,21 @@ public class PaymentController {
                       "code": "PAY004"
                     }
                     """))),
+        @ApiResponse(responseCode = "403", description = "BUYER 역할 없음(PAY007)",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponse.class),
+                examples = @ExampleObject(name = "BUYER 역할 없음", value = """
+                    {
+                      "success": false,
+                      "data": null,
+                      "message": "결제/환불 권한이 없습니다.",
+                      "code": "PAY007"
+                    }
+                    """))),
         @ApiResponse(responseCode = "403", description = "본인 결제 건 아님(PAY006)",
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = ErrorResponse.class),
-                examples = @ExampleObject(value = """
+                examples = @ExampleObject(name = "본인 결제 건 아님", value = """
                     {
                       "success": false,
                       "data": null,
@@ -160,10 +191,16 @@ public class PaymentController {
     public ResponseEntity<ApiResult<Void>> refund(
         @Parameter(description = "사용자 UUID (Gateway 주입)", required = true)
         @RequestHeader("X-User-Id") UUID userId,
+        @Parameter(description = "사용자 역할 목록 (Gateway 주입, 쉼표 구분)", required = true,
+            example = "BUYER,SELLER")
+        @RequestHeader("X-User-Role") String userRoles,
         @Parameter(description = "환불할 Payment ID", required = true,
             example = "550e8400-e29b-41d4-a716-446655440000")
         @PathVariable UUID paymentId
     ) {
+        if (Arrays.stream(userRoles.split(",")).noneMatch("BUYER"::equals)) {
+            throw new BusinessException(PaymentErrorCode.INSUFFICIENT_ROLE);
+        }
         refundPaymentUseCase.refund(new RefundPaymentCommand(paymentId, userId));
         return ResponseEntity
             .status(HttpStatus.ACCEPTED)
