@@ -2,6 +2,7 @@ package com.prompthub.settlement.infrastructure.messaging.kafka.consumer.order;
 
 import com.prompthub.settlement.application.event.OrderEventEnvelope;
 import com.prompthub.settlement.application.event.OrderPaidEvent;
+import com.prompthub.settlement.application.event.OrderRefundedEvent;
 import com.prompthub.settlement.application.usecase.SettlementSourceUseCase;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
 import com.prompthub.settlement.global.exception.SettlementException;
@@ -39,6 +40,7 @@ public class OrderEventConsumer {
 
 		switch (eventType) {
 			case ORDER_PAID -> settlementSourceUseCase.recordOrderPaid(toEnvelope(root, OrderPaidEvent.class));
+			case ORDER_REFUNDED -> settlementSourceUseCase.recordOrderRefunded(toEnvelope(root, OrderRefundedEvent.class));
 			case UNKNOWN -> log.warn("지원하지 않는 주문 이벤트 타입입니다. eventType={}", eventTypeStr);
 		}
 
@@ -50,7 +52,7 @@ public class OrderEventConsumer {
 			return objectMapper.readTree(message);
 		} catch (JacksonException exception) {
 			throw new SettlementException(
-				SettlementErrorCode.SETTLEMENT_EVENT_DESERIALIZE_FAILED, "주문 이벤트 메시지 파싱에 실패했습니다.");
+				SettlementErrorCode.SETTLEMENT_EVENT_DESERIALIZE_FAILED, "주문 이벤트 메시지 파싱에 실패했습니다.", exception);
 		}
 	}
 
@@ -61,7 +63,7 @@ public class OrderEventConsumer {
 			return objectMapper.treeToValue(root, type);
 		} catch (JacksonException exception) {
 			throw new SettlementException(
-				SettlementErrorCode.SETTLEMENT_EVENT_DESERIALIZE_FAILED, "주문 이벤트 페이로드 역직렬화에 실패했습니다.");
+				SettlementErrorCode.SETTLEMENT_EVENT_DESERIALIZE_FAILED, "주문 이벤트 페이로드 역직렬화에 실패했습니다.", exception);
 		}
 	}
 }

@@ -3,6 +3,8 @@ package com.prompthub.settlement.infrastructure.messaging.kafka.consumer.order;
 import com.prompthub.settlement.application.event.OrderEventEnvelope;
 import com.prompthub.settlement.application.event.OrderPaidEvent;
 import com.prompthub.settlement.application.event.OrderPaidProduct;
+import com.prompthub.settlement.application.event.OrderRefundedEvent;
+import com.prompthub.settlement.application.event.OrderRefundedProduct;
 import com.prompthub.settlement.application.usecase.SettlementSourceUseCase;
 import com.prompthub.settlement.global.exception.SettlementException;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,6 +82,44 @@ class OrderEventConsumerTest {
 			new OrderPaidEvent(ORDER_ID, BUYER_ID, 9900, 1, EVENT_TIME, List.of(
 				new OrderPaidProduct(ORDER_PRODUCT_ID, PRODUCT_ID, SELLER_ID, "프롬프트", "PROMPT", 9900))));
 		then(settlementSourceUseCase).should().recordOrderPaid(expected);
+		then(acknowledgment).should().acknowledge();
+	}
+
+	@Test
+	@DisplayName("ORDER_REFUNDED 메시지를 envelope로 역직렬화해 위임하고 ack 한다")
+	void consume_orderRefunded_delegatesAndAcknowledges() {
+		String message = """
+			{
+			  "eventId": "%s",
+			  "eventType": "ORDER_REFUNDED",
+			  "version": 1,
+			  "occurredAt": "%s",
+			  "aggregateId": "%s",
+			  "payload": {
+			    "orderId": "%s",
+			    "buyerId": "%s",
+			    "totalRefundAmount": 9900,
+			    "refundedAt": "%s",
+			    "products": [
+			      {
+			        "orderProductId": "%s",
+			        "productId": "%s",
+			        "sellerId": "%s",
+			        "refundAmount": 9900
+			      }
+			    ]
+			  }
+			}
+			""".formatted(EVENT_ID, EVENT_TIME, ORDER_ID, ORDER_ID, BUYER_ID, EVENT_TIME,
+				ORDER_PRODUCT_ID, PRODUCT_ID, SELLER_ID);
+
+		consumer.consume(message, acknowledgment);
+
+		OrderEventEnvelope<OrderRefundedEvent> expected = new OrderEventEnvelope<>(
+			EVENT_ID, "ORDER_REFUNDED", 1, EVENT_TIME, ORDER_ID,
+			new OrderRefundedEvent(ORDER_ID, BUYER_ID, 9900, EVENT_TIME, List.of(
+				new OrderRefundedProduct(ORDER_PRODUCT_ID, PRODUCT_ID, SELLER_ID, 9900))));
+		then(settlementSourceUseCase).should().recordOrderRefunded(expected);
 		then(acknowledgment).should().acknowledge();
 	}
 

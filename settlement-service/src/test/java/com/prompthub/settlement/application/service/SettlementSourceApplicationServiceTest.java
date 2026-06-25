@@ -10,6 +10,8 @@ import static org.mockito.Mockito.verify;
 import com.prompthub.settlement.application.event.OrderEventEnvelope;
 import com.prompthub.settlement.application.event.OrderPaidEvent;
 import com.prompthub.settlement.application.event.OrderPaidProduct;
+import com.prompthub.settlement.application.event.OrderRefundedEvent;
+import com.prompthub.settlement.application.event.OrderRefundedProduct;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.model.enums.SettlementSourceEventType;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
@@ -87,5 +89,47 @@ class SettlementSourceApplicationServiceTest {
         verify(settlementSourceRepository, times(2)).save(captor.capture());
         assertThat(captor.getAllValues().get(0).getEventId())
                 .isEqualTo(captor.getAllValues().get(1).getEventId());
+    }
+
+    private OrderRefundedProduct refundProduct(UUID orderProductId, UUID sellerId, int amount) {
+        return new OrderRefundedProduct(orderProductId, UUID.randomUUID(), sellerId, amount);
+    }
+
+    private OrderEventEnvelope<OrderRefundedEvent> refundEnvelope(UUID eventId, UUID orderId,
+            List<OrderRefundedProduct> products) {
+        OrderRefundedEvent event = new OrderRefundedEvent(orderId, UUID.randomUUID(), 0, EVENT_TIME, products);
+        return new OrderEventEnvelope<>(eventId, "ORDER_REFUNDED", 1, EVENT_TIME, orderId, event);
+    }
+
+    @Test
+    @DisplayName("환불 주문상품 수만큼 REFUND 소스 라인을 적재한다")
+    void recordOrderRefunded_savesRefundLine() {
+        UUID seller = UUID.randomUUID();
+        given(settlementSourceRepository.existsByEventId(any())).willReturn(false);
+
+        service.recordOrderRefunded(refundEnvelope(UUID.randomUUID(), UUID.randomUUID(),
+                List.of(refundProduct(UUID.randomUUID(), seller, 9900))));
+
+        ArgumentCaptor<SettlementSourceLine> captor = ArgumentCaptor.forClass(SettlementSourceLine.class);
+        verify(settlementSourceRepository).save(captor.capture());
+        assertThat(captor.getValue().getEventType()).isEqualTo(SettlementSourceEventType.REFUND);
+    }
+
+    @Test
+    @DisplayName("같은 주문상품의 PAID/REFUND 는 합성 eventId 가 달라 둘 다 적재된다")
+    void paidAndRefund_differentEventId() {
+        UUID eventId = UUID.randomUUID();
+        UUID orderProductId = UUID.randomUUID();
+        UUID seller = UUID.randomUUID();
+        given(settlementSourceRepository.existsByEventId(any())).willReturn(false);
+
+        service.recordOrderPaid(envelope(eventId, UUID.randomUUID(), List.of(product(orderProductId, seller, 9900))));
+        service.recordOrderRefunded(refundEnvelope(eventId, UUID.randomUUID(),
+                List.of(refundProduct(orderProductId, seller, 9900))));
+
+        ArgumentCaptor<SettlementSourceLine> captor = ArgumentCaptor.forClass(SettlementSourceLine.class);
+        verify(settlementSourceRepository, times(2)).save(captor.capture());
+        assertThat(captor.getAllValues().get(0).getEventId())
+                .isNotEqualTo(captor.getAllValues().get(1).getEventId());
     }
 }

@@ -5,6 +5,7 @@ import java.util.Arrays;
 public enum OrderEventType {
 
 	ORDER_PAID,
+	ORDER_REFUNDED,
 	UNKNOWN;
 
 	public static OrderEventType from(String type) {
