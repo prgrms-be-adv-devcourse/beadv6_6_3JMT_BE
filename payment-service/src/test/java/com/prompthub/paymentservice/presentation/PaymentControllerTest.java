@@ -52,6 +52,7 @@ class PaymentControllerTest {
 
         mockMvc.perform(post("/api/v1/payments/confirm")
                 .header("X-User-Id", UUID.randomUUID().toString())
+                .header("X-User-Role", "BUYER")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
                     new ConfirmPaymentRequest("toss-key", UUID.randomUUID(), 10_000)
@@ -65,6 +66,7 @@ class PaymentControllerTest {
     void paymentKey_누락_시_400_V001() throws Exception {
         mockMvc.perform(post("/api/v1/payments/confirm")
                 .header("X-User-Id", UUID.randomUUID().toString())
+                .header("X-User-Role", "BUYER")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"paymentKey\":\"\",\"orderId\":\"" + UUID.randomUUID() + "\",\"amount\":10000}"))
             .andExpect(status().isBadRequest())
@@ -76,6 +78,7 @@ class PaymentControllerTest {
     void amount_음수_시_400_V001() throws Exception {
         mockMvc.perform(post("/api/v1/payments/confirm")
                 .header("X-User-Id", UUID.randomUUID().toString())
+                .header("X-User-Role", "BUYER")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"paymentKey\":\"key\",\"orderId\":\"" + UUID.randomUUID() + "\",\"amount\":-1}"))
             .andExpect(status().isBadRequest())
@@ -89,6 +92,7 @@ class PaymentControllerTest {
 
         mockMvc.perform(post("/api/v1/payments/confirm")
                 .header("X-User-Id", UUID.randomUUID().toString())
+                .header("X-User-Role", "BUYER")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
                     new ConfirmPaymentRequest("toss-key", UUID.randomUUID(), 10_000)
@@ -105,11 +109,34 @@ class PaymentControllerTest {
 
         mockMvc.perform(post("/api/v1/payments/confirm")
                 .header("X-User-Id", UUID.randomUUID().toString())
+                .header("X-User-Role", "BUYER")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
                     new ConfirmPaymentRequest("toss-key", UUID.randomUUID(), 10_000)
                 )))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("PAY_FAILED"));
+    }
+
+    @Test
+    void BUYER_역할_없으면_결제승인_403_PAY007() throws Exception {
+        mockMvc.perform(post("/api/v1/payments/confirm")
+                .header("X-User-Id", UUID.randomUUID().toString())
+                .header("X-User-Role", "ADMIN")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(
+                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID(), 10_000)
+                )))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("PAY007"));
+    }
+
+    @Test
+    void BUYER_역할_없으면_환불_403_PAY007() throws Exception {
+        mockMvc.perform(post("/api/v1/payments/{paymentId}/refund", UUID.randomUUID())
+                .header("X-User-Id", UUID.randomUUID().toString())
+                .header("X-User-Role", "ADMIN"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("PAY007"));
     }
 }
