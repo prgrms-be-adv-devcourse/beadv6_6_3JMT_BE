@@ -32,9 +32,10 @@
 |------|------|----------------|------|
 | `PRODUCT_NOT_FOUND` | P001 | 상품이 존재하지 않습니다. | 404 |
 | `PRODUCT_NOT_ON_SALE` | P002 | 판매 중인 상품이 아닙니다. | 400 |
-| `PRODUCT_FORBIDDEN` | P003 | 다른 판매자의 상품에 접근할 수 없습니다. | 403 |
-| `PRODUCT_ALREADY_STOPPED` | P004 | 이미 판매 중지된 상품입니다. | 409 |
-| `PRODUCT_UNDER_REVIEW` | P005 | 검수 중인 상품은 수정할 수 없습니다. | 409 |
+| `PRODUCT_FORBIDDEN` | P003 | 본인의 상품만 수정/삭제할 수 있습니다. | 403 |
+| `CATEGORY_NOT_FOUND` | P004 | 존재하지 않는 카테고리입니다. | 400 |
+| `SELLER_NOT_ACTIVE` | P005 | 승인된 판매자만 상품을 등록할 수 있습니다. | 403 |
+| `PRODUCT_INVALID_STATUS` | P006 | 현재 상태에서 처리할 수 없는 상품입니다. | 409 |
 
 ---
 

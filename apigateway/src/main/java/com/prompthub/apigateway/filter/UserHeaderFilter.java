@@ -1,5 +1,6 @@
 package com.prompthub.apigateway.filter;
 
+import java.util.List;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -21,13 +22,14 @@ public class UserHeaderFilter implements GlobalFilter, Ordered {
             .flatMap(auth -> {
                 var jwt = auth.getToken();
                 var userId = jwt.getSubject();
-                var role = jwt.getClaimAsString("role");
+                List<String> roles = jwt.getClaimAsStringList("roles");
+                var roleHeader = String.join(",", roles != null ? roles : List.of());
 
                 ServerWebExchange mutated = exchange.mutate()
                     .request(r -> r
                         .headers(headers -> headers.remove(org.springframework.http.HttpHeaders.AUTHORIZATION))
                         .header("X-User-Id", userId)
-                        .header("X-User-Role", role))
+                        .header("X-User-Role", roleHeader))
                     .build();
                 return chain.filter(mutated);
             })

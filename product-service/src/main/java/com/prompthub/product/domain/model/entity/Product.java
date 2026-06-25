@@ -189,6 +189,11 @@ public class Product {
 		return this.sellerId.equals(userId);
 	}
 
+	public void incrementViewCount() {
+		this.viewCount++;
+		this.updatedAt = LocalDateTime.now();
+	}
+
 	public void submitForReview() {
 		if (this.status != ProductStatus.DRAFT && this.status != ProductStatus.REJECTED) {
 			throw new IllegalStateException("검수 요청할 수 없는 상태입니다. current=" + this.status);

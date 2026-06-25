@@ -33,6 +33,7 @@ import static lombok.AccessLevel.PROTECTED;
 public class OutboxEvent extends BaseEntity {
 
 	private static final String ORDER_PAID = "ORDER_PAID";
+	private static final String ORDER_REFUND = "ORDER_REFUND";
 	private static final String ORDER = "ORDER";
 	private static final String ORDER_EVENTS_TOPIC = "order-events";
 
@@ -113,6 +114,34 @@ public class OutboxEvent extends BaseEntity {
 			orderId,
 			ORDER,
 			ORDER_PAID,
+			ORDER_EVENTS_TOPIC,
+			payload,
+			OutboxEventStatus.PENDING,
+			0,
+			occurredAt,
+			null
+		);
+	}
+
+	public static OutboxEvent orderRefund(
+		UUID orderId,
+		String payload,
+		LocalDateTime occurredAt
+	) {
+		return orderRefund(UUID.randomUUID(), orderId, payload, occurredAt);
+	}
+
+	public static OutboxEvent orderRefund(
+		UUID eventId,
+		UUID orderId,
+		String payload,
+		LocalDateTime occurredAt
+	) {
+		return new OutboxEvent(
+			eventId,
+			orderId,
+			ORDER,
+			ORDER_REFUND,
 			ORDER_EVENTS_TOPIC,
 			payload,
 			OutboxEventStatus.PENDING,
