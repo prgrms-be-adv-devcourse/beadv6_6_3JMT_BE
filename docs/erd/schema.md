@@ -90,7 +90,7 @@
 
 | 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
 |------|------|:--------:|--------|------|
-| category_id | UUID | ✓ | gen_random_uuid() | PK |
+| id | UUID | ✓ | gen_random_uuid() | PK |
 | parent_id | UUID | | NULL | 부모 카테고리 FK (자기 참조). 최상위는 NULL |
 | code | VARCHAR(50) | ✓ | | 카테고리 코드. API 필터/응답 식별값. UNIQUE |
 | name | VARCHAR(100) | ✓ | | 카테고리 표시명 (화면 노출용) |
@@ -105,25 +105,26 @@
 
 | 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
 |------|------|:--------:|--------|------|
-| product_id | UUID | ✓ | gen_random_uuid() | PK |
+| id | UUID | ✓ | gen_random_uuid() | PK |
 | seller_id | UUID | ✓ | | FK → seller.seller_id |
 | category_id | UUID | | NULL | FK → category.category_id |
-| parent_id | UUID | | NULL | 버전 계열 최초 원본 ID (자기 참조). 최초 등록은 NULL |
 | major_version | SMALLINT | ✓ | 1 | 메이저 버전. MAJOR 선택 시 +1, patch_version 0 리셋 |
 | patch_version | SMALLINT | ✓ | 0 | 패치 버전. PATCH 선택 시 +1. 표기: major.patch |
 | change_reason | VARCHAR(500) | | NULL | 버전업 변경 사유 |
 | name | VARCHAR(200) | ✓ | | 상품명 |
 | description | TEXT | ✓ | | 상품 상세 설명 |
 | product_type | VARCHAR(50) | ✓ | | PROMPT 등 |
-| amount_type | amount_type_enum | ✓ | PAID | FREE / PAID |
+| amount_type | VARCHAR(20) | ✓ | PAID | FREE / PAID (CHECK constraint) |
 | amount | INT | ✓ | 0 | 판매 가격 |
 | thumbnail_url | VARCHAR(500) | | NULL | 대표 이미지 URL. NULL이면 기본 이미지 |
 | content | TEXT | | NULL | 프롬프트/템플릿 원문. **외부 응답 노출 금지** |
-| status | product_status_type | ✓ | DRAFT | DRAFT / PENDING_REVIEW / ON_SALE / REJECTED / STOPPED |
+| badge | VARCHAR(50) | | NULL | 상품 뱃지 (`신규` 등) |
+| status | VARCHAR(30) | ✓ | DRAFT | DRAFT / PENDING_REVIEW / ON_SALE / REJECTED / STOPPED (CHECK constraint) |
 | rejection_reason | VARCHAR(1000) | | NULL | 검수 반려 사유. REJECTED 상태에서만 유효 |
 | sales_count | INT | ✓ | 0 | 누적 판매 수 |
 | view_count | INT | ✓ | 0 | 조회 수 |
 | wish_count | INT | ✓ | 0 | 찜 수 |
+| tags | TEXT | | NULL | 판매자 지정 태그 (쉼표 구분 문자열, TagsConverter 사용) |
 | created_at | TIMESTAMPTZ | ✓ | | |
 | updated_at | TIMESTAMPTZ | ✓ | | |
 | deleted_at | TIMESTAMPTZ | | NULL | 소프트 삭제 일시 |
