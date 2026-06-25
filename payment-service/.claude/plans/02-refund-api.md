@@ -21,7 +21,7 @@ Scheduled Retry(10분 주기)로 REFUNDING 장애 건 자동 복구.
 | `application/gateway/persistence/RefundRepository.java` | `save`, `findById` | `findByPaymentId()` 추가 |
 | `application/exception/PaymentErrorCode.java` | PAY001~PAY_FAILED | `PAY004`, `PAY005`, `PAY006` 추가 |
 | `infrastructure/external/toss/TossPaymentGateway.java` | `confirm()` 구현만 있음 | `refund()` 구현 추가 |
-| `infrastructure/messaging/KafkaPaymentEventPublisher.java` | `payment.approved` 발행만 | `publishRefunded(Payment, Refund)` 직접 호출 메서드 추가 (계획의 `@EventListener onPaymentRefunded()` 대체) |
+| `infrastructure/messaging/KafkaPaymentEventPublisher.java` | `payment.approved` 발행만 | `onPaymentRefunded(PaymentRefundedEvent)` 이벤트 리스너 추가 |
 | `infrastructure/messaging/config/KafkaConfig.java` | `payment.approved` 토픽만 | `payment.refunded` NewTopic 빈 추가 |
 | `infrastructure/messaging/config/PaymentTopic.java` | `PAYMENT_APPROVED` 상수만 | `PAYMENT_REFUNDED` 추가 |
 | `infrastructure/persistence/PaymentJpaRepository.java` | 기본 쿼리만 | `findByStatusAndUpdatedAtBefore()` 추가 |
@@ -35,7 +35,7 @@ Scheduled Retry(10분 주기)로 REFUNDING 장애 건 자동 복구.
 | 파일 | 역할 |
 |---|---|
 | `domain/event/PaymentRefundRequestedEvent.java` | 환불 접수 → AFTER_COMMIT PG 호출 트리거 |
-| `domain/event/PaymentRefundedEvent.java` | 계획 당시 Kafka 발행 트리거 목적으로 생성. 구현 중 Spring Boot 4.1 중첩 이벤트 제한으로 사용하지 않음 — 파일만 존재 |
+| `domain/event/PaymentRefundedEvent.java` | Kafka 발행 트리거용 도메인 이벤트 (RefundEventHandler → PaymentRefundedEvent → KafkaPaymentEventPublisher 연쇄) |
 | `application/dto/command/RefundPaymentCommand.java` | 환불 유즈케이스 입력 |
 | `application/usecase/RefundPaymentUseCase.java` | 환불 Input Boundary |
 | `application/usecase/RefundPaymentInteractor.java` | 환불 유즈케이스 구현체 |
@@ -70,7 +70,7 @@ HTTP POST /api/v1/payments/{paymentId}/refund
 
   ─ AFTER_COMMIT ──────────────────────────────────────────────────────
   RefundEventHandler.onRefundRequested(PaymentRefundRequestedEvent)
-    TransactionTemplate(REQUIRES_NEW).execute {   ← @Transactional(REQUIRES_NEW) AOP 대신
+    @Transactional(REQUIRES_NEW):
       payment = paymentRepository.findById(event.paymentId)
       refund  = refundRepository.findByPaymentId(event.paymentId)
       try:
@@ -79,17 +79,16 @@ HTTP POST /api/v1/payments/{paymentId}/refund
         refund.complete(result.refundedAt())
         paymentRepository.save(payment)
         refundRepository.save(refund)
-        return RefundOutcome(payment, refund)  → COMMIT 보장 후 반환
+        applicationEventPublisher.publishEvent(PaymentRefundedEvent(payment, refund))
       catch (PaymentGatewayException):
         payment.restoreToRefundFailed()  → REFUNDING → PAID
         refund.fail()
         paymentRepository.save(payment)
         refundRepository.save(refund)
-        return null  → COMMIT (Kafka 미발행)
-    }
-    if (outcome != null):
-      KafkaPaymentEventPublisher.publishRefunded(payment, refund)
-        ← execute() 반환 = 커밋 완료 보장 → Kafka 직접 발행
+
+  ─ AFTER_COMMIT (PaymentRefundedEvent) ──────────────────────────────
+  KafkaPaymentEventPublisher.onPaymentRefunded(PaymentRefundedEvent)
+    → Kafka 발행: payment.refunded
 
   ─ Scheduled Retry (10분 주기) ───────────────────────────────────────
   PaymentRefundRetryScheduler.retryStaleRefunding()
@@ -103,10 +102,6 @@ HTTP POST /api/v1/payments/{paymentId}/refund
 - `PaymentRefundRequestedEvent` 존재 이유: `RefundPaymentInteractor`(1트랜잭션)와 PG 호출(AFTER_COMMIT)을 분리하는 경계선. 202를 먼저 반환하고 트랜잭션 커밋 이후에 PG 환불을 비동기로 처리해야 하므로 이 내부 이벤트를 통해 `@TransactionalEventListener(AFTER_COMMIT)`을 트리거한다. 이 이벤트가 없으면 PG 호출과 202 반환을 동기로 묶어야 해서 설계 목적(비동기 처리)을 달성할 수 없다.
 
 - `RefundEventHandler` vs `KafkaPaymentEventPublisher` 역할 분리: PG 호출 + DB 업데이트는 `RefundEventHandler`, Kafka 발행은 `KafkaPaymentEventPublisher`가 전담. 관심사 분리.
-
-- **`TransactionTemplate` 사용 이유**: 계획에서는 `@Transactional(REQUIRES_NEW)` AOP를 명시했으나, Spring Boot 4.1(Spring Framework 7)에서 `@TransactionalEventListener(AFTER_COMMIT)` 콜백 내에서 `@Transactional(REQUIRES_NEW)`로 시작한 트랜잭션은 `actualNewSynchronization = false`로 설정되어 커밋 후 `triggerAfterCommit()`이 실행되지 않는다. `TransactionTemplate.execute()`는 메서드 반환 시점이 곧 커밋 완료이므로, 반환 직후 Kafka를 직접 발행하는 방식으로 전환했다. (자세한 원인은 해당 이슈 섹션 참조)
-
-- `PaymentRefundedEvent` 미사용: 계획에서는 `RefundEventHandler` → `PaymentRefundedEvent` → `KafkaPaymentEventPublisher.onPaymentRefunded()` 연쇄를 설계했으나, `TransactionTemplate` 전환 후 중간 이벤트 없이 `publishRefunded()` 직접 호출로 단순화됐다. 파일은 생성됐지만 사용하지 않는다.
 
 - 예외 삼킴: 202 이미 반환됐으므로 PG 실패는 상태 복원 후 로그 기록. 클라이언트는 상태 폴링으로 확인.
 
@@ -380,9 +375,6 @@ events.md 스키마 준수: `eventType = "payment.refunded"`.
 
 #### `RefundEventHandler.java` 신규
 
-> **⚠️ 계획과 다른 구현**: `@Transactional(REQUIRES_NEW)` AOP 대신 `TransactionTemplate`을 사용한다.  
-> Spring Boot 4.1에서 `@TransactionalEventListener(AFTER_COMMIT)` 콜백 내에서 `@Transactional(REQUIRES_NEW)` AOP는 `actualNewSynchronization = false`로 설정되어 커밋 후 `triggerAfterCommit()`이 실행되지 않는다. (자세한 원인은 하단 이슈 섹션 참조)
-
 ```java
 // infrastructure/messaging/
 @Slf4j
@@ -393,44 +385,29 @@ public class RefundEventHandler {
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
     private final PaymentGateway paymentGateway;
-    private final KafkaPaymentEventPublisher kafkaPaymentEventPublisher;
-    private final PlatformTransactionManager transactionManager;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onRefundRequested(PaymentRefundRequestedEvent event) {
-        // @Transactional(REQUIRES_NEW) AOP는 AFTER_COMMIT 콜백 내에서 actualNewSynchronization=false로
-        // 설정되어 triggerAfterCommit()이 실행되지 않는다. TransactionTemplate으로 직접 제어.
-        TransactionTemplate tx = new TransactionTemplate(transactionManager);
-        tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-
-        record RefundOutcome(Payment payment, Refund refund) {}
-
-        RefundOutcome outcome = tx.execute(status -> {
-            Payment payment = paymentRepository.findById(event.paymentId()).orElseThrow();
-            Refund refund = refundRepository.findByPaymentId(event.paymentId()).orElseThrow();
-            try {
-                TossRefundResult result = paymentGateway.refund(
-                    payment.getPgTxId(), payment.getId(), payment.getTotalAmount()
-                );
-                payment.completeRefund(result.refundedAt());
-                refund.complete(result.refundedAt());
-                paymentRepository.save(payment);
-                refundRepository.save(refund);
-                return new RefundOutcome(payment, refund);
-            } catch (PaymentGatewayException e) {
-                log.error("PG 환불 실패 — paymentId={}, code={}, reason={}",
-                    payment.getId(), e.getFailureCode(), e.getFailureReason());
-                payment.restoreToRefundFailed();
-                refund.fail();
-                paymentRepository.save(payment);
-                refundRepository.save(refund);
-                return null;
-            }
-        });
-
-        // execute() 반환 = 커밋 완료 보장. 성공 시 Kafka 직접 발행
-        if (outcome != null) {
-            kafkaPaymentEventPublisher.publishRefunded(outcome.payment(), outcome.refund());
+        Payment payment = paymentRepository.findById(event.paymentId()).orElseThrow();
+        Refund refund = refundRepository.findByPaymentId(event.paymentId()).orElseThrow();
+        try {
+            TossRefundResult result = paymentGateway.refund(
+                payment.getPgTxId(), payment.getId(), payment.getTotalAmount()
+            );
+            payment.completeRefund(result.refundedAt());
+            refund.complete(result.refundedAt());
+            paymentRepository.save(payment);
+            refundRepository.save(refund);
+            applicationEventPublisher.publishEvent(new PaymentRefundedEvent(payment, refund));
+        } catch (PaymentGatewayException e) {
+            log.error("PG 환불 실패 — paymentId={}, code={}, reason={}",
+                payment.getId(), e.getFailureCode(), e.getFailureReason());
+            payment.restoreToRefundFailed();
+            refund.fail();
+            paymentRepository.save(payment);
+            refundRepository.save(refund);
         }
     }
 }
@@ -438,14 +415,13 @@ public class RefundEventHandler {
 
 #### `KafkaPaymentEventPublisher.java` 수정
 
-> **⚠️ 계획과 다른 구현**: `@TransactionalEventListener onPaymentRefunded(PaymentRefundedEvent)` 대신 `RefundEventHandler`에서 직접 호출하는 `publishRefunded(Payment, Refund)` 공개 메서드를 추가한다.  
-> 중첩 `@TransactionalEventListener` 연쇄가 동작하지 않으므로 이벤트 연쇄를 제거하고 직접 호출로 전환.
-
 기존 `onPaymentApproved` 메서드 유지, 아래 메서드 추가.
 
 ```java
-// TransactionTemplate.execute() 완료 후 직접 호출 — Spring Boot 4.1 중첩 @TransactionalEventListener 제한 우회
-public void publishRefunded(Payment payment, Refund refund) {
+@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+public void onPaymentRefunded(PaymentRefundedEvent event) {
+    Payment payment = event.payment();
+    Refund refund = event.refund();
     PaymentRefundedMessage message = new PaymentRefundedMessage(
         "payment.refunded",
         payment.getId(), payment.getOrderId(), payment.getUserId(),
@@ -480,9 +456,6 @@ public class SchedulingConfig {}
 
 #### `PaymentRefundRetryScheduler.java` 신규
 
-> **⚠️ 계획과 다른 구현**: `ApplicationEventPublisher.publishEvent(PaymentRefundedEvent)` 대신 `KafkaPaymentEventPublisher.publishRefunded()`를 `TransactionSynchronizationManager.registerSynchronization().afterCommit()` 내에서 직접 호출한다.  
-> 스케줄러 메서드는 일반 `@Transactional` 컨텍스트에서 실행되므로 `isSynchronizationActive() = true`이고 `afterCommit()`이 정상 호출된다. (`@TransactionalEventListener(AFTER_COMMIT)` 내부와 달리 중첩 트랜잭션 문제가 없음)
-
 ```java
 // infrastructure/scheduling/
 @Slf4j
@@ -493,7 +466,7 @@ public class PaymentRefundRetryScheduler {
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
     private final PaymentGateway paymentGateway;
-    private final KafkaPaymentEventPublisher kafkaPaymentEventPublisher;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Scheduled(fixedDelay = 600_000)  // 10분 주기
     @Transactional
@@ -514,14 +487,7 @@ public class PaymentRefundRetryScheduler {
                 refund.complete(result.refundedAt());
                 paymentRepository.save(payment);
                 refundRepository.save(refund);
-                final Payment committedPayment = payment;
-                final Refund committedRefund = refund;
-                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        kafkaPaymentEventPublisher.publishRefunded(committedPayment, committedRefund);
-                    }
-                });
+                applicationEventPublisher.publishEvent(new PaymentRefundedEvent(payment, refund));
             } catch (PaymentGatewayException e) {
                 log.error("스케줄러 환불 재시도 실패 — paymentId={}, code={}, reason={}",
                     payment.getId(), e.getFailureCode(), e.getFailureReason());
@@ -754,71 +720,5 @@ public ResponseEntity<ApiResult<Void>> refund(
 | 영속성 컨텍스트 | AFTER_COMMIT 시점에 1트랜잭션의 컨텍스트가 닫혀 있어 재조회가 안전 | LazyLoadingException 위험. 엔티티 상태가 flush 전 스냅샷일 수 있음 |
 | REQUIRES_NEW와 궁합 | 새 트랜잭션에서 최신 상태를 조회하므로 정합성 보장 | 이전 트랜잭션의 엔티티를 새 트랜잭션에서 사용 — 영속성 컨텍스트 불일치 |
 
-> **현재 선택 이유**: AFTER_COMMIT은 1트랜잭션의 영속성 컨텍스트가 이미 닫힌 시점이다. `RefundEventHandler`가 `TransactionTemplate(REQUIRES_NEW)`로 새 트랜잭션을 열므로, 새 컨텍스트에서 DB를 재조회하는 것이 정합성 측면에서 안전하다. 재조회 비용(인덱스 PK 조회 1회)은 무시할 수 있다.
+> **현재 선택 이유**: AFTER_COMMIT은 1트랜잭션의 영속성 컨텍스트가 이미 닫힌 시점이다. `RefundEventHandler`가 `@Transactional(REQUIRES_NEW)`로 새 트랜잭션을 열므로, 새 컨텍스트에서 DB를 재조회하는 것이 정합성 측면에서 안전하다. 재조회 비용(인덱스 PK 조회 1회)은 무시할 수 있다.
 
----
-
-## 구현 중 발견된 이슈
-
-### Spring Boot 4.1 — `@TransactionalEventListener(AFTER_COMMIT)` + `@Transactional(REQUIRES_NEW)` 제한
-
-**증상**: `RefundEventHandler.onRefundRequested()`가 호출되고 PG 환불까지 성공하지만 DB에 변경이 저장되지 않고 Kafka 메시지도 발행되지 않는다.
-
-**근본 원인**: Spring Framework 7 소스 추적 결과:
-
-```
-AFTER_COMMIT 콜백 실행 시점:
-  isSynchronizationActive() = true  ← 외부 트랜잭션 동기화가 아직 활성
-
-REQUIRES_NEW 트랜잭션 시작 시:
-  actualNewSynchronization
-    = newSynchronization && !isSynchronizationActive()
-    = true && !true
-    = false
-
-triggerAfterCommit() 조건:
-  if (actualNewSynchronization) → 실행 안 됨
-```
-
-`@Transactional(REQUIRES_NEW)` AOP로 시작한 새 트랜잭션은 `actualNewSynchronization = false`로 설정되어, 해당 트랜잭션 커밋 후 `registerSynchronization().afterCommit()`이 호출되지 않는다.
-
-**해결책**: `TransactionTemplate.execute()`로 수동 트랜잭션 제어. `execute()` 반환 시점 = 커밋 완료 시점이므로, 반환 직후 Kafka 직접 발행.
-
-| 컨텍스트 | 패턴 | 이유 |
-|---|---|---|
-| `@TransactionalEventListener(AFTER_COMMIT)` 내부 | `TransactionTemplate` | `@Transactional(REQUIRES_NEW)` AOP는 `actualNewSynchronization=false`로 동작 불가 |
-| 일반 `@Transactional` 메서드 내부 (스케줄러) | `registerSynchronization().afterCommit()` | 외부 트랜잭션이 활성이므로 정상 동작 |
-
-### Kafka Consumer `seekToBeginning()` 메타데이터 미초기화
-
-**증상**: 통합 테스트에서 `seekToBeginning()` 후 발행된 메시지를 간헐적으로 수신하지 못한다.
-
-**원인**: `seekToBeginning()`은 lazy — 실제 `poll()` 시점에 offset 이동이 적용된다. `assign()` 직후 바로 호출하면 파티션 메타데이터가 초기화되기 전이라 seek이 의도대로 동작하지 않는다.
-
-**해결책**: `seekToBeginning()` 전에 `consumer.poll(Duration.ZERO)`로 메타데이터 강제 초기화.
-
-```java
-consumer.assign(List.of(partition));
-consumer.poll(Duration.ZERO);          // 메타데이터 초기화 — 이 줄이 핵심
-consumer.seekToBeginning(List.of(partition));
-```
-
-### `KafkaTestUtils.getSingleRecord()` — 다중 메시지 실패
-
-**증상**: `IllegalStateException: Got more than one record` 로 테스트 실패.
-
-**원인**: 동일 토픽(`payment.refunded`)을 사용하는 다른 테스트가 먼저 실행되면 메시지가 2개 이상 존재. `getSingleRecord()`는 정확히 1개일 때만 통과.
-
-**해결책**: `getSingleRecord()` 대신 30초 폴링 루프로 `orderId` key 기준 메시지 탐색.
-
-```java
-long deadline = System.currentTimeMillis() + 30_000;
-boolean found = false;
-while (!found && System.currentTimeMillis() < deadline) {
-    var polled = consumer.poll(Duration.ofMillis(500));
-    for (var r : polled) {
-        if (orderId.toString().equals(r.key())) { found = true; break; }
-    }
-}
-assertThat(found).withFailMessage("30초 내 payment.refunded Kafka 메시지 수신 실패").isTrue();
-```
