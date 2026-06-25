@@ -1,5 +1,6 @@
 package com.prompthub.user.global.config;
 
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,11 +12,14 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.List;
-
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    private static final List<String> ALLOWED_METHODS =
+            List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
+    private static final List<String> ALLOWED_HEADERS =
+            List.of("Content-Type", "Authorization", "X-User-Id", "X-User-Role", "X-Request-Id");
 
     @Value("${cors.allowed-origins:}")
     private List<String> allowedOrigins;
@@ -42,8 +46,8 @@ public class SecurityConfig {
         } else {
             config.setAllowedOrigins(effectiveOrigins);
         }
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Content-Type", "Authorization"));
+        config.setAllowedMethods(ALLOWED_METHODS);
+        config.setAllowedHeaders(ALLOWED_HEADERS);
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

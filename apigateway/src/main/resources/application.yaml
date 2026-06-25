@@ -9,6 +9,22 @@ spring:
   cloud:
     gateway:
       routes:
+        - id: settlement-service
+          uri: lb://SETTLEMENT-SERVICE
+          predicates:
+            - Path=/api/v1/sellers/me/settlements/**, /api/v1/admin/settlements/**
+        - id: order-service
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/api/v1/orders/**, /api/v1/cart/**, /api/v1/admin/orders/**, /api/v1/internal/orders/**
+        - id: product-service
+          uri: lb://PRODUCT-SERVICE
+          predicates:
+            - Path=/api/v1/products/**
+        - id: payment-service
+          uri: lb://PAYMENT-SERVICE
+          predicates:
+            - Path=/api/v1/payments/**
         - id: user-service
           uri: lb://USER-SERVICE
           predicates:
