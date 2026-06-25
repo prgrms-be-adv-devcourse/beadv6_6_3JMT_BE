@@ -34,7 +34,7 @@ Content-Type: application/json
 ### GET /users/me — 내 프로필 조회
 
 GET {{baseUrl}}/api/v1/users/me
-X-User-Id: {{adminUserId}}
+X-User-Id: {{userId}}
 X-User-Role: BUYER
 
 ###
@@ -219,7 +219,7 @@ X-User-Id: {{adminUserId}}
 X-User-Role: ADMIN
 
 {
-  "status": "suspended"
+  "status": "active"
 }
 
 ###
