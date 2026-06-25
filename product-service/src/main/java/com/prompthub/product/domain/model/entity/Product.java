@@ -172,4 +172,9 @@ public class Product {
 	public boolean isOwnedBy(UUID userId) {
 		return this.sellerId.equals(userId);
 	}
+
+	public void incrementViewCount() {
+		this.viewCount++;
+		this.updatedAt = LocalDateTime.now();
+	}
 }
