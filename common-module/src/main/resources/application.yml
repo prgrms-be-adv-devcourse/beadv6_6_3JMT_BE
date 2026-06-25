@@ -1,2 +1,2 @@
-spring:
-  application.name: common-module
+#spring:
+#  application.name: common-module
