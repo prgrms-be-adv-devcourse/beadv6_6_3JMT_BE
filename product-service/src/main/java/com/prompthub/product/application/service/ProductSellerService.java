@@ -6,9 +6,11 @@ import com.prompthub.product.application.usecase.ProductSellerUseCase;
 import com.prompthub.product.domain.model.entity.Category;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.AmountType;
+import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
+import com.prompthub.product.infra.messaging.producer.ProductEventProducer;
 import com.prompthub.product.presentation.dto.request.ProductCreateRequest;
 import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
 import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
@@ -27,6 +29,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 
 	private final ProductRepository productRepository;
 	private final SellerClient sellerClient;
+	private final ProductEventProducer productEventProducer;
 
 	@Override
 	public ProductCreateResponse createProduct(UUID sellerId, ProductCreateRequest request) {
@@ -74,6 +77,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 		Category category = productRepository.findCategoryByCode(request.category())
 			.orElseThrow(() -> new ProductException(ProductErrorCode.CATEGORY_NOT_FOUND));
 
+		int previousPrice = product.getAmount();
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
 		boolean isMajor = "MAJOR".equalsIgnoreCase(request.versionType());
 		product.update(
@@ -91,6 +95,10 @@ public class ProductSellerService implements ProductSellerUseCase {
 		);
 
 		productRepository.save(product);
+
+		if (previousPrice != product.getAmount()) {
+			productEventProducer.publishPriceChanged(product.getId(), previousPrice, product.getAmount());
+		}
 	}
 
 	@Override
@@ -102,12 +110,19 @@ public class ProductSellerService implements ProductSellerUseCase {
 			throw new ProductException(ProductErrorCode.PRODUCT_FORBIDDEN);
 		}
 
-		if (product.getStatus() == com.prompthub.product.domain.model.enums.ProductStatus.DRAFT) {
+		boolean isDraft = product.getStatus() == ProductStatus.DRAFT;
+		if (isDraft) {
 			product.softDelete();
 		} else {
 			product.stop();
 		}
 		productRepository.save(product);
+
+		if (isDraft) {
+			productEventProducer.publishDeleted(productId);
+		} else {
+			productEventProducer.publishStopped(productId);
+		}
 	}
 
 	@Override

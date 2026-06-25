@@ -5,23 +5,23 @@ import java.util.UUID;
 
 public record ProductCartSnapshotResponse(
 	UUID productId,
-	String title,
-	String productType,
-	int amount,
-	String thumbnailUrl,
 	UUID sellerId,
+	String productTitle,
+	String productType,
+	int productAmount,
+	String thumbnailUrl,
 	String sellerNickname,
-	String status
+	String productStatus
 ) {
 
 	public static ProductCartSnapshotResponse from(Product product, String sellerNickname) {
 		return new ProductCartSnapshotResponse(
 			product.getId(),
+			product.getSellerId(),
 			product.getName(),
 			product.getProductType(),
 			product.getAmount(),
 			product.getThumbnailUrl(),
-			product.getSellerId(),
 			sellerNickname,
 			product.getStatus().name()
 		);
