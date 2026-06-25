@@ -11,6 +11,7 @@ import com.prompthub.user.auth.infrastructure.jwt.JwtTokenProvider;
 import com.prompthub.user.user.domain.exception.UserNotFoundException;
 import com.prompthub.user.user.domain.model.User;
 import com.prompthub.user.user.domain.model.UserRole;
+import com.prompthub.user.user.domain.model.UserStatus;
 import com.prompthub.user.user.domain.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -62,7 +63,7 @@ class TokenApplicationServiceTest {
         given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(USER_ID);
         given(refreshTokenRepository.findByToken(REFRESH_TOKEN)).willReturn(Optional.of(storedToken()));
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
-        given(jwtTokenProvider.generateAccessToken(any(UUID.class), eq(Set.of(UserRole.BUYER))))
+        given(jwtTokenProvider.generateAccessToken(any(UUID.class), eq(Set.of(UserRole.BUYER)), any(UserStatus.class)))
                 .willReturn(new JwtTokenProvider.TokenResult("new-access-token", EXPIRES_AT));
 
         TokenRefreshResult result = authApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN));
@@ -77,13 +78,13 @@ class TokenApplicationServiceTest {
         given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(USER_ID);
         given(refreshTokenRepository.findByToken(REFRESH_TOKEN)).willReturn(Optional.of(storedToken()));
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(seller));
-        given(jwtTokenProvider.generateAccessToken(any(UUID.class), eq(Set.of(UserRole.SELLER))))
+        given(jwtTokenProvider.generateAccessToken(any(UUID.class), eq(Set.of(UserRole.SELLER)), any(UserStatus.class)))
                 .willReturn(new JwtTokenProvider.TokenResult("seller-access-token", EXPIRES_AT));
 
         TokenRefreshResult result = authApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN));
 
         assertThat(result.accessToken()).isEqualTo("seller-access-token");
-        then(jwtTokenProvider).should().generateAccessToken(any(UUID.class), eq(Set.of(UserRole.SELLER)));
+        then(jwtTokenProvider).should().generateAccessToken(any(UUID.class), eq(Set.of(UserRole.SELLER)), any(UserStatus.class));
     }
 
     @Test
