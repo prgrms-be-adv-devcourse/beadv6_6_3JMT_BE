@@ -52,6 +52,11 @@ dependencies {
     // JWT (RSA 서명/검증 — NimbusJwtEncoder 포함)
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
 
+    // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-api:3.0.0'
+//     로컬 테스트 시 UI 필요하면 webmvc-api → webmvc-ui 로 변경
+//    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0'
+
     // 컴파일 타임 코드 생성 — 런타임 classpath에 포함되지 않음
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
