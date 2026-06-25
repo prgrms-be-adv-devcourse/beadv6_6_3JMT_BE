@@ -4,32 +4,26 @@ import com.prompthub.product.domain.model.entity.Product;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public record SellerProductListItemResponse(
+public record AdminProductListItemResponse(
 	UUID productId,
 	String title,
 	String category,
+	UUID sellerId,
 	String model,
 	int amount,
 	String status,
-	int salesCount,
-	String thumbnailUrl,
-	String rejectionReason,
-	LocalDateTime createdAt,
-	LocalDateTime updatedAt
+	LocalDateTime createdAt
 ) {
-	public static SellerProductListItemResponse from(Product product) {
-		return new SellerProductListItemResponse(
+	public static AdminProductListItemResponse from(Product product) {
+		return new AdminProductListItemResponse(
 			product.getId(),
 			product.getName(),
 			product.getCategory() != null ? product.getCategory().getCode() : null,
+			product.getSellerId(),
 			product.getProductType(),
 			product.getAmount(),
 			product.getStatus().name(),
-			product.getSalesCount(),
-			product.getThumbnailUrl(),
-			product.getRejectionReason(),
-			product.getCreatedAt(),
-			product.getUpdatedAt()
+			product.getCreatedAt()
 		);
 	}
 }

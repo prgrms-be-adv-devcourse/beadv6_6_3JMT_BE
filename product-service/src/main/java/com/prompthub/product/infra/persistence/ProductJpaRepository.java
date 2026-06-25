@@ -185,4 +185,21 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 	List<Product> findBySellerId(@Param("sellerId") UUID sellerId);
 
 	long countBySellerIdAndDeletedAtIsNull(UUID sellerId);
+
+	@Query("""
+		select p
+		from Product p
+		where p.status = com.prompthub.product.domain.model.enums.ProductStatus.PENDING_REVIEW
+			and p.deletedAt is null
+		order by p.createdAt asc
+		""")
+	List<Product> findPendingReviewProducts();
+
+	@Query("""
+		select p
+		from Product p
+		where p.deletedAt is null
+		order by p.createdAt desc
+		""")
+	List<Product> findAllAdminProducts();
 }

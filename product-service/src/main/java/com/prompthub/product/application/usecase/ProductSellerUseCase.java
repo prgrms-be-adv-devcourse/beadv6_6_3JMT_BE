@@ -3,6 +3,7 @@ package com.prompthub.product.application.usecase;
 import com.prompthub.product.presentation.dto.request.ProductCreateRequest;
 import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
 import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
+import com.prompthub.product.presentation.dto.response.SellerProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductListItemResponse;
 import java.util.List;
 import java.util.UUID;
@@ -16,4 +17,8 @@ public interface ProductSellerUseCase {
 	void deleteProduct(UUID sellerId, String role, UUID productId);
 
 	List<SellerProductListItemResponse> getMyProducts(UUID sellerId);
+
+	SellerProductDetailResponse getMyProduct(UUID sellerId, UUID productId);
+
+	void submitForReview(UUID sellerId, UUID productId);
 }
