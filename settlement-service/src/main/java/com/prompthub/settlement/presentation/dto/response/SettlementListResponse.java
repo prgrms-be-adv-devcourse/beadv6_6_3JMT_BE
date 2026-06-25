@@ -4,6 +4,7 @@ import com.prompthub.settlement.domain.model.Settlement;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -62,7 +63,10 @@ public record SettlementListResponse(
             BigDecimal settlementTotalAmount,
 
             @Schema(description = "표시 상태", example = "WAITING")
-            String displayStatus
+            String displayStatus,
+
+            @Schema(description = "정산 산출(배치 실행) 시각", example = "2026-07-01T02:00:00")
+            LocalDateTime calculatedAt
     ) {
 
         public static Item from(Settlement settlement, String sellerName) {
@@ -76,7 +80,8 @@ public record SettlementListResponse(
                     settlement.getTotalAmount(),
                     settlement.getFeeTotalAmount(),
                     settlement.getSettlementTotalAmount(),
-                    settlement.displayStatus().name());
+                    settlement.displayStatus().name(),
+                    settlement.getCalculatedAt());
         }
     }
 }
