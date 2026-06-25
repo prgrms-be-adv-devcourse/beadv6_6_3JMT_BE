@@ -78,7 +78,8 @@ public class SellerSettlementController {
 		@Parameter(description = "조회 기준 월(YYYY-MM)", example = "2026-06")
 		@RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth period,
 		@Parameter(description = "0-base 페이지 번호") @RequestParam(defaultValue = "0") int page,
-		@Parameter(description = "페이지 크기") @RequestParam(defaultValue = "10") int size) {
+		@Parameter(description = "페이지 크기") @RequestParam(defaultValue = "10") int size
+	) {
 		return ApiResult.success(settlementUseCase.getMySettlements(
 			new SellerSettlementListQuery(sellerId, status, period, page, size)));
 	}
@@ -99,7 +100,8 @@ public class SellerSettlementController {
 	public ApiResult<SettlementStatusResponse> requestPayout(
 		@Parameter(description = "판매자 ID(UUID)", in = ParameterIn.HEADER)
 		@RequestHeader("X-User-Id") UUID sellerId,
-		@Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId) {
+		@Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId
+	) {
 		return ApiResult.success(settlementUseCase.requestPayout(sellerId, settlementId));
 	}
 }

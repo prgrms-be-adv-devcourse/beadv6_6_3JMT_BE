@@ -2,6 +2,8 @@ package com.prompthub.settlement.application.service;
 
 import com.prompthub.settlement.application.dto.SellerSettlementListQuery;
 import com.prompthub.settlement.application.dto.SettlementListQuery;
+import com.prompthub.settlement.application.port.ProductQueryPort;
+import com.prompthub.settlement.application.port.SellerQueryPort;
 import com.prompthub.settlement.application.usecase.SettlementUseCase;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
@@ -43,6 +45,8 @@ public class SettlementApplicationService implements SettlementUseCase {
     private final SettlementQueryRepository settlementQueryRepository;
     private final SettlementRepository settlementRepository;
     private final SettlementSourceRepository settlementSourceRepository;
+    private final SellerQueryPort sellerQueryPort;
+    private final ProductQueryPort productQueryPort;
 
     @Override
     public SettlementSummaryResponse getSummary() {
@@ -73,7 +77,20 @@ public class SettlementApplicationService implements SettlementUseCase {
     public SettlementListResponse getList(SettlementListQuery query) {
         SettlementQueryRepository.SettlementPage page =
                 settlementQueryRepository.findPage(query.status(), query.page(), query.size());
-        return SettlementListResponse.from(page.content(), page.totalElements(), query.page(), query.size());
+        Map<UUID, String> sellerNames = resolveSellerNames(page.content());
+        return SettlementListResponse.from(
+                page.content(), sellerNames, page.totalElements(), query.page(), query.size());
+    }
+
+    private Map<UUID, String> resolveSellerNames(List<Settlement> settlements) {
+        if (settlements.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> sellerIds = settlements.stream()
+                .map(Settlement::getSellerId)
+                .distinct()
+                .toList();
+        return sellerQueryPort.findSellerNames(sellerIds);
     }
 
     @Override
@@ -88,8 +105,7 @@ public class SettlementApplicationService implements SettlementUseCase {
         long totalSalesCount = settlementSourceRepository.countPaidBySeller(sellerId);
         BigDecimal totalRevenueAmount = settlementSourceRepository.sumPaidAmountBySeller(sellerId);
         BigDecimal totalSettlementAmount = settlementRepository.sumPaidSettlementAmountBySeller(sellerId);
-        // TODO: registeredPromptCount는 product 프롬프트 등록 이벤트를 수신해 채운다(별도 이슈). 현재는 0.
-        int registeredPromptCount = 0;
+        int registeredPromptCount = productQueryPort.countBySeller(sellerId);
         return SellerSettlementSummaryResponse.of(
                 registeredPromptCount, totalSalesCount, totalRevenueAmount, totalSettlementAmount);
     }

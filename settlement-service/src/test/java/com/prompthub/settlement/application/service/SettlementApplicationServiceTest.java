@@ -3,6 +3,7 @@ package com.prompthub.settlement.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
@@ -10,6 +11,8 @@ import static org.mockito.Mockito.when;
 
 import com.prompthub.settlement.application.dto.SellerSettlementListQuery;
 import com.prompthub.settlement.application.dto.SettlementListQuery;
+import com.prompthub.settlement.application.port.ProductQueryPort;
+import com.prompthub.settlement.application.port.SellerQueryPort;
 import com.prompthub.settlement.domain.exception.SettlementInvalidStateException;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementDetail;
@@ -35,6 +38,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -56,6 +60,12 @@ class SettlementApplicationServiceTest {
 
     @Mock
     private SettlementSourceRepository settlementSourceRepository;
+
+    @Mock
+    private SellerQueryPort sellerQueryPort;
+
+    @Mock
+    private ProductQueryPort productQueryPort;
 
     @InjectMocks
     private SettlementApplicationService settlementApplicationService;
@@ -146,6 +156,9 @@ class SettlementApplicationServiceTest {
         when(settlementQueryRepository.findPage(SettlementDisplayStatus.WAITING, 0, 20))
                 .thenReturn(new SettlementPage(List.of(settlement(sellerA), settlement(sellerB)), 5L));
 
+        given(sellerQueryPort.findSellerNames(anyList()))
+                .willReturn(Map.of(sellerA, "프롬프트마스터", sellerB, "AI스튜디오"));
+
         SettlementListResponse response = settlementApplicationService.getList(
                 new SettlementListQuery(SettlementDisplayStatus.WAITING, 0, 20));
 
@@ -156,13 +169,43 @@ class SettlementApplicationServiceTest {
 
         SettlementListResponse.Item first = response.items().get(0);
         assertThat(first.sellerId()).isEqualTo(sellerA);
-        assertThat(first.sellerName()).isNull();
+        assertThat(first.sellerName()).isEqualTo("프롬프트마스터");
         assertThat(first.productCount()).isEqualTo(1);
         assertThat(first.totalAmount()).isEqualByComparingTo("100.00");
         assertThat(first.feeTotalAmount()).isEqualByComparingTo("15.00");
         assertThat(first.settlementTotalAmount()).isEqualByComparingTo("85.00");
         assertThat(first.displayStatus()).isEqualTo("WAITING");
         assertThat(response.items().get(1).sellerId()).isEqualTo(sellerB);
+        assertThat(response.items().get(1).sellerName()).isEqualTo("AI스튜디오");
+    }
+
+    @Test
+    @DisplayName("목록: 판매자 ID를 모아 SellerQueryPort 로 이름을 채우고, 조회 결과에 없는 판매자는 null 이다")
+    void getList_fillsSellerNamesFromPort_missingAsNull() {
+        UUID sellerA = UUID.randomUUID();
+        UUID sellerB = UUID.randomUUID();
+        when(settlementQueryRepository.findPage(SettlementDisplayStatus.WAITING, 0, 20))
+                .thenReturn(new SettlementPage(List.of(settlement(sellerA), settlement(sellerB)), 5L));
+        given(sellerQueryPort.findSellerNames(anyList()))
+                .willReturn(Map.of(sellerA, "프롬프트마스터")); // sellerB 누락(존재하지 않거나 조회 실패)
+
+        SettlementListResponse response = settlementApplicationService.getList(
+                new SettlementListQuery(SettlementDisplayStatus.WAITING, 0, 20));
+
+        assertThat(response.items().get(0).sellerName()).isEqualTo("프롬프트마스터");
+        assertThat(response.items().get(1).sellerName()).isNull();
+        then(sellerQueryPort).should().findSellerNames(anyList());
+    }
+
+    @Test
+    @DisplayName("목록: 결과가 비면 SellerQueryPort 를 호출하지 않는다")
+    void getList_emptyPage_skipsSellerQuery() {
+        when(settlementQueryRepository.findPage(null, 0, 20))
+                .thenReturn(new SettlementPage(List.of(), 0L));
+
+        settlementApplicationService.getList(new SettlementListQuery(null, 0, 20));
+
+        then(sellerQueryPort).should(never()).findSellerNames(anyList());
     }
 
     @Test
@@ -401,8 +444,8 @@ class SettlementApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("판매자 요약: source/settlement 집계로 4개 지표를 채우고 registeredPromptCount는 0이다")
-    void getMySummary_assemblesFourMetricsWithZeroPromptCount() {
+    @DisplayName("판매자 요약: source/settlement 집계로 누적 판매·거래·정산 지표를 채운다")
+    void getMySummary_assemblesAccumulatedMetrics() {
         UUID sellerId = UUID.randomUUID();
         given(settlementSourceRepository.countPaidBySeller(sellerId)).willReturn(1342L);
         given(settlementSourceRepository.sumPaidAmountBySeller(sellerId))
@@ -412,10 +455,25 @@ class SettlementApplicationServiceTest {
 
         SellerSettlementSummaryResponse response = settlementApplicationService.getMySummary(sellerId);
 
-        assertThat(response.registeredPromptCount()).isZero();
         assertThat(response.totalSalesCount()).isEqualTo(1342L);
         assertThat(response.totalRevenueAmount()).isEqualByComparingTo("10449800");
         assertThat(response.totalSettlementAmount()).isEqualByComparingTo("170000");
+    }
+
+    @Test
+    @DisplayName("판매자 요약: 등록 상품 수를 ProductQueryPort 조회값으로 채운다")
+    void getMySummary_fillsRegisteredPromptCountFromProductPort() {
+        UUID sellerId = UUID.randomUUID();
+        given(settlementSourceRepository.countPaidBySeller(sellerId)).willReturn(1342L);
+        given(settlementSourceRepository.sumPaidAmountBySeller(sellerId))
+                .willReturn(new BigDecimal("10449800"));
+        given(settlementRepository.sumPaidSettlementAmountBySeller(sellerId))
+                .willReturn(new BigDecimal("170000"));
+        given(productQueryPort.countBySeller(sellerId)).willReturn(12);
+
+        SellerSettlementSummaryResponse response = settlementApplicationService.getMySummary(sellerId);
+
+        assertThat(response.registeredPromptCount()).isEqualTo(12);
     }
 
     @Test

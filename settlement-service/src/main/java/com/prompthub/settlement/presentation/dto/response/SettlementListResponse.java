@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Schema(description = "정산 목록(페이징) 응답")
@@ -22,8 +23,12 @@ public record SettlementListResponse(
         int size
 ) {
 
-    public static SettlementListResponse from(List<Settlement> settlements, long totalElements, int page, int size) {
-        List<Item> items = settlements.stream().map(Item::from).toList();
+    public static SettlementListResponse from(
+            List<Settlement> settlements, Map<UUID, String> sellerNames,
+            long totalElements, int page, int size) {
+        List<Item> items = settlements.stream()
+                .map(settlement -> Item.from(settlement, sellerNames.get(settlement.getSellerId())))
+                .toList();
         return new SettlementListResponse(items, totalElements, page, size);
     }
 
@@ -35,8 +40,7 @@ public record SettlementListResponse(
             @Schema(description = "판매자 ID(UUID)")
             UUID sellerId,
 
-            // TODO: 판매자명/상점명은 이번 범위 제외. 추후 이벤트로 타 서비스에 정보 요청해 채운다.
-            @Schema(description = "판매자명(추후 이벤트 연동으로 채움, 현재는 null)", nullable = true)
+            @Schema(description = "판매자명(상점명). User 서비스 동기 조회로 채우며, 조회되지 않으면 null", nullable = true)
             String sellerName,
 
             @Schema(description = "정산 기간 시작", example = "2026-06-01")
@@ -61,11 +65,11 @@ public record SettlementListResponse(
             String displayStatus
     ) {
 
-        public static Item from(Settlement settlement) {
+        public static Item from(Settlement settlement, String sellerName) {
             return new Item(
                     settlement.getId(),
                     settlement.getSellerId(),
-                    null,
+                    sellerName,
                     settlement.getPeriodStart(),
                     settlement.getPeriodEnd(),
                     settlement.getProductCount(),
