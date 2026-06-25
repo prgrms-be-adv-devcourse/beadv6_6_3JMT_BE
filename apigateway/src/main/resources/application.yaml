@@ -9,6 +9,10 @@ spring:
   cloud:
     gateway:
       routes:
+        - id: order-service
+          uri: http://localhost:8080
+          predicates:
+            - Path=/api/v1/orders, /api/v1/orders/**, /api/v1/cart, /api/v1/cart/**, /api/v1/admin/orders, /api/v1/admin/orders/**
         - id: user-service
           uri: lb://USER-SERVICE
           predicates:
