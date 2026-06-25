@@ -3,6 +3,10 @@ spring:
     name: payment-service
   config:
     import: optional:file:.env[.properties]
+  cloud:
+    config:
+      enabled: false
+      uri: http://localhost:8888
 
   datasource:
     url: ${DB_URL}
@@ -50,3 +54,9 @@ payment:
     secret-key: ${TOSS_SECRET_KEY:test-dummy-key}
     base-url: https://api.tosspayments.com/v1
     test-mode: ${TOSS_TEST_MODE:false}
+
+eureka:
+  client:
+    enabled: false
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
