@@ -1,6 +1,6 @@
 # API 설계 — Payment Service
 
-**Base URL (내부)**: `http://payment-service:8081`  
+**Base URL (내부)**: `http://payment-service:8084`  
 **Base URL (외부)**: `https://api.prompthub.io`
 
 ---
@@ -11,7 +11,7 @@
 |---|---|---|---|
 | `X-Request-Id` | UUID | ✅ | 분산 추적용 요청 ID (Gateway 생성) |
 | `X-User-Id` | UUID | 인증 시 ✅ | Gateway가 JWT 검증 후 주입하는 사용자 UUID |
-| `X-User-Role` | Enum | 인증 시 ✅ | `BUYER` / `SELLER` / `ADMIN` |
+| `X-User-Role` | String | 인증 시 ✅ | 쉼표 구분 복합 역할 (예: `BUYER,SELLER`) |
 
 ---
 
@@ -71,7 +71,7 @@
 | `400` | 입력값 오류 | `V001` |
 | `400` | PG사 결제 실패 | `PAY_FAILED` |
 | `401` | 토큰 만료 | `A003` |
-| `403` | 권한 없음 | `A004` |
+| `403` | BUYER 역할 없음 | `PAY007` |
 | `409` | 이미 결제된 주문 | `PAY002` |
 | `502` | PG사 처리 오류 | `PAY003` |
 
@@ -91,7 +91,7 @@
 구매자가 결제 건에 대해 전체 환불을 요청합니다.
 
 **제약 조건**
-- 요청 주체: `BUYER`, `SELLER`만 가능 (관리자 불가)
+- 요청 주체: `BUYER` 역할 보유자만 가능 (BUYER 없는 관리 전용 계정 불가)
 - 환불 가능 상태: `PAID`만 가능
 - 전체 환불만 지원 (부분 환불은 세미 MVP 범위 외)
 
@@ -127,7 +127,7 @@
 | `202` | 환불 요청 접수 완료 | — |
 | `400` | 환불 불가 상태 | `PAY004` |
 | `401` | 토큰 만료 | `A003` |
-| `403` | 권한 없음 (역할) | `A004` |
+| `403` | BUYER 역할 없음 | `PAY007` |
 | `403` | 본인 결제 건이 아님 | `PAY006` |
 | `404` | 결제 건 없음 | `PAY005` |
 
