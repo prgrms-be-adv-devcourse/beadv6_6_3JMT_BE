@@ -183,4 +183,6 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 		order by p.createdAt desc
 		""")
 	List<Product> findBySellerId(@Param("sellerId") UUID sellerId);
+
+	long countBySellerIdAndDeletedAtIsNull(UUID sellerId);
 }

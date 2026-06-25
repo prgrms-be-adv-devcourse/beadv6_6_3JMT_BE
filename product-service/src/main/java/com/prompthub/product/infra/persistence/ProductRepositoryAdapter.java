@@ -5,6 +5,7 @@ import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
 import com.prompthub.product.domain.repository.ProductRepository;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -62,5 +63,15 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	@Override
 	public List<Product> findBySellerId(UUID sellerId) {
 		return productJpaRepository.findBySellerId(sellerId);
+	}
+
+	@Override
+	public List<Product> findAllByIdIn(List<UUID> productIds) {
+		return new ArrayList<>(productJpaRepository.findAllById(productIds));
+	}
+
+	@Override
+	public long countBySellerId(UUID sellerId) {
+		return productJpaRepository.countBySellerIdAndDeletedAtIsNull(sellerId);
 	}
 }
