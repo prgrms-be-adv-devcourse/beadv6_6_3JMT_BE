@@ -1,6 +1,5 @@
-package com.prompthub.settlement.infrastructure.event.config;
+package com.prompthub.settlement.infrastructure.messaging.kafka.config;
 
-import com.prompthub.settlement.infrastructure.event.message.OrderSettlementMessage;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,7 +22,6 @@ import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 import org.springframework.util.backoff.FixedBackOff;
 
@@ -33,7 +31,6 @@ public class KafkaConfig {
 
 	private static final long RETRY_INTERVAL_MS = 1_000L;
 	private static final long MAX_RETRY_ATTEMPTS = 3L;
-	private static final String TRUSTED_PACKAGES = "com.prompthub.settlement.*";
 
 	private final String bootstrapServers;
 	private final String groupId;
@@ -67,7 +64,7 @@ public class KafkaConfig {
 	}
 
 	@Bean
-	public ConsumerFactory<String, OrderSettlementMessage> orderConsumerFactory() {
+	public ConsumerFactory<String, String> orderEventConsumerFactory() {
 		Map<String, Object> properties = new HashMap<>();
 		properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
 		properties.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
@@ -76,21 +73,18 @@ public class KafkaConfig {
 		properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
 		properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
 		properties.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
-		properties.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JacksonJsonDeserializer.class);
-		properties.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, TRUSTED_PACKAGES);
-		properties.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, OrderSettlementMessage.class.getName());
-		properties.put(JacksonJsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+		properties.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, StringDeserializer.class);
 		return new DefaultKafkaConsumerFactory<>(properties);
 	}
 
 	@Bean
-	public ConcurrentKafkaListenerContainerFactory<String, OrderSettlementMessage> orderKafkaListenerContainerFactory(
-		ConsumerFactory<String, OrderSettlementMessage> orderConsumerFactory,
+	public ConcurrentKafkaListenerContainerFactory<String, String> orderEventKafkaListenerContainerFactory(
+		ConsumerFactory<String, String> orderEventConsumerFactory,
 		DefaultErrorHandler kafkaErrorHandler
 	) {
-		ConcurrentKafkaListenerContainerFactory<String, OrderSettlementMessage> factory =
+		ConcurrentKafkaListenerContainerFactory<String, String> factory =
 			new ConcurrentKafkaListenerContainerFactory<>();
-		factory.setConsumerFactory(orderConsumerFactory);
+		factory.setConsumerFactory(orderEventConsumerFactory);
 		factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
 		factory.setCommonErrorHandler(kafkaErrorHandler);
 		return factory;

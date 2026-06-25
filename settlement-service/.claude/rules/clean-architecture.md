@@ -44,6 +44,7 @@ com.prompthub.settlement
     │   ├── usecase                 ← 인바운드 포트(인터페이스)
     │   ├── service                 ← 유스케이스 구현
     │   ├── port                    ← 아웃바운드 포트(비영속: 배치 실행·메시징 등)
+    │   ├── event                   ← 외부 이벤트 envelope·페이로드 DTO(타 서비스 메시지 계약). order-service 컨벤션과 동일
     │   └── dto                     ← Command / Result / Query(조회 조건)
     ├── domain
     │   ├── model                   ← 도메인 모델(= JPA 엔티티 겸용)
@@ -60,7 +61,13 @@ com.prompthub.settlement
     │   │   ├── launcher            ← 잡 실행·상태 조회 어댑터(JobOperator·JobRepository 연동)
     │   │   ├── scheduler           ← @Scheduled 정산 배치 트리거(SettlementBatchScheduler)
     │   │   └── model               ← 배치 내부 전용 DTO(예: SettlementTarget)
-    │   └── event                   ← 메시징·이벤트 어댑터
+    │   ├── messaging               ← 메시징(Kafka) 어댑터. order-service 패키지 컨벤션과 동일하게 맞춘다
+    │   │   └── kafka
+    │   │       ├── config          ← Kafka Producer/Consumer 설정(KafkaConfig)
+    │   │       ├── consumer        ← 수신 어댑터(@KafkaListener → usecase 호출). 발행처별 하위 패키지(consumer/order 등)
+    │   │       │   └── order       ← order 이벤트 컨슈머(OrderEventConsumer·OrderEventType)
+    │   │       └── producer        ← 발행 어댑터(OutboxRelay 등, 도입 시). 메시지 envelope·페이로드 DTO 는 application/event
+    │   └── client                  ← 타 서비스 동기 호출(REST/Feign) 어댑터
     └── config                      ← 해당 기능 전용 설정
 
 com.prompthub.settlement.global       ← 기능 횡단(cross-cutting) 공통
@@ -94,11 +101,14 @@ com.prompthub.settlement.global       ← 기능 횡단(cross-cutting) 공통
 | --- | --- | --- |
 | 인바운드(유스케이스) | `application/usecase` | `application/service` |
 | 아웃바운드(영속성) | `domain/repository` | `infrastructure/persistence` |
-| 아웃바운드(비영속: 배치·메시징 등) | `application/port` | `infrastructure/batch` · `infrastructure/event` |
+| 아웃바운드(비영속: 배치·메시징 등) | `application/port` | `infrastructure/batch` · `infrastructure/messaging/kafka` |
+| 아웃바운드(비영속: 타 서비스 동기 조회) | `application/port` | `infrastructure/client` |
 
 - 인바운드: `SettlementUseCase`(포트) ← `SettlementApplicationService`(구현)
 - 아웃바운드(영속성): `SettlementRepository`(포트, domain) ← `SettlementRepositoryAdapter`(구현, infrastructure)
 - 아웃바운드(비영속): `SettlementJobLauncher`(포트, application) ← `SettlementJobLauncherAdapter`(구현, infrastructure)
+- 아웃바운드(타 서비스 동기 조회): `SellerQueryPort`(포트, application) ← `SellerQueryClient`(구현, `infrastructure/client`).
+  다른 서비스의 internal REST API 를 Spring Cloud `lb://` + OpenFeign/WebClient 로 호출한다. (메시징이 아니므로 `messaging/kafka` 와 분리)
 - 어댑터는 내부에서 `SettlementJpaRepository`(Spring Data) 를 호출한다.
 - **포트가 반환하는 조회결과 record(예: 페이징 묶음·집계 결과)는 `domain/repository`에 둘 수 있다.**
   도메인 포트의 반환 타입이라 도메인에 있어야 하고(application/dto로 빼면 domain→application 역의존), 포트
@@ -106,9 +116,9 @@ com.prompthub.settlement.global       ← 기능 횡단(cross-cutting) 공통
   같은 패키지의 단독 record(예: `SettlementStatusAggregate`) 둘 다 허용한다. `domain/repository`가
   "인터페이스만" 담는다는 제약의 예외다.
 
-> **비영속 아웃바운드 포트는 `application/port`에 둔다.** 잡 실행·메시지 발행처럼 '영속성'이 아닌
-> 외부 연동은 도메인이 알 필요가 없으므로 `domain/repository`에 두지 않는다. application 이 필요로 하는
-> 인터페이스를 application 이 소유하고, 바깥 계층(infrastructure)이 구현한다(§1 의존 방향 부합).
+> **비영속 아웃바운드 포트는 `application/port`에 둔다.** 잡 실행·메시지 발행·타 서비스 동기 조회처럼
+> '영속성'이 아닌 외부 연동은 도메인이 알 필요가 없으므로 `domain/repository`에 두지 않는다. application 이
+> 필요로 하는 인터페이스를 application 이 소유하고, 바깥 계층(infrastructure)이 구현한다(§1 의존 방향 부합).
 
 ```
 application/service/SettlementApplicationService   implements   application/usecase/SettlementUseCase

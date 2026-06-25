@@ -35,9 +35,6 @@ settlement:
   scheduler:
     cron: "0 0 4 1 * *"
   kafka:
-    topics:
-      order-paid: order.paid
-      order-refunded: order.refunded
     listener:
       order:
         enabled: false

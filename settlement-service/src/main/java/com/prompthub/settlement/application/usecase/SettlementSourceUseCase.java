@@ -1,8 +1,9 @@
 package com.prompthub.settlement.application.usecase;
 
-import com.prompthub.settlement.application.dto.RecordSettlementSourceCommand;
+import com.prompthub.settlement.application.event.OrderEventEnvelope;
+import com.prompthub.settlement.application.event.OrderPaidEvent;
 
 public interface SettlementSourceUseCase {
 
-    void record(RecordSettlementSourceCommand command);
+    void recordOrderPaid(OrderEventEnvelope<OrderPaidEvent> envelope);
 }
