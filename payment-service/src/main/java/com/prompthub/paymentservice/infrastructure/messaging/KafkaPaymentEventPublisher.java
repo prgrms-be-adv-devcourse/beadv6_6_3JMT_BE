@@ -6,6 +6,8 @@ import com.prompthub.paymentservice.domain.model.Refund;
 import com.prompthub.paymentservice.infrastructure.messaging.config.PaymentTopic;
 import com.prompthub.paymentservice.infrastructure.messaging.dto.PaymentApprovedMessage;
 import com.prompthub.paymentservice.infrastructure.messaging.dto.PaymentRefundedMessage;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -18,6 +20,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @RequiredArgsConstructor
 public class KafkaPaymentEventPublisher {
 
+    private static final ZoneOffset KST = ZoneOffset.ofHours(9);
+
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -29,9 +33,13 @@ public class KafkaPaymentEventPublisher {
             payment.getOrderId(),
             payment.getUserId(),
             payment.getApprovedAmount(),
-            payment.getApprovedAt() != null ? payment.getApprovedAt().toString() : null
+            toKstString(payment.getApprovedAt())
         );
         kafkaTemplate.send(PaymentTopic.PAYMENT_APPROVED, payment.getOrderId().toString(), message);
+    }
+
+    private String toKstString(OffsetDateTime dateTime) {
+        return dateTime != null ? dateTime.withOffsetSameInstant(KST).toString() : null;
     }
 
     // TransactionTemplate.execute() 완료 후 직접 호출 — Spring Boot 4.1 중첩 @TransactionalEventListener 제한 우회
@@ -42,7 +50,7 @@ public class KafkaPaymentEventPublisher {
             payment.getOrderId(),
             payment.getUserId(),
             refund.getRefundAmount(),
-            payment.getRefundedAt() != null ? payment.getRefundedAt().toString() : null
+            toKstString(payment.getRefundedAt())
         );
         kafkaTemplate.send(PaymentTopic.PAYMENT_REFUNDED, payment.getOrderId().toString(), message)
             .whenComplete((result, ex) -> {

@@ -82,7 +82,7 @@ public class TossPaymentGateway implements PaymentGateway {
         TossRefundRequest request = new TossRefundRequest("구매자 환불 요청", null);
 
         TossRefundResponse response = restClient.post()
-            .uri("/payments/{paymentKey}/cancels", pgTxId)
+            .uri("/payments/{paymentKey}/cancel", pgTxId)
             .header("Idempotency-Key", "refund-" + paymentId)
             .contentType(MediaType.APPLICATION_JSON)
             .body(request)
@@ -116,7 +116,11 @@ public class TossPaymentGateway implements PaymentGateway {
     private TossErrorResponse parseError(org.springframework.http.client.ClientHttpResponse resp) {
         try {
             String body = new String(resp.getBody().readAllBytes(), StandardCharsets.UTF_8);
-            return objectMapper.readValue(body, TossErrorResponse.class);
+            tools.jackson.databind.JsonNode node = objectMapper.readTree(body);
+            String code = node.path("code").asText("UNKNOWN");
+            tools.jackson.databind.JsonNode messageNode = node.path("message");
+            String message = messageNode.isObject() ? messageNode.toString() : messageNode.asText("PG사 오류");
+            return new TossErrorResponse(code, message);
         } catch (IOException e) {
             return new TossErrorResponse("UNKNOWN", "PG사 응답 파싱 실패");
         }
