@@ -50,7 +50,7 @@ class AuthControllerTest {
                 USER_ID,
                 "테스트유저",
                 "test@kakao.com",
-                UserRole.BUYER,
+                java.util.Set.of(UserRole.BUYER),
                 "access-token",
                 "refresh-token",
                 "Bearer",
@@ -75,7 +75,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data.accessToken").value("access-token"))
                 .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.data.user.email").value("test@kakao.com"))
-                .andExpect(jsonPath("$.data.user.role").value("BUYER"));
+                .andExpect(jsonPath("$.data.user.roles[0]").value("BUYER"));
     }
 
     @Test
