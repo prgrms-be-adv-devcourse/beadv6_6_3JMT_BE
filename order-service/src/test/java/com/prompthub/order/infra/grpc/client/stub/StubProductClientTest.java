@@ -1,9 +1,10 @@
-package com.prompthub.order.infra.product;
+package com.prompthub.order.infra.grpc.client.stub;
 
 import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductCartSnapshot;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
+import com.prompthub.order.infra.grpc.client.stub.StubProductClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -19,7 +20,7 @@ class StubProductClientTest {
     @DisplayName("기본 프로필에서 StubProductClient 빈을 사용할 수 있다")
     void stubProductClientIsAvailableWithDefaultProfile() {
         try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
-            context.scan("com.prompthub.order.infra.product");
+            context.scan("com.prompthub.order.infra.grpc.client.stub");
             context.refresh();
 
             assertThat(context.getBean(ProductClient.class)).isInstanceOf(StubProductClient.class);

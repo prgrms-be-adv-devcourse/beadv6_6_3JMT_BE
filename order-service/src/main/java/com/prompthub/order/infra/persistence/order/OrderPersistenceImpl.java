@@ -43,7 +43,7 @@ public class OrderPersistenceImpl implements OrderPersistenceCustom {
                 orderProduct.download,
                 orderProduct.productType,
                 orderProduct.productTitle,
-                Expressions.nullExpression(String.class),
+                orderProduct.productModel,
                 Expressions.nullExpression(Double.class),
                 order.paidAt,
                 order.createdAt
