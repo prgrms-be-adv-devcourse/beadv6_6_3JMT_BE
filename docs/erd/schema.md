@@ -114,7 +114,8 @@
 | change_reason | VARCHAR(500) | | NULL | 버전업 변경 사유 |
 | name | VARCHAR(200) | ✓ | | 상품명 |
 | description | TEXT | ✓ | | 상품 상세 설명 |
-| product_type | VARCHAR(50) | ✓ | | 대상 AI 모델명 (예: GPT-4o, Midjourney v6). 공개 API에서는 `model` 필드명으로 반환 |
+| product_type | VARCHAR(50) | ✓ | | 상품 유형. PROMPT / TEMPLATE / DATASET / IMAGE_ASSET |
+| model | VARCHAR(100) | | NULL | 판매자가 입력하는 대상 AI 모델명 (예: GPT-4o, Midjourney v6) |
 | amount_type | VARCHAR(20) | ✓ | PAID | FREE / PAID (CHECK constraint) |
 | amount | INT | ✓ | 0 | 판매 가격 |
 | thumbnail_url | VARCHAR(500) | | NULL | 대표 이미지 URL. NULL이면 기본 이미지 |

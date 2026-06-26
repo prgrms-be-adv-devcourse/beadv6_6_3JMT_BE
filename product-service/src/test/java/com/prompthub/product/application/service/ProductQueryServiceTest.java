@@ -207,9 +207,9 @@ class ProductQueryServiceTest {
 			productId,
 			"리액트 컴포넌트 리팩터링 도우미",
 			category,
-			"coding",
 			"code-xml",
 			"PROMPT",
+			"GPT-4o",
 			7900,
 			4.7,
 			760,
@@ -224,7 +224,8 @@ class ProductQueryServiceTest {
 	private Product product(ProductStatus status, LocalDateTime deletedAt) {
 		Category category = instantiate(Category.class);
 		ReflectionTestUtils.setField(category, "id", CATEGORY_ID);
-		ReflectionTestUtils.setField(category, "name", "coding");
+		ReflectionTestUtils.setField(category, "code", "coding");
+		ReflectionTestUtils.setField(category, "name", "코딩");
 
 		Product product = instantiate(Product.class);
 		ReflectionTestUtils.setField(product, "id", PRODUCT_ID);
