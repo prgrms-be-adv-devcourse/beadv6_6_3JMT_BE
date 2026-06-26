@@ -77,20 +77,18 @@ public class SettlementApplicationService implements SettlementUseCase {
     public SettlementListResponse getList(SettlementListQuery query) {
         SettlementQueryRepository.SettlementPage page =
                 settlementQueryRepository.findPage(query.status(), query.page(), query.size());
-        Map<UUID, String> sellerNames = resolveSellerNames(page.content());
+
+        Map<UUID, String> sellerNames = Map.of();
+        if (!page.content().isEmpty()) {
+            List<UUID> sellerIds = page.content().stream()
+                    .map(Settlement::getSellerId)
+                    .distinct()
+                    .toList();
+            sellerNames = sellerQueryPort.findSellerNames(sellerIds);
+        }
+
         return SettlementListResponse.from(
                 page.content(), sellerNames, page.totalElements(), query.page(), query.size());
-    }
-
-    private Map<UUID, String> resolveSellerNames(List<Settlement> settlements) {
-        if (settlements.isEmpty()) {
-            return Map.of();
-        }
-        List<UUID> sellerIds = settlements.stream()
-                .map(Settlement::getSellerId)
-                .distinct()
-                .toList();
-        return sellerQueryPort.findSellerNames(sellerIds);
     }
 
     @Override
