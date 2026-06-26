@@ -46,7 +46,8 @@ dependencies {
     testImplementation 'org.testcontainers:testcontainers-kafka'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9'
+    // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-api:3.0.0'
 }
 
 dependencyManagement {
