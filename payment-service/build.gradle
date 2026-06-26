@@ -55,6 +55,22 @@ dependencyManagement {
     }
 }
 
+bootRun {
+    if (file('.env').exists()) {
+        def envMap = [:]
+        file('.env').readLines().each { String line ->
+            if (line.trim() && !line.startsWith('#')) {
+                def parts = line.split('=', 2)
+                if (parts.size() == 2) {
+                    envMap[parts[0].trim()] = parts[1].trim()
+                }
+            }
+        }
+        environment envMap
+        systemProperties envMap
+    }
+}
+
 tasks.named('test') {
     useJUnitPlatform()
 }

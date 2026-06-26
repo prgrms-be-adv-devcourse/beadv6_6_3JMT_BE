@@ -90,7 +90,7 @@ TOSS_SECRET_KEY=<Toss 테스트 시크릿 키 (test_sk_...)>
 docker exec payment-db-dev psql -U anjinpyo -d prompthub_payment_dev -c "\dt"
 
 # Kafka 브로커 확인
-docker exec payment-kafka-dev kafka-topics.sh --bootstrap-server localhost:9092 --list
+docker exec payment-kafka-dev /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
 
 # payment-service Swagger 접근
 open http://localhost:8084/swagger-ui.html
@@ -112,7 +112,30 @@ open http://localhost:8084/swagger-ui.html
 - DB `payment` 테이블 → 상태 `PAID`
 
 ```sql
-SELECT id, order_id, status, amount FROM payment ORDER BY created_at DESC LIMIT 1;
+SELECT id, order_id, status, total_amount, approved_amount FROM payment ORDER BY created_at DESC LIMIT 1;
+```
+
+- Kafka `payment.approved` 이벤트 발행 확인
+
+```bash
+docker exec payment-kafka-dev /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic payment.approved \
+  --from-beginning \
+  --max-messages 1 \
+  --timeout-ms 5000
+```
+
+기대 출력:
+```json
+{
+  "eventType": "payment.approved",
+  "paymentId": "<UUID>",
+  "orderId":   "<UUID>",
+  "userId":    "770e8400-e29b-41d4-a716-446655440002",
+  "amount":    <결제금액>,
+  "approvedAt": "<ISO8601>"
+}
 ```
 
 > **이 paymentId를 기록해둔다. 환불 테스트에서 사용한다.**
@@ -205,6 +228,29 @@ curl -s -X POST "http://localhost:8084/api/v1/payments/${PAY_ID}/refund" \
 
 ```sql
 SELECT id, status, updated_at FROM payment WHERE id = '<paymentId>';
+```
+
+- Kafka `payment.refunded` 이벤트 발행 확인
+
+```bash
+docker exec payment-kafka-dev /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic payment.refunded \
+  --from-beginning \
+  --max-messages 1 \
+  --timeout-ms 5000
+```
+
+기대 출력:
+```json
+{
+  "eventType":  "payment.refunded",
+  "paymentId":  "<UUID>",
+  "orderId":    "<UUID>",
+  "userId":     "770e8400-e29b-41d4-a716-446655440002",
+  "amount":     <결제금액>,
+  "refundedAt": "<ISO8601>"
+}
 ```
 
 ---
