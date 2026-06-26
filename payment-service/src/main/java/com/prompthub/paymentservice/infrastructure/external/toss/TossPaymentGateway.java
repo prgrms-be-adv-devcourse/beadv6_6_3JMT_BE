@@ -28,7 +28,7 @@ public class TossPaymentGateway implements PaymentGateway {
     private final ObjectMapper objectMapper;
 
     public TossPaymentGateway(
-        @Value("${payment.toss.secret-key:test-dummy-key}") String secretKey,
+        @Value("${payment.toss.secret-key}") String secretKey,
         @Value("${payment.toss.base-url:https://api.tosspayments.com/v1}") String baseUrl,
         ObjectMapper objectMapper
     ) {

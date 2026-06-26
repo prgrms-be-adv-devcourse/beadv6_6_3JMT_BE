@@ -51,7 +51,7 @@ springdoc:
 
 payment:
   toss:
-    secret-key: ${TOSS_SECRET_KEY}
+    secret-key: ${TOSS_SECRET_KEY:test-dummy-key}
     base-url: https://api.tosspayments.com/v1
     test-mode: ${TOSS_TEST_MODE:false}
 
