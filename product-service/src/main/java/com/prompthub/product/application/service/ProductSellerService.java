@@ -16,6 +16,7 @@ import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
 import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductListItemResponse;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -110,7 +111,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 		Product product = productRepository.findById(productId)
 			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
 
-		if (!"ADMIN".equals(role) && !product.isOwnedBy(sellerId)) {
+		if (Arrays.stream(role.split(",")).noneMatch("ADMIN"::equals) && !product.isOwnedBy(sellerId)) {
 			throw new ProductException(ProductErrorCode.PRODUCT_FORBIDDEN);
 		}
 
