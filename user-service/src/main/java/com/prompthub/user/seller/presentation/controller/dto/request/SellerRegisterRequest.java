@@ -1,13 +1,14 @@
-package com.prompthub.user.seller.presentation.dto.request;
+package com.prompthub.user.seller.presentation.controller.dto.request;
+
+import java.util.List;
+import java.util.UUID;
 
 import com.prompthub.user.seller.application.dto.RegisterSellerCommand;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-
-import java.util.List;
-import java.util.UUID;
 
 @Schema(description = "판매자 등록 신청 요청")
 public record SellerRegisterRequest(
