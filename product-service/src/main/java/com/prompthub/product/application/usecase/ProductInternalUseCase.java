@@ -4,10 +4,13 @@ import com.prompthub.product.presentation.dto.response.ProductCartSnapshotRespon
 import com.prompthub.product.presentation.dto.response.ProductContentResponse;
 import com.prompthub.product.presentation.dto.response.ProductCountResponse;
 import com.prompthub.product.presentation.dto.response.ProductOrderSnapshotResponse;
+import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import java.util.List;
 import java.util.UUID;
 
 public interface ProductInternalUseCase {
+
+	List<ProductsByIdsResponse> getProductsByIds(List<UUID> productIds);
 
 	List<ProductOrderSnapshotResponse> getOrderSnapshots(List<UUID> productIds);
 

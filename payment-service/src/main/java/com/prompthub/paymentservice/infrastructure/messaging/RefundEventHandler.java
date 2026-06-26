@@ -40,7 +40,7 @@ public class RefundEventHandler {
 
         RefundOutcome outcome = tx.execute(status -> {
             Payment payment = paymentRepository.findById(event.paymentId()).orElseThrow();
-            Refund refund = refundRepository.findByPaymentId(event.paymentId()).orElseThrow();
+            Refund refund = refundRepository.findById(event.refundId()).orElseThrow();
             try {
                 TossRefundResult result = paymentGateway.refund(
                     payment.getPgTxId(), payment.getId(), payment.getTotalAmount()

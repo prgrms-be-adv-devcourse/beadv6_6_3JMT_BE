@@ -274,6 +274,7 @@ public final class OrderFixture {
 		return new OrderListProjection(
 			ORDER_ID,
 			ORDER_PRODUCT_ID,
+			PRODUCT_ID_1,
 			orderStatus,
 			orderProductStatus,
 			download,
