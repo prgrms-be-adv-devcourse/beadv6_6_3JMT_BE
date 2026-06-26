@@ -16,6 +16,8 @@ public record ProductDetailResponse(
 	int salesCount,
 	String seller,
 	UUID sellerId,
+	String sellerProfileImageUrl,
+	int sellerProductCount,
 	String badge,
 	String desc,
 	String thumbnail_url,
