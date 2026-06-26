@@ -167,7 +167,7 @@
       "id": "uuid",
       "name": "카카오사용자",
       "email": "kakao@user.com",
-      "role": "BUYER"
+      "roles": ["BUYER"]
     },
     "accessToken": "eyJhbGci...",
     "refreshToken": "eyJhbGci...",
@@ -184,7 +184,7 @@
 | user.id | string | 사용자 ID |
 | user.name | string | 이름 |
 | user.email | string | 이메일 |
-| user.role | string | 역할 |
+| user.roles | string[] | 역할 목록 (`BUYER` / `SELLER` / `ADMIN`) |
 | accessToken | string | JWT 액세스 토큰 |
 | refreshToken | string | JWT 리프레시 토큰 |
 | tokenType | string | 토큰 타입 (`Bearer`) |

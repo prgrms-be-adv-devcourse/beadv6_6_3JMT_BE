@@ -79,7 +79,7 @@ public class AuthApplicationService implements AuthUseCase {
                 user.getUserId(),
                 user.getName(),
                 user.getEmail(),
-                user.getPrimaryRole(),
+                user.getRoles(),
                 accessTokenResult.token(),
                 refreshTokenResult.token(),
                 "Bearer",

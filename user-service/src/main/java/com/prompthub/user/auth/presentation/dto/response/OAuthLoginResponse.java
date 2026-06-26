@@ -5,6 +5,7 @@ import com.prompthub.user.user.domain.model.UserRole;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 
 @Schema(description = "OAuth 소셜 로그인 응답")
@@ -27,12 +28,12 @@ public record OAuthLoginResponse(
             @Schema(description = "사용자 ID") UUID id,
             @Schema(description = "이름", example = "카카오사용자") String name,
             @Schema(description = "이메일", example = "kakao@user.com") String email,
-            @Schema(description = "역할", example = "BUYER") UserRole role
+            @Schema(description = "역할 목록", example = "[\"BUYER\"]") Set<UserRole> roles
     ) {}
 
     public static OAuthLoginResponse from(OAuthLoginResult result) {
         return new OAuthLoginResponse(
-                new UserInfo(result.userId(), result.name(), result.email(), result.role()),
+                new UserInfo(result.userId(), result.name(), result.email(), result.roles()),
                 result.accessToken(),
                 result.refreshToken(),
                 result.tokenType(),
