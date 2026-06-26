@@ -1,10 +1,13 @@
 package com.prompthub.product.infra.grpc;
 
 import com.prompthub.product.application.usecase.ProductInternalUseCase;
+import com.prompthub.grpc.product.v1.GetCartSnapshotsRequest;
+import com.prompthub.grpc.product.v1.GetCartSnapshotsResponse;
 import com.prompthub.grpc.product.v1.GetOrderSnapshotsRequest;
 import com.prompthub.grpc.product.v1.GetOrderSnapshotsResponse;
 import com.prompthub.grpc.product.v1.GetProductContentRequest;
 import com.prompthub.grpc.product.v1.GetProductContentResponse;
+import com.prompthub.grpc.product.v1.ProductCartSnapshotMessage;
 import com.prompthub.grpc.product.v1.ProductInternalServiceGrpc;
 import com.prompthub.grpc.product.v1.ProductOrderSnapshot;
 import io.grpc.Status;
@@ -44,6 +47,34 @@ public class OrderProductGrpcService extends ProductInternalServiceGrpc.ProductI
 			responseObserver.onCompleted();
 		} catch (Exception e) {
 			log.error("GetOrderSnapshots failed: productIds={}", request.getProductIdsList(), e);
+			responseObserver.onError(Status.INTERNAL.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+	@Override
+	public void getCartSnapshots(GetCartSnapshotsRequest request, StreamObserver<GetCartSnapshotsResponse> responseObserver) {
+		try {
+			List<UUID> productIds = request.getProductIdsList().stream()
+				.map(UUID::fromString)
+				.toList();
+			var dtoList = productInternalUseCase.getCartSnapshots(productIds);
+			List<ProductCartSnapshotMessage> snapshots = dtoList.stream()
+				.map(s -> ProductCartSnapshotMessage.newBuilder()
+					.setProductId(s.productId().toString())
+					.setSellerId(s.sellerId().toString())
+					.setSellerNickname(s.sellerNickname() != null ? s.sellerNickname() : "")
+					.setTitle(s.productTitle())
+					.setProductType(s.productType() != null ? s.productType() : "")
+					.setAmount(s.productAmount())
+					.setThumbnailUrl(s.thumbnailUrl() != null ? s.thumbnailUrl() : "")
+					.build())
+				.toList();
+			responseObserver.onNext(GetCartSnapshotsResponse.newBuilder()
+				.addAllProducts(snapshots)
+				.build());
+			responseObserver.onCompleted();
+		} catch (Exception e) {
+			log.error("GetCartSnapshots failed: productIds={}", request.getProductIdsList(), e);
 			responseObserver.onError(Status.INTERNAL.withDescription(e.getMessage()).asRuntimeException());
 		}
 	}
