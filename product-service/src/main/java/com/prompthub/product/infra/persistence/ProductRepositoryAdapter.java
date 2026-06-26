@@ -82,6 +82,11 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	}
 
 	@Override
+	public long countOnSaleProductsBySellerId(UUID sellerId) {
+		return productJpaRepository.countBySellerIdAndStatusAndDeletedAtIsNull(sellerId, ProductStatus.ON_SALE);
+	}
+
+	@Override
 	public List<Product> findPendingReviewProducts() {
 		return productJpaRepository.findPendingReviewProducts();
 	}

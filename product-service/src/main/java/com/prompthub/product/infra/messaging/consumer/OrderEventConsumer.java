@@ -40,8 +40,14 @@ public class OrderEventConsumer {
 			List<UUID> productIds = extractProductIds(root.path("payload").path("products"));
 
 			switch (eventType) {
-				case "ORDER_PAID" -> productSalesCountService.incrementSalesCount(productIds);
-				case "ORDER_REFUND" -> productSalesCountService.decrementSalesCount(productIds);
+				case "ORDER_PAID" -> {
+					productSalesCountService.incrementSalesCount(productIds);
+					log.info("ORDER_PAID 처리 완료. productIds={}", productIds);
+				}
+				case "ORDER_REFUND" -> {
+					productSalesCountService.decrementSalesCount(productIds);
+					log.info("ORDER_REFUND 처리 완료. productIds={}", productIds);
+				}
 				default -> log.warn("처리하지 않는 주문 이벤트 타입: {}", eventType);
 			}
 			acknowledgment.acknowledge();

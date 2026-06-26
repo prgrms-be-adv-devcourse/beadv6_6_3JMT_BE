@@ -56,7 +56,7 @@ public class Product {
 	@Column(name = "name", nullable = false, length = 200)
 	private String name;
 
-	@Column(name = "description", nullable = false)
+	@Column(name = "description", nullable = false, columnDefinition = "TEXT")
 	private String description;
 
 	@Column(name = "product_type", nullable = false, length = 50)
@@ -75,7 +75,7 @@ public class Product {
 	@Column(name = "thumbnail_url", length = 500)
 	private String thumbnailUrl;
 
-	@Column(name = "content")
+	@Column(name = "content", columnDefinition = "TEXT")
 	private String content;
 
 	@Column(name = "badge", length = 50)
