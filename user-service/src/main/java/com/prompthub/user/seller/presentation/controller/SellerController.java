@@ -2,8 +2,8 @@ package com.prompthub.user.seller.presentation.controller;
 
 import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.user.seller.application.usecase.SellerUseCase;
-import com.prompthub.user.seller.presentation.dto.request.SellerRegisterRequest;
-import com.prompthub.user.seller.presentation.dto.response.SellerRegisterResponse;
+import com.prompthub.user.seller.presentation.controller.dto.request.SellerRegisterRequest;
+import com.prompthub.user.seller.presentation.controller.dto.response.SellerRegisterResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
