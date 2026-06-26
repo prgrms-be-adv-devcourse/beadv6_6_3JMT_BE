@@ -2,6 +2,7 @@ package com.prompthub.product.infra.persistence;
 
 import com.prompthub.product.domain.model.entity.Category;
 import com.prompthub.product.domain.model.entity.Product;
+import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
 import com.prompthub.product.domain.repository.ProductRepository;
@@ -68,6 +69,11 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	@Override
 	public List<Product> findAllByIdIn(List<UUID> productIds) {
 		return new ArrayList<>(productJpaRepository.findAllById(productIds));
+	}
+
+	@Override
+	public List<Product> findOnSaleByIdIn(List<UUID> productIds) {
+		return productJpaRepository.findAllByIdInAndStatusAndDeletedAtIsNull(productIds, ProductStatus.ON_SALE);
 	}
 
 	@Override

@@ -22,7 +22,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			coalesce(c.name, ''),
 			coalesce(c.code, ''),
 			coalesce(c.icon, ''),
-			p.productType,
+			p.model,
 			p.amount,
 			coalesce(avg(r.rating), 0.0),
 			p.salesCount,
@@ -41,7 +41,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			and (:keyword = ''
 				or lower(p.name) like concat('%', :keyword, '%')
 				or lower(p.description) like concat('%', :keyword, '%'))
-		group by p.id, p.name, c.name, c.code, c.icon, p.productType, p.amount, p.salesCount, p.sellerId,
+		group by p.id, p.name, c.name, c.code, c.icon, p.model, p.amount, p.salesCount, p.sellerId,
 			p.description, p.thumbnailUrl, p.createdAt, p.updatedAt
 		order by
 			case when :sort = 'rating' then coalesce(avg(r.rating), 0.0) end desc,
@@ -112,7 +112,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			coalesce(c.name, ''),
 			coalesce(c.code, ''),
 			coalesce(c.icon, ''),
-			p.productType,
+			p.model,
 			p.amount,
 			coalesce(avg(r.rating), 0.0),
 			p.salesCount,
@@ -129,7 +129,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			and p.deletedAt is null
 			and p.id <> :productId
 			and (:categoryId is null or p.categoryId = :categoryId)
-		group by p.id, p.name, c.name, c.code, c.icon, p.productType, p.amount, p.salesCount, p.sellerId,
+		group by p.id, p.name, c.name, c.code, c.icon, p.model, p.amount, p.salesCount, p.sellerId,
 			p.description, p.thumbnailUrl, p.createdAt, p.updatedAt
 		order by p.salesCount desc, p.createdAt desc
 		""")
@@ -185,6 +185,8 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 	List<Product> findBySellerId(@Param("sellerId") UUID sellerId);
 
 	long countBySellerIdAndDeletedAtIsNull(UUID sellerId);
+
+	List<Product> findAllByIdInAndStatusAndDeletedAtIsNull(List<UUID> ids, ProductStatus status);
 
 	@Query("""
 		select p

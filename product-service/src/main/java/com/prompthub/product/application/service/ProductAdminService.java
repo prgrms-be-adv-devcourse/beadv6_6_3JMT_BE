@@ -7,6 +7,7 @@ import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
 import com.prompthub.product.presentation.dto.response.AdminProductListItemResponse;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -58,7 +59,7 @@ public class ProductAdminService implements ProductAdminUseCase {
 	}
 
 	private void validateAdmin(String role) {
-		if (!"ADMIN".equals(role)) {
+		if (Arrays.stream(role.split(",")).noneMatch("ADMIN"::equals)) {
 			throw new ProductException(ProductErrorCode.PRODUCT_FORBIDDEN);
 		}
 	}

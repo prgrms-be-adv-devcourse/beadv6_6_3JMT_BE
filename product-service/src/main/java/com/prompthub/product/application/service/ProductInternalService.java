@@ -12,6 +12,7 @@ import com.prompthub.product.presentation.dto.response.ProductCartSnapshotRespon
 import com.prompthub.product.presentation.dto.response.ProductContentResponse;
 import com.prompthub.product.presentation.dto.response.ProductCountResponse;
 import com.prompthub.product.presentation.dto.response.ProductOrderSnapshotResponse;
+import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -30,8 +31,26 @@ public class ProductInternalService implements ProductInternalUseCase {
 	private final SellerClient sellerClient;
 
 	@Override
-	public List<ProductOrderSnapshotResponse> getOrderSnapshots(List<UUID> productIds) {
+	public List<ProductsByIdsResponse> getProductsByIds(List<UUID> productIds) {
 		return productRepository.findAllByIdIn(productIds).stream()
+			.map(p -> new ProductsByIdsResponse(
+				p.getId(),
+				p.getSellerId(),
+				p.getName(),
+				p.getAmount(),
+				p.getThumbnailUrl(),
+				p.getCategory() != null ? p.getCategory().getCode() : "",
+				p.getModel() != null ? p.getModel() : "",
+				p.getSalesCount(),
+				productRepository.getAverageRating(p.getId()),
+				p.getStatus().name()
+			))
+			.toList();
+	}
+
+	@Override
+	public List<ProductOrderSnapshotResponse> getOrderSnapshots(List<UUID> productIds) {
+		return productRepository.findOnSaleByIdIn(productIds).stream()
 			.map(ProductOrderSnapshotResponse::from)
 			.toList();
 	}

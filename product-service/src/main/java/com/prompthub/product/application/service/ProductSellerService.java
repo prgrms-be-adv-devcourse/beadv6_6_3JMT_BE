@@ -16,6 +16,7 @@ import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
 import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductListItemResponse;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -42,11 +43,13 @@ public class ProductSellerService implements ProductSellerUseCase {
 			.orElseThrow(() -> new ProductException(ProductErrorCode.CATEGORY_NOT_FOUND));
 
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
+		String productType = request.productType() != null ? request.productType() : "PROMPT";
 		Product product = Product.create(
 			sellerId,
 			category,
 			request.title(),
 			request.desc(),
+			productType,
 			request.model(),
 			amountType,
 			request.amount(),
@@ -62,7 +65,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 			saved.getSellerId(),
 			saved.getName(),
 			category.getCode(),
-			saved.getProductType(),
+			saved.getModel(),
 			saved.getDescription(),
 			saved.getAmount(),
 			saved.getStatus().name(),
@@ -80,10 +83,12 @@ public class ProductSellerService implements ProductSellerUseCase {
 		int previousPrice = product.getAmount();
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
 		boolean isMajor = "MAJOR".equalsIgnoreCase(request.versionType());
+		String productType = request.productType() != null ? request.productType() : "PROMPT";
 		product.update(
 			category,
 			request.title(),
 			request.desc(),
+			productType,
 			request.model(),
 			amountType,
 			request.amount(),
@@ -106,7 +111,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 		Product product = productRepository.findById(productId)
 			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
 
-		if (!"ADMIN".equals(role) && !product.isOwnedBy(sellerId)) {
+		if (Arrays.stream(role.split(",")).noneMatch("ADMIN"::equals) && !product.isOwnedBy(sellerId)) {
 			throw new ProductException(ProductErrorCode.PRODUCT_FORBIDDEN);
 		}
 

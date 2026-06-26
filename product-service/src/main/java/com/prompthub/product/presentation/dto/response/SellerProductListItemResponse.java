@@ -22,7 +22,7 @@ public record SellerProductListItemResponse(
 			product.getId(),
 			product.getName(),
 			product.getCategory() != null ? product.getCategory().getCode() : null,
-			product.getProductType(),
+			product.getModel(),
 			product.getAmount(),
 			product.getStatus().name(),
 			product.getSalesCount(),

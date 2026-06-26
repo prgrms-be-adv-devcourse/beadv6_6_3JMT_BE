@@ -38,7 +38,7 @@
     {
       "id": "uuid",
       "title": "사진 같은 제품 목업 생성기",
-      "category": "image",
+      "category": "이미지 생성",
       "icon": "image",
       "model": "Midjourney v6",
       "amount": 5900,
@@ -109,7 +109,7 @@
   "data": {
     "id": "uuid",
     "title": "사진 같은 제품 목업 생성기",
-    "cat": "image",
+    "category": "이미지 생성",
     "icon": "image",
     "model": "Midjourney v6",
     "amount": 5900,
@@ -541,7 +541,7 @@
     "productId": "uuid",
     "sellerId": "uuid",
     "title": "상품명",
-    "productType": "PROMPT",
+    "productType": "GPT-4o",
     "amount": 5000
   }
 ]
@@ -559,7 +559,7 @@
 {
   "productId": "uuid",
   "title": "상품명",
-  "productType": "PROMPT",
+  "productType": "GPT-4o",
   "amount": 5000,
   "thumbnailUrl": "https://...",
   "sellerId": "uuid",

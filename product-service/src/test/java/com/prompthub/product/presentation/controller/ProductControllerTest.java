@@ -91,7 +91,7 @@ class ProductControllerTest {
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.data.id").value(PRODUCT_ID.toString()))
 				.andExpect(jsonPath("$.data.title").value("리액트 컴포넌트 리팩터링 도우미"))
-				.andExpect(jsonPath("$.data.cat").value("coding"))
+				.andExpect(jsonPath("$.data.category").value("coding"))
 				.andExpect(jsonPath("$.data.versions[0].ver").value("v1.3"));
 		}
 
