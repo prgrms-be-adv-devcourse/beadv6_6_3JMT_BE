@@ -36,11 +36,6 @@ app:
     # Local Next.js dev server. Override with CORS_ALLOWED_ORIGINS when needed.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
 
-prompthub:
-  grpc:
-    server:
-      port: ${GRPC_SERVER_PORT:9092}
-
 logging:
   level:
     com.prompthub.product: INFO
