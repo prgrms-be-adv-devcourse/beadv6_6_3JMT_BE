@@ -3,9 +3,6 @@ package com.prompthub.user.auth.domain.model;
 import java.time.Instant;
 import java.util.UUID;
 
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -34,8 +31,7 @@ public class Auth {
     private UUID userId;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "provider", nullable = false, columnDefinition = "auth_provider_type")
+    @Column(name = "provider", nullable = false, length = 20)
     private OAuthProvider provider;
 
     @Column(name = "oauth_id", nullable = false, length = 100)
