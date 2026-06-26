@@ -1,4 +1,4 @@
-package com.prompthub.order.application.service;
+package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.OrderListProjection;
@@ -15,7 +15,6 @@ import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
-import com.prompthub.order.presentation.dto.request.OrderReviewRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
@@ -50,7 +49,6 @@ public class OrderService implements OrderUseCase {
 	public CreateOrderResponse createOrder(UUID buyerId, CreateOrderRequest request) {
 		orderPolicyService.validateCreateOrderRequest(request);
 
-		//TODO: product-service에서 productIds로 각각 주문용 상품 정보 조회 (productId, sellerId, title, productType, amount, status)
 		List<ProductOrderSnapshot> products = productClient.getOrderSnapshots(request.productIds());
 		orderPolicyService.validateProductSnapshots(request.productIds(), products);
 
@@ -60,7 +58,7 @@ public class OrderService implements OrderUseCase {
 		String orderNumber = orderNumberGenerator.generate();
 		Order order = Order.create(buyerId, orderNumber, totalAmount, totalCount);
 		products.stream()
-			.map(it -> OrderProduct.create(it.productId(), it.sellerId(), it.title(), it.productType(), it.amount()))
+			.map(it -> OrderProduct.create(it.productId(), it.sellerId(), it.title(), it.productType(), it.model(), it.amount()))
 			.forEach(order::addOrderProduct);
 
 		Order savedOrder = orderRepository.save(order);
@@ -71,6 +69,7 @@ public class OrderService implements OrderUseCase {
 				it.getSellerId(),
 				it.getProductTitle(),
 				it.getProductType(),
+				it.getProductModel(),
 				it.getProductAmount(),
 				it.getOrderStatus()
 			))
@@ -158,20 +157,6 @@ public class OrderService implements OrderUseCase {
 	}
 
 	@Override
-	public void upsertReview(UUID buyerId, OrderReviewRequest request) {
-		boolean reviewAllowed = orderRepository.existsPaidOrderProductByBuyerIdAndProductId(
-			buyerId,
-			request.productId()
-		);
-
-		if (!reviewAllowed) {
-			throw new OrderException(ErrorCode.ORDER_REVIEW_ACCESS_DENIED);
-		}
-
-		productClient.upsertReview(buyerId, request.productId(), request.rating());
-	}
-
-	@Override
 	@Transactional(readOnly = true)
 	public Page<OrderListResponse> getOrders(UUID buyerId, PageRequestParams request) {
 		int page = request.page();
@@ -242,6 +227,7 @@ public class OrderService implements OrderUseCase {
 			orderProduct.getSellerId(),
 			orderProduct.getProductTitle(),
 			orderProduct.getProductType(),
+			orderProduct.getProductModel(),
 			orderProduct.getProductAmount(),
 			orderProduct.getOrderStatus(),
 			orderProduct.isPaid(),

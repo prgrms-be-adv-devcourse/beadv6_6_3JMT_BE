@@ -1,4 +1,4 @@
-package com.prompthub.order.application.service.outbox;
+package com.prompthub.order.application.service.event.outbox;
 
 import com.prompthub.order.application.event.OrderEventEnvelope;
 import com.prompthub.order.application.event.OrderPaidEvent;

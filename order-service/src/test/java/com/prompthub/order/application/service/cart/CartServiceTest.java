@@ -1,4 +1,4 @@
-package com.prompthub.order.application.service;
+package com.prompthub.order.application.service.cart;
 
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductCartSnapshot;

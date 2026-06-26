@@ -1,4 +1,4 @@
-package com.prompthub.order.application.service;
+package com.prompthub.order.application.service.admin;
 
 import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.dto.AdminDailyTransactionProjection;
@@ -118,7 +118,7 @@ class AdminOrderServiceTest {
 	@DisplayName("관리자 주문 조회 전용 서비스가 읽기 전용 트랜잭션을 담당한다")
 	void adminOrderQueryService_hasReadOnlyTransaction() {
 		Class<?> queryServiceClass = assertDoesNotThrow(() ->
-			Class.forName("com.prompthub.order.application.service.AdminOrderQueryService")
+			Class.forName("com.prompthub.order.application.service.admin.AdminOrderQueryService")
 		);
 		Transactional classTransaction = queryServiceClass.getAnnotation(Transactional.class);
 
