@@ -115,7 +115,7 @@ class OAuthApplicationServiceTest {
 
         assertThat(result.isNewUser()).isTrue();
         assertThat(result.email()).isEqualTo("test@kakao.com");
-        assertThat(result.role()).isEqualTo(UserRole.BUYER);
+        assertThat(result.roles()).containsExactly(UserRole.BUYER);
         then(userRepository).should().save(any(User.class));
         then(authRepository).should().save(any(Auth.class));
     }
