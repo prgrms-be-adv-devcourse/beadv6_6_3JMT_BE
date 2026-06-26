@@ -24,3 +24,9 @@ jwt:
   public-key: ${JWT_PUBLIC_KEY}
   access-token-expire-seconds: 3600
   refresh-token-expire-seconds: 2592000
+
+grpc:
+  client:
+    product-service:
+      address: 'static://localhost:9081'
+      negotiation-type: plaintext
