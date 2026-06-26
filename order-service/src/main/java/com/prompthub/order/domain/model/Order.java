@@ -25,10 +25,10 @@ import static lombok.AccessLevel.PROTECTED;
 public class Order extends BaseEntity {
 
 	@Id
-	@Column(name = "id", columnDefinition = "char(36)")
+	@Column(name = "id", columnDefinition = "uuid")
 	private UUID id;
 
-	@Column(name = "buyer_id", columnDefinition = "char(36)", nullable = false)
+	@Column(name = "buyer_id", columnDefinition = "uuid", nullable = false)
 	private UUID buyerId;
 
 	@Column(name = "order_number", length = 30, nullable = false, unique = true)
