@@ -1,3 +1,6 @@
+server:
+  port: 8085
+
 spring:
   application:
     name: settlement-service
@@ -34,9 +37,9 @@ spring:
 grpc:
   client:
     user-service:
-      address: ${USER_SERVICE_GRPC_ADDRESS:localhost:9091}
+      address: ${USER_SERVICE_GRPC_ADDRESS:localhost:9081}
     product-service:
-      address: ${PRODUCT_SERVICE_GRPC_ADDRESS:localhost:9092}
+      address: ${PRODUCT_SERVICE_GRPC_ADDRESS:localhost:9082}
 
 settlement:
   scheduler:
