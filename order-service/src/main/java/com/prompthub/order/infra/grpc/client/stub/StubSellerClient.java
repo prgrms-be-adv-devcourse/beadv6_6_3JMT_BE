@@ -1,4 +1,4 @@
-package com.prompthub.order.infra.seller;
+package com.prompthub.order.infra.grpc.client.stub;
 
 import com.prompthub.order.application.client.SellerClient;
 import org.springframework.stereotype.Component;

@@ -1,4 +1,4 @@
-package com.prompthub.order.application.service;
+package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.OrderListProjection;
@@ -15,7 +15,6 @@ import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
-import com.prompthub.order.presentation.dto.request.OrderReviewRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
@@ -50,7 +49,6 @@ public class OrderService implements OrderUseCase {
 	public CreateOrderResponse createOrder(UUID buyerId, CreateOrderRequest request) {
 		orderPolicyService.validateCreateOrderRequest(request);
 
-		//TODO: product-service에서 productIds로 각각 주문용 상품 정보 조회 (productId, sellerId, title, productType, amount, status)
 		List<ProductOrderSnapshot> products = productClient.getOrderSnapshots(request.productIds());
 		orderPolicyService.validateProductSnapshots(request.productIds(), products);
 
@@ -155,20 +153,6 @@ public class OrderService implements OrderUseCase {
 			orderProduct.getProductTitle(),
 			productContent.content()
 		);
-	}
-
-	@Override
-	public void upsertReview(UUID buyerId, OrderReviewRequest request) {
-		boolean reviewAllowed = orderRepository.existsPaidOrderProductByBuyerIdAndProductId(
-			buyerId,
-			request.productId()
-		);
-
-		if (!reviewAllowed) {
-			throw new OrderException(ErrorCode.ORDER_REVIEW_ACCESS_DENIED);
-		}
-
-		productClient.upsertReview(buyerId, request.productId(), request.rating());
 	}
 
 	@Override

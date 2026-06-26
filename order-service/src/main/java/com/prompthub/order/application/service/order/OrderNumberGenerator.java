@@ -1,4 +1,4 @@
-package com.prompthub.order.application.service;
+package com.prompthub.order.application.service.order;
 
 import org.springframework.stereotype.Component;
 
