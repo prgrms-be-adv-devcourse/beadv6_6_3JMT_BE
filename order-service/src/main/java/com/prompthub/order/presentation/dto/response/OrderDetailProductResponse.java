@@ -17,6 +17,8 @@ public record OrderDetailProductResponse(
 	String productTitleSnapshot,
 	@Schema(description = "주문 시점 상품 유형 스냅샷", example = "PROMPT")
 	String productTypeSnapshot,
+	@Schema(description = "주문 시점 상품 모델명/분류 스냅샷", example = "GPT-4", nullable = true)
+	String productModelSnapshot,
 	@Schema(description = "주문 시점 상품 금액 스냅샷. 원 단위 정수", example = "15000")
 	int productAmountSnapshot,
 	@Schema(description = "주문 상품 상태. PENDING, PAID, FAILED, CANCELED, REFUNDED", example = "PAID")
