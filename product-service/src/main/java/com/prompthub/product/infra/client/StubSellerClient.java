@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile({"default", "local", "test"})
+@Profile({"default", "test"})
 public class StubSellerClient implements SellerClient {
 
 	private static final String STUB_SELLER_NAME = "테스트판매자";

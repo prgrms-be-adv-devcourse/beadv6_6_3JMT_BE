@@ -38,8 +38,9 @@
     {
       "id": "uuid",
       "title": "사진 같은 제품 목업 생성기",
-      "category": "이미지 생성",
+      "category": "image",
       "icon": "image",
+      "productType": "PROMPT",
       "model": "Midjourney v6",
       "amount": 5900,
       "originalAmount": null,
@@ -70,6 +71,7 @@
 | title | string | 상품명 |
 | category | string | 카테고리 |
 | icon | string | 아이콘 |
+| productType | string | 상품 유형 (`PROMPT` \| `TEMPLATE` \| `DATASET` \| `IMAGE_ASSET`) |
 | model | string | 대상 AI 모델 |
 | amount | integer | 현재 가격 |
 | originalAmount | integer \| null | 할인 전 원래 가격 (할인 없으면 null) |
@@ -109,8 +111,9 @@
   "data": {
     "id": "uuid",
     "title": "사진 같은 제품 목업 생성기",
-    "category": "이미지 생성",
+    "category": "image",
     "icon": "image",
+    "productType": "PROMPT",
     "model": "Midjourney v6",
     "amount": 5900,
     "rating": 4.9,
@@ -212,6 +215,7 @@
 {
   "title": "새 프롬프트 제목",
   "category": "coding",
+  "productType": "PROMPT",
   "model": "Claude 3.5",
   "desc": "설명",
   "amount": 5000,
@@ -365,6 +369,7 @@
       "productId": "uuid",
       "title": "상품명",
       "category": "coding",
+      "productType": "PROMPT",
       "model": "Claude 3.5",
       "amount": 5000,
       "status": "DRAFT",
@@ -384,6 +389,7 @@
 | productId | string | 상품 ID |
 | title | string | 상품명 |
 | category | string | 카테고리 |
+| productType | string | 상품 유형 (`PROMPT` \| `TEMPLATE` \| `DATASET` \| `IMAGE_ASSET`) |
 | model | string | 대상 AI 모델 |
 | amount | integer | 가격 |
 | status | string | `DRAFT` \| `PENDING_REVIEW` \| `ON_SALE` \| `REJECTED` \| `STOPPED` |
@@ -412,6 +418,7 @@
     "productId": "uuid",
     "title": "상품명",
     "category": "coding",
+    "productType": "PROMPT",
     "model": "Claude 3.5",
     "amount": 5000,
     "desc": "설명",
@@ -448,6 +455,7 @@
       "title": "상품명",
       "category": "coding",
       "sellerId": "uuid",
+      "productType": "PROMPT",
       "model": "Claude 3.5",
       "amount": 5000,
       "status": "PENDING_REVIEW",

@@ -8,6 +8,7 @@ public record ProductListItemResponse(
 	String title,
 	String category,
 	String icon,
+	String productType,
 	String model,
 	int amount,
 	Integer originalAmount,
