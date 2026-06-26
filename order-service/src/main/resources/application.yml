@@ -57,6 +57,11 @@ server:
 #      url: ${PRODUCT_SERVICE_URL:http://localhost:8081}
 
 prompthub:
+  grpc:
+    product:
+      host: ${PRODUCT_GRPC_HOST:localhost}
+      port: ${PRODUCT_GRPC_PORT:9092}
+      deadline-ms: ${PRODUCT_GRPC_DEADLINE_MS:2000}
   outbox-relay:
     enabled: true
     fixed-delay-ms: 5000
