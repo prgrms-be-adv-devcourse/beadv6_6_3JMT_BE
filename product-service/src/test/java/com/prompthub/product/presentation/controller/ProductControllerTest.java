@@ -210,6 +210,8 @@ class ProductControllerTest {
 			SELLER_ID.toString(),
 			SELLER_ID,
 			null,
+			0,
+			null,
 			"컴포넌트 분리, 상태 정리, 타입 개선",
 			null,
 			"[리액트 컴포넌트 리팩터링 도우미]\n\n전체 내용은 구매 후 확인할 수 있습니다.",
