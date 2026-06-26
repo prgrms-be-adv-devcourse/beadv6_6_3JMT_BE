@@ -122,8 +122,7 @@ docker exec payment-kafka-dev /opt/kafka/bin/kafka-console-consumer.sh \
   --bootstrap-server localhost:9092 \
   --topic payment.approved \
   --from-beginning \
-  --max-messages 1 \
-  --timeout-ms 5000
+  --timeout-ms 5000 | tail -1
 ```
 
 기대 출력:
@@ -237,8 +236,7 @@ docker exec payment-kafka-dev /opt/kafka/bin/kafka-console-consumer.sh \
   --bootstrap-server localhost:9092 \
   --topic payment.refunded \
   --from-beginning \
-  --max-messages 1 \
-  --timeout-ms 5000
+  --timeout-ms 5000 | tail -1
 ```
 
 기대 출력:
