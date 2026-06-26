@@ -47,7 +47,7 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
     annotationProcessor 'org.projectlombok:lombok'
     implementation 'org.springframework.kafka:spring-kafka'
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-api:3.0.0'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0'
 
     // gRPC (서버: settlement·order → product, 클라이언트: product → user-service)
     implementation "io.grpc:grpc-stub:${grpcVersion}"
