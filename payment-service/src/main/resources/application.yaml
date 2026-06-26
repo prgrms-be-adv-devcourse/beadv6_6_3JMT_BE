@@ -2,11 +2,9 @@ spring:
   application:
     name: payment-service
   config:
-    import: optional:file:.env[.properties]
-  cloud:
-    config:
-      enabled: false
-      uri: http://localhost:8888
+    import:
+      - optional:file:.env[.properties]
+      - optional:configserver:http://localhost:8888
 
   datasource:
     url: ${DB_URL}
