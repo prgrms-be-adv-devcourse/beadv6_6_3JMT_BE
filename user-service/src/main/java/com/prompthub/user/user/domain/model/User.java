@@ -5,9 +5,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -46,8 +43,7 @@ public class User {
     private String profileImageUrl;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "status", nullable = false, columnDefinition = "user_status_type")
+    @Column(name = "status", nullable = false, length = 20)
     private UserStatus status;
 
     @Column(name = "terms_agreed", nullable = false)
@@ -64,8 +60,7 @@ public class User {
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_role", joinColumns = @JoinColumn(name = "user_id"))
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "role", nullable = false, columnDefinition = "user_role_type")
+    @Column(name = "role", nullable = false, length = 20)
     @Getter(AccessLevel.NONE)
     private Set<UserRole> roles = new HashSet<>();
 

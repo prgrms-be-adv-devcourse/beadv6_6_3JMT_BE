@@ -9,6 +9,7 @@ public record ProductDetailResponse(
 	String title,
 	String category,
 	String icon,
+	String productType,
 	String model,
 	int amount,
 	double rating,

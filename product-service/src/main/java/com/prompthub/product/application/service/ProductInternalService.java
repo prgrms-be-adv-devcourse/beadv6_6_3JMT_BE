@@ -65,7 +65,7 @@ public class ProductInternalService implements ProductInternalUseCase {
 
 	@Override
 	public List<ProductCartSnapshotResponse> getCartSnapshots(List<UUID> productIds) {
-		List<Product> products = productRepository.findAllByIdIn(productIds);
+		List<Product> products = productRepository.findOnSaleByIdIn(productIds);
 		Map<UUID, String> sellerNicknames = products.stream()
 			.map(Product::getSellerId)
 			.distinct()

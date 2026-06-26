@@ -9,6 +9,7 @@ public record AdminProductListItemResponse(
 	String title,
 	String category,
 	UUID sellerId,
+	String productType,
 	String model,
 	int amount,
 	String status,
@@ -21,6 +22,7 @@ public record AdminProductListItemResponse(
 			product.getCategory() != null ? product.getCategory().getCode() : null,
 			product.getSellerId(),
 			product.getProductType(),
+			product.getModel(),
 			product.getAmount(),
 			product.getStatus().name(),
 			product.getCreatedAt()
