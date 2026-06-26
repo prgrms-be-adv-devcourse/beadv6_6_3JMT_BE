@@ -1,0 +1,95 @@
+name: Reusable Docker Build
+
+on:
+  workflow_call:
+    inputs:
+      module-name:
+        required: true
+        type: string
+      module-path:
+        required: true
+        type: string
+      dockerfile-path:
+        required: false
+        type: string
+        default: Dockerfile
+      ecr-repository:
+        required: false
+        type: string
+        default: ''
+      aws-region:
+        required: false
+        type: string
+        default: ap-northeast-2
+      push-image:
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      image_uri:
+        description: Built Docker image URI or local image tag
+        value: ${{ jobs.docker_build.outputs.image_uri }}
+
+jobs:
+  docker_build:
+    name: Docker Build - ${{ inputs.module-name }}
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    outputs:
+      image_uri: ${{ steps.image.outputs.image_uri }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        if: inputs.push-image == true
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ inputs.aws-region }}
+
+      - name: Login to Amazon ECR
+        if: inputs.push-image == true
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: image
+        shell: bash
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+
+          if [ "${{ inputs.push-image }}" = "true" ]; then
+            if [ -z "${{ inputs.ecr-repository }}" ]; then
+              echo "ecr-repository is required when push-image is true"
+              exit 1
+            fi
+
+            IMAGE_URI="${{ steps.ecr.outputs.registry }}/${{ inputs.ecr-repository }}:${SHORT_SHA}"
+          else
+            IMAGE_URI="${{ inputs.module-name }}:${SHORT_SHA}"
+          fi
+
+          echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
+          echo "IMAGE_URI=${IMAGE_URI}"
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./${{ inputs.dockerfile-path }}
+          push: ${{ inputs.push-image }}
+          tags: ${{ steps.image.outputs.image_uri }}
+          build-args: |
+            MODULE_NAME=${{ inputs.module-name }}
+            MODULE_PATH=${{ inputs.module-path }}
+          cache-from: type=gha,scope=${{ inputs.module-name }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.module-name }}
