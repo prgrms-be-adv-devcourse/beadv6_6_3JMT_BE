@@ -126,11 +126,11 @@ class ProductInternalGrpcServiceTest {
 	private ProductCartSnapshotResponse cartSnapshot(UUID productId) {
 		return new ProductCartSnapshotResponse(
 			productId,
+			SELLER_ID,
 			"테스트 상품",
 			"PROMPT",
 			10000,
 			"https://example.com/thumb.png",
-			SELLER_ID,
 			"판매자",
 			"ON_SALE"
 		);

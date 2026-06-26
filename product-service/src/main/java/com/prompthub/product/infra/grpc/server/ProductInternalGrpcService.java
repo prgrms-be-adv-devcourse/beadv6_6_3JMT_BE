@@ -133,13 +133,13 @@ public class ProductInternalGrpcService extends ProductInternalServiceGrpc.Produ
 	private GetCartSnapshotResponse toCartSnapshotResponse(ProductCartSnapshotResponse snapshot) {
 		return GetCartSnapshotResponse.newBuilder()
 			.setProductId(snapshot.productId().toString())
-			.setTitle(valueOrEmpty(snapshot.title()))
+			.setTitle(valueOrEmpty(snapshot.productTitle()))
 			.setProductType(valueOrEmpty(snapshot.productType()))
-			.setAmount(snapshot.amount())
+			.setAmount(snapshot.productAmount())
 			.setThumbnailUrl(valueOrEmpty(snapshot.thumbnailUrl()))
 			.setSellerId(snapshot.sellerId().toString())
 			.setSellerNickname(valueOrEmpty(snapshot.sellerNickname()))
-			.setStatus(valueOrEmpty(snapshot.status()))
+			.setStatus(valueOrEmpty(snapshot.productStatus()))
 			.build();
 	}
 
