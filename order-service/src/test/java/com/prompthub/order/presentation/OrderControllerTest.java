@@ -185,6 +185,7 @@ class OrderControllerTest {
 					SELLER_ID_1,
 					PRODUCT_TITLE_1,
 					PRODUCT_TYPE_PROMPT,
+					"GPT-4",
 					PRODUCT_AMOUNT_1,
 					OrderStatus.PAID,
 					true,
@@ -328,6 +329,7 @@ class OrderControllerTest {
 					SELLER_ID_1,
 					PRODUCT_TITLE_1,
 					PRODUCT_TYPE_PROMPT,
+					"GPT-4",
 					PRODUCT_AMOUNT_1,
 					OrderStatus.PENDING
 				);
@@ -337,6 +339,7 @@ class OrderControllerTest {
 					SELLER_ID_2,
 					PRODUCT_TITLE_2,
 					PRODUCT_TYPE_PROMPT,
+					"GPT-4",
 					PRODUCT_AMOUNT_2,
 					OrderStatus.PENDING
 				);
@@ -374,6 +377,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data.products[0].sellerId").value(SELLER_ID_1.toString()))
 					.andExpect(jsonPath("$.data.products[0].productTitleSnapshot").value(PRODUCT_TITLE_1))
 					.andExpect(jsonPath("$.data.products[0].productTypeSnapshot").value(PRODUCT_TYPE_PROMPT))
+					.andExpect(jsonPath("$.data.products[0].productModelSnapshot").value("GPT-4"))
 					.andExpect(jsonPath("$.data.products[0].productAmountSnapshot").value(PRODUCT_AMOUNT_1))
 					.andExpect(jsonPath("$.data.products[0].orderStatus").value("PENDING"))
 					.andExpect(jsonPath("$.data.products[1].orderProductId").value(orderProductId2.toString()))
@@ -381,6 +385,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data.products[1].sellerId").value(SELLER_ID_2.toString()))
 					.andExpect(jsonPath("$.data.products[1].productTitleSnapshot").value(PRODUCT_TITLE_2))
 					.andExpect(jsonPath("$.data.products[1].productTypeSnapshot").value(PRODUCT_TYPE_PROMPT))
+					.andExpect(jsonPath("$.data.products[1].productModelSnapshot").value("GPT-4"))
 					.andExpect(jsonPath("$.data.products[1].productAmountSnapshot").value(PRODUCT_AMOUNT_2))
 					.andExpect(jsonPath("$.data.products[1].orderStatus").value("PENDING"));
 
