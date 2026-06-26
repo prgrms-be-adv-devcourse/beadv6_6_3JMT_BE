@@ -8,6 +8,7 @@ import java.util.UUID;
 public record OrderListProjection(
 	UUID orderId,
 	UUID orderProductId,
+	UUID productId,
 	OrderStatus orderStatus,
 	OrderStatus orderProductStatus,
 	boolean download,

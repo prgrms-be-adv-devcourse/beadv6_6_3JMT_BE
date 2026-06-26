@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package prompthub.product.v1;
+
+option java_multiple_files = true;
+option java_package = "com.prompthub.grpc.product.v1";
+option java_outer_classname = "ProductInternalProto";
+
+service ProductInternalService {
+  rpc GetOrderSnapshots(GetOrderSnapshotsRequest) returns (GetOrderSnapshotsResponse);
+  rpc GetCartSnapshot(GetCartSnapshotRequest) returns (GetCartSnapshotResponse);
+  rpc GetCartSnapshots(GetCartSnapshotsRequest) returns (GetCartSnapshotsResponse);
+  rpc GetProductContent(GetProductContentRequest) returns (GetProductContentResponse);
+  rpc UpsertReview(UpsertReviewRequest) returns (UpsertReviewResponse);
+}
+
+message GetOrderSnapshotsRequest {
+  repeated string product_ids = 1;
+}
+
+message GetOrderSnapshotsResponse {
+  repeated ProductOrderSnapshotResponse products = 1;
+}
+
+message ProductOrderSnapshotResponse {
+  string product_id = 1;
+  string seller_id = 2;
+  string title = 3;
+  string product_type = 4;
+  int32 amount = 5;
+}
+
+message GetCartSnapshotRequest {
+  string product_id = 1;
+}
+
+message GetCartSnapshotResponse {
+  string product_id = 1;
+  string title = 2;
+  string product_type = 3;
+  int32 amount = 4;
+  string thumbnail_url = 5;
+  string seller_id = 6;
+  string seller_nickname = 7;
+  string status = 8;
+}
+
+message GetCartSnapshotsRequest {
+  repeated string product_ids = 1;
+}
+
+message GetCartSnapshotsResponse {
+  repeated GetCartSnapshotResponse products = 1;
+}
+
+message GetProductContentRequest {
+  string product_id = 1;
+}
+
+message GetProductContentResponse {
+  string product_id = 1;
+  string content = 2;
+}
+
+message UpsertReviewRequest {
+  string buyer_id = 1;
+  string product_id = 2;
+  int32 rating = 3;
+}
+
+message UpsertReviewResponse {
+}

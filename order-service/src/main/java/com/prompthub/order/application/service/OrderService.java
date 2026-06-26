@@ -221,6 +221,7 @@ public class OrderService implements OrderUseCase {
 		return new OrderListResponse(
 			projection.orderId(),
 			projection.orderProductId(),
+			projection.productId(),
 			projection.orderStatus(),
 			orderPolicyService.isRefundable(projection.orderStatus(), projection.orderProductStatus(),
 				projection.download()),

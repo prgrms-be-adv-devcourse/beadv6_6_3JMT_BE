@@ -652,6 +652,7 @@ class OrderServiceTest {
             OrderListResponse order = response.getContent().getFirst();
             assertThat(order.orderId()).isEqualTo(ORDER_ID);
             assertThat(order.orderProductId()).isEqualTo(ORDER_PRODUCT_ID);
+            assertThat(order.productId()).isEqualTo(PRODUCT_ID_1);
             assertThat(order.orderStatus()).isEqualTo(OrderStatus.PAID);
             assertThat(order.isRefund()).isTrue();
             assertThat(order.productType()).isEqualTo(PRODUCT_TYPE_PROMPT);

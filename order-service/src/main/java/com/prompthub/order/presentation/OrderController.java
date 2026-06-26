@@ -73,10 +73,10 @@ public class OrderController {
 	@GetMapping("/{orderId}/content/{orderProductId}")
 	@Operation(summary = "구매 콘텐츠 열람", description = "결제 완료된 주문 상품의 구매 콘텐츠를 조회합니다.")
 	@ApiResponses({
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "구매 콘텐츠 열람 성공"),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음"),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "E001 구매 콘텐츠 열람 불가"),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "O001 주문 없음, O012 주문 상품 없음")
+		@ApiResponse(responseCode = "200", description = "구매 콘텐츠 열람 성공"),
+		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음"),
+		@ApiResponse(responseCode = "403", description = "E001 구매 콘텐츠 열람 불가"),
+		@ApiResponse(responseCode = "404", description = "O001 주문 없음, O012 주문 상품 없음")
 	})
 	public ApiResult<OrderContentResponse> getOrderContent(
 		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
@@ -92,10 +92,10 @@ public class OrderController {
 	@PostMapping("/review")
 	@Operation(summary = "주문 상품 리뷰 생성/수정", description = "구매한 상품의 리뷰 평점을 생성하거나 수정합니다.")
 	@ApiResponses({
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "리뷰 생성 또는 수정 성공"),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음"),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "E002 구매한 상품에만 리뷰 작성 가능")
+		@ApiResponse(responseCode = "200", description = "리뷰 생성 또는 수정 성공"),
+		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
+		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음"),
+		@ApiResponse(responseCode = "403", description = "E002 구매한 상품에만 리뷰 작성 가능")
 	})
 	public ApiResult<Void> upsertReview(
 		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
@@ -109,9 +109,9 @@ public class OrderController {
 	@GetMapping
 	@Operation(summary = "주문 목록 조회", description = "구매자 본인의 주문 목록을 페이지 조건으로 조회합니다.")
 	@ApiResponses({
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "주문 목록 조회 성공"),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음")
+		@ApiResponse(responseCode = "200", description = "주문 목록 조회 성공"),
+		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
+		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음")
 	})
 	public PageResponse<OrderListResponse> getOrders(
 		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
@@ -133,9 +133,9 @@ public class OrderController {
 	@GetMapping("/payments")
 	@Operation(summary = "주문 결제 내역 조회", description = "구매자 본인의 주문 결제 내역을 페이지 조건으로 조회합니다.")
 	@ApiResponses({
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "주문 결제 내역 조회 성공"),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
-		@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음")
+		@ApiResponse(responseCode = "200", description = "주문 결제 내역 조회 성공"),
+		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
+		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음")
 	})
 	public PageResponse<OrderPaymentListResponse> getOrderPayments(
 		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
@@ -153,5 +153,4 @@ public class OrderController {
 			orderPayments.hasNext()
 		);
 	}
-
 }
