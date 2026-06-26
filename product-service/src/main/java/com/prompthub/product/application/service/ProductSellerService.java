@@ -42,11 +42,13 @@ public class ProductSellerService implements ProductSellerUseCase {
 			.orElseThrow(() -> new ProductException(ProductErrorCode.CATEGORY_NOT_FOUND));
 
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
+		String productType = request.productType() != null ? request.productType() : "PROMPT";
 		Product product = Product.create(
 			sellerId,
 			category,
 			request.title(),
 			request.desc(),
+			productType,
 			request.model(),
 			amountType,
 			request.amount(),
@@ -62,7 +64,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 			saved.getSellerId(),
 			saved.getName(),
 			category.getCode(),
-			saved.getProductType(),
+			saved.getModel(),
 			saved.getDescription(),
 			saved.getAmount(),
 			saved.getStatus().name(),
@@ -80,10 +82,12 @@ public class ProductSellerService implements ProductSellerUseCase {
 		int previousPrice = product.getAmount();
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
 		boolean isMajor = "MAJOR".equalsIgnoreCase(request.versionType());
+		String productType = request.productType() != null ? request.productType() : "PROMPT";
 		product.update(
 			category,
 			request.title(),
 			request.desc(),
+			productType,
 			request.model(),
 			amountType,
 			request.amount(),
