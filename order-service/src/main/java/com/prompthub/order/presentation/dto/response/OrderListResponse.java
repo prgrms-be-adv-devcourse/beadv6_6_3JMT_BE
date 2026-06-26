@@ -12,6 +12,8 @@ public record OrderListResponse(
 	UUID orderId,
 	@Schema(description = "주문 상품 ID", example = "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa")
 	UUID orderProductId,
+	@Schema(description = "상품 ID", example = "p1b55b60-5e84-4f3f-b4f1-6c10e1a22222")
+	UUID productId,
 	@Schema(description = "주문 상태. PENDING, PAID, FAILED, CANCELED, REFUNDED", example = "PAID")
 	OrderStatus orderStatus,
 	@Schema(description = "환불 여부", example = "false")

@@ -664,6 +664,7 @@ class OrderControllerTest {
 				OrderListResponse order = new OrderListResponse(
 					ORDER_ID,
 					ORDER_PRODUCT_ID,
+					PRODUCT_ID_1,
 					OrderStatus.PAID,
 					true,
 					PRODUCT_TYPE_PROMPT,
@@ -699,6 +700,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.message").value("success"))
 					.andExpect(jsonPath("$.data[0].orderId").value(ORDER_ID.toString()))
 					.andExpect(jsonPath("$.data[0].orderProductId").value(ORDER_PRODUCT_ID.toString()))
+					.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID_1.toString()))
 					.andExpect(jsonPath("$.data[0].orderStatus").value("PAID"))
 					.andExpect(jsonPath("$.data[0].isRefund").value(true))
 					.andExpect(jsonPath("$.data[0].productType").value(PRODUCT_TYPE_PROMPT))
@@ -723,6 +725,7 @@ class OrderControllerTest {
 				OrderListResponse order = new OrderListResponse(
 					ORDER_ID,
 					ORDER_PRODUCT_ID,
+					PRODUCT_ID_1,
 					OrderStatus.PAID,
 					true,
 					PRODUCT_TYPE_PROMPT,

@@ -1,7 +1,10 @@
+import com.google.protobuf.gradle.id
+
 plugins {
     id("java")
     id("org.springframework.boot") version "4.1.0"
     id("io.spring.dependency-management") version "1.1.7"
+    id("com.google.protobuf") version "0.9.4"
 }
 
 group = "com.prompthub"
@@ -34,8 +37,12 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-kafka")
-    implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0")
+    implementation("io.grpc:grpc-netty-shaded:1.69.0")
+    implementation("io.grpc:grpc-protobuf:1.69.0")
+    implementation("io.grpc:grpc-stub:1.69.0")
+    implementation("com.google.protobuf:protobuf-java:4.29.3")
+    compileOnly("javax.annotation:javax.annotation-api:1.3.2")
     implementation("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
 
@@ -47,9 +54,28 @@ dependencies {
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
+    testImplementation("io.grpc:grpc-inprocess:1.69.0")
     runtimeOnly("org.postgresql:postgresql")
     runtimeOnly("com.h2database:h2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:4.29.3"
+    }
+    plugins {
+        named("grpc") {
+            artifact = "io.grpc:protoc-gen-grpc-java:1.69.0"
+        }
+    }
+    generateProtoTasks {
+        all().forEach {
+            it.plugins {
+                named("grpc")
+            }
+        }
+    }
 }
 
 tasks.withType<Test> {

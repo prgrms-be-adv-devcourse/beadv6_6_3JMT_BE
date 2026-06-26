@@ -37,6 +37,7 @@ public class OrderPersistenceImpl implements OrderPersistenceCustom {
             .select(Projections.constructor(OrderListProjection.class,
                 order.id,
                 orderProduct.id,
+                orderProduct.productId,
                 order.orderStatus,
                 orderProduct.orderStatus,
                 orderProduct.download,
