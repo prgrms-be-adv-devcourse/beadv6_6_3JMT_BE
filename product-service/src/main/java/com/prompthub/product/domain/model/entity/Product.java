@@ -62,6 +62,9 @@ public class Product {
 	@Column(name = "product_type", nullable = false, length = 50)
 	private String productType;
 
+	@Column(name = "model", length = 100)
+	private String model;
+
 	@Enumerated(EnumType.STRING)
 	@Column(name = "amount_type", nullable = false)
 	private AmountType amountType;
@@ -113,6 +116,7 @@ public class Product {
 		String name,
 		String description,
 		String productType,
+		String model,
 		AmountType amountType,
 		int amount,
 		String thumbnailUrl,
@@ -127,6 +131,7 @@ public class Product {
 		product.name = name;
 		product.description = description;
 		product.productType = productType;
+		product.model = model;
 		product.amountType = amountType;
 		product.amount = amount;
 		product.thumbnailUrl = thumbnailUrl;
@@ -148,6 +153,7 @@ public class Product {
 		String name,
 		String description,
 		String productType,
+		String model,
 		AmountType amountType,
 		int amount,
 		String thumbnailUrl,
@@ -161,6 +167,7 @@ public class Product {
 		this.name = name;
 		this.description = description;
 		this.productType = productType;
+		this.model = model;
 		this.amountType = amountType;
 		this.amount = amount;
 		this.thumbnailUrl = thumbnailUrl;
