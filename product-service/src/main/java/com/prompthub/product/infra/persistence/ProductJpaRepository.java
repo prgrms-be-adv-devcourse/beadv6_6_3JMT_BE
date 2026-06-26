@@ -186,6 +186,8 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 
 	long countBySellerIdAndDeletedAtIsNull(UUID sellerId);
 
+	long countBySellerIdAndStatusAndDeletedAtIsNull(UUID sellerId, ProductStatus status);
+
 	List<Product> findAllByIdInAndStatusAndDeletedAtIsNull(List<UUID> ids, ProductStatus status);
 
 	@Query("""

@@ -35,6 +35,8 @@ public interface ProductRepository {
 
 	long countBySellerId(UUID sellerId);
 
+	long countOnSaleProductsBySellerId(UUID sellerId);
+
 	List<Product> findPendingReviewProducts();
 
 	List<Product> findAllAdminProducts();

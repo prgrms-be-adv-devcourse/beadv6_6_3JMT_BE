@@ -81,6 +81,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 		productRepository.save(product);
 		double rating = productRepository.getAverageRating(productId);
 		SellerInfo seller = sellerClient.getSellerInfo(product.getSellerId());
+		int sellerProductCount = (int) productRepository.countOnSaleProductsBySellerId(product.getSellerId());
 
 		return new ProductDetailResponse(
 			product.getId(),
@@ -94,6 +95,8 @@ public class ProductQueryService implements ProductQueryUseCase {
 			product.getSalesCount(),
 			seller.sellerName(),
 			product.getSellerId(),
+			seller.profileImageUrl(),
+			sellerProductCount,
 			null,
 			product.getDescription(),
 			product.getThumbnailUrl(),
