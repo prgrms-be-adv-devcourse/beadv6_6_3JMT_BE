@@ -1,4 +1,4 @@
-package com.prompthub.order.infra.product;
+package com.prompthub.order.infra.grpc.client.stub;
 
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductContent;
@@ -31,6 +31,7 @@ public class StubProductClient implements ProductClient {
                         STUB_SELLER_ID,
                         STUB_TITLE,
                         STUB_PRODUCT_TYPE,
+                        "GPT-4",
                         STUB_AMOUNT
                 ))
                 .toList();
@@ -60,9 +61,5 @@ public class StubProductClient implements ProductClient {
     @Override
     public ProductContent getProductContent(UUID productId) {
         return new ProductContent(productId, STUB_CONTENT);
-    }
-
-    @Override
-    public void upsertReview(UUID buyerId, UUID productId, int rating) {
     }
 }

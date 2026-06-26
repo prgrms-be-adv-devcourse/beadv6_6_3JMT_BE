@@ -55,6 +55,7 @@ class OrderPaymentPersistenceImplTest {
 			SELLER_ID_1,
 			PRODUCT_TITLE_1,
 			PRODUCT_TYPE_PROMPT,
+			"GPT-4",
 			PRODUCT_AMOUNT_1
 		);
 		order.addOrderProduct(orderProduct);
@@ -80,6 +81,7 @@ class OrderPaymentPersistenceImplTest {
 			SELLER_ID_1,
 			PRODUCT_TITLE_1,
 			PRODUCT_TYPE_PROMPT,
+			"GPT-4",
 			PRODUCT_AMOUNT_1
 		));
 		otherBuyerOrder.markPaid(APPROVED_AT);
