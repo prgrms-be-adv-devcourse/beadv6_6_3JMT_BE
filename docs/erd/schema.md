@@ -18,7 +18,7 @@
 | `amount_type_enum` | FREE / PAID |
 | `order_status_type` | PENDING / PAID / FAILED / CANCELED / REFUNDED |
 | `order_product_status_type` | PENDING / PAID / FAILED / CANCELED / REFUNDED |
-| `payment_status_type` | READY / REQUESTED / PAID / FAILED / CANCELING / CANCELED / CANCEL_FAILED / REFUNDED / UNKNOWN |
+| `payment_status_type` | READY / REQUESTED / PAID / FAILED / REFUNDING / REFUNDED / UNKNOWN |
 | `refund_status_type` | REQUESTED / COMPLETED / FAILED |
 | `settlement_status_type` | PROCESSING / COMPLETED / FAILED / CANCELLED |
 | `payout_status_type` | PENDING / PAID / FAILED |
@@ -106,6 +106,7 @@
 | 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
 |------|------|:--------:|--------|------|
 | id | UUID | ✓ | gen_random_uuid() | PK |
+| parent_id | UUID | | NULL | FK → product.id. 최초 등록 시 NULL, 버전업 시 원본 상품 id |
 | seller_id | UUID | ✓ | | FK → seller.seller_id |
 | category_id | UUID | | NULL | FK → category.category_id |
 | major_version | SMALLINT | ✓ | 1 | 메이저 버전. MAJOR 선택 시 +1, patch_version 0 리셋 |
@@ -240,17 +241,14 @@
 | product_amount | INT | ✓ | | 상품 원금액 |
 | discount_amount | INT | ✓ | 0 | 할인 금액 |
 | approved_amount | INT | | NULL | PG사 실제 승인 금액. 승인 전 NULL |
-| canceled_amount | INT | ✓ | 0 | 취소된 누적 금액 |
 | idempotency_key | VARCHAR(255) | ✓ | | 중복 결제 방지 키. 형식: pay-{order_id}. UNIQUE |
 | failure_code | VARCHAR(100) | | NULL | PG사 결제 실패 코드 |
 | failure_reason | TEXT | | NULL | PG사 결제 실패 상세 사유 |
-| cancel_reason | TEXT | | NULL | 구매자 취소 사유 |
 | request_payload | JSONB | | NULL | PG사 결제 요청 원문. 분쟁·디버깅용 |
 | response_payload | JSONB | | NULL | PG사 응답 원문. 분쟁·디버깅용 |
 | requested_at | TIMESTAMPTZ | | NULL | |
 | approved_at | TIMESTAMPTZ | | NULL | |
 | failed_at | TIMESTAMPTZ | | NULL | |
-| canceled_at | TIMESTAMPTZ | | NULL | |
 | refunded_at | TIMESTAMPTZ | | NULL | |
 | created_at | TIMESTAMPTZ | ✓ | NOW() | |
 | updated_at | TIMESTAMPTZ | ✓ | NOW() | |

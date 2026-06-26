@@ -17,7 +17,12 @@ public class SecurityConfig {
         "/api/v1/auth/login",
         "/api/v1/auth/oauth/**",
         "/api/v1/auth/token/refresh",
-        "/actuator/**"
+        "/actuator/**",
+        "/swagger-ui.html",
+        "/swagger-ui/**",
+        "/v3/api-docs/**",
+        "/webjars/**",
+        "/*/v3/api-docs"
     };
 
     private final ReactiveJwtDecoder reactiveJwtDecoder;

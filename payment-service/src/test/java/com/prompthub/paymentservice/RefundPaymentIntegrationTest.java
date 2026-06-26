@@ -224,6 +224,7 @@ class RefundPaymentIntegrationTest {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-User-Id", userId.toString());
+        headers.set("X-User-Role", "BUYER");
         Map<String, Object> body = Map.of(
             "paymentKey", "toss-key-" + orderId,
             "orderId", orderId.toString(),
@@ -237,6 +238,7 @@ class RefundPaymentIntegrationTest {
     private ResponseEntity<Map> 환불_요청(UUID paymentId, UUID userId) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-User-Id", userId.toString());
+        headers.set("X-User-Role", "BUYER");
         return restTemplate.exchange(
             url("/api/v1/payments/" + paymentId + "/refund"),
             HttpMethod.POST,

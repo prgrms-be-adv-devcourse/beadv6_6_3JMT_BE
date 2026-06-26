@@ -4,6 +4,7 @@ import com.prompthub.product.application.usecase.ProductInternalUseCase;
 import com.prompthub.product.presentation.dto.request.InternalReviewUpsertRequest;
 import com.prompthub.product.presentation.dto.request.ProductIdsRequest;
 import com.prompthub.product.presentation.dto.response.ProductCartSnapshotResponse;
+import com.prompthub.product.presentation.dto.response.ProductCartSnapshotsResponse;
 import com.prompthub.product.presentation.dto.response.ProductContentResponse;
 import com.prompthub.product.presentation.dto.response.ProductCountResponse;
 import com.prompthub.product.presentation.dto.response.ProductOrderSnapshotResponse;
@@ -40,10 +41,10 @@ public class InternalProductController {
 	}
 
 	@PostMapping("/cart-snapshots")
-	public List<ProductCartSnapshotResponse> getCartSnapshots(
+	public ProductCartSnapshotsResponse getCartSnapshots(
 		@RequestBody ProductIdsRequest request
 	) {
-		return productInternalUseCase.getCartSnapshots(request.productIds());
+		return new ProductCartSnapshotsResponse(productInternalUseCase.getCartSnapshots(request.productIds()));
 	}
 
 	@GetMapping("/{productId}/content")

@@ -87,12 +87,7 @@ git diff develop...HEAD --stat
 - [ ] 테스트 코드가 작성되었고, 통과했습니다.
 - [ ] 변경 사항에 대한 문서화가 완료되었습니다.
 - [ ] 필요한 경우, 다른 팀원에게 리뷰를 요청했습니다.
-
-## ✔️ payment-service 가드레일 자가 점검
-
 - [ ] 레이어 격리: `domain` 패키지에 JPA/Toss SDK 등 외부 의존성 침투 없음
-- [ ] 단방향 의존: interfaces/infrastructure → application → domain (usecase/gateway 경계 준수, 순환 참조 없음)
-- [ ] 멱등성: PG 승인/환불 요청에 멱등성 보장 (중복 결제 방지)
 - [ ] 보안: `.env` 값·PG API Key가 코드에 하드코딩되지 않음
 
 ## 👀 리뷰어를 위한 참고 사항 (Notes for Reviewers)

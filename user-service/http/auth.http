@@ -32,10 +32,10 @@ POST {{baseUrl}}/api/v1/auth/oauth/kakao
 Content-Type: application/json
 
 {
-  "oauthId": "123456789",
+  "oauthId": "1234567289",
   "name": "민서",
   "profileImage": "https://k.kakaocdn.net/example.jpg",
-  "email": "kakao@example.com"
+  "email": "akao@example.com"
 }
 
 > {% client.global.set("accessToken", response.body.data.accessToken); client.global.set("refreshToken", response.body.data.refreshToken); client.global.set("userId", response.body.data.user.id); %}
@@ -99,6 +99,92 @@ Content-Type: application/json
 
 POST {{baseUrl}}/api/v1/auth/logout
 X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
+
+###
+
+### ============================================================
+### [STATUS 검증] Gateway 경유 사용자 상태 차단 E2E 테스트
+###
+### 사전 조건: adminUserId 세팅 필요 (user.http 상단 참고)
+### 순서: STEP 1 → 2 → 3 → 4 → 5 → 6 → 7 순서대로 실행
+### ============================================================
+
+### [STEP 1] 일반 유저 OAuth 로그인 — accessToken·userId 저장
+
+POST {{baseUrl}}/api/v1/auth/oauth/kakao
+Content-Type: application/json
+
+{
+  "oauthId": "status-test-user-001",
+  "name": "상태테스트유저",
+  "profileImage": null,
+  "email": "status-test@example.com"
+}
+
+> {% client.global.set("accessToken", response.body.data.accessToken); client.global.set("refreshToken", response.body.data.refreshToken); client.global.set("userId", response.body.data.user.id); %}
+
+###
+
+### [STEP 2] Gateway 경유 정상 요청 — 200 예상 (ACTIVE 상태)
+
+GET {{gatewayUrl}}/api/v1/users/me
+Authorization: Bearer {{accessToken}}
+
+###
+
+### [STEP 3] 관리자 — 유저 상태를 suspended로 변경
+
+PATCH {{baseUrl}}/api/v1/admin/users/{{userId}}/status
+Content-Type: application/json
+X-User-Id: {{adminUserId}}
+X-User-Role: ADMIN
+
+{
+  "status": "suspended"
+}
+
+###
+
+### [STEP 4] 기존 accessToken으로 Gateway 경유 요청 — 403 예상 (BLOCKED 상태)
+
+GET {{gatewayUrl}}/api/v1/users/me
+Authorization: Bearer {{accessToken}}
+
+###
+
+### [STEP 5] 관리자 — 유저 상태를 active로 복구
+
+PATCH {{baseUrl}}/api/v1/admin/users/{{userId}}/status
+Content-Type: application/json
+X-User-Id: {{adminUserId}}
+X-User-Role: ADMIN
+
+{
+  "status": "active"
+}
+
+###
+
+### [STEP 6] 재로그인 — 새 accessToken(status=ACTIVE) 저장
+
+POST {{baseUrl}}/api/v1/auth/oauth/kakao
+Content-Type: application/json
+
+{
+  "oauthId": "status-test-user-001",
+  "name": "상태테스트유저",
+  "profileImage": null,
+  "email": "status-test@example.com"
+}
+
+> {% client.global.set("accessToken", response.body.data.accessToken); %}
+
+###
+
+### [STEP 7] 재로그인 후 Gateway 경유 요청 — 200 예상 (ACTIVE 복구)
+
+GET {{gatewayUrl}}/api/v1/users/me
 Authorization: Bearer {{accessToken}}
 
 ###

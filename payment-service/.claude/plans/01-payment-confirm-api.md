@@ -344,10 +344,6 @@ public class KafkaPaymentEventPublisher {
 
 #### PaymentApprovedMessage.java (infrastructure/messaging/dto)
 
-> **[실제 구현]** `approvedAt` 필드를 `OffsetDateTime` 대신 `String`으로 선언한다.  
-> Spring Kafka 4.x 내부의 `JsonSerializer`는 Jackson 2.x를 사용하는데, `jackson-datatype-jsr310` 모듈이 Spring Boot 4.1 BOM에 포함되지 않아 `OffsetDateTime` 직렬화가 실패한다.  
-> Publisher 측에서 `payment.getApprovedAt().toString()`으로 ISO 8601 문자열로 변환 후 전달한다.
-
 ```java
 public record PaymentApprovedMessage(
     String eventType,
@@ -436,7 +432,7 @@ domain 또는 interfaces/web (어디에 두든 무방하나, api-error-handling.
 ### Step 7. interfaces — Controller + ExceptionHandler
 - `PaymentController`, `PaymentExceptionHandler` 작성
 - MockMvc 단위 테스트: `PaymentControllerTest.java`
-  - **[실제 구현]** `@WebMvcTest` 미지원(Spring Boot 4.1) → `MockMvcBuilders.standaloneSetup()` + `@ExtendWith(MockitoExtension.class)` 사용
+  - `MockMvcBuilders.standaloneSetup()` + `@ExtendWith(MockitoExtension.class)` 사용
   - `@Valid` 검증 실패 → 400 V001
   - UseCase 성공 → 200 + paymentId
   - PAY002 예외 → 409
@@ -444,9 +440,9 @@ domain 또는 interfaces/web (어디에 두든 무방하나, api-error-handling.
 
 ### Step 8. 통합 테스트
 - `ConfirmPaymentIntegrationTest.java`
-- **[실제 구현]** `EmbeddedKafka` 미사용 — macOS KRaft 브로커 충돌(`Exit.halt(1, null)`) 문제로 Testcontainers `KafkaContainer`(`confluentinc/cp-kafka:7.6.1`) 사용
-- **[실제 구현]** `TestRestTemplate` 미지원(Spring Boot 4.1) → `RestTemplate` + `DefaultResponseErrorHandler` 오버라이드로 4xx/5xx 응답을 직접 검증
-- **[실제 구현]** Kafka 소비: `consumer.subscribe()` 대신 `consumer.assign()` + `consumer.seekToBeginning()` 사용 (그룹 리밸런싱 지연 회피)
+- Testcontainers `KafkaContainer`(`confluentinc/cp-kafka:7.6.1`) 사용
+- HTTP 클라이언트: `RestTemplate`
+- Kafka 소비: `consumer.assign()` + `consumer.seekToBeginning()` 사용
 - `PaymentGateway`는 `@MockitoBean`으로 대체 (실제 Toss API 미호출)
 - 정상 플로우 전체 검증: DB 상태 PAID + Kafka 메시지 수신
 
@@ -498,13 +494,7 @@ payment:
 
 **현재 구현**: Interactor가 `ApplicationEventPublisher.publishEvent(new PaymentApprovedEvent(payment))`로 Spring 내부 이벤트를 발행 → `KafkaPaymentEventPublisher`의 `@TransactionalEventListener(AFTER_COMMIT)` 리스너가 Kafka에 전달한다.
 
-**구현 이력**:
-- 최초 계획대로 `ApplicationEventPublisher` + `@TransactionalEventListener(AFTER_COMMIT)` 방식으로 구현.
-- 디버깅 과정에서 일시적으로 `PaymentEventPublisher` 직접 호출 방식으로 변경했으나 원래 설계로 복원.
-  - 배경: AFTER_COMMIT 단계에서 Jackson 2.x/3.x 혼재로 인한 `OffsetDateTime` 직렬화 오류가 발생했고, `@TransactionalEventListener`가 오류를 HTTP 응답에 노출하지 않아 디버깅이 어려웠음.
-  - 근본 원인(`OffsetDateTime` → `String` 변환)을 `PaymentApprovedMessage`에서 수정한 후 원래 방식으로 복원.
-
-| | ApplicationEvent 중계 (현재) | PaymentEventPublisher 직접 호출 (이전 임시 방식) |
+| | ApplicationEvent 중계 (현재) | PaymentEventPublisher 직접 호출 (대안) |
 |---|---|---|
 | 발행 시점 | 트랜잭션 커밋 후(AFTER_COMMIT) — at-least-once 의미론 보장 | 트랜잭션 커밋 전 (DB 커밋 전에 Kafka 메시지 발행 가능) |
 | 에러 가시성 | 발행 오류가 HTTP 응답에 노출되지 않음 (로그만) | 발행 오류가 트랜잭션 롤백을 유발, HTTP 500 반환 |
