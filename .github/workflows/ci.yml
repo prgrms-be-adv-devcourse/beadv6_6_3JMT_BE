@@ -3,7 +3,6 @@ name: CI
 on:
   pull_request:
     branches:
-      - main
       - develop
     types:
       - opened
@@ -23,12 +22,15 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     outputs:
-      user-service:       ${{ steps.filter.outputs.user-service_any_changed }}
-      product-service:    ${{ steps.filter.outputs.product-service_any_changed }}
-      payment-service:    ${{ steps.filter.outputs.payment-service_any_changed }}
-      order-service:      ${{ steps.filter.outputs.order-service_any_changed }}
-      settlement-service: ${{ steps.filter.outputs.settlement-service_any_changed }}
-      common-module:      ${{ steps.filter.outputs.common-module_any_changed }}
+      user_service:       ${{ steps.filter.outputs.user_service_any_changed }}
+      product_service:    ${{ steps.filter.outputs.product_service_any_changed }}
+      payment_service:    ${{ steps.filter.outputs.payment_service_any_changed }}
+      order_service:      ${{ steps.filter.outputs.order_service_any_changed }}
+      settlement_service: ${{ steps.filter.outputs.settlement_service_any_changed }}
+      apigateway:         ${{ steps.filter.outputs.apigateway_any_changed }}
+      config:             ${{ steps.filter.outputs.config_any_changed }}
+      discovery:          ${{ steps.filter.outputs.discovery_any_changed }}
+      common_module:      ${{ steps.filter.outputs.common_module_any_changed }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,62 +41,92 @@ jobs:
         uses: tj-actions/changed-files@v46
         with:
           files_yaml: |
-            user-service:
+            user_service:
               - user-service/**
-            product-service:
+            product_service:
               - product-service/**
-            payment-service:
+            payment_service:
               - payment-service/**
-            order-service:
+            order_service:
               - order-service/**
-            settlement-service:
+            settlement_service:
               - settlement-service/**
-            common-module:
+            apigateway:
+              - apigateway/**
+            config:
+              - config/**
+            discovery:
+              - discovery/**
+            common_module:
               - common-module/**
 
-  user-service-ci:
+  user_service_ci:
     needs: changes
-    if: needs.changes.outputs.user-service == 'true'
+    if: needs.changes.outputs.user_service == 'true' || needs.changes.outputs.common_module == 'true'
     uses: ./.github/workflows/reusable-build.yml
     with:
       module-name: user-service
       module-path: user-service
 
-  product-service-ci:
+  product_service_ci:
     needs: changes
-    if: needs.changes.outputs.product-service == 'true'
+    if: needs.changes.outputs.product_service == 'true' || needs.changes.outputs.common_module == 'true'
     uses: ./.github/workflows/reusable-build.yml
     with:
       module-name: product-service
       module-path: product-service
 
-  payment-service-ci:
+  payment_service_ci:
     needs: changes
-    if: needs.changes.outputs.payment-service == 'true'
+    if: needs.changes.outputs.payment_service == 'true' || needs.changes.outputs.common_module == 'true'
     uses: ./.github/workflows/reusable-build.yml
     with:
       module-name: payment-service
       module-path: payment-service
 
-  order-service-ci:
+  order_service_ci:
     needs: changes
-    if: needs.changes.outputs.order-service == 'true'
+    if: needs.changes.outputs.order_service == 'true' || needs.changes.outputs.common_module == 'true'
     uses: ./.github/workflows/reusable-build.yml
     with:
       module-name: order-service
       module-path: order-service
 
-  settlement-service-ci:
+  settlement_service_ci:
     needs: changes
-    if: needs.changes.outputs.settlement-service == 'true'
+    if: needs.changes.outputs.settlement_service == 'true' || needs.changes.outputs.common_module == 'true'
     uses: ./.github/workflows/reusable-build.yml
     with:
       module-name: settlement-service
       module-path: settlement-service
 
-  common-module-ci:
+  apigateway_ci:
     needs: changes
-    if: needs.changes.outputs.common-module == 'true'
+    if: needs.changes.outputs.apigateway == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: apigateway
+      module-path: apigateway
+
+  config_ci:
+    needs: changes
+    if: needs.changes.outputs.config == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: config
+      module-path: config
+
+  discovery_ci:
+    needs: changes
+    if: needs.changes.outputs.discovery == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: discovery
+      module-path: discovery
+
+  common_module_ci:
+    needs: changes
+    if: needs.changes.outputs.common_module == 'true'
     uses: ./.github/workflows/reusable-build.yml
     with:
       module-name: common-module
@@ -103,12 +135,15 @@ jobs:
   ci-gate:
     needs:
       - changes
-      - user-service-ci
-      - product-service-ci
-      - payment-service-ci
-      - order-service-ci
-      - settlement-service-ci
-      - common-module-ci
+      - user_service_ci
+      - product_service_ci
+      - payment_service_ci
+      - order_service_ci
+      - settlement_service_ci
+      - apigateway_ci
+      - config_ci
+      - discovery_ci
+      - common_module_ci
     if: always()
     runs-on: ubuntu-latest
     steps:
