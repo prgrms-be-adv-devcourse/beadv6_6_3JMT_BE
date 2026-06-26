@@ -4,7 +4,6 @@ import com.prompthub.order.application.usecase.OrderUseCase;
 import com.prompthub.order.global.web.AuthHeaders;
 import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
-import com.prompthub.order.presentation.dto.request.OrderReviewRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
@@ -87,23 +86,6 @@ public class OrderController {
 		@PathVariable UUID orderProductId
 	) {
 		return ApiResult.success(orderUseCase.getOrderContent(buyerId, orderId, orderProductId));
-	}
-
-	@PostMapping("/review")
-	@Operation(summary = "주문 상품 리뷰 생성/수정", description = "구매한 상품의 리뷰 평점을 생성하거나 수정합니다.")
-	@ApiResponses({
-		@ApiResponse(responseCode = "200", description = "리뷰 생성 또는 수정 성공"),
-		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
-		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음"),
-		@ApiResponse(responseCode = "403", description = "E002 구매한 상품에만 리뷰 작성 가능")
-	})
-	public ApiResult<Void> upsertReview(
-		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
-		@RequestHeader(USER_ID) UUID buyerId,
-		@Valid @RequestBody OrderReviewRequest request
-	) {
-		orderUseCase.upsertReview(buyerId, request);
-		return ApiResult.success();
 	}
 
 	@GetMapping
