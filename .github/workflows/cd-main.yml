@@ -1,0 +1,314 @@
+name: CD - Main
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-2
+  DEPLOY_DIR: /home/ec2-user/prompthub
+  DEPLOY_ENV_FILE: .deploy/images.env
+
+jobs:
+  changes:
+    name: Detect Changed Modules
+    runs-on: ubuntu-latest
+    outputs:
+      user_service:       ${{ steps.filter.outputs.user_service_any_changed }}
+      product_service:    ${{ steps.filter.outputs.product_service_any_changed }}
+      payment_service:    ${{ steps.filter.outputs.payment_service_any_changed }}
+      order_service:      ${{ steps.filter.outputs.order_service_any_changed }}
+      settlement_service: ${{ steps.filter.outputs.settlement_service_any_changed }}
+      apigateway:         ${{ steps.filter.outputs.apigateway_any_changed }}
+      config:             ${{ steps.filter.outputs.config_any_changed }}
+      discovery:          ${{ steps.filter.outputs.discovery_any_changed }}
+      common_module:      ${{ steps.filter.outputs.common_module_any_changed }}
+      docker_all:         ${{ steps.filter.outputs.docker_all_any_changed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 변경된 파일 감지
+        id: filter
+        uses: tj-actions/changed-files@v46
+        with:
+          files_yaml: |
+            user_service:
+              - user-service/**
+            product_service:
+              - product-service/**
+            payment_service:
+              - payment-service/**
+            order_service:
+              - order-service/**
+            settlement_service:
+              - settlement-service/**
+            apigateway:
+              - apigateway/**
+            config:
+              - config/**
+            discovery:
+              - discovery/**
+            common_module:
+              - common-module/**
+            docker_all:
+              - common-module/**
+              - Dockerfile
+              - docker-compose.yml
+              - compose.yml
+              - settings.gradle.kts
+              - build.gradle.kts
+              - gradle/**
+
+  user_service_image:
+    needs: changes
+    if: needs.changes.outputs.user_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: user-service
+      module-path: user-service
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-user-service
+      aws-region: ap-northeast-2
+      push-image: true
+    secrets: inherit
+
+  product_service_image:
+    needs: changes
+    if: needs.changes.outputs.product_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: product-service
+      module-path: product-service
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-product-service
+      aws-region: ap-northeast-2
+      push-image: true
+    secrets: inherit
+
+  payment_service_image:
+    needs: changes
+    if: needs.changes.outputs.payment_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: payment-service
+      module-path: payment-service
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-payment-service
+      aws-region: ap-northeast-2
+      push-image: true
+    secrets: inherit
+
+  order_service_image:
+    needs: changes
+    if: needs.changes.outputs.order_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: order-service
+      module-path: order-service
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-order-service
+      aws-region: ap-northeast-2
+      push-image: true
+    secrets: inherit
+
+  settlement_service_image:
+    needs: changes
+    if: needs.changes.outputs.settlement_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: settlement-service
+      module-path: settlement-service
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-settlement-service
+      aws-region: ap-northeast-2
+      push-image: true
+    secrets: inherit
+
+  apigateway_image:
+    needs: changes
+    if: needs.changes.outputs.apigateway == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: apigateway
+      module-path: apigateway
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-apigateway
+      aws-region: ap-northeast-2
+      push-image: true
+    secrets: inherit
+
+  config_image:
+    needs: changes
+    if: needs.changes.outputs.config == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: config
+      module-path: config
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-config
+      aws-region: ap-northeast-2
+      push-image: true
+    secrets: inherit
+
+  discovery_image:
+    needs: changes
+    if: needs.changes.outputs.discovery == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: discovery
+      module-path: discovery
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-discovery
+      aws-region: ap-northeast-2
+      push-image: true
+    secrets: inherit
+
+  deploy:
+    name: Deploy Changed Services
+    runs-on: [self-hosted, linux, deploy]
+    needs:
+      - changes
+      - user_service_image
+      - product_service_image
+      - payment_service_image
+      - order_service_image
+      - settlement_service_image
+      - apigateway_image
+      - config_image
+      - discovery_image
+    if: always() && (needs.changes.outputs.user_service == 'true' || needs.changes.outputs.product_service == 'true' || needs.changes.outputs.payment_service == 'true' || needs.changes.outputs.order_service == 'true' || needs.changes.outputs.settlement_service == 'true' || needs.changes.outputs.apigateway == 'true' || needs.changes.outputs.config == 'true' || needs.changes.outputs.discovery == 'true' || needs.changes.outputs.docker_all == 'true')
+
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      USER_SERVICE_IMAGE:       ${{ needs.user_service_image.outputs.image_uri }}
+      PRODUCT_SERVICE_IMAGE:    ${{ needs.product_service_image.outputs.image_uri }}
+      PAYMENT_SERVICE_IMAGE:    ${{ needs.payment_service_image.outputs.image_uri }}
+      ORDER_SERVICE_IMAGE:      ${{ needs.order_service_image.outputs.image_uri }}
+      SETTLEMENT_SERVICE_IMAGE: ${{ needs.settlement_service_image.outputs.image_uri }}
+      APIGATEWAY_IMAGE:         ${{ needs.apigateway_image.outputs.image_uri }}
+      CONFIG_IMAGE:             ${{ needs.config_image.outputs.image_uri }}
+      DISCOVERY_IMAGE:          ${{ needs.discovery_image.outputs.image_uri }}
+
+    steps:
+      - name: Build 결과 확인
+        shell: bash
+        run: |
+          check_result() {
+            local service="$1"
+            local result="$2"
+
+            if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+              echo "${service} image build 실패: ${result}"
+              exit 1
+            fi
+          }
+
+          check_result "user-service" "${{ needs.user_service_image.result }}"
+          check_result "product-service" "${{ needs.product_service_image.result }}"
+          check_result "payment-service" "${{ needs.payment_service_image.result }}"
+          check_result "order-service" "${{ needs.order_service_image.result }}"
+          check_result "settlement-service" "${{ needs.settlement_service_image.result }}"
+          check_result "apigateway" "${{ needs.apigateway_image.result }}"
+          check_result "config" "${{ needs.config_image.result }}"
+          check_result "discovery" "${{ needs.discovery_image.result }}"
+
+          echo "Image build 결과 확인 완료"
+
+      - name: Configure AWS credentials
+        if: env.USER_SERVICE_IMAGE != '' || env.PRODUCT_SERVICE_IMAGE != '' || env.PAYMENT_SERVICE_IMAGE != '' || env.ORDER_SERVICE_IMAGE != '' || env.SETTLEMENT_SERVICE_IMAGE != '' || env.APIGATEWAY_IMAGE != '' || env.CONFIG_IMAGE != '' || env.DISCOVERY_IMAGE != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        if: env.USER_SERVICE_IMAGE != '' || env.PRODUCT_SERVICE_IMAGE != '' || env.PAYMENT_SERVICE_IMAGE != '' || env.ORDER_SERVICE_IMAGE != '' || env.SETTLEMENT_SERVICE_IMAGE != '' || env.APIGATEWAY_IMAGE != '' || env.CONFIG_IMAGE != '' || env.DISCOVERY_IMAGE != ''
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Deploy services
+        shell: bash
+        run: |
+          cd "${{ env.DEPLOY_DIR }}"
+
+          mkdir -p "$(dirname "${{ env.DEPLOY_ENV_FILE }}")"
+          touch "${{ env.DEPLOY_ENV_FILE }}"
+
+          upsert_env() {
+            local key="$1"
+            local value="$2"
+            local file="${{ env.DEPLOY_ENV_FILE }}"
+
+            if grep -q "^${key}=" "$file"; then
+              sed -i.bak "s|^${key}=.*|${key}=${value}|" "$file"
+              rm -f "${file}.bak"
+            else
+              echo "${key}=${value}" >> "$file"
+            fi
+          }
+
+          health_check() {
+            local service="$1"
+            local url="$2"
+
+            for i in {1..20}; do
+              if curl -fsS "$url" > /dev/null; then
+                echo "${service} health check success"
+                return 0
+              fi
+
+              echo "${service} health check waiting... attempt=${i}"
+              sleep 5
+            done
+
+            echo "${service} health check failed"
+            docker ps
+            docker logs --tail=200 "$service" || true
+            exit 1
+          }
+
+          deploy_service() {
+            local service="$1"
+            local image_key="$2"
+            local image_uri="$3"
+            local health_url="$4"
+
+            if [ -z "$image_uri" ]; then
+              echo "${service}: 변경 없음, 배포 생략"
+              return 0
+            fi
+
+            echo "${service}: ${image_uri} 배포 시작"
+
+            upsert_env "$image_key" "$image_uri"
+
+            docker compose --env-file "${{ env.DEPLOY_ENV_FILE }}" pull "$service"
+            docker compose --env-file "${{ env.DEPLOY_ENV_FILE }}" up -d "$service"
+
+            health_check "$service" "$health_url"
+          }
+
+          deploy_service "user-service"       "USER_SERVICE_IMAGE"       "$USER_SERVICE_IMAGE"       "http://localhost:8081/actuator/health"
+          deploy_service "product-service"    "PRODUCT_SERVICE_IMAGE"    "$PRODUCT_SERVICE_IMAGE"    "http://localhost:8082/actuator/health"
+          deploy_service "payment-service"    "PAYMENT_SERVICE_IMAGE"    "$PAYMENT_SERVICE_IMAGE"    "http://localhost:8084/actuator/health"
+          deploy_service "order-service"      "ORDER_SERVICE_IMAGE"      "$ORDER_SERVICE_IMAGE"      "http://localhost:8083/actuator/health"
+          deploy_service "settlement-service" "SETTLEMENT_SERVICE_IMAGE" "$SETTLEMENT_SERVICE_IMAGE" "http://localhost:8085/actuator/health"
+          deploy_service "apigateway"         "APIGATEWAY_IMAGE"         "$APIGATEWAY_IMAGE"         "http://localhost:8000/actuator/health"
+          deploy_service "config"             "CONFIG_IMAGE"             "$CONFIG_IMAGE"             "http://localhost:8888/actuator/health"
+          deploy_service "discovery"          "DISCOVERY_IMAGE"          "$DISCOVERY_IMAGE"          "http://localhost:8761/actuator/health"
+
+          echo "변경 서비스 배포 완료"

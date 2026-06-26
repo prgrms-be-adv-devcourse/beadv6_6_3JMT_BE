@@ -1,0 +1,286 @@
+name: CI - Main
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-main-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect Changed Modules
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false && github.head_ref == 'develop'
+    outputs:
+      user_service:       ${{ steps.filter.outputs.user_service_any_changed }}
+      product_service:    ${{ steps.filter.outputs.product_service_any_changed }}
+      payment_service:    ${{ steps.filter.outputs.payment_service_any_changed }}
+      order_service:      ${{ steps.filter.outputs.order_service_any_changed }}
+      settlement_service: ${{ steps.filter.outputs.settlement_service_any_changed }}
+      apigateway:         ${{ steps.filter.outputs.apigateway_any_changed }}
+      config:             ${{ steps.filter.outputs.config_any_changed }}
+      discovery:          ${{ steps.filter.outputs.discovery_any_changed }}
+      common_module:      ${{ steps.filter.outputs.common_module_any_changed }}
+      docker_all:         ${{ steps.filter.outputs.docker_all_any_changed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 변경된 파일 감지
+        id: filter
+        uses: tj-actions/changed-files@v46
+        with:
+          files_yaml: |
+            user_service:
+              - user-service/**
+            product_service:
+              - product-service/**
+            payment_service:
+              - payment-service/**
+            order_service:
+              - order-service/**
+            settlement_service:
+              - settlement-service/**
+            apigateway:
+              - apigateway/**
+            config:
+              - config/**
+            discovery:
+              - discovery/**
+            common_module:
+              - common-module/**
+            docker_all:
+              - common-module/**
+              - Dockerfile
+              - docker-compose.yml
+              - compose.yml
+              - settings.gradle.kts
+              - build.gradle.kts
+              - gradle/**
+
+  user_service_ci:
+    needs: changes
+    if: needs.changes.outputs.user_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: user-service
+      module-path: user-service
+
+  product_service_ci:
+    needs: changes
+    if: needs.changes.outputs.product_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: product-service
+      module-path: product-service
+
+  payment_service_ci:
+    needs: changes
+    if: needs.changes.outputs.payment_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: payment-service
+      module-path: payment-service
+
+  order_service_ci:
+    needs: changes
+    if: needs.changes.outputs.order_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: order-service
+      module-path: order-service
+
+  settlement_service_ci:
+    needs: changes
+    if: needs.changes.outputs.settlement_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: settlement-service
+      module-path: settlement-service
+
+  apigateway_ci:
+    needs: changes
+    if: needs.changes.outputs.apigateway == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: apigateway
+      module-path: apigateway
+
+  config_ci:
+    needs: changes
+    if: needs.changes.outputs.config == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: config
+      module-path: config
+
+  discovery_ci:
+    needs: changes
+    if: needs.changes.outputs.discovery == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: discovery
+      module-path: discovery
+
+  common_module_ci:
+    needs: changes
+    if: needs.changes.outputs.common_module == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: common-module
+      module-path: common-module
+
+  user_service_image_build:
+    needs:
+      - changes
+      - user_service_ci
+    if: needs.changes.outputs.user_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: user-service
+      module-path: user-service
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-user-service
+      push-image: false
+
+  product_service_image_build:
+    needs:
+      - changes
+      - product_service_ci
+    if: needs.changes.outputs.product_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: product-service
+      module-path: product-service
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-product-service
+      push-image: false
+
+  payment_service_image_build:
+    needs:
+      - changes
+      - payment_service_ci
+    if: needs.changes.outputs.payment_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: payment-service
+      module-path: payment-service
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-payment-service
+      push-image: false
+
+  order_service_image_build:
+    needs:
+      - changes
+      - order_service_ci
+    if: needs.changes.outputs.order_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: order-service
+      module-path: order-service
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-order-service
+      push-image: false
+
+  settlement_service_image_build:
+    needs:
+      - changes
+      - settlement_service_ci
+    if: needs.changes.outputs.settlement_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: settlement-service
+      module-path: settlement-service
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-settlement-service
+      push-image: false
+
+  apigateway_image_build:
+    needs:
+      - changes
+      - apigateway_ci
+    if: needs.changes.outputs.apigateway == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: apigateway
+      module-path: apigateway
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-apigateway
+      push-image: false
+
+  config_image_build:
+    needs:
+      - changes
+      - config_ci
+    if: needs.changes.outputs.config == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: config
+      module-path: config
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-config
+      push-image: false
+
+  discovery_image_build:
+    needs:
+      - changes
+      - discovery_ci
+    if: needs.changes.outputs.discovery == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: discovery
+      module-path: discovery
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-discovery
+      push-image: false
+
+  ci_gate:
+    name: CI Gate
+    needs:
+      - changes
+      - user_service_ci
+      - product_service_ci
+      - payment_service_ci
+      - order_service_ci
+      - settlement_service_ci
+      - apigateway_ci
+      - config_ci
+      - discovery_ci
+      - common_module_ci
+      - user_service_image_build
+      - product_service_image_build
+      - payment_service_image_build
+      - order_service_image_build
+      - settlement_service_image_build
+      - apigateway_image_build
+      - config_image_build
+      - discovery_image_build
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: CI 결과 확인
+        shell: bash
+        run: |
+          results="${{ join(needs.*.result, ' ') }}"
+
+          for result in $results; do
+            if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+              echo "CI 실패: $result"
+              exit 1
+            fi
+          done
+
+          echo "모든 CI 통과 (skipped 포함)"
