@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Profile;
 
 @Slf4j
 @Configuration
-@Profile({"prod", "local"})
+@Profile({"dev", "prod", "local"})
 public class GrpcSellerClientConfig {
 
 	@Value("${grpc.client.user-service.host:user-service}")

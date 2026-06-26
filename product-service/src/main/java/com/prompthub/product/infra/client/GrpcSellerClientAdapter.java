@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@Profile({"prod", "local"})
+@Profile({"dev", "prod", "local"})
 public class GrpcSellerClientAdapter implements SellerClient {
 
 	private final SellerQueryServiceGrpc.SellerQueryServiceBlockingStub stub;
