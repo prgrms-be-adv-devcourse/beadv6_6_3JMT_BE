@@ -87,7 +87,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 			product.getName(),
 			resolveCategory(product),
 			resolveIcon(product),
-			product.getProductType(),
+			product.getModel(),
 			product.getAmount(),
 			rating,
 			product.getSalesCount(),

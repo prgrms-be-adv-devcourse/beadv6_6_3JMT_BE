@@ -8,7 +8,8 @@ public record ProductOrderSnapshotResponse(
 	UUID sellerId,
 	String title,
 	String productType,
-	int amount
+	int amount,
+	String model
 ) {
 
 	public static ProductOrderSnapshotResponse from(Product product) {
@@ -17,7 +18,8 @@ public record ProductOrderSnapshotResponse(
 			product.getSellerId(),
 			product.getName(),
 			product.getProductType(),
-			product.getAmount()
+			product.getAmount(),
+			product.getModel() != null ? product.getModel() : ""
 		);
 	}
 }

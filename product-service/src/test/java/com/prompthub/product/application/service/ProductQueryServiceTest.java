@@ -122,7 +122,7 @@ class ProductQueryServiceTest {
 
 			assertThat(response.id()).isEqualTo(PRODUCT_ID);
 			assertThat(response.title()).isEqualTo("리액트 컴포넌트 리팩터링 도우미");
-			assertThat(response.cat()).isEqualTo("coding");
+			assertThat(response.category()).isEqualTo("coding");
 			assertThat(response.rating()).isEqualTo(4.5);
 			assertThat(response.seller()).isEqualTo("테스트판매자");
 			assertThat(response.content()).contains("전체 내용은 구매 후 확인");

@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package prompthub.product.v1;
+
+option java_multiple_files = true;
+option java_package = "com.prompthub.grpc.product.v1";
+option java_outer_classname = "ProductInternalProto";
+
+service ProductInternalService {
+  rpc GetOrderSnapshots(GetOrderSnapshotsRequest) returns (GetOrderSnapshotsResponse);
+  rpc GetProductContent(GetProductContentRequest) returns (GetProductContentResponse);
+}
+
+message GetOrderSnapshotsRequest {
+  repeated string product_ids = 1;
+}
+
+message GetOrderSnapshotsResponse {
+  repeated ProductOrderSnapshot products = 1;
+}
+
+message ProductOrderSnapshot {
+  string product_id = 1;
+  string seller_id = 2;
+  string title = 3;
+  string product_type = 4;
+  int32 amount = 5;
+  string model = 6;
+}
+
+message GetProductContentRequest {
+  string product_id = 1;
+}
+
+message GetProductContentResponse {
+  string product_id = 1;
+  string content = 2;
+}

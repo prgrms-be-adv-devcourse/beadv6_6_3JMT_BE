@@ -7,7 +7,7 @@ import java.util.UUID;
 public record ProductDetailResponse(
 	UUID id,
 	String title,
-	String cat,
+	String category,
 	String icon,
 	String model,
 	int amount,
