@@ -1,14 +1,12 @@
 package com.prompthub.order.infra.grpc.client.product;
 
 import com.prompthub.exception.BusinessException;
-import com.prompthub.grpc.product.v1.GetCartSnapshotRequest;
 import com.prompthub.grpc.product.v1.GetCartSnapshotResponse;
 import com.prompthub.grpc.product.v1.GetCartSnapshotsRequest;
 import com.prompthub.grpc.product.v1.GetOrderSnapshotsRequest;
 import com.prompthub.grpc.product.v1.GetProductContentRequest;
 import com.prompthub.grpc.product.v1.ProductInternalServiceGrpc;
 import com.prompthub.grpc.product.v1.ProductOrderSnapshotResponse;
-import com.prompthub.grpc.product.v1.UpsertReviewRequest;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductCartSnapshot;
 import com.prompthub.order.application.dto.ProductContent;
@@ -55,9 +53,14 @@ public class ProductGrpcClientAdapter implements ProductClient {
 	@Override
 	public ProductCartSnapshot getCartSnapshot(UUID productId) {
 		try {
-			return toCartSnapshot(withDeadline().getCartSnapshot(GetCartSnapshotRequest.newBuilder()
-				.setProductId(productId.toString())
-				.build()));
+			var response = withDeadline().getCartSnapshots(GetCartSnapshotsRequest.newBuilder()
+					.addProductIds(productId.toString())
+					.build())
+				.getProductsList();
+			if (response.isEmpty()) {
+				throw productServiceUnavailable();
+			}
+			return toCartSnapshot(response.getFirst());
 		} catch (StatusRuntimeException exception) {
 			throw productServiceUnavailable();
 		}
@@ -90,18 +93,7 @@ public class ProductGrpcClientAdapter implements ProductClient {
 		}
 	}
 
-	@Override
-	public void upsertReview(UUID buyerId, UUID productId, int rating) {
-		try {
-			withDeadline().upsertReview(UpsertReviewRequest.newBuilder()
-				.setBuyerId(buyerId.toString())
-				.setProductId(productId.toString())
-				.setRating(rating)
-				.build());
-		} catch (StatusRuntimeException exception) {
-			throw productServiceUnavailable();
-		}
-	}
+
 
 	private ProductInternalServiceGrpc.ProductInternalServiceBlockingStub withDeadline() {
 		return stub.withDeadlineAfter(deadlineMs, TimeUnit.MILLISECONDS);
@@ -119,6 +111,7 @@ public class ProductGrpcClientAdapter implements ProductClient {
 			UUID.fromString(response.getSellerId()),
 			response.getTitle(),
 			response.getProductType(),
+			response.getModel(),
 			response.getAmount()
 		);
 	}

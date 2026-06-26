@@ -16,6 +16,4 @@ public interface ProductClient {
     List<ProductCartSnapshot> getCartSnapshots(List<UUID> productIds);
 
     ProductContent getProductContent(UUID productId);
-
-    void upsertReview(UUID buyerId, UUID productId, int rating);
 }

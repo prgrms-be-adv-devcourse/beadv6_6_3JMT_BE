@@ -1,7 +1,6 @@
 package com.prompthub.order.infra.grpc.client.product;
 
 import com.prompthub.exception.BusinessException;
-import com.prompthub.grpc.product.v1.GetCartSnapshotRequest;
 import com.prompthub.grpc.product.v1.GetCartSnapshotResponse;
 import com.prompthub.grpc.product.v1.GetCartSnapshotsRequest;
 import com.prompthub.grpc.product.v1.GetCartSnapshotsResponse;
@@ -11,8 +10,6 @@ import com.prompthub.grpc.product.v1.GetProductContentRequest;
 import com.prompthub.grpc.product.v1.GetProductContentResponse;
 import com.prompthub.grpc.product.v1.ProductInternalServiceGrpc;
 import com.prompthub.grpc.product.v1.ProductOrderSnapshotResponse;
-import com.prompthub.grpc.product.v1.UpsertReviewRequest;
-import com.prompthub.grpc.product.v1.UpsertReviewResponse;
 import com.prompthub.order.application.dto.ProductCartSnapshot;
 import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
@@ -81,13 +78,14 @@ class ProductGrpcClientAdapterTest {
 	@Test
 	void mapsCartSnapshotResponse() throws IOException {
 		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
-			@Override
-			public void getCartSnapshot(
-				GetCartSnapshotRequest request,
-				StreamObserver<GetCartSnapshotResponse> responseObserver
+			public void getCartSnapshots(
+				GetCartSnapshotsRequest request,
+				StreamObserver<GetCartSnapshotsResponse> responseObserver
 			) {
-				assertThat(request.getProductId()).isEqualTo(PRODUCT_ID.toString());
-				responseObserver.onNext(cartSnapshot(PRODUCT_ID));
+				assertThat(request.getProductIdsList()).containsExactly(PRODUCT_ID.toString());
+				responseObserver.onNext(GetCartSnapshotsResponse.newBuilder()
+					.addProducts(cartSnapshot(PRODUCT_ID))
+					.build());
 				responseObserver.onCompleted();
 			}
 		});
@@ -146,29 +144,13 @@ class ProductGrpcClientAdapterTest {
 		assertThat(content.content()).isEqualTo("구매 콘텐츠");
 	}
 
-	@Test
-	void sendsUpsertReviewRequest() throws IOException {
-		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
-			@Override
-			public void upsertReview(UpsertReviewRequest request, StreamObserver<UpsertReviewResponse> responseObserver) {
-				assertThat(request.getBuyerId()).isEqualTo(BUYER_ID.toString());
-				assertThat(request.getProductId()).isEqualTo(PRODUCT_ID.toString());
-				assertThat(request.getRating()).isEqualTo(4);
-				responseObserver.onNext(UpsertReviewResponse.getDefaultInstance());
-				responseObserver.onCompleted();
-			}
-		});
-
-		adapter.upsertReview(BUYER_ID, PRODUCT_ID, 4);
-	}
 
 	@Test
 	void mapsGrpcFailureToBusinessException() throws IOException {
 		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
-			@Override
-			public void getCartSnapshot(
-				GetCartSnapshotRequest request,
-				StreamObserver<GetCartSnapshotResponse> responseObserver
+			public void getCartSnapshots(
+				GetCartSnapshotsRequest request,
+				StreamObserver<GetCartSnapshotsResponse> responseObserver
 			) {
 				responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
 			}
