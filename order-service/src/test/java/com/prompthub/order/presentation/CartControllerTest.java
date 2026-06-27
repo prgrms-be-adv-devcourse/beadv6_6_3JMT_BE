@@ -91,7 +91,7 @@ class CartControllerTest {
 			);
 			when(cartUseCase.getCart(BUYER_ID)).thenReturn(response);
 
-			mockMvc.perform(get("/api/v1/cart")
+			mockMvc.perform(get("/api/v1/cart/products")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
 					.header(AuthHeaders.USER_ROLE, AuthHeaders.USER))
 				.andExpect(status().isOk())
@@ -119,7 +119,7 @@ class CartControllerTest {
 			);
 			when(cartUseCase.getCart(BUYER_ID)).thenReturn(response);
 
-			mockMvc.perform(get("/api/v1/cart")
+			mockMvc.perform(get("/api/v1/cart/products")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
 					.header(AuthHeaders.USER_ROLE, AuthHeaders.USER + "," + AuthHeaders.SELLER))
 				.andExpect(status().isOk())
@@ -131,7 +131,7 @@ class CartControllerTest {
 		@Test
 		@DisplayName("X-User-Id 헤더가 없으면 401 Unauthorized")
 		void getCart_withoutUserIdHeader_unauthorized() throws Exception {
-			mockMvc.perform(get("/api/v1/cart"))
+			mockMvc.perform(get("/api/v1/cart/products"))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
@@ -142,7 +142,7 @@ class CartControllerTest {
 		@Test
 		@DisplayName("X-User-Role 헤더가 없으면 401 Unauthorized")
 		void getCart_withoutUserRoleHeader_unauthorized() throws Exception {
-			mockMvc.perform(get("/api/v1/cart")
+			mockMvc.perform(get("/api/v1/cart/products")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.success").value(false))
@@ -154,7 +154,7 @@ class CartControllerTest {
 		@Test
 		@DisplayName("X-User-Role이 USER가 아니면 403 Forbidden")
 		void getCart_nonUserRole_forbidden() throws Exception {
-			mockMvc.perform(get("/api/v1/cart")
+			mockMvc.perform(get("/api/v1/cart/products")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
 					.header(AuthHeaders.USER_ROLE, AuthHeaders.ADMIN))
 				.andExpect(status().isForbidden())
