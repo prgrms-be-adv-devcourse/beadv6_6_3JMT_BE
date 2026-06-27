@@ -27,17 +27,17 @@ import static lombok.AccessLevel.PROTECTED;
 public class OrderProduct {
 
     @Id
-    @Column(name = "id", columnDefinition = "char(36)")
+    @Column(name = "id", columnDefinition = "uuid")
     private UUID id;
 
     @ManyToOne(fetch = LAZY)
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
-    @Column(name = "product_id", columnDefinition = "char(36)", nullable = false)
+    @Column(name = "product_id", columnDefinition = "uuid", nullable = false)
     private UUID productId;
 
-    @Column(name = "seller_id", columnDefinition = "char(36)", nullable = false)
+    @Column(name = "seller_id", columnDefinition = "uuid", nullable = false)
     private UUID sellerId;
 
     @Column(name = "product_title_snapshot", length = 200, nullable = false)

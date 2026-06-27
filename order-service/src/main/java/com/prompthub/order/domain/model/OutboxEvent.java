@@ -39,11 +39,11 @@ public class OutboxEvent extends BaseEntity {
 
 	@Id
 	@JdbcTypeCode(SqlTypes.VARCHAR)
-	@Column(name = "id", columnDefinition = "char(36)")
+	@Column(name = "id", columnDefinition = "uuid")
 	private UUID id;
 
 	@JdbcTypeCode(SqlTypes.VARCHAR)
-	@Column(name = "aggregate_id", columnDefinition = "char(36)", nullable = false)
+	@Column(name = "aggregate_id", columnDefinition = "uuid", nullable = false)
 	private UUID aggregateId;
 
 	@Column(name = "aggregate_type", length = 50, nullable = false)

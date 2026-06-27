@@ -31,16 +31,16 @@ public class OrderPayment extends BaseEntity {
 	private static final String PAYMENT_EVENT_PROVIDER = "PAYMENT_SERVICE";
 
 	@Id
-	@Column(name = "id", columnDefinition = "char(36)")
+	@Column(name = "id", columnDefinition = "uuid")
 	private UUID id;
 
-	@Column(name = "order_id", columnDefinition = "char(36)", nullable = false)
+	@Column(name = "order_id", columnDefinition = "uuid", nullable = false)
 	private UUID orderId;
 
-	@Column(name = "payment_id", columnDefinition = "char(36)", nullable = false)
+	@Column(name = "payment_id", columnDefinition = "uuid", nullable = false)
 	private UUID paymentId;
 
-	@Column(name = "buyer_id", columnDefinition = "char(36)", nullable = false)
+	@Column(name = "buyer_id", columnDefinition = "uuid", nullable = false)
 	private UUID buyerId;
 
 	@Column(name = "pg_tx_id", length = 100, nullable = false)

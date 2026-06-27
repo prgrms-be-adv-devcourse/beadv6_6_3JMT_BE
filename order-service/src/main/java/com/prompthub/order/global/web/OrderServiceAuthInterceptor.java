@@ -23,7 +23,7 @@ public class OrderServiceAuthInterceptor implements HandlerInterceptor {
 		if (isBlank(userId) || isBlank(userRole)) {
 			throw new OrderException(ErrorCode.INVALID_AUTHENTICATION);
 		}
-		if (!AuthHeaderRoles.hasRole(userRole, AuthHeaders.USER) && !AuthHeaderRoles.hasRole(userRole, "BUYER")) {
+		if (!AuthHeaderRoles.hasRole(userRole, AuthHeaders.BUYER)) {
 			throw new OrderException(ErrorCode.FORBIDDEN);
 		}
 

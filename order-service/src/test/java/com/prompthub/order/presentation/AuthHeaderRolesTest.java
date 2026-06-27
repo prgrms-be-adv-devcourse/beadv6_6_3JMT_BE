@@ -12,7 +12,7 @@ class AuthHeaderRolesTest {
 	@Test
 	@DisplayName("단일 권한 헤더에 필요한 권한이 있으면 true를 반환한다")
 	void hasRole_singleRole_returnsTrue() {
-		assertThat(AuthHeaderRoles.hasRole(AuthHeaders.USER, AuthHeaders.USER)).isTrue();
+		assertThat(AuthHeaderRoles.hasRole(AuthHeaders.BUYER, AuthHeaders.BUYER)).isTrue();
 	}
 
 	@Test
@@ -36,12 +36,12 @@ class AuthHeaderRolesTest {
 	@Test
 	@DisplayName("필요한 권한이 없으면 false를 반환한다")
 	void hasRole_missingRequiredRole_returnsFalse() {
-		assertThat(AuthHeaderRoles.hasRole(AuthHeaders.SELLER, AuthHeaders.USER)).isFalse();
+		assertThat(AuthHeaderRoles.hasRole(AuthHeaders.SELLER, AuthHeaders.BUYER)).isFalse();
 	}
 
 	@Test
 	@DisplayName("권한 값은 대소문자를 엄격히 구분한다")
 	void hasRole_roleIsCaseSensitive() {
-		assertThat(AuthHeaderRoles.hasRole("user,SELLER", AuthHeaders.USER)).isFalse();
+		assertThat(AuthHeaderRoles.hasRole("user,SELLER", AuthHeaders.BUYER)).isFalse();
 	}
 }

@@ -16,14 +16,14 @@ import java.util.UUID;
 public class CartProduct extends BaseEntity {
 
 	@Id
-	@Column(name = "id", columnDefinition = "char(36)")
+	@Column(name = "id", columnDefinition = "uuid")
 	private UUID id;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "cart_id", nullable = false)
 	private Cart cart;
 
-	@Column(name = "product_id", columnDefinition = "char(36)", nullable = false)
+	@Column(name = "product_id", columnDefinition = "uuid", nullable = false)
 	private UUID productId;
 
 	@Column(name = "added_at", nullable = false)
