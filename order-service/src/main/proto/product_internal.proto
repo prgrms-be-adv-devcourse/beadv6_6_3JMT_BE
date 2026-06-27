@@ -8,10 +8,8 @@ option java_outer_classname = "ProductInternalProto";
 
 service ProductInternalService {
   rpc GetOrderSnapshots(GetOrderSnapshotsRequest) returns (GetOrderSnapshotsResponse);
-  rpc GetCartSnapshot(GetCartSnapshotRequest) returns (GetCartSnapshotResponse);
   rpc GetCartSnapshots(GetCartSnapshotsRequest) returns (GetCartSnapshotsResponse);
   rpc GetProductContent(GetProductContentRequest) returns (GetProductContentResponse);
-  rpc UpsertReview(UpsertReviewRequest) returns (UpsertReviewResponse);
 }
 
 message GetOrderSnapshotsRequest {
@@ -27,11 +25,8 @@ message ProductOrderSnapshotResponse {
   string seller_id = 2;
   string title = 3;
   string product_type = 4;
-  int32 amount = 5;
-}
-
-message GetCartSnapshotRequest {
-  string product_id = 1;
+  string model = 5;
+  int32 amount = 6;
 }
 
 message GetCartSnapshotResponse {
@@ -60,13 +55,4 @@ message GetProductContentRequest {
 message GetProductContentResponse {
   string product_id = 1;
   string content = 2;
-}
-
-message UpsertReviewRequest {
-  string buyer_id = 1;
-  string product_id = 2;
-  int32 rating = 3;
-}
-
-message UpsertReviewResponse {
 }

@@ -76,6 +76,7 @@ class OrderPersistenceImplTest {
 			SELLER_ID_1,
 			PRODUCT_TITLE_1,
 			PRODUCT_TYPE_PROMPT,
+			"GPT-4",
 			PRODUCT_AMOUNT_1
 		));
 		order.markPaid(createdAt.plusMinutes(1));

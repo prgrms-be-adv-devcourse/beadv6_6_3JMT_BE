@@ -27,17 +27,17 @@ import static lombok.AccessLevel.PROTECTED;
 public class OrderProduct {
 
     @Id
-    @Column(name = "id", columnDefinition = "char(36)")
+    @Column(name = "id", columnDefinition = "uuid")
     private UUID id;
 
     @ManyToOne(fetch = LAZY)
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
-    @Column(name = "product_id", columnDefinition = "char(36)", nullable = false)
+    @Column(name = "product_id", columnDefinition = "uuid", nullable = false)
     private UUID productId;
 
-    @Column(name = "seller_id", columnDefinition = "char(36)", nullable = false)
+    @Column(name = "seller_id", columnDefinition = "uuid", nullable = false)
     private UUID sellerId;
 
     @Column(name = "product_title_snapshot", length = 200, nullable = false)
@@ -45,6 +45,9 @@ public class OrderProduct {
 
     @Column(name = "product_type_snapshot", length = 30, nullable = false)
     private String productType;
+
+    @Column(name = "product_model_snapshot", length = 50)
+    private String productModel;
 
     @Column(name = "product_amount_snapshot", nullable = false)
     private int productAmount;
@@ -74,6 +77,7 @@ public class OrderProduct {
             UUID sellerId,
             String productTitle,
             String productType,
+            String productModel,
             int productAmount,
             OrderStatus orderStatus,
             LocalDateTime createdAt,
@@ -85,6 +89,7 @@ public class OrderProduct {
         this.sellerId = sellerId;
         this.productTitle = productTitle;
         this.productType = productType;
+        this.productModel = productModel;
         this.productAmount = productAmount;
         this.orderStatus = orderStatus;
         this.createdAt = createdAt;
@@ -97,6 +102,7 @@ public class OrderProduct {
             UUID sellerId,
             String productTitle,
             String productType,
+            String productModel,
             int productAmount
             // String productThumbnailSnapshot
     ) {
@@ -108,6 +114,7 @@ public class OrderProduct {
                 sellerId,
                 productTitle,
                 productType,
+                productModel,
                 productAmount,
                 // productThumbnailSnapshot,
                 OrderStatus.PENDING,

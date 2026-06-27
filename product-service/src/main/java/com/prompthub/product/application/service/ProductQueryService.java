@@ -81,18 +81,22 @@ public class ProductQueryService implements ProductQueryUseCase {
 		productRepository.save(product);
 		double rating = productRepository.getAverageRating(productId);
 		SellerInfo seller = sellerClient.getSellerInfo(product.getSellerId());
+		int sellerProductCount = (int) productRepository.countOnSaleProductsBySellerId(product.getSellerId());
 
 		return new ProductDetailResponse(
 			product.getId(),
 			product.getName(),
 			resolveCategory(product),
 			resolveIcon(product),
+			product.getProductType(),
 			product.getModel(),
 			product.getAmount(),
 			rating,
 			product.getSalesCount(),
 			seller.sellerName(),
 			product.getSellerId(),
+			seller.profileImageUrl(),
+			sellerProductCount,
 			null,
 			product.getDescription(),
 			product.getThumbnailUrl(),
@@ -147,6 +151,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 			product.title(),
 			product.category(),
 			resolveIcon(product.categoryIcon()),
+			product.productType(),
 			product.model(),
 			product.amount(),
 			null,
@@ -186,11 +191,11 @@ public class ProductQueryService implements ProductQueryUseCase {
 	}
 
 	private String resolveCategory(Product product) {
-		if (product.getCategory() == null || product.getCategory().getName() == null) {
+		if (product.getCategory() == null || product.getCategory().getCode() == null) {
 			return "";
 		}
 
-		return product.getCategory().getName();
+		return product.getCategory().getCode();
 	}
 
 	private String resolveIcon(Product product) {

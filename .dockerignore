@@ -1,0 +1,14 @@
+.git
+.github
+.idea
+docs
+style
+
+**/.gradle
+**/build
+**/.env
+**/.env.*
+!**/.env.example
+
+*.log
+.DS_Store

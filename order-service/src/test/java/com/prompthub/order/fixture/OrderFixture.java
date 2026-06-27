@@ -122,6 +122,7 @@ public final class OrderFixture {
 				SELLER_ID_2,
 				UNKNOWN_PRODUCT_TITLE,
 				PRODUCT_TYPE_PROMPT,
+				"GPT-4",
 				PRODUCT_AMOUNT_2
 			)
 		);
@@ -133,6 +134,7 @@ public final class OrderFixture {
 			SELLER_ID_1,
 			PRODUCT_TITLE_1,
 			PRODUCT_TYPE_PROMPT,
+			"GPT-4",
 			PRODUCT_AMOUNT_1
 		);
 	}
@@ -143,6 +145,7 @@ public final class OrderFixture {
 			SELLER_ID_2,
 			PRODUCT_TITLE_2,
 			PRODUCT_TYPE_PROMPT,
+			"GPT-4",
 			PRODUCT_AMOUNT_2
 		);
 	}
@@ -186,6 +189,7 @@ public final class OrderFixture {
 			SELLER_ID_1,
 			PRODUCT_TITLE_1,
 			PRODUCT_TYPE_PROMPT,
+			PRODUCT_MODEL,
 			PRODUCT_AMOUNT_1
 		);
 	}
@@ -196,6 +200,7 @@ public final class OrderFixture {
 			SELLER_ID_2,
 			PRODUCT_TITLE_2,
 			PRODUCT_TYPE_PROMPT,
+			"Claude-3",
 			PRODUCT_AMOUNT_2
 		);
 	}

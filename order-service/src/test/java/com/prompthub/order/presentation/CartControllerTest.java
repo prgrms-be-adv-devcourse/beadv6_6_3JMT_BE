@@ -93,7 +93,7 @@ class CartControllerTest {
 
 			mockMvc.perform(get("/api/v1/cart")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.USER))
+					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.message").value("success"))
@@ -121,7 +121,7 @@ class CartControllerTest {
 
 			mockMvc.perform(get("/api/v1/cart")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.USER + "," + AuthHeaders.SELLER))
+					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER + "," + AuthHeaders.SELLER))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
@@ -189,7 +189,7 @@ class CartControllerTest {
 
 			mockMvc.perform(post("/api/v1/cart/products")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
+					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isOk())
@@ -207,7 +207,7 @@ class CartControllerTest {
 		void addCartProduct_withoutProductId_badRequest() throws Exception {
 			mockMvc.perform(post("/api/v1/cart/products")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
+					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content("{}"))
 				.andExpect(status().isBadRequest())
@@ -226,7 +226,7 @@ class CartControllerTest {
 
 			mockMvc.perform(post("/api/v1/cart/products")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
+					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isConflict())
@@ -243,7 +243,7 @@ class CartControllerTest {
 
 			mockMvc.perform(post("/api/v1/cart/products")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.USER)
+					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isBadRequest())
@@ -261,7 +261,7 @@ class CartControllerTest {
 		void deleteCartProduct_success() throws Exception {
 			mockMvc.perform(delete("/api/v1/cart/products/{cartProductId}", CART_PRODUCT_ID)
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.USER))
+					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.message").value("success"))
@@ -275,7 +275,7 @@ class CartControllerTest {
 		void deleteCartProduct_invalidCartProductId_badRequest() throws Exception {
 			mockMvc.perform(delete("/api/v1/cart/products/not-a-uuid")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.USER))
+					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
@@ -302,7 +302,7 @@ class CartControllerTest {
 
 			mockMvc.perform(delete("/api/v1/cart/products/{cartProductId}", CART_PRODUCT_ID)
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.USER))
+					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
 				.andExpect(status().isForbidden())
 				.andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.code").value(ErrorCode.CART_ITEM_FORBIDDEN.getCode()));

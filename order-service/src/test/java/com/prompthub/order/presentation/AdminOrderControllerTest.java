@@ -93,7 +93,7 @@ class AdminOrderControllerTest {
 	@DisplayName("USER 권한으로 관리자 주문 목록 조회 시 403")
 	void getAdminOrders_user_forbidden() throws Exception {
 		mockMvc.perform(get("/api/v1/admin/orders")
-				.header(AuthHeaders.USER_ROLE, AuthHeaders.USER))
+				.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.success").value(false))
 			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
@@ -142,7 +142,7 @@ class AdminOrderControllerTest {
 	@DisplayName("USER 권한으로 이번 달 실제 거래액 조회 시 403")
 	void getMonthlyTransactionAmount_user_forbidden() throws Exception {
 		mockMvc.perform(get("/api/v1/admin/orders/month")
-				.header(AuthHeaders.USER_ROLE, AuthHeaders.USER))
+				.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.success").value(false))
 			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
@@ -190,7 +190,7 @@ class AdminOrderControllerTest {
 	@DisplayName("USER 권한으로 최근 7일 거래량 조회 시 403")
 	void getWeeklyTransactions_user_forbidden() throws Exception {
 		mockMvc.perform(get("/api/v1/admin/orders/weekend")
-				.header(AuthHeaders.USER_ROLE, AuthHeaders.USER))
+				.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.success").value(false))
 			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));

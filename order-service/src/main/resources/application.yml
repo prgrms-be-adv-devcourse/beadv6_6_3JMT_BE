@@ -2,7 +2,9 @@ spring:
   application:
     name: order-service
   config:
-    import: optional:file:.env[.properties]
+    import:
+      - optional:configserver:http://localhost:8888
+      - optional:file:.env[.properties]
   sql:
     init:
       mode: always
@@ -49,7 +51,15 @@ spring:
             read-timeout: ${PRODUCT_SERVICE_READ_TIMEOUT_MS:3000}
 
 server:
-  port: 8080
+  port: 8083
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+    prefer-ip-address: true
 
 #prompthub:
 #  clients:

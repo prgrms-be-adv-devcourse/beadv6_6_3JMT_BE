@@ -3,7 +3,7 @@ package com.prompthub.order.infra.messaging.kafka.consumer.product;
 import com.prompthub.order.application.event.ProductDeletedEvent;
 import com.prompthub.order.application.event.ProductPriceChangedEvent;
 import com.prompthub.order.application.event.ProductStoppedEvent;
-import com.prompthub.order.application.service.OrderProductEventService;
+import com.prompthub.order.application.service.event.OrderProductEventService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.prompthub.order.global.exception.ErrorCode;
