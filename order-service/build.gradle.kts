@@ -10,7 +10,7 @@ plugins {
 group = "com.prompthub"
 version = "0.0.1-SNAPSHOT"
 
-extra["springCloudVersion"] = "2025.1.0"
+extra["springCloudVersion"] = "2025.1.2"
 
 java {
     toolchain {
@@ -31,6 +31,10 @@ dependencyManagement {
 dependencies {
     // common-service 참조 (내부적으로 common-module 포함)
     implementation("com.prompthub:common-module")
+
+    implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
+
+    implementation("org.springframework.cloud:spring-cloud-starter-netflix-eureka-client")
 
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-web")
