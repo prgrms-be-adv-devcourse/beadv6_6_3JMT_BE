@@ -40,10 +40,10 @@ public record SettlementListResponse(
 
 	@Schema(description = "정산 목록 항목")
 	public record Item(
-		@Schema(description = "정산 ID(UUID)")
+		@Schema(description = "정산 ID(UUID)", example = "90f4f47d-3111-4787-bdb7-a29c66afd4de")
 		UUID settlementId,
 
-		@Schema(description = "판매자 ID(UUID)")
+		@Schema(description = "판매자 ID(UUID)", example = "22222222-2222-2222-2222-222222222222")
 		UUID sellerId,
 
 		@Schema(description = "판매자명(상점명). User 서비스 동기 조회로 채우며, 조회되지 않으면 null", nullable = true)
