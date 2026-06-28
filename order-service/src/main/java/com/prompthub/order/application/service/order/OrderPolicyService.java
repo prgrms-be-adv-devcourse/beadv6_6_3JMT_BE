@@ -99,7 +99,7 @@ public class OrderPolicyService {
 			throw new OrderException(ErrorCode.ORDER_PAYMENT_STATUS_INVALID);
 		}
 
-		if (order.getTotalOrderAmount() != event.approvedAmount()) {
+		if (order.getTotalOrderAmount() != event.amount()) {
 			throw new OrderException(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
 		}
 	}

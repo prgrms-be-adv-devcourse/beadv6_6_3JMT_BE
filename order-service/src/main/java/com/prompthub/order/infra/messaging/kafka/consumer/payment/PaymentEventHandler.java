@@ -24,7 +24,7 @@ public class PaymentEventHandler {
     private final ObjectMapper objectMapper;
 
     @Transactional
-    public void handle(String eventId, PaymentEventType eventType, String eventTypeStr, String consumerGroup, JsonNode root) {
+    public void handle(PaymentEventType eventType, String eventTypeStr, String consumerGroup, JsonNode root) {
         // 3. 주문 상태 변경 로직 실행
         switch (eventType) {
             case PAYMENT_APPROVED -> orderPaymentEventService.handlePaymentApproved(toEvent(root, PaymentApprovedEvent.class));

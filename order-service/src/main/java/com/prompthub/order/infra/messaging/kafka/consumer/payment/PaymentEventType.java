@@ -3,19 +3,23 @@ package com.prompthub.order.infra.messaging.kafka.consumer.payment;
 import java.util.Arrays;
 
 public enum PaymentEventType {
-    PAYMENT_APPROVED,
-    PAYMENT_FAILED,
-    PAYMENT_CANCELED,
-    PAYMENT_REFUNDED,
-    UNKNOWN;
 
-    public static PaymentEventType from(String type) {
-        if (type == null) {
-            return UNKNOWN;
-        }
-        return Arrays.stream(values())
-            .filter(eventType -> eventType.name().equals(type))
-            .findFirst()
-            .orElse(UNKNOWN);
-    }
+	PAYMENT_APPROVED("payment.approved"),
+	PAYMENT_FAILED("payment.failed"),
+	PAYMENT_CANCELED("payment.canceled"),
+	PAYMENT_REFUNDED("payment.refunded"),
+	UNKNOWN("");
+
+	private final String value;
+
+	PaymentEventType(String value) {
+		this.value = value;
+	}
+
+	public static PaymentEventType from(String value) {
+		return Arrays.stream(values())
+			.filter(it -> it.value.equals(value))
+			.findFirst()
+			.orElse(UNKNOWN);
+	}
 }

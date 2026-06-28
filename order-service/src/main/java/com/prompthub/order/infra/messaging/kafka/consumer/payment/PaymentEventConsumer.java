@@ -16,7 +16,7 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 public class PaymentEventConsumer {
 
-	private static final String TOPIC = "payment-events";
+	private static final String TOPIC = "payment.approved";
 	private static final String GROUP_ID = "order-service";
 
 	private final ObjectMapper objectMapper;
@@ -31,16 +31,15 @@ public class PaymentEventConsumer {
 		try {
 			JsonNode root = readTree(message);
 			String eventTypeStr = root.path("eventType").stringValue(null);
-			String eventId = root.path("eventId").stringValue(null);
 
-			if (eventId == null || eventTypeStr == null) {
+			if (eventTypeStr == null) {
 				log.warn("필수 필드(eventId, eventType)가 누락된 메시지입니다. 무시합니다.");
 				acknowledgment.acknowledge();
 				return;
 			}
 
 			PaymentEventType eventType = PaymentEventType.from(eventTypeStr);
-			paymentEventHandler.handle(eventId, eventType, eventTypeStr, GROUP_ID, root);
+			paymentEventHandler.handle(eventType, eventTypeStr, GROUP_ID, root);
 			acknowledgment.acknowledge();
 		} catch (Exception e) {
 			log.error("메시지 처리 중 에러 발생: {}", e.getMessage(), e);

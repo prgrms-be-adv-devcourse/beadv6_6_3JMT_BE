@@ -35,10 +35,10 @@ public class OutboxEventAppender {
 		UUID eventId = UUID.randomUUID();
 		OrderPaidEvent orderPaidEvent = new OrderPaidEvent(
 			order.getId(),
-			event.buyerId(),
+			event.userId(),
 			order.getTotalOrderAmount(),
 			order.getTotalProductCount(),
-			event.approvedAt(),
+			event.approvedAt().toLocalDateTime(),
 			order.getOrderProducts().stream()
 				.map(this::toOrderPaidProduct)
 				.toList()
@@ -47,7 +47,7 @@ public class OutboxEventAppender {
 			eventId,
 			ORDER_PAID,
 			ORDER_EVENT_VERSION,
-			event.approvedAt(),
+			event.approvedAt().toLocalDateTime(),
 			order.getId(),
 			orderPaidEvent
 		));
@@ -56,7 +56,7 @@ public class OutboxEventAppender {
 			eventId,
 			order.getId(),
 			payload,
-			event.approvedAt()
+			event.approvedAt().toLocalDateTime()
 		));
 	}
 

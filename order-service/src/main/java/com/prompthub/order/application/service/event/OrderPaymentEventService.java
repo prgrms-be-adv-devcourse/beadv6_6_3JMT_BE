@@ -42,14 +42,14 @@ public class OrderPaymentEventService {
 
 		validatePendingForPaymentApproval(order);
 		orderPolicyService.validatePaymentApproval(order, event);
-		order.markPaid(event.approvedAt());
+		order.markPaid(event.approvedAt().toLocalDateTime());
 
 		orderPaymentRepository.save(OrderPayment.create(
 			order.getId(),
 			event.paymentId(),
-			event.buyerId(),
-			event.approvedAmount(),
-			event.approvedAt()
+			event.userId(),
+			event.amount(),
+			event.approvedAt().toLocalDateTime()
 		));
 		outboxEventAppender.appendOrderPaid(order, event);
 
