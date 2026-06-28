@@ -16,14 +16,15 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 public class PaymentEventConsumer {
 
-	private static final String TOPIC = "payment.approved";
+	private static final String TOPIC_APPROVED = "payment.approved";
+	private static final String TOPIC_REFUNDED = "payment.refunded";
 	private static final String GROUP_ID = "order-service";
 
 	private final ObjectMapper objectMapper;
 	private final PaymentEventHandler paymentEventHandler;
 
 	@KafkaListener(
-		topics = TOPIC,
+		topics = {TOPIC_APPROVED, TOPIC_REFUNDED},
 		groupId = GROUP_ID,
 		containerFactory = "paymentEventKafkaListenerContainerFactory"
 	)
@@ -33,7 +34,7 @@ public class PaymentEventConsumer {
 			String eventTypeStr = root.path("eventType").stringValue(null);
 
 			if (eventTypeStr == null) {
-				log.warn("필수 필드(eventId, eventType)가 누락된 메시지입니다. 무시합니다.");
+				log.warn("필수 필드(eventType)가 누락된 메시지입니다. 무시합니다.");
 				acknowledgment.acknowledge();
 				return;
 			}
