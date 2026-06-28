@@ -12,7 +12,8 @@ public class ProductGrpcClientConfig {
 
     @Bean
     ProductQueryServiceGrpc.ProductQueryServiceBlockingStub productQueryStub(
-            @Value("${grpc.client.product-service.address:localhost:9092}") String address) {
+            @Value("${grpc.client.product-service.address:localhost:9092}") String address
+    ) {
         ManagedChannel channel = ManagedChannelBuilder.forTarget(address)
                 .usePlaintext()
                 .build();

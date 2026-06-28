@@ -4,6 +4,7 @@ import com.prompthub.settlement.global.exception.SettlementErrorCode;
 import com.prompthub.settlement.global.exception.SettlementException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.Arrays;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -18,10 +19,16 @@ public class AdminAuthorizationInterceptor implements HandlerInterceptor {
         if (isBlank(userId) || isBlank(role)) {
             throw new SettlementException(SettlementErrorCode.UNAUTHENTICATED);
         }
-        if (!AuthHeaders.ADMIN_ROLE.equals(role)) {
+        if (!hasAdminRole(role)) {
             throw new SettlementException(SettlementErrorCode.FORBIDDEN);
         }
         return true;
+    }
+
+    private boolean hasAdminRole(String role) {
+        return Arrays.stream(role.split(","))
+                .map(String::trim)
+                .anyMatch(AuthHeaders.ADMIN_ROLE::equals);
     }
 
     private boolean isBlank(String value) {
