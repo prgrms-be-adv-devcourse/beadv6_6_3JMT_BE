@@ -9,9 +9,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.core.JacksonException;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 
 @Slf4j
 @Component
@@ -19,23 +19,35 @@ import tools.jackson.databind.ObjectMapper;
 public class PaymentEventHandler {
 
     private final OrderPaymentEventService orderPaymentEventService;
-    private final ObjectMapper objectMapper;
 
     @Transactional
     public void handle(PaymentEventType eventType, String eventTypeStr, String consumerGroup, JsonNode root) {
-        // 3. 주문 상태 변경 로직 실행
         switch (eventType) {
-            case PAYMENT_APPROVED -> orderPaymentEventService.handlePaymentApproved(toEvent(root, PaymentApprovedEvent.class));
-            case PAYMENT_REFUNDED -> orderPaymentEventService.handlePaymentRefunded(toEvent(root, PaymentRefundedEvent.class));
+            case PAYMENT_APPROVED -> orderPaymentEventService.handlePaymentApproved(toPaymentApprovedEvent(root));
+            case PAYMENT_REFUNDED -> orderPaymentEventService.handlePaymentRefunded(toPaymentRefundedEvent(root));
             case UNKNOWN -> log.warn("지원하지 않는 결제 이벤트 타입입니다. eventType={}", eventTypeStr);
         }
     }
 
-    private <T> T toEvent(JsonNode root, Class<T> eventTypeClass) {
-        try {
-            return objectMapper.treeToValue(root, eventTypeClass);
-        } catch (JacksonException exception) {
-            throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 이벤트 페이로드 역직렬화에 실패했습니다.");
-        }
+    private PaymentApprovedEvent toPaymentApprovedEvent(JsonNode root) {
+        return new PaymentApprovedEvent(
+            root.path("eventType").stringValue(null),
+            UUID.fromString(root.path("paymentId").stringValue()),
+            UUID.fromString(root.path("orderId").stringValue()),
+            UUID.fromString(root.path("userId").stringValue()),
+            root.path("amount").intValue(),
+            OffsetDateTime.parse(root.path("approvedAt").stringValue())
+        );
+    }
+
+    private PaymentRefundedEvent toPaymentRefundedEvent(JsonNode root) {
+        return new PaymentRefundedEvent(
+            root.path("eventType").stringValue(null),
+            UUID.fromString(root.path("paymentId").stringValue()),
+            UUID.fromString(root.path("orderId").stringValue()),
+            UUID.fromString(root.path("userId").stringValue()),
+            root.path("amount").intValue(),
+            OffsetDateTime.parse(root.path("refundedAt").stringValue())
+        );
     }
 }
