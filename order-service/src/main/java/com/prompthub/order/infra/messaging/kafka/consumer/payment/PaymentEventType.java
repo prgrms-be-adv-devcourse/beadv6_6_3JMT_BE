@@ -5,7 +5,6 @@ import java.util.Arrays;
 public enum PaymentEventType {
 
 	PAYMENT_APPROVED("payment.approved"),
-	PAYMENT_FAILED("payment.failed"),
 	PAYMENT_CANCELED("payment.canceled"),
 	PAYMENT_REFUNDED("payment.refunded"),
 	UNKNOWN("");

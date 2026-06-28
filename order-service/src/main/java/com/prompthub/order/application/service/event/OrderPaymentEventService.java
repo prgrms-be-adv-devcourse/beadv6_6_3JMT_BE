@@ -2,7 +2,6 @@ package com.prompthub.order.application.service.event;
 
 import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
 import com.prompthub.order.application.event.payment.PaymentCanceledEvent;
-import com.prompthub.order.application.event.payment.PaymentFailedEvent;
 import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
 import com.prompthub.order.application.service.order.OrderPolicyService;
@@ -59,17 +58,6 @@ public class OrderPaymentEventService {
 
 		cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId())
 			.ifPresent(cart -> cart.removeProductsByProductIds(orderedProductIds));
-	}
-
-	public void handlePaymentFailed(PaymentFailedEvent event) {
-		Order order = findOrder(event.orderId());
-
-		if (order.getOrderStatus() == OrderStatus.FAILED) {
-			return;
-		}
-
-		validateOrderStatus(order, OrderStatus.PENDING);
-		order.markFailed();
 	}
 
 	public void handlePaymentCanceled(PaymentCanceledEvent event) {

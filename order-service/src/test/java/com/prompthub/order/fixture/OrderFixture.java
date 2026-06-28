@@ -5,7 +5,6 @@ import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
 import com.prompthub.order.application.event.payment.PaymentCanceledEvent;
-import com.prompthub.order.application.event.payment.PaymentFailedEvent;
 import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
@@ -55,8 +54,7 @@ public final class OrderFixture {
 	public static final LocalDateTime APPROVED_AT =
 		LocalDateTime.of(2026, 6, 19, 12, 0);
 
-	public static final LocalDateTime FAILED_AT =
-		LocalDateTime.of(2026, 6, 19, 12, 5);
+
 
 	public static final LocalDateTime CANCELED_AT =
 		LocalDateTime.of(2026, 6, 19, 12, 10);
@@ -64,7 +62,7 @@ public final class OrderFixture {
 	public static final LocalDateTime REFUNDED_AT =
 		LocalDateTime.of(2026, 6, 19, 12, 20);
 
-	public static final String PAYMENT_FAILED_REASON = "PG 승인 실패";
+
 
 	public static final LocalDateTime PAID_AT =
 		LocalDateTime.of(2026, 6, 20, 12, 0);
@@ -232,18 +230,6 @@ public final class OrderFixture {
 		);
 	}
 
-	public static PaymentFailedEvent createPaymentFailedEvent(UUID orderId) {
-		return new PaymentFailedEvent(
-			EVENT_ID.toString(),
-			"PAYMENT_FAILED",
-			PAYMENT_ID,
-			orderId,
-			BUYER_ID,
-			PAYMENT_FAILED_REASON,
-			FAILED_AT,
-			FAILED_AT
-		);
-	}
 
 	public static PaymentCanceledEvent createPaymentCanceledEvent(UUID orderId) {
 		return new PaymentCanceledEvent(
