@@ -32,7 +32,7 @@ public class OrderPaymentEventService {
 
 	public void handlePaymentApproved(PaymentApprovedEvent event) {
 		Order order = findOrder(event.orderId());
-		boolean orderPaymentExists = orderPaymentRepository.existsByOrderId(event.orderId());
+		boolean orderPaymentExists = orderPaymentRepository.existsByPaymentId(event.paymentId());
 
 		if (order.getOrderStatus() == OrderStatus.PAID && orderPaymentExists) {
 			return;

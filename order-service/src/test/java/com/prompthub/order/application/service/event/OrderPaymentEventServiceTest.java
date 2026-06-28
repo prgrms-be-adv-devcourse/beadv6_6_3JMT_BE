@@ -71,7 +71,7 @@ class OrderPaymentEventServiceTest {
 
 			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
 				.willReturn(Optional.of(order));
-			given(orderPaymentRepository.existsByOrderId(event.orderId()))
+			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
 				.willReturn(false);
 			given(cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId()))
 				.willReturn(Optional.of(cart));
@@ -107,7 +107,7 @@ class OrderPaymentEventServiceTest {
 
 			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
 				.willReturn(Optional.of(order));
-			given(orderPaymentRepository.existsByOrderId(event.orderId()))
+			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
 				.willReturn(false);
 
 			assertThatThrownBy(() -> orderPaymentEventService.handlePaymentApproved(event))
@@ -125,22 +125,44 @@ class OrderPaymentEventServiceTest {
 		}
 
 		@Test
-		@DisplayName("이미 결제 완료된 주문과 결제내역이 있으면 승인 이벤트를 중복으로 보고 무시한다")
-		void handlePaymentApproved_duplicatePaidOrder_doNothing() {
+		@DisplayName("이미 결제 완료된 주문과 같은 paymentId 결제내역이 있으면 승인 이벤트를 중복으로 보고 무시한다")
+		void handlePaymentApproved_duplicatePaymentIdForPaidOrder_doNothing() {
 			Order order = createPaidOrderWithProducts();
 			PaymentApprovedEvent event = createPaymentApprovedEvent(order.getId(), TOTAL_AMOUNT);
 
 			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
 				.willReturn(Optional.of(order));
-			given(orderPaymentRepository.existsByOrderId(event.orderId()))
+			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
 				.willReturn(true);
 
 			orderPaymentEventService.handlePaymentApproved(event);
 
 			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+			then(orderPaymentRepository).should().existsByPaymentId(event.paymentId());
 			then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
 			then(outboxEventAppender).should(never()).appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class));
 			then(cartRepository).should(never()).findByBuyerIdWithCartProducts(any(UUID.class));
+		}
+
+		@Test
+		@DisplayName("PAID 주문이어도 paymentId 결제내역이 없으면 승인 이벤트를 중복으로 보지 않고 예외를 발생시킨다")
+		void handlePaymentApproved_paidOrderWithoutSamePaymentId_throwsAlreadyProcessed() {
+			Order order = createPaidOrderWithProducts();
+			PaymentApprovedEvent event = createPaymentApprovedEvent(order.getId(), TOTAL_AMOUNT);
+
+			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
+				.willReturn(Optional.of(order));
+			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
+				.willReturn(false);
+
+			assertThatThrownBy(() -> orderPaymentEventService.handlePaymentApproved(event))
+				.isInstanceOf(OrderException.class)
+				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
+					.isEqualTo(ErrorCode.ORDER_ALREADY_PROCESSED));
+
+			then(orderPaymentRepository).should().existsByPaymentId(event.paymentId());
+			then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
+			then(outboxEventAppender).should(never()).appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class));
 		}
 
 		@Test
@@ -161,26 +183,6 @@ class OrderPaymentEventServiceTest {
 		}
 
 		@Test
-		@DisplayName("주문 상태는 PAID이지만 결제내역이 없으면 이미 처리된 주문 예외가 발생한다")
-		void handlePaymentApproved_paidOrderWithoutPayment_throwsAlreadyProcessed() {
-			Order order = createPaidOrderWithProducts();
-			PaymentApprovedEvent event = createPaymentApprovedEvent(order.getId(), TOTAL_AMOUNT);
-
-			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-				.willReturn(Optional.of(order));
-			given(orderPaymentRepository.existsByOrderId(event.orderId()))
-				.willReturn(false);
-
-			assertThatThrownBy(() -> orderPaymentEventService.handlePaymentApproved(event))
-				.isInstanceOf(OrderException.class)
-				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
-					.isEqualTo(ErrorCode.ORDER_ALREADY_PROCESSED));
-			
-			then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
-			then(outboxEventAppender).should(never()).appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class));
-		}
-
-		@Test
 		@DisplayName("Outbox 저장 시 예외가 발생하면 예외가 상위로 전파되어 전체 롤백을 유도한다")
 		void handlePaymentApproved_outboxSaveFails_throwsException() {
 			Order order = createPendingOrderWithProducts();
@@ -188,7 +190,7 @@ class OrderPaymentEventServiceTest {
 
 			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
 				.willReturn(Optional.of(order));
-			given(orderPaymentRepository.existsByOrderId(event.orderId()))
+			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
 				.willReturn(false);
 			given(outboxEventAppender.appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class)))
 				.willThrow(new RuntimeException("DB Connection Error"));
@@ -209,7 +211,7 @@ class OrderPaymentEventServiceTest {
 
 			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
 				.willReturn(Optional.of(order));
-			given(orderPaymentRepository.existsByOrderId(event.orderId()))
+			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
 				.willReturn(false);
 			given(cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId()))
 				.willThrow(new RuntimeException("Redis Timeout"));
@@ -231,7 +233,7 @@ class OrderPaymentEventServiceTest {
 
 			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
 				.willReturn(Optional.of(order));
-			given(orderPaymentRepository.existsByOrderId(event.orderId()))
+			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
 				.willReturn(false);
 
 			assertThatThrownBy(() -> orderPaymentEventService.handlePaymentApproved(event))
