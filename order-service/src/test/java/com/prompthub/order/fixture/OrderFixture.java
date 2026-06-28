@@ -263,7 +263,8 @@ public final class OrderFixture {
 	public static OrderPaymentListProjection orderPaymentListProjection(
 		OrderStatus orderStatus,
 		OrderStatus orderProductStatus,
-		LocalDateTime paidAt
+		LocalDateTime paidAt,
+		boolean download
 	) {
 		return new OrderPaymentListProjection(
 			ORDER_ID,
@@ -275,7 +276,8 @@ public final class OrderFixture {
 			PRODUCT_TITLE_1,
 			PRODUCT_AMOUNT_1,
 			paidAt,
-			APPROVED_AT
+			APPROVED_AT,
+			download
 		);
 	}
 }
