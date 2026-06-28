@@ -1,7 +1,6 @@
 package com.prompthub.order.application.service.event;
 
 import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
-import com.prompthub.order.application.event.payment.PaymentCanceledEvent;
 import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
 import com.prompthub.order.application.service.order.OrderPolicyService;
@@ -60,16 +59,6 @@ public class OrderPaymentEventService {
 			.ifPresent(cart -> cart.removeProductsByProductIds(orderedProductIds));
 	}
 
-	public void handlePaymentCanceled(PaymentCanceledEvent event) {
-		Order order = findOrder(event.orderId());
-
-		if (order.getOrderStatus() == OrderStatus.CANCELED) {
-			return;
-		}
-
-		validateOrderStatus(order, OrderStatus.PAID);
-		order.cancel(event.canceledAt());
-	}
 
 	public void handlePaymentRefunded(PaymentRefundedEvent event) {
 		Order order = findOrder(event.orderId());

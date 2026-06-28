@@ -4,7 +4,6 @@ import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
-import com.prompthub.order.application.event.payment.PaymentCanceledEvent;
 import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
@@ -231,17 +230,6 @@ public final class OrderFixture {
 	}
 
 
-	public static PaymentCanceledEvent createPaymentCanceledEvent(UUID orderId) {
-		return new PaymentCanceledEvent(
-			EVENT_ID.toString(),
-			"PAYMENT_CANCELED",
-			PAYMENT_ID,
-			orderId,
-			BUYER_ID,
-			CANCELED_AT,
-			CANCELED_AT
-		);
-	}
 
 	public static PaymentRefundedEvent createPaymentRefundedEvent(UUID orderId) {
 		return new PaymentRefundedEvent(

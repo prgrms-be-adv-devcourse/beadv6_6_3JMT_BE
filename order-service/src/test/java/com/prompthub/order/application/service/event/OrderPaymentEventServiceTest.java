@@ -1,7 +1,6 @@
 package com.prompthub.order.application.service.event;
 
 import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
-import com.prompthub.order.application.event.payment.PaymentCanceledEvent;
 import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
 import com.prompthub.order.application.service.order.OrderPolicyService;
@@ -243,58 +242,6 @@ class OrderPaymentEventServiceTest {
 	}
 
 
-	@Nested
-	@DisplayName("결제 취소 이벤트 처리")
-	class HandlePaymentCanceled {
-
-		@Test
-		@DisplayName("취소 이벤트를 받으면 PAID 주문/주문상품을 CANCELED로 변경한다")
-		void handlePaymentCanceled_success() {
-			Order order = createPaidOrderWithProducts();
-			PaymentCanceledEvent event = createPaymentCanceledEvent(order.getId());
-
-			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-				.willReturn(Optional.of(order));
-
-			orderPaymentEventService.handlePaymentCanceled(event);
-
-			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
-			assertThat(order.getCanceledAt()).isEqualTo(CANCELED_AT);
-			assertThat(order.getOrderProducts())
-				.extracting(OrderProduct::getOrderStatus)
-				.containsOnly(OrderStatus.CANCELED);
-		}
-
-		@Test
-		@DisplayName("이미 CANCELED인 주문에 취소 이벤트가 다시 들어오면 무시한다")
-		void handlePaymentCanceled_duplicateCanceledOrder_doNothing() {
-			Order order = createPaidOrderWithProducts();
-			order.cancel(CANCELED_AT);
-			PaymentCanceledEvent event = createPaymentCanceledEvent(order.getId());
-
-			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-				.willReturn(Optional.of(order));
-
-			orderPaymentEventService.handlePaymentCanceled(event);
-
-			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
-		}
-
-		@Test
-		@DisplayName("PENDING 주문에 취소 이벤트가 들어오면 상태 전이를 거부한다")
-		void handlePaymentCanceled_pendingOrder_throwsException() {
-			Order order = createPendingOrderWithProducts();
-			PaymentCanceledEvent event = createPaymentCanceledEvent(order.getId());
-
-			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-				.willReturn(Optional.of(order));
-
-			assertThatThrownBy(() -> orderPaymentEventService.handlePaymentCanceled(event))
-				.isInstanceOf(OrderException.class)
-				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
-					.isEqualTo(ErrorCode.INVALID_ORDER_STATUS_TRANSITION));
-		}
-	}
 
 	@Nested
 	@DisplayName("결제 환불 이벤트 처리")
