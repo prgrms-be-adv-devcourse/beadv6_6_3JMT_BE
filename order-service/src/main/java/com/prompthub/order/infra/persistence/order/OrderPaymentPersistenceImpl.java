@@ -34,7 +34,8 @@ public class OrderPaymentPersistenceImpl implements OrderPaymentPersistenceCusto
 				orderProduct.productTitle,
 				orderProduct.productAmount,
 				order.paidAt,
-				orderPayment.approvedAt
+				orderPayment.approvedAt,
+				orderProduct.download
 			))
 			.from(orderPayment)
 			.join(order).on(order.id.eq(orderPayment.orderId))

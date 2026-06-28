@@ -613,7 +613,8 @@ class OrderServiceTest {
             assertThat(order.orderProductId()).isEqualTo(ORDER_PRODUCT_ID);
             assertThat(order.productId()).isEqualTo(PRODUCT_ID_1);
             assertThat(order.orderStatus()).isEqualTo(OrderStatus.PAID);
-            assertThat(order.isRefund()).isTrue();
+            assertThat(order.isRefundable()).isTrue();
+
             assertThat(order.productType()).isEqualTo(PRODUCT_TYPE_PROMPT);
             assertThat(order.title()).isEqualTo(PRODUCT_TITLE_1);
             assertThat(order.model()).isEqualTo(PRODUCT_MODEL);
@@ -717,51 +718,6 @@ class OrderServiceTest {
             assertThat(response.getContent().getFirst().rating()).isNull();
         }
 
-        @Test
-        @DisplayName("다운로드한 상품은 환불 가능하지 않다")
-        void getMyOrders_downloadedProduct_notRefundable() {
-            // given
-            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
-            OrderListProjection projection = orderListProjection(
-                OrderStatus.PAID,
-                OrderStatus.PAID,
-                true,
-                null
-            );
-            PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
-
-            given(orderRepository.searchOrderproducts(BUYER_ID, null, null, null, pageable))
-                .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
-
-            // when
-            Page<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
-
-            // then
-            assertThat(response.getContent().getFirst().isRefund()).isFalse();
-        }
-
-        @Test
-        @DisplayName("PAID가 아닌 주문은 환불 가능하지 않다")
-        void getMyOrders_notPaidOrder_notRefundable() {
-            // given
-            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
-            OrderListProjection projection = orderListProjection(
-                OrderStatus.CANCELED,
-                OrderStatus.CANCELED,
-                false,
-                null
-            );
-            PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
-
-            given(orderRepository.searchOrderproducts(BUYER_ID, null, null, null, pageable))
-                .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
-
-            // when
-            Page<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
-
-            // then
-            assertThat(response.getContent().getFirst().isRefund()).isFalse();
-        }
 
         @Test
         @DisplayName("조회 결과가 없으면 빈 목록과 total 0을 반환한다")
@@ -796,7 +752,8 @@ class OrderServiceTest {
             OrderPaymentListProjection projection = orderPaymentListProjection(
                 OrderStatus.PAID,
                 OrderStatus.PAID,
-                PAID_AT
+                PAID_AT,
+                false
             );
             PageRequest pageable = PageRequest.of(0, 20, Sort.by(
                 Sort.Order.desc("approvedAt"),
@@ -820,7 +777,8 @@ class OrderServiceTest {
             assertThat(payment.orderProductId()).isEqualTo(ORDER_PRODUCT_ID);
             assertThat(payment.paymentId()).isEqualTo(PAYMENT_ID);
             assertThat(payment.paymentStatus()).isEqualTo(PaymentStatus.PAID);
-            assertThat(payment.isRefund()).isFalse();
+            assertThat(payment.isRefundable()).isTrue();
+
             assertThat(payment.productType()).isEqualTo(PRODUCT_TYPE_PROMPT);
             assertThat(payment.title()).isEqualTo(PRODUCT_TITLE_1);
             assertThat(payment.amount()).isEqualTo(PRODUCT_AMOUNT_1);
@@ -830,30 +788,51 @@ class OrderServiceTest {
         }
 
         @Test
-        @DisplayName("주문 또는 주문상품이 환불 상태이면 isRefund가 true이다")
-        void getMyOrderPayments_refundedStatus_isRefund() {
+        @DisplayName("다운로드한 상품은 환불 가능하지 않다")
+        void getMyOrders_downloadedProduct_notRefundable() {
             // given
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
-            OrderPaymentListProjection projection = orderPaymentListProjection(
+            OrderListProjection projection = orderListProjection(
                 OrderStatus.PAID,
-                OrderStatus.REFUNDED,
-                PAID_AT
+                OrderStatus.PAID,
+                true,
+                null
             );
-            PageRequest pageable = PageRequest.of(0, 20, Sort.by(
-                Sort.Order.desc("approvedAt"),
-                Sort.Order.asc("orderProductId")
-            ));
+            PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-            given(orderPaymentRepository.searchOrderPayments(BUYER_ID, pageable))
+            given(orderRepository.searchOrderproducts(BUYER_ID, null, null, null, pageable))
                 .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
 
             // when
-            Page<OrderPaymentListResponse> response = orderService.getOrderPayments(BUYER_ID, request);
+            Page<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
 
             // then
-            assertThat(response.getContent().getFirst().paymentStatus()).isEqualTo(PaymentStatus.PAID);
-            assertThat(response.getContent().getFirst().isRefund()).isTrue();
+            assertThat(response.getContent().getFirst().isRefundable()).isFalse();
         }
+
+        @Test
+        @DisplayName("PAID가 아닌 주문은 환불 가능하지 않다")
+        void getMyOrders_notPaidOrder_notRefundable() {
+            // given
+            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
+            OrderListProjection projection = orderListProjection(
+                OrderStatus.CANCELED,
+                OrderStatus.CANCELED,
+                false,
+                null
+            );
+            PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+            given(orderRepository.searchOrderproducts(BUYER_ID, null, null, null, pageable))
+                .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
+
+            // when
+            Page<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
+
+            // then
+            assertThat(response.getContent().getFirst().isRefundable()).isFalse();
+        }
+
 
         @Test
         @DisplayName("order.paidAt이 없으면 order_payment.approvedAt을 paidAt으로 반환한다")
@@ -863,7 +842,8 @@ class OrderServiceTest {
             OrderPaymentListProjection projection = orderPaymentListProjection(
                 OrderStatus.PAID,
                 OrderStatus.PAID,
-                null
+                null,
+                false
             );
             PageRequest pageable = PageRequest.of(0, 20, Sort.by(
                 Sort.Order.desc("approvedAt"),
