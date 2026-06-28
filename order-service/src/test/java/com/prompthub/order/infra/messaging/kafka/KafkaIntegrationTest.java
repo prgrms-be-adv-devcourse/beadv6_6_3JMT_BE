@@ -13,7 +13,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 })
 @EmbeddedKafka(
 	partitions = 1,
-	topics = {"order-events", "payment-events", "product-events"}
+	topics = {"order-events", "payment-events", "product-events", "payment.approved", "payment.refunded"}
 )
 @ActiveProfiles("test")
 public abstract class KafkaIntegrationTest {

@@ -12,6 +12,7 @@ import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -215,17 +216,12 @@ public final class OrderFixture {
 		int approvedAmount
 	) {
 		return new PaymentApprovedEvent(
-			EVENT_ID.toString(),
 			"PAYMENT_APPROVED",
 			PAYMENT_ID,
 			orderId,
 			BUYER_ID,
 			approvedAmount,
-			"CARD",
-			"TOSS",
-			"txId-1234",
-			APPROVED_AT,
-			APPROVED_AT
+			APPROVED_AT.atOffset(ZoneOffset.UTC)
 		);
 	}
 
@@ -233,14 +229,12 @@ public final class OrderFixture {
 
 	public static PaymentRefundedEvent createPaymentRefundedEvent(UUID orderId) {
 		return new PaymentRefundedEvent(
-			EVENT_ID.toString(),
-			"PAYMENT_REFUNDED",
+			"payment.refunded",
 			PAYMENT_ID,
 			orderId,
 			BUYER_ID,
 			TOTAL_AMOUNT,
-			REFUNDED_AT,
-			REFUNDED_AT
+			REFUNDED_AT.atOffset(ZoneOffset.UTC)
 		);
 	}
 
