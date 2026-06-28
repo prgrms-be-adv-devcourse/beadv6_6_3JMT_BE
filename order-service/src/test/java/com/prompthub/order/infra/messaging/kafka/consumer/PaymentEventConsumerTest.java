@@ -25,7 +25,6 @@ class PaymentEventConsumerTest {
 	private static final UUID PAYMENT_ID = UUID.fromString("00000000-0000-0000-0000-000000000401");
 	private static final UUID ORDER_ID = UUID.fromString("00000000-0000-0000-0000-000000000501");
 	private static final UUID BUYER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
-	private static final String EVENT_ID = "evt-1234";
 
 	private PaymentEventHandler paymentEventHandler;
 	private Acknowledgment acknowledgment;
@@ -39,27 +38,47 @@ class PaymentEventConsumerTest {
 	}
 
 	@Test
-	@DisplayName("정상적인 이벤트 수신 시 PaymentEventHandler로 위임하고 ack 한다")
-	void consume_validEvent_delegatesAndAcknowledges() {
+	@DisplayName("payment.approved 수신 시 PaymentEventHandler로 위임하고 ack 한다")
+	void consume_paymentApproved_delegatesAndAcknowledges() {
 		String message = """
 			{
-			  "eventId": "%s",
-			  "eventType": "PAYMENT_APPROVED",
+			  "eventType": "payment.approved",
 			  "paymentId": "%s",
 			  "orderId": "%s",
-			  "buyerId": "%s",
-			  "approvedAmount": 30000
+			  "userId": "%s",
+			  "amount": 30000,
+			  "approvedAt": "2026-06-19T12:00:00+09:00"
 			}
-			""".formatted(EVENT_ID, PAYMENT_ID, ORDER_ID, BUYER_ID);
+			""".formatted(PAYMENT_ID, ORDER_ID, BUYER_ID);
 
 		consumer.consume(message, acknowledgment);
 
-		then(paymentEventHandler).should().handle(eq(EVENT_ID), eq(PaymentEventType.PAYMENT_APPROVED), eq("PAYMENT_APPROVED"), eq("order-service"), any());
+		then(paymentEventHandler).should().handle(eq(PaymentEventType.PAYMENT_APPROVED), eq("payment.approved"), eq("order-service"), any());
 		then(acknowledgment).should().acknowledge();
 	}
 
 	@Test
-	@DisplayName("필수 필드 누락 시(eventId, eventType) 무시하고 ack 한다")
+	@DisplayName("payment.refunded 수신 시 PaymentEventHandler로 위임하고 ack 한다")
+	void consume_paymentRefunded_delegatesAndAcknowledges() {
+		String message = """
+			{
+			  "eventType": "payment.refunded",
+			  "paymentId": "%s",
+			  "orderId": "%s",
+			  "userId": "%s",
+			  "amount": 30000,
+			  "refundedAt": "2026-06-19T12:00:00+09:00"
+			}
+			""".formatted(PAYMENT_ID, ORDER_ID, BUYER_ID);
+
+		consumer.consume(message, acknowledgment);
+
+		then(paymentEventHandler).should().handle(eq(PaymentEventType.PAYMENT_REFUNDED), eq("payment.refunded"), eq("order-service"), any());
+		then(acknowledgment).should().acknowledge();
+	}
+
+	@Test
+	@DisplayName("필수 필드 eventType 누락 시 무시하고 ack 한다")
 	void consume_missingFields_ignoresAndAcknowledges() {
 		String message = """
 			{
@@ -70,7 +89,7 @@ class PaymentEventConsumerTest {
 
 		consumer.consume(message, acknowledgment);
 
-		then(paymentEventHandler).should(never()).handle(any(), any(), any(), any(), any());
+		then(paymentEventHandler).should(never()).handle(any(), any(), any(), any());
 		then(acknowledgment).should().acknowledge();
 	}
 
@@ -79,15 +98,14 @@ class PaymentEventConsumerTest {
 	void consume_otherException_throwsWithoutAcknowledging() {
 		String message = """
 			{
-			  "eventId": "%s",
-			  "eventType": "PAYMENT_APPROVED",
+			  "eventType": "payment.approved",
 			  "paymentId": "%s",
 			  "orderId": "%s"
 			}
-			""".formatted(EVENT_ID, PAYMENT_ID, ORDER_ID);
+			""".formatted(PAYMENT_ID, ORDER_ID);
 
 		willThrow(new RuntimeException("DB Connection Error"))
-			.given(paymentEventHandler).handle(any(), any(), any(), any(), any());
+			.given(paymentEventHandler).handle(any(), any(), any(), any());
 
 		assertThatThrownBy(() -> consumer.consume(message, acknowledgment))
 			.isInstanceOf(RuntimeException.class);

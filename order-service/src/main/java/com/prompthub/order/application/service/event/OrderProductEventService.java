@@ -1,8 +1,8 @@
 package com.prompthub.order.application.service.event;
 
-import com.prompthub.order.application.event.ProductDeletedEvent;
-import com.prompthub.order.application.event.ProductPriceChangedEvent;
-import com.prompthub.order.application.event.ProductStoppedEvent;
+import com.prompthub.order.application.event.product.ProductDeletedEvent;
+import com.prompthub.order.application.event.product.ProductPriceChangedEvent;
+import com.prompthub.order.application.event.product.ProductStoppedEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 

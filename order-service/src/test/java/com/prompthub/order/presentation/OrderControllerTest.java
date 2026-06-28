@@ -573,7 +573,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data[0].orderProductId").value(ORDER_PRODUCT_ID.toString()))
 					.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID_1.toString()))
 					.andExpect(jsonPath("$.data[0].orderStatus").value("PAID"))
-					.andExpect(jsonPath("$.data[0].isRefund").value(true))
+					.andExpect(jsonPath("$.data[0].isRefundable").value(true))
 					.andExpect(jsonPath("$.data[0].productType").value(PRODUCT_TYPE_PROMPT))
 					.andExpect(jsonPath("$.data[0].title").value(PRODUCT_TITLE_1))
 					.andExpect(jsonPath("$.data[0].model").value(PRODUCT_MODEL))
@@ -690,7 +690,7 @@ class OrderControllerTest {
 					ORDER_PRODUCT_ID,
 					PAYMENT_ID,
 					PaymentStatus.PAID,
-					false,
+					true,
 					PRODUCT_TYPE_PROMPT,
 					PRODUCT_TITLE_1,
 					PRODUCT_AMOUNT_1,
@@ -715,7 +715,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data[0].orderProductId").value(ORDER_PRODUCT_ID.toString()))
 					.andExpect(jsonPath("$.data[0].paymentId").value(PAYMENT_ID.toString()))
 					.andExpect(jsonPath("$.data[0].paymentStatus").value("PAID"))
-					.andExpect(jsonPath("$.data[0].isRefund").value(false))
+					.andExpect(jsonPath("$.data[0].isRefundable").value(true))
 					.andExpect(jsonPath("$.data[0].productType").value(PRODUCT_TYPE_PROMPT))
 					.andExpect(jsonPath("$.data[0].title").value(PRODUCT_TITLE_1))
 					.andExpect(jsonPath("$.data[0].amount").value(PRODUCT_AMOUNT_1))

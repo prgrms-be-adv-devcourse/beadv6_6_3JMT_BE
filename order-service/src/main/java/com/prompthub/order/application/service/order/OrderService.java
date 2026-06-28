@@ -208,8 +208,7 @@ public class OrderService implements OrderUseCase {
 			projection.orderProductId(),
 			projection.productId(),
 			projection.orderStatus(),
-			orderPolicyService.isRefundable(projection.orderStatus(), projection.orderProductStatus(),
-				projection.download()),
+			orderPolicyService.isRefundable(projection.orderStatus(), projection.orderProductStatus(), projection.download()),
 			projection.productType(),
 			projection.title(),
 			projection.model(),
@@ -241,7 +240,7 @@ public class OrderService implements OrderUseCase {
 			projection.orderProductId(),
 			projection.paymentId(),
 			PaymentStatus.from(projection.orderStatus()),
-			isRefunded(projection.orderStatus(), projection.orderProductStatus()),
+			orderPolicyService.isRefundable(projection.orderStatus(), projection.orderProductStatus(), projection.download()),
 			projection.productType(),
 			projection.title(),
 			projection.amount(),
@@ -249,7 +248,4 @@ public class OrderService implements OrderUseCase {
 		);
 	}
 
-	private boolean isRefunded(OrderStatus orderStatus, OrderStatus orderProductStatus) {
-		return orderStatus == OrderStatus.REFUNDED || orderProductStatus == OrderStatus.REFUNDED;
-	}
 }

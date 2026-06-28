@@ -1,20 +1,22 @@
 package com.prompthub.order.infra.messaging.kafka.consumer;
 
-import com.prompthub.order.application.event.ProductDeletedEvent;
-import com.prompthub.order.application.event.ProductPriceChangedEvent;
-import com.prompthub.order.application.event.ProductStoppedEvent;
+import com.prompthub.order.application.event.product.ProductDeletedEvent;
+import com.prompthub.order.application.event.product.ProductPriceChangedEvent;
+import com.prompthub.order.application.event.product.ProductStoppedEvent;
 import com.prompthub.order.application.service.event.OrderProductEventService;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.infra.messaging.kafka.consumer.product.ProductEventConsumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.kafka.support.Acknowledgment;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.then;
@@ -50,10 +52,11 @@ class ProductEventConsumerTest {
 
 		consumer.consume(message, acknowledgment);
 
-		then(orderProductEventService).should().handleProductStopped(new ProductStoppedEvent(
-			PRODUCT_ID,
-			EVENT_TIME
-		));
+		ArgumentCaptor<ProductStoppedEvent> captor = ArgumentCaptor.forClass(ProductStoppedEvent.class);
+		then(orderProductEventService).should().handleProductStopped(captor.capture());
+		assertThat(captor.getValue().eventType()).isEqualTo("PRODUCT_STOPPED");
+		assertThat(captor.getValue().productId()).isEqualTo(PRODUCT_ID);
+		assertThat(captor.getValue().occurredAt()).isEqualTo(EVENT_TIME);
 		then(acknowledgment).should().acknowledge();
 	}
 
@@ -70,10 +73,11 @@ class ProductEventConsumerTest {
 
 		consumer.consume(message, acknowledgment);
 
-		then(orderProductEventService).should().handleProductDeleted(new ProductDeletedEvent(
-			PRODUCT_ID,
-			EVENT_TIME
-		));
+		ArgumentCaptor<ProductDeletedEvent> captor = ArgumentCaptor.forClass(ProductDeletedEvent.class);
+		then(orderProductEventService).should().handleProductDeleted(captor.capture());
+		assertThat(captor.getValue().eventType()).isEqualTo("PRODUCT_DELETED");
+		assertThat(captor.getValue().productId()).isEqualTo(PRODUCT_ID);
+		assertThat(captor.getValue().occurredAt()).isEqualTo(EVENT_TIME);
 		then(acknowledgment).should().acknowledge();
 	}
 
@@ -92,12 +96,13 @@ class ProductEventConsumerTest {
 
 		consumer.consume(message, acknowledgment);
 
-		then(orderProductEventService).should().handleProductPriceChanged(new ProductPriceChangedEvent(
-			PRODUCT_ID,
-			10000,
-			12000,
-			EVENT_TIME
-		));
+		ArgumentCaptor<ProductPriceChangedEvent> captor = ArgumentCaptor.forClass(ProductPriceChangedEvent.class);
+		then(orderProductEventService).should().handleProductPriceChanged(captor.capture());
+		assertThat(captor.getValue().eventType()).isEqualTo("PRODUCT_PRICE_CHANGED");
+		assertThat(captor.getValue().productId()).isEqualTo(PRODUCT_ID);
+		assertThat(captor.getValue().previousPrice()).isEqualTo(10000);
+		assertThat(captor.getValue().changedPrice()).isEqualTo(12000);
+		assertThat(captor.getValue().occurredAt()).isEqualTo(EVENT_TIME);
 		then(acknowledgment).should().acknowledge();
 	}
 

@@ -1,12 +1,12 @@
 package com.prompthub.order.application.service.event.outbox;
 
-import com.prompthub.order.application.event.OrderEventEnvelope;
-import com.prompthub.order.application.event.OrderPaidEvent;
-import com.prompthub.order.application.event.OrderPaidProduct;
-import com.prompthub.order.application.event.OrderRefundEvent;
-import com.prompthub.order.application.event.OrderRefundProduct;
-import com.prompthub.order.application.event.PaymentApprovedEvent;
-import com.prompthub.order.application.event.PaymentRefundedEvent;
+import com.prompthub.order.application.event.order.OrderEventEnvelope;
+import com.prompthub.order.application.event.order.OrderPaidEvent;
+import com.prompthub.order.application.event.order.OrderPaidProduct;
+import com.prompthub.order.application.event.order.OrderRefundEvent;
+import com.prompthub.order.application.event.order.OrderRefundProduct;
+import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
+import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.model.OutboxEvent;
@@ -35,10 +35,10 @@ public class OutboxEventAppender {
 		UUID eventId = UUID.randomUUID();
 		OrderPaidEvent orderPaidEvent = new OrderPaidEvent(
 			order.getId(),
-			event.buyerId(),
+			event.userId(),
 			order.getTotalOrderAmount(),
 			order.getTotalProductCount(),
-			event.approvedAt(),
+			event.approvedAt().toLocalDateTime(),
 			order.getOrderProducts().stream()
 				.map(this::toOrderPaidProduct)
 				.toList()
@@ -47,7 +47,7 @@ public class OutboxEventAppender {
 			eventId,
 			ORDER_PAID,
 			ORDER_EVENT_VERSION,
-			event.approvedAt(),
+			event.approvedAt().toLocalDateTime(),
 			order.getId(),
 			orderPaidEvent
 		));
@@ -56,7 +56,7 @@ public class OutboxEventAppender {
 			eventId,
 			order.getId(),
 			payload,
-			event.approvedAt()
+			event.approvedAt().toLocalDateTime()
 		));
 	}
 
@@ -65,10 +65,10 @@ public class OutboxEventAppender {
 		OrderRefundEvent orderRefundEvent = new OrderRefundEvent(
 			order.getId(),
 			event.paymentId(),
-			event.buyerId(),
-			event.refundedAmount(),
+			event.userId(),
+			event.amount(),
 			order.getTotalProductCount(),
-			event.refundedAt(),
+			event.refundedAt().toLocalDateTime(),
 			order.getOrderProducts().stream()
 				.map(this::toOrderRefundProduct)
 				.toList()
@@ -77,7 +77,7 @@ public class OutboxEventAppender {
 			eventId,
 			ORDER_REFUND,
 			ORDER_EVENT_VERSION,
-			event.refundedAt(),
+			event.refundedAt().toLocalDateTime(),
 			order.getId(),
 			orderRefundEvent
 		));
@@ -86,7 +86,7 @@ public class OutboxEventAppender {
 			eventId,
 			order.getId(),
 			payload,
-			event.refundedAt()
+			event.refundedAt().toLocalDateTime()
 		));
 	}
 

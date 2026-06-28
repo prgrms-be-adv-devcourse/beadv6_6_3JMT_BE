@@ -28,7 +28,7 @@ public class CartController {
 
 	private final CartUseCase cartUseCase;
 
-	@GetMapping
+	@GetMapping("/products")
 	@Operation(summary = "장바구니 조회", description = "인증된 구매자의 장바구니 상품 목록과 합계 금액을 조회합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "장바구니 조회 성공"),

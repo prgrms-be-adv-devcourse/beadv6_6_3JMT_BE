@@ -46,6 +46,26 @@ class OrderPaymentPersistenceImplTest {
 	private OrderPaymentPersistence orderPaymentPersistence;
 
 	@Test
+	@DisplayName("paymentId 기준으로 결제 내역 존재 여부를 확인한다")
+	void existsByPaymentId_success() {
+		Order order = Order.create(BUYER_ID, ORDER_NUMBER, TOTAL_AMOUNT, TOTAL_ITEM_COUNT);
+		entityManager.persist(order);
+		entityManager.persist(OrderPayment.create(
+			order.getId(),
+			PAYMENT_ID,
+			BUYER_ID,
+			TOTAL_AMOUNT,
+			APPROVED_AT
+		));
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(orderPaymentPersistence.existsByPaymentId(PAYMENT_ID)).isTrue();
+		assertThat(orderPaymentPersistence.existsByPaymentId(UUID.fromString("00000000-0000-0000-0000-000000000999")))
+			.isFalse();
+	}
+
+	@Test
 	@DisplayName("구매자 결제 내역을 order, order_product, order_payment 조인으로 조회한다")
 	void searchOrderPayments_join_success() {
 		// given

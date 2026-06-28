@@ -16,8 +16,8 @@ public record OrderListResponse(
 	UUID productId,
 	@Schema(description = "주문 상태. PENDING, PAID, FAILED, CANCELED, REFUNDED", example = "PAID")
 	OrderStatus orderStatus,
-	@Schema(description = "환불 여부", example = "false")
-	boolean isRefund,
+	@Schema(description = "환불 가능 여부", example = "true")
+	boolean isRefundable,
 	@Schema(description = "상품 유형", example = "PROMPT")
 	String productType,
 	@Schema(description = "상품 제목", example = "면접 준비 프롬프트")

@@ -15,6 +15,7 @@ public record OrderPaymentListProjection(
 	String title,
 	int amount,
 	LocalDateTime paidAt,
-	LocalDateTime approvedAt
+	LocalDateTime approvedAt,
+	boolean download
 ) {
 }

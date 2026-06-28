@@ -8,4 +8,6 @@ import java.util.UUID;
 public interface OrderPaymentPersistence extends JpaRepository<OrderPayment, UUID>, OrderPaymentPersistenceCustom {
 
 	boolean existsByOrderId(UUID orderId);
+
+	boolean existsByPaymentId(UUID paymentId);
 }
