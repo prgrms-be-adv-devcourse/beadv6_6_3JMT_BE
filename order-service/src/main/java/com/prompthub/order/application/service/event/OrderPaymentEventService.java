@@ -68,7 +68,7 @@ public class OrderPaymentEventService {
 		}
 
 		validateOrderStatus(order, OrderStatus.PAID);
-		order.refund(event.refundedAt());
+		order.refund(event.refundedAt().toLocalDateTime());
 		outboxEventAppender.appendOrderRefund(order, event);
 	}
 

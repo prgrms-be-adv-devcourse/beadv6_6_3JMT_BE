@@ -65,10 +65,10 @@ public class OutboxEventAppender {
 		OrderRefundEvent orderRefundEvent = new OrderRefundEvent(
 			order.getId(),
 			event.paymentId(),
-			event.buyerId(),
-			event.refundedAmount(),
+			event.userId(),
+			event.amount(),
 			order.getTotalProductCount(),
-			event.refundedAt(),
+			event.refundedAt().toLocalDateTime(),
 			order.getOrderProducts().stream()
 				.map(this::toOrderRefundProduct)
 				.toList()
@@ -77,7 +77,7 @@ public class OutboxEventAppender {
 			eventId,
 			ORDER_REFUND,
 			ORDER_EVENT_VERSION,
-			event.refundedAt(),
+			event.refundedAt().toLocalDateTime(),
 			order.getId(),
 			orderRefundEvent
 		));
@@ -86,7 +86,7 @@ public class OutboxEventAppender {
 			eventId,
 			order.getId(),
 			payload,
-			event.refundedAt()
+			event.refundedAt().toLocalDateTime()
 		));
 	}
 
