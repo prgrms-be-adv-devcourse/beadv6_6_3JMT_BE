@@ -11,6 +11,8 @@ import org.springframework.kafka.core.KafkaTemplate;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -34,7 +36,7 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
         UUID orderId = UUID.randomUUID();
         UUID buyerId = UUID.randomUUID();
         
-        java.util.Map<String, Object> message = new java.util.HashMap<>();
+        Map<String, Object> message = new HashMap<>();
         message.put("eventType", "payment.approved");
         message.put("paymentId", paymentId.toString());
         message.put("orderId", orderId.toString());
@@ -59,7 +61,7 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
         UUID orderId = UUID.randomUUID();
         UUID buyerId = UUID.randomUUID();
 
-        java.util.Map<String, Object> message = new java.util.HashMap<>();
+        Map<String, Object> message = new HashMap<>();
         message.put("eventType", "payment.refunded");
         message.put("paymentId", paymentId.toString());
         message.put("orderId", orderId.toString());
