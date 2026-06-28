@@ -61,17 +61,20 @@ eureka:
     instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
     prefer-ip-address: true
 
-#prompthub:
-#  clients:
-#    product-service:
-#      url: ${PRODUCT_SERVICE_URL:http://localhost:8081}
 
 prompthub:
+  clients:
+    product-service:
+      url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
   grpc:
     product:
       host: ${PRODUCT_GRPC_HOST:localhost}
-      port: ${PRODUCT_GRPC_PORT:9092}
+      port: ${PRODUCT_GRPC_PORT:9082}
       deadline-ms: ${PRODUCT_GRPC_DEADLINE_MS:2000}
+    seller:
+      host: ${SELLER_GRPC_HOST:localhost}
+      port: ${SELLER_GRPC_PORT:9081}
+      deadline-ms: ${SELLER_GRPC_DEADLINE_MS:2000}
   outbox-relay:
     enabled: true
     fixed-delay-ms: 5000

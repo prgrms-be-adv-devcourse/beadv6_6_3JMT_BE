@@ -3,6 +3,9 @@ package com.prompthub.order.infra.messaging.kafka;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.context.ActiveProfiles;
+import com.prompthub.order.application.client.ProductClient;
+import com.prompthub.order.application.client.SellerClient;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest(properties = {
 	"spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
@@ -14,4 +17,10 @@ import org.springframework.test.context.ActiveProfiles;
 )
 @ActiveProfiles("test")
 public abstract class KafkaIntegrationTest {
+
+	@MockitoBean
+	protected ProductClient productClient;
+
+	@MockitoBean
+	protected SellerClient sellerClient;
 }
