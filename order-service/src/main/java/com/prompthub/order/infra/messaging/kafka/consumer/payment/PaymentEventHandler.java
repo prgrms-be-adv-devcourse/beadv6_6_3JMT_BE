@@ -1,9 +1,9 @@
 package com.prompthub.order.infra.messaging.kafka.consumer.payment;
 
-import com.prompthub.order.application.event.PaymentApprovedEvent;
-import com.prompthub.order.application.event.PaymentCanceledEvent;
-import com.prompthub.order.application.event.PaymentFailedEvent;
-import com.prompthub.order.application.event.PaymentRefundedEvent;
+import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
+import com.prompthub.order.application.event.payment.PaymentCanceledEvent;
+import com.prompthub.order.application.event.payment.PaymentFailedEvent;
+import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
 import com.prompthub.order.application.service.event.OrderPaymentEventService;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;

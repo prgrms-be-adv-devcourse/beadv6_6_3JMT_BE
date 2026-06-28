@@ -1,6 +1,6 @@
 package com.prompthub.order.infra.messaging.kafka;
 
-import com.prompthub.order.application.event.PaymentApprovedEvent;
+import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
 import com.prompthub.order.application.service.event.OrderPaymentEventService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

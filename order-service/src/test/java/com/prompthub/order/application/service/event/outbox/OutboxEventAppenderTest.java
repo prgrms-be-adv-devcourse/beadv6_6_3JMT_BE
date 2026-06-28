@@ -1,7 +1,7 @@
 package com.prompthub.order.application.service.event.outbox;
 
-import com.prompthub.order.application.event.PaymentApprovedEvent;
-import com.prompthub.order.application.event.PaymentRefundedEvent;
+import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
+import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
 import com.prompthub.order.domain.enums.OutboxEventStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OutboxEvent;

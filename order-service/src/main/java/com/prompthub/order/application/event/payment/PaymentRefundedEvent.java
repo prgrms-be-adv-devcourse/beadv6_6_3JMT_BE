@@ -1,16 +1,16 @@
-package com.prompthub.order.application.event;
+package com.prompthub.order.application.event.payment;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public record PaymentFailedEvent(
+public record PaymentRefundedEvent(
 	String eventId,
 	String eventType,
 	UUID paymentId,
 	UUID orderId,
 	UUID buyerId,
-	String reason,
-	LocalDateTime failedAt,
+	int refundedAmount,
+	LocalDateTime refundedAt,
 	LocalDateTime occurredAt
 ) {
 }

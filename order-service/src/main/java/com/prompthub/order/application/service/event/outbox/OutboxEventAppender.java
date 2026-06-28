@@ -1,12 +1,12 @@
 package com.prompthub.order.application.service.event.outbox;
 
-import com.prompthub.order.application.event.OrderEventEnvelope;
-import com.prompthub.order.application.event.OrderPaidEvent;
-import com.prompthub.order.application.event.OrderPaidProduct;
-import com.prompthub.order.application.event.OrderRefundEvent;
-import com.prompthub.order.application.event.OrderRefundProduct;
-import com.prompthub.order.application.event.PaymentApprovedEvent;
-import com.prompthub.order.application.event.PaymentRefundedEvent;
+import com.prompthub.order.application.event.order.OrderEventEnvelope;
+import com.prompthub.order.application.event.order.OrderPaidEvent;
+import com.prompthub.order.application.event.order.OrderPaidProduct;
+import com.prompthub.order.application.event.order.OrderRefundEvent;
+import com.prompthub.order.application.event.order.OrderRefundProduct;
+import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
+import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.model.OutboxEvent;

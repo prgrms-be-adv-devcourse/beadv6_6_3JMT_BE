@@ -1,9 +1,9 @@
-package com.prompthub.order.application.event;
+package com.prompthub.order.application.event.product;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public record ProductStoppedEvent(
+public record ProductDeletedEvent(
 	UUID productId,
 	LocalDateTime occurredAt
 ) {

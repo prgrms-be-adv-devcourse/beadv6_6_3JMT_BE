@@ -1,8 +1,8 @@
 package com.prompthub.order.infra.messaging.kafka.consumer;
 
-import com.prompthub.order.application.event.ProductDeletedEvent;
-import com.prompthub.order.application.event.ProductPriceChangedEvent;
-import com.prompthub.order.application.event.ProductStoppedEvent;
+import com.prompthub.order.application.event.product.ProductDeletedEvent;
+import com.prompthub.order.application.event.product.ProductPriceChangedEvent;
+import com.prompthub.order.application.event.product.ProductStoppedEvent;
 import com.prompthub.order.application.service.event.OrderProductEventService;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.infra.messaging.kafka.consumer.product.ProductEventConsumer;

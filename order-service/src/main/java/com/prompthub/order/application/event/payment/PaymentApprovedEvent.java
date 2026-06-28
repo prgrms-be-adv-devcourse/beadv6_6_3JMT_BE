@@ -1,4 +1,4 @@
-package com.prompthub.order.application.event;
+package com.prompthub.order.application.event.payment;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
