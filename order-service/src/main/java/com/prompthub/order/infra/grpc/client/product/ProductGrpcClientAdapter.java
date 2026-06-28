@@ -1,12 +1,11 @@
 package com.prompthub.order.infra.grpc.client.product;
 
 import com.prompthub.exception.BusinessException;
-import com.prompthub.grpc.product.v1.GetCartSnapshotResponse;
 import com.prompthub.grpc.product.v1.GetCartSnapshotsRequest;
 import com.prompthub.grpc.product.v1.GetOrderSnapshotsRequest;
 import com.prompthub.grpc.product.v1.GetProductContentRequest;
+import com.prompthub.grpc.product.v1.ProductCartSnapshotMessage;
 import com.prompthub.grpc.product.v1.ProductInternalServiceGrpc;
-import com.prompthub.grpc.product.v1.ProductOrderSnapshotResponse;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductCartSnapshot;
 import com.prompthub.order.application.dto.ProductContent;
@@ -23,6 +22,8 @@ import org.springframework.stereotype.Component;
 @Component
 @Profile({"dev", "prod"})
 public class ProductGrpcClientAdapter implements ProductClient {
+
+	private static final String ON_SALE = "ON_SALE";
 
 	private final ProductInternalServiceGrpc.ProductInternalServiceBlockingStub stub;
 	private final int deadlineMs;
@@ -105,7 +106,7 @@ public class ProductGrpcClientAdapter implements ProductClient {
 			.toList();
 	}
 
-	private ProductOrderSnapshot toOrderSnapshot(ProductOrderSnapshotResponse response) {
+	private ProductOrderSnapshot toOrderSnapshot(com.prompthub.grpc.product.v1.ProductOrderSnapshot response) {
 		return new ProductOrderSnapshot(
 			UUID.fromString(response.getProductId()),
 			UUID.fromString(response.getSellerId()),
@@ -116,7 +117,7 @@ public class ProductGrpcClientAdapter implements ProductClient {
 		);
 	}
 
-	private ProductCartSnapshot toCartSnapshot(GetCartSnapshotResponse response) {
+	private ProductCartSnapshot toCartSnapshot(ProductCartSnapshotMessage response) {
 		return new ProductCartSnapshot(
 			UUID.fromString(response.getProductId()),
 			response.getTitle(),
@@ -125,7 +126,7 @@ public class ProductGrpcClientAdapter implements ProductClient {
 			response.getThumbnailUrl(),
 			UUID.fromString(response.getSellerId()),
 			response.getSellerNickname(),
-			response.getStatus()
+			ON_SALE
 		);
 	}
 

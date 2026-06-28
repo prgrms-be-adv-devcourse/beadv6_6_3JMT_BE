@@ -15,7 +15,7 @@ public class ProductGrpcClientConfig {
 	@Bean(destroyMethod = "shutdown")
 	public ManagedChannel productManagedChannel(
 		@Value("${prompthub.grpc.product.host:localhost}") String host,
-		@Value("${prompthub.grpc.product.port:9092}") int port
+		@Value("${prompthub.grpc.product.port:9082}") int port
 	) {
 		return ManagedChannelBuilder.forAddress(host, port)
 			.usePlaintext()

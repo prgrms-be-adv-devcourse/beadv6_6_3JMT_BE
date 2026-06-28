@@ -27,6 +27,11 @@ public class OrderPaymentAdapter implements OrderPaymentRepository {
 	}
 
 	@Override
+	public boolean existsByPaymentId(UUID paymentId) {
+		return orderPaymentPersistence.existsByPaymentId(paymentId);
+	}
+
+	@Override
 	public Page<OrderPaymentListProjection> searchOrderPayments(UUID buyerId, Pageable pageable) {
 		return orderPaymentPersistence.searchOrderPayments(buyerId, pageable);
 	}

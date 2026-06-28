@@ -3,10 +3,8 @@ package com.prompthub.order.fixture;
 import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
-import com.prompthub.order.application.event.PaymentApprovedEvent;
-import com.prompthub.order.application.event.PaymentCanceledEvent;
-import com.prompthub.order.application.event.PaymentFailedEvent;
-import com.prompthub.order.application.event.PaymentRefundedEvent;
+import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
+import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -14,6 +12,7 @@ import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -55,8 +54,7 @@ public final class OrderFixture {
 	public static final LocalDateTime APPROVED_AT =
 		LocalDateTime.of(2026, 6, 19, 12, 0);
 
-	public static final LocalDateTime FAILED_AT =
-		LocalDateTime.of(2026, 6, 19, 12, 5);
+
 
 	public static final LocalDateTime CANCELED_AT =
 		LocalDateTime.of(2026, 6, 19, 12, 10);
@@ -64,7 +62,7 @@ public final class OrderFixture {
 	public static final LocalDateTime REFUNDED_AT =
 		LocalDateTime.of(2026, 6, 19, 12, 20);
 
-	public static final String PAYMENT_FAILED_REASON = "PG 승인 실패";
+
 
 	public static final LocalDateTime PAID_AT =
 		LocalDateTime.of(2026, 6, 20, 12, 0);
@@ -218,55 +216,25 @@ public final class OrderFixture {
 		int approvedAmount
 	) {
 		return new PaymentApprovedEvent(
-			EVENT_ID.toString(),
 			"PAYMENT_APPROVED",
 			PAYMENT_ID,
 			orderId,
 			BUYER_ID,
 			approvedAmount,
-			"CARD",
-			"TOSS",
-			"txId-1234",
-			APPROVED_AT,
-			APPROVED_AT
+			APPROVED_AT.atOffset(ZoneOffset.UTC)
 		);
 	}
 
-	public static PaymentFailedEvent createPaymentFailedEvent(UUID orderId) {
-		return new PaymentFailedEvent(
-			EVENT_ID.toString(),
-			"PAYMENT_FAILED",
-			PAYMENT_ID,
-			orderId,
-			BUYER_ID,
-			PAYMENT_FAILED_REASON,
-			FAILED_AT,
-			FAILED_AT
-		);
-	}
 
-	public static PaymentCanceledEvent createPaymentCanceledEvent(UUID orderId) {
-		return new PaymentCanceledEvent(
-			EVENT_ID.toString(),
-			"PAYMENT_CANCELED",
-			PAYMENT_ID,
-			orderId,
-			BUYER_ID,
-			CANCELED_AT,
-			CANCELED_AT
-		);
-	}
 
 	public static PaymentRefundedEvent createPaymentRefundedEvent(UUID orderId) {
 		return new PaymentRefundedEvent(
-			EVENT_ID.toString(),
-			"PAYMENT_REFUNDED",
+			"payment.refunded",
 			PAYMENT_ID,
 			orderId,
 			BUYER_ID,
 			TOTAL_AMOUNT,
-			REFUNDED_AT,
-			REFUNDED_AT
+			REFUNDED_AT.atOffset(ZoneOffset.UTC)
 		);
 	}
 

@@ -1,9 +1,7 @@
 package com.prompthub.order.application.service.event;
 
-import com.prompthub.order.application.event.PaymentApprovedEvent;
-import com.prompthub.order.application.event.PaymentCanceledEvent;
-import com.prompthub.order.application.event.PaymentFailedEvent;
-import com.prompthub.order.application.event.PaymentRefundedEvent;
+import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
+import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
 import com.prompthub.order.application.service.order.OrderPolicyService;
 import com.prompthub.order.domain.enums.OrderStatus;
@@ -34,7 +32,7 @@ public class OrderPaymentEventService {
 
 	public void handlePaymentApproved(PaymentApprovedEvent event) {
 		Order order = findOrder(event.orderId());
-		boolean orderPaymentExists = orderPaymentRepository.existsByOrderId(event.orderId());
+		boolean orderPaymentExists = orderPaymentRepository.existsByPaymentId(event.paymentId());
 
 		if (order.getOrderStatus() == OrderStatus.PAID && orderPaymentExists) {
 			return;
@@ -42,14 +40,14 @@ public class OrderPaymentEventService {
 
 		validatePendingForPaymentApproval(order);
 		orderPolicyService.validatePaymentApproval(order, event);
-		order.markPaid(event.approvedAt());
+		order.markPaid(event.approvedAt().toLocalDateTime());
 
 		orderPaymentRepository.save(OrderPayment.create(
 			order.getId(),
 			event.paymentId(),
-			event.buyerId(),
-			event.approvedAmount(),
-			event.approvedAt()
+			event.userId(),
+			event.amount(),
+			event.approvedAt().toLocalDateTime()
 		));
 		outboxEventAppender.appendOrderPaid(order, event);
 
@@ -61,27 +59,6 @@ public class OrderPaymentEventService {
 			.ifPresent(cart -> cart.removeProductsByProductIds(orderedProductIds));
 	}
 
-	public void handlePaymentFailed(PaymentFailedEvent event) {
-		Order order = findOrder(event.orderId());
-
-		if (order.getOrderStatus() == OrderStatus.FAILED) {
-			return;
-		}
-
-		validateOrderStatus(order, OrderStatus.PENDING);
-		order.markFailed();
-	}
-
-	public void handlePaymentCanceled(PaymentCanceledEvent event) {
-		Order order = findOrder(event.orderId());
-
-		if (order.getOrderStatus() == OrderStatus.CANCELED) {
-			return;
-		}
-
-		validateOrderStatus(order, OrderStatus.PAID);
-		order.cancel(event.canceledAt());
-	}
 
 	public void handlePaymentRefunded(PaymentRefundedEvent event) {
 		Order order = findOrder(event.orderId());
@@ -91,7 +68,7 @@ public class OrderPaymentEventService {
 		}
 
 		validateOrderStatus(order, OrderStatus.PAID);
-		order.refund(event.refundedAt());
+		order.refund(event.refundedAt().toLocalDateTime());
 		outboxEventAppender.appendOrderRefund(order, event);
 	}
 

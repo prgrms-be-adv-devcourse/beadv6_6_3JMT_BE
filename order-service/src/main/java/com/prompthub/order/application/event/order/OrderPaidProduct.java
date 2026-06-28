@@ -1,13 +1,13 @@
-package com.prompthub.order.application.event;
+package com.prompthub.order.application.event.order;
 
 import java.util.UUID;
 
-public record OrderRefundProduct(
+public record OrderPaidProduct(
 	UUID orderProductId,
 	UUID productId,
 	UUID sellerId,
 	String productTitle,
 	String productType,
-	int refundAmount
+	int productAmount
 ) {
 }

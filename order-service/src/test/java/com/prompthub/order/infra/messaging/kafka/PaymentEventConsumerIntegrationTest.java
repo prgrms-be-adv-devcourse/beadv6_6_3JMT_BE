@@ -1,6 +1,7 @@
 package com.prompthub.order.infra.messaging.kafka;
 
-import com.prompthub.order.application.event.PaymentApprovedEvent;
+import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
+import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
 import com.prompthub.order.application.service.event.OrderPaymentEventService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -8,7 +9,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.kafka.core.KafkaTemplate;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -31,23 +35,46 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
         UUID paymentId = UUID.randomUUID();
         UUID orderId = UUID.randomUUID();
         UUID buyerId = UUID.randomUUID();
-        String eventId = UUID.randomUUID().toString();
         
-        java.util.Map<String, Object> message = new java.util.HashMap<>();
-        message.put("eventId", eventId);
-        message.put("eventType", "PAYMENT_APPROVED");
+        Map<String, Object> message = new HashMap<>();
+        message.put("eventType", "payment.approved");
         message.put("paymentId", paymentId.toString());
         message.put("orderId", orderId.toString());
-        message.put("buyerId", buyerId.toString());
-        message.put("approvedAmount", 30000);
-        message.put("occurredAt", LocalDateTime.now().toString());
+        message.put("userId", buyerId.toString());
+        message.put("amount", 30000);
+        message.put("approvedAt", OffsetDateTime.now(ZoneOffset.ofHours(9)).toString());
 
         // when
-        kafkaTemplate.send("payment-events", orderId.toString(), message);
+        kafkaTemplate.send("payment.approved", orderId.toString(), message);
 
         // then
         await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> 
             verify(orderPaymentEventService).handlePaymentApproved(any(PaymentApprovedEvent.class))
+        );
+    }
+
+    @Test
+    @DisplayName("결제 환불 이벤트를 수신하면 OrderPaymentEventService가 호출된다")
+    void consumePaymentRefundedEvent() {
+        // given
+        UUID paymentId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        UUID buyerId = UUID.randomUUID();
+
+        Map<String, Object> message = new HashMap<>();
+        message.put("eventType", "payment.refunded");
+        message.put("paymentId", paymentId.toString());
+        message.put("orderId", orderId.toString());
+        message.put("userId", buyerId.toString());
+        message.put("amount", 30000);
+        message.put("refundedAt", OffsetDateTime.now(ZoneOffset.ofHours(9)).toString());
+
+        // when
+        kafkaTemplate.send("payment.refunded", orderId.toString(), message);
+
+        // then
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
+            verify(orderPaymentEventService).handlePaymentRefunded(any(PaymentRefundedEvent.class))
         );
     }
 }

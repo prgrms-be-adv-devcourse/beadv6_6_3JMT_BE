@@ -9,11 +9,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest(properties = {
 	"spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
-	"prompthub.outbox-relay.enabled=true"
+	"prompthub.outbox-relay.enabled=true",
+	"eureka.client.enabled=false",
+	"spring.cloud.discovery.enabled=false"
 })
 @EmbeddedKafka(
 	partitions = 1,
-	topics = {"order-events", "payment-events", "product-events"}
+	topics = {"order-events", "payment-events", "product-events", "payment.approved", "payment.refunded"}
 )
 @ActiveProfiles("test")
 public abstract class KafkaIntegrationTest {

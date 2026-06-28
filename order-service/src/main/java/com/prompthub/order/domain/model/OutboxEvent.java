@@ -38,11 +38,9 @@ public class OutboxEvent extends BaseEntity {
 	private static final String ORDER_EVENTS_TOPIC = "order-events";
 
 	@Id
-	@JdbcTypeCode(SqlTypes.VARCHAR)
 	@Column(name = "id", columnDefinition = "uuid")
 	private UUID id;
 
-	@JdbcTypeCode(SqlTypes.VARCHAR)
 	@Column(name = "aggregate_id", columnDefinition = "uuid", nullable = false)
 	private UUID aggregateId;
 

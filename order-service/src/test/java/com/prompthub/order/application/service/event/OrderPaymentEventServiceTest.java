@@ -1,9 +1,7 @@
 package com.prompthub.order.application.service.event;
 
-import com.prompthub.order.application.event.PaymentApprovedEvent;
-import com.prompthub.order.application.event.PaymentCanceledEvent;
-import com.prompthub.order.application.event.PaymentFailedEvent;
-import com.prompthub.order.application.event.PaymentRefundedEvent;
+import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
+import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
 import com.prompthub.order.application.service.order.OrderPolicyService;
 import com.prompthub.order.domain.enums.OrderStatus;
@@ -73,7 +71,7 @@ class OrderPaymentEventServiceTest {
 
 			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
 				.willReturn(Optional.of(order));
-			given(orderPaymentRepository.existsByOrderId(event.orderId()))
+			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
 				.willReturn(false);
 			given(cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId()))
 				.willReturn(Optional.of(cart));
@@ -109,7 +107,7 @@ class OrderPaymentEventServiceTest {
 
 			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
 				.willReturn(Optional.of(order));
-			given(orderPaymentRepository.existsByOrderId(event.orderId()))
+			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
 				.willReturn(false);
 
 			assertThatThrownBy(() -> orderPaymentEventService.handlePaymentApproved(event))
@@ -127,22 +125,44 @@ class OrderPaymentEventServiceTest {
 		}
 
 		@Test
-		@DisplayName("이미 결제 완료된 주문과 결제내역이 있으면 승인 이벤트를 중복으로 보고 무시한다")
-		void handlePaymentApproved_duplicatePaidOrder_doNothing() {
+		@DisplayName("이미 결제 완료된 주문과 같은 paymentId 결제내역이 있으면 승인 이벤트를 중복으로 보고 무시한다")
+		void handlePaymentApproved_duplicatePaymentIdForPaidOrder_doNothing() {
 			Order order = createPaidOrderWithProducts();
 			PaymentApprovedEvent event = createPaymentApprovedEvent(order.getId(), TOTAL_AMOUNT);
 
 			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
 				.willReturn(Optional.of(order));
-			given(orderPaymentRepository.existsByOrderId(event.orderId()))
+			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
 				.willReturn(true);
 
 			orderPaymentEventService.handlePaymentApproved(event);
 
 			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+			then(orderPaymentRepository).should().existsByPaymentId(event.paymentId());
 			then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
 			then(outboxEventAppender).should(never()).appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class));
 			then(cartRepository).should(never()).findByBuyerIdWithCartProducts(any(UUID.class));
+		}
+
+		@Test
+		@DisplayName("PAID 주문이어도 paymentId 결제내역이 없으면 승인 이벤트를 중복으로 보지 않고 예외를 발생시킨다")
+		void handlePaymentApproved_paidOrderWithoutSamePaymentId_throwsAlreadyProcessed() {
+			Order order = createPaidOrderWithProducts();
+			PaymentApprovedEvent event = createPaymentApprovedEvent(order.getId(), TOTAL_AMOUNT);
+
+			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
+				.willReturn(Optional.of(order));
+			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
+				.willReturn(false);
+
+			assertThatThrownBy(() -> orderPaymentEventService.handlePaymentApproved(event))
+				.isInstanceOf(OrderException.class)
+				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
+					.isEqualTo(ErrorCode.ORDER_ALREADY_PROCESSED));
+
+			then(orderPaymentRepository).should().existsByPaymentId(event.paymentId());
+			then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
+			then(outboxEventAppender).should(never()).appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class));
 		}
 
 		@Test
@@ -163,26 +183,6 @@ class OrderPaymentEventServiceTest {
 		}
 
 		@Test
-		@DisplayName("주문 상태는 PAID이지만 결제내역이 없으면 이미 처리된 주문 예외가 발생한다")
-		void handlePaymentApproved_paidOrderWithoutPayment_throwsAlreadyProcessed() {
-			Order order = createPaidOrderWithProducts();
-			PaymentApprovedEvent event = createPaymentApprovedEvent(order.getId(), TOTAL_AMOUNT);
-
-			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-				.willReturn(Optional.of(order));
-			given(orderPaymentRepository.existsByOrderId(event.orderId()))
-				.willReturn(false);
-
-			assertThatThrownBy(() -> orderPaymentEventService.handlePaymentApproved(event))
-				.isInstanceOf(OrderException.class)
-				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
-					.isEqualTo(ErrorCode.ORDER_ALREADY_PROCESSED));
-			
-			then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
-			then(outboxEventAppender).should(never()).appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class));
-		}
-
-		@Test
 		@DisplayName("Outbox 저장 시 예외가 발생하면 예외가 상위로 전파되어 전체 롤백을 유도한다")
 		void handlePaymentApproved_outboxSaveFails_throwsException() {
 			Order order = createPendingOrderWithProducts();
@@ -190,7 +190,7 @@ class OrderPaymentEventServiceTest {
 
 			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
 				.willReturn(Optional.of(order));
-			given(orderPaymentRepository.existsByOrderId(event.orderId()))
+			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
 				.willReturn(false);
 			given(outboxEventAppender.appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class)))
 				.willThrow(new RuntimeException("DB Connection Error"));
@@ -211,7 +211,7 @@ class OrderPaymentEventServiceTest {
 
 			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
 				.willReturn(Optional.of(order));
-			given(orderPaymentRepository.existsByOrderId(event.orderId()))
+			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
 				.willReturn(false);
 			given(cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId()))
 				.willThrow(new RuntimeException("Redis Timeout"));
@@ -233,7 +233,7 @@ class OrderPaymentEventServiceTest {
 
 			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
 				.willReturn(Optional.of(order));
-			given(orderPaymentRepository.existsByOrderId(event.orderId()))
+			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
 				.willReturn(false);
 
 			assertThatThrownBy(() -> orderPaymentEventService.handlePaymentApproved(event))
@@ -243,110 +243,7 @@ class OrderPaymentEventServiceTest {
 		}
 	}
 
-	@Nested
-	@DisplayName("결제 실패 이벤트 처리")
-	class HandlePaymentFailed {
 
-		@Test
-		@DisplayName("실패 이벤트를 받으면 PENDING 주문/주문상품을 FAILED로 변경한다")
-		void handlePaymentFailed_success() {
-			Order order = createPendingOrderWithProducts();
-			PaymentFailedEvent event = createPaymentFailedEvent(order.getId());
-
-			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-				.willReturn(Optional.of(order));
-
-			orderPaymentEventService.handlePaymentFailed(event);
-
-			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.FAILED);
-			assertThat(order.getOrderProducts())
-				.extracting(OrderProduct::getOrderStatus)
-				.containsOnly(OrderStatus.FAILED);
-		}
-
-		@Test
-		@DisplayName("이미 FAILED인 주문에 실패 이벤트가 다시 들어오면 무시한다")
-		void handlePaymentFailed_duplicateFailedOrder_doNothing() {
-			Order order = createPendingOrderWithProducts();
-			order.markFailed();
-			PaymentFailedEvent event = createPaymentFailedEvent(order.getId());
-
-			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-				.willReturn(Optional.of(order));
-
-			orderPaymentEventService.handlePaymentFailed(event);
-
-			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.FAILED);
-		}
-
-		@Test
-		@DisplayName("PAID 주문에 실패 이벤트가 들어오면 상태 전이를 거부한다")
-		void handlePaymentFailed_paidOrder_throwsException() {
-			Order order = createPaidOrderWithProducts();
-			PaymentFailedEvent event = createPaymentFailedEvent(order.getId());
-
-			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-				.willReturn(Optional.of(order));
-
-			assertThatThrownBy(() -> orderPaymentEventService.handlePaymentFailed(event))
-				.isInstanceOf(OrderException.class)
-				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
-					.isEqualTo(ErrorCode.INVALID_ORDER_STATUS_TRANSITION));
-		}
-	}
-
-	@Nested
-	@DisplayName("결제 취소 이벤트 처리")
-	class HandlePaymentCanceled {
-
-		@Test
-		@DisplayName("취소 이벤트를 받으면 PAID 주문/주문상품을 CANCELED로 변경한다")
-		void handlePaymentCanceled_success() {
-			Order order = createPaidOrderWithProducts();
-			PaymentCanceledEvent event = createPaymentCanceledEvent(order.getId());
-
-			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-				.willReturn(Optional.of(order));
-
-			orderPaymentEventService.handlePaymentCanceled(event);
-
-			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
-			assertThat(order.getCanceledAt()).isEqualTo(CANCELED_AT);
-			assertThat(order.getOrderProducts())
-				.extracting(OrderProduct::getOrderStatus)
-				.containsOnly(OrderStatus.CANCELED);
-		}
-
-		@Test
-		@DisplayName("이미 CANCELED인 주문에 취소 이벤트가 다시 들어오면 무시한다")
-		void handlePaymentCanceled_duplicateCanceledOrder_doNothing() {
-			Order order = createPaidOrderWithProducts();
-			order.cancel(CANCELED_AT);
-			PaymentCanceledEvent event = createPaymentCanceledEvent(order.getId());
-
-			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-				.willReturn(Optional.of(order));
-
-			orderPaymentEventService.handlePaymentCanceled(event);
-
-			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
-		}
-
-		@Test
-		@DisplayName("PENDING 주문에 취소 이벤트가 들어오면 상태 전이를 거부한다")
-		void handlePaymentCanceled_pendingOrder_throwsException() {
-			Order order = createPendingOrderWithProducts();
-			PaymentCanceledEvent event = createPaymentCanceledEvent(order.getId());
-
-			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
-				.willReturn(Optional.of(order));
-
-			assertThatThrownBy(() -> orderPaymentEventService.handlePaymentCanceled(event))
-				.isInstanceOf(OrderException.class)
-				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
-					.isEqualTo(ErrorCode.INVALID_ORDER_STATUS_TRANSITION));
-		}
-	}
 
 	@Nested
 	@DisplayName("결제 환불 이벤트 처리")

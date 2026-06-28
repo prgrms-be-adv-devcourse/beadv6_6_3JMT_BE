@@ -13,5 +13,7 @@ public interface OrderPaymentRepository {
 
 	boolean existsByOrderId(UUID orderId);
 
+	boolean existsByPaymentId(UUID paymentId);
+
 	Page<OrderPaymentListProjection> searchOrderPayments(UUID buyerId, Pageable pageable);
 }

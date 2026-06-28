@@ -12,40 +12,39 @@ service ProductInternalService {
   rpc GetProductContent(GetProductContentRequest) returns (GetProductContentResponse);
 }
 
-message GetOrderSnapshotsRequest {
-  repeated string product_ids = 1;
-}
-
-message GetOrderSnapshotsResponse {
-  repeated ProductOrderSnapshotResponse products = 1;
-}
-
-message ProductOrderSnapshotResponse {
-  string product_id = 1;
-  string seller_id = 2;
-  string title = 3;
-  string product_type = 4;
-  string model = 5;
-  int32 amount = 6;
-}
-
-message GetCartSnapshotResponse {
-  string product_id = 1;
-  string title = 2;
-  string product_type = 3;
-  int32 amount = 4;
-  string thumbnail_url = 5;
-  string seller_id = 6;
-  string seller_nickname = 7;
-  string status = 8;
-}
-
 message GetCartSnapshotsRequest {
   repeated string product_ids = 1;
 }
 
 message GetCartSnapshotsResponse {
-  repeated GetCartSnapshotResponse products = 1;
+  repeated ProductCartSnapshotMessage products = 1;
+}
+
+message ProductCartSnapshotMessage {
+  string product_id = 1;
+  string seller_id = 2;
+  string seller_nickname = 3;
+  string title = 4;
+  string product_type = 5;
+  int32 amount = 6;
+  string thumbnail_url = 7;
+}
+
+message GetOrderSnapshotsRequest {
+  repeated string product_ids = 1;
+}
+
+message GetOrderSnapshotsResponse {
+  repeated ProductOrderSnapshot products = 1;
+}
+
+message ProductOrderSnapshot {
+  string product_id = 1;
+  string seller_id = 2;
+  string title = 3;
+  string product_type = 4;
+  int32 amount = 5;
+  string model = 6;
 }
 
 message GetProductContentRequest {
