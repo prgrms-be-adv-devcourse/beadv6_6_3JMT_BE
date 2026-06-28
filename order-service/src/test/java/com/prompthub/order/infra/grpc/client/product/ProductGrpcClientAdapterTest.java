@@ -1,15 +1,14 @@
 package com.prompthub.order.infra.grpc.client.product;
 
 import com.prompthub.exception.BusinessException;
-import com.prompthub.grpc.product.v1.GetCartSnapshotResponse;
 import com.prompthub.grpc.product.v1.GetCartSnapshotsRequest;
 import com.prompthub.grpc.product.v1.GetCartSnapshotsResponse;
 import com.prompthub.grpc.product.v1.GetOrderSnapshotsRequest;
 import com.prompthub.grpc.product.v1.GetOrderSnapshotsResponse;
 import com.prompthub.grpc.product.v1.GetProductContentRequest;
 import com.prompthub.grpc.product.v1.GetProductContentResponse;
+import com.prompthub.grpc.product.v1.ProductCartSnapshotMessage;
 import com.prompthub.grpc.product.v1.ProductInternalServiceGrpc;
-import com.prompthub.grpc.product.v1.ProductOrderSnapshotResponse;
 import com.prompthub.order.application.dto.ProductCartSnapshot;
 import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
@@ -74,6 +73,7 @@ class ProductGrpcClientAdapterTest {
 		assertThat(snapshots.getFirst().title()).isEqualTo("테스트 상품");
 		assertThat(snapshots.getFirst().productType()).isEqualTo("PROMPT");
 		assertThat(snapshots.getFirst().amount()).isEqualTo(10000);
+		assertThat(snapshots.getFirst().model()).isEqualTo("GPT-4");
 	}
 
 	@Test
@@ -205,26 +205,26 @@ class ProductGrpcClientAdapterTest {
 		return new ProductGrpcClientAdapter(ProductInternalServiceGrpc.newBlockingStub(channel), deadlineMs);
 	}
 
-	private ProductOrderSnapshotResponse orderSnapshot(UUID productId) {
-		return ProductOrderSnapshotResponse.newBuilder()
+	private com.prompthub.grpc.product.v1.ProductOrderSnapshot orderSnapshot(UUID productId) {
+		return com.prompthub.grpc.product.v1.ProductOrderSnapshot.newBuilder()
 			.setProductId(productId.toString())
 			.setSellerId(SELLER_ID.toString())
 			.setTitle("테스트 상품")
 			.setProductType("PROMPT")
 			.setAmount(10000)
+			.setModel("GPT-4")
 			.build();
 	}
 
-	private GetCartSnapshotResponse cartSnapshot(UUID productId) {
-		return GetCartSnapshotResponse.newBuilder()
+	private ProductCartSnapshotMessage cartSnapshot(UUID productId) {
+		return ProductCartSnapshotMessage.newBuilder()
 			.setProductId(productId.toString())
+			.setSellerId(SELLER_ID.toString())
+			.setSellerNickname("판매자")
 			.setTitle("테스트 상품")
 			.setProductType("PROMPT")
 			.setAmount(10000)
 			.setThumbnailUrl("https://example.com/thumb.png")
-			.setSellerId(SELLER_ID.toString())
-			.setSellerNickname("판매자")
-			.setStatus("ON_SALE")
 			.build();
 	}
 }
