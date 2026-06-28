@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record ProductPriceChangedEvent(
+	String eventType,
 	UUID productId,
 	int previousPrice,
 	int changedPrice,
