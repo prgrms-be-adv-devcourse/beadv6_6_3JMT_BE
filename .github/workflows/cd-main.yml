@@ -1,9 +1,12 @@
-name: CD - Main
+name: CD - Main (ECR, 비활성)
 
+# 비활성화: 문서 방향 CD(cd-selfhosted-compose.yml)로 전환함.
+# push:main 자동 배포를 끄고 수동 실행만 남김. 되살리려면 아래 push 블록을 복구.
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - main
 
 permissions:
   contents: read

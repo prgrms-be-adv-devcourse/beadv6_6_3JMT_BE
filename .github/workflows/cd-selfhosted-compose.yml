@@ -1,0 +1,121 @@
+# =============================================================================
+# CD — 문서 방향(EC2 셀프호스티드 러너 빌드 + docker compose)
+#
+# !! 기존 스크립트와의 구분 !!
+#   - 기존 cd-main.yml = ECR 방식: GitHub 러너가 이미지 빌드→ECR push, EC2는 pull 후 up.
+#   - 이 파일       = 문서 방식: EC2 셀프호스티드 러너가 직접 빌드(docker compose --build) 후 up.
+#   둘이 동시에 main push 로 돌면 같은 EC2에 이중 배포가 되므로, 이 파일은 수동 트리거
+#   (workflow_dispatch)로 둔다. 이쪽을 정식 채택할 때 아래 push 트리거를 켜고
+#   cd-main.yml 을 비활성화(또는 삭제)한다.
+#
+# 전제
+#   - EC2 self-hosted 러너 라벨: [self-hosted, linux, deploy] (기존과 동일 러너 재사용 가능)
+#   - EC2에 앱 env(.env)가 영속적으로 존재: ${DEPLOY_DIR}/.env (레포에 커밋하지 않음)
+#   - 레포 루트의 build 기반 docker-compose.yml 을 사용한다(build: + MODULE_PATH args).
+# =============================================================================
+
+name: CD - Self-hosted Compose (doc direction)   # 기존 'CD - Main'과 구분되는 이름
+
+on:
+  push:                        # main 머지 시 자동 배포(정식 채택). cd-main.yml은 비활성.
+    branches: [main]
+  workflow_dispatch:           # 수동 실행도 가능
+    inputs:
+      rebuild_all:
+        description: "전체 재빌드 여부(true면 --build, false면 이미지 재사용)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-selfhosted        # cd-main 의 'cd-main' 그룹과 다른 그룹 → 서로 취소 안 함
+  cancel-in-progress: false
+
+env:
+  DEPLOY_DIR: /home/ec2-user/prompthub      # EC2 배포 디렉토리(.env 가 여기 있음)
+  COMPOSE_FILE: docker-compose.yml          # 레포 루트의 build 기반 compose
+
+jobs:
+  deploy:
+    name: Build & Deploy on EC2
+    runs-on: [self-hosted, linux, deploy]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: env 확인
+        shell: bash
+        run: |
+          if [ ! -f "${DEPLOY_DIR}/.env" ]; then
+            echo "EC2에 ${DEPLOY_DIR}/.env 가 없습니다. 앱 env를 먼저 두세요."
+            exit 1
+          fi
+          echo ".env 확인 완료"
+
+      - name: Build & Up (docker compose)
+        shell: bash
+        run: |
+          # 단일 루트 Dockerfile을 compose의 build.args(MODULE_PATH)로 모듈마다 빌드 후 기동.
+          # --env-file 로 EC2의 영속 .env를 주입(이미지 태그가 아니라 앱 설정·시크릿).
+          # push(main) 자동 배포는 항상 빌드. 수동 실행은 rebuild_all 토글을 따른다.
+          BUILD_FLAG="--build"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.rebuild_all }}" != "true" ]; then
+            BUILD_FLAG=""
+          fi
+
+          docker compose -f "${COMPOSE_FILE}" --env-file "${DEPLOY_DIR}/.env" \
+            up -d ${BUILD_FLAG} --remove-orphans
+
+      - name: Health check
+        shell: bash
+        run: |
+          health_check() {
+            local service="$1"
+            local url="$2"
+            for i in {1..20}; do
+              if curl -fsS "$url" > /dev/null; then
+                echo "${service} health check success"
+                return 0
+              fi
+              echo "${service} waiting... attempt=${i}"
+              sleep 5
+            done
+            echo "${service} health check failed"
+            docker logs --tail=200 "$service" || true
+            exit 1
+          }
+
+          # 기동 순서상 인프라·discovery·config 가 먼저 떠야 한다.
+          health_check "discovery"          "http://localhost:8761/actuator/health"
+          health_check "config"             "http://localhost:8888/actuator/health"
+          health_check "user-service"       "http://localhost:8081/actuator/health"
+          health_check "product-service"    "http://localhost:8082/actuator/health"
+          health_check "order-service"      "http://localhost:8083/actuator/health"
+          health_check "payment-service"    "http://localhost:8084/actuator/health"
+          health_check "settlement-service" "http://localhost:8085/actuator/health"
+          health_check "apigateway"         "http://localhost:8000/actuator/health"
+
+      - name: Cleanup dangling images
+        if: always()
+        shell: bash
+        run: docker image prune -f || true
+
+# -----------------------------------------------------------------------------
+# 기존 cd-main.yml 과의 차이 요약
+#   구분        | cd-main.yml (ECR)            | 이 초안 (문서 방향)
+#   ----------- | ---------------------------- | ----------------------------------
+#   빌드 위치   | GitHub 호스티드 러너         | EC2 self-hosted 러너
+#   레지스트리  | ECR push/pull                | 없음(EC2 로컬 빌드)
+#   배포 단위   | 변경 모듈만(부분)            | compose 전체(up -d). 부분 원하면 서비스명 인자화
+#   compose     | image: ${*_IMAGE}            | build: + MODULE_PATH args
+#   트리거      | push: main (자동)            | workflow_dispatch (수동, 충돌 방지)
+#   필요 시크릿 | AWS_GITHUB_ACTIONS_ROLE_ARN  | 없음(EC2 .env 만)
+#
+# 주의
+#   - 이 방식은 매 배포마다 EC2에서 8개 모듈을 빌드 → 느리고 EC2 자원 많이 씀.
+#     ECR 방식 대비 단순하지만 무겁다. 트레이드오프 인지하고 선택.
+#   - actuator /actuator/health 가 전 서비스에 노출돼야 health check 가 통과한다.
+#   - 인프라(postgres/kafka)도 같은 compose 에 있어야 up -d 로 함께 뜬다.
+# -----------------------------------------------------------------------------
