@@ -266,18 +266,17 @@ public final class OrderFixture {
 		LocalDateTime paidAt,
 		boolean download
 	) {
+		boolean isRefundable = orderStatus == OrderStatus.PAID && orderProductStatus == OrderStatus.PAID && !download;
 		return new OrderPaymentListProjection(
 			ORDER_ID,
-			ORDER_PRODUCT_ID,
 			PAYMENT_ID,
 			orderStatus,
-			orderProductStatus,
+			isRefundable,
 			PRODUCT_TYPE_PROMPT,
 			PRODUCT_TITLE_1,
-			PRODUCT_AMOUNT_1,
+			TOTAL_AMOUNT,
 			paidAt,
-			APPROVED_AT,
-			download
+			APPROVED_AT
 		);
 	}
 }

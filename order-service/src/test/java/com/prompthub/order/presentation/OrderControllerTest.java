@@ -687,7 +687,6 @@ class OrderControllerTest {
 				// given
 				OrderPaymentListResponse payment = new OrderPaymentListResponse(
 					ORDER_ID,
-					ORDER_PRODUCT_ID,
 					PAYMENT_ID,
 					PaymentStatus.PAID,
 					true,
@@ -712,7 +711,6 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.success").value(true))
 					.andExpect(jsonPath("$.message").value("success"))
 					.andExpect(jsonPath("$.data[0].orderId").value(ORDER_ID.toString()))
-					.andExpect(jsonPath("$.data[0].orderProductId").value(ORDER_PRODUCT_ID.toString()))
 					.andExpect(jsonPath("$.data[0].paymentId").value(PAYMENT_ID.toString()))
 					.andExpect(jsonPath("$.data[0].paymentStatus").value("PAID"))
 					.andExpect(jsonPath("$.data[0].isRefundable").value(true))

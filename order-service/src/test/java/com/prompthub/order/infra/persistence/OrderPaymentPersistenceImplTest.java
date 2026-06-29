@@ -26,10 +26,14 @@ import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
 import static com.prompthub.order.fixture.OrderFixture.ORDER_NUMBER;
 import static com.prompthub.order.fixture.OrderFixture.PAYMENT_ID;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_AMOUNT_1;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_AMOUNT_2;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_ID_1;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_ID_2;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TITLE_1;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TITLE_2;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TYPE_PROMPT;
 import static com.prompthub.order.fixture.OrderFixture.SELLER_ID_1;
+import static com.prompthub.order.fixture.OrderFixture.SELLER_ID_2;
 import static com.prompthub.order.fixture.OrderFixture.TOTAL_AMOUNT;
 import static com.prompthub.order.fixture.OrderFixture.TOTAL_ITEM_COUNT;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -118,8 +122,7 @@ class OrderPaymentPersistenceImplTest {
 		entityManager.clear();
 
 		PageRequest pageable = PageRequest.of(0, 20, Sort.by(
-			Sort.Order.desc("approvedAt"),
-			Sort.Order.asc("orderProductId")
+			Sort.Order.desc("approvedAt")
 		));
 
 		// when
@@ -131,14 +134,71 @@ class OrderPaymentPersistenceImplTest {
 
 		OrderPaymentListProjection projection = result.getContent().getFirst();
 		assertThat(projection.orderId()).isEqualTo(order.getId());
-		assertThat(projection.orderProductId()).isEqualTo(orderProduct.getId());
 		assertThat(projection.paymentId()).isEqualTo(PAYMENT_ID);
 		assertThat(projection.orderStatus()).isEqualTo(OrderStatus.PAID);
-		assertThat(projection.orderProductStatus()).isEqualTo(OrderStatus.PAID);
+		assertThat(projection.isRefundable()).isTrue();
 		assertThat(projection.productType()).isEqualTo(PRODUCT_TYPE_PROMPT);
 		assertThat(projection.title()).isEqualTo(PRODUCT_TITLE_1);
-		assertThat(projection.amount()).isEqualTo(PRODUCT_AMOUNT_1);
+		assertThat(projection.amount()).isEqualTo(TOTAL_AMOUNT);
 		assertThat(projection.paidAt()).isEqualTo(APPROVED_AT);
 		assertThat(projection.approvedAt()).isEqualTo(APPROVED_AT);
+	}
+
+	@Test
+	@DisplayName("다건 상품 결제는 결제 건 기준 1개 row로 조회한다")
+	void searchOrderPayments_multiProductPayment_groupedByPayment_success() {
+		// given
+		Order order = Order.create(BUYER_ID, ORDER_NUMBER, TOTAL_AMOUNT, TOTAL_ITEM_COUNT);
+		order.addOrderProduct(OrderProduct.create(
+			PRODUCT_ID_1,
+			SELLER_ID_1,
+			PRODUCT_TITLE_1,
+			PRODUCT_TYPE_PROMPT,
+			"GPT-4",
+			PRODUCT_AMOUNT_1
+		));
+		order.addOrderProduct(OrderProduct.create(
+			PRODUCT_ID_2,
+			SELLER_ID_2,
+			PRODUCT_TITLE_2,
+			PRODUCT_TYPE_PROMPT,
+			"GPT-4",
+			PRODUCT_AMOUNT_2
+		));
+		order.markPaid(APPROVED_AT);
+
+		entityManager.persist(order);
+		entityManager.persist(OrderPayment.create(
+			order.getId(),
+			PAYMENT_ID,
+			BUYER_ID,
+			TOTAL_AMOUNT,
+			APPROVED_AT
+		));
+
+		entityManager.flush();
+		entityManager.clear();
+
+		PageRequest pageable = PageRequest.of(0, 1, Sort.by(
+			Sort.Order.desc("approvedAt")
+		));
+
+		// when
+		Page<OrderPaymentListProjection> result = orderPaymentPersistence.searchOrderPayments(BUYER_ID, pageable);
+
+		// then
+		assertThat(result.getTotalElements()).isEqualTo(1);
+		assertThat(result.hasNext()).isFalse();
+		assertThat(result.getContent()).hasSize(1);
+
+		OrderPaymentListProjection projection = result.getContent().getFirst();
+		assertThat(projection.orderId()).isEqualTo(order.getId());
+		assertThat(projection.paymentId()).isEqualTo(PAYMENT_ID);
+		assertThat(projection.title()).isIn(
+			PRODUCT_TITLE_1 + " 외 1건",
+			PRODUCT_TITLE_2 + " 외 1건"
+		);
+		assertThat(projection.amount()).isEqualTo(TOTAL_AMOUNT);
+		assertThat(projection.isRefundable()).isTrue();
 	}
 }

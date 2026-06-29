@@ -756,8 +756,7 @@ class OrderServiceTest {
                 false
             );
             PageRequest pageable = PageRequest.of(0, 20, Sort.by(
-                Sort.Order.desc("approvedAt"),
-                Sort.Order.asc("orderProductId")
+                Sort.Order.desc("approvedAt")
             ));
 
             given(orderPaymentRepository.searchOrderPayments(BUYER_ID, pageable))
@@ -774,14 +773,13 @@ class OrderServiceTest {
 
             OrderPaymentListResponse payment = response.getContent().getFirst();
             assertThat(payment.orderId()).isEqualTo(ORDER_ID);
-            assertThat(payment.orderProductId()).isEqualTo(ORDER_PRODUCT_ID);
             assertThat(payment.paymentId()).isEqualTo(PAYMENT_ID);
             assertThat(payment.paymentStatus()).isEqualTo(PaymentStatus.PAID);
             assertThat(payment.isRefundable()).isTrue();
 
             assertThat(payment.productType()).isEqualTo(PRODUCT_TYPE_PROMPT);
             assertThat(payment.title()).isEqualTo(PRODUCT_TITLE_1);
-            assertThat(payment.amount()).isEqualTo(PRODUCT_AMOUNT_1);
+            assertThat(payment.amount()).isEqualTo(TOTAL_AMOUNT);
             assertThat(payment.paidAt()).isEqualTo(PAID_AT);
 
             then(orderPaymentRepository).should().searchOrderPayments(BUYER_ID, pageable);
@@ -846,8 +844,7 @@ class OrderServiceTest {
                 false
             );
             PageRequest pageable = PageRequest.of(0, 20, Sort.by(
-                Sort.Order.desc("approvedAt"),
-                Sort.Order.asc("orderProductId")
+                Sort.Order.desc("approvedAt")
             ));
 
             given(orderPaymentRepository.searchOrderPayments(BUYER_ID, pageable))
