@@ -203,7 +203,7 @@
 | orderProducts[].productType | Enum | 상품 유형 (`PROMPT` / `TEMPLATE` / `DATASET` / `IMAGE_ASSET`) |
 | orderProducts[].productAmount | Integer | 상품 가격 (구매 당시 스냅샷) |
 | orderProducts[].orderProductStatus | Enum | 항목 상태 (`PENDING` / `PAID` / `FAILED` / `CANCELED` / `REFUNDED`) |
-| orderProducts[].isDownload | Boolean | 해당 항목 열람 여부 |
+| orderProducts[].downloaded | Boolean | 해당 항목 열람 여부 |
 | orderProducts[].contentAvailable | Boolean | 콘텐츠 열람 가능 여부 (`PAID` 상태일 때 `true`) |
 
 ```json
@@ -232,7 +232,7 @@
         "productType": "PROMPT",
         "productAmount": 15000,
         "orderProductStatus": "PAID",
-        "isDownload": false,
+        "downloaded": false,
         "contentAvailable": true
       }
     ]
@@ -266,7 +266,7 @@
 | orderProductId | UUID | 주문 항목 ID |
 | orderNumber | String | 주문 번호 |
 | productId | UUID | 상품 ID |
-| isDownload | Boolean | 콘텐츠 열람 여부. 최초 열람 시 `true`로 갱신 |
+| downloaded | Boolean | 콘텐츠 열람 여부. 최초 열람 시 `true`로 갱신 |
 | productTitle | String | 상품명 (**논의 중** — 지희님과 확인 필요) |
 | contentUrl | String | 콘텐츠 S3 URL (**논의 중** — 지희님과 확인 필요) |
 
@@ -278,7 +278,7 @@
     "orderProductId": "op1c2a7e-4b8d-4e2a-9c11-2d3e4f5a2222",
     "orderNumber": "ORD-20260618-000001",
     "productId": "p1b55b60-5e84-4f3f-b4f1-6c10e1a22222",
-    "isDownload": true,
+    "downloaded": true,
     "productTitle": "면접 답변 프롬프트",
     "contentUrl": "https://s3.ap-northeast-2.amazonaws.com/prompthub-content/..."
   },
