@@ -32,7 +32,7 @@
 | 상품 유형 스냅샷 * | product_type_snapshot | VARCHAR(30) | ✓ | | 구매 당시 상품 유형 |
 | 상품 가격 스냅샷 * | product_amount_snapshot | INT | ✓ | | 구매 당시 단가. 가격 변경과 무관하게 보존 |
 | 주문 항목 상태 * | order_product_status | order_product_status_type | ✓ | | PENDING / PAID / FAILED / CANCELED / REFUNDED |
-| 다운로드 여부 * | is_download | BOOLEAN | ✓ | FALSE | |
+| 다운로드 여부 * | downloaded | BOOLEAN | ✓ | FALSE | |
 | 생성 일시 * | created_at | TIMESTAMPTZ | ✓ | | 불변 |
 | 취소 일시 | canceled_at | TIMESTAMPTZ | | NULL | 부분 취소 확장용 |
 | 환불 일시 | refunded_at | TIMESTAMPTZ | | NULL | 부분 환불 확장용 |

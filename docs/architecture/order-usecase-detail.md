@@ -275,7 +275,7 @@ sequenceDiagram
 | API | `GET /orders/{orderId}/content/{orderProductId}` |
 | 포함 UC | PAID 상태 확인, 주문항목 다운로드 처리 |
 | 사전조건 | 구매자가 인증되어 있고 주문과 주문항목이 구매자 소유이다. |
-| 완료 조건 | 콘텐츠 열람 응답이 반환되고 최초 열람이면 `is_download`가 `true`로 변경된다. |
+| 완료 조건 | 콘텐츠 열람 응답이 반환되고 최초 열람이면 `downloaded`가 `true`로 변경된다. |
 
 흐름 다이어그램:
 
@@ -292,7 +292,7 @@ sequenceDiagram
     DB-->>Order: order, order_product
     Order->>Order: 구매자 소유 및 PAID 상태 확인
     alt 최초 열람
-        Order->>DB: is_download = true 갱신
+        Order->>DB: downloaded = true 갱신
     end
     Order-->>Buyer: 콘텐츠 열람 응답
 ```
@@ -304,7 +304,7 @@ sequenceDiagram
 3. 주문이 요청 구매자 소유인지 확인한다.
 4. 주문항목이 해당 주문에 속하는지 확인한다.
 5. 주문항목 상태가 `PAID`인지 확인한다.
-6. 최초 열람이면 주문항목의 `is_download`를 `true`로 갱신한다.
+6. 최초 열람이면 주문항목의 `downloaded`를 `true`로 갱신한다.
 7. 주문 번호, 상품 ID, 열람 여부, 콘텐츠 접근 정보를 반환한다.
 
 대안/예외:
@@ -636,7 +636,7 @@ sequenceDiagram
 | 목표 | 구매자가 콘텐츠를 열람한 이력을 주문항목에 기록한다. |
 | 사용 위치 | 구매 상품 콘텐츠 열람 |
 | 사전조건 | 주문항목이 `PAID` 상태이다. |
-| 완료 조건 | 주문항목의 `is_download`가 `true`가 된다. |
+| 완료 조건 | 주문항목의 `downloaded`가 `true`가 된다. |
 
 흐름 다이어그램:
 
@@ -645,10 +645,10 @@ sequenceDiagram
     participant Order as Order Service
     participant DB as Order DB
 
-    Order->>DB: 주문항목 is_download 조회
+    Order->>DB: 주문항목 downloaded 조회
     DB-->>Order: 현재 열람 여부
     alt 최초 열람
-        Order->>DB: is_download = true 저장
+        Order->>DB: downloaded = true 저장
     else 이미 열람
         Order->>Order: 상태 유지
     end
@@ -657,7 +657,7 @@ sequenceDiagram
 
 기본 흐름:
 
-1. Order Service는 주문항목의 `is_download` 값을 확인한다.
+1. Order Service는 주문항목의 `downloaded` 값을 확인한다.
 2. `false`이면 `true`로 변경한다.
 3. 이미 `true`이면 상태를 유지한다.
 4. 갱신된 열람 여부를 콘텐츠 열람 응답에 반영한다.
