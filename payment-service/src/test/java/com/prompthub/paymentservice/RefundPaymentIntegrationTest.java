@@ -10,6 +10,7 @@ import com.prompthub.paymentservice.domain.model.PaymentStatus;
 import com.prompthub.paymentservice.infrastructure.messaging.config.PaymentTopic;
 import com.prompthub.paymentservice.infrastructure.persistence.PaymentJpaRepository;
 import com.prompthub.paymentservice.support.AbstractIntegrationTest;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,6 +34,7 @@ import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -107,7 +109,7 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
         // 다른 테스트에서 동일 토픽에 메시지가 발행됐을 수 있으므로
         // getSingleRecord() 대신 직접 폴링으로 orderId key 메시지를 탐색
         try {
-            long deadline = System.currentTimeMillis() + 30_000;
+            long deadline = System.currentTimeMillis() + 10_000;
             boolean found = false;
             while (!found && System.currentTimeMillis() < deadline) {
                 var polled = consumer.poll(java.time.Duration.ofMillis(500));
@@ -118,7 +120,7 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
                     }
                 }
             }
-            assertThat(found).withFailMessage("30초 내 payment.refunded Kafka 메시지 수신 실패").isTrue();
+            assertThat(found).withFailMessage("10초 내 payment.refunded Kafka 메시지 수신 실패").isTrue();
         } finally {
             consumer.close();
         }
@@ -139,15 +141,14 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
 
         환불_요청(payment.getId(), userId);
 
-        // AFTER_COMMIT 처리 완료 대기
-        try {
-            Thread.sleep(3_000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-
-        Payment restored = paymentJpaRepository.findById(payment.getId()).orElseThrow();
-        assertThat(restored.getStatus()).isEqualTo(PaymentStatus.PAID);
+        // AFTER_COMMIT 처리 완료를 조건부 대기
+        await()
+            .atMost(Duration.ofSeconds(5))
+            .pollInterval(Duration.ofMillis(200))
+            .untilAsserted(() -> {
+                Payment restored = paymentJpaRepository.findById(payment.getId()).orElseThrow();
+                assertThat(restored.getStatus()).isEqualTo(PaymentStatus.PAID);
+            });
     }
 
     @Test
