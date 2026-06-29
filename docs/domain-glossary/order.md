@@ -60,3 +60,14 @@
 | 장바구니 ID * | cart_id | UUID | ✓ | | FK → cart.cart_id |
 | 상품 ID * | product_id | UUID | ✓ | | FK → product.product_id |
 | 담은 시각 * | added_at | TIMESTAMPTZ | ✓ | | |
+
+---
+
+## 주요 파생 속성 (Derived Attributes)
+
+물리적인 DB 컬럼은 아니지만, 도메인 로직 및 API 응답에서 중요하게 사용되는 파생 속성입니다.
+
+| 이름 | 영문 | 반환 타입 | 설명 및 계산 로직 |
+|------|------|---------|------|
+| 환불 가능 여부 | isRefundable | BOOLEAN | 결제 상태가 PAID이면서, 연관된 상품 중 다운로드(downloaded)된 상품이 하나도 없는 경우 `true`. (주문 건 단위 및 상품 단위로 사용됨) |
+| 다운로드된 상품 포함 여부 | hasDownloadedProduct | BOOLEAN | 주문 내에 다운로드(downloaded) 상태가 `true`인 상품이 하나라도 존재하는지 여부. |
