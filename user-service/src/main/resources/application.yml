@@ -13,7 +13,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
@@ -35,5 +35,5 @@ eureka:
 grpc:
   client:
     product-service:
-      address: 'static://localhost:9082'
+      address: ${PRODUCT_SERVICE_GRPC_ADDRESS:static://localhost:9082}
       negotiation-type: plaintext

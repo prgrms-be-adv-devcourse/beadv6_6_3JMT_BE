@@ -1,0 +1,253 @@
+# =============================================================================
+# 루트 배포용 docker-compose 초안 (DRAFT)
+#
+# !! 위치 주의 !!
+#   이 파일은 settlement-service 모듈 경계 안에 둔 "초안"이다.
+#   실제로는 레포 루트(beadv6_6_3JMT_BE/docker-compose.yml)로 옮겨야 동작한다.
+#   - build context가 레포 루트여야 한다(루트 Dockerfile이 common-module을 형제로 COPY).
+#   - 옮긴 뒤 `docker compose up -d --build` 로 N개 이미지 빌드 + 기동이 한 번에 된다.
+#
+# 전제(이번 논의에서 정한 것)
+#   - env는 EC2에 .env로 둔다(레포 루트의 .env를 compose가 읽음).
+#   - 각 모듈 yml의 localhost 설정은 무시하고, 여기 environment로 prod 값을 주입한다.
+#     (Spring은 환경변수 우선순위가 yml보다 높아, yml에 localhost가 박혀 있어도 덮어쓴다.)
+#   - DB는 postgres 1개(단일 인스턴스·단일 DB)로 공유한다.
+#
+# 전제(2)
+#   - 모든 모듈 JPA ddl-auto = update 로 통일(결정됨). user(validate)·payment(create-drop)는
+#     update 로 수정 완료. order의 test 프로파일 create-drop 은 테스트 전용이라 유지.
+#
+# 담당자 확인 필요
+#   - 단일 DB 공유 시 서비스 간 테이블/스키마 충돌 여부 검토 필요(모두 update라 자동 생성).
+#   - 시크릿 env: user(JWT_PRIVATE_KEY·JWT_PUBLIC_KEY), payment(TOSS_SECRET_KEY) 등 .env 필요.
+# =============================================================================
+
+services:
+
+  # ----- 인프라 -------------------------------------------------------------
+  postgres:
+    image: postgres:18.4-alpine
+    container_name: prompthub-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    restart: always
+    networks: [prompthub]
+    # 외부 노출은 운영에선 빼는 걸 권장(컨테이너끼리는 network로 통신).
+    # ports: ["5432:5432"]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.8.0
+    container_name: prompthub-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # 컨테이너끼리 kafka:9092 로 접속 — 로컬 compose의 localhost와 다른 점이 핵심.
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 1
+      CLUSTER_ID: 5L6g3nShT-eMCtK--X86sw
+    restart: always
+    networks: [prompthub]
+
+  # README에 Redis 뱃지가 있으나 현재 어느 모듈 설정에도 참조가 없어 주석 처리.
+  # 쓰는 모듈이 있으면 주석 해제하고 그 모듈 environment에 SPRING_DATA_REDIS_HOST=redis 추가.
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: prompthub-redis
+  #   restart: always
+  #   networks: [prompthub]
+
+  # ----- Spring Cloud 코어(앱보다 먼저 떠야 함) -----------------------------
+  discovery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE_NAME: discovery
+        MODULE_PATH: discovery
+    container_name: discovery
+    # discovery 자신은 8761(yml). Dockerfile EXPOSE 8080은 문서용일 뿐 실제 포트와 무관.
+    ports: ["8761:8761"]   # Eureka 대시보드 확인용(운영선 막아도 됨)
+    restart: always
+    networks: [prompthub]
+
+  config:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE_NAME: config
+        MODULE_PATH: config
+    container_name: config
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+    depends_on: [discovery]
+    restart: always
+    networks: [prompthub]
+
+  # ----- 비즈니스 서비스 ----------------------------------------------------
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE_NAME: user-service
+        MODULE_PATH: user-service
+    container_name: user-service
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      # JWT 키 — 기본값 없음(없으면 기동 실패). gateway의 public-key와 같은 키쌍이어야 한다.
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+      # user가 product를 gRPC 호출(yml: grpc.client.product-service.address, env화 완료)
+      PRODUCT_SERVICE_GRPC_ADDRESS: static://product-service:9082
+      # product-service는 depends_on에 넣지 않는다 — user↔product 순환 의존이 되어
+      # compose가 거부한다. gRPC 상호 호출은 런타임 의존이라 restart:always 재시도로 푼다.
+    depends_on: [postgres, kafka, discovery, config]
+    restart: always
+    networks: [prompthub]
+
+  product-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE_NAME: product-service
+        MODULE_PATH: product-service
+    container_name: product-service
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      # product가 user를 gRPC 호출(yml: USER_SERVICE_GRPC_HOST/PORT)
+      USER_SERVICE_GRPC_HOST: user-service
+      USER_SERVICE_GRPC_PORT: "9081"
+    depends_on: [postgres, kafka, discovery, config, user-service]
+    restart: always
+    networks: [prompthub]
+
+  order-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE_NAME: order-service
+        MODULE_PATH: order-service
+    container_name: order-service
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # order의 메인 datasource는 이미 postgres+update. H2는 test 프로파일 전용이라
+      # SPRING_PROFILES_ACTIVE를 test로 안 주는 한 영향 없음.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      # order가 product/user를 gRPC 호출(yml: *_GRPC_HOST/PORT)
+      PRODUCT_GRPC_HOST: product-service
+      PRODUCT_GRPC_PORT: "9082"
+      SELLER_GRPC_HOST: user-service
+      SELLER_GRPC_PORT: "9081"
+    depends_on: [postgres, kafka, discovery, config, user-service, product-service]
+    restart: always
+    networks: [prompthub]
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE_NAME: payment-service
+        MODULE_PATH: payment-service
+    container_name: payment-service
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on: [postgres, kafka, discovery, config]
+    restart: always
+    networks: [prompthub]
+
+  settlement-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE_NAME: settlement-service
+        MODULE_PATH: settlement-service
+    container_name: settlement-service
+    environment:
+      # settlement은 yml이 이미 env화돼 있음(CONFIG_SERVER_URL 포함).
+      CONFIG_SERVER_URL: http://config:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      # settlement이 user/product를 gRPC 호출(yml: *_GRPC_ADDRESS = host:port 한 덩어리)
+      USER_SERVICE_GRPC_ADDRESS: user-service:9081
+      PRODUCT_SERVICE_GRPC_ADDRESS: product-service:9082
+    depends_on: [postgres, kafka, discovery, config, user-service, product-service]
+    restart: always
+    networks: [prompthub]
+
+  # ----- 게이트웨이(마지막, 외부 진입점) ------------------------------------
+  apigateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE_NAME: apigateway
+        MODULE_PATH: apigateway
+    container_name: apigateway
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}   # 기본값 없음, 없으면 기동 실패
+      # !! CORS 미구현 !! 현재 apigateway에 CORS 설정이 전혀 없다(yml·자바 모두).
+      # Vercel 프론트가 게이트웨이를 부르면 브라우저 CORS에 막힌다.
+      # spring.cloud.gateway.globalcors 로 Vercel 도메인 허용을 추가해야 한다(담당자 작업).
+      # CORS_ALLOWED_ORIGINS: https://prompthub-fe.vercel.app
+    ports: ["8000:8000"]   # 외부에 열어야 하는 유일한 포트
+    depends_on:
+      - discovery
+      - config
+      - user-service
+      - product-service
+      - order-service
+      - payment-service
+      - settlement-service
+    restart: always
+    networks: [prompthub]
+
+volumes:
+  pg-data:
+
+networks:
+  prompthub:
+    driver: bridge
