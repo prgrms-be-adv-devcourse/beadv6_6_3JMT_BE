@@ -10,7 +10,7 @@ group = 'com.prompthub'
 version = '0.0.1-SNAPSHOT'
 
 ext {
-    grpcVersion = '1.69.0'
+    grpcVersion = '1.80.0'
     protobufVersion = '4.28.2'
 }
 
