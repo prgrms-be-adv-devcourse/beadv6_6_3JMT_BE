@@ -94,6 +94,10 @@ public class OrderPolicyService {
 			&& !download;
 	}
 
+	public boolean isRefundable(Order order) {
+		return order.isPaid() && order.getOrderProducts().stream().noneMatch(com.prompthub.order.domain.model.OrderProduct::isDownload);
+	}
+
 	public void validatePaymentApproval(Order order, PaymentApprovedEvent event) {
 		if (!order.isPending()) {
 			throw new OrderException(ErrorCode.ORDER_PAYMENT_STATUS_INVALID);

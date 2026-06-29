@@ -192,8 +192,7 @@ public class OrderService implements OrderUseCase {
 			page - 1,
 			size,
 			Sort.by(
-				Sort.Order.desc("approvedAt"),
-				Sort.Order.asc("orderProductId")
+				Sort.Order.desc("approvedAt")
 			)
 		);
 
@@ -237,10 +236,9 @@ public class OrderService implements OrderUseCase {
 	private OrderPaymentListResponse toOrderPaymentListResponse(OrderPaymentListProjection projection) {
 		return new OrderPaymentListResponse(
 			projection.orderId(),
-			projection.orderProductId(),
 			projection.paymentId(),
 			PaymentStatus.from(projection.orderStatus()),
-			orderPolicyService.isRefundable(projection.orderStatus(), projection.orderProductStatus(), projection.download()),
+			projection.isRefundable(),
 			projection.productType(),
 			projection.title(),
 			projection.amount(),
