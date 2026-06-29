@@ -35,7 +35,7 @@ class OrderProductTest {
 			assertThat(orderProduct.getUpdatedAt()).isNotNull();
 			assertThat(orderProduct.getCanceledAt()).isNull();
 			assertThat(orderProduct.getRefundedAt()).isNull();
-			assertThat(orderProduct.isDownload()).isFalse();
+			assertThat(orderProduct.isDownloaded()).isFalse();
 		}
 	}
 
@@ -186,20 +186,56 @@ class OrderProductTest {
 
 			// then
 			assertThat(orderProduct.getOrderStatus()).isEqualTo(OrderStatus.PAID);
-			assertThat(orderProduct.isDownload()).isTrue();
+			assertThat(orderProduct.isDownloaded()).isTrue();
 			assertThat(orderProduct.getUpdatedAt()).isNotNull();
 		}
 
 		@Test
-		@DisplayName("PAID 상태가 아닌 주문상품은 다운로드 처리할 수 없다")
-		void markDownloaded_notPaidOrderProduct_throwsException() {
+		@DisplayName("이미 다운로드된 주문상품은 다시 다운로드 처리해도 정상 성공한다")
+		void markDownloaded_alreadyDownloaded_success() {
+			// given
+			OrderProduct orderProduct = createOrderProduct1();
+			orderProduct.markPaid();
+			orderProduct.markDownloaded();
+
+			// when
+			orderProduct.markDownloaded();
+
+			// then
+			assertThat(orderProduct.isDownloaded()).isTrue();
+		}
+
+		@Test
+		@DisplayName("PAID 상태이고 다운로드하지 않은 주문상품은 환불 가능하다")
+		void isRefundable_paidAndNotDownloaded_returnsTrue() {
+			// given
+			OrderProduct orderProduct = createOrderProduct1();
+			orderProduct.markPaid();
+
+			// when & then
+			assertThat(orderProduct.isRefundable()).isTrue();
+		}
+
+		@Test
+		@DisplayName("다운로드한 주문상품은 환불 가능하지 않다")
+		void isRefundable_downloaded_returnsFalse() {
+			// given
+			OrderProduct orderProduct = createOrderProduct1();
+			orderProduct.markPaid();
+			orderProduct.markDownloaded();
+
+			// when & then
+			assertThat(orderProduct.isRefundable()).isFalse();
+		}
+
+		@Test
+		@DisplayName("PAID 상태가 아닌 주문상품은 환불 가능하지 않다")
+		void isRefundable_notPaid_returnsFalse() {
 			// given
 			OrderProduct orderProduct = createOrderProduct1();
 
 			// when & then
-			assertThatThrownBy(orderProduct::markDownloaded)
-				.isInstanceOf(OrderException.class)
-				.hasMessage("결제 완료된 주문 상품만 다운로드 처리할 수 있습니다.");
+			assertThat(orderProduct.isRefundable()).isFalse();
 		}
 	}
 }

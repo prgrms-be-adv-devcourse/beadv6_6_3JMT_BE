@@ -192,6 +192,33 @@ class OrderPolicyServiceTest {
 	}
 
 	@Nested
+	@DisplayName("환불/취소 사전 검증")
+	class RefundOrCancelPolicy {
+
+		@Test
+		@DisplayName("다운로드한 주문상품이 없으면 예외가 발생하지 않는다")
+		void validateNoDownloadedProduct_withoutDownloadedProduct_success() {
+			Order order = createPaidOrderWithProducts();
+
+			orderPolicyService.validateNoDownloadedProduct(order);
+		}
+
+		@Test
+		@DisplayName("다운로드한 주문상품이 있으면 O002 예외가 발생한다")
+		void validateNoDownloadedProduct_withDownloadedProduct_throwsException() {
+			Order order = createPaidOrderWithProducts();
+			order.getOrderProducts().getFirst().markDownloaded();
+
+			assertThatThrownBy(() -> orderPolicyService.validateNoDownloadedProduct(order))
+				.isInstanceOf(OrderException.class)
+				.satisfies(exception ->
+					assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.ORDER_CANCEL_NOT_ALLOWED)
+				)
+				.hasMessage("이미 다운로드한 상품은 환불할 수 없습니다.");
+		}
+	}
+
+	@Nested
 	@DisplayName("결제 승인 정책")
 	class PaymentApprovalPolicy {
 

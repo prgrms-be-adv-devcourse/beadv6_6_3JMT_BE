@@ -16,6 +16,7 @@ import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
+import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,6 +47,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -73,6 +75,42 @@ class OrderControllerTest {
 	}
 
 
+
+	@Nested
+	@DisplayName("주문상품 다운로드 확정 (PATCH /api/v1/orders/{orderId}/products/{orderProductId}/download)")
+	class ConfirmDownload {
+
+		@Test
+		@DisplayName("주문상품 다운로드 확정 성공")
+		void confirmDownload_success() throws Exception {
+			// given
+			OrderProductDownloadResponse response = new OrderProductDownloadResponse(
+				ORDER_ID,
+				ORDER_PRODUCT_ID,
+				true,
+				false
+			);
+
+			when(orderUseCase.confirmDownload(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID)))
+				.thenReturn(response);
+
+			// when & then
+			mockMvc.perform(patch("/api/v1/orders/{orderId}/products/{orderProductId}/download", ORDER_ID, ORDER_PRODUCT_ID)
+					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.message").value("success"))
+				.andExpect(jsonPath("$.data.orderId").value(ORDER_ID.toString()))
+				.andExpect(jsonPath("$.data.orderProductId").value(ORDER_PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data.downloaded").value(true))
+				.andExpect(jsonPath("$.data.isDownload").doesNotExist())
+				.andExpect(jsonPath("$.data.isRefundable").value(false))
+				.andExpect(jsonPath("$.data.isRefund").doesNotExist());
+
+			verify(orderUseCase).confirmDownload(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID));
+		}
+	}
 
 	@Nested
 	@DisplayName("구매 상품 콘텐츠 열람 (GET /api/v1/orders/{orderId}/content/{orderProductId})")
@@ -111,7 +149,8 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data.orderProductId").value(ORDER_PRODUCT_ID.toString()))
 					.andExpect(jsonPath("$.data.orderNumber").value(ORDER_NUMBER))
 					.andExpect(jsonPath("$.data.productId").value(PRODUCT_ID_1.toString()))
-					.andExpect(jsonPath("$.data.isDownload").value(true))
+					.andExpect(jsonPath("$.data.downloaded").value(true))
+					.andExpect(jsonPath("$.data.isDownload").doesNotExist())
 					.andExpect(jsonPath("$.data.productTitle").value(PRODUCT_TITLE_1))
 					.andExpect(jsonPath("$.data.content").value(content));
 
@@ -189,6 +228,7 @@ class OrderControllerTest {
 					PRODUCT_AMOUNT_1,
 					OrderStatus.PAID,
 					true,
+					true,
 					false
 				);
 				OrderDetailResponse response = new OrderDetailResponse(
@@ -226,7 +266,8 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data.canceledAt").doesNotExist())
 					.andExpect(jsonPath("$.data.refundedAt").doesNotExist())
 					.andExpect(jsonPath("$.data.createdAt").value("2026-06-20T11:58:00"))
-					.andExpect(jsonPath("$.data.hasDownloadProduct").value(false))
+					.andExpect(jsonPath("$.data.hasDownloadedProduct").value(false))
+					.andExpect(jsonPath("$.data.hasDownloadProduct").doesNotExist())
 					.andExpect(jsonPath("$.data.products[0].orderProductId").value(ORDER_PRODUCT_ID.toString()))
 					.andExpect(jsonPath("$.data.products[0].productId").value(PRODUCT_ID_1.toString()))
 					.andExpect(jsonPath("$.data.products[0].sellerId").value(SELLER_ID_1.toString()))
@@ -235,7 +276,10 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data.products[0].productAmountSnapshot").value(PRODUCT_AMOUNT_1))
 					.andExpect(jsonPath("$.data.products[0].orderStatus").value("PAID"))
 					.andExpect(jsonPath("$.data.products[0].isContentAccessible").value(true))
-					.andExpect(jsonPath("$.data.products[0].download").value(false));
+					.andExpect(jsonPath("$.data.products[0].isRefundable").value(true))
+					.andExpect(jsonPath("$.data.products[0].isRefund").doesNotExist())
+					.andExpect(jsonPath("$.data.products[0].downloaded").value(false))
+					.andExpect(jsonPath("$.data.products[0].download").doesNotExist());
 
 				verify(orderUseCase).getOrderDetail(eq(BUYER_ID), eq(ORDER_ID));
 			}
@@ -574,6 +618,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID_1.toString()))
 					.andExpect(jsonPath("$.data[0].orderStatus").value("PAID"))
 					.andExpect(jsonPath("$.data[0].isRefundable").value(true))
+					.andExpect(jsonPath("$.data[0].isRefund").doesNotExist())
 					.andExpect(jsonPath("$.data[0].productType").value(PRODUCT_TYPE_PROMPT))
 					.andExpect(jsonPath("$.data[0].title").value(PRODUCT_TITLE_1))
 					.andExpect(jsonPath("$.data[0].model").value(PRODUCT_MODEL))
@@ -714,6 +759,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data[0].paymentId").value(PAYMENT_ID.toString()))
 					.andExpect(jsonPath("$.data[0].paymentStatus").value("PAID"))
 					.andExpect(jsonPath("$.data[0].isRefundable").value(true))
+					.andExpect(jsonPath("$.data[0].isRefund").doesNotExist())
 					.andExpect(jsonPath("$.data[0].productType").value(PRODUCT_TYPE_PROMPT))
 					.andExpect(jsonPath("$.data[0].title").value(PRODUCT_TITLE_1))
 					.andExpect(jsonPath("$.data[0].amount").value(PRODUCT_AMOUNT_1))
