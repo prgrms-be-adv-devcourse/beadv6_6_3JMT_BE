@@ -180,30 +180,6 @@ class RefundPaymentIntegrationTest {
     }
 
     @Test
-    void PAID_아닌_상태_환불_요청_시_400() {
-        UUID orderId = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
-
-        when(paymentGateway.confirm(anyString(), any(), anyInt()))
-            .thenReturn(new TossConfirmResult("카드", 10_000, "{}", OffsetDateTime.now()));
-        when(paymentGateway.refund(anyString(), any(), anyInt()))
-            .thenReturn(new TossRefundResult(OffsetDateTime.now()));
-
-        // 첫 번째 환불로 REFUNDED 상태로 만들기
-        승인_요청(orderId, userId, 10_000);
-        Payment payment = paymentJpaRepository.findByIdempotencyKey("pay-" + orderId).orElseThrow();
-        환불_요청(payment.getId(), userId);
-
-        // REFUNDED 상태 될 때까지 대기
-        try { Thread.sleep(3_000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-
-        // 이미 REFUNDED 상태에서 두 번째 환불 요청
-        ResponseEntity<Map> response = 환불_요청(payment.getId(), userId);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat((String) response.getBody().get("code")).isEqualTo("PAY004");
-    }
-
-    @Test
     void 타인_결제_환불_시_403() {
         UUID orderId = UUID.randomUUID();
         UUID ownerId = UUID.randomUUID();

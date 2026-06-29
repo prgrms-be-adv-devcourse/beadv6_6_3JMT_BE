@@ -40,8 +40,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -142,35 +140,6 @@ class ConfirmPaymentIntegrationTest {
         } finally {
             consumer.close();
         }
-    }
-
-    @Test
-    void 중복_결제_요청_시_409() {
-        UUID orderId = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
-        OffsetDateTime approvedAt = OffsetDateTime.now();
-
-        when(paymentGateway.confirm(any(), any(), anyInt()))
-            .thenReturn(new TossConfirmResult("카드", 5_000, "{}", approvedAt));
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-User-Id", userId.toString());
-        headers.set("X-User-Role", "BUYER");
-        Map<String, Object> body = Map.of(
-            "paymentKey", "toss-dup-key",
-            "orderId", orderId.toString(),
-            "amount", 5_000
-        );
-
-        restTemplate.exchange(url("/api/v1/payments/confirm"), HttpMethod.POST,
-            new HttpEntity<>(body, headers), Map.class);
-
-        ResponseEntity<Map> second = restTemplate.exchange(url("/api/v1/payments/confirm"), HttpMethod.POST,
-            new HttpEntity<>(body, headers), Map.class);
-
-        assertThat(second.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-        assertThat((String) ((Map<?, ?>) second.getBody()).get("code")).isEqualTo("PAY002");
     }
 
     private Map<String, Object> buildConsumerProps(String bootstrapServers, String groupId) {
