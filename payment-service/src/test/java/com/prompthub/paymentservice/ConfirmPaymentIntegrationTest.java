@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -27,7 +26,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
@@ -52,6 +50,7 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void setUpRestTemplate() {
+        paymentJpaRepository.deleteAll();
         restTemplate = new RestTemplate();
         restTemplate.setErrorHandler(new DefaultResponseErrorHandler() {
             @Override
@@ -78,6 +77,8 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProps);
         TopicPartition partition = new TopicPartition(PaymentTopic.PAYMENT_APPROVED, 0);
         consumer.assign(java.util.List.of(partition));
+        // seekToBeginning은 lazy — poll(ZERO)로 메타데이터 먼저 초기화 후 적용
+        consumer.poll(Duration.ZERO);
         consumer.seekToBeginning(java.util.List.of(partition));
 
         HttpHeaders headers = new HttpHeaders();
@@ -98,6 +99,7 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
         assertThat((Boolean) response.getBody().get("success")).isTrue();
 
         Payment payment = paymentJpaRepository.findByIdempotencyKey("pay-" + orderId).orElseThrow();
@@ -105,12 +107,20 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         assertThat(payment.getApprovedAmount()).isEqualTo(10_000);
         assertThat(payment.getUserId()).isEqualTo(userId);
 
+        // 다른 테스트의 메시지가 남아있을 수 있으므로 orderId key로 직접 탐색
         try {
-            ConsumerRecord<String, String> record = KafkaTestUtils.getSingleRecord(
-                consumer, PaymentTopic.PAYMENT_APPROVED, Duration.ofSeconds(30)
-            );
-            assertThat(record).isNotNull();
-            assertThat(record.key()).isEqualTo(orderId.toString());
+            long deadline = System.currentTimeMillis() + 10_000;
+            boolean found = false;
+            while (!found && System.currentTimeMillis() < deadline) {
+                var polled = consumer.poll(Duration.ofMillis(500));
+                for (var r : polled) {
+                    if (orderId.toString().equals(r.key())) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            assertThat(found).withFailMessage("10초 내 payment.approved Kafka 메시지 수신 실패").isTrue();
         } finally {
             consumer.close();
         }

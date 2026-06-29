@@ -59,7 +59,7 @@ dependencyManagement {
 
 tasks.named('test') {
     useJUnitPlatform()
-    maxParallelForks = Math.max(1, Runtime.runtime.availableProcessors() / 2 as int)
+    maxParallelForks = 1
 }
 
 checkstyle {

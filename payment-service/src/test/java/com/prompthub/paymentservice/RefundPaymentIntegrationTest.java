@@ -9,6 +9,7 @@ import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;
 import com.prompthub.paymentservice.infrastructure.messaging.config.PaymentTopic;
 import com.prompthub.paymentservice.infrastructure.persistence.PaymentJpaRepository;
+import com.prompthub.paymentservice.infrastructure.persistence.RefundJpaRepository;
 import com.prompthub.paymentservice.support.AbstractIntegrationTest;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -50,11 +51,16 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     PaymentJpaRepository paymentJpaRepository;
 
+    @Autowired
+    RefundJpaRepository refundJpaRepository;
+
     @MockitoBean
     PaymentGateway paymentGateway;
 
     @BeforeEach
     void setUpRestTemplate() {
+        refundJpaRepository.deleteAll();
+        paymentJpaRepository.deleteAll();
         restTemplate = new RestTemplate();
         restTemplate.setErrorHandler(new DefaultResponseErrorHandler() {
             @Override
@@ -98,6 +104,7 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
         // 환불 요청
         ResponseEntity<Map> refundResponse = 환불_요청(payment.getId(), userId);
         assertThat(refundResponse.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(refundResponse.getBody()).isNotNull();
         assertThat((Boolean) refundResponse.getBody().get("success")).isTrue();
 
         // DB 상태 최종 확인
@@ -105,7 +112,6 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
         assertThat(refunded.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
         assertThat(refunded.getRefundedAt()).isNotNull();
 
-        // Kafka 메시지 수신 확인
         // 다른 테스트에서 동일 토픽에 메시지가 발행됐을 수 있으므로
         // getSingleRecord() 대신 직접 폴링으로 orderId key 메시지를 탐색
         try {
@@ -165,6 +171,7 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
 
         ResponseEntity<Map> response = 환불_요청(payment.getId(), otherId);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(response.getBody()).isNotNull();
         assertThat((String) response.getBody().get("code")).isEqualTo("PAY006");
     }
 

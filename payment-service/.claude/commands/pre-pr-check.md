@@ -1,13 +1,13 @@
 ---
-description: PR 작성 전 origin pull → diverge/충돌 가능성을 확인합니다. /create-pr 실행 시 자동으로 선행됩니다.
+description: PR 작성 전 origin fetch → diverge/충돌 가능성을 확인합니다. /create-pr 실행 시 자동으로 선행됩니다.
 ---
 
 아래 절차를 단계별로 수행하라.
 
-## 1단계: origin pull
+## 1단계: origin fetch
 
 ```bash
-git pull
+git fetch origin
 ```
 
 ## 2단계: 현재 브랜치 확인 및 미커밋 변경 체크
