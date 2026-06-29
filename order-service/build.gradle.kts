@@ -44,9 +44,9 @@ dependencies {
     implementation("org.springframework.cloud:spring-cloud-starter-config")
     implementation("org.springframework.cloud:spring-cloud-starter-netflix-eureka-client")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0")
-    implementation("io.grpc:grpc-netty-shaded:1.69.0")
-    implementation("io.grpc:grpc-protobuf:1.69.0")
-    implementation("io.grpc:grpc-stub:1.69.0")
+    implementation("io.grpc:grpc-netty-shaded:1.80.0")
+    implementation("io.grpc:grpc-protobuf:1.80.0")
+    implementation("io.grpc:grpc-stub:1.80.0")
     implementation("com.google.protobuf:protobuf-java:4.29.3")
     compileOnly("javax.annotation:javax.annotation-api:1.3.2")
     implementation("org.projectlombok:lombok")
@@ -62,7 +62,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.springframework.kafka:spring-kafka-test")
     testImplementation("org.awaitility:awaitility:4.2.2")
-    testImplementation("io.grpc:grpc-inprocess:1.69.0")
+    testImplementation("io.grpc:grpc-inprocess:1.80.0")
     runtimeOnly("org.postgresql:postgresql")
     runtimeOnly("com.h2database:h2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -74,7 +74,7 @@ protobuf {
     }
     plugins {
         named("grpc") {
-            artifact = "io.grpc:protoc-gen-grpc-java:1.69.0"
+            artifact = "io.grpc:protoc-gen-grpc-java:1.80.0"
         }
     }
     generateProtoTasks {

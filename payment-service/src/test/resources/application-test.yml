@@ -1,0 +1,14 @@
+spring:
+  jpa:
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+  cloud:
+    config:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false
