@@ -57,7 +57,7 @@ public class OrderPaymentPersistenceImpl implements OrderPaymentPersistenceCusto
 				title += " 외 " + (products.size() - 1) + "건";
 			}
 
-			boolean isRefundable = o.isPaid() && products.stream().noneMatch(com.prompthub.order.domain.model.OrderProduct::isDownload);
+			boolean isRefundable = o.isPaid() && products.stream().noneMatch(com.prompthub.order.domain.model.OrderProduct::isDownloaded);
 			String productType = products.isEmpty() ? "" : products.get(0).getProductType();
 
 			return new OrderPaymentListProjection(

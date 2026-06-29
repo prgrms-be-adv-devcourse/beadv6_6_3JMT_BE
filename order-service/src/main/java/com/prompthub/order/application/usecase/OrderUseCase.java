@@ -7,6 +7,7 @@ import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
+import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import org.springframework.data.domain.Page;
 
 import java.util.UUID;
@@ -18,6 +19,8 @@ public interface OrderUseCase {
 	OrderDetailResponse getOrderDetail(UUID buyerId, UUID orderId);
 
 	OrderContentResponse getOrderContent(UUID buyerId, UUID orderId, UUID orderProductId);
+
+	OrderProductDownloadResponse confirmDownload(UUID buyerId, UUID orderId, UUID orderProductId);
 
 	Page<OrderListResponse> getOrders(UUID buyerId, PageRequestParams request);
 

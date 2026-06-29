@@ -25,7 +25,9 @@ public record OrderDetailProductResponse(
 	OrderStatus orderStatus,
 	@Schema(description = "구매 콘텐츠 열람 가능 여부", example = "true")
 	boolean isContentAccessible,
-	@Schema(description = "다운로드형 상품 여부", example = "true")
-	boolean download
+	@Schema(description = "환불 가능 여부", example = "true")
+	boolean isRefundable,
+	@Schema(description = "상품이 다운로드되었는지 여부", example = "true")
+	boolean downloaded
 ) {
 }

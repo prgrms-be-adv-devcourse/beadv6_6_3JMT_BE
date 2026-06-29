@@ -31,7 +31,7 @@ public record OrderDetailResponse(
 	LocalDateTime refundedAt,
 	@Schema(description = "주문 생성 일시. yyyy-MM-dd'T'HH:mm:ss 형식", example = "2026-06-18T14:30:00")
 	LocalDateTime createdAt,
-	@Schema(description = "다운로드형 상품 포함 여부", example = "true")
-	boolean hasDownloadProduct
+	@Schema(description = "다운로드된 상품 포함 여부", example = "true")
+	boolean hasDownloadedProduct
 ) {
 }
