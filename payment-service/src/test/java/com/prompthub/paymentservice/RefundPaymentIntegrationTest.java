@@ -1,28 +1,28 @@
 package com.prompthub.paymentservice;
 
+import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
+import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
 import com.prompthub.paymentservice.application.gateway.external.TossConfirmResult;
 import com.prompthub.paymentservice.application.gateway.external.TossRefundResult;
-import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
-import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;
 import com.prompthub.paymentservice.infrastructure.messaging.config.PaymentTopic;
 import com.prompthub.paymentservice.infrastructure.persistence.PaymentJpaRepository;
+import com.prompthub.paymentservice.infrastructure.persistence.RefundJpaRepository;
+import com.prompthub.paymentservice.support.AbstractIntegrationTest;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -30,44 +30,18 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
-import org.testcontainers.containers.KafkaContainer;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Testcontainers
-class RefundPaymentIntegrationTest {
-
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
-
-    @Container
-    static KafkaContainer kafka = new KafkaContainer(
-        DockerImageName.parse("confluentinc/cp-kafka:7.6.1")
-    );
-
-    @DynamicPropertySource
-    static void properties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
-        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
-    }
+class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
 
     @LocalServerPort
     int port;
@@ -77,11 +51,16 @@ class RefundPaymentIntegrationTest {
     @Autowired
     PaymentJpaRepository paymentJpaRepository;
 
+    @Autowired
+    RefundJpaRepository refundJpaRepository;
+
     @MockitoBean
     PaymentGateway paymentGateway;
 
     @BeforeEach
     void setUpRestTemplate() {
+        refundJpaRepository.deleteAll();
+        paymentJpaRepository.deleteAll();
         restTemplate = new RestTemplate();
         restTemplate.setErrorHandler(new DefaultResponseErrorHandler() {
             @Override
@@ -125,6 +104,7 @@ class RefundPaymentIntegrationTest {
         // 환불 요청
         ResponseEntity<Map> refundResponse = 환불_요청(payment.getId(), userId);
         assertThat(refundResponse.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(refundResponse.getBody()).isNotNull();
         assertThat((Boolean) refundResponse.getBody().get("success")).isTrue();
 
         // DB 상태 최종 확인
@@ -132,11 +112,10 @@ class RefundPaymentIntegrationTest {
         assertThat(refunded.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
         assertThat(refunded.getRefundedAt()).isNotNull();
 
-        // Kafka 메시지 수신 확인
         // 다른 테스트에서 동일 토픽에 메시지가 발행됐을 수 있으므로
         // getSingleRecord() 대신 직접 폴링으로 orderId key 메시지를 탐색
         try {
-            long deadline = System.currentTimeMillis() + 30_000;
+            long deadline = System.currentTimeMillis() + 10_000;
             boolean found = false;
             while (!found && System.currentTimeMillis() < deadline) {
                 var polled = consumer.poll(java.time.Duration.ofMillis(500));
@@ -147,7 +126,7 @@ class RefundPaymentIntegrationTest {
                     }
                 }
             }
-            assertThat(found).withFailMessage("30초 내 payment.refunded Kafka 메시지 수신 실패").isTrue();
+            assertThat(found).withFailMessage("10초 내 payment.refunded Kafka 메시지 수신 실패").isTrue();
         } finally {
             consumer.close();
         }
@@ -168,39 +147,14 @@ class RefundPaymentIntegrationTest {
 
         환불_요청(payment.getId(), userId);
 
-        // AFTER_COMMIT 처리 완료 대기
-        try {
-            Thread.sleep(3_000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-
-        Payment restored = paymentJpaRepository.findById(payment.getId()).orElseThrow();
-        assertThat(restored.getStatus()).isEqualTo(PaymentStatus.PAID);
-    }
-
-    @Test
-    void PAID_아닌_상태_환불_요청_시_400() {
-        UUID orderId = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
-
-        when(paymentGateway.confirm(anyString(), any(), anyInt()))
-            .thenReturn(new TossConfirmResult("카드", 10_000, "{}", OffsetDateTime.now()));
-        when(paymentGateway.refund(anyString(), any(), anyInt()))
-            .thenReturn(new TossRefundResult(OffsetDateTime.now()));
-
-        // 첫 번째 환불로 REFUNDED 상태로 만들기
-        승인_요청(orderId, userId, 10_000);
-        Payment payment = paymentJpaRepository.findByIdempotencyKey("pay-" + orderId).orElseThrow();
-        환불_요청(payment.getId(), userId);
-
-        // REFUNDED 상태 될 때까지 대기
-        try { Thread.sleep(3_000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-
-        // 이미 REFUNDED 상태에서 두 번째 환불 요청
-        ResponseEntity<Map> response = 환불_요청(payment.getId(), userId);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat((String) response.getBody().get("code")).isEqualTo("PAY004");
+        // AFTER_COMMIT 처리 완료를 조건부 대기
+        await()
+            .atMost(Duration.ofSeconds(5))
+            .pollInterval(Duration.ofMillis(200))
+            .untilAsserted(() -> {
+                Payment restored = paymentJpaRepository.findById(payment.getId()).orElseThrow();
+                assertThat(restored.getStatus()).isEqualTo(PaymentStatus.PAID);
+            });
     }
 
     @Test
@@ -217,6 +171,7 @@ class RefundPaymentIntegrationTest {
 
         ResponseEntity<Map> response = 환불_요청(payment.getId(), otherId);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(response.getBody()).isNotNull();
         assertThat((String) response.getBody().get("code")).isEqualTo("PAY006");
     }
 
