@@ -14,8 +14,8 @@ public record OrderContentResponse(
 	String orderNumber,
 	@Schema(description = "상품 ID", example = "p1b55b60-5e84-4f3f-b4f1-6c10e1a22222")
 	UUID productId,
-	@Schema(description = "다운로드형 상품 여부", example = "true")
-	boolean isDownload,
+	@Schema(description = "상품이 다운로드되었는지 여부", example = "true")
+	boolean downloaded,
 	@Schema(description = "상품 제목", example = "면접 준비 프롬프트")
 	String productTitle,
 	@Schema(description = "구매 후 열람 가능한 콘텐츠 원문", example = "구매 후 확인 가능한 프롬프트 원문")

@@ -10,6 +10,7 @@ import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
+import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import com.prompthub.presentation.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -134,5 +135,24 @@ public class OrderController {
 			orderPayments.getTotalElements(),
 			orderPayments.hasNext()
 		);
+	}
+
+	@PatchMapping("/{orderId}/products/{orderProductId}/download")
+	@Operation(summary = "주문상품 다운로드 확정", description = "구매자가 다운로드 버튼을 클릭했음을 기록하고 환불 가능 여부를 반환합니다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "주문상품 다운로드 확정 성공"),
+		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음"),
+		@ApiResponse(responseCode = "403", description = "A004 권한 없음, E001 구매 콘텐츠 열람 불가"),
+		@ApiResponse(responseCode = "404", description = "O001 주문 없음, O012 주문 상품 없음")
+	})
+	public ApiResult<OrderProductDownloadResponse> confirmDownload(
+		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@RequestHeader(USER_ID) UUID buyerId,
+		@Parameter(description = "주문 ID", example = "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111")
+		@PathVariable UUID orderId,
+		@Parameter(description = "주문 상품 ID", example = "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa")
+		@PathVariable UUID orderProductId
+	) {
+		return ApiResult.success(orderUseCase.confirmDownload(buyerId, orderId, orderProductId));
 	}
 }

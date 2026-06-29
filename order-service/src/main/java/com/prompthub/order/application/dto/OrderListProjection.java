@@ -11,7 +11,7 @@ public record OrderListProjection(
 	UUID productId,
 	OrderStatus orderStatus,
 	OrderStatus orderProductStatus,
-	boolean download,
+	boolean downloaded,
 	String productType,
 	String title,
 	String model,

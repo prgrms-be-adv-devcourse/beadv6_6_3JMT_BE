@@ -40,7 +40,7 @@ public class OrderPersistenceImpl implements OrderPersistenceCustom {
                 orderProduct.productId,
                 order.orderStatus,
                 orderProduct.orderStatus,
-                orderProduct.download,
+                orderProduct.downloaded,
                 orderProduct.productType,
                 orderProduct.productTitle,
                 orderProduct.productModel,

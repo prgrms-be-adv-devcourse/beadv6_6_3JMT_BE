@@ -20,6 +20,7 @@ import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
+import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -74,13 +75,126 @@ class OrderServiceTest {
 
 
     @Nested
+    @DisplayName("주문상품 다운로드 확정")
+    class ConfirmDownload {
+
+        @Test
+        @DisplayName("결제 완료된 본인 주문상품이면 다운로드 처리하고 환불 불가로 응답한다")
+        void confirmDownload_paidOwnerOrderProduct_success() {
+            // given
+            Order order = createPaidOrderWithProducts();
+            OrderProduct orderProduct = order.getOrderProducts().getFirst();
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+            given(productClient.getProductContent(orderProduct.getProductId()))
+                .willReturn(new ProductContent(orderProduct.getProductId(), "content"));
+
+            // when
+            OrderProductDownloadResponse response = orderService.confirmDownload(BUYER_ID, order.getId(), orderProduct.getId());
+
+            // then
+            assertThat(response.orderId()).isEqualTo(order.getId());
+            assertThat(response.orderProductId()).isEqualTo(orderProduct.getId());
+            assertThat(response.downloaded()).isTrue();
+            assertThat(response.isRefundable()).isFalse();
+            assertThat(orderProduct.isDownloaded()).isTrue();
+
+            then(orderRepository).should().findByIdWithOrderProducts(order.getId());
+            then(productClient).should().getProductContent(orderProduct.getProductId());
+        }
+
+        @Test
+        @DisplayName("이미 다운로드된 주문상품도 정상 성공한다")
+        void confirmDownload_alreadyDownloaded_success() {
+            // given
+            Order order = createPaidOrderWithProducts();
+            OrderProduct orderProduct = order.getOrderProducts().getFirst();
+            orderProduct.markDownloaded();
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+            given(productClient.getProductContent(orderProduct.getProductId()))
+                .willReturn(new ProductContent(orderProduct.getProductId(), "content"));
+
+            // when
+            OrderProductDownloadResponse response = orderService.confirmDownload(BUYER_ID, order.getId(), orderProduct.getId());
+
+            // then
+            assertThat(response.downloaded()).isTrue();
+            assertThat(response.isRefundable()).isFalse();
+            assertThat(orderProduct.isDownloaded()).isTrue();
+        }
+
+        @Test
+        @DisplayName("주문 소유자가 아니면 다운로드 확정에 실패한다")
+        void confirmDownload_notOwner_throwsException() {
+            // given
+            Order order = createPaidOrderWithProducts();
+            UUID otherBuyerId = UUID.fromString("00000000-0000-0000-0000-000000000777");
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderService.confirmDownload(otherBuyerId, order.getId(), order.getOrderProducts().getFirst().getId()))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN)
+                );
+
+            then(productClient).should(never()).getProductContent(any());
+        }
+
+        @Test
+        @DisplayName("PAID 상태가 아닌 주문은 다운로드 처리할 수 없다")
+        void confirmDownload_notPaidOrder_throwsException() {
+            // given
+            Order order = createPendingOrderWithProducts();
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderService.confirmDownload(BUYER_ID, order.getId(), order.getOrderProducts().getFirst().getId()))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.ORDER_CONTENT_ACCESS_DENIED)
+                );
+
+            then(productClient).should(never()).getProductContent(any());
+        }
+
+        @Test
+        @DisplayName("PAID 상태가 아닌 주문상품은 다운로드 처리할 수 없다")
+        void confirmDownload_notPaidOrderProduct_throwsException() {
+            // given
+            Order order = createPaidOrderWithProducts();
+            OrderProduct orderProduct = order.getOrderProducts().getFirst();
+            ReflectionTestUtils.setField(orderProduct, "orderStatus", OrderStatus.REFUNDED);
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderService.confirmDownload(BUYER_ID, order.getId(), orderProduct.getId()))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.ORDER_CONTENT_ACCESS_DENIED)
+                );
+
+            then(productClient).should(never()).getProductContent(any());
+        }
+    }
+
+    @Nested
     @DisplayName("구매 상품 콘텐츠 열람")
     class GetOrderContent {
 
         private static final String PRODUCT_CONTENT = "구매 후 확인 가능한 프롬프트 원문";
 
         @Test
-        @DisplayName("결제 완료된 본인 주문상품이면 콘텐츠를 반환하고 다운로드 처리한다")
+        @DisplayName("결제 완료된 본인 주문상품이면 콘텐츠를 반환하고 다운로드 처리하지 않는다")
         void getOrderContent_paidOwnerOrderProduct_success() {
             // given
             Order order = createPaidOrderWithProducts();
@@ -99,10 +213,10 @@ class OrderServiceTest {
             assertThat(response.orderProductId()).isEqualTo(orderProduct.getId());
             assertThat(response.orderNumber()).isEqualTo(ORDER_NUMBER);
             assertThat(response.productId()).isEqualTo(orderProduct.getProductId());
-            assertThat(response.isDownload()).isTrue();
+            assertThat(response.downloaded()).isFalse();
             assertThat(response.productTitle()).isEqualTo(PRODUCT_TITLE_1);
             assertThat(response.content()).isEqualTo(PRODUCT_CONTENT);
-            assertThat(orderProduct.isDownload()).isTrue();
+            assertThat(orderProduct.isDownloaded()).isFalse();
 
             then(orderRepository).should().findByIdWithOrderProducts(order.getId());
             then(productClient).should().getProductContent(orderProduct.getProductId());
@@ -125,9 +239,9 @@ class OrderServiceTest {
             OrderContentResponse response = orderService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId());
 
             // then
-            assertThat(response.isDownload()).isTrue();
+            assertThat(response.downloaded()).isTrue();
             assertThat(response.content()).isEqualTo(PRODUCT_CONTENT);
-            assertThat(orderProduct.isDownload()).isTrue();
+            assertThat(orderProduct.isDownloaded()).isTrue();
 
             then(productClient).should().getProductContent(orderProduct.getProductId());
         }
@@ -264,11 +378,12 @@ class OrderServiceTest {
             assertThat(response.canceledAt()).isNull();
             assertThat(response.refundedAt()).isNull();
             assertThat(response.createdAt()).isEqualTo(CREATED_AT);
-            assertThat(response.hasDownloadProduct()).isTrue();
+            assertThat(response.hasDownloadedProduct()).isTrue();
             assertThat(response.products()).hasSize(TOTAL_ITEM_COUNT);
             assertThat(response.products().getFirst().productId()).isEqualTo(PRODUCT_ID_1);
             assertThat(response.products().getFirst().isContentAccessible()).isTrue();
-            assertThat(response.products().getFirst().download()).isTrue();
+            assertThat(response.products().getFirst().isRefundable()).isFalse();
+            assertThat(response.products().getFirst().downloaded()).isTrue();
 
             then(orderRepository).should().findByIdWithOrderProducts(order.getId());
         }
@@ -756,8 +871,7 @@ class OrderServiceTest {
                 false
             );
             PageRequest pageable = PageRequest.of(0, 20, Sort.by(
-                Sort.Order.desc("approvedAt"),
-                Sort.Order.asc("orderProductId")
+                Sort.Order.desc("approvedAt")
             ));
 
             given(orderPaymentRepository.searchOrderPayments(BUYER_ID, pageable))
@@ -774,14 +888,13 @@ class OrderServiceTest {
 
             OrderPaymentListResponse payment = response.getContent().getFirst();
             assertThat(payment.orderId()).isEqualTo(ORDER_ID);
-            assertThat(payment.orderProductId()).isEqualTo(ORDER_PRODUCT_ID);
             assertThat(payment.paymentId()).isEqualTo(PAYMENT_ID);
             assertThat(payment.paymentStatus()).isEqualTo(PaymentStatus.PAID);
             assertThat(payment.isRefundable()).isTrue();
 
             assertThat(payment.productType()).isEqualTo(PRODUCT_TYPE_PROMPT);
             assertThat(payment.title()).isEqualTo(PRODUCT_TITLE_1);
-            assertThat(payment.amount()).isEqualTo(PRODUCT_AMOUNT_1);
+            assertThat(payment.amount()).isEqualTo(TOTAL_AMOUNT);
             assertThat(payment.paidAt()).isEqualTo(PAID_AT);
 
             then(orderPaymentRepository).should().searchOrderPayments(BUYER_ID, pageable);
@@ -846,8 +959,7 @@ class OrderServiceTest {
                 false
             );
             PageRequest pageable = PageRequest.of(0, 20, Sort.by(
-                Sort.Order.desc("approvedAt"),
-                Sort.Order.asc("orderProductId")
+                Sort.Order.desc("approvedAt")
             ));
 
             given(orderPaymentRepository.searchOrderPayments(BUYER_ID, pageable))

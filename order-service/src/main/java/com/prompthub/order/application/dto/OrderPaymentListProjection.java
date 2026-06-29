@@ -7,15 +7,13 @@ import java.util.UUID;
 
 public record OrderPaymentListProjection(
 	UUID orderId,
-	UUID orderProductId,
 	UUID paymentId,
 	OrderStatus orderStatus,
-	OrderStatus orderProductStatus,
+	boolean isRefundable,
 	String productType,
 	String title,
 	int amount,
 	LocalDateTime paidAt,
-	LocalDateTime approvedAt,
-	boolean download
+	LocalDateTime approvedAt
 ) {
 }

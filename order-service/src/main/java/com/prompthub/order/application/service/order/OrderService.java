@@ -22,6 +22,7 @@ import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
+import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -101,8 +102,8 @@ public class OrderService implements OrderUseCase {
 			.map(this::toOrderDetailProductResponse)
 			.toList();
 
-		boolean hasDownloadProduct = order.getOrderProducts().stream()
-			.anyMatch(OrderProduct::isDownload);
+		boolean hasDownloadedProduct = order.getOrderProducts().stream()
+			.anyMatch(OrderProduct::isDownloaded);
 
 		return new OrderDetailResponse(
 			order.getId(),
@@ -116,7 +117,7 @@ public class OrderService implements OrderUseCase {
 			order.getCanceledAt(),
 			order.getRefundedAt(),
 			order.getCreatedAt(),
-			hasDownloadProduct
+			hasDownloadedProduct
 		);
 	}
 
@@ -143,16 +144,44 @@ public class OrderService implements OrderUseCase {
 		}
 
 		ProductContent productContent = productClient.getProductContent(orderProduct.getProductId());
-		orderProduct.markDownloaded();
 
 		return new OrderContentResponse(
 			order.getId(),
 			orderProduct.getId(),
 			order.getOrderNumber(),
 			orderProduct.getProductId(),
-			orderProduct.isDownload(),
+			orderProduct.isDownloaded(),
 			orderProduct.getProductTitle(),
 			productContent.content()
+		);
+	}
+
+	@Override
+	public OrderProductDownloadResponse confirmDownload(UUID buyerId, UUID orderId, UUID orderProductId) {
+		Order order = orderRepository.findByIdWithOrderProducts(orderId)
+			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
+
+		if (!order.getBuyerId().equals(buyerId)) {
+			throw new OrderException(ErrorCode.FORBIDDEN);
+		}
+
+		OrderProduct orderProduct = order.getOrderProducts().stream()
+			.filter(product -> product.getId().equals(orderProductId))
+			.findFirst()
+			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_PRODUCT_NOT_FOUND));
+
+		if (!order.isPaid() || !orderProduct.isPaid()) {
+			throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
+		}
+
+		productClient.getProductContent(orderProduct.getProductId());
+		orderProduct.markDownloaded();
+
+		return new OrderProductDownloadResponse(
+			order.getId(),
+			orderProduct.getId(),
+			orderProduct.isDownloaded(),
+			orderProduct.isRefundable()
 		);
 	}
 
@@ -192,8 +221,7 @@ public class OrderService implements OrderUseCase {
 			page - 1,
 			size,
 			Sort.by(
-				Sort.Order.desc("approvedAt"),
-				Sort.Order.asc("orderProductId")
+				Sort.Order.desc("approvedAt")
 			)
 		);
 
@@ -208,7 +236,7 @@ public class OrderService implements OrderUseCase {
 			projection.orderProductId(),
 			projection.productId(),
 			projection.orderStatus(),
-			orderPolicyService.isRefundable(projection.orderStatus(), projection.orderProductStatus(), projection.download()),
+			orderPolicyService.isRefundable(projection.orderStatus(), projection.orderProductStatus(), projection.downloaded()),
 			projection.productType(),
 			projection.title(),
 			projection.model(),
@@ -230,17 +258,17 @@ public class OrderService implements OrderUseCase {
 			orderProduct.getProductAmount(),
 			orderProduct.getOrderStatus(),
 			orderProduct.isPaid(),
-			orderProduct.isDownload()
+			orderProduct.isRefundable(),
+			orderProduct.isDownloaded()
 		);
 	}
 
 	private OrderPaymentListResponse toOrderPaymentListResponse(OrderPaymentListProjection projection) {
 		return new OrderPaymentListResponse(
 			projection.orderId(),
-			projection.orderProductId(),
 			projection.paymentId(),
 			PaymentStatus.from(projection.orderStatus()),
-			orderPolicyService.isRefundable(projection.orderStatus(), projection.orderProductStatus(), projection.download()),
+			projection.isRefundable(),
 			projection.productType(),
 			projection.title(),
 			projection.amount(),

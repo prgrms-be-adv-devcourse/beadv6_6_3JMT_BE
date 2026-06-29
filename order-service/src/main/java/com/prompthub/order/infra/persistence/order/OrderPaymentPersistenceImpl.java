@@ -23,34 +23,59 @@ public class OrderPaymentPersistenceImpl implements OrderPaymentPersistenceCusto
 
 	@Override
 	public Page<OrderPaymentListProjection> searchOrderPayments(UUID buyerId, Pageable pageable) {
-		List<OrderPaymentListProjection> content = queryFactory
-			.select(Projections.constructor(OrderPaymentListProjection.class,
-				order.id,
-				orderProduct.id,
-				orderPayment.paymentId,
-				order.orderStatus,
-				orderProduct.orderStatus,
-				orderProduct.productType,
-				orderProduct.productTitle,
-				orderProduct.productAmount,
-				order.paidAt,
-				orderPayment.approvedAt,
-				orderProduct.download
-			))
+		List<com.querydsl.core.Tuple> tuples = queryFactory
+			.select(orderPayment, order)
 			.from(orderPayment)
 			.join(order).on(order.id.eq(orderPayment.orderId))
-			.join(order.orderProducts, orderProduct)
 			.where(orderPayment.buyerId.eq(buyerId))
-			.orderBy(orderPayment.approvedAt.desc(), orderProduct.id.asc())
+			.orderBy(orderPayment.approvedAt.desc())
 			.offset(pageable.getOffset())
 			.limit(pageable.getPageSize())
 			.fetch();
 
+		if (tuples.isEmpty()) {
+			return Page.empty(pageable);
+		}
+
+		List<UUID> orderIds = tuples.stream()
+			.map(t -> t.get(order).getId())
+			.toList();
+
+		queryFactory.selectFrom(order).distinct()
+			.leftJoin(order.orderProducts, orderProduct).fetchJoin()
+			.where(order.id.in(orderIds))
+			.fetch();
+
+		List<OrderPaymentListProjection> content = tuples.stream().map(t -> {
+			com.prompthub.order.domain.model.OrderPayment payment = t.get(orderPayment);
+			com.prompthub.order.domain.model.Order o = t.get(order);
+
+			List<com.prompthub.order.domain.model.OrderProduct> products = o.getOrderProducts();
+			
+			String title = products.isEmpty() ? "" : products.get(0).getProductTitle();
+			if (products.size() > 1) {
+				title += " 외 " + (products.size() - 1) + "건";
+			}
+
+			boolean isRefundable = o.isPaid() && products.stream().noneMatch(com.prompthub.order.domain.model.OrderProduct::isDownloaded);
+			String productType = products.isEmpty() ? "" : products.get(0).getProductType();
+
+			return new OrderPaymentListProjection(
+				o.getId(),
+				payment.getPaymentId(),
+				o.getOrderStatus(),
+				isRefundable,
+				productType,
+				title,
+				o.getTotalOrderAmount(),
+				o.getPaidAt(),
+				payment.getApprovedAt()
+			);
+		}).toList();
+
 		JPAQuery<Long> countQuery = queryFactory
-			.select(orderProduct.count())
+			.select(orderPayment.count())
 			.from(orderPayment)
-			.join(order).on(order.id.eq(orderPayment.orderId))
-			.join(order.orderProducts, orderProduct)
 			.where(orderPayment.buyerId.eq(buyerId));
 
 		return PageableExecutionUtils.getPage(content, pageable, countQuery::fetchOne);

@@ -123,7 +123,7 @@ erDiagram
         VARCHAR product_title_snapshot
         INT product_amount_snapshot
         order_product_status_type order_product_status
-        BOOLEAN is_download
+        BOOLEAN downloaded
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }

@@ -10,8 +10,6 @@ import java.util.UUID;
 public record OrderPaymentListResponse(
 	@Schema(description = "주문 ID", example = "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111")
 	UUID orderId,
-	@Schema(description = "주문 상품 ID", example = "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa")
-	UUID orderProductId,
 	@Schema(description = "결제 ID", example = "3f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a9999")
 	UUID paymentId,
 	@Schema(description = "결제 상태. PENDING, PAID, FAILED, CANCELED, REFUNDED", example = "PAID")

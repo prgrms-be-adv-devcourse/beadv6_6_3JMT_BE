@@ -241,7 +241,7 @@ public final class OrderFixture {
 	public static OrderListProjection orderListProjection(
 		OrderStatus orderStatus,
 		OrderStatus orderProductStatus,
-		boolean download,
+		boolean downloaded,
 		Double rating
 	) {
 		return new OrderListProjection(
@@ -250,7 +250,7 @@ public final class OrderFixture {
 			PRODUCT_ID_1,
 			orderStatus,
 			orderProductStatus,
-			download,
+			downloaded,
 			PRODUCT_TYPE_PROMPT,
 			PRODUCT_TITLE_1,
 			PRODUCT_MODEL,
@@ -264,20 +264,19 @@ public final class OrderFixture {
 		OrderStatus orderStatus,
 		OrderStatus orderProductStatus,
 		LocalDateTime paidAt,
-		boolean download
+		boolean downloaded
 	) {
+		boolean isRefundable = orderStatus == OrderStatus.PAID && orderProductStatus == OrderStatus.PAID && !downloaded;
 		return new OrderPaymentListProjection(
 			ORDER_ID,
-			ORDER_PRODUCT_ID,
 			PAYMENT_ID,
 			orderStatus,
-			orderProductStatus,
+			isRefundable,
 			PRODUCT_TYPE_PROMPT,
 			PRODUCT_TITLE_1,
-			PRODUCT_AMOUNT_1,
+			TOTAL_AMOUNT,
 			paidAt,
-			APPROVED_AT,
-			download
+			APPROVED_AT
 		);
 	}
 }

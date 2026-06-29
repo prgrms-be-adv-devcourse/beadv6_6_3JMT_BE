@@ -4,6 +4,7 @@ import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
+import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
@@ -87,11 +88,24 @@ public class OrderPolicyService {
 	public boolean isRefundable(
 		OrderStatus orderStatus,
 		OrderStatus orderProductStatus,
-		boolean download
+		boolean downloaded
 	) {
 		return orderStatus == OrderStatus.PAID
 			&& orderProductStatus == OrderStatus.PAID
-			&& !download;
+			&& !downloaded;
+	}
+
+	public boolean isRefundable(Order order) {
+		return order.isPaid() && order.getOrderProducts().stream().noneMatch(OrderProduct::isDownloaded);
+	}
+
+	public void validateNoDownloadedProduct(Order order) {
+		boolean hasDownloadedProduct = order.getOrderProducts().stream()
+			.anyMatch(OrderProduct::isDownloaded);
+
+		if (hasDownloadedProduct) {
+			throw new OrderException(ErrorCode.ORDER_CANCEL_NOT_ALLOWED, "이미 다운로드한 상품은 환불할 수 없습니다.");
+		}
 	}
 
 	public void validatePaymentApproval(Order order, PaymentApprovedEvent event) {

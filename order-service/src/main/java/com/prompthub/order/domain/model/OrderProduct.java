@@ -68,8 +68,8 @@ public class OrderProduct {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    @Column(name = "is_download", nullable = false)
-    private boolean download;
+    @Column(name = "downloaded", nullable = false)
+    private boolean downloaded;
 
     private OrderProduct(
             UUID id,
@@ -82,7 +82,7 @@ public class OrderProduct {
             OrderStatus orderStatus,
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
-            boolean download
+            boolean downloaded
     ) {
         this.id = id;
         this.productId = productId;
@@ -94,7 +94,7 @@ public class OrderProduct {
         this.orderStatus = orderStatus;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
-        this.download = download;
+        this.downloaded = downloaded;
     }
 
     public static OrderProduct create(
@@ -171,16 +171,20 @@ public class OrderProduct {
     }
 
     public void markDownloaded() {
-        if (this.orderStatus != OrderStatus.PAID) {
-            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "결제 완료된 주문 상품만 다운로드 처리할 수 있습니다.");
+        if (this.downloaded) {
+            return;
         }
 
-        this.download = true;
+        this.downloaded = true;
         this.updatedAt = LocalDateTime.now();
     }
 
     public boolean isPaid() {
         return this.orderStatus == OrderStatus.PAID;
+    }
+
+    public boolean isRefundable() {
+        return this.orderStatus == OrderStatus.PAID && !this.downloaded;
     }
 
     private void validatePending() {

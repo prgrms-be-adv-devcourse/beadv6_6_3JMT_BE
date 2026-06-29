@@ -203,7 +203,7 @@
 | orderProducts[].productType | Enum | 상품 유형 (`PROMPT` / `TEMPLATE` / `DATASET` / `IMAGE_ASSET`) |
 | orderProducts[].productAmount | Integer | 상품 가격 (구매 당시 스냅샷) |
 | orderProducts[].orderProductStatus | Enum | 항목 상태 (`PENDING` / `PAID` / `FAILED` / `CANCELED` / `REFUNDED`) |
-| orderProducts[].isDownload | Boolean | 해당 항목 열람 여부 |
+| orderProducts[].downloaded | Boolean | 해당 항목 열람 여부 |
 | orderProducts[].contentAvailable | Boolean | 콘텐츠 열람 가능 여부 (`PAID` 상태일 때 `true`) |
 
 ```json
@@ -232,7 +232,7 @@
         "productType": "PROMPT",
         "productAmount": 15000,
         "orderProductStatus": "PAID",
-        "isDownload": false,
+        "downloaded": false,
         "contentAvailable": true
       }
     ]
@@ -266,7 +266,7 @@
 | orderProductId | UUID | 주문 항목 ID |
 | orderNumber | String | 주문 번호 |
 | productId | UUID | 상품 ID |
-| isDownload | Boolean | 콘텐츠 열람 여부. 최초 열람 시 `true`로 갱신 |
+| downloaded | Boolean | 콘텐츠 열람 여부. 최초 열람 시 `true`로 갱신 |
 | productTitle | String | 상품명 (**논의 중** — 지희님과 확인 필요) |
 | contentUrl | String | 콘텐츠 S3 URL (**논의 중** — 지희님과 확인 필요) |
 
@@ -278,7 +278,7 @@
     "orderProductId": "op1c2a7e-4b8d-4e2a-9c11-2d3e4f5a2222",
     "orderNumber": "ORD-20260618-000001",
     "productId": "p1b55b60-5e84-4f3f-b4f1-6c10e1a22222",
-    "isDownload": true,
+    "downloaded": true,
     "productTitle": "면접 답변 프롬프트",
     "contentUrl": "https://s3.ap-northeast-2.amazonaws.com/prompthub-content/..."
   },
@@ -326,6 +326,10 @@
 ### GET /orders/payments — 결제 내역 목록 조회
 
 - 인증: 필요
+- 응답은 결제 건(`paymentId`) 단위로 그룹핑한다.
+- 페이지네이션(`meta.total`, `meta.hasNext`, `page`, `size`)은 그룹핑된 결제 row 기준이다.
+- 여러 상품을 한 번에 결제한 경우 `title`은 `첫 상품명 외 N건`, `amount`는 해당 결제의 총 결제 금액이다.
+- 환불 요청은 `paymentId` 기준이며, 부분 환불은 지원하지 않는다.
 
 #### Response
 
@@ -334,17 +338,17 @@
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | data[].orderId | UUID | 주문 ID |
-| data[].orderProductId | UUID | 주문 항목 ID |
+| data[].orderProductId | UUID \| null | 주문 항목 ID. 결제 건 단위 응답에서는 생략되거나 `null`일 수 있음 |
 | data[].paymentId | UUID | 결제 ID |
-| data[].paymentStatus | Enum | 결제 상태 (`PAID` / `CANCELED` / `REFUNDED` 등) |
-| data[].isRefund | Boolean | 환불 여부 |
+| data[].paymentStatus | Enum | 결제 상태 (`PAID` / `REFUNDING` / `REFUNDED`) |
+| data[].isRefundable | Boolean | 환불 가능 여부 |
 | data[].productType | Enum | 상품 유형 (`PROMPT` / `TEMPLATE` / `DATASET` / `IMAGE_ASSET`) |
-| data[].title | String | 상품명 |
-| data[].amount | Integer | 결제 금액 |
+| data[].title | String | 대표 상품명. 다건 결제는 `첫 상품명 외 N건` 형식 |
+| data[].amount | Integer | 결제 건 총 금액 |
 | data[].paidAt | DateTime | 결제 완료 시각 |
 | meta.page | Integer | 현재 페이지 번호 |
 | meta.size | Integer | 페이지 크기 |
-| meta.total | Integer | 전체 항목 수 |
+| meta.total | Integer | 전체 결제 건수 |
 | meta.hasNext | Boolean | 다음 페이지 존재 여부 |
 
 ```json
@@ -353,13 +357,12 @@
   "data": [
     {
       "orderId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
-      "orderProductId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1234",
-      "paymentId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1234",
+      "paymentId": "3f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a9999",
       "paymentStatus": "PAID",
-      "isRefund": true,
+      "isRefundable": true,
       "productType": "PROMPT",
-      "title": "면접 답변 프롬프트",
-      "amount": 1900,
+      "title": "면접 답변 프롬프트 외 1건",
+      "amount": 30000,
       "paidAt": "2026-06-18T10:45:00"
     }
   ],
