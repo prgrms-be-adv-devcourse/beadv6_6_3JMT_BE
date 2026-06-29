@@ -10,7 +10,7 @@
 - `processed_event` 테이블 없이 `paymentId` 기준으로 멱등 처리한다.
 - `paymentId` 존재 여부만으로 이벤트를 무시하지 않고, 현재 상태가 이벤트의 목표 상태인지 확인한다.
 - 결제 승인, 취소, 환불, 취소 실패, 환불 실패 이벤트의 상태 전환과 outbox 저장 정책이 명확해야 한다.
-- `is_download`는 결제 가능 여부가 아니라 실제 콘텐츠 열람 여부로 유지한다.
+- `downloaded`는 결제 가능 여부가 아니라 실제 콘텐츠 열람 여부로 유지한다.
 - 정산 차감 이벤트와 outbox relay 동작이 누락되지 않아야 한다.
 
 ## 2. 현재 구현 요약
@@ -43,12 +43,12 @@
 - `OutboxEvent`의 `aggregateType`은 `ORDER`, `topic`은 `order-events`, 기본 상태는 `PENDING`이다.
 - `OutboxRelay`는 PENDING 이벤트를 조회해 Kafka로 발행하고 성공 시 `PUBLISHED`, 실패 시 `retryCount` 증가 및 최대 재시도 도달 시 `FAILED`로 변경한다.
 
-### isDownload
+### downloaded
 
 - `OrderProduct.download`는 생성 시 `false`다.
 - 결제 승인 처리에서는 `download` 값을 true로 바꾸지 않는다.
 - `OrderProduct.markDownloaded()`가 호출될 때만 true로 변경된다.
-- Order API 문서의 `isDownload`와 `contentAvailable` 설명은 실제 열람 여부와 결제 후 콘텐츠 접근 가능 여부를 분리하고 있다.
+- Order API 문서의 `downloaded`와 `contentAvailable` 설명은 실제 열람 여부와 결제 후 콘텐츠 접근 가능 여부를 분리하고 있다.
 
 ## 3. 항목별 판정
 
@@ -67,8 +67,8 @@
 | 승인 처리와 `ORDER_PAID` outbox 저장의 트랜잭션 | 충족 | `OrderPaymentEventService`가 `@Transactional`이며 상태 변경, 결제내역 저장, outbox 저장을 한 서비스 메서드에서 수행한다. |
 | 환불 처리와 `ORDER_REFUND` outbox 저장의 트랜잭션 | 충족 | `handlePaymentRefunded`가 같은 트랜잭션 안에서 상태 변경과 outbox 저장을 수행한다. |
 | 취소 시 정산 차감 이벤트 발행 | 결정 필요 | `payment.canceled` 처리에서 outbox 이벤트를 저장하지 않는다. 취소를 정산 차감 대상으로 볼지 정책 결정이 필요하다. |
-| `is_download` 의미 | 충족 | 실제 구현은 결제 승인 시 true로 바꾸지 않고, 콘텐츠 최초 열람 시 true로 바꾼다. |
-| Payment API 문서의 `is_download` 설명 | 미충족 | `docs/api-spec/payment.md`의 Kafka 이벤트 표에는 `payment.approved` 처리 내용이 `is_download = true`로 남아 있다. |
+| `downloaded` 의미 | 충족 | 실제 구현은 결제 승인 시 true로 바꾸지 않고, 콘텐츠 최초 열람 시 true로 바꾼다. |
+| Payment API 문서의 `downloaded` 설명 | 미충족 | `docs/api-spec/payment.md`의 Kafka 이벤트 표에는 `payment.approved` 처리 내용이 `downloaded = true`로 남아 있다. |
 | Application Service의 KafkaTemplate 직접 호출 금지 | 충족 | `OrderPaymentEventService`는 KafkaTemplate을 직접 호출하지 않고 outbox 저장만 수행한다. |
 | OutboxRelay 발행 처리 | 충족 | `OutboxRelay`가 `event.topic`으로 발행하고 성공/실패 상태를 갱신한다. |
 | 중복 승인 시 `ORDER_PAID` 중복 저장 방지 | 부분 충족 | 이미 `PAID`이고 결제내역이 있으면 outbox 저장을 생략한다. 다만 `paymentId` 기준 중복 검증은 없다. |
@@ -107,12 +107,12 @@ Order Service는 환불 outbox eventType으로 `ORDER_REFUND`를 사용한다.
 이 상태라면 환불 정산 이벤트가 Settlement Service에서 정상 처리되지 않을 수 있다.
 Order, Product, Settlement 서비스 간 이벤트 카탈로그를 하나로 맞춰야 한다.
 
-### 4.5 Payment API 문서와 실제 구현의 `is_download` 의미가 다름
+### 4.5 Payment API 문서와 실제 구현의 `downloaded` 의미가 다름
 
-실제 Order 구현은 `isDownload`를 최초 열람 여부로 사용한다.
-하지만 `docs/api-spec/payment.md`에는 `payment.approved` 수신 시 `is_download = true`라고 되어 있다.
+실제 Order 구현은 `downloaded`를 최초 열람 여부로 사용한다.
+하지만 `docs/api-spec/payment.md`에는 `payment.approved` 수신 시 `downloaded = true`라고 되어 있다.
 
-결제 완료 시점에는 `OrderProduct.status = PAID`, `contentAvailable = true`, `isDownload = false`가 맞다.
+결제 완료 시점에는 `OrderProduct.status = PAID`, `contentAvailable = true`, `downloaded = false`가 맞다.
 Payment API 문서의 Kafka 이벤트 설명을 수정해야 한다.
 
 ## 5. 권장 후속 조치
@@ -122,7 +122,7 @@ Payment API 문서의 Kafka 이벤트 설명을 수정해야 한다.
 3. `payment.cancel_failed`, `payment.refund_failed` 이벤트를 Order Service가 처리해야 하는지 확정하고, 처리한다면 payload와 실패 사유 기록 위치를 정의한다.
 4. `payment.canceled` 발생 시 정산 차감 이벤트를 발행할지 결정한다.
 5. Order Service의 `ORDER_REFUND`와 Settlement Service의 `ORDER_REFUNDED` 중 하나로 이벤트명을 통일한다.
-6. `docs/api-spec/payment.md`의 `payment.approved` 구독자 처리 내용을 `Order PAID 전환 + contentAvailable = true + isDownload = false 유지`로 수정한다.
+6. `docs/api-spec/payment.md`의 `payment.approved` 구독자 처리 내용을 `Order PAID 전환 + contentAvailable = true + downloaded = false 유지`로 수정한다.
 7. 중복 이벤트 테스트를 `paymentId` 기준으로 보강한다.
 
 ## 6. 결론
@@ -137,4 +137,4 @@ Payment API 문서의 Kafka 이벤트 설명을 수정해야 한다.
 - `payment.cancel_failed`, `payment.refund_failed` 처리 여부
 - `payment.canceled`의 정산 차감 이벤트 발행 여부
 - `ORDER_REFUND`와 `ORDER_REFUNDED` 이벤트명 통일
-- Payment API 문서의 `is_download` 설명 정정
+- Payment API 문서의 `downloaded` 설명 정정
