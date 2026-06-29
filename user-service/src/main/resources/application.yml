@@ -37,3 +37,9 @@ grpc:
     product-service:
       address: ${PRODUCT_SERVICE_GRPC_ADDRESS:static://localhost:9082}
       negotiation-type: plaintext
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info

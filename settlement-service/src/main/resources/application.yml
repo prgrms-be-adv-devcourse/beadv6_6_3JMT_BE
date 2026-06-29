@@ -46,3 +46,9 @@ settlement:
 
 api:
   init: /api/v1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
