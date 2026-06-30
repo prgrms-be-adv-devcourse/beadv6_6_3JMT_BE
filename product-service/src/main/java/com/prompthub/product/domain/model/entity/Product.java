@@ -72,8 +72,12 @@ public class Product {
 	@Column(name = "amount", nullable = false)
 	private int amount;
 
-	@Column(name = "thumbnail_url", length = 500)
+	@Column(name = "thumbnail_url", columnDefinition = "TEXT")
 	private String thumbnailUrl;
+
+	@Convert(converter = TagsConverter.class)
+	@Column(name = "image_urls", columnDefinition = "TEXT")
+	private List<String> imageUrls = new ArrayList<>();
 
 	@Column(name = "content", columnDefinition = "TEXT")
 	private String content;
@@ -111,6 +115,7 @@ public class Product {
 	private LocalDateTime deletedAt;
 
 	public static Product create(
+		UUID id,
 		UUID sellerId,
 		Category category,
 		String name,
@@ -120,11 +125,12 @@ public class Product {
 		AmountType amountType,
 		int amount,
 		String thumbnailUrl,
+		List<String> imageUrls,
 		String content,
 		List<String> tags
 	) {
 		Product product = new Product();
-		product.id = UUID.randomUUID();
+		product.id = id;
 		product.sellerId = sellerId;
 		product.category = category;
 		product.categoryId = category != null ? category.getId() : null;
@@ -135,6 +141,7 @@ public class Product {
 		product.amountType = amountType;
 		product.amount = amount;
 		product.thumbnailUrl = thumbnailUrl;
+		product.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
 		product.content = content;
 		product.tags = tags != null ? tags : new ArrayList<>();
 		product.majorVersion = 1;
@@ -157,6 +164,7 @@ public class Product {
 		AmountType amountType,
 		int amount,
 		String thumbnailUrl,
+		List<String> imageUrls,
 		String content,
 		List<String> tags,
 		String changeReason,
@@ -171,6 +179,7 @@ public class Product {
 		this.amountType = amountType;
 		this.amount = amount;
 		this.thumbnailUrl = thumbnailUrl;
+		this.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
 		this.content = content;
 		this.tags = tags != null ? tags : new ArrayList<>();
 		this.changeReason = changeReason;
