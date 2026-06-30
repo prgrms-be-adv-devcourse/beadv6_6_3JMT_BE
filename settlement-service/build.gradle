@@ -42,6 +42,7 @@ dependencies {
 
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator' // 헬스체크 엔드포인트
 
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9'
 
