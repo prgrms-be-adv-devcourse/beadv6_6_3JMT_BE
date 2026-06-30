@@ -136,7 +136,7 @@ jobs:
           declare -A PORT=(
             [discovery]=8761 [config]=8888
             [user-service]=8081 [product-service]=8082 [order-service]=8083
-            [payment-service]=8084 [settlement-service]=8085 [apigateway]=8000
+            [payment-service]=8084 [settlement-service]=8085 [apigateway]=80
           )
 
           health_check() {

@@ -16,7 +16,7 @@ services:
       - pg-data:/var/lib/postgresql            # 데이터 영속 볼륨(postgres 18+ 권장 마운트 경로)
     restart: always
     networks: [prompthub]
-    # ports: ["5432:5432"]                     # 디버그용 노출(운영 X)
+    ports: ["127.0.0.1:5432:5432"]            # SSH 터널 DB 접속용 loopback 노출(외부 차단)
 
   kafka:
     image: confluentinc/cp-kafka:7.8.0
@@ -109,6 +109,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}                    # DB 비밀번호
       USER_SERVICE_GRPC_HOST: user-service                               # user gRPC 호스트
       USER_SERVICE_GRPC_PORT: "9081"                                     # user gRPC 포트
+      AWS_REGION: ${AWS_REGION:-ap-northeast-2}                          # S3 리전(미설정 시 기본값)
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-3jmt-prompthub-bucket}             # S3 버킷명(미설정 시 기본값)
     depends_on: [postgres, kafka, discovery, config, user-service]
     restart: always
     networks: [prompthub]
@@ -196,7 +198,7 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}                                   # JWT 검증 키(공개)
       # CORS_ALLOWED_ORIGINS: https://prompthub-fe.vercel.app             # CORS 허용 도메인(게이트웨이 CORS 구현 후)
-    ports: ["8000:8000"]                       # 외부 진입 포트
+    ports: ["80:8000"]                         # 외부 진입 포트(host 80 → gateway 8000, SG 80 오픈)
     depends_on:
       - discovery
       - config
