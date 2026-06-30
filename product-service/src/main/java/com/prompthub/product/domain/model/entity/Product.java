@@ -115,6 +115,7 @@ public class Product {
 	private LocalDateTime deletedAt;
 
 	public static Product create(
+		UUID id,
 		UUID sellerId,
 		Category category,
 		String name,
@@ -129,7 +130,7 @@ public class Product {
 		List<String> tags
 	) {
 		Product product = new Product();
-		product.id = UUID.randomUUID();
+		product.id = id;
 		product.sellerId = sellerId;
 		product.category = category;
 		product.categoryId = category != null ? category.getId() : null;

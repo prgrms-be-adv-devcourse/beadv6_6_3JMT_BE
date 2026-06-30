@@ -2,7 +2,11 @@ package com.prompthub.product.application.client;
 
 public interface StorageClient {
 
-    PresignedUploadResult generatePresignedUrl(String key, String contentType);
+    String generatePresignedDownloadUrl(String key);
 
     String upload(String key, byte[] bytes, String contentType);
+
+    void copyObject(String sourceKey, String destKey);
+
+    void deleteObject(String key);
 }

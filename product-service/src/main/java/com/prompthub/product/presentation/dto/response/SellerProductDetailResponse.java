@@ -1,5 +1,6 @@
 package com.prompthub.product.presentation.dto.response;
 
+import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.domain.model.entity.Product;
 import java.util.List;
 import java.util.UUID;
@@ -19,7 +20,7 @@ public record SellerProductDetailResponse(
 	List<String> imageUrls,
 	List<String> tags
 ) {
-	public static SellerProductDetailResponse from(Product product) {
+	public static SellerProductDetailResponse from(Product product, StorageClient storageClient) {
 		return new SellerProductDetailResponse(
 			product.getId(),
 			product.getName(),
@@ -31,9 +32,21 @@ public record SellerProductDetailResponse(
 			product.getContent(),
 			product.getStatus().name(),
 			product.getMajorVersion() + "." + product.getPatchVersion(),
-			product.getThumbnailUrl(),
-			product.getImageUrls(),
+			toUrl(product.getThumbnailUrl(), storageClient),
+			toUrls(product.getImageUrls(), storageClient),
 			product.getTags()
 		);
+	}
+
+	private static String toUrl(String key, StorageClient storageClient) {
+		if (key == null || key.isBlank()) return null;
+		return storageClient.generatePresignedDownloadUrl(key);
+	}
+
+	private static List<String> toUrls(List<String> keys, StorageClient storageClient) {
+		if (keys == null || keys.isEmpty()) return List.of();
+		return keys.stream()
+			.map(key -> storageClient.generatePresignedDownloadUrl(key))
+			.toList();
 	}
 }
