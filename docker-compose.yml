@@ -170,15 +170,13 @@ services:
     container_name: settlement-service
     ports: ["127.0.0.1:8085:8085"]             # 헬스체크용 loopback 노출(외부 차단)
     environment:
-      CONFIG_SERVER_URL: http://config:8888                              # Config Server 주소
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092                                # Kafka 브로커 주소
-      DB_HOST: postgres                                                  # DB 호스트
-      DB_PORT: "5432"                                                    # DB 포트
-      DB_NAME: ${POSTGRES_DB}                                            # DB 이름
-      DB_USERNAME: ${POSTGRES_USER}                                      # DB 계정
-      DB_PASSWORD: ${POSTGRES_PASSWORD}                                  # DB 비밀번호
-      USER_SERVICE_GRPC_ADDRESS: user-service:9081                       # user gRPC 대상
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092                           # Kafka 브로커 주소
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}  # DB 주소
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}                        # DB 계정
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}                    # DB 비밀번호
+      USER_SERVICE_GRPC_ADDRESS: user-service:9081                        # user gRPC 대상
       PRODUCT_SERVICE_GRPC_ADDRESS: product-service:9082                 # product gRPC 대상
     depends_on: [postgres, kafka, discovery, config, user-service, product-service]
     restart: always
