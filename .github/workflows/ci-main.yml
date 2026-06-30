@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: ci-main-pr-${{ github.event.pull_request.number }}

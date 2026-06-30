@@ -13,7 +13,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}  # DB 비밀번호
       POSTGRES_DB: ${POSTGRES_DB}              # 기본 DB 이름
     volumes:
-      - pg-data:/var/lib/postgresql/data       # 데이터 영속 볼륨
+      - pg-data:/var/lib/postgresql            # 데이터 영속 볼륨(postgres 18+ 권장 마운트 경로)
     restart: always
     networks: [prompthub]
     # ports: ["5432:5432"]                     # 디버그용 노출(운영 X)
