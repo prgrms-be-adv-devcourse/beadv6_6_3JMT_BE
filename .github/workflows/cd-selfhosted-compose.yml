@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DEPLOY_DIR: /home/ec2-user/prompthub      # EC2 배포 디렉토리(.env 위치)
+  DEPLOY_DIR: /home/ubuntu/prompthub        # EC2 배포 디렉토리(.env 위치). Ubuntu 기본 계정 홈
   COMPOSE_FILE: docker-compose.yml          # 레포 루트의 build 기반 compose
 
 jobs:
