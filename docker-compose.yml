@@ -60,6 +60,7 @@ services:
         MODULE_NAME: config
         MODULE_PATH: config
     container_name: config
+    ports: ["127.0.0.1:8888:8888"]             # 헬스체크용 loopback 노출(외부 차단)
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
     depends_on: [discovery]
@@ -75,6 +76,7 @@ services:
         MODULE_NAME: user-service
         MODULE_PATH: user-service
     container_name: user-service
+    ports: ["127.0.0.1:8081:8081"]             # 헬스체크용 loopback 노출(외부 차단)
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
@@ -97,6 +99,7 @@ services:
         MODULE_NAME: product-service
         MODULE_PATH: product-service
     container_name: product-service
+    ports: ["127.0.0.1:8082:8082"]             # 헬스체크용 loopback 노출(외부 차단)
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
@@ -118,6 +121,7 @@ services:
         MODULE_NAME: order-service
         MODULE_PATH: order-service
     container_name: order-service
+    ports: ["127.0.0.1:8083:8083"]             # 헬스체크용 loopback 노출(외부 차단)
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
@@ -141,6 +145,7 @@ services:
         MODULE_NAME: payment-service
         MODULE_PATH: payment-service
     container_name: payment-service
+    ports: ["127.0.0.1:8084:8084"]             # 헬스체크용 loopback 노출(외부 차단)
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
@@ -161,6 +166,7 @@ services:
         MODULE_NAME: settlement-service
         MODULE_PATH: settlement-service
     container_name: settlement-service
+    ports: ["127.0.0.1:8085:8085"]             # 헬스체크용 loopback 노출(외부 차단)
     environment:
       CONFIG_SERVER_URL: http://config:8888                              # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
