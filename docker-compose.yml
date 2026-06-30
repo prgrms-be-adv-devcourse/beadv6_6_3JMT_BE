@@ -49,6 +49,12 @@ services:
         MODULE_PATH: discovery
     container_name: discovery
     ports: ["8761:8761"]                       # Eureka 대시보드
+    healthcheck:                               # 앱 서비스가 등록 전에 먼저 떠서 localhost로 폴백하는 레이스 방지
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8761/actuator/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
     restart: always
     networks: [prompthub]
 
@@ -63,7 +69,15 @@ services:
     ports: ["127.0.0.1:8888:8888"]             # 헬스체크용 loopback 노출(외부 차단)
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
-    depends_on: [discovery]
+    healthcheck:                               # 앱 서비스가 config 수신 전에 떠서 설정을 놓치는 레이스 방지
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8888/actuator/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 40s
+    depends_on:
+      discovery:
+        condition: service_healthy
     restart: always
     networks: [prompthub]
 
@@ -87,7 +101,15 @@ services:
       JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}                                 # JWT 서명 키(비공개)
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}                                   # JWT 검증 키(공개)
       PRODUCT_SERVICE_GRPC_ADDRESS: static://product-service:9082         # product gRPC 대상
-    depends_on: [postgres, kafka, discovery, config]
+    depends_on:
+      postgres:
+        condition: service_started
+      kafka:
+        condition: service_started
+      discovery:
+        condition: service_healthy
+      config:
+        condition: service_healthy
     restart: always
     networks: [prompthub]
 
@@ -111,7 +133,17 @@ services:
       USER_SERVICE_GRPC_PORT: "9081"                                     # user gRPC 포트
       AWS_REGION: ${AWS_REGION:-ap-northeast-2}                          # S3 리전(미설정 시 기본값)
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:-3jmt-prompthub-bucket}             # S3 버킷명(미설정 시 기본값)
-    depends_on: [postgres, kafka, discovery, config, user-service]
+    depends_on:
+      postgres:
+        condition: service_started
+      kafka:
+        condition: service_started
+      discovery:
+        condition: service_healthy
+      config:
+        condition: service_healthy
+      user-service:
+        condition: service_started
     restart: always
     networks: [prompthub]
 
@@ -135,7 +167,19 @@ services:
       PRODUCT_GRPC_PORT: "9082"                                          # product gRPC 포트
       SELLER_GRPC_HOST: user-service                                     # seller(user) gRPC 호스트
       SELLER_GRPC_PORT: "9081"                                           # seller(user) gRPC 포트
-    depends_on: [postgres, kafka, discovery, config, user-service, product-service]
+    depends_on:
+      postgres:
+        condition: service_started
+      kafka:
+        condition: service_started
+      discovery:
+        condition: service_healthy
+      config:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      product-service:
+        condition: service_started
     restart: always
     networks: [prompthub]
 
@@ -156,7 +200,15 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}                        # DB 계정
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}                    # DB 비밀번호
       TOSS_SECRET_KEY: ${TOSS_SECRET_KEY}                                # Toss 결제 시크릿 키
-    depends_on: [postgres, kafka, discovery, config]
+    depends_on:
+      postgres:
+        condition: service_started
+      kafka:
+        condition: service_started
+      discovery:
+        condition: service_healthy
+      config:
+        condition: service_healthy
     restart: always
     networks: [prompthub]
 
@@ -178,7 +230,19 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}                    # DB 비밀번호
       USER_SERVICE_GRPC_ADDRESS: user-service:9081                        # user gRPC 대상
       PRODUCT_SERVICE_GRPC_ADDRESS: product-service:9082                 # product gRPC 대상
-    depends_on: [postgres, kafka, discovery, config, user-service, product-service]
+    depends_on:
+      postgres:
+        condition: service_started
+      kafka:
+        condition: service_started
+      discovery:
+        condition: service_healthy
+      config:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      product-service:
+        condition: service_started
     restart: always
     networks: [prompthub]
 
@@ -198,13 +262,20 @@ services:
       # CORS_ALLOWED_ORIGINS: https://prompthub-fe.vercel.app             # CORS 허용 도메인(게이트웨이 CORS 구현 후)
     ports: ["80:8000"]                         # 외부 진입 포트(host 80 → gateway 8000, SG 80 오픈)
     depends_on:
-      - discovery
-      - config
-      - user-service
-      - product-service
-      - order-service
-      - payment-service
-      - settlement-service
+      discovery:
+        condition: service_healthy
+      config:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+      settlement-service:
+        condition: service_started
     restart: always
     networks: [prompthub]
 
