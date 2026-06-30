@@ -196,7 +196,7 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}                                   # JWT 검증 키(공개)
       # CORS_ALLOWED_ORIGINS: https://prompthub-fe.vercel.app             # CORS 허용 도메인(게이트웨이 CORS 구현 후)
-    ports: ["8000:8000"]                       # 외부 진입 포트
+    ports: ["80:8000"]                         # 외부 진입 포트(host 80 → gateway 8000, SG 80 오픈)
     depends_on:
       - discovery
       - config
