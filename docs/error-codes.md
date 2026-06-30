@@ -5,6 +5,7 @@
 | enum | code | 의미 (message) | HTTP |
 |------|------|----------------|------|
 | `VALIDATION_FAILED` | V001 | 입력값이 올바르지 않습니다. | 400 |
+| `INTERNAL_SERVER_ERROR` | SYS001 | 서버 내부 오류가 발생했습니다. | 500 |
 
 ---
 
@@ -20,6 +21,8 @@
 | `AUTH_INVALID_REFRESH_TOKEN` | A006 | 리프레시 토큰이 유효하지 않습니다. | 401 |
 | `AUTH_EMAIL_DUPLICATED` | A007 | 이미 사용 중인 이메일입니다. | 409 |
 | `AUTH_SELLER_APPLICATION_NOT_FOUND` | A008 | 판매자 등록 신청 내역이 없습니다. | 404 |
+| `UNSUPPORTED_OAUTH_PROVIDER` | A009 | 지원하지 않는 OAuth 공급자입니다. | 400 |
+| `AUTH_WITHDRAW_ORDER_IN_PROGRESS` | A010 | 진행 중인 주문이 있어 탈퇴할 수 없습니다. | 400 |
 
 ---
 
@@ -29,9 +32,10 @@
 |------|------|----------------|------|
 | `PRODUCT_NOT_FOUND` | P001 | 상품이 존재하지 않습니다. | 404 |
 | `PRODUCT_NOT_ON_SALE` | P002 | 판매 중인 상품이 아닙니다. | 400 |
-| `PRODUCT_FORBIDDEN` | P003 | 다른 판매자의 상품에 접근할 수 없습니다. | 403 |
-| `PRODUCT_ALREADY_STOPPED` | P004 | 이미 판매 중지된 상품입니다. | 409 |
-| `PRODUCT_UNDER_REVIEW` | P005 | 검수 중인 상품은 수정할 수 없습니다. | 409 |
+| `PRODUCT_FORBIDDEN` | P003 | 본인의 상품만 수정/삭제할 수 있습니다. | 403 |
+| `CATEGORY_NOT_FOUND` | P004 | 존재하지 않는 카테고리입니다. | 400 |
+| `SELLER_NOT_ACTIVE` | P005 | 승인된 판매자만 상품을 등록할 수 있습니다. | 403 |
+| `PRODUCT_INVALID_STATUS` | P006 | 현재 상태에서 처리할 수 없는 상품입니다. | 409 |
 
 ---
 

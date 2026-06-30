@@ -1,0 +1,54 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: settlement-service
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:promptHub}
+    username: ${DB_USERNAME:promptHub}
+    password: ${DB_PASSWORD:promptHub}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  batch:
+    job:
+      enabled: false
+  kafka:
+    # 브로커 주소 — KafkaConfig가 @Value로 읽어 프로듀서·컨슈머 팩토리에 주입
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: settlement-service       # 컨슈머 그룹 ID — KafkaConfig가 @Value로 읽음
+      auto-offset-reset: earliest         # 오프셋 없을 때 가장 처음부터 소비
+      enable-auto-commit: false           # 수동 커밋 사용(리스너에서 직접 ack)
+    # 직렬화/역직렬화·ack-mode는 KafkaConfig.java에서 직접 지정한다.
+    # (producer serializer, consumer deserializer, deserializer delegate,
+    #  json.trusted.packages, listener.ack-mode 는 yml에 두지 않는다)
+
+grpc:
+  client:
+    user-service:
+      address: ${USER_SERVICE_GRPC_ADDRESS:localhost:9081}
+    product-service:
+      address: ${PRODUCT_SERVICE_GRPC_ADDRESS:localhost:9082}
+
+settlement:
+  scheduler:
+    cron: "0 0 4 1 * *"
+  kafka:
+    listener:
+      order:
+        enabled: false
+
+api:
+  init: /api/v1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info

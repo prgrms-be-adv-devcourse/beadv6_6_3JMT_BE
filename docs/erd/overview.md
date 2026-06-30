@@ -46,23 +46,26 @@ erDiagram
     %% Product Service
     %% ───────────────────────────────
     category {
-        UUID category_id PK
+        UUID id PK
         UUID parent_id FK
+        VARCHAR code
         VARCHAR name
+        VARCHAR icon
         INT display_order
     }
     product {
-        UUID product_id PK
+        UUID id PK
         UUID seller_id FK
         UUID category_id FK
-        UUID parent_id FK
         SMALLINT major_version
         SMALLINT patch_version
         VARCHAR name
-        product_status_type status
-        amount_type_enum amount_type
+        VARCHAR status
+        VARCHAR amount_type
         INT amount
+        VARCHAR badge
         TEXT content
+        TEXT tags
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
         TIMESTAMPTZ deleted_at
@@ -120,7 +123,7 @@ erDiagram
         VARCHAR product_title_snapshot
         INT product_amount_snapshot
         order_product_status_type order_product_status
-        BOOLEAN is_download
+        BOOLEAN downloaded
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }
@@ -216,7 +219,6 @@ erDiagram
     category ||--o{ category : "parent_id"
     category ||--o{ product : "category_id"
 
-    product ||--o{ product : "parent_id"
     product ||--o{ product_image : "product_id"
     product ||--o{ wishlist : "product_id"
     product ||--o{ cart_product : "product_id"

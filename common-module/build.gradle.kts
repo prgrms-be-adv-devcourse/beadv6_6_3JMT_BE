@@ -23,10 +23,6 @@ dependencies {
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
 
-    //jpa
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
-
     //web
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")

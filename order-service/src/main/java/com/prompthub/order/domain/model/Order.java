@@ -1,6 +1,9 @@
 package com.prompthub.order.domain.model;
 
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.infra.persistence.common.BaseEntity;
+import com.prompthub.order.global.exception.OrderException;
+import com.prompthub.order.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -19,13 +22,13 @@ import static lombok.AccessLevel.PROTECTED;
 @Entity
 @Table(name = "\"order\"")
 @NoArgsConstructor(access = PROTECTED)
-public class Order {
+public class Order extends BaseEntity {
 
 	@Id
-	@Column(name = "id", columnDefinition = "char(36)")
+	@Column(name = "id", columnDefinition = "uuid")
 	private UUID id;
 
-	@Column(name = "buyer_id", columnDefinition = "char(36)", nullable = false)
+	@Column(name = "buyer_id", columnDefinition = "uuid", nullable = false)
 	private UUID buyerId;
 
 	@Column(name = "order_number", length = 30, nullable = false, unique = true)
@@ -34,15 +37,12 @@ public class Order {
 	@Column(name = "total_order_amount", nullable = false)
 	private int totalOrderAmount;
 
-	@Column(name = "total_item_count", nullable = false)
-	private int totalItemCount;
+	@Column(name = "total_product_count", nullable = false)
+	private int totalProductCount;
 
 	@Enumerated(STRING)
 	@Column(name = "order_status", length = 20, nullable = false)
 	private OrderStatus orderStatus;
-
-	@Column(name = "created_at", nullable = false)
-	private LocalDateTime createdAt;
 
 	@Column(name = "paid_at")
 	private LocalDateTime paidAt;
@@ -53,9 +53,6 @@ public class Order {
 	@Column(name = "refunded_at")
 	private LocalDateTime refundedAt;
 
-	@Column(name = "updated_at", nullable = false)
-	private LocalDateTime updatedAt;
-
 	@OneToMany(mappedBy = "order", cascade = ALL, orphanRemoval = true)
 	private final List<OrderProduct> orderProducts = new ArrayList<>();
 
@@ -64,19 +61,15 @@ public class Order {
 		UUID buyerId,
 		String orderNumber,
 		int totalOrderAmount,
-		int totalItemCount,
-		OrderStatus orderStatus,
-		LocalDateTime createdAt,
-		LocalDateTime updatedAt
+		int totalProductCount,
+		OrderStatus orderStatus
 	) {
 		this.id = id;
 		this.buyerId = buyerId;
 		this.orderNumber = orderNumber;
 		this.totalOrderAmount = totalOrderAmount;
-		this.totalItemCount = totalItemCount;
+		this.totalProductCount = totalProductCount;
 		this.orderStatus = orderStatus;
-		this.createdAt = createdAt;
-		this.updatedAt = updatedAt;
 	}
 
 	public static Order create(
@@ -85,16 +78,13 @@ public class Order {
 		int totalOrderAmount,
 		int totalItemCount
 	) {
-		LocalDateTime now = LocalDateTime.now();
 		return new Order(
 			UUID.randomUUID(),
 			buyerId,
 			orderNumber,
 			totalOrderAmount,
 			totalItemCount,
-			PENDING,
-			now,
-			now
+			PENDING
 		);
 	}
 
@@ -108,12 +98,14 @@ public class Order {
 	}
 
 	public void markPaid() {
+		markPaid(LocalDateTime.now());
+	}
+
+	public void markPaid(LocalDateTime paidAt) {
 		validatePending();
 
 		this.orderStatus = OrderStatus.PAID;
-		this.paidAt = LocalDateTime.now();
-		this.updatedAt = LocalDateTime.now();
-
+		this.paidAt = paidAt;
 		this.orderProducts.forEach(OrderProduct::markPaid);
 	}
 
@@ -121,31 +113,35 @@ public class Order {
 		validatePending();
 
 		this.orderStatus = OrderStatus.FAILED;
-		this.updatedAt = LocalDateTime.now();
-
 		this.orderProducts.forEach(OrderProduct::markFailed);
 	}
 
 	public void cancel() {
-		validatePending();
+		cancel(LocalDateTime.now());
+	}
+
+	public void cancel(LocalDateTime canceledAt) {
+		if (this.orderStatus != OrderStatus.PAID) {
+			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "결제 완료 상태의 주문만 취소할 수 있습니다.");
+		}
 
 		this.orderStatus = OrderStatus.CANCELED;
-		this.canceledAt = LocalDateTime.now();
-		this.updatedAt = LocalDateTime.now();
-
-		this.orderProducts.forEach(OrderProduct::cancel);
+		this.canceledAt = canceledAt;
+		this.orderProducts.forEach(orderProduct -> orderProduct.cancel(canceledAt));
 	}
 
 	public void refund() {
+		refund(LocalDateTime.now());
+	}
+
+	public void refund(LocalDateTime refundedAt) {
 		if (this.orderStatus != OrderStatus.PAID) {
-			throw new IllegalStateException("결제 완료 상태의 주문만 환불할 수 있습니다.");
+			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "결제 완료 상태의 주문만 환불할 수 있습니다.");
 		}
 
 		this.orderStatus = OrderStatus.REFUNDED;
-		this.refundedAt = LocalDateTime.now();
-		this.updatedAt = LocalDateTime.now();
-
-		this.orderProducts.forEach(OrderProduct::refund);
+		this.refundedAt = refundedAt;
+		this.orderProducts.forEach(orderProduct -> orderProduct.refund(refundedAt));
 	}
 
 	public boolean isPending() {
@@ -158,7 +154,7 @@ public class Order {
 
 	private void validatePending() {
 		if (this.orderStatus != PENDING) {
-			throw new IllegalStateException("대기 상태의 주문만 처리할 수 있습니다.");
+			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "대기 상태의 주문만 처리할 수 있습니다.");
 		}
 	}
 }

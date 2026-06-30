@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.prompthub.exception.BusinessException;
+import com.prompthub.order.global.web.AuthHeaders;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +53,16 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("주문 상태 전이 도메인 예외는 O009 에러 코드를 반환한다")
+    void invalidOrderStatusTransitionReturnsO009() throws Exception {
+        mockMvc.perform(get("/test/domain/order-status").header("X-Request-Id", "request-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("대기 상태의 주문만 처리할 수 있습니다."))
+                .andExpect(jsonPath("$.code").value("O009"));
+    }
+
+    @Test
     @DisplayName("검증 예외는 V001 에러 코드를 반환한다")
     void validationExceptionReturnsV001() throws Exception {
         mockMvc.perform(post("/test/validation")
@@ -66,6 +78,17 @@ class GlobalExceptionHandlerTest {
     @DisplayName("사용자 헤더가 없으면 인증 에러를 반환한다")
     void missingUserHeaderReturnsAuthenticationError() throws Exception {
         mockMvc.perform(get("/test/header"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("토큰이 만료되었거나 유효하지 않습니다."))
+                .andExpect(jsonPath("$.code").value("A003"));
+    }
+
+    @Test
+    @DisplayName("사용자 권한 헤더가 없으면 인증 에러를 반환한다")
+    void missingUserRoleHeaderReturnsAuthenticationError() throws Exception {
+        mockMvc.perform(get("/test/role-header")
+                        .header(AuthHeaders.USER_ID, "00000000-0000-0000-0000-000000000001"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value("토큰이 만료되었거나 유효하지 않습니다."))
@@ -92,12 +115,24 @@ class GlobalExceptionHandlerTest {
             throw new BusinessException(ErrorCode.CART_EMPTY);
         }
 
+        @GetMapping("/test/domain/order-status")
+        void invalidOrderStatusTransition() {
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "대기 상태의 주문만 처리할 수 있습니다.");
+        }
+
         @PostMapping("/test/validation")
         void validation(@Valid @RequestBody TestRequest request) {
         }
 
         @GetMapping("/test/header")
-        void header(@RequestHeader("X-User-Id") String userId) {
+        void header(@RequestHeader(AuthHeaders.USER_ID) String userId) {
+        }
+
+        @GetMapping("/test/role-header")
+        void roleHeader(
+                @RequestHeader(AuthHeaders.USER_ID) String userId,
+                @RequestHeader(AuthHeaders.USER_ROLE) String userRole
+        ) {
         }
     }
 

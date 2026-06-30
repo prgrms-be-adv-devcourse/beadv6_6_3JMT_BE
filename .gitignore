@@ -179,3 +179,34 @@ gradle-app.setting
 /docs/superpowers/
 /.env
 /order-service/.env
+/settlement-service/.env
+/CLAUDE.md
+
+# Claude Code 루트 커맨드 (로컬 전용)
+/.claude/
+
+# 개인 키 / 인증서 (커밋 금지)
+*.pem
+*.key
+
+# 로컬 docker postgres 데이터 (docker compose 가 자동 생성, 커밋 금지)
+/settlement-service/data/
+
+### 모듈 .gitignore 통합 (STS / NetBeans / VS Code / Spring) ###
+HELP.md
+.apt_generated
+.factorypath
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+.vscode/
+
+### Superpowers (설계·계획 산출물, 공유 제외) ###
+settlement-service/docs/superpowers/

@@ -1,6 +1,8 @@
 package com.prompthub.order.domain.model;
 
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.global.exception.OrderException;
+import com.prompthub.order.global.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Enumerated;
@@ -25,27 +27,30 @@ import static lombok.AccessLevel.PROTECTED;
 public class OrderProduct {
 
     @Id
-    @Column(name = "id", columnDefinition = "char(36)")
+    @Column(name = "id", columnDefinition = "uuid")
     private UUID id;
 
     @ManyToOne(fetch = LAZY)
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
-    @Column(name = "product_id", columnDefinition = "char(36)", nullable = false)
+    @Column(name = "product_id", columnDefinition = "uuid", nullable = false)
     private UUID productId;
 
-    @Column(name = "seller_id", columnDefinition = "char(36)", nullable = false)
+    @Column(name = "seller_id", columnDefinition = "uuid", nullable = false)
     private UUID sellerId;
 
     @Column(name = "product_title_snapshot", length = 200, nullable = false)
-    private String productTitleSnapshot;
+    private String productTitle;
 
     @Column(name = "product_type_snapshot", length = 30, nullable = false)
-    private String productTypeSnapshot;
+    private String productType;
+
+    @Column(name = "product_model_snapshot", length = 50)
+    private String productModel;
 
     @Column(name = "product_amount_snapshot", nullable = false)
-    private int productAmountSnapshot;
+    private int productAmount;
 
     @Enumerated(STRING)
     @Column(name = "order_product_status", length = 20, nullable = false)
@@ -63,39 +68,43 @@ public class OrderProduct {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    @Column(name = "is_download", nullable = false)
-    private boolean download;
+    @Column(name = "downloaded", nullable = false)
+    private boolean downloaded;
 
     private OrderProduct(
             UUID id,
             UUID productId,
             UUID sellerId,
-            String productTitleSnapshot,
-            String productTypeSnapshot,
-            int productAmountSnapshot,
+            String productTitle,
+            String productType,
+            String productModel,
+            int productAmount,
             OrderStatus orderStatus,
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
-            boolean download
+            boolean downloaded
     ) {
         this.id = id;
         this.productId = productId;
         this.sellerId = sellerId;
-        this.productTitleSnapshot = productTitleSnapshot;
-        this.productTypeSnapshot = productTypeSnapshot;
-        this.productAmountSnapshot = productAmountSnapshot;
+        this.productTitle = productTitle;
+        this.productType = productType;
+        this.productModel = productModel;
+        this.productAmount = productAmount;
         this.orderStatus = orderStatus;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
-        this.download = download;
+        this.downloaded = downloaded;
     }
 
     public static OrderProduct create(
             UUID productId,
             UUID sellerId,
-            String productTitleSnapshot,
-            String productTypeSnapshot,
-            int productAmountSnapshot
+            String productTitle,
+            String productType,
+            String productModel,
+            int productAmount
+            // String productThumbnailSnapshot
     ) {
         LocalDateTime now = LocalDateTime.now();
 
@@ -103,9 +112,11 @@ public class OrderProduct {
                 UUID.randomUUID(),
                 productId,
                 sellerId,
-                productTitleSnapshot,
-                productTypeSnapshot,
-                productAmountSnapshot,
+                productTitle,
+                productType,
+                productModel,
+                productAmount,
+                // productThumbnailSnapshot,
                 OrderStatus.PENDING,
                 now,
                 now,
@@ -132,29 +143,39 @@ public class OrderProduct {
     }
 
     public void cancel() {
-        validatePending();
+        cancel(LocalDateTime.now());
+    }
+
+    public void cancel(LocalDateTime canceledAt) {
+        if (this.orderStatus != OrderStatus.PAID) {
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "결제 완료 상태의 주문 상품만 취소할 수 있습니다.");
+        }
 
         this.orderStatus = OrderStatus.CANCELED;
-        this.canceledAt = LocalDateTime.now();
+        this.canceledAt = canceledAt;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void refund() {
+        refund(LocalDateTime.now());
+    }
+
+    public void refund(LocalDateTime refundedAt) {
         if (this.orderStatus != OrderStatus.PAID) {
-            throw new IllegalStateException("결제 완료 상태의 주문 상품만 환불할 수 있습니다.");
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "결제 완료 상태의 주문 상품만 환불할 수 있습니다.");
         }
 
         this.orderStatus = OrderStatus.REFUNDED;
-        this.refundedAt = LocalDateTime.now();
+        this.refundedAt = refundedAt;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void markDownloaded() {
-        if (this.orderStatus != OrderStatus.PAID) {
-            throw new IllegalStateException("결제 완료된 주문 상품만 다운로드 처리할 수 있습니다.");
+        if (this.downloaded) {
+            return;
         }
 
-        this.download = true;
+        this.downloaded = true;
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -162,9 +183,13 @@ public class OrderProduct {
         return this.orderStatus == OrderStatus.PAID;
     }
 
+    public boolean isRefundable() {
+        return this.orderStatus == OrderStatus.PAID && !this.downloaded;
+    }
+
     private void validatePending() {
         if (this.orderStatus != OrderStatus.PENDING) {
-            throw new IllegalStateException("대기 상태의 주문 상품만 처리할 수 있습니다.");
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "대기 상태의 주문 상품만 처리할 수 있습니다.");
         }
     }
 }

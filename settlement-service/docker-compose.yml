@@ -1,0 +1,45 @@
+services:
+  postgres:
+    container_name: promptHub
+    image: 'postgres:18.4-alpine'
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_INITDB_ARGS="--encoding=UTF-8"
+    volumes:
+      - pg-data:/var/lib/postgresql
+    restart: always
+    ports:
+      - '5432:5432'
+    env_file:
+      - ./.env
+
+  kafka:
+    container_name: kafka
+    image: 'confluentinc/cp-kafka:7.8.0'
+    restart: always
+    ports:
+      - '9092:9092'
+    environment:
+      # KRaft 단일 노드(broker+controller) — ZooKeeper 불필요
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # 호스트(IntelliJ)에서 localhost:9092 로 접속 — 앱의 KAFKA_BOOTSTRAP_SERVERS 기본값과 일치
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      # 단일 노드라 복제 인자/ISR 모두 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 1
+      # KRaft 클러스터 ID(고정) — 포맷 시 사용
+      CLUSTER_ID: 5L6g3nShT-eMCtK--X86sw
+
+volumes:
+  pg-data:

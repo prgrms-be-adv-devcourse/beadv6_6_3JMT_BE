@@ -18,7 +18,7 @@
 | `amount_type_enum` | FREE / PAID |
 | `order_status_type` | PENDING / PAID / FAILED / CANCELED / REFUNDED |
 | `order_product_status_type` | PENDING / PAID / FAILED / CANCELED / REFUNDED |
-| `payment_status_type` | READY / REQUESTED / PAID / FAILED / CANCELING / CANCELED / CANCEL_FAILED / REFUNDED / UNKNOWN |
+| `payment_status_type` | READY / REQUESTED / PAID / FAILED / REFUNDING / REFUNDED / UNKNOWN |
 | `refund_status_type` | REQUESTED / COMPLETED / FAILED |
 | `settlement_status_type` | PROCESSING / COMPLETED / FAILED / CANCELLED |
 | `payout_status_type` | PENDING / PAID / FAILED |
@@ -32,53 +32,53 @@
 
 ### user
 
-| 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
-|------|------|:--------:|--------|------|
-| user_id | UUID | ✓ | | PK |
-| name | VARCHAR(100) | ✓ | | 사용자 이름 |
-| email | VARCHAR(255) | ✓ | | 이메일 |
+| 컬럼                | 타입 | NOT NULL | 기본값 | 설명 |
+|-------------------|------|:--------:|--------|------|
+| id                | UUID | ✓ | | PK |
+| name              | VARCHAR(100) | ✓ | | 사용자 이름 |
+| email             | VARCHAR(255) | ✓ | | 이메일 |
 | profile_image_url | VARCHAR(500) | | NULL | 프로필 이미지 URL |
-| status | user_status_type | ✓ | ACTIVE | ACTIVE / BLOCKED / WITHDRAWN |
-| terms_agreed | BOOLEAN | ✓ | FALSE | 서비스 이용약관 동의 여부 |
-| role | user_role_type | ✓ | | USER / SELLER / ADMIN |
-| created_at | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
-| updated_at | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
+| status            | user_status_type | ✓ | ACTIVE | ACTIVE / BLOCKED / WITHDRAWN |
+| terms_agreed      | BOOLEAN | ✓ | FALSE | 서비스 이용약관 동의 여부 |
+| role              | user_role_type | ✓ | | USER / SELLER / ADMIN |
+| created_at        | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
+| updated_at        | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
 
 ---
 
 ### auth
 
-| 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
-|------|------|:--------:|--------|------|
-| auth_id | UUID | ✓ | gen_random_uuid() | PK |
-| user_id | UUID | ✓ | | FK → user.user_id |
-| provider | auth_provider_type | ✓ | | KAKAO / NAVER / GOOGLE |
-| provider_user_id | VARCHAR(100) | ✓ | | 소셜 플랫폼 고유 ID. UNIQUE(provider, provider_user_id) |
+| 컬럼           | 타입 | NOT NULL | 기본값 | 설명 |
+|--------------|------|:--------:|--------|------|
+| id           | UUID | ✓ | gen_random_uuid() | PK |
+| user_id      | UUID | ✓ | | FK → user.user_id |
+| provider     | auth_provider_type | ✓ | | KAKAO / NAVER / GOOGLE |
+| oauth_id     | VARCHAR(100) | ✓ | | 소셜 플랫폼 고유 ID. UNIQUE(provider, provider_user_id) |
 | connected_at | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | 소셜 계정 연동 일시 |
 
 ---
 
 ### seller
 
-| 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
-|------|------|:--------:|--------|------|
-| seller_id | UUID | ✓ | gen_random_uuid() | PK |
-| user_id | UUID | ✓ | | FK → user.user_id |
-| seller_name | VARCHAR(100) | ✓ | | 상호명 또는 판매자 노출 이름 |
+| 컬럼              | 타입 | NOT NULL | 기본값 | 설명 |
+|-----------------|------|:--------:|--------|------|
+| id              | UUID | ✓ | gen_random_uuid() | PK |
+| user_id         | UUID | ✓ | | FK → user.user_id |
+| seller_name     | VARCHAR(100) | ✓ | | 상호명 또는 판매자 노출 이름 |
 | business_number | VARCHAR(50) | | NULL | 사업자등록번호. 개인/해외 판매자 확장성을 위해 NULL 허용 |
-| status | seller_status_type | ✓ | PENDING | PENDING / ACTIVE / SUSPENDED |
-| approved_at | TIMESTAMPTZ | | NULL | 판매자 승인 일시. 미승인 시 NULL |
-| created_at | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
-| updated_at | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
+| status          | seller_status_type | ✓ | PENDING | PENDING / ACTIVE / SUSPENDED |
+| approved_at     | TIMESTAMPTZ | | NULL | 판매자 승인 일시. 미승인 시 NULL |
+| created_at      | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
+| updated_at      | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
 
 ---
 
 ### wishlist
 
-| 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
-|------|------|:--------:|--------|------|
-| wishlist_id | UUID | ✓ | gen_random_uuid() | PK |
-| user_id | UUID | ✓ | | FK → user.user_id |
+| 컬럼         | 타입 | NOT NULL | 기본값 | 설명 |
+|------------|------|:--------:|--------|------|
+| id         | UUID | ✓ | gen_random_uuid() | PK |
+| user_id    | UUID | ✓ | | FK → user.user_id |
 | product_id | UUID | ✓ | | FK → product.product_id |
 | created_at | TIMESTAMPTZ | ✓ | CURRENT_TIMESTAMP | |
 
@@ -90,9 +90,11 @@
 
 | 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
 |------|------|:--------:|--------|------|
-| category_id | UUID | ✓ | gen_random_uuid() | PK |
+| id | UUID | ✓ | gen_random_uuid() | PK |
 | parent_id | UUID | | NULL | 부모 카테고리 FK (자기 참조). 최상위는 NULL |
-| name | VARCHAR(100) | ✓ | | 카테고리명 |
+| code | VARCHAR(50) | ✓ | | 카테고리 코드. API 필터/응답 식별값. UNIQUE |
+| name | VARCHAR(100) | ✓ | | 카테고리 표시명 (화면 노출용) |
+| icon | VARCHAR(50) | | NULL | 아이콘 slug. FE ICON_MAP key (예: `pen-line`, `code-xml`) |
 | display_order | INT | ✓ | 0 | 노출 순서 |
 | created_at | TIMESTAMPTZ | ✓ | | |
 | updated_at | TIMESTAMPTZ | ✓ | | |
@@ -103,25 +105,28 @@
 
 | 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
 |------|------|:--------:|--------|------|
-| product_id | UUID | ✓ | gen_random_uuid() | PK |
+| id | UUID | ✓ | gen_random_uuid() | PK |
+| parent_id | UUID | | NULL | FK → product.id. 최초 등록 시 NULL, 버전업 시 원본 상품 id |
 | seller_id | UUID | ✓ | | FK → seller.seller_id |
 | category_id | UUID | | NULL | FK → category.category_id |
-| parent_id | UUID | | NULL | 버전 계열 최초 원본 ID (자기 참조). 최초 등록은 NULL |
 | major_version | SMALLINT | ✓ | 1 | 메이저 버전. MAJOR 선택 시 +1, patch_version 0 리셋 |
 | patch_version | SMALLINT | ✓ | 0 | 패치 버전. PATCH 선택 시 +1. 표기: major.patch |
 | change_reason | VARCHAR(500) | | NULL | 버전업 변경 사유 |
 | name | VARCHAR(200) | ✓ | | 상품명 |
 | description | TEXT | ✓ | | 상품 상세 설명 |
-| product_type | VARCHAR(50) | ✓ | | PROMPT 등 |
-| amount_type | amount_type_enum | ✓ | PAID | FREE / PAID |
+| product_type | VARCHAR(50) | ✓ | | 상품 유형. PROMPT / TEMPLATE / DATASET / IMAGE_ASSET |
+| model | VARCHAR(100) | | NULL | 판매자가 입력하는 대상 AI 모델명 (예: GPT-4o, Midjourney v6) |
+| amount_type | VARCHAR(20) | ✓ | PAID | FREE / PAID (CHECK constraint) |
 | amount | INT | ✓ | 0 | 판매 가격 |
 | thumbnail_url | VARCHAR(500) | | NULL | 대표 이미지 URL. NULL이면 기본 이미지 |
 | content | TEXT | | NULL | 프롬프트/템플릿 원문. **외부 응답 노출 금지** |
-| status | product_status_type | ✓ | DRAFT | DRAFT / PENDING_REVIEW / ON_SALE / REJECTED / STOPPED |
+| badge | VARCHAR(50) | | NULL | 상품 뱃지 (`신규` 등) |
+| status | VARCHAR(30) | ✓ | DRAFT | DRAFT / PENDING_REVIEW / ON_SALE / REJECTED / STOPPED (CHECK constraint) |
 | rejection_reason | VARCHAR(1000) | | NULL | 검수 반려 사유. REJECTED 상태에서만 유효 |
 | sales_count | INT | ✓ | 0 | 누적 판매 수 |
 | view_count | INT | ✓ | 0 | 조회 수 |
 | wish_count | INT | ✓ | 0 | 찜 수 |
+| tags | TEXT | | NULL | 판매자 지정 태그 (쉼표 구분 문자열, TagsConverter 사용) |
 | created_at | TIMESTAMPTZ | ✓ | | |
 | updated_at | TIMESTAMPTZ | ✓ | | |
 | deleted_at | TIMESTAMPTZ | | NULL | 소프트 삭제 일시 |
@@ -211,7 +216,7 @@
 | product_type_snapshot | VARCHAR(30) | ✓ | | 구매 당시 상품 유형 스냅샷 |
 | product_amount_snapshot | INT | ✓ | | 구매 당시 가격 스냅샷 |
 | order_product_status | order_product_status_type | ✓ | | PENDING / PAID / FAILED / CANCELED / REFUNDED |
-| is_download | BOOLEAN | ✓ | FALSE | 다운로드 여부 |
+| downloaded | BOOLEAN | ✓ | FALSE | 다운로드 여부 |
 | created_at | TIMESTAMPTZ | ✓ | | 불변 |
 | canceled_at | TIMESTAMPTZ | | NULL | 부분 취소 확장용 |
 | refunded_at | TIMESTAMPTZ | | NULL | 부분 환불 확장용 |
@@ -237,17 +242,14 @@
 | product_amount | INT | ✓ | | 상품 원금액 |
 | discount_amount | INT | ✓ | 0 | 할인 금액 |
 | approved_amount | INT | | NULL | PG사 실제 승인 금액. 승인 전 NULL |
-| canceled_amount | INT | ✓ | 0 | 취소된 누적 금액 |
 | idempotency_key | VARCHAR(255) | ✓ | | 중복 결제 방지 키. 형식: pay-{order_id}. UNIQUE |
 | failure_code | VARCHAR(100) | | NULL | PG사 결제 실패 코드 |
 | failure_reason | TEXT | | NULL | PG사 결제 실패 상세 사유 |
-| cancel_reason | TEXT | | NULL | 구매자 취소 사유 |
 | request_payload | JSONB | | NULL | PG사 결제 요청 원문. 분쟁·디버깅용 |
 | response_payload | JSONB | | NULL | PG사 응답 원문. 분쟁·디버깅용 |
 | requested_at | TIMESTAMPTZ | | NULL | |
 | approved_at | TIMESTAMPTZ | | NULL | |
 | failed_at | TIMESTAMPTZ | | NULL | |
-| canceled_at | TIMESTAMPTZ | | NULL | |
 | refunded_at | TIMESTAMPTZ | | NULL | |
 | created_at | TIMESTAMPTZ | ✓ | NOW() | |
 | updated_at | TIMESTAMPTZ | ✓ | NOW() | |

@@ -2,14 +2,19 @@ spring:
   application:
     name: order-service
   config:
-    import: optional:file:order-service/.env[.properties]
+    import:
+      - optional:configserver:http://localhost:8888
+      - optional:file:.env[.properties]
+  sql:
+    init:
+      mode: always
   profiles:
     default: local
 
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/prompthub}
+    username: ${DB_USERNAME:chan}
+    password: ${DB_PASSWORD:123}
 
   jpa:
     hibernate:
@@ -19,20 +24,68 @@ spring:
         format_sql: true
     open-in-view: false
 
-#  cloud:
-#    openfeign:
-#      client:
-#        config:
-#          product-service:
-#            url: ${PRODUCT_SERVICE_URL:http://localhost:8081}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+    consumer:
+      group-id: order-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+        spring.json.trusted.packages: com.prompthub.order.*
+    listener:
+      ack-mode: manual
+
+  cloud:
+    openfeign:
+      client:
+        config:
+          product-service:
+            connect-timeout: ${PRODUCT_SERVICE_CONNECT_TIMEOUT_MS:2000}
+            read-timeout: ${PRODUCT_SERVICE_READ_TIMEOUT_MS:3000}
 
 server:
-  port: 8080
+  port: 8083
 
-#prompthub:
-#  clients:
-#    product-service:
-#      url: ${PRODUCT_SERVICE_URL:http://localhost:8081}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+    prefer-ip-address: true
+
+
+prompthub:
+  clients:
+    product-service:
+      url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+  grpc:
+    product:
+      host: ${PRODUCT_GRPC_HOST:localhost}
+      port: ${PRODUCT_GRPC_PORT:9082}
+      deadline-ms: ${PRODUCT_GRPC_DEADLINE_MS:2000}
+    seller:
+      host: ${SELLER_GRPC_HOST:localhost}
+      port: ${SELLER_GRPC_PORT:9081}
+      deadline-ms: ${SELLER_GRPC_DEADLINE_MS:2000}
+  outbox-relay:
+    enabled: true
+    fixed-delay-ms: 5000
+    batch-size: 100
+    max-retry-count: 3
 
 logging:
   level:
@@ -71,6 +124,10 @@ spring:
     hibernate:
       ddl-auto: create-drop
     open-in-view: false
+
+prompthub:
+  outbox-relay:
+    enabled: false
 
 logging:
   level:

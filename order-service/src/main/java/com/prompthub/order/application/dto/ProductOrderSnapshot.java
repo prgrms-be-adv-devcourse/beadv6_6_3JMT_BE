@@ -7,6 +7,7 @@ public record ProductOrderSnapshot(
 	UUID sellerId,
 	String title,
 	String productType,
+	String model,
 	int amount
 ) {
 }

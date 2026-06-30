@@ -1,0 +1,91 @@
+# CD — EC2 self-hosted 러너에서 직접 빌드 후 docker compose 로 배포
+# (ECR 방식 cd-main.yml 은 비활성. 전제: EC2에 ${DEPLOY_DIR}/.env, 루트 build 기반 docker-compose.yml)
+
+name: CD - Self-hosted Compose
+
+on:
+  push:                        # main 머지 시 자동 배포
+    branches: [main]
+  workflow_dispatch:           # 수동 실행
+    inputs:
+      rebuild_all:
+        description: "전체 재빌드 여부(true면 --build, false면 이미지 재사용)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-selfhosted
+  cancel-in-progress: false
+
+env:
+  DEPLOY_DIR: /home/ubuntu/prompthub        # EC2 배포 디렉토리(.env 위치). Ubuntu 기본 계정 홈
+  COMPOSE_FILE: docker-compose.yml          # 레포 루트의 build 기반 compose
+
+jobs:
+  deploy:
+    name: Build & Deploy on EC2
+    runs-on: [self-hosted, linux, deploy]
+    steps:
+      # 1) 레포 코드를 러너로 가져온다
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2) EC2에 앱 env(.env)가 있는지 확인한다(없으면 중단)
+      - name: env 확인
+        shell: bash
+        run: |
+          if [ ! -f "${DEPLOY_DIR}/.env" ]; then
+            echo "EC2에 ${DEPLOY_DIR}/.env 가 없습니다. 앱 env를 먼저 두세요."
+            exit 1
+          fi
+          echo ".env 확인 완료"
+
+      # 3) 모듈별 이미지를 EC2에서 빌드하고 컨테이너를 기동한다(push는 항상 빌드)
+      - name: Build & Up (docker compose)
+        shell: bash
+        run: |
+          BUILD_FLAG="--build"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.rebuild_all }}" != "true" ]; then
+            BUILD_FLAG=""
+          fi
+
+          docker compose -f "${COMPOSE_FILE}" --env-file "${DEPLOY_DIR}/.env" \
+            up -d ${BUILD_FLAG} --remove-orphans
+
+      # 4) 각 서비스 /actuator/health 로 정상 기동을 확인한다(실패 시 로그 출력 후 중단)
+      - name: Health check
+        shell: bash
+        run: |
+          health_check() {
+            local service="$1"
+            local url="$2"
+            for i in {1..20}; do
+              if curl -fsS "$url" > /dev/null; then
+                echo "${service} health check success"
+                return 0
+              fi
+              echo "${service} waiting... attempt=${i}"
+              sleep 5
+            done
+            echo "${service} health check failed"
+            docker logs --tail=200 "$service" || true
+            exit 1
+          }
+
+          health_check "discovery"          "http://localhost:8761/actuator/health"
+          health_check "config"             "http://localhost:8888/actuator/health"
+          health_check "user-service"       "http://localhost:8081/actuator/health"
+          health_check "product-service"    "http://localhost:8082/actuator/health"
+          health_check "order-service"      "http://localhost:8083/actuator/health"
+          health_check "payment-service"    "http://localhost:8084/actuator/health"
+          health_check "settlement-service" "http://localhost:8085/actuator/health"
+          health_check "apigateway"         "http://localhost:8000/actuator/health"
+
+      # 5) 빌드 과정에서 생긴 dangling 이미지를 정리한다
+      - name: Cleanup dangling images
+        if: always()
+        shell: bash
+        run: docker image prune -f || true
