@@ -142,7 +142,7 @@ jobs:
           health_check() {
             local service="$1"
             local url="$2"
-            for i in {1..20}; do
+            for i in {1..40}; do          # 최대 200초(느린 EC2에서 부팅 지연 대비). UP 되면 즉시 통과
               if curl -fsS "$url" > /dev/null; then
                 echo "${service} health check success"
                 return 0
