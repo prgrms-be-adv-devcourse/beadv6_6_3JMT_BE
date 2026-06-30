@@ -16,7 +16,7 @@ services:
       - pg-data:/var/lib/postgresql            # 데이터 영속 볼륨(postgres 18+ 권장 마운트 경로)
     restart: always
     networks: [prompthub]
-    # ports: ["5432:5432"]                     # 디버그용 노출(운영 X)
+    ports: ["127.0.0.1:5432:5432"]            # SSH 터널 DB 접속용 loopback 노출(외부 차단)
 
   kafka:
     image: confluentinc/cp-kafka:7.8.0
