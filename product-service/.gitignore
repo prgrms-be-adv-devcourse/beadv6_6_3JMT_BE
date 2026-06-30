@@ -15,6 +15,9 @@ out/
 .env.*
 !.env.example
 
+# Production config (managed on EC2, never commit)
+application-prod.yml
+
 # Logs
 *.log
 logs/

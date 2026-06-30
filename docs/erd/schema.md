@@ -118,7 +118,8 @@
 | model | VARCHAR(100) | | NULL | 판매자가 입력하는 대상 AI 모델명 (예: GPT-4o, Midjourney v6) |
 | amount_type | VARCHAR(20) | ✓ | PAID | FREE / PAID (CHECK constraint) |
 | amount | INT | ✓ | 0 | 판매 가격 |
-| thumbnail_url | VARCHAR(500) | | NULL | 대표 이미지 URL. NULL이면 기본 이미지 |
+| thumbnail_url | TEXT | | NULL | 대표 이미지 URL. NULL이면 기본 이미지 |
+| image_urls | TEXT | | NULL | 추가 이미지 URL 목록 (쉼표 구분, 최대 5개) |
 | content | TEXT | | NULL | 프롬프트/템플릿 원문. **외부 응답 노출 금지** |
 | badge | VARCHAR(50) | | NULL | 상품 뱃지 (`신규` 등) |
 | status | VARCHAR(30) | ✓ | DRAFT | DRAFT / PENDING_REVIEW / ON_SALE / REJECTED / STOPPED (CHECK constraint) |

@@ -14,6 +14,7 @@ public record ProductUpdateRequest(
 	@NotNull @Min(0) Integer amount,
 	@NotBlank String content,
 	String thumbnailUrl,
+	List<String> imageUrls,
 	List<String> tags,
 	String changeReason,
 	String versionType
