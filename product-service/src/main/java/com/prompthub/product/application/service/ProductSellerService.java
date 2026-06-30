@@ -2,6 +2,7 @@ package com.prompthub.product.application.service;
 
 import com.prompthub.product.application.client.SellerClient;
 import com.prompthub.product.application.client.SellerInfo;
+import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.application.usecase.ProductSellerUseCase;
 import com.prompthub.product.domain.model.entity.Category;
 import com.prompthub.product.domain.model.entity.Product;
@@ -28,9 +29,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class ProductSellerService implements ProductSellerUseCase {
 
+	private static final String TEMP_PREFIX = "products/temp/";
+
 	private final ProductRepository productRepository;
 	private final SellerClient sellerClient;
 	private final ProductEventProducer productEventProducer;
+	private final StorageClient storageClient;
 
 	@Override
 	public ProductCreateResponse createProduct(UUID sellerId, ProductCreateRequest request) {
@@ -42,9 +46,14 @@ public class ProductSellerService implements ProductSellerUseCase {
 		Category category = productRepository.findCategoryByCode(request.category())
 			.orElseThrow(() -> new ProductException(ProductErrorCode.CATEGORY_NOT_FOUND));
 
+		UUID productId = UUID.randomUUID();
+		String thumbnailKey = moveToProductPath(extractKey(request.thumbnailUrl()), productId);
+		List<String> imageKeys = moveToProductPaths(extractKeys(request.imageUrls()), productId);
+
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
 		String productType = request.productType() != null ? request.productType() : "PROMPT";
 		Product product = Product.create(
+			productId,
 			sellerId,
 			category,
 			request.title(),
@@ -53,7 +62,8 @@ public class ProductSellerService implements ProductSellerUseCase {
 			request.model(),
 			amountType,
 			request.amount(),
-			request.thumbnailUrl(),
+			thumbnailKey,
+			imageKeys,
 			request.content(),
 			request.tags()
 		);
@@ -84,6 +94,9 @@ public class ProductSellerService implements ProductSellerUseCase {
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
 		boolean isMajor = "MAJOR".equalsIgnoreCase(request.versionType());
 		String productType = request.productType() != null ? request.productType() : "PROMPT";
+		String newThumbnailKey = moveToProductPath(extractKey(request.thumbnailUrl()), productId);
+		List<String> newImageKeys = moveToProductPaths(extractKeys(request.imageUrls()), productId);
+
 		product.update(
 			category,
 			request.title(),
@@ -92,7 +105,8 @@ public class ProductSellerService implements ProductSellerUseCase {
 			request.model(),
 			amountType,
 			request.amount(),
-			request.thumbnailUrl(),
+			newThumbnailKey,
+			newImageKeys,
 			request.content(),
 			request.tags(),
 			request.changeReason(),
@@ -149,7 +163,32 @@ public class ProductSellerService implements ProductSellerUseCase {
 	@Transactional(readOnly = true)
 	public SellerProductDetailResponse getMyProduct(UUID sellerId, UUID productId) {
 		Product product = getProductForSeller(sellerId, productId);
-		return SellerProductDetailResponse.from(product);
+		return SellerProductDetailResponse.from(product, storageClient);
+	}
+
+	private String moveToProductPath(String key, UUID productId) {
+		if (key == null || key.isBlank() || !key.startsWith(TEMP_PREFIX)) return key;
+		String destKey = "products/" + productId + "/" + key.substring(TEMP_PREFIX.length());
+		storageClient.copyObject(key, destKey);
+		storageClient.deleteObject(key);
+		return destKey;
+	}
+
+	private List<String> moveToProductPaths(List<String> keys, UUID productId) {
+		if (keys == null) return null;
+		return keys.stream().map(k -> moveToProductPath(k, productId)).toList();
+	}
+
+	private String extractKey(String presignedUrl) {
+		if (presignedUrl == null || presignedUrl.isBlank()) return null;
+		String path = presignedUrl.split("\\?")[0];
+		int idx = path.indexOf(".amazonaws.com/");
+		return idx >= 0 ? path.substring(idx + ".amazonaws.com/".length()) : presignedUrl;
+	}
+
+	private List<String> extractKeys(List<String> urls) {
+		if (urls == null) return null;
+		return urls.stream().map(this::extractKey).toList();
 	}
 
 	private Product getProductForSeller(UUID sellerId, UUID productId) {

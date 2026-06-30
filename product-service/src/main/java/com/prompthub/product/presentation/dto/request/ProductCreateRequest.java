@@ -14,6 +14,7 @@ public record ProductCreateRequest(
 	@NotNull @Min(0) Integer amount,
 	@NotBlank String content,
 	String thumbnailUrl,
+	List<String> imageUrls,
 	List<String> tags
 ) {
 }
