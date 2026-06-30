@@ -54,6 +54,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 			amountType,
 			request.amount(),
 			request.thumbnailUrl(),
+			request.imageUrls(),
 			request.content(),
 			request.tags()
 		);
@@ -93,6 +94,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 			amountType,
 			request.amount(),
 			request.thumbnailUrl(),
+			request.imageUrls(),
 			request.content(),
 			request.tags(),
 			request.changeReason(),

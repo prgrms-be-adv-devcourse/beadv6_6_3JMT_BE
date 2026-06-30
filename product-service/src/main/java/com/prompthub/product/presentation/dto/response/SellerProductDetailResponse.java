@@ -16,6 +16,7 @@ public record SellerProductDetailResponse(
 	String status,
 	String version,
 	String thumbnailUrl,
+	List<String> imageUrls,
 	List<String> tags
 ) {
 	public static SellerProductDetailResponse from(Product product) {
@@ -31,6 +32,7 @@ public record SellerProductDetailResponse(
 			product.getStatus().name(),
 			product.getMajorVersion() + "." + product.getPatchVersion(),
 			product.getThumbnailUrl(),
+			product.getImageUrls(),
 			product.getTags()
 		);
 	}
