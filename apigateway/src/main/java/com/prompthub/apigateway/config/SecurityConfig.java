@@ -7,6 +7,7 @@ import org.springframework.security.config.annotation.web.reactive.EnableWebFlux
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.config.Customizer;
 
 @EnableWebFluxSecurity
 @Configuration
@@ -34,6 +35,7 @@ public class SecurityConfig {
     @Bean
     public SecurityWebFilterChain securityFilterChain(ServerHttpSecurity http) {
         return http
+            .cors(Customizer.withDefaults())
             .authorizeExchange(ex -> ex
                 .pathMatchers(WHITE_LIST).permitAll()
                 .pathMatchers(HttpMethod.GET, "/api/v1/products", "/api/v1/products/**").permitAll()
