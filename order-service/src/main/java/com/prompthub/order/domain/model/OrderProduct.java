@@ -104,7 +104,6 @@ public class OrderProduct {
             String productType,
             String productModel,
             int productAmount
-            // String productThumbnailSnapshot
     ) {
         LocalDateTime now = LocalDateTime.now();
 
@@ -116,7 +115,6 @@ public class OrderProduct {
                 productType,
                 productModel,
                 productAmount,
-                // productThumbnailSnapshot,
                 OrderStatus.PENDING,
                 now,
                 now,

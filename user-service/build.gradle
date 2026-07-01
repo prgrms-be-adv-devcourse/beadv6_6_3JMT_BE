@@ -49,6 +49,9 @@ dependencies {
     // Spring Cloud — Eureka 클라이언트 (서비스 등록/디스커버리)
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
 
+    // Spring Cloud — Config Server 클라이언트 (설정·Eureka 주소 수신)
+    implementation 'org.springframework.cloud:spring-cloud-starter-config'
+
     // JPA & PostgreSQL
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     runtimeOnly 'org.postgresql:postgresql'
