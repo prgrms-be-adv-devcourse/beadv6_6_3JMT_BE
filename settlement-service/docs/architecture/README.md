@@ -14,20 +14,29 @@
 | [event-catalog.md](event-catalog.md) | 외부와 주고받는 데이터 카탈로그. 이벤트로 받는 것(매출/환불 원천 데이터)과 동기 조회로 가져오는 것(판매자 정보·상품 수)을 토픽·페이로드·멱등키 단위로 정리. **"무엇을"** 에 해당. |
 | [kafka-messaging-design.md](kafka-messaging-design.md) | 위 카탈로그를 클린아키텍처 룰에 맞춰 **어느 계층·패키지에 어떤 코드로 구현하는지**. 수신/발행 전략·멱등 처리. **"어떻게"** 에 해당. |
 
+## 배포 (CI/CD)
+
+빌드·배포가 어디서 어떻게 일어나는지.
+
+| 문서 | 내용 |
+| --- | --- |
+| [deployment-ci-cd.md](deployment-ci-cd.md) | 프론트(Vercel)·백엔드(EC2) 배포 경로. GitHub Actions CI(빌드/테스트)와 EC2 self-hosted runner CD(빌드·env 주입·`docker compose up -d`), 도메인·CORS 설정. |
+
 ## 설계 의사결정 (trade-offs)
 
 선택지를 비교하고 무엇을 왜 골랐는지 남긴 기록.
 
 | 문서 | 다루는 결정 |
 | --- | --- |
-| [trade-offs/internal-sync-transport.md](trade-offs/internal-sync-transport.md) | 서비스 간 동기 호출을 REST(HTTP/JSON)로 할지 gRPC로 할지 |
-| [trade-offs/order-data-sourcing.md](trade-offs/order-data-sourcing.md) | 정산 대상 주문 데이터(PAID·미정산 order_product)를 어떻게 수급할지 |
-| [trade-offs/settlement-batch-granularity.md](trade-offs/settlement-batch-granularity.md) | 정산 배치를 판매자 단위 집계 3-step으로 둘지, 단일 chunk 스트리밍으로 둘지 |
-| [trade-offs/user-identity-propagation.md](trade-offs/user-identity-propagation.md) | 인증/인가를 게이트웨이가 처리하고 각 서비스는 전달된 식별 정보(헤더)만 읽는 구조 |
-| [trade-offs/source-line-release-on-cancel.md](trade-offs/source-line-release-on-cancel.md) | 정산 취소 시 묶인 원천소스(source line)를 행 단위 dirty checking으로 풀지, 단일 벌크 UPDATE로 풀지 |
+| [../trade-offs/internal-sync-transport.md](../trade-offs/internal-sync-transport.md) | 서비스 간 동기 호출을 REST(HTTP/JSON)로 할지 gRPC로 할지 |
+| [../trade-offs/order-data-sourcing.md](../trade-offs/order-data-sourcing.md) | 정산 대상 주문 데이터(PAID·미정산 order_product)를 어떻게 수급할지 |
+| [../trade-offs/settlement-batch-granularity.md](../trade-offs/settlement-batch-granularity.md) | 정산 배치를 판매자 단위 집계 3-step으로 둘지, 단일 chunk 스트리밍으로 둘지 |
+| [../trade-offs/user-identity-propagation.md](../trade-offs/user-identity-propagation.md) | 인증/인가를 게이트웨이가 처리하고 각 서비스는 전달된 식별 정보(헤더)만 읽는 구조 |
+| [../trade-offs/source-line-release-on-cancel.md](../trade-offs/source-line-release-on-cancel.md) | 정산 취소 시 묶인 원천소스(source line)를 행 단위 dirty checking으로 풀지, 단일 벌크 UPDATE로 풀지 |
 
 ## 이 폴더 밖에 있는 관련 문서
 
+- 설계 의사결정(trade-offs): [../trade-offs/](../trade-offs/)
 - API 명세(프론트 연동): [../settlement-api-for-frontend.md](../settlement-api-for-frontend.md)
 - 트러블슈팅: [../trouble-shooting/](../trouble-shooting/)
 - 기능 설계·계획(스펙/플랜): [../superpowers/](../superpowers/)

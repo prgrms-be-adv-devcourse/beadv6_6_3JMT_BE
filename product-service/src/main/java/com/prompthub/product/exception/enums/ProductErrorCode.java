@@ -16,7 +16,8 @@ public enum ProductErrorCode implements ErrorCode {
 	PRODUCT_FORBIDDEN(HttpStatus.FORBIDDEN, "P003", "본인의 상품만 수정/삭제할 수 있습니다."),
 	CATEGORY_NOT_FOUND(HttpStatus.BAD_REQUEST, "P004", "존재하지 않는 카테고리입니다."),
 	SELLER_NOT_ACTIVE(HttpStatus.FORBIDDEN, "P005", "승인된 판매자만 상품을 등록할 수 있습니다."),
-	PRODUCT_INVALID_STATUS(HttpStatus.CONFLICT, "P006", "현재 상태에서 처리할 수 없는 상품입니다.");
+	PRODUCT_INVALID_STATUS(HttpStatus.CONFLICT, "P006", "현재 상태에서 처리할 수 없는 상품입니다."),
+	S3_PRESIGN_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "S001", "파일 업로드 URL 생성에 실패했습니다.");
 
 	private final HttpStatus status;
 	private final String code;

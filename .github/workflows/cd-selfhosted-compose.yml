@@ -1,0 +1,169 @@
+# CD — EC2 self-hosted 러너에서 직접 빌드 후 docker compose 로 배포
+# (ECR 방식 cd-main.yml 은 비활성. 전제: EC2에 ${DEPLOY_DIR}/.env, 루트 build 기반 docker-compose.yml)
+# 변경 모듈 감지: push 시 바뀐 모듈만 빌드한다(common-module·Dockerfile·compose·gradle 변경 시 전체).
+
+name: CD - Self-hosted Compose
+
+on:
+  push:                        # main 머지 시 자동 배포
+    branches: [main]
+  workflow_dispatch:           # 수동 실행
+    inputs:
+      rebuild_all:
+        description: "전체 재빌드 여부(true면 전체 --build, false면 이미지 재사용)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-selfhosted
+  cancel-in-progress: false
+
+env:
+  DEPLOY_DIR: /home/ubuntu/prompthub        # EC2 배포 디렉토리(.env 위치). Ubuntu 기본 계정 홈
+  COMPOSE_FILE: docker-compose.yml          # 레포 루트의 build 기반 compose
+  # 기동 순서(앞에서부터): discovery → config → 비즈니스 서비스 → apigateway
+  ALL_SERVICES: "discovery config user-service product-service order-service payment-service settlement-service apigateway"
+
+jobs:
+  deploy:
+    name: Build & Deploy on EC2
+    runs-on: [self-hosted, linux, deploy]
+    steps:
+      # 1) 레포 코드를 러너로 가져온다(변경 감지를 위해 전체 히스토리 필요)
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2) EC2에 앱 env(.env)가 있는지 확인한다(없으면 중단)
+      - name: env 확인
+        shell: bash
+        run: |
+          if [ ! -f "${DEPLOY_DIR}/.env" ]; then
+            echo "EC2에 ${DEPLOY_DIR}/.env 가 없습니다. 앱 env를 먼저 두세요."
+            exit 1
+          fi
+          echo ".env 확인 완료"
+
+      # 3) push 시 변경된 모듈을 감지한다(수동 실행은 건너뜀 — diff 기준이 없음)
+      - name: 변경 모듈 감지
+        id: changed
+        if: github.event_name == 'push'
+        uses: tj-actions/changed-files@v46
+        with:
+          files_yaml: |
+            user_service:
+              - user-service/**
+            product_service:
+              - product-service/**
+            payment_service:
+              - payment-service/**
+            order_service:
+              - order-service/**
+            settlement_service:
+              - settlement-service/**
+            apigateway:
+              - apigateway/**
+            config:
+              - config/**
+            discovery:
+              - discovery/**
+            docker_all:
+              - common-module/**
+              - Dockerfile
+              - docker-compose.yml
+              - compose.yml
+              - settings.gradle.kts
+              - build.gradle.kts
+              - gradle/**
+
+      # 4) 빌드 대상을 결정한다
+      #    - workflow_dispatch: rebuild_all=true 전체 빌드 / false 이미지 재사용
+      #    - push: docker_all(common-module·Dockerfile·compose·gradle) 변경 시 전체, 아니면 바뀐 서비스만
+      - name: 빌드 대상 결정
+        id: plan
+        shell: bash
+        run: |
+          services=""
+          build="--build"
+          deploy="true"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            services="${ALL_SERVICES}"
+            if [ "${{ inputs.rebuild_all }}" != "true" ]; then
+              build=""   # 이미지 재사용(빌드 생략)
+            fi
+          elif [ "${{ steps.changed.outputs.docker_all_any_changed }}" = "true" ]; then
+            services="${ALL_SERVICES}"   # 공통 변경 → 전체 빌드
+          else
+            [ "${{ steps.changed.outputs.discovery_any_changed }}" = "true" ]          && services="$services discovery"
+            [ "${{ steps.changed.outputs.config_any_changed }}" = "true" ]             && services="$services config"
+            [ "${{ steps.changed.outputs.user_service_any_changed }}" = "true" ]       && services="$services user-service"
+            [ "${{ steps.changed.outputs.product_service_any_changed }}" = "true" ]    && services="$services product-service"
+            [ "${{ steps.changed.outputs.order_service_any_changed }}" = "true" ]      && services="$services order-service"
+            [ "${{ steps.changed.outputs.payment_service_any_changed }}" = "true" ]    && services="$services payment-service"
+            [ "${{ steps.changed.outputs.settlement_service_any_changed }}" = "true" ] && services="$services settlement-service"
+            [ "${{ steps.changed.outputs.apigateway_any_changed }}" = "true" ]         && services="$services apigateway"
+          fi
+
+          services="$(echo $services | xargs)"   # 앞뒤·중복 공백 정리
+          if [ -z "$services" ]; then
+            deploy="false"
+            echo "변경된 서비스 없음 — 배포 생략"
+          fi
+
+          echo "deploy=$deploy"     >> "$GITHUB_OUTPUT"
+          echo "build=$build"       >> "$GITHUB_OUTPUT"
+          echo "services=$services" >> "$GITHUB_OUTPUT"
+          echo "빌드 대상: [${services:-(없음)}] / build='${build}'"
+
+      # 5) 대상 서비스만 빌드·기동한다(부분 배포 시 나머지는 그대로 둠)
+      - name: Build & Up (docker compose)
+        if: steps.plan.outputs.deploy == 'true'
+        shell: bash
+        run: |
+          docker compose -f "${COMPOSE_FILE}" --env-file "${DEPLOY_DIR}/.env" \
+            up -d ${{ steps.plan.outputs.build }} ${{ steps.plan.outputs.services }} --remove-orphans
+
+      # 6) 빌드한 서비스만 /actuator/health 로 확인한다(기동 순서대로)
+      - name: Health check
+        if: steps.plan.outputs.deploy == 'true'
+        shell: bash
+        run: |
+          declare -A PORT=(
+            [discovery]=8761 [config]=8888
+            [user-service]=8081 [product-service]=8082 [order-service]=8083
+            [payment-service]=8084 [settlement-service]=8085 [apigateway]=80
+          )
+
+          health_check() {
+            local service="$1"
+            local url="$2"
+            for i in {1..40}; do          # 최대 200초(느린 EC2에서 부팅 지연 대비). UP 되면 즉시 통과
+              if curl -fsS "$url" > /dev/null; then
+                echo "${service} health check success"
+                return 0
+              fi
+              echo "${service} waiting... attempt=${i}"
+              sleep 5
+            done
+            echo "${service} health check failed"
+            docker logs --tail=200 "$service" || true
+            exit 1
+          }
+
+          SERVICES="${{ steps.plan.outputs.services }}"
+          for svc in ${ALL_SERVICES}; do          # 기동 순서로 순회, 빌드한 것만 체크
+            case " ${SERVICES} " in
+              *" ${svc} "*) health_check "$svc" "http://localhost:${PORT[$svc]}/actuator/health" ;;
+            esac
+          done
+
+      # 7) 빌드 과정에서 생긴 dangling 이미지를 정리한다
+      - name: Cleanup dangling images
+        if: always()
+        shell: bash
+        run: docker image prune -f || true

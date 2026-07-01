@@ -43,8 +43,14 @@ dependencies {
     // Bean Validation (jakarta.validation)
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
+    // Actuator (헬스체크 엔드포인트 — 배포 health check)
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
     // Spring Cloud — Eureka 클라이언트 (서비스 등록/디스커버리)
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+
+    // Spring Cloud — Config Server 클라이언트 (설정·Eureka 주소 수신)
+    implementation 'org.springframework.cloud:spring-cloud-starter-config'
 
     // JPA & PostgreSQL
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'

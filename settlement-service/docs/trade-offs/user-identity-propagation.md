@@ -1,44 +1,47 @@
-# User Identity Propagation
+# 사용자 식별 정보 전파
 
-The API Gateway handles authentication and authorization. Each service only reads the
-identity the gateway forwards as headers.
+인증·인가는 API 게이트웨이가 처리한다. 각 서비스는 게이트웨이가 헤더로 넘겨준
+식별 정보만 읽는다.
 
-## How
+## 지금 구조
 
-- The gateway verifies the token and forwards `X-User-Id` and `X-User-Role`.
-- Services read them with `@RequestHeader`. No security filter per service. (same as order-service)
-- Admin endpoints check `X-User-Role == ADMIN`. The check lives in one place, an interceptor on `/admin/**`.
+- 게이트웨이가 토큰을 검증하고 `X-User-Id`, `X-User-Role`을 헤더로 넘긴다.
+- 서비스는 `@RequestHeader`로 읽는다. 서비스마다 보안 필터를 두지 않는다. (order-service와 동일)
+- 관리자 엔드포인트는 `X-User-Role == ADMIN`을 확인한다. 이 검사는 `/admin/**`에 붙인
+  인터셉터 한 곳에 모은다.
 
 ```java
 public ... run(@RequestHeader("X-User-Id") UUID userId,
                @RequestHeader("X-User-Role") String role, ...) { ... }
 ```
 
-## Preconditions
+## 전제 조건
 
-This setup trusts the headers, so it is only safe when both hold:
+이 구조는 헤더를 믿고 가므로, 다음 둘이 모두 성립할 때만 안전하다.
 
-- Services are reachable only through the gateway. Internal services are never exposed directly.
-- The gateway strips any `X-User-*` headers sent by the client, then sets its own verified values.
+- 서비스는 오직 게이트웨이를 거쳐야만 닿는다. 내부 서비스를 직접 노출하지 않는다.
+- 게이트웨이는 클라이언트가 보낸 `X-User-*` 헤더를 모두 떼어낸 뒤, 자기가 검증한 값으로
+  다시 채운다.
 
-If either is missing, a client can forge `X-User-Role: ADMIN` and bypass the admin check.
+둘 중 하나라도 빠지면, 클라이언트가 `X-User-Role: ADMIN`을 위조해 관리자 검사를 통과할 수 있다.
 
-## Options
+## 선택지
 
-| Option | Pros | Cons |
+| 선택지 | 장점 | 단점 |
 | --- | --- | --- |
-| Header propagation (chosen) | No token logic or signing keys in the service; simple | Needs gateway as sole entry point + header stripping |
-| Forward the JWT, each service verifies | Service checks the origin itself; weaker trust assumption | Verification logic and key distribution duplicated per service |
-| Signed headers / mTLS | Blocks header forgery, proves origin | Key and certificate management overhead |
+| 헤더 전파 (선택) | 서비스에 토큰 로직도 서명 키도 없다, 단순하다 | 게이트웨이가 유일한 입구여야 하고 헤더 제거가 필요하다 |
+| JWT를 그대로 넘기고 서비스마다 검증 | 서비스가 출처를 스스로 확인한다, 신뢰 가정이 약해도 된다 | 검증 로직과 키 배포가 서비스마다 중복된다 |
+| 서명된 헤더 / mTLS | 헤더 위조를 막고 출처를 증명한다 | 키·인증서 관리 부담 |
 
-## Why this fits us
+## 정산에 맞는 선택
 
-- We run independent services behind one shared gateway. Keeping token verification at the gateway
-  means a service never needs the signing keys or the verification code.
-- The services sit on an internal network reachable only through the gateway, so trusting the
-  forwarded headers is reasonable without extra signing.
-- Settlement's needs are narrow: an admin triggers the batch, a seller reads their own data. We only
-  need who and what role, not the full set of token claims.
-- order-service already reads identity this way, so staying with headers keeps the services uniform.
+- 우리는 공유 게이트웨이 하나 뒤에 독립 서비스들을 띄운다. 토큰 검증을 게이트웨이에 두면
+  서비스는 서명 키도 검증 코드도 가질 필요가 없다.
+- 서비스들은 게이트웨이로만 닿는 내부망에 있으므로, 넘어온 헤더를 믿는 게 추가 서명 없이도
+  합리적이다.
+- 정산이 필요로 하는 건 좁다. 관리자가 배치를 돌리고, 판매자가 자기 데이터를 본다. 누구인지와
+  어떤 역할인지만 있으면 되지, 토큰 클레임 전체가 필요하지 않다.
+- order-service가 이미 이 방식으로 식별 정보를 읽는다. 헤더 방식을 그대로 쓰면 서비스들이
+  한결같이 유지된다.
 
-If we later need stronger guarantees, signed headers or mTLS is the next step up.
+더 강한 보장이 필요해지면, 서명된 헤더나 mTLS가 다음 단계다.
