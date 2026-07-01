@@ -1,6 +1,7 @@
 package com.prompthub.order.application.service.admin;
 
 
+import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.dto.AdminDailyTransactionProjection;
 import com.prompthub.order.application.dto.AdminOrderListProjection;
 import com.prompthub.order.application.usecase.AdminOrderUseCase;
@@ -19,9 +20,13 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -30,8 +35,10 @@ public class AdminOrderService implements AdminOrderUseCase {
 
 
 	private static final int RECENT_DAYS = 7;
+	private static final String UNKNOWN_SELLER_NICKNAME = "알 수 없음";
 
 	private final AdminOrderQueryService adminOrderQueryService;
+	private final SellerClient sellerClient;
 
 	@Override
 	public Page<AdminOrderListResponse> getAdminOrders(AdminOrderSearchCondition condition) {
@@ -41,8 +48,12 @@ public class AdminOrderService implements AdminOrderUseCase {
 			Sort.by(Sort.Direction.DESC, "createdAt")
 		);
 		Page<AdminOrderListProjection> orders = adminOrderQueryService.searchAdminOrders(condition, pageable);
+		Set<UUID> sellerIds = collectSellerIds(orders.getContent());
+		Map<UUID, String> sellerNicknames = sellerIds.isEmpty()
+			? Map.of()
+			: sellerClient.getSellerNicknames(new ArrayList<>(sellerIds));
 
-		return orders.map(this::toAdminOrderListResponse);
+		return orders.map(projection -> toAdminOrderListResponse(projection, sellerNicknames));
 	}
 
 	@Override
@@ -87,17 +98,27 @@ public class AdminOrderService implements AdminOrderUseCase {
 	}
 
 	private AdminOrderListResponse toAdminOrderListResponse(
-		AdminOrderListProjection projection
+		AdminOrderListProjection projection,
+		Map<UUID, String> sellerNicknames
 	) {
 		return new AdminOrderListResponse(
 			projection.orderId(),
-			projection.sellerNickname(),
+			sellerNicknames.getOrDefault(projection.sellerId(), UNKNOWN_SELLER_NICKNAME),
 			projection.productTitle(),
 			projection.totalOrderCount(),
 			projection.totalOrderAmount(),
 			projection.orderStatus(),
 			projection.createdAt()
 		);
+	}
+
+	private Set<UUID> collectSellerIds(List<AdminOrderListProjection> orders) {
+		if (orders.isEmpty()) {
+			return Set.of();
+		}
+		return orders.stream()
+			.map(AdminOrderListProjection::sellerId)
+			.collect(Collectors.toCollection(java.util.LinkedHashSet::new));
 	}
 
 	private AdminDailyTransactionResponse toDailyTransactionResponse(

@@ -63,7 +63,6 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
 			.select(
 				order.id,
 				orderProduct.sellerId,
-				orderProduct.sellerNicknameSnapshot,
 				orderProduct.productTitle,
 				order.totalProductCount,
 				order.totalOrderAmount,
@@ -90,7 +89,6 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
 			projections.put(orderId, new AdminOrderListProjection(
 				orderId,
 				row.get(orderProduct.sellerId),
-				row.get(orderProduct.sellerNicknameSnapshot),
 				formatProductTitle(firstProductTitle, totalProductCount == null ? 0 : totalProductCount),
 				totalProductCount == null ? 0 : totalProductCount,
 				valueOrZero(row.get(order.totalOrderAmount)),

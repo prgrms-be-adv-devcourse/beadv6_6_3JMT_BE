@@ -40,9 +40,6 @@ public class OrderProduct {
     @Column(name = "seller_id", columnDefinition = "uuid", nullable = false)
     private UUID sellerId;
 
-    @Column(name = "seller_nickname_snapshot", length = 100, nullable = false)
-    private String sellerNicknameSnapshot;
-
     @Column(name = "product_title_snapshot", length = 200, nullable = false)
     private String productTitle;
 
@@ -78,7 +75,6 @@ public class OrderProduct {
             UUID id,
             UUID productId,
             UUID sellerId,
-            String sellerNicknameSnapshot,
             String productTitle,
             String productType,
             String productModel,
@@ -91,7 +87,6 @@ public class OrderProduct {
         this.id = id;
         this.productId = productId;
         this.sellerId = sellerId;
-        this.sellerNicknameSnapshot = sellerNicknameSnapshot;
         this.productTitle = productTitle;
         this.productType = productType;
         this.productModel = productModel;
@@ -105,7 +100,6 @@ public class OrderProduct {
     public static OrderProduct create(
             UUID productId,
             UUID sellerId,
-            String sellerNickname,
             String productTitle,
             String productType,
             String productModel,
@@ -117,7 +111,6 @@ public class OrderProduct {
                 UUID.randomUUID(),
                 productId,
                 sellerId,
-                sellerNickname != null ? sellerNickname : "알 수 없음",
                 productTitle,
                 productType,
                 productModel,

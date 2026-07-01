@@ -8,7 +8,6 @@ import java.util.UUID;
 public record AdminOrderListProjection(
 	UUID orderId,
 	UUID sellerId,
-	String sellerNickname,
 	String productTitle,
 	int totalOrderCount,
 	int totalOrderAmount,
