@@ -37,6 +37,7 @@ public class SecurityConfig {
         return http
             .cors(Customizer.withDefaults())
             .authorizeExchange(ex -> ex
+                .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .pathMatchers(WHITE_LIST).permitAll()
                 .pathMatchers(HttpMethod.GET, "/api/v1/products", "/api/v1/products/**").permitAll()
                 .anyExchange().authenticated()

@@ -56,11 +56,11 @@ public class OrderService implements OrderUseCase {
 		int totalAmount = products.stream().mapToInt(ProductOrderSnapshot::amount).sum();
 		int totalCount = products.size();
 
-		String orderNumber = orderNumberGenerator.generate();
-		Order order = Order.create(buyerId, orderNumber, totalAmount, totalCount);
-		products.stream()
-			.map(it -> OrderProduct.create(it.productId(), it.sellerId(), it.title(), it.productType(), it.model(), it.amount()))
-			.forEach(order::addOrderProduct);
+			String orderNumber = orderNumberGenerator.generate();
+			Order order = Order.create(buyerId, orderNumber, totalAmount, totalCount);
+			products.stream()
+				.map(it -> OrderProduct.create(it.productId(), it.sellerId(), it.title(), it.productType(), it.model(), it.amount()))
+				.forEach(order::addOrderProduct);
 
 		Order savedOrder = orderRepository.save(order);
 		var responseProducts = savedOrder.getOrderProducts().stream()
