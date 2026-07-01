@@ -1,6 +1,7 @@
 package com.prompthub.order.application.service.admin;
 
 
+import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.dto.AdminDailyTransactionProjection;
 import com.prompthub.order.application.dto.AdminOrderListProjection;
 import com.prompthub.order.domain.enums.OrderStatus;
@@ -25,6 +26,7 @@ import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.ORDER_ID;
@@ -36,12 +38,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class AdminOrderServiceTest {
 
 	@Mock
 	private AdminOrderQueryService adminOrderQueryService;
+
+	@Mock
+	private SellerClient sellerClient;
 
 	@InjectMocks
 	private AdminOrderService adminOrderService;
@@ -57,6 +63,8 @@ class AdminOrderServiceTest {
 			AdminOrderListProjection projection = adminOrderProjection(SELLER_ID_1);
 			given(adminOrderQueryService.searchAdminOrders(any(), any()))
 				.willReturn(new PageImpl<>(List.of(projection), PageRequest.of(0, 20), 1));
+			given(sellerClient.getSellerNicknames(List.of(SELLER_ID_1)))
+				.willReturn(Map.of(SELLER_ID_1, "판매자A"));
 
 			Page<AdminOrderListResponse> response = adminOrderService.getAdminOrders(condition.resolve());
 
@@ -67,6 +75,7 @@ class AdminOrderServiceTest {
 			ArgumentCaptor<AdminOrderSearchCondition> conditionCaptor = ArgumentCaptor.forClass(AdminOrderSearchCondition.class);
 			then(adminOrderQueryService).should().searchAdminOrders(conditionCaptor.capture(), any());
 			assertThat(conditionCaptor.getValue().resolvedOrderStatus()).isNull();
+			then(sellerClient).should().getSellerNicknames(List.of(SELLER_ID_1));
 		}
 
 		@Test
@@ -75,6 +84,7 @@ class AdminOrderServiceTest {
 			AdminOrderSearchCondition condition = new AdminOrderSearchCondition("PAID", 1, 20);
 			given(adminOrderQueryService.searchAdminOrders(any(), any()))
 				.willReturn(new PageImpl<>(List.of(adminOrderProjection(SELLER_ID_1)), PageRequest.of(0, 20), 1));
+			given(sellerClient.getSellerNicknames(any())).willReturn(Map.of());
 
 			adminOrderService.getAdminOrders(condition.resolve());
 
@@ -84,19 +94,49 @@ class AdminOrderServiceTest {
 		}
 
 		@Test
-		@DisplayName("판매자 닉네임이 null이면 projection에서 받은 값을 그대로 사용한다")
-		void getAdminOrders_nullNickname_usesProjectionValue() {
+		@DisplayName("판매자 조회 결과가 없으면 알 수 없음으로 응답한다")
+		void getAdminOrders_missingSellerNickname_usesUnknownFallback() {
 			AdminOrderSearchCondition condition = new AdminOrderSearchCondition("ALL", 1, 20);
-			AdminOrderListProjection projection = new AdminOrderListProjection(
-				ORDER_ID, SELLER_ID_1, null, PRODUCT_TITLE_1, 2, TOTAL_AMOUNT, OrderStatus.PAID,
-				LocalDateTime.of(2026, 6, 24, 10, 0)
-			);
+			AdminOrderListProjection projection = adminOrderProjection(SELLER_ID_1);
 			given(adminOrderQueryService.searchAdminOrders(any(), any()))
 				.willReturn(new PageImpl<>(List.of(projection), PageRequest.of(0, 20), 1));
+			given(sellerClient.getSellerNicknames(List.of(SELLER_ID_1))).willReturn(Map.of());
 
 			Page<AdminOrderListResponse> response = adminOrderService.getAdminOrders(condition.resolve());
 
-			assertThat(response.getContent().getFirst().sellerNickname()).isNull();
+			assertThat(response.getContent().getFirst().sellerNickname()).isEqualTo("알 수 없음");
+		}
+
+		@Test
+		@DisplayName("동일 판매자의 주문이 여러 건이면 판매자 ID를 중복 제거해서 한 번만 조회한다")
+		void getAdminOrders_deduplicatesSellerIds() {
+			AdminOrderSearchCondition condition = new AdminOrderSearchCondition("ALL", 1, 20);
+			UUID secondOrderId = UUID.fromString("00000000-0000-0000-0000-000000000102");
+			AdminOrderListProjection first = adminOrderProjection(ORDER_ID, SELLER_ID_1);
+			AdminOrderListProjection second = adminOrderProjection(secondOrderId, SELLER_ID_1);
+			given(adminOrderQueryService.searchAdminOrders(any(), any()))
+				.willReturn(new PageImpl<>(List.of(first, second), PageRequest.of(0, 20), 2));
+			given(sellerClient.getSellerNicknames(List.of(SELLER_ID_1)))
+				.willReturn(Map.of(SELLER_ID_1, "판매자A"));
+
+			Page<AdminOrderListResponse> response = adminOrderService.getAdminOrders(condition.resolve());
+
+			assertThat(response.getContent()).extracting(AdminOrderListResponse::sellerNickname)
+				.containsExactly("판매자A", "판매자A");
+			then(sellerClient).should().getSellerNicknames(List.of(SELLER_ID_1));
+		}
+
+		@Test
+		@DisplayName("주문 목록이 비어 있으면 빈 Set 기준으로 판매자 조회를 생략한다")
+		void getAdminOrders_emptyOrders_skipsSellerLookup() {
+			AdminOrderSearchCondition condition = new AdminOrderSearchCondition("ALL", 1, 20);
+			given(adminOrderQueryService.searchAdminOrders(any(), any()))
+				.willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+			Page<AdminOrderListResponse> response = adminOrderService.getAdminOrders(condition.resolve());
+
+			assertThat(response.getContent()).isEmpty();
+			then(sellerClient).should(never()).getSellerNicknames(any());
 		}
 	}
 
@@ -159,10 +199,13 @@ class AdminOrderServiceTest {
 	}
 
 	private AdminOrderListProjection adminOrderProjection(UUID sellerId) {
+		return adminOrderProjection(ORDER_ID, sellerId);
+	}
+
+	private AdminOrderListProjection adminOrderProjection(UUID orderId, UUID sellerId) {
 		return new AdminOrderListProjection(
-			ORDER_ID,
+			orderId,
 			sellerId,
-			"판매자A",
 			PRODUCT_TITLE_1,
 			2,
 			TOTAL_AMOUNT,

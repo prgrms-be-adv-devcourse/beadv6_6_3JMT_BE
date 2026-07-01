@@ -185,7 +185,6 @@ public final class OrderFixture {
 		return OrderProduct.create(
 			PRODUCT_ID_1,
 			SELLER_ID_1,
-			null,
 			PRODUCT_TITLE_1,
 			PRODUCT_TYPE_PROMPT,
 			PRODUCT_MODEL,
@@ -197,7 +196,6 @@ public final class OrderFixture {
 		return OrderProduct.create(
 			PRODUCT_ID_2,
 			SELLER_ID_2,
-			null,
 			PRODUCT_TITLE_2,
 			PRODUCT_TYPE_PROMPT,
 			"Claude-3",

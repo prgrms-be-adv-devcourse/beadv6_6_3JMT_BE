@@ -28,7 +28,6 @@ class OrderProductEventServiceTest {
 		OrderProduct orderProduct = OrderProduct.create(
 			PRODUCT_ID_1,
 			SELLER_ID_1,
-			null,
 			PRODUCT_TITLE_1,
 			PRODUCT_TYPE_PROMPT,
 			"GPT-4",

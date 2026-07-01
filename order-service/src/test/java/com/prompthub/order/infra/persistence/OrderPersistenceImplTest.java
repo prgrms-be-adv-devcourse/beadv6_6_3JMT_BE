@@ -71,7 +71,7 @@ class OrderPersistenceImplTest {
 			PRODUCT_AMOUNT_1,
 			1
 		);
-		order.addOrderProduct(OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, null, PRODUCT_TITLE_1, PRODUCT_TYPE_PROMPT,
+		order.addOrderProduct(OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, PRODUCT_TYPE_PROMPT,
 			"GPT-4",
 			PRODUCT_AMOUNT_1
 		));
