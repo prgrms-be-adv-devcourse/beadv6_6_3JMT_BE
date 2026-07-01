@@ -1,5 +1,6 @@
 package com.prompthub.order.application.service.admin;
 
+
 import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.dto.AdminDailyTransactionProjection;
 import com.prompthub.order.application.dto.AdminOrderListProjection;
@@ -19,18 +20,22 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AdminOrderService implements AdminOrderUseCase {
 
-	private static final String UNKNOWN_SELLER_NICKNAME = "알 수 없음";
+
 	private static final int RECENT_DAYS = 7;
+	private static final String UNKNOWN_SELLER_NICKNAME = "알 수 없음";
 
 	private final AdminOrderQueryService adminOrderQueryService;
 	private final SellerClient sellerClient;
@@ -43,9 +48,12 @@ public class AdminOrderService implements AdminOrderUseCase {
 			Sort.by(Sort.Direction.DESC, "createdAt")
 		);
 		Page<AdminOrderListProjection> orders = adminOrderQueryService.searchAdminOrders(condition, pageable);
-		Map<UUID, String> sellerNicknames = getSellerNicknames(orders.getContent());
+		Set<UUID> sellerIds = collectSellerIds(orders.getContent());
+		Map<UUID, String> sellerNicknames = sellerIds.isEmpty()
+			? Map.of()
+			: sellerClient.getSellerNicknames(new ArrayList<>(sellerIds));
 
-		return orders.map(order -> toAdminOrderListResponse(order, sellerNicknames));
+		return orders.map(projection -> toAdminOrderListResponse(projection, sellerNicknames));
 	}
 
 	@Override
@@ -89,24 +97,6 @@ public class AdminOrderService implements AdminOrderUseCase {
 		);
 	}
 
-	private Map<UUID, String> getSellerNicknames(List<AdminOrderListProjection> orders) {
-		List<UUID> sellerIds = orders.stream()
-			.map(AdminOrderListProjection::sellerId)
-			.distinct()
-			.toList();
-
-		if (sellerIds.isEmpty()) {
-			return Map.of();
-		}
-
-		try {
-			return sellerClient.getSellerNicknames(sellerIds);
-		} catch (RuntimeException exception) {
-			log.warn("판매자 닉네임 bulk 조회에 실패했습니다. sellerIds={}", sellerIds, exception);
-			return Map.of();
-		}
-	}
-
 	private AdminOrderListResponse toAdminOrderListResponse(
 		AdminOrderListProjection projection,
 		Map<UUID, String> sellerNicknames
@@ -120,6 +110,15 @@ public class AdminOrderService implements AdminOrderUseCase {
 			projection.orderStatus(),
 			projection.createdAt()
 		);
+	}
+
+	private Set<UUID> collectSellerIds(List<AdminOrderListProjection> orders) {
+		if (orders.isEmpty()) {
+			return Set.of();
+		}
+		return orders.stream()
+			.map(AdminOrderListProjection::sellerId)
+			.collect(Collectors.toCollection(java.util.LinkedHashSet::new));
 	}
 
 	private AdminDailyTransactionResponse toDailyTransactionResponse(
