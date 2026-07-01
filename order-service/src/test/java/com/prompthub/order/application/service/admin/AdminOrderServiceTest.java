@@ -1,6 +1,6 @@
 package com.prompthub.order.application.service.admin;
 
-import com.prompthub.order.application.client.SellerClient;
+
 import com.prompthub.order.application.dto.AdminDailyTransactionProjection;
 import com.prompthub.order.application.dto.AdminOrderListProjection;
 import com.prompthub.order.domain.enums.OrderStatus;
@@ -25,7 +25,6 @@ import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.ORDER_ID;
@@ -34,7 +33,6 @@ import static com.prompthub.order.fixture.OrderFixture.SELLER_ID_1;
 import static com.prompthub.order.fixture.OrderFixture.TOTAL_AMOUNT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -44,9 +42,6 @@ class AdminOrderServiceTest {
 
 	@Mock
 	private AdminOrderQueryService adminOrderQueryService;
-
-	@Mock
-	private SellerClient sellerClient;
 
 	@InjectMocks
 	private AdminOrderService adminOrderService;
@@ -62,8 +57,6 @@ class AdminOrderServiceTest {
 			AdminOrderListProjection projection = adminOrderProjection(SELLER_ID_1);
 			given(adminOrderQueryService.searchAdminOrders(any(), any()))
 				.willReturn(new PageImpl<>(List.of(projection), PageRequest.of(0, 20), 1));
-			given(sellerClient.getSellerNicknames(List.of(SELLER_ID_1)))
-				.willReturn(Map.of(SELLER_ID_1, "판매자A"));
 
 			Page<AdminOrderListResponse> response = adminOrderService.getAdminOrders(condition.resolve());
 
@@ -74,7 +67,6 @@ class AdminOrderServiceTest {
 			ArgumentCaptor<AdminOrderSearchCondition> conditionCaptor = ArgumentCaptor.forClass(AdminOrderSearchCondition.class);
 			then(adminOrderQueryService).should().searchAdminOrders(conditionCaptor.capture(), any());
 			assertThat(conditionCaptor.getValue().resolvedOrderStatus()).isNull();
-			then(sellerClient).should().getSellerNicknames(List.of(SELLER_ID_1));
 		}
 
 		@Test
@@ -83,8 +75,6 @@ class AdminOrderServiceTest {
 			AdminOrderSearchCondition condition = new AdminOrderSearchCondition("PAID", 1, 20);
 			given(adminOrderQueryService.searchAdminOrders(any(), any()))
 				.willReturn(new PageImpl<>(List.of(adminOrderProjection(SELLER_ID_1)), PageRequest.of(0, 20), 1));
-			given(sellerClient.getSellerNicknames(anyList()))
-				.willReturn(Map.of(SELLER_ID_1, "판매자A"));
 
 			adminOrderService.getAdminOrders(condition.resolve());
 
@@ -94,17 +84,19 @@ class AdminOrderServiceTest {
 		}
 
 		@Test
-		@DisplayName("판매자 조회 실패 시 알 수 없음으로 대체한다")
-		void getAdminOrders_sellerClientFailure_fallbackUnknown() {
+		@DisplayName("판매자 닉네임이 null이면 projection에서 받은 값을 그대로 사용한다")
+		void getAdminOrders_nullNickname_usesProjectionValue() {
 			AdminOrderSearchCondition condition = new AdminOrderSearchCondition("ALL", 1, 20);
+			AdminOrderListProjection projection = new AdminOrderListProjection(
+				ORDER_ID, SELLER_ID_1, null, PRODUCT_TITLE_1, 2, TOTAL_AMOUNT, OrderStatus.PAID,
+				LocalDateTime.of(2026, 6, 24, 10, 0)
+			);
 			given(adminOrderQueryService.searchAdminOrders(any(), any()))
-				.willReturn(new PageImpl<>(List.of(adminOrderProjection(SELLER_ID_1)), PageRequest.of(0, 20), 1));
-			given(sellerClient.getSellerNicknames(anyList()))
-				.willThrow(new RuntimeException("user-service unavailable"));
+				.willReturn(new PageImpl<>(List.of(projection), PageRequest.of(0, 20), 1));
 
 			Page<AdminOrderListResponse> response = adminOrderService.getAdminOrders(condition.resolve());
 
-			assertThat(response.getContent().getFirst().sellerNickname()).isEqualTo("알 수 없음");
+			assertThat(response.getContent().getFirst().sellerNickname()).isNull();
 		}
 	}
 
@@ -170,6 +162,7 @@ class AdminOrderServiceTest {
 		return new AdminOrderListProjection(
 			ORDER_ID,
 			sellerId,
+			"판매자A",
 			PRODUCT_TITLE_1,
 			2,
 			TOTAL_AMOUNT,

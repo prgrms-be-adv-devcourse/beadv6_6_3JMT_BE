@@ -53,8 +53,8 @@ class AdminOrderQueryRepositoryImplTest {
 	@DisplayName("관리자 주문 목록은 주문 단위로 조회하고 다건 상품명을 축약한다")
 	void searchAdminOrders_groupsByOrderAndFormatsTitle() {
 		Order order = createOrder("ORD-20260624-0001", OrderStatus.PAID, LocalDateTime.of(2026, 6, 24, 10, 0));
-		order.addOrderProduct(OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, PRODUCT_TYPE_PROMPT, "GPT-4", PRODUCT_AMOUNT_1));
-		order.addOrderProduct(OrderProduct.create(PRODUCT_ID_2, SELLER_ID_2, PRODUCT_TITLE_2, PRODUCT_TYPE_PROMPT, "Claude-3", PRODUCT_AMOUNT_2));
+		order.addOrderProduct(OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, null, PRODUCT_TITLE_1, PRODUCT_TYPE_PROMPT, "GPT-4", PRODUCT_AMOUNT_1));
+		order.addOrderProduct(OrderProduct.create(PRODUCT_ID_2, SELLER_ID_2, null, PRODUCT_TITLE_2, PRODUCT_TYPE_PROMPT, "Claude-3", PRODUCT_AMOUNT_2));
 		order.markPaid(LocalDateTime.of(2026, 6, 24, 10, 5));
 		entityManager.persist(order);
 		entityManager.flush();
@@ -80,7 +80,7 @@ class AdminOrderQueryRepositoryImplTest {
 	void searchAdminOrders_filtersByStatus() {
 		Order paidOrder = createSingleProductPaidOrder("ORD-20260624-0002", LocalDateTime.of(2026, 6, 24, 10, 0));
 		Order pendingOrder = createOrder("ORD-20260624-0003", OrderStatus.PENDING, LocalDateTime.of(2026, 6, 24, 11, 0));
-		pendingOrder.addOrderProduct(OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, PRODUCT_TYPE_PROMPT, "GPT-4", PRODUCT_AMOUNT_1));
+		pendingOrder.addOrderProduct(OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, null, PRODUCT_TITLE_1, PRODUCT_TYPE_PROMPT, "GPT-4", PRODUCT_AMOUNT_1));
 		entityManager.persist(paidOrder);
 		entityManager.persist(pendingOrder);
 		entityManager.flush();
@@ -167,7 +167,7 @@ class AdminOrderQueryRepositoryImplTest {
 
 	private Order createSingleProductPaidOrder(String orderNumber, LocalDateTime createdAt) {
 		Order order = createOrder(orderNumber, OrderStatus.PAID, createdAt);
-		order.addOrderProduct(OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, PRODUCT_TYPE_PROMPT, "GPT-4", PRODUCT_AMOUNT_1));
+		order.addOrderProduct(OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, null, PRODUCT_TITLE_1, PRODUCT_TYPE_PROMPT, "GPT-4", PRODUCT_AMOUNT_1));
 		order.markPaid(createdAt.plusMinutes(1));
 		entityManager.persist(order);
 		return order;

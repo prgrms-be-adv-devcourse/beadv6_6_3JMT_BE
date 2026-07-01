@@ -59,7 +59,7 @@ public class OrderService implements OrderUseCase {
 		String orderNumber = orderNumberGenerator.generate();
 		Order order = Order.create(buyerId, orderNumber, totalAmount, totalCount);
 		products.stream()
-			.map(it -> OrderProduct.create(it.productId(), it.sellerId(), it.title(), it.productType(), it.model(), it.amount()))
+			.map(it -> OrderProduct.create(it.productId(), it.sellerId(), null, it.title(), it.productType(), it.model(), it.amount()))
 			.forEach(order::addOrderProduct);
 
 		Order savedOrder = orderRepository.save(order);
