@@ -50,11 +50,6 @@ cloud:
     s3:
       bucket: ${AWS_S3_BUCKET:3jmt-prompthub-bucket}
 
-app:
-  cors:
-    # Local Next.js dev server. Override with CORS_ALLOWED_ORIGINS when needed.
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
-
 logging:
   level:
     com.prompthub.product: INFO
