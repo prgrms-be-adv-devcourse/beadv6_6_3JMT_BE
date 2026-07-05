@@ -434,7 +434,7 @@
 
 ## 장바구니
 
-### GET /api/v1/cart/products - 장바구니 조회
+### GET /cart/products - 장바구니 조회
 
 - 인증: 필요
 - 필요 헤더: `X-User-Id`
@@ -498,7 +498,7 @@
 
 ---
 
-### POST /api/v1/cart/products - 장바구니 상품 추가
+### POST /cart/products - 장바구니 상품 추가
 
 - 인증: 필요
 - 필요 헤더: `X-User-Id`
@@ -564,7 +564,7 @@
 
 ---
 
-### DELETE /api/v1/cart/products/{cartProductId} - 장바구니 상품 삭제
+### DELETE /cart/products/{cartProductId} - 장바구니 상품 삭제
 
 - 인증: 필요
 - 필요 헤더: `X-User-Id`
@@ -601,7 +601,7 @@
 
 ## 관리자
 
-### GET /api/v1/admin/orders - 전체 주문 관리 목록 조회
+### GET /admin/orders - 전체 주문 관리 목록 조회
 
 - 인증: 필요
 - 필요 헤더: `X-User-Role: ADMIN`
@@ -666,7 +666,7 @@
 
 ---
 
-### GET /api/v1/admin/orders/month - 이번 달 실제 거래액 조회
+### GET /admin/orders/month - 이번 달 실제 거래액 조회
 
 - 인증: 필요
 - 필요 헤더: `X-User-Role: ADMIN`
@@ -698,7 +698,7 @@
 
 ---
 
-### GET /api/v1/admin/orders/weekend - 최근 7일 거래량 조회
+### GET /admin/orders/weekend - 최근 7일 거래량 조회
 
 - 인증: 필요
 - 필요 헤더: `X-User-Role: ADMIN`
@@ -746,6 +746,388 @@
 |-------------|------------|------|
 | 401 | A003 | 인증 실패 |
 | 403 | A004 | 관리자 권한 없음 |
+
+---
+
+## Kafka 이벤트
+
+### 공통 사항
+
+- Order Service Kafka consumer group은 `order-service`이다.
+- Payment 이벤트는 `payment.approved`, `payment.refunded` 토픽을 각각 소비한다.
+- Product 이벤트는 `product-events` 토픽을 소비한다.
+- Order 상태 변경 이벤트는 outbox에 저장한 뒤 `order-events` 토픽으로 발행한다.
+- Outbox relay 기본 설정은 `enabled: true`, `fixed-delay-ms: 5000`, `batch-size: 100`, `max-retry-count: 3`이다.
+- Kafka 발행 key는 `aggregateId` 문자열이다.
+- 알 수 없는 `eventType`은 경고 로그를 남기고 acknowledge한다.
+
+### 이벤트 소비 매트릭스
+
+| Topic | Event Type | 발행 주체 | Order 처리 내용 |
+|-------|------------|-----------|----------------|
+| `payment.approved` | `payment.approved` | Payment Service | 주문/주문상품을 `PAID`로 변경, `OrderPayment` 저장, 결제 완료 상품을 장바구니에서 제거, `ORDER_PAID` outbox 생성 |
+| `payment.refunded` | `payment.refunded` | Payment Service | 전체 환불 완료 주문/주문상품을 `REFUNDED`로 변경, `ORDER_REFUND` outbox 생성 |
+| `product-events` | `PRODUCT_STOPPED` | Product Service | 현재 구현은 상품 판매 중지 이벤트 수신 로그 기록 |
+| `product-events` | `PRODUCT_DELETED` | Product Service | 현재 구현은 상품 삭제 이벤트 수신 로그 기록 |
+| `product-events` | `PRODUCT_PRICE_CHANGED` | Product Service | 현재 구현은 상품 가격 변경 이벤트 수신 로그 기록 |
+
+### payment.approved - 결제 승인 이벤트 소비
+
+- Topic: `payment.approved`
+- Consumer group: `order-service`
+- 처리 조건: 주문이 `PENDING`이고 승인 금액이 주문 총액과 일치해야 한다.
+- 멱등 처리: 주문이 이미 `PAID`이고 동일 `paymentId`의 결제 내역이 있으면 중복 이벤트로 보고 처리하지 않는다.
+- 후속 이벤트: `ORDER_PAID` outbox 이벤트를 생성한다.
+
+```json
+{
+  "eventType": "payment.approved",
+  "paymentId": "550e8400-e29b-41d4-a716-446655440000",
+  "orderId": "660e8400-e29b-41d4-a716-446655440001",
+  "userId": "770e8400-e29b-41d4-a716-446655440002",
+  "amount": 15000,
+  "approvedAt": "2026-06-18T14:35:00Z"
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|:----:|------|
+| eventType | String | O | `payment.approved` 고정 |
+| paymentId | UUID | O | Payment Service 결제 ID |
+| orderId | UUID | O | 결제 대상 주문 ID |
+| userId | UUID | O | 결제 사용자 ID. Order Service에서는 구매자 ID로 사용 |
+| amount | Integer | O | 승인 금액 |
+| approvedAt | OffsetDateTime | O | 결제 승인 시각 |
+
+### payment.refunded - 환불 완료 이벤트 소비
+
+- Topic: `payment.refunded`
+- Consumer group: `order-service`
+- 처리 조건: 주문이 `PAID` 상태여야 한다.
+- 멱등 처리: 주문이 이미 `REFUNDED`이면 중복 이벤트로 보고 처리하지 않는다.
+- 현재 기준은 전체 환불이며 부분 환불은 별도 확장 대상이다.
+- 후속 이벤트: `ORDER_REFUND` outbox 이벤트를 생성한다.
+
+```json
+{
+  "eventType": "payment.refunded",
+  "paymentId": "550e8400-e29b-41d4-a716-446655440000",
+  "orderId": "660e8400-e29b-41d4-a716-446655440001",
+  "userId": "770e8400-e29b-41d4-a716-446655440002",
+  "amount": 15000,
+  "refundedAt": "2026-06-18T15:10:00Z"
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|:----:|------|
+| eventType | String | O | `payment.refunded` 고정 |
+| paymentId | UUID | O | Payment Service 결제 ID |
+| orderId | UUID | O | 환불 대상 주문 ID |
+| userId | UUID | O | 결제 사용자 ID. Order Service에서는 구매자 ID로 사용 |
+| amount | Integer | O | 환불 금액. 전체 환불 기준으로 원 결제 금액과 동일 |
+| refundedAt | OffsetDateTime | O | 환불 완료 시각 |
+
+### product-events - 상품 이벤트 소비
+
+- Topic: `product-events`
+- Consumer group: `order-service`
+- 현재 구현은 주문 상태나 스냅샷을 변경하지 않고 수신 로그를 남긴다.
+
+#### PRODUCT_STOPPED
+
+```json
+{
+  "eventType": "PRODUCT_STOPPED",
+  "productId": "11111111-1111-1111-1111-111111111111",
+  "occurredAt": "2026-06-18T14:20:00"
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|:----:|------|
+| eventType | String | O | `PRODUCT_STOPPED` 고정 |
+| productId | UUID | O | 판매 중지된 상품 ID |
+| occurredAt | LocalDateTime | O | 이벤트 발생 시각 |
+
+#### PRODUCT_DELETED
+
+```json
+{
+  "eventType": "PRODUCT_DELETED",
+  "productId": "11111111-1111-1111-1111-111111111111",
+  "occurredAt": "2026-06-18T14:25:00"
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|:----:|------|
+| eventType | String | O | `PRODUCT_DELETED` 고정 |
+| productId | UUID | O | 삭제된 상품 ID |
+| occurredAt | LocalDateTime | O | 이벤트 발생 시각 |
+
+#### PRODUCT_PRICE_CHANGED
+
+```json
+{
+  "eventType": "PRODUCT_PRICE_CHANGED",
+  "productId": "11111111-1111-1111-1111-111111111111",
+  "previousPrice": 15000,
+  "changedPrice": 17000,
+  "occurredAt": "2026-06-18T14:30:00"
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|:----:|------|
+| eventType | String | O | `PRODUCT_PRICE_CHANGED` 고정 |
+| productId | UUID | O | 가격이 변경된 상품 ID |
+| previousPrice | Integer | O | 변경 전 가격 |
+| changedPrice | Integer | O | 변경 후 가격 |
+| occurredAt | LocalDateTime | O | 이벤트 발생 시각 |
+
+### order-events - 주문 이벤트 발행
+
+- Topic: `order-events`
+- 발행 주체: Order Service
+- 발행 방식: DB outbox에 `PENDING` 이벤트를 저장한 뒤 relay가 Kafka로 발행한다.
+- 발행 성공 시 outbox 상태는 `PUBLISHED`로 변경된다.
+- 발행 실패 시 `retryCount`를 증가시키고, `max-retry-count` 3회를 초과하면 `FAILED`로 변경된다.
+- 전달 보장은 at-least-once 기준이며, 소비자는 `eventId` 기준 멱등 처리를 해야 한다.
+
+#### Envelope
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|:----:|------|
+| eventId | UUID | O | 이벤트 멱등키 |
+| eventType | String | O | `ORDER_PAID` 또는 `ORDER_REFUND` |
+| version | Integer | O | 이벤트 버전. 현재 `1` |
+| occurredAt | LocalDateTime | O | 주문 상태 변경 발생 시각 |
+| aggregateId | UUID | O | 주문 ID |
+| payload | Object | O | 이벤트별 payload |
+
+#### ORDER_PAID
+
+- 발행 시점: `payment.approved` 처리로 주문 결제가 완료된 뒤
+- 주요 소비자: Product Service, Settlement Service 등 주문 결제 완료 사실이 필요한 서비스
+
+```json
+{
+  "eventId": "11111111-aaaa-4aaa-8aaa-111111111111",
+  "eventType": "ORDER_PAID",
+  "version": 1,
+  "occurredAt": "2026-06-18T14:35:00",
+  "aggregateId": "660e8400-e29b-41d4-a716-446655440001",
+  "payload": {
+    "orderId": "660e8400-e29b-41d4-a716-446655440001",
+    "buyerId": "770e8400-e29b-41d4-a716-446655440002",
+    "totalOrderAmount": 15000,
+    "totalProductCount": 1,
+    "paidAt": "2026-06-18T14:35:00",
+    "products": [
+      {
+        "orderProductId": "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa",
+        "productId": "11111111-1111-1111-1111-111111111111",
+        "sellerId": "8f2c6e91-2c1b-4a3b-9f99-3f527f7d5678",
+        "productTitle": "면접 준비 프롬프트",
+        "productType": "PROMPT",
+        "productAmount": 15000
+      }
+    ]
+  }
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| payload.orderId | UUID | 주문 ID |
+| payload.buyerId | UUID | 구매자 ID |
+| payload.totalOrderAmount | Integer | 총 주문 금액 |
+| payload.totalProductCount | Integer | 주문 상품 수 |
+| payload.paidAt | LocalDateTime | 결제 완료 시각 |
+| payload.products[].orderProductId | UUID | 주문 상품 ID |
+| payload.products[].productId | UUID | 상품 ID |
+| payload.products[].sellerId | UUID | 판매자 ID |
+| payload.products[].productTitle | String | 주문 시점 상품명 |
+| payload.products[].productType | String | 주문 시점 상품 유형 |
+| payload.products[].productAmount | Integer | 주문 시점 상품 금액 |
+
+#### ORDER_REFUND
+
+- 발행 시점: `payment.refunded` 처리로 주문 환불이 완료된 뒤
+- 주요 소비자: Product Service, Settlement Service 등 주문 환불 완료 사실이 필요한 서비스
+
+```json
+{
+  "eventId": "22222222-bbbb-4bbb-8bbb-222222222222",
+  "eventType": "ORDER_REFUND",
+  "version": 1,
+  "occurredAt": "2026-06-18T15:10:00",
+  "aggregateId": "660e8400-e29b-41d4-a716-446655440001",
+  "payload": {
+    "orderId": "660e8400-e29b-41d4-a716-446655440001",
+    "paymentId": "550e8400-e29b-41d4-a716-446655440000",
+    "buyerId": "770e8400-e29b-41d4-a716-446655440002",
+    "totalRefundAmount": 15000,
+    "totalProductCount": 1,
+    "refundedAt": "2026-06-18T15:10:00",
+    "products": [
+      {
+        "orderProductId": "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa",
+        "productId": "11111111-1111-1111-1111-111111111111",
+        "sellerId": "8f2c6e91-2c1b-4a3b-9f99-3f527f7d5678",
+        "productTitle": "면접 준비 프롬프트",
+        "productType": "PROMPT",
+        "refundAmount": 15000
+      }
+    ]
+  }
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| payload.orderId | UUID | 주문 ID |
+| payload.paymentId | UUID | Payment Service 결제 ID |
+| payload.buyerId | UUID | 구매자 ID |
+| payload.totalRefundAmount | Integer | 총 환불 금액 |
+| payload.totalProductCount | Integer | 주문 상품 수 |
+| payload.refundedAt | LocalDateTime | 환불 완료 시각 |
+| payload.products[].orderProductId | UUID | 주문 상품 ID |
+| payload.products[].productId | UUID | 상품 ID |
+| payload.products[].sellerId | UUID | 판매자 ID |
+| payload.products[].productTitle | String | 주문 시점 상품명 |
+| payload.products[].productType | String | 주문 시점 상품 유형 |
+| payload.products[].refundAmount | Integer | 주문 상품 환불 금액 |
+
+---
+
+## 내부 서비스 통신 (gRPC)
+
+> 외부 노출 없음. 서비스 간 내부 통신 전용.
+
+### 공통 사항
+
+- Order Service는 Product Service와 Seller Service를 gRPC blocking stub으로 호출한다.
+- 기본 deadline은 Product, Seller 모두 `2000ms`이다.
+- Product gRPC 호출 실패는 Order Service에서 `SYS002` 상품 서비스 사용 불가 오류로 변환한다.
+- Seller gRPC 호출 실패는 빈 결과로 대체하고 관리자 주문 목록에서 판매자 닉네임을 `알 수 없음`으로 표시할 수 있다.
+
+### ProductInternalService
+
+- 호출 방향: Order Service -> Product Service
+- Proto package: `prompthub.product.v1`
+- Java package: `com.prompthub.grpc.product.v1`
+- Service: `ProductInternalService`
+
+#### GetOrderSnapshots
+
+- 호출 시점: `POST /orders` 주문 생성 시 상품 주문 스냅샷이 필요할 때
+- 목적: 주문 시점 상품명, 유형, 모델, 가격, 판매자 ID를 Order Service에 저장한다.
+
+**Request: `GetOrderSnapshotsRequest`**
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|:----:|------|
+| product_ids | repeated string(UUID) | O | 주문할 상품 ID 목록 |
+
+**Response: `GetOrderSnapshotsResponse`**
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| products | repeated ProductOrderSnapshot | 상품 주문 스냅샷 목록 |
+
+**ProductOrderSnapshot**
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| product_id | string(UUID) | 상품 ID |
+| seller_id | string(UUID) | 판매자 ID |
+| title | string | 상품명 |
+| product_type | string | 상품 유형 |
+| amount | int32 | 상품 금액 |
+| model | string | 모델명/분류. 값이 없으면 빈 문자열 |
+
+#### GetCartSnapshots
+
+- 호출 시점: `GET /cart/products`, `POST /cart/products`에서 장바구니 표시용 상품 정보가 필요할 때
+- 목적: 장바구니 화면에 표시할 상품명, 유형, 금액, 썸네일, 판매자 정보를 조회한다.
+
+**Request: `GetCartSnapshotsRequest`**
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|:----:|------|
+| product_ids | repeated string(UUID) | O | 장바구니 상품 ID 목록 |
+
+**Response: `GetCartSnapshotsResponse`**
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| products | repeated ProductCartSnapshotMessage | 장바구니 상품 스냅샷 목록 |
+
+**ProductCartSnapshotMessage**
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| product_id | string(UUID) | 상품 ID |
+| seller_id | string(UUID) | 판매자 ID |
+| seller_nickname | string | 판매자 닉네임 |
+| title | string | 상품명 |
+| product_type | string | 상품 유형 |
+| amount | int32 | 상품 금액 |
+| thumbnail_url | string | 썸네일 URL. 값이 없으면 빈 문자열 |
+
+#### GetProductContent
+
+- 호출 시점: `GET /orders/{orderId}/content/{orderProductId}`, `PATCH /orders/{orderId}/products/{orderProductId}/download`
+- 목적: 결제 완료된 상품의 콘텐츠 원문을 조회하거나 다운로드 확정 전 접근 가능성을 확인한다.
+
+**Request: `GetProductContentRequest`**
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|:----:|------|
+| product_id | string(UUID) | O | 콘텐츠를 조회할 상품 ID |
+
+**Response: `GetProductContentResponse`**
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| product_id | string(UUID) | 상품 ID |
+| content | string | 구매 후 열람 가능한 콘텐츠 원문 |
+
+### SellerQueryService
+
+- 호출 방향: Order Service -> Seller Service
+- Proto package: `product.seller`
+- Java package: `com.prompthub.order.grpc.seller`
+- Service: `SellerQueryService`
+
+#### FindSellers
+
+- 호출 시점: `GET /admin/orders` 전체 주문 관리 목록 조회 시 판매자 닉네임이 필요할 때
+- 목적: 주문 목록의 판매자 ID를 판매자 표시 정보로 변환한다.
+- 조회 실패 또는 누락된 판매자 닉네임은 관리자 주문 목록에서 `알 수 없음`으로 표시할 수 있다.
+
+**Request: `SellerBatchQueryRequest`**
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|:----:|------|
+| seller_ids | repeated string(UUID) | O | 조회할 판매자 ID 목록 |
+
+**Response: `SellerBatchQueryResponse`**
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| sellers | repeated SellerInfo | 판매자 정보 목록 |
+
+**SellerInfo**
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| seller_id | string(UUID) | 판매자 ID |
+| seller_name | string | 판매자 닉네임 |
+| profile_image_url | string | 프로필 이미지 URL. 값이 없으면 빈 문자열 |
+| status | string | 판매자 상태 |
 
 ---
 
