@@ -42,6 +42,11 @@ spring:
     listener:
       ack-mode: manual
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
   cloud:
     openfeign:
       client:
@@ -86,6 +91,12 @@ prompthub:
     fixed-delay-ms: 5000
     batch-size: 100
     max-retry-count: 3
+  order:
+    enabled: true
+    payment-timeout-minutes: 20
+    fixed-delay-ms: 5000
+    batch-size: 100
+    max-retry-count: 3
 
 logging:
   level:
@@ -127,6 +138,8 @@ spring:
 
 prompthub:
   outbox-relay:
+    enabled: false
+  order:
     enabled: false
 
 logging:
