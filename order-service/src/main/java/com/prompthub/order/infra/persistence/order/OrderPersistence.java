@@ -18,6 +18,14 @@ public interface OrderPersistence extends JpaRepository<Order, UUID>, OrderPersi
 	Optional<Order> findByIdWithOrderProducts(@Param("orderId") UUID orderId);
 
 	@Query("""
+    select distinct o
+    from Order o
+    left join fetch o.orderProducts
+    where o.orderNumber = :orderNumber
+""")
+	Optional<Order> findByOrderNumber(@Param("orderNumber") String orderNumber);
+
+	@Query("""
     select case when count(op) > 0 then true else false end
     from Order o
     join o.orderProducts op
