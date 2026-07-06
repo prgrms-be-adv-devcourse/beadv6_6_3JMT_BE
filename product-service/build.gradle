@@ -1,21 +1,18 @@
 apply plugin: 'com.google.protobuf'
 
 dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation 'org.springframework.kafka:spring-kafka'
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0'
+    // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
 
     // AWS S3
     implementation 'software.amazon.awssdk:s3:2.25.60'
 
-    // gRPC (서버: settlement·order → product, 클라이언트: product → user-service)
-    implementation "io.grpc:grpc-stub:${grpcVersion}"
-    implementation "io.grpc:grpc-protobuf:${grpcVersion}"
-    runtimeOnly "io.grpc:grpc-netty-shaded:${grpcVersion}"
-    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
+    // gRPC (서버: settlement·order → product, 클라이언트: product → user-service / 버전은 Boot BOM의 grpc-bom이 관리)
+    implementation 'io.grpc:grpc-stub'
+    implementation 'io.grpc:grpc-protobuf'
+    runtimeOnly 'io.grpc:grpc-netty-shaded'
+    implementation 'com.google.protobuf:protobuf-java'
     compileOnly 'org.apache.tomcat:annotations-api:6.0.53'
-
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
 protobuf {

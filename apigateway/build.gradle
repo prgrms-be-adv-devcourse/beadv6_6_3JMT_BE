@@ -7,9 +7,7 @@ dependencies {
     implementation 'org.springframework.security:spring-security-oauth2-resource-server'
     implementation 'org.springframework.security:spring-security-oauth2-jose'
 
-    implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:3.0.0'
-
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    implementation "org.springdoc:springdoc-openapi-starter-webflux-ui:${springdocVersion}"
 }
 
 bootRun {

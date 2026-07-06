@@ -1,8 +1,6 @@
 apply plugin: 'com.google.protobuf'
 
 dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-
     // JWT (RSA 서명/검증 — NimbusJwtEncoder 포함)
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
 
@@ -15,7 +13,7 @@ dependencies {
     implementation 'io.grpc:grpc-protobuf'
 
     // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-api:3.0.0'
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
 
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 }

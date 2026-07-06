@@ -1,13 +1,7 @@
 dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-    implementation 'org.springframework.boot:spring-boot-starter-kafka'
-
     // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-api:3.0.0'
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
 
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'org.awaitility:awaitility'
-    testImplementation 'org.springframework.kafka:spring-kafka-test'
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
     testImplementation 'org.testcontainers:testcontainers-postgresql'
