@@ -19,6 +19,9 @@
 - 인증: 필요
 - 필요 헤더: `X-User-Id`
 - 요청 상품 목록으로 `PENDING` 주문과 주문 상품을 생성한다.
+- 주문 생성 트랜잭션에서 요청 상품만 구매자 장바구니에서 제거한다.
+- DB 커밋 이후 Redis Sorted Set `order:expiration`에 만료 후보를 등록한다.
+- 만료 기준은 `createdAt + 20분`이며, 결제 완료 전까지 `PENDING` 상태로 유지된다.
 
 #### Request
 
@@ -93,6 +96,72 @@
 | 401 | A003 | 인증 실패 |
 | 403 | A004 | 권한 없음 |
 | 503 | SYS002 | 상품 서비스 사용 불가 |
+
+---
+
+### POST /orders/{orderId}/payment-ready - 결제 승인 전 주문 검증
+
+- 인증: 필요
+- 필요 헤더: `X-User-Id`
+- Payment Service가 PG 승인 요청 전에 호출할 수 있는 주문 검증 API이다.
+- Order Service는 주문 존재 여부, 구매자 일치, 주문 상태, 만료 시간, 결제 금액을 DB 기준으로 검증한다.
+- `payment-service` 구현은 이 문서 범위에서 수정하지 않는다.
+
+#### Path Parameters
+
+| 파라미터 | 타입 | 설명 |
+|---------|------|------|
+| orderId | UUID | 결제하려는 주문 ID |
+
+#### Request
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|:----:|------|
+| amount | Integer | O | PG 승인 요청 예정 금액 |
+
+```json
+{
+  "amount": 30000
+}
+```
+
+#### Response
+
+`200 OK`
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| payable | Boolean | 결제 가능 여부. 성공 응답에서는 `true` |
+| orderId | UUID | 주문 ID |
+| buyerId | UUID | 구매자 ID |
+| totalAmount | Integer | 주문 총 금액 |
+| expiresAt | DateTime | 결제 가능 만료 시각 |
+
+```json
+{
+  "success": true,
+  "data": {
+    "payable": true,
+    "orderId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
+    "buyerId": "7c2f6e91-2c1b-4a3b-9f99-3f527f7d1234",
+    "totalAmount": 30000,
+    "expiresAt": "2026-06-18T14:50:00"
+  },
+  "message": "success"
+}
+```
+
+#### Error
+
+| Status Code | Error Code | 설명 |
+|-------------|------------|------|
+| 400 | V001 | 입력값 검증 실패 |
+| 400 | O014 | 주문 금액과 결제 요청 금액 불일치 |
+| 401 | A003 | 인증 실패 |
+| 403 | A004 | 구매자 불일치 |
+| 404 | O001 | 주문 없음 |
+| 409 | O010 | 주문 상태가 `PENDING`이 아님 |
+| 409 | O015 | 결제 가능 시간이 만료됨 |
 
 ---
 
@@ -760,12 +829,14 @@
 - Outbox relay 기본 설정은 `enabled: true`, `fixed-delay-ms: 5000`, `batch-size: 100`, `max-retry-count: 3`이다.
 - Kafka 발행 key는 `aggregateId` 문자열이다.
 - 알 수 없는 `eventType`은 경고 로그를 남기고 acknowledge한다.
+- 주문 만료 예약은 Kafka timeout/outbox consumer가 아니라 Redis Sorted Set과 Order Service Worker가 담당한다.
+- Kafka는 결제/주문 상태 변경 사실 전파에만 사용한다.
 
 ### 이벤트 소비 매트릭스
 
 | Topic | Event Type | 발행 주체 | Order 처리 내용 |
 |-------|------------|-----------|----------------|
-| `payment.approved` | `payment.approved` | Payment Service | 주문/주문상품을 `PAID`로 변경, `OrderPayment` 저장, 결제 완료 상품을 장바구니에서 제거, `ORDER_PAID` outbox 생성 |
+| `payment.approved` | `payment.approved` | Payment Service | 주문/주문상품을 `PAID`로 변경, `OrderPayment` 저장, Redis 만료 대상 best-effort 제거, `ORDER_PAID` outbox 생성 |
 | `payment.refunded` | `payment.refunded` | Payment Service | 전체 환불 완료 주문/주문상품을 `REFUNDED`로 변경, `ORDER_REFUND` outbox 생성 |
 | `product-events` | `PRODUCT_STOPPED` | Product Service | 현재 구현은 상품 판매 중지 이벤트 수신 로그 기록 |
 | `product-events` | `PRODUCT_DELETED` | Product Service | 현재 구현은 상품 삭제 이벤트 수신 로그 기록 |
