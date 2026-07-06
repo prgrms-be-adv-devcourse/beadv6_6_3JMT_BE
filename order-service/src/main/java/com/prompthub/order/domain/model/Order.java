@@ -144,6 +144,20 @@ public class Order extends BaseEntity {
 		this.orderProducts.forEach(orderProduct -> orderProduct.refund(refundedAt));
 	}
 
+	public void expirePending(LocalDateTime canceledAt) {
+		if (this.orderStatus != PENDING) {
+			return;
+		}
+
+		this.orderStatus = OrderStatus.CANCELED;
+		this.canceledAt = canceledAt;
+		this.orderProducts.forEach(orderProduct -> orderProduct.expirePending(canceledAt));
+	}
+
+	public boolean isExpired(LocalDateTime now, int expireAfterMinutes) {
+		return !getCreatedAt().plusMinutes(expireAfterMinutes).isAfter(now);
+	}
+
 	public boolean isPending() {
 		return this.orderStatus == PENDING;
 	}
