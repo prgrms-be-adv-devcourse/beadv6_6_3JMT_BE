@@ -67,7 +67,6 @@ public class OrderProductGrpcService extends ProductInternalServiceGrpc.ProductI
 					.setProductType(s.productType() != null ? s.productType() : "")
 					.setAmount(s.productAmount())
 					.setThumbnailUrl(s.thumbnailUrl() != null ? s.thumbnailUrl() : "")
-					.setProductStatus(s.productStatus() != null ? s.productStatus() : "")
 					.build())
 				.toList();
 			responseObserver.onNext(GetCartSnapshotsResponse.newBuilder()

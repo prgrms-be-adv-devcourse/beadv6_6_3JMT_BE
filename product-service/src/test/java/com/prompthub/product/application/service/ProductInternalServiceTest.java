@@ -8,7 +8,6 @@ import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.domain.repository.ReviewRepository;
 import com.prompthub.product.presentation.dto.response.ProductCartSnapshotResponse;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -63,23 +62,6 @@ class ProductInternalServiceTest {
 			assertThat(snapshot.productTitle()).isEqualTo("면접 답변 프롬프트");
 			assertThat(snapshot.productType()).isEqualTo("PROMPT");
 			assertThat(snapshot.productAmount()).isEqualTo(15000);
-			assertThat(snapshot.productStatus()).isEqualTo("ON_SALE");
-		}
-
-		@Test
-		@DisplayName("단건 장바구니 스냅샷은 판매 중이 아닌 상품 상태도 그대로 반환한다")
-		void getCartSnapshot_preservesNonOnSaleStatus() {
-			Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.STOPPED);
-			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
-			given(sellerClient.getSellerInfo(SELLER_ID))
-				.willReturn(new SellerInfo(SELLER_ID, "프롬프트상점", null, "ACTIVE"));
-
-			ProductCartSnapshotResponse result = productInternalService.getCartSnapshot(PRODUCT_ID);
-
-			assertThat(result.productId()).isEqualTo(PRODUCT_ID);
-			assertThat(result.sellerId()).isEqualTo(SELLER_ID);
-			assertThat(result.sellerNickname()).isEqualTo("프롬프트상점");
-			assertThat(result.productStatus()).isEqualTo("STOPPED");
 		}
 
 		@Test

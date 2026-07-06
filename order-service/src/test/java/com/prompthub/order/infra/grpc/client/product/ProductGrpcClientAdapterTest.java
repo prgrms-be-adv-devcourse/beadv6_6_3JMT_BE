@@ -100,28 +100,6 @@ class ProductGrpcClientAdapterTest {
 	}
 
 	@Test
-	@DisplayName("gRPC 장바구니 스냅샷의 상품 상태를 하드코딩하지 않고 그대로 매핑한다")
-	void mapsCartSnapshotStatusFromGrpcResponse() throws IOException {
-		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
-			@Override
-			public void getCartSnapshots(
-				GetCartSnapshotsRequest request,
-				StreamObserver<GetCartSnapshotsResponse> responseObserver
-			) {
-				assertThat(request.getProductIdsList()).containsExactly(PRODUCT_ID.toString());
-				responseObserver.onNext(GetCartSnapshotsResponse.newBuilder()
-					.addProducts(cartSnapshot(PRODUCT_ID, "STOPPED"))
-					.build());
-				responseObserver.onCompleted();
-			}
-		});
-
-		ProductCartSnapshot snapshot = adapter.getCartSnapshot(PRODUCT_ID);
-
-		assertThat(snapshot.status()).isEqualTo("STOPPED");
-	}
-
-	@Test
 	void mapsCartSnapshotsResponse() throws IOException {
 		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
 			@Override
@@ -239,10 +217,6 @@ class ProductGrpcClientAdapterTest {
 	}
 
 	private ProductCartSnapshotMessage cartSnapshot(UUID productId) {
-		return cartSnapshot(productId, "ON_SALE");
-	}
-
-	private ProductCartSnapshotMessage cartSnapshot(UUID productId, String productStatus) {
 		return ProductCartSnapshotMessage.newBuilder()
 			.setProductId(productId.toString())
 			.setSellerId(SELLER_ID.toString())
@@ -251,7 +225,6 @@ class ProductGrpcClientAdapterTest {
 			.setProductType("PROMPT")
 			.setAmount(10000)
 			.setThumbnailUrl("https://example.com/thumb.png")
-			.setProductStatus(productStatus)
 			.build();
 	}
 }

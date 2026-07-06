@@ -28,7 +28,6 @@ message ProductCartSnapshotMessage {
   string product_type = 5;
   int32 amount = 6;
   string thumbnail_url = 7;
-  string product_status = 8;
 }
 
 message GetOrderSnapshotsRequest {
