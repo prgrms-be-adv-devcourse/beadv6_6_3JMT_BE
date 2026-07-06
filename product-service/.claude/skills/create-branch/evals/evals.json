@@ -1,0 +1,23 @@
+{
+  "skill_name": "create-branch",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "이슈 #45 상품 공개 조회 API 구현 브랜치 만들어줘. 실제 git 명령은 실행하지 말고 실행할 명령만 보여줘.",
+      "expected_output": "git checkout develop, git pull origin develop, git checkout -b feat/#45-... 순서로 명령 제시. 브랜치 타입은 이슈 성격(기능 추가)에 맞춰 feat 사용.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "브랜치 만들어줘.",
+      "expected_output": "이슈 번호와 타입이 없으므로 바로 생성하지 않고 대상 이슈 번호를 먼저 확인한다.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "지금 uncommitted 변경사항이 있는 상태에서 이슈 #50 브랜치 만들어줘.",
+      "expected_output": "브랜치 전환 전에 git status --short로 변경사항을 보여주고 stash 또는 커밋 여부를 먼저 사용자에게 확인한다.",
+      "files": []
+    }
+  ]
+}

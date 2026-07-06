@@ -120,6 +120,8 @@
     "salesCount": 1240,
     "seller": "비주얼랩",
     "sellerId": "uuid",
+    "sellerProfileImageUrl": "https://...",
+    "sellerProductCount": 12,
     "badge": "신규",
     "desc": "상품 설명",
     "thumbnail_url": null,

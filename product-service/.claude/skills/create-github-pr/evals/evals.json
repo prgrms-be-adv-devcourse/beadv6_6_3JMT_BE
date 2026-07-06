@@ -1,0 +1,23 @@
+{
+  "skill_name": "create-github-pr",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "feat/#45-product-public-query-api 브랜치에서 작업 끝났어. PR 만들어줘. gh pr create는 실제로 실행하지 말고 실행할 명령과 본문만 보여줘.",
+      "expected_output": ".github/CODEOWNERS 전체 인원에서 작성자 본인을 제외한 목록을 --reviewer로 제안하고, 승인 화면에서 반드시 재확인을 요청한다. --assignee @me 포함. base는 develop 확인.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "지금 develop 브랜치인데 PR 만들어줘.",
+      "expected_output": "develop 브랜치에서는 PR을 만들 수 없다고 안내하고 작업 브랜치로 옮기라고 알린 뒤 멈춘다.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "CODEOWNERS 파일이 없다고 가정하고 PR 만들어줘. gh pr create는 실행하지 말고 명령만 보여줘.",
+      "expected_output": "리뷰어 후보를 확정할 수 없으므로 --reviewer 플래그를 생략하고 진행한다. 추측으로 아무나 리뷰어로 달지 않는다.",
+      "files": []
+    }
+  ]
+}
