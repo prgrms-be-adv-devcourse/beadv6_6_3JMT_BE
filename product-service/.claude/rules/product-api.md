@@ -99,6 +99,23 @@ ID 타입은 API 명세와 현재 DDL을 확인한 뒤 구현한다.
 
 목록/페이지 응답은 `docs/api-spec/product.md`를 따른다.
 
+## 응답 wrapper 규칙
+
+- 외부(공개/판매자/관리자) API는 `ApiResult<T>` 또는 `PageResponse<T>`로 감싼다.
+- 내부(`/internal/**`, 타 서비스 간 호출) API는 wrapper 없이 raw DTO를 반환한다.
+
+예시:
+
+```java
+// 외부 — wrapper 있음
+@GetMapping("/products/{productId}")
+public ApiResult<ProductDetailResponse> getProduct(@PathVariable UUID productId) { ... }
+
+// 내부 — wrapper 없음
+@GetMapping("/internal/products/{productId}/content")
+public ProductContentResponse getProductContent(@PathVariable UUID productId) { ... }
+```
+
 ## DDL과 docs 일치 확인
 
 `docs/erd/schema.md`는 실제 DDL의 열람용 미러이므로 최신 상태가 아닐 수 있다.
