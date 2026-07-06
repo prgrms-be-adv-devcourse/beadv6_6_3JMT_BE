@@ -1,61 +1,6 @@
-plugins {
-    id 'java'
-    id 'org.springframework.boot' version '4.1.0'
-    id 'io.spring.dependency-management' version '1.1.7'
-    id 'checkstyle'
-    id 'com.google.protobuf' version '0.9.6'
-}
-ext {
-    springCloudVersion = "2025.1.2"
-}
-
-group = 'com.prompthub'
-version = '0.0.1-SNAPSHOT'
-description = 'user-service'
-
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-}
-
-repositories {
-    mavenCentral()
-}
-
-ext {
-    set('springCloudVersion', "2025.1.2")
-}
-
-dependencyManagement {
-    imports {
-        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
-    }
-}
+apply plugin: 'com.google.protobuf'
 
 dependencies {
-    // common
-    implementation("com.prompthub:common-module")
-
-    // 웹 MVC (서블릿 기반)
-    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-
-    // Bean Validation (jakarta.validation)
-    implementation 'org.springframework.boot:spring-boot-starter-validation'
-
-    // Actuator (헬스체크 엔드포인트 — 배포 health check)
-    implementation 'org.springframework.boot:spring-boot-starter-actuator'
-
-    // Spring Cloud — Eureka 클라이언트 (서비스 등록/디스커버리)
-    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
-
-    // Spring Cloud — Config Server 클라이언트 (설정·Eureka 주소 수신)
-    implementation 'org.springframework.cloud:spring-cloud-starter-config'
-
-    // JPA & PostgreSQL
-    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    runtimeOnly 'org.postgresql:postgresql'
-
     // JWT (RSA 서명/검증 — NimbusJwtEncoder 포함)
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
 
@@ -68,57 +13,30 @@ dependencies {
     implementation 'io.grpc:grpc-protobuf'
 
     // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-api:3.0.0'
-//     로컬 테스트 시 UI 필요하면 webmvc-api → webmvc-ui 로 변경
-//    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0'
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
 
-    // 컴파일 타임 코드 생성 — 런타임 classpath에 포함되지 않음
-    compileOnly 'org.projectlombok:lombok'
-    annotationProcessor 'org.projectlombok:lombok'
-
-    runtimeOnly 'org.postgresql:postgresql'
-
-
-    // 테스트
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
-    testCompileOnly 'org.projectlombok:lombok'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    testAnnotationProcessor 'org.projectlombok:lombok'
-}
-
-checkstyle {
-    configFile = file('../style/checkstyle/prompthub-checkstyle-rules.xml')
-    toolVersion = '10.12.0'
-    ignoreFailures = true
-}
-
-tasks.named('checkstyleTest') {
-    enabled = false
-}
-dependencyManagement {
-    imports {
-        mavenBom "org.springframework.cloud:spring-cloud-dependencies:$springCloudVersion"
-    }
 }
 
 protobuf {
     protoc {
-        artifact = "com.google.protobuf:protoc:${dependencyManagement.importedProperties['protobuf-java.version']}"
+        artifact = "com.google.protobuf:protoc:${protobufVersion}"
     }
     plugins {
         grpc {
-            artifact = "io.grpc:protoc-gen-grpc-java:${dependencyManagement.importedProperties['grpc-java.version']}"
+            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
         }
     }
     generateProtoTasks {
-        all()*.plugins {
-            grpc {}
+        all().each { task ->
+            task.plugins {
+                grpc {}
+            }
         }
     }
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
     jvmArgs = ['-Dspring.profiles.active=test']
     def envFile = file('.env')
     if (envFile.exists()) {
@@ -134,9 +52,6 @@ tasks.named('test') {
 }
 
 bootRun {
-    // .env 파일이 존재하면 KEY=VALUE 형식으로 파싱해 환경변수로 주입한다.
-    // IntelliJ Run Configuration 없이 `./gradlew bootRun`만으로 로컬 환경변수를 적용하기 위한 설정.
-    // .env는 .gitignore에 등록되어 있으므로 민감 정보를 커밋하지 않아도 된다.
     jvmArgs = ['-Dspring.profiles.active=local']
     def envFile = file('.env')
     if (envFile.exists()) {
