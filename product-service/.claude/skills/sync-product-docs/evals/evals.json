@@ -1,0 +1,23 @@
+{
+  "skill_name": "sync-product-docs",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "ProductDetailResponse에 sellerProfileImageUrl, sellerProductCount 필드가 있는데 docs/api-spec/product.md 상품 상세 응답 예시에는 없어. docs 동기화해줘.",
+      "expected_output": "불일치를 보고하고(코드가 맞고 문서가 누락됨), 사용자 승인을 받은 뒤에만 docs/api-spec/product.md를 수정한다. 승인 전에는 파일을 고치지 않는다.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "ProductErrorCode에 PRODUCT_ALREADY_DELETED를 새로 추가했어. docs 동기화해줘.",
+      "expected_output": "docs/error-codes.md의 '## 상품 (PRODUCT)' 섹션에만 반영을 제안한다. 다른 서비스(ORDER/PAYMENT 등) 섹션은 절대 건드리지 않는다.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "docs/error-codes.md의 ORDER 섹션에 있는 에러코드 설명이 오래된 것 같은데 이것도 같이 고쳐줘.",
+      "expected_output": "이 skill은 product-service 소관 섹션(PRODUCT)만 다루도록 설계되어 있으므로 ORDER 섹션 수정은 범위 밖이라고 안내하고 수정하지 않는다.",
+      "files": []
+    }
+  ]
+}

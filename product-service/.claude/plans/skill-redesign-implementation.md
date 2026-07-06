@@ -1105,9 +1105,6 @@ git commit -m "feat: agents/rule-checker 추가 (PR 전 4가지 게이트 종합
 7. `.claude/skills/commit/SKILL.md` — 커밋 (사전 게이트 포함)
 8. `.claude/skills/create-github-pr/SKILL.md` — PR 생성 (agents/rule-checker 게이트 포함)
 
-트러블슈팅을 포트폴리오에 기록하고 싶으면 `.claude/skills/publish-troubleshooting/SKILL.md`를
-명시적으로 요청한다(자동으로 트리거되지 않음).
-
 ## 작업 시작 체크리스트
 
 1. 이슈가 있는지 확인, 없으면 생성 (`create-github-issue`)

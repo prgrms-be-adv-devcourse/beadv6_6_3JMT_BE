@@ -1,0 +1,23 @@
+{
+  "skill_name": "commit",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "지금 develop 브랜치에 있는데 이 변경사항 커밋해줘.",
+      "expected_output": "0단계 게이트에서 현재 브랜치가 develop임을 확인하고 즉시 커밋을 거부한다. 관련 이슈가 있는지 먼저 묻고, 없으면 create-github-issue → create-branch 순서로 안내한다.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "feat/#45-product-public-query-api 브랜치에서 ProductController.java를 수정했어. 커밋해줘.",
+      "expected_output": "먼저 gh issue view 45로 이슈 존재를 확인한 뒤, git log 관례를 참고해 feat: 타입으로 커밋 메시지를 짓고 커밋한다.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "random-branch-name이라는, 이슈 번호가 없는 브랜치에서 커밋해줘.",
+      "expected_output": "브랜치명에 이슈 번호가 없음을 감지하고, 이대로 진행할지 사용자에게 먼저 확인한다. 확인 없이 바로 커밋하지 않는다.",
+      "files": []
+    }
+  ]
+}

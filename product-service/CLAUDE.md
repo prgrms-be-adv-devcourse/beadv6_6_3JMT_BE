@@ -9,7 +9,10 @@
 ## 작업 범위
 
 - Product Service 관련 변경은 기본적으로 `product-service/` 하위에서 진행한다.
-- `common-module/`, 루트 workflow, 공통 docs 변경이 필요한 경우 PR에 변경 이유를 명시한다.
+- 다른 서비스 모듈은 참고용으로만 읽는다. 쓰기 작업(생성·수정·삭제)은 하지 않는다.
+  자세한 모듈 경계 규칙은 `.claude/rules/architecture.md`를 따른다.
+- `common-module/`, 루트 workflow, 공통 docs 변경이 필요한 경우 PR에 변경 이유를 명시하고,
+  진행 전 사용자에게 먼저 알린다.
 - 하나의 브랜치에 관련 없는 API 작업을 섞지 않는다.
 
 ## 기준 문서
@@ -25,22 +28,35 @@
 
 구현 전에 아래 문서를 읽는다.
 
-- `.claude/rules/architecture.md`
-- `.claude/rules/product-api.md`
-- `.claude/rules/testing.md`
-- `.claude/rules/git-workflow.md`
+- `.claude/rules/architecture.md` — 계층 책임, 의존 방향, 예외 처리, 모듈 경계
+- `.claude/rules/product-api.md` — API 계약, category/ID 규칙, 응답 wrapper 규칙
+- `.claude/rules/testing.md` — 테스트 기준
+- `.claude/rules/git-workflow.md` — 브랜치 타입, Issue 우선 원칙
 
 ## Skills
 
-반복되는 workflow 작업은 아래 skill 문서를 따른다.
+작업 단계마다 아래 skill을 순서대로 쓴다.
 
-- `.claude/skills/issue/SKILL.md`: GitHub issue 생성 절차
-- `.claude/skills/pr/SKILL.md`: PR 생성 전 확인 및 PR 작성 절차
-- `.claude/skills/start/SKILL.md`: 작업 시작부터 issue/branch/rules 확인까지의 시작 절차
-- `.claude/skills/test/SKILL.md`: 테스트 범위 판단, 테스트 추가/수정, build 검증 절차
+1. `.claude/skills/create-github-issue/SKILL.md` — 이슈 생성
+2. `.claude/skills/create-branch/SKILL.md` — 이슈 기반 브랜치 생성
+3. (구현)
+4. `.claude/skills/write-tests/SKILL.md` — 테스트 작성
+5. `.claude/skills/sync-product-docs/SKILL.md` — product 관련 docs 동기화
+6. `.claude/skills/verify-rules/SKILL.md` — 규칙 준수 확인
+7. `.claude/skills/commit/SKILL.md` — 커밋 (사전 게이트 포함)
+8. `.claude/skills/create-github-pr/SKILL.md` — PR 생성 (agents/rule-checker 게이트 포함)
 
-`rules/git-workflow.md`는 브랜치, 커밋, CI/CD처럼 항상 지켜야 하는 Git/GitHub 규칙이다.
-`skills/start/SKILL.md`는 작업을 처음 시작할 때 issue 확인, branch 생성, rules 확인 등을 실제 순서대로 진행하기 위한 절차다.
+## 작업 시작 체크리스트
+
+1. 이슈가 있는지 확인, 없으면 생성 (`create-github-issue`)
+2. 이슈 번호 기준 브랜치 생성 (`create-branch`)
+3. 위 규칙 문서 확인
+4. 구현
+5. 테스트 작성 (`write-tests`)
+6. docs 동기화 (`sync-product-docs`)
+7. 규칙 검증 (`verify-rules`)
+8. 커밋 (`commit`)
+9. PR 생성 (`create-github-pr`)
 
 ## 우선 작업 범위
 
