@@ -4,7 +4,7 @@
 (§4 · `trade-offs/order-data-sourcing.md`), 이 문서가 다루는 Kafka 사용은 이제 **발행(지급 완료 알림 —
 추후·파이널)** 뿐이다.
 
-- 주고받는 계약(무엇을 주고받는지)은 `event-catalog.md` 를 본다. 이 문서는 그 계약을
+- 주고받는 계약(무엇을 주고받는지)은 `integration-catalog.md` 를 본다. 이 문서는 그 계약을
   **클린아키텍처 룰(`.claude/rules/clean-architecture.md`)에 맞춰 어느 계층·패키지에 어떤 코드로 놓을지**를 정한다.
 - 원천 수급을 왜 이벤트가 아니라 gRPC pull 로 하는지는 `trade-offs/order-data-sourcing.md`.
 - 참고 구현: `order-service`(Transactional Outbox), `payment-service`(AFTER_COMMIT 직접 발행).
@@ -88,7 +88,7 @@ infrastructure/messaging/kafka/
 - 단점: 커밋과 발행 사이에 프로세스가 죽으면 **이벤트 유실** 가능(at-most-once).
 - **적용 대상 — 유실돼도 치명적이지 않은 알림성 이벤트.**
   - `settlement.payout.completed` (지급 완료 → User 에 입금 알림). 트리거: `Settlement.payout(paidAt)` 직후.
-    **단, 발행은 추후(파이널 단계) 도입 — 현재 구현 범위 아님**(`event-catalog.md` §3).
+    **단, 발행은 추후(파이널 단계) 도입 — 현재 구현 범위 아님**(`integration-catalog.md` §3).
 
 ### 3-2. 예외: Transactional Outbox
 
@@ -122,7 +122,7 @@ infrastructure/messaging/kafka/
   (근거·설계는 `trade-offs/order-data-sourcing.md`.)
 - **바뀐 흐름:** 배치 Step 0 가 `OrderSettlementQueryPort.getSettleableLines(period)` 로 그 기간의
   결제·환불 라인을 당겨 `settlement_source_line` 에 멱등 적재한다. `paidAt`/`refundedAt` 시각 기준으로
-  결제·환불을 가르며, 멱등키는 `orderProductId | 상태`(PAID/REFUND) 다. (계약은 `event-catalog.md` §1.)
+  결제·환불을 가르며, 멱등키는 `orderProductId | 상태`(PAID/REFUND) 다. (계약은 `integration-catalog.md` §1.)
 - **제거 대상:** `infrastructure/messaging/kafka/consumer/order/*`(`OrderEventConsumer`·`OrderEventType`),
   Kafka **consumer** 설정, `application/event` 의 order 이벤트 수신 DTO, `settlement.kafka.listener.order.*`.
 - **신규(수신 대체):** `infrastructure/client/order/`(gRPC 어댑터), `application/port/OrderSettlementQueryPort`.

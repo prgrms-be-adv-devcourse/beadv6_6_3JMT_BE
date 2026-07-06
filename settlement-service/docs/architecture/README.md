@@ -12,7 +12,7 @@
 
 | 문서 | 내용 |
 | --- | --- |
-| [event-catalog.md](event-catalog.md) | 외부와 주고받는 데이터 카탈로그. 원천 데이터(매출/환불)를 gRPC pull 로 당겨오는 것과 참고 데이터(판매자 정보·상품 수) 동기 조회를 계약(proto·멱등키) 단위로 정리. **"무엇을"** 에 해당. |
+| [integration-catalog.md](integration-catalog.md) | 외부와 주고받는 데이터 카탈로그. 원천 데이터(매출/환불)를 gRPC pull 로 당겨오는 것과 참고 데이터(판매자 정보·상품 수) 동기 조회를 계약(proto·멱등키) 단위로 정리. **"무엇을"** 에 해당. |
 | [kafka-messaging-design.md](kafka-messaging-design.md) | 정산의 Kafka 사용(지급 완료 발행 — 추후)을 클린아키텍처 룰에 맞춰 **어느 계층·패키지에 어떤 코드로 구현하는지**. 원천 수신은 gRPC pull 로 이관. **"어떻게"** 에 해당. |
 
 ## 배포 (CI/CD)
