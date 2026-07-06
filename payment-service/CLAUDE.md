@@ -44,6 +44,11 @@ API 설계·DB·이벤트 관련 작업 시 아래 문서를 먼저 확인한다
 - **DB 테이블 구조** → `.claude/docs/db-schema.md`
 - **Kafka 이벤트 계약** → `.claude/docs/events.md`
 
+모노레포 전체(다른 서비스와의 연결) 맥락이 필요한 작업 시:
+
+- **시스템 전체 구조 (서비스·포트·gateway 라우팅·인증 헤더 흐름)** → `../docs/architecture/overview.md`
+- **서비스 간 Kafka 이벤트 흐름 (발행/소비 매트릭스·시나리오)** → `../docs/architecture/event-flow.md`
+
 ## 테스트 정책
 
 - 새 기능은 **테스트와 함께** 추가(가능하면 TDD: 실패 테스트 → 구현 → 통과).
