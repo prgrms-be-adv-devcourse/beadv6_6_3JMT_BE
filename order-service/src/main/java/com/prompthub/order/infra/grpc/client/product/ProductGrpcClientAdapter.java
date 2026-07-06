@@ -23,8 +23,6 @@ import org.springframework.stereotype.Component;
 @Profile({"dev", "prod"})
 public class ProductGrpcClientAdapter implements ProductClient {
 
-	private static final String ON_SALE = "ON_SALE";
-
 	private final ProductInternalServiceGrpc.ProductInternalServiceBlockingStub stub;
 	private final int deadlineMs;
 
@@ -126,7 +124,7 @@ public class ProductGrpcClientAdapter implements ProductClient {
 			response.getThumbnailUrl(),
 			UUID.fromString(response.getSellerId()),
 			response.getSellerNickname(),
-			ON_SALE
+			response.getProductStatus()
 		);
 	}
 
