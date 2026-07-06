@@ -3,13 +3,12 @@ package com.prompthub.order.application.service.event;
 import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
 import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
+import com.prompthub.order.application.service.order.OrderExpirationStore;
 import com.prompthub.order.application.service.order.OrderPolicyService;
 import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderPayment;
 import com.prompthub.order.domain.model.OrderProduct;
-import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.domain.repository.OrderPaymentRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -25,7 +24,6 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
-import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,7 +31,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,13 +40,13 @@ class OrderPaymentEventServiceTest {
 	private OrderRepository orderRepository;
 
 	@Mock
-	private CartRepository cartRepository;
-
-	@Mock
 	private OrderPaymentRepository orderPaymentRepository;
 
 	@Mock
 	private OutboxEventAppender outboxEventAppender;
+
+	@Mock
+	private OrderExpirationStore orderExpirationStore;
 
 	@Spy
 	private OrderPolicyService orderPolicyService;
@@ -67,14 +64,11 @@ class OrderPaymentEventServiceTest {
 			Order order = createPendingOrderWithProducts();
 			
 			PaymentApprovedEvent event = createPaymentApprovedEvent(order.getId(), TOTAL_AMOUNT);
-			Cart cart = mock(Cart.class);
 
 			given(orderRepository.findByIdWithOrderProducts(event.orderId()))
 				.willReturn(Optional.of(order));
 			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
 				.willReturn(false);
-			given(cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId()))
-				.willReturn(Optional.of(cart));
 
 			ArgumentCaptor<OrderPayment> paymentCaptor = ArgumentCaptor.forClass(OrderPayment.class);
 
@@ -95,8 +89,7 @@ class OrderPaymentEventServiceTest {
 			assertThat(savedPayment.getApprovedAt()).isEqualTo(APPROVED_AT);
 
 			then(outboxEventAppender).should().appendOrderPaid(order, event);
-
-			then(cart).should().removeProductsByProductIds(productIds());
+			then(orderExpirationStore).should().removeExpiration(order.getId());
 		}
 
 		@Test
@@ -121,7 +114,7 @@ class OrderPaymentEventServiceTest {
 				.containsOnly(OrderStatus.PENDING);
 			then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
 			then(outboxEventAppender).should(never()).appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class));
-			then(cartRepository).should(never()).findByBuyerIdWithCartProducts(any(UUID.class));
+			then(orderExpirationStore).should(never()).removeExpiration(any());
 		}
 
 		@Test
@@ -141,7 +134,7 @@ class OrderPaymentEventServiceTest {
 			then(orderPaymentRepository).should().existsByPaymentId(event.paymentId());
 			then(orderPaymentRepository).should(never()).save(any(OrderPayment.class));
 			then(outboxEventAppender).should(never()).appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class));
-			then(cartRepository).should(never()).findByBuyerIdWithCartProducts(any(UUID.class));
+			then(orderExpirationStore).should(never()).removeExpiration(any());
 		}
 
 		@Test
@@ -199,13 +192,12 @@ class OrderPaymentEventServiceTest {
 				.isInstanceOf(RuntimeException.class)
 				.hasMessage("DB Connection Error");
 
-			// 예외 발생 시 장바구니 제거 로직까지 도달하지 않아야 함
-			then(cartRepository).should(never()).findByBuyerIdWithCartProducts(any(UUID.class));
+			then(orderExpirationStore).should(never()).removeExpiration(any());
 		}
 
 		@Test
-		@DisplayName("장바구니 제거 중 예외가 발생하면 예외가 상위로 전파되어 결제 및 Outbox 저장을 롤백 유도한다")
-		void handlePaymentApproved_cartClearFails_throwsException() {
+		@DisplayName("Redis 만료 대상 제거 중 예외가 발생해도 결제 승인 처리는 성공한다")
+		void handlePaymentApproved_expirationRemoveFails_doesNotThrow() {
 			Order order = createPendingOrderWithProducts();
 			PaymentApprovedEvent event = createPaymentApprovedEvent(order.getId(), TOTAL_AMOUNT);
 
@@ -213,14 +205,12 @@ class OrderPaymentEventServiceTest {
 				.willReturn(Optional.of(order));
 			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
 				.willReturn(false);
-			given(cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId()))
-				.willThrow(new RuntimeException("Redis Timeout"));
+			org.mockito.BDDMockito.willThrow(new RuntimeException("Redis Timeout"))
+				.given(orderExpirationStore).removeExpiration(order.getId());
 
-			assertThatThrownBy(() -> orderPaymentEventService.handlePaymentApproved(event))
-				.isInstanceOf(RuntimeException.class)
-				.hasMessage("Redis Timeout");
+			orderPaymentEventService.handlePaymentApproved(event);
 
-			// orderPayment, outbox 저장은 mock 호출 자체는 진행되었지만 예외가 던져졌으므로 실제 런타임에선 @Transactional로 롤백됨
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
 			then(orderPaymentRepository).should().save(any(OrderPayment.class));
 			then(outboxEventAppender).should().appendOrderPaid(any(Order.class), any(PaymentApprovedEvent.class));
 		}
