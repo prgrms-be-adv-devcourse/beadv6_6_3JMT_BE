@@ -5,11 +5,13 @@ import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
-import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.application.event.order.OrderCreatedEvent;
 import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.application.usecase.OrderUseCase;
+import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
+import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.domain.repository.OrderPaymentRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -22,9 +24,11 @@ import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
+import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -40,11 +44,15 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OrderService implements OrderUseCase {
 
+	private final OrderExpirationPolicy expirationPolicy;
+
 	private final OrderRepository orderRepository;
 	private final OrderPaymentRepository orderPaymentRepository;
+	private final CartRepository cartRepository;
 	private final OrderNumberGenerator orderNumberGenerator;
 	private final ProductClient productClient;
 	private final OrderPolicyService orderPolicyService;
+	private final ApplicationEventPublisher applicationEventPublisher;
 
 	@Override
 	public CreateOrderResponse createOrder(UUID buyerId, CreateOrderRequest request) {
@@ -63,6 +71,9 @@ public class OrderService implements OrderUseCase {
 				.forEach(order::addOrderProduct);
 
 		Order savedOrder = orderRepository.save(order);
+		removeOrderedProductsFromCart(buyerId, request.productIds());
+		applicationEventPublisher.publishEvent(new OrderCreatedEvent(savedOrder.getId(), savedOrder.getCreatedAt()));
+
 		var responseProducts = savedOrder.getOrderProducts().stream()
 			.map(it -> new OrderProductsResponse(
 				it.getId(),
@@ -86,6 +97,16 @@ public class OrderService implements OrderUseCase {
 			savedOrder.getCreatedAt(),
 			savedOrder.getCanceledAt()
 		);
+	}
+
+	private void removeOrderedProductsFromCart(UUID buyerId, List<UUID> productIds) {
+		cartRepository.findByBuyerIdWithCartProducts(buyerId)
+			.ifPresent(cart -> removeOrderedProducts(cart, productIds));
+	}
+
+	private void removeOrderedProducts(Cart cart, List<UUID> productIds) {
+		cart.removeProductsByProductIds(productIds);
+		cartRepository.save(cart);
 	}
 
 	@Override
@@ -153,6 +174,37 @@ public class OrderService implements OrderUseCase {
 			orderProduct.isDownloaded(),
 			orderProduct.getProductTitle(),
 			productContent.content()
+		);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public OrderPaymentValidationResponse validatePaymentReady(UUID buyerId, UUID orderId, int amount, LocalDateTime now) {
+		Order order = orderRepository.findByIdWithOrderProducts(orderId)
+			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
+
+		if (!order.getBuyerId().equals(buyerId)) {
+			throw new OrderException(ErrorCode.FORBIDDEN);
+		}
+
+		if (!order.isPending()) {
+			throw new OrderException(ErrorCode.ORDER_ALREADY_PROCESSED);
+		}
+
+		if (order.isExpired(now, expirationPolicy.paymentTimeoutMinutes())) {
+			throw new OrderException(ErrorCode.ORDER_EXPIRED);
+		}
+
+		if (order.getTotalOrderAmount() != amount) {
+			throw new OrderException(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
+		}
+
+		return new OrderPaymentValidationResponse(
+			true,
+			order.getId(),
+			order.getBuyerId(),
+			order.getTotalOrderAmount(),
+			order.getCreatedAt().plusMinutes(expirationPolicy.paymentTimeoutMinutes())
 		);
 	}
 
