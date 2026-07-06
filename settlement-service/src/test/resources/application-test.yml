@@ -1,0 +1,20 @@
+# 테스트 프로파일 — @SpringBootTest 가 외부 인프라(실 PostgreSQL·Config Server·Eureka)에
+# 의존하지 않도록 datasource 를 인메모리 H2 로 덮고, 원격 연동을 끈다.
+# main application.yml 위에 병합되므로 grpc 주소·api.init 등 나머지 설정은 그대로 유지된다.
+spring:
+  datasource:
+    url: jdbc:h2:mem:settlement;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+  cloud:
+    config:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false
