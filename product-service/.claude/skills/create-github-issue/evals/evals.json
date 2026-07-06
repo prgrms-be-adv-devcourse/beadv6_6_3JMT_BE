@@ -1,0 +1,23 @@
+{
+  "skill_name": "create-github-issue",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "상품 상세 조회 API에서 판매자 프로필 이미지가 안 나와. 원래는 sellerProfileImageUrl 필드에 값이 있어야 하는데 항상 null이야. 재현은 아무 상품 상세 조회하면 바로 보임. 이거 버그 이슈로 올려줘. 단, 실제로 gh issue create를 실행하지 말고 만들어질 이슈 본문과 gh 명령을 보여줘.",
+      "expected_output": "bug_report 템플릿 섹션 구조로 본문이 채워지고, 되묻는 질문 없이 바로 완성. title은 [BUG] 접두사. label은 gh label list로 확인된 실제 라벨(fix) 사용, bug라는 라벨은 쓰지 않음. --assignee @me 포함.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "상품 목록 조회에 판매자별 필터 추가하면 좋겠어. 이슈로 정리해줘. 단, 실제로 gh issue create를 실행하지 말고 만들어질 이슈 본문과 gh 명령을 보여줘.",
+      "expected_output": "feature_request 템플릿 섹션 구조(문제 제기/제안하는 기능/대안/추가 정보)로 채워짐. label은 gh label list로 확인된 실제 라벨(feat) 사용, feature라는 라벨은 쓰지 않음. --assignee @me 포함.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "이슈 만들어줘.",
+      "expected_output": "범위(버그/기능, 제목, 재현 방법 또는 제안 내용)가 없으므로 바로 생성하지 않고 필요한 정보를 한 번에 모아 되묻는다. gh issue create를 실행하지 않는다.",
+      "files": []
+    }
+  ]
+}

@@ -114,3 +114,20 @@ Product 전용 에러 코드가 필요하면 Product Service 안에서 `ErrorCod
 - wildcard import를 사용하지 않는다.
 - unused import를 남기지 않는다.
 - 빈 catch block을 남기지 않는다.
+
+## 모듈 경계 및 타 서비스 연동
+
+- `product-service/` 안은 자유롭게 읽고 쓴다.
+- 다른 서비스 모듈(order/payment/settlement/user-service, apigateway, config, discovery)은
+  참고용으로만 읽는다. 파일 생성·수정·삭제 등 쓰기 작업을 하지 않는다.
+- `common-module`은 공유 라이브러리이므로 변경이 필요하면 다른 서비스에 미치는 영향을
+  사용자에게 먼저 알리고 승인받은 후 진행한다.
+- **gRPC/타 서비스 API 연동이 필요한 작업** — 다른 서비스의 gRPC 응답에서 새 필드가
+  필요하거나, `.proto` 계약을 바꿔야 하는 경우 — 다른 서비스 코드나 `.proto`를 임의로
+  수정하거나 계약을 추정하지 않는다. 대신:
+  1. 어떤 서비스의 어떤 API/gRPC 메서드가 어떻게 바뀌어야 하는지 정리해 사용자에게 보고한다.
+  2. 사용자 승인 후에만 진행한다. 사용자가 직접 다른 서비스 담당자와 조율하거나 "다른
+     서비스도 같이 고쳐줘"라고 명시적으로 지시할 때만 다른 모듈에 손을 댄다.
+- product-service 쪽 `.proto`(`product_query.proto`, `order_product.proto` 등)를 변경할 때도
+  이를 가져다 쓰는 다른 서비스(order-service, user-service 등)에 영향이 가므로, 변경 전
+  반드시 사용자에게 알리고 승인받는다.

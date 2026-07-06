@@ -1,0 +1,23 @@
+{
+  "skill_name": "write-tests",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "ProductController에 GET /products/{productId}/related 엔드포인트를 추가했어. 테스트 만들어줘.",
+      "expected_output": "presentation/controller 변경으로 분류하고 ProductControllerTest에 요청 경로/파라미터/공통 응답 포맷/성공 status를 검증하는 테스트를 제안한다. 공개 API이므로 인증 헤더는 넣지 않는다.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "docs/api-spec/product.md만 수정했어. 테스트 만들어줘.",
+      "expected_output": "문서만 변경된 경우로 분류해 테스트 파일 추가 없이 build 확인만 안내한다.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "테스트 다 작성했고 build도 통과했어. PR 전 검증 끝난 거지?",
+      "expected_output": "write-tests가 커버하는 범위(테스트 작성·build)와 PR 전 전체 검증(sync-product-docs, verify-rules 포함)은 다르다는 점을 명확히 하고, 테스트만으로 PR 전 검증이 끝났다고 단정하지 않는다.",
+      "files": []
+    }
+  ]
+}

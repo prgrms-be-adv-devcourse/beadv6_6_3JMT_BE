@@ -1,0 +1,23 @@
+{
+  "skill_name": "verify-rules",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "ProductController.java에서 컨트롤러 메서드 안에 ProductRepository를 직접 주입해서 findById를 호출하는 코드가 diff에 있어. 룰 검증해줘.",
+      "expected_output": "architecture.md 위반(Controller가 Repository에 직접 접근)으로 보고한다. 코드를 직접 수정하지 않는다.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "diff에 새 public API 컨트롤러 메서드가 ApiResult나 PageResponse 없이 ProductDetailResponse를 그대로 반환하는 코드가 있어. 룰 검증해줘.",
+      "expected_output": "product-api.md의 응답 wrapper 규칙 위반(외부 API인데 wrapper 없음)으로 보고한다.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "이 diff는 규칙을 다 지킨 것 같은데 룰 검증해줘.",
+      "expected_output": "실제로 4개 규칙 문서 기준으로 diff를 확인한 뒤, 위반이 없으면 위반이 없다는 것을 명시적으로 보고한다(확인 없이 그냥 통과라고 말하지 않는다).",
+      "files": []
+    }
+  ]
+}
