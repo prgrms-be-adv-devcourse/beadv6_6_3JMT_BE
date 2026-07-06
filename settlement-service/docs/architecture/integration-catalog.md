@@ -1,12 +1,14 @@
 # 정산 서비스 연동 카탈로그 (동기 조회 · 발행)
 
-Settlement 서비스가 외부와 주고받는 데이터를 정리한다. 세 갈래로 나눈다.
+Settlement 서비스가 외부와 주고받는 데이터를 정리한다. 네 갈래로 나눈다.
 
 - **원천 데이터 조회(gRPC pull)** — 정산의 원천(결제/환불). 배치 시점에 order 에서 당겨와 정산
   DB(`settlement_source_line`)에 **소유**한다. → §1
 - **참고 데이터 조회(gRPC)** — 남의 서비스가 소유한 참고 데이터(판매자 정보·상품 수). 복제하지
   않고 필요 시점에 조회한다. → §2
 - **발행** — 추후(파이널) 도입. → §3
+- **어드민 제공(gRPC 서버)** — 추후(파이널) 어드민 모듈 분리와 함께 도입. §1·§2 와 달리
+  정산이 **호출받는 쪽**이다. → §4
 
 > 원천 수급을 왜 이벤트(Kafka push)가 아니라 gRPC pull 로 하는지는 `trade-offs/order-data-sourcing.md`
 > 를 본다. 이 문서는 그 결정에 따른 **연동 계약(무엇을 주고받는지)** 을 정리한다.
@@ -322,7 +324,28 @@ product_count: 12
 
 ---
 
-## 4. 정산 대상 인입 방식 전환 메모
+## 4. 어드민 제공 — admin-service 조회·명령 (gRPC 서버, 추후 — 파이널 단계)
+
+> **현재 범위 아님.** 파이널에서 어드민 API 가 admin-service 로 이관되면
+> (`admin-module-separation.md`), 정산이 어드민용 gRPC 서버를 제공한다. §1·§2 는 정산이
+> 호출하는 쪽이지만 여기서는 **정산이 서버**다. 아래는 rpc 후보 목록이며, proto 는 이관
+> 설계 단계에서 확정해 이 절에 채운다.
+
+| rpc (안) | 대응하는 기존 REST | 성격 | 호출 |
+|------|------|------|------|
+| 정산 목록·요약·상세 조회 | `SettlementController` GET 계열 | 조회 | admin → Settlement |
+| 정산 상태 변경 | `SettlementController` PATCH | 명령(도메인 상태 전이) | admin → Settlement |
+| 정산 배치 실행 | `SettlementBatchController` POST | 명령(`RunSettlementBatchUseCase`) | admin → Settlement |
+| 배치 잡 상태 조회 | `SettlementBatchController` GET | 조회 | admin → Settlement |
+
+- 조회·명령 모두 이 gRPC 한 경로다. 어드민은 정산 DB 에 직접 커넥션을 맺지 않는다
+  (결정 배경: `../trade-offs/admin-data-access.md`).
+- 상태 전이 규칙·배치 실행은 계속 정산이 보장한다. 기존 유스케이스를 gRPC 인바운드
+  어댑터가 재사용하는 구조다(`admin-module-separation.md`).
+
+---
+
+## 5. 정산 대상 인입 방식 전환 메모
 
 - **1차(폐기)**: 정산 배치가 Order 내부 API `GET /internal/orders/paid` 를 폴링해 PAID 주문을 조회.
 - **2차(폐기)**: 위 폴링을 `order-events`(`ORDER_PAID`/`ORDER_REFUNDED`) **이벤트 구독**으로 대체하고
@@ -334,7 +357,7 @@ product_count: 12
 
 ---
 
-## 5. 구현 현황 요약
+## 6. 구현 현황 요약
 
 | 항목 | 현황 |
 |------|------|
@@ -344,4 +367,5 @@ product_count: 12
 | 등록 상품 수 | 동기 조회 — **gRPC** `ProductQueryService.CountBySeller`. 정산 클라이언트 구현 완료(`ProductQueryClient`), Product gRPC 서버 신설 요청 필요 |
 | gRPC 의존성 | 추가됨 (`grpc-stub`·`grpc-protobuf`·`protobuf` + `protobuf-gradle-plugin`), proto `src/main/proto/*.proto` |
 | `settlement.payout.completed` 발행 | **추후(파이널)** — 현재 범위 아님. 발행은 Kafka 유지 |
+| 어드민용 gRPC 서버 (§4) | **추후(파이널)** — 어드민 모듈 분리와 함께 도입. proto 미정, rpc 후보만 확정 |
 </content>
