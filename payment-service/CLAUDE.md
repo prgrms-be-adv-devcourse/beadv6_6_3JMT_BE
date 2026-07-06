@@ -15,15 +15,18 @@
 ./gradlew bootRun                      # 실행 (포트 8084)
 ./gradlew test                         # 전체 테스트
 ./gradlew test --tests "com.prompthub.paymentservice.PaymentServiceApplicationTests"  # 단일
-docker-compose up -d                   # 로컬 PostgreSQL (호스트 5433)
+docker-compose up -d                   # 로컬 PostgreSQL (호스트 5433) + Kafka (포트 9092)
 ```
 
-- 실행 전 `.env` 필요: `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` (gitignore 대상, 커밋 금지).
+- 실행 전 `.env` 필요: `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` / `TOSS_SECRET_KEY` / `TOSS_TEST_MODE` (gitignore 대상, 커밋 금지).
+  - `TOSS_SECRET_KEY` 미설정 시 더미 키(`test-dummy-key`)로 기동되어 실제 PG 연동 불가.
+  - `TOSS_TEST_MODE=true` 설정 시 Toss 테스트 모드 활성화 (기본값 `false`).
 - 테스트는 Testcontainers(PostgreSQL + Kafka)를 쓰므로 compose DB 없이 동작한다.
 - `common-module`은 composite build(`includeBuild '../common-module'`)로 `com.prompthub:common-module`로 해석된다. 단독 빌드는 모노레포 전체 체크아웃이 전제.
 - common-module이 제공하는 타입: `BusinessException`, `ErrorCode`(에러 코드 인터페이스), 공통 응답 래퍼. 이 타입을 서비스 내부에서 재정의하지 않는다.
 - Swagger UI: `http://localhost:8084/swagger-ui.html` (bootRun 기동 후)
 - Checkstyle은 공유 룰(`../style/checkstyle/prompthub-checkstyle-rules.xml`) 사용. 현재 `ignoreFailures = true`지만 위반 코드는 작성하지 않는다.
+- Config Server(`http://localhost:8888`) 및 Eureka(`http://localhost:8761`)는 `optional` 설정으로 없어도 기동된다. 단, 서비스 메시 기능(설정 중앙화, 서비스 디스커버리)은 비활성화 상태가 된다.
 
 ## 상세 규칙 (해당 작업 시 먼저 읽기)
 
@@ -49,7 +52,6 @@ API 설계·DB·이벤트 관련 작업 시 아래 문서를 먼저 확인한다
 - 단언은 **AssertJ**(`assertThat`).
 - 영속성 테스트는 엔티티 `create(...)` 팩토리로 객체를 만들어 라운드트립 + 감사 필드 검증(기존 `PaymentJpaRepositoryTest` 패턴).
 - 통합 테스트(`*IntegrationTest`)는 루트 패키지(`com.prompthub.paymentservice`)에 위치한다(하위 패키지 아님).
-
 
 ## AI 작업 원칙
 

@@ -5,13 +5,10 @@ ARG MODULE_PATH
 
 WORKDIR /workspace
 
-# 루트 Gradle 래퍼 및 빌드 스크립트 복사
-COPY gradlew gradlew.bat settings.gradle build.gradle ./
-COPY gradle ./gradle
-
-# 공통 모듈 및 대상 서비스 복사
-COPY common-module ./common-module
-COPY ${MODULE_PATH} ./${MODULE_PATH}
+# 멀티모듈 루트 settings.gradle 이 전체 모듈을 include 하므로 소스 전체를 복사한다.
+# 일부 모듈만 복사하면 컨테이너에 없는 모듈 디렉토리에서 Gradle 설정이 실패한다.
+# (.dockerignore 가 .git·.idea·docs·style·**/build·**/.gradle 을 제외한다)
+COPY . .
 
 RUN chmod +x gradlew
 RUN ./gradlew :${MODULE_PATH}:bootJar --no-daemon
