@@ -5,8 +5,6 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 
-import net.devh.boot.grpc.client.inject.GrpcClient;
-
 import com.prompthub.user.grpc.product.GetProductsByIdsRequest;
 import com.prompthub.user.grpc.product.GetProductsByIdsResponse;
 import com.prompthub.user.grpc.product.Product;
@@ -15,14 +13,15 @@ import com.prompthub.user.wishlist.application.client.ProductClient;
 import com.prompthub.user.wishlist.application.dto.ProductSummaryDto;
 
 import io.grpc.StatusRuntimeException;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class ProductGrpcClient implements ProductClient {
 
-    @GrpcClient("product-service")
-    private ProductServiceGrpc.ProductServiceBlockingStub productServiceStub;
+    private final ProductServiceGrpc.ProductServiceBlockingStub productServiceStub;
 
     @Override
     public List<ProductSummaryDto> getProductsByIds(List<UUID> productIds) {

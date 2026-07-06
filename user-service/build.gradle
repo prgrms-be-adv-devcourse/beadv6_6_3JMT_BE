@@ -8,7 +8,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-grpc-server'
 
     // gRPC 클라이언트 (product-service 호출용)
-    implementation 'net.devh:grpc-client-spring-boot-starter:3.1.0.RELEASE'
+    implementation 'org.springframework.boot:spring-boot-starter-grpc-client'
     implementation 'io.grpc:grpc-stub'
     implementation 'io.grpc:grpc-protobuf'
 

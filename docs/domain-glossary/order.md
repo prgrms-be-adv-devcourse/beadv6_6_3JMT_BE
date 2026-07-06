@@ -1,73 +1,90 @@
 # Order Service 도메인 용어 사전
 
----
-
-## 주문 (order)
-
-| 이름 | 영문 | DB 타입 | NOT NULL | 기본값 | 설명 |
-|------|------|---------|:--------:|--------|------|
-| 주문 ID * | order_id | UUID | ✓ | gen_random_uuid() | PK |
-| 구매자 ID * | buyer_id | UUID | ✓ | | FK → user.user_id |
-| 주문 번호 * | order_number | VARCHAR(30) | ✓ | | 사용자 노출 주문 번호. UNIQUE |
-| 총 주문 금액 * | total_order_amount | INT | ✓ | 0 | |
-| 총 상품 수 * | total_product_count | INT | ✓ | 0 | |
-| 주문 상태 * | order_status | order_status_type | ✓ | PENDING | PENDING / PAID / FAILED / CANCELED / REFUNDED |
-| 주문 일시 * | created_at | TIMESTAMPTZ | ✓ | | 불변 |
-| 결제 완료 일시 | paid_at | TIMESTAMPTZ | | NULL | |
-| 취소 일시 | canceled_at | TIMESTAMPTZ | | NULL | |
-| 환불 일시 | refunded_at | TIMESTAMPTZ | | NULL | 부분환불 확장 예정 |
-| 수정 일시 * | updated_at | TIMESTAMPTZ | ✓ | | |
+현재 `order-service` 구현의 엔티티와 DTO 필드명을 기준으로 정리한다. DB 컬럼명은 JPA 매핑을 따른다.
 
 ---
 
-## 주문 항목 (order_product)
+## 주문 (`order`)
 
-| 이름 | 영문 | DB 타입 | NOT NULL | 기본값 | 설명 |
-|------|------|---------|:--------:|--------|------|
-| 주문 항목 ID * | order_product_id | UUID | ✓ | gen_random_uuid() | PK |
-| 주문 ID * | order_id | UUID | ✓ | | FK → order.order_id |
-| 상품 ID * | product_id | UUID | ✓ | | FK → product.product_id |
-| 판매자 ID * | seller_id | UUID | ✓ | | FK → seller.seller_id. 정산 기준 |
-| 상품명 스냅샷 * | product_title_snapshot | VARCHAR(200) | ✓ | | 구매 당시 상품명. 상품명 변경과 무관하게 보존 |
-| 상품 유형 스냅샷 * | product_type_snapshot | VARCHAR(30) | ✓ | | 구매 당시 상품 유형 |
-| 상품 가격 스냅샷 * | product_amount_snapshot | INT | ✓ | | 구매 당시 단가. 가격 변경과 무관하게 보존 |
-| 주문 항목 상태 * | order_product_status | order_product_status_type | ✓ | | PENDING / PAID / FAILED / CANCELED / REFUNDED |
-| 다운로드 여부 * | downloaded | BOOLEAN | ✓ | FALSE | |
-| 생성 일시 * | created_at | TIMESTAMPTZ | ✓ | | 불변 |
-| 취소 일시 | canceled_at | TIMESTAMPTZ | | NULL | 부분 취소 확장용 |
-| 환불 일시 | refunded_at | TIMESTAMPTZ | | NULL | 부분 환불 확장용 |
-| 수정 일시 * | updated_at | TIMESTAMPTZ | ✓ | | |
+| 이름 | Java 필드 | DB 컬럼 | 타입 | 설명 |
+|------|-----------|---------|------|------|
+| 주문 ID | `id` | `id` | UUID | PK |
+| 구매자 ID | `buyerId` | `buyer_id` | UUID | Gateway가 전달한 구매자 식별자 |
+| 주문 번호 | `orderNumber` | `order_number` | VARCHAR(30) | 사용자 노출 주문 번호. UNIQUE |
+| 총 주문 금액 | `totalOrderAmount` | `total_order_amount` | INT | 주문 상품 금액 합계 |
+| 총 상품 수 | `totalProductCount` | `total_product_count` | INT | 주문에 포함된 상품 수 |
+| 주문 상태 | `orderStatus` | `order_status` | VARCHAR(20) | `PENDING` / `PAID` / `FAILED` / `CANCELED` / `REFUNDED` |
+| 결제 완료 시각 | `paidAt` | `paid_at` | TIMESTAMP | 결제 승인 이벤트 반영 시 설정 |
+| 취소 시각 | `canceledAt` | `canceled_at` | TIMESTAMP | 취소 처리 시 설정 |
+| 환불 시각 | `refundedAt` | `refunded_at` | TIMESTAMP | 환불 이벤트 반영 시 설정 |
+| 생성 시각 | `createdAt` | `created_at` | TIMESTAMP | `BaseEntity` 감사 필드 |
+| 수정 시각 | `updatedAt` | `updated_at` | TIMESTAMP | `BaseEntity` 감사 필드 |
 
 ---
 
-## 장바구니 (cart)
+## 주문 상품 (`order_product`)
 
-| 이름 | 영문 | DB 타입 | NOT NULL | 기본값 | 설명 |
-|------|------|---------|:--------:|--------|------|
-| 식별자 * | cart_id | UUID | ✓ | gen_random_uuid() | PK |
-| 구매자 ID * | buyer_id | UUID | ✓ | | FK → user.user_id |
-| 총 금액 * | total_amount | INT | ✓ | 0 | 장바구니에 담은 상품의 총금액 |
-| 생성 일시 * | created_at | TIMESTAMPTZ | ✓ | | |
-| 수정 일시 * | updated_at | TIMESTAMPTZ | ✓ | | |
-
----
-
-## 장바구니 항목 (cart_product)
-
-| 이름 | 영문 | DB 타입 | NOT NULL | 기본값 | 설명 |
-|------|------|---------|:--------:|--------|------|
-| 식별자 * | cart_product_id | UUID | ✓ | gen_random_uuid() | PK |
-| 장바구니 ID * | cart_id | UUID | ✓ | | FK → cart.cart_id |
-| 상품 ID * | product_id | UUID | ✓ | | FK → product.product_id |
-| 담은 시각 * | added_at | TIMESTAMPTZ | ✓ | | |
+| 이름 | Java 필드 | DB 컬럼 | 타입 | 설명 |
+|------|-----------|---------|------|------|
+| 주문 상품 ID | `id` | `id` | UUID | PK |
+| 주문 | `order` | `order_id` | UUID | 주문 FK |
+| 상품 ID | `productId` | `product_id` | UUID | Product Service 상품 식별자 |
+| 판매자 ID | `sellerId` | `seller_id` | UUID | 정산 기준 판매자 식별자 |
+| 상품명 스냅샷 | `productTitle` | `product_title_snapshot` | VARCHAR(200) | 주문 시점 상품명 |
+| 상품 유형 스냅샷 | `productType` | `product_type_snapshot` | VARCHAR(30) | 주문 시점 상품 유형 |
+| 상품 모델 스냅샷 | `productModel` | `product_model_snapshot` | VARCHAR(50) | 주문 시점 모델명/분류 |
+| 상품 금액 스냅샷 | `productAmount` | `product_amount_snapshot` | INT | 주문 시점 상품 금액 |
+| 주문 상품 상태 | `orderStatus` | `order_product_status` | VARCHAR(20) | `PENDING` / `PAID` / `FAILED` / `CANCELED` / `REFUNDED` |
+| 다운로드 확정 여부 | `downloaded` | `downloaded` | BOOLEAN | 콘텐츠 열람/다운로드 확정 여부 |
+| 생성 시각 | `createdAt` | `created_at` | TIMESTAMP | 주문 상품 생성 시각 |
+| 취소 시각 | `canceledAt` | `canceled_at` | TIMESTAMP | 취소 처리 시 설정 |
+| 환불 시각 | `refundedAt` | `refunded_at` | TIMESTAMP | 환불 처리 시 설정 |
+| 수정 시각 | `updatedAt` | `updated_at` | TIMESTAMP | 상태 또는 다운로드 여부 변경 시 갱신 |
 
 ---
 
-## 주요 파생 속성 (Derived Attributes)
+## 장바구니 (`cart`)
 
-물리적인 DB 컬럼은 아니지만, 도메인 로직 및 API 응답에서 중요하게 사용되는 파생 속성입니다.
+| 이름 | Java 필드 | DB 컬럼 | 타입 | 설명 |
+|------|-----------|---------|------|------|
+| 장바구니 ID | `id` | `id` | UUID | PK |
+| 구매자 ID | `buyerId` | `buyer_id` | UUID | 장바구니 소유자 |
+| 생성 시각 | `createdAt` | `created_at` | TIMESTAMP | `BaseEntity` 감사 필드 |
+| 수정 시각 | `updatedAt` | `updated_at` | TIMESTAMP | `BaseEntity` 감사 필드 |
 
-| 이름 | 영문 | 반환 타입 | 설명 및 계산 로직 |
-|------|------|---------|------|
-| 환불 가능 여부 | isRefundable | BOOLEAN | 결제 상태가 PAID이면서, 연관된 상품 중 다운로드(downloaded)된 상품이 하나도 없는 경우 `true`. (주문 건 단위 및 상품 단위로 사용됨) |
-| 다운로드된 상품 포함 여부 | hasDownloadedProduct | BOOLEAN | 주문 내에 다운로드(downloaded) 상태가 `true`인 상품이 하나라도 존재하는지 여부. |
+> 장바구니 응답의 `totalAmount`, `totalItemCount`는 저장 컬럼이 아니라 Product Service 스냅샷과 장바구니 항목으로 계산하는 응답 필드이다.
+
+---
+
+## 장바구니 상품 (`cart_product`)
+
+| 이름 | Java 필드 | DB 컬럼 | 타입 | 설명 |
+|------|-----------|---------|------|------|
+| 장바구니 상품 ID | `id` | `id` | UUID | PK |
+| 장바구니 | `cart` | `cart_id` | UUID | 장바구니 FK |
+| 상품 ID | `productId` | `product_id` | UUID | Product Service 상품 식별자 |
+| 담은 시각 | `addedAt` | `added_at` | TIMESTAMP | 장바구니 상품 추가 시각 |
+
+---
+
+## 결제 내역 (`order_payment`)
+
+| 이름 | Java 필드 | DB 컬럼 | 타입 | 설명 |
+|------|-----------|---------|------|------|
+| 결제 내역 ID | `id` | `id` | UUID | PK |
+| 주문 ID | `orderId` | `order_id` | UUID | 주문 식별자 |
+| 결제 ID | `paymentId` | `payment_id` | UUID | Payment Service 결제 식별자 |
+| PG 거래 ID | `pgTxId` | `pg_tx_id` | String | PG 거래 식별자 |
+| 승인 금액 | `amount` | `amount` | INT | 승인된 결제 금액 |
+| 승인 시각 | `approvedAt` | `approved_at` | TIMESTAMP | 결제 승인 시각 |
+
+---
+
+## 주요 응답 파생 속성
+
+| 이름 | DTO 필드 | 반환 타입 | 설명 |
+|------|----------|-----------|------|
+| 콘텐츠 열람 가능 여부 | `isContentAccessible` | Boolean | 주문 상품 상태가 `PAID`이면 true |
+| 환불 가능 여부 | `isRefundable` | Boolean | 주문 상품 상태가 `PAID`이고 `downloaded`가 false이면 true |
+| 다운로드된 상품 포함 여부 | `hasDownloadedProduct` | Boolean | 주문 내 다운로드 확정된 상품이 하나 이상 있으면 true |
+| 주문 목록 대표 결제 상태 | `paymentStatus` | Enum | 주문 상태를 `PaymentStatus.from(orderStatus)`로 변환한 값 |
