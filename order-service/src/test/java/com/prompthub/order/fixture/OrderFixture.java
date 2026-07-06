@@ -155,8 +155,8 @@ public final class OrderFixture {
 			TOTAL_AMOUNT,
 			TOTAL_ITEM_COUNT
 		);
-		ReflectionTestUtils.setField(order, "createdAt", LocalDateTime.now());
-		ReflectionTestUtils.setField(order, "updatedAt", LocalDateTime.now());
+		ReflectionTestUtils.setField(order, "createdAt", CREATED_AT);
+		ReflectionTestUtils.setField(order, "updatedAt", CREATED_AT);
 		return order;
 	}
 
