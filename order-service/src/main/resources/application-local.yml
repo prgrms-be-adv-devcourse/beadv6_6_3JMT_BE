@@ -34,6 +34,10 @@ spring:
         spring.json.trusted.packages: com.prompthub.order.*
     listener:
       ack-mode: manual
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   cloud:
     config:
       enabled: false
@@ -67,6 +71,12 @@ prompthub:
       deadline-ms: ${SELLER_GRPC_DEADLINE_MS:2000}
   outbox-relay:
     enabled: true
+    fixed-delay-ms: 5000
+    batch-size: 100
+    max-retry-count: 3
+  order:
+    enabled: true
+    payment-timeout-minutes: 20
     fixed-delay-ms: 5000
     batch-size: 100
     max-retry-count: 3

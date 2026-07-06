@@ -31,6 +31,8 @@ prompthub:
     fixed-delay-ms: 5000
     batch-size: 100
     max-retry-count: 3
+  order:
+    enabled: false
 
 eureka:
   client:
