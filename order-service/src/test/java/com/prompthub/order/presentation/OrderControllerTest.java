@@ -9,6 +9,7 @@ import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.global.web.AuthHeaders;
 import com.prompthub.order.global.web.OrderServiceAuthInterceptor;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
+import com.prompthub.order.presentation.dto.request.OrderPaymentValidationRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
@@ -16,6 +17,7 @@ import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
+import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,6 +77,55 @@ class OrderControllerTest {
 	}
 
 
+
+	@Nested
+	@DisplayName("결제 전 주문 검증 (POST /api/v1/orders/{orderId}/payment-ready)")
+	class ValidatePaymentReady {
+
+		@Test
+		@DisplayName("결제 가능 주문이면 payable true를 반환한다")
+		void validatePaymentReady_success() throws Exception {
+			OrderPaymentValidationRequest request = new OrderPaymentValidationRequest(TOTAL_AMOUNT);
+			OrderPaymentValidationResponse response = new OrderPaymentValidationResponse(
+				true,
+				ORDER_ID,
+				BUYER_ID,
+				TOTAL_AMOUNT,
+				CREATED_AT.plusMinutes(20)
+			);
+
+			when(orderUseCase.validatePaymentReady(eq(BUYER_ID), eq(ORDER_ID), eq(TOTAL_AMOUNT), org.mockito.ArgumentMatchers.any(LocalDateTime.class)))
+				.thenReturn(response);
+
+			mockMvc.perform(post("/api/v1/orders/{orderId}/payment-ready", ORDER_ID)
+					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data.payable").value(true))
+				.andExpect(jsonPath("$.data.orderId").value(ORDER_ID.toString()))
+				.andExpect(jsonPath("$.data.totalAmount").value(TOTAL_AMOUNT));
+		}
+
+		@Test
+		@DisplayName("만료된 주문이면 O015를 반환한다")
+		void validatePaymentReady_expiredOrder_conflict() throws Exception {
+			OrderPaymentValidationRequest request = new OrderPaymentValidationRequest(TOTAL_AMOUNT);
+			when(orderUseCase.validatePaymentReady(eq(BUYER_ID), eq(ORDER_ID), eq(TOTAL_AMOUNT), org.mockito.ArgumentMatchers.any(LocalDateTime.class)))
+				.thenThrow(new OrderException(ErrorCode.ORDER_EXPIRED));
+
+			mockMvc.perform(post("/api/v1/orders/{orderId}/payment-ready", ORDER_ID)
+					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.code").value(ErrorCode.ORDER_EXPIRED.getCode()));
+		}
+	}
 
 	@Nested
 	@DisplayName("주문상품 다운로드 확정 (PATCH /api/v1/orders/{orderId}/products/{orderProductId}/download)")
