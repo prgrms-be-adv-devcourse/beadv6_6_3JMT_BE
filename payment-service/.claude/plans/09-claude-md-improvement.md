@@ -102,12 +102,12 @@ docker-compose up -d                   # 로컬 PostgreSQL (호스트 5433) + Ka
 
 ## 작업 체크리스트
 
-- [ ] HELP.md 삭제
-- [ ] plans 아카이빙 (12개 파일 이동)
-- [ ] CLAUDE.md 수정 1: docker-compose 주석 정정
-- [ ] CLAUDE.md 수정 2: .env 항목에 Toss env var 추가
-- [ ] CLAUDE.md 수정 3: Config Server / Eureka 단독 기동 설명 추가
-- [ ] CLAUDE.md 수정 4: 중복 빈 줄 제거
+- [x] HELP.md 삭제 (git 미추적 파일, rm으로 제거)
+- [x] plans 아카이빙 (12개 파일 이동) — commit: 6a80d4c
+- [x] CLAUDE.md 수정 1: docker-compose 주석 정정 — commit: 0c36a7d
+- [x] CLAUDE.md 수정 2: .env 항목에 Toss env var 추가 — commit: 0c36a7d
+- [x] CLAUDE.md 수정 3: Config Server / Eureka 단독 기동 설명 추가 — commit: 0c36a7d
+- [x] CLAUDE.md 수정 4: 중복 빈 줄 제거 — commit: 0c36a7d
 
 ---
 
