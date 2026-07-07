@@ -12,7 +12,7 @@ payment-service가 **발행(Publish)** 하는 Kafka 이벤트 목록. 구독(Con
 
 | 토픽 | 발행 시점 | 구독자 | 구독자 처리 내용 |
 |---|---|---|---|
-| `payment.events` | Toss confirm 성공 또는 PG 환불 성공 | Order | `eventType` 필드로 분기 처리 |
+| `payment-events` | Toss confirm 성공 또는 PG 환불 성공 | Order | `eventType` 필드로 분기 처리 |
 
 구독자는 `eventType` 값(`"payment.approved"`, `"payment.refunded"`)으로 처리 로직을 분기한다.
 
@@ -40,7 +40,7 @@ payment-service가 **발행(Publish)** 하는 Kafka 이벤트 목록. 구독(Con
 
 ## Payload 공통 필드
 
-모든 이벤트에 `eventType` 필드 포함. 토픽은 `payment.events` 단일 토픽이며, `eventType` 값으로 이벤트 종류를 구분한다.
+모든 이벤트에 `eventType` 필드 포함. 토픽은 `payment-events` 단일 토픽이며, `eventType` 값으로 이벤트 종류를 구분한다.
 
 ```json
 { "eventType": "payment.approved", ... }

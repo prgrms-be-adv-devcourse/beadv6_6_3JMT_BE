@@ -120,18 +120,18 @@ Body 없음
 
 ## Kafka 이벤트
 
-결제 도메인 이벤트는 `payment.events` 단일 토픽으로 발행된다. 이벤트 종류는 `eventType` 필드로 구분한다.
+결제 도메인 이벤트는 `payment-events` 단일 토픽으로 발행된다. 이벤트 종류는 `eventType` 필드로 구분한다.
 
 | 이벤트 토픽 | `eventType` | 발행 시점 | 구독자 | 구독자 처리 내용 |
 |------------|-------------|---------|--------|----------------|
-| `payment.events` | `payment.approved` | Toss confirm 성공 | Order | Order PAID 전환 + `is_download = true` |
-| `payment.events` | `payment.refunded` | PG 환불 성공 | Order | Order REFUNDED 전환 + `is_download = false` |
+| `payment-events` | `payment.approved` | Toss confirm 성공 | Order | Order PAID 전환 + `is_download = true` |
+| `payment-events` | `payment.refunded` | PG 환불 성공 | Order | Order REFUNDED 전환 + `is_download = false` |
 
 ### 이벤트 Payload
 
 #### payment.approved
 
-- 토픽: `payment.events`
+- 토픽: `payment-events`
 - `eventType`: `"payment.approved"`
 - 발행 주체: Payment 서비스
 - 발행 시점: 토스페이먼츠 confirm API 동기 호출 성공 후
@@ -158,7 +158,7 @@ Body 없음
 
 #### payment.refunded
 
-- 토픽: `payment.events`
+- 토픽: `payment-events`
 - `eventType`: `"payment.refunded"`
 - 발행 주체: Payment 서비스
 - 발행 시점: `POST /payments/{paymentId}/refund` 처리 후 PG 환불 성공 시

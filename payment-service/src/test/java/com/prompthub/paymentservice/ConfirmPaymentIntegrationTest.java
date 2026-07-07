@@ -120,7 +120,7 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
                     }
                 }
             }
-            assertThat(found).withFailMessage("10초 내 payment.events Kafka 메시지 수신 실패").isTrue();
+            assertThat(found).withFailMessage("10초 내 payment-events Kafka 메시지 수신 실패").isTrue();
         } finally {
             consumer.close();
         }
