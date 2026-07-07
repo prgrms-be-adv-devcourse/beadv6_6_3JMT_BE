@@ -3,8 +3,8 @@ package com.prompthub.paymentservice.infrastructure.external.toss;
 import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
-import com.prompthub.paymentservice.application.gateway.external.TossConfirmResult;
-import com.prompthub.paymentservice.application.gateway.external.TossRefundResult;
+import com.prompthub.paymentservice.application.gateway.external.ConfirmResult;
+import com.prompthub.paymentservice.application.gateway.external.RefundResult;
 import com.prompthub.paymentservice.infrastructure.external.toss.dto.TossConfirmRequest;
 import com.prompthub.paymentservice.infrastructure.external.toss.dto.TossConfirmResponse;
 import com.prompthub.paymentservice.infrastructure.external.toss.dto.TossErrorResponse;
@@ -42,7 +42,7 @@ public class TossPaymentGateway implements PaymentGateway {
     }
 
     @Override
-    public TossConfirmResult confirm(String paymentKey, UUID orderId, int amount) {
+    public ConfirmResult confirm(String paymentKey, UUID orderId, int amount) {
         TossConfirmRequest request = new TossConfirmRequest(paymentKey, orderId.toString(), amount);
         String requestJson = toJson(request);
 
@@ -69,7 +69,7 @@ public class TossPaymentGateway implements PaymentGateway {
             })
             .body(TossConfirmResponse.class);
 
-        return new TossConfirmResult(
+        return new ConfirmResult(
             response.method(),
             response.totalAmount(),
             toJson(response),
@@ -78,7 +78,7 @@ public class TossPaymentGateway implements PaymentGateway {
     }
 
     @Override
-    public TossRefundResult refund(String pgTxId, UUID paymentId, int amount) {
+    public RefundResult refund(String pgTxId, UUID paymentId, int amount) {
         TossRefundRequest request = new TossRefundRequest("구매자 환불 요청", null);
 
         TossRefundResponse response = restClient.post()
@@ -106,7 +106,7 @@ public class TossPaymentGateway implements PaymentGateway {
             .body(TossRefundResponse.class);
 
         TossRefundResponse.TossCancel lastCancel = response.cancels().get(response.cancels().size() - 1);
-        return new TossRefundResult(lastCancel.canceledAt());
+        return new RefundResult(lastCancel.canceledAt());
     }
 
     private String toJson(Object obj) {

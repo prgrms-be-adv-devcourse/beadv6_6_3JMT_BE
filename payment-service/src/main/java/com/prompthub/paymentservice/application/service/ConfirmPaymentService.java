@@ -6,7 +6,7 @@ import com.prompthub.paymentservice.application.dto.result.PaymentResult;
 import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
-import com.prompthub.paymentservice.application.gateway.external.TossConfirmResult;
+import com.prompthub.paymentservice.application.gateway.external.ConfirmResult;
 import com.prompthub.paymentservice.domain.repository.PaymentRepository;
 import com.prompthub.paymentservice.application.usecase.ConfirmPaymentUseCase;
 import com.prompthub.paymentservice.domain.event.PaymentApprovedEvent;
@@ -62,7 +62,7 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
         paymentRepository.save(payment);
 
         try {
-            TossConfirmResult result = paymentGateway.confirm(
+            ConfirmResult result = paymentGateway.confirm(
                 command.paymentKey(), command.orderId(), command.amount()
             );
             payment.approve(result.approvedAmount(), result.paymentMethod(),

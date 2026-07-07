@@ -6,7 +6,7 @@ import com.prompthub.paymentservice.application.dto.result.PaymentResult;
 import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
-import com.prompthub.paymentservice.application.gateway.external.TossConfirmResult;
+import com.prompthub.paymentservice.application.gateway.external.ConfirmResult;
 import com.prompthub.paymentservice.domain.repository.PaymentRepository;
 import com.prompthub.paymentservice.domain.event.PaymentApprovedEvent;
 import com.prompthub.paymentservice.domain.model.Payment;
@@ -77,7 +77,7 @@ class ConfirmPaymentServiceTest {
         when(paymentRepository.save(any(Payment.class)))
             .thenAnswer(inv -> inv.getArgument(0));
         when(paymentGateway.confirm(eq("toss-key"), eq(orderId), eq(10_000)))
-            .thenReturn(new TossConfirmResult("카드", 10_000, "{}", approvedAt));
+            .thenReturn(new ConfirmResult("카드", 10_000, "{}", approvedAt));
 
         ConfirmPaymentCommand command = new ConfirmPaymentCommand("toss-key", orderId, 10_000, userId);
         PaymentResult result = service.confirm(command);
