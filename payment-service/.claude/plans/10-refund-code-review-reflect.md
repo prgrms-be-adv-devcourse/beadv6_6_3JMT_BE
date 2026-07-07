@@ -73,9 +73,6 @@ Optional<Payment> findByIdForUpdate(@Param("id") UUID id);
 
 ### 작업 2 — 버그 수정: TossPaymentGateway 방어 코드 추가 (HIGH)
 
-> **`#214` 브랜치 사전 확인:** `confirm()` 메서드의 `response == null` 체크는 `chore/#214-payment-confirm-api-review` 브랜치에서 이미 구현됨. 우리 작업은 `refund()` 메서드에만 집중한다.
-> 또한 해당 브랜치에서 `TossRefundResult` → `RefundResult`로 이름이 변경됨. 코드 작성 시 `RefundResult` 타입명을 사용한다.
-
 **변경 파일:** `infrastructure/external/toss/TossPaymentGateway.java`
 
 **수정 범위:** `refund()` 메서드 내 `response.cancels().get(...)` 호출부 (현재 null/empty 체크 없음)
@@ -102,12 +99,6 @@ return new RefundResult(lastCancel.canceledAt());
 ---
 
 ### 작업 3 — 설계 개선: 에러 코드 구분 (MEDIUM)
-
-> **`#214` 브랜치 사전 확인:**
-> - `PAYMENT_FAILED` 상태코드가 `#214`에서 이미 `BAD_REQUEST(400)` → `UNPROCESSABLE_ENTITY(422)`로 변경됨.
->   우리 작업에서 `PaymentErrorCode.java`를 편집할 때 이 변경이 유지되도록 주의한다.
-> - `confirm()` 메서드의 4xx 오류 분류는 `#214`에서 일부 처리됨. 5xx(`PG_SERVER_ERROR`)는 미처리 상태.
-> - 이 작업은 `#214` 브랜치가 `develop`에 머지된 이후에 진행하거나, 머지 시 충돌을 직접 해소한다.
 
 **변경 파일:**
 - `application/exception/PaymentErrorCode.java` — `PG_ERROR` → `PG_INVALID_REQUEST` 리네임 + `PG_SERVER_ERROR` 추가
@@ -158,8 +149,6 @@ throw new PaymentGatewayException(PaymentErrorCode.PG_SERVER_ERROR, ...);
 ---
 
 ### 작업 5 — 버그 수정: 스케줄러 refund null 처리 (HIGH)
-
-> **`#214` 브랜치 사전 확인:** `PaymentRefundRetryScheduler`의 `TossRefundResult` import가 `#214`에서 이미 `RefundResult`로 변경됨. 코드 편집 시 현재 develop 기준이 아닌 `#214` 머지 후 기준으로 작성하거나, 충돌 해소 시 `RefundResult` import를 유지한다.
 
 **변경 파일:** `infrastructure/scheduling/PaymentRefundRetryScheduler.java`
 
