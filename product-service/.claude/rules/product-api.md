@@ -30,49 +30,28 @@ X-User-Role: BUYER | SELLER | ADMIN
 
 Product Service는 인증 필요 API에서 Gateway가 주입한 헤더만 읽는다.
 
-## Category 계약
+## productType 계약
 
-프론트와 API는 category 값을 code로 주고받는다.
+프론트와 API는 상품 유형을 `productType` 값으로 주고받는다. 이전의 고정 category
+엔티티/테이블 개념은 완전히 폐지되었고, 자유 입력 `tags`와 이 `productType`으로 대체됐다.
 
-허용 category code:
+허용값:
 
-- `image`
-- `writing`
-- `coding`
-- `marketing`
-- `chatbot`
-- `data`
+- `PROMPT`
+- `NOTION`
+- `PPT`
+- `EXCEL`
 
-권장 DB 구조:
+**필터링**: 프론트가 `?productType=NOTION`으로 보내면 `productType = :productType`으로
+매칭한다. `all`이면 전체 조회.
 
-```text
-category.code = API 요청/응답 및 필터링 값
-category.name = 화면 표시명
-```
-
-예시:
-
-```text
-code=writing, name=글쓰기
-code=coding, name=코딩
-```
-
-DB category 테이블은 `code`와 `name` 두 컬럼을 모두 가진다.
-
-| 컬럼 | 역할 | 예시 |
-|------|------|------|
-| `code` | 필터 query param 매칭값 | `image`, `coding` |
-| `name` | 화면 표시명 | `이미지 생성`, `코딩` |
-| `icon` | FE ICON_MAP key (Lucide 아이콘 slug) | `pen-line`, `code-xml` |
-
-**필터링**: 프론트가 `?category=coding`으로 보내면 `c.code = :category`로 매칭한다.
-
-**API 응답**: `category` 필드는 `c.name`(표시명), `icon` 필드는 `c.code`(코드)를 반환한다.
+**API 응답**: `productType` 필드에 위 값 중 하나를 그대로 반환한다. 잘못된 값으로
+생성/수정 요청 시 `400 Bad Request`(`P004: 올바르지 않은 상품 유형입니다.`)를 반환한다.
 
 ```json
 {
-  "category": "코딩",
-  "icon": "coding"
+  "productType": "NOTION",
+  "tags": ["회의록", "정리"]
 }
 ```
 
