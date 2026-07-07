@@ -1,7 +1,7 @@
 package com.prompthub.paymentservice;
 
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
-import com.prompthub.paymentservice.application.gateway.external.TossConfirmResult;
+import com.prompthub.paymentservice.application.gateway.external.ConfirmResult;
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;
 import com.prompthub.paymentservice.infrastructure.messaging.config.PaymentTopic;
@@ -71,7 +71,7 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         OffsetDateTime approvedAt = OffsetDateTime.now();
 
         when(paymentGateway.confirm(anyString(), eq(orderId), eq(10_000)))
-            .thenReturn(new TossConfirmResult("카드", 10_000, "{}", approvedAt));
+            .thenReturn(new ConfirmResult("카드", 10_000, "{}", approvedAt));
 
         Map<String, Object> consumerProps = buildConsumerProps(kafka.getBootstrapServers(), "integration-test-group");
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProps);

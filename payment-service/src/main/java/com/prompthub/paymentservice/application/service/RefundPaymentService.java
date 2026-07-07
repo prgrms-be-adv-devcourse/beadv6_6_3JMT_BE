@@ -26,7 +26,7 @@ public class RefundPaymentService implements RefundPaymentUseCase {
 
     @Override
     public void refund(RefundPaymentCommand command) {
-        Payment payment = paymentRepository.findById(command.paymentId())
+        Payment payment = paymentRepository.findByIdForUpdate(command.paymentId())
             .orElseThrow(() -> new BusinessException(PaymentErrorCode.PAYMENT_NOT_FOUND));
 
         if (!payment.getUserId().equals(command.userId())) {
