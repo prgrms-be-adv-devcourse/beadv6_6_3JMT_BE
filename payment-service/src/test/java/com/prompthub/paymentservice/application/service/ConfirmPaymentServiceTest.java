@@ -21,6 +21,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.ResourcelessTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -47,7 +49,12 @@ class ConfirmPaymentServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ConfirmPaymentService(paymentRepository, paymentGateway, applicationEventPublisher, false);
+        // ResourcelessTransactionManager: 실제 TX 없이 콜백만 실행 (단위 테스트 전용)
+        TransactionTemplate transactionTemplate =
+            new TransactionTemplate(new ResourcelessTransactionManager());
+        service = new ConfirmPaymentService(
+            paymentRepository, paymentGateway, applicationEventPublisher, transactionTemplate, false
+        );
     }
 
     @Test
@@ -74,10 +81,17 @@ class ConfirmPaymentServiceTest {
 
         when(paymentRepository.findByIdempotencyKey("pay-" + orderId))
             .thenReturn(Optional.empty());
+        when(paymentRepository.saveAndFlush(any(Payment.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
         when(paymentRepository.save(any(Payment.class)))
             .thenAnswer(inv -> inv.getArgument(0));
         when(paymentGateway.confirm(eq("toss-key"), eq(orderId), eq(10_000)))
             .thenReturn(new ConfirmResult("카드", 10_000, "{}", approvedAt));
+        when(paymentRepository.findById(any(UUID.class))).thenAnswer(inv -> {
+            Payment p = Payment.create(orderId, userId, "toss-key", "TOSS_PAYMENTS", "CARD", false, 10_000, 0);
+            p.markRequested(OffsetDateTime.now());
+            return Optional.of(p);
+        });
 
         ConfirmPaymentCommand command = new ConfirmPaymentCommand("toss-key", orderId, 10_000, userId);
         PaymentResult result = service.confirm(command);
@@ -93,16 +107,24 @@ class ConfirmPaymentServiceTest {
     @Test
     void Toss_실패_시_FAILED_상태_PAY_FAILED_예외() {
         UUID orderId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
 
         when(paymentRepository.findByIdempotencyKey(anyString()))
             .thenReturn(Optional.empty());
+        when(paymentRepository.saveAndFlush(any(Payment.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
         when(paymentRepository.save(any(Payment.class)))
             .thenAnswer(inv -> inv.getArgument(0));
         when(paymentGateway.confirm(anyString(), any(), anyInt()))
             .thenThrow(new PaymentGatewayException(
                 PaymentErrorCode.PAYMENT_FAILED, "REJECT", "카드 거절", null, "{}"));
+        when(paymentRepository.findById(any(UUID.class))).thenAnswer(inv -> {
+            Payment p = Payment.create(orderId, userId, "toss-key", "TOSS_PAYMENTS", "CARD", false, 10_000, 0);
+            p.markRequested(OffsetDateTime.now());
+            return Optional.of(p);
+        });
 
-        ConfirmPaymentCommand command = new ConfirmPaymentCommand("toss-key", orderId, 10_000, UUID.randomUUID());
+        ConfirmPaymentCommand command = new ConfirmPaymentCommand("toss-key", orderId, 10_000, userId);
 
         assertThatThrownBy(() -> service.confirm(command))
             .isInstanceOf(BusinessException.class)
