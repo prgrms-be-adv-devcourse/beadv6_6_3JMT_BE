@@ -12,15 +12,19 @@ import com.prompthub.paymentservice.infrastructure.external.toss.dto.TossRefundR
 import com.prompthub.paymentservice.infrastructure.external.toss.dto.TossRefundResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
+@Slf4j
 @Component
 public class TossPaymentGateway implements PaymentGateway {
 
@@ -34,9 +38,13 @@ public class TossPaymentGateway implements PaymentGateway {
     ) {
         String credentials = Base64.getEncoder()
             .encodeToString((secretKey + ":").getBytes(StandardCharsets.UTF_8));
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(5));
+        factory.setReadTimeout(Duration.ofSeconds(10));
         this.restClient = RestClient.builder()
             .baseUrl(baseUrl)
             .defaultHeader("Authorization", "Basic " + credentials)
+            .requestFactory(factory)
             .build();
         this.objectMapper = objectMapper;
     }
@@ -68,6 +76,12 @@ public class TossPaymentGateway implements PaymentGateway {
                 );
             })
             .body(TossConfirmResponse.class);
+
+        if (response == null) {
+            throw new PaymentGatewayException(
+                PaymentErrorCode.PG_ERROR, "NULL_RESPONSE", "PG사 응답이 없습니다.", requestJson, null
+            );
+        }
 
         return new ConfirmResult(
             response.method(),
@@ -122,6 +136,7 @@ public class TossPaymentGateway implements PaymentGateway {
             String message = messageNode.isObject() ? messageNode.toString() : messageNode.asText("PG사 오류");
             return new TossErrorResponse(code, message);
         } catch (IOException e) {
+            log.warn("Toss 에러 응답 파싱 실패 — cause={}", e.getMessage(), e);
             return new TossErrorResponse("UNKNOWN", "PG사 응답 파싱 실패");
         }
     }
