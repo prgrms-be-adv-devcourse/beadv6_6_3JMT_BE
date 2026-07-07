@@ -35,7 +35,7 @@ public class KafkaPaymentEventPublisher {
             payment.getApprovedAmount(),
             toKstString(payment.getApprovedAt())
         );
-        kafkaTemplate.send(PaymentTopic.PAYMENT_APPROVED, payment.getOrderId().toString(), message);
+        kafkaTemplate.send(PaymentTopic.PAYMENT_EVENTS, payment.getOrderId().toString(), message);
     }
 
     private String toKstString(OffsetDateTime dateTime) {
@@ -52,7 +52,7 @@ public class KafkaPaymentEventPublisher {
             refund.getRefundAmount(),
             toKstString(payment.getRefundedAt())
         );
-        kafkaTemplate.send(PaymentTopic.PAYMENT_REFUNDED, payment.getOrderId().toString(), message)
+        kafkaTemplate.send(PaymentTopic.PAYMENT_EVENTS, payment.getOrderId().toString(), message)
             .whenComplete((result, ex) -> {
                 if (ex != null) {
                     log.error("환불 Kafka 메시지 발행 실패 — paymentId={}, cause={}",
