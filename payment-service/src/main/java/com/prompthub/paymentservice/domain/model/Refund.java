@@ -11,6 +11,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -18,6 +19,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import static jakarta.persistence.EnumType.STRING;
 import static lombok.AccessLevel.PROTECTED;
 
+@Slf4j
 @Getter
 @Entity
 @Table(name = "refund")
@@ -96,6 +98,7 @@ public class Refund {
         if (this.status != RefundStatus.REQUESTED) {
             throw new InvalidRefundStateException("REQUESTED 상태에서만 COMPLETED로 전환할 수 있습니다.");
         }
+        log.debug("Refund 상태 전이 — id={}, {} → COMPLETED", id, status);
         this.status = RefundStatus.COMPLETED;
         this.completedAt = completedAt;
     }
@@ -104,6 +107,7 @@ public class Refund {
         if (this.status != RefundStatus.REQUESTED) {
             throw new InvalidRefundStateException("REQUESTED 상태에서만 FAILED로 전환할 수 있습니다.");
         }
+        log.debug("Refund 상태 전이 — id={}, {} → FAILED", id, status);
         this.status = RefundStatus.FAILED;
     }
 }

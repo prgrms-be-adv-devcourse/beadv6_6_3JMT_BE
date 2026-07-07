@@ -11,6 +11,7 @@ public interface PaymentRepository {
     Payment save(Payment payment);
     Payment saveAndFlush(Payment payment);
     Optional<Payment> findById(UUID id);
+    Optional<Payment> findByIdForUpdate(UUID id);
     Optional<Payment> findByIdempotencyKey(String idempotencyKey);
     List<Payment> findByStatusAndUpdatedAtBefore(PaymentStatus status, OffsetDateTime threshold);
 }
