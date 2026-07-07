@@ -140,7 +140,7 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
         when(paymentGateway.confirm(anyString(), any(), anyInt()))
             .thenReturn(new ConfirmResult("카드", 10_000, "{}", OffsetDateTime.now()));
         when(paymentGateway.refund(anyString(), any(), anyInt()))
-            .thenThrow(new PaymentGatewayException(PaymentErrorCode.PG_ERROR, "CANCEL_FAILED", "환불 실패", null, null));
+            .thenThrow(new PaymentGatewayException(PaymentErrorCode.PG_INVALID_REQUEST, "CANCEL_FAILED", "환불 실패", null, null));
 
         승인_요청(orderId, userId, 10_000);
         Payment payment = paymentJpaRepository.findByIdempotencyKey("pay-" + orderId).orElseThrow();

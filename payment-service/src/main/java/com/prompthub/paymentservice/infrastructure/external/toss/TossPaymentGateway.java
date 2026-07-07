@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +30,7 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class TossPaymentGateway implements PaymentGateway {
 
-    // 우리 서버가 잘못된 요청을 전송한 경우 — PG_ERROR(502)로 분류
+    // 우리 서버가 잘못된 요청을 전송한 경우 — PG_INVALID_REQUEST(502)로 분류
     private static final Set<String> TOSS_SERVER_ERROR_CODES = Set.of(
         "INVALID_REQUEST",
         "INVALID_API_KEY",
@@ -74,7 +75,7 @@ public class TossPaymentGateway implements PaymentGateway {
             .onStatus(HttpStatusCode::is4xxClientError, (req, resp) -> {
                 TossErrorResponse error = parseError(resp);
                 PaymentErrorCode errorCode = TOSS_SERVER_ERROR_CODES.contains(error.code())
-                    ? PaymentErrorCode.PG_ERROR
+                    ? PaymentErrorCode.PG_INVALID_REQUEST
                     : PaymentErrorCode.PAYMENT_FAILED;
                 throw new PaymentGatewayException(
                     errorCode, error.code(), error.message(), requestJson, null
@@ -83,7 +84,7 @@ public class TossPaymentGateway implements PaymentGateway {
             .onStatus(HttpStatusCode::is5xxServerError, (req, resp) -> {
                 TossErrorResponse error = parseError(resp);
                 throw new PaymentGatewayException(
-                    PaymentErrorCode.PG_ERROR,
+                    PaymentErrorCode.PG_SERVER_ERROR,
                     error.code(), error.message(),
                     requestJson, null
                 );
@@ -92,7 +93,7 @@ public class TossPaymentGateway implements PaymentGateway {
 
         if (response == null) {
             throw new PaymentGatewayException(
-                PaymentErrorCode.PG_ERROR, "NULL_RESPONSE", "PG사 응답이 없습니다.", requestJson, null
+                PaymentErrorCode.PG_INVALID_REQUEST, "NULL_RESPONSE", "PG사 응답이 없습니다.", requestJson, null
             );
         }
 
@@ -116,23 +117,35 @@ public class TossPaymentGateway implements PaymentGateway {
             .retrieve()
             .onStatus(HttpStatusCode::is4xxClientError, (req, resp) -> {
                 TossErrorResponse error = parseError(resp);
+                PaymentErrorCode errorCode = TOSS_SERVER_ERROR_CODES.contains(error.code())
+                    ? PaymentErrorCode.PG_INVALID_REQUEST
+                    : PaymentErrorCode.PAYMENT_FAILED;
                 throw new PaymentGatewayException(
-                    PaymentErrorCode.PG_ERROR,
-                    error.code(), error.message(),
-                    null, null
+                    errorCode, error.code(), error.message(), null, null
                 );
             })
             .onStatus(HttpStatusCode::is5xxServerError, (req, resp) -> {
                 TossErrorResponse error = parseError(resp);
                 throw new PaymentGatewayException(
-                    PaymentErrorCode.PG_ERROR,
+                    PaymentErrorCode.PG_SERVER_ERROR,
                     error.code(), error.message(),
                     null, null
                 );
             })
             .body(TossRefundResponse.class);
 
-        TossRefundResponse.TossCancel lastCancel = response.cancels().get(response.cancels().size() - 1);
+        if (response == null) {
+            throw new PaymentGatewayException(
+                PaymentErrorCode.PG_SERVER_ERROR, "NULL_RESPONSE", "PG사 환불 응답이 없습니다.", null, null
+            );
+        }
+        List<TossRefundResponse.TossCancel> cancels = response.cancels();
+        if (cancels == null || cancels.isEmpty()) {
+            throw new PaymentGatewayException(
+                PaymentErrorCode.PG_SERVER_ERROR, "NO_CANCEL_DATA", "Toss 환불 응답에 취소 내역이 없습니다.", null, null
+            );
+        }
+        TossRefundResponse.TossCancel lastCancel = cancels.get(cancels.size() - 1);
         return new RefundResult(lastCancel.canceledAt());
     }
 
