@@ -10,7 +10,7 @@
 
 ## 빌드 / 실행 / 테스트
 
-모노레포 루트(`../`)에 Gradle wrapper가 있으므로 모든 명령은 **모노레포 루트에서** 실행한다.
+Gradle wrapper는 모노레포 루트(`../`)에 있으므로 모든 명령은 **payment-service 디렉터리에서** 실행한다.
 
 ```bash
 ../gradlew :payment-service:build                        # 빌드

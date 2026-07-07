@@ -14,9 +14,9 @@
 | `order-service` | 8083 | - | 주문·장바구니·Outbox Relay |
 | `payment-service` | 8084 | - | 결제 (Toss Payments 연동) |
 | `settlement-service` | 8085 | - | 정산 (Spring Batch) |
-| `common-module` | - | - | 공용 라이브러리 (`BusinessException`, `ErrorCode`, 공통 응답 래퍼). composite build로 각 서비스에 포함 |
+| `common-module` | - | - | 공용 라이브러리 (`BusinessException`, `ErrorCode`, 공통 응답 래퍼). 루트 `settings.gradle`에 `include 'common-module'`로 서브프로젝트 포함 |
 
-- 포트 근거: 각 모듈 `src/main/resources/application.yml`(또는 `.yaml`)의 `server.port`, `spring.grpc.server.port`.
+- 포트 근거: 각 모듈 `src/main/resources/application.yml`(또는 `.yaml`)의 `server.port`, `grpc.server.port`.
 - 인프라 (루트 `docker-compose.yml`): PostgreSQL `postgres:18.4-alpine`(5432, loopback 노출), Kafka `confluentinc/cp-kafka:7.8.0`(9092, KRaft).
 - 배포 구성에서 외부 진입은 host 80 → apigateway 8000이며, 서비스 포트는 loopback으로만 노출된다.
 
