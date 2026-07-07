@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.Set;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +28,17 @@ import tools.jackson.databind.ObjectMapper;
 @Slf4j
 @Component
 public class TossPaymentGateway implements PaymentGateway {
+
+    // 우리 서버가 잘못된 요청을 전송한 경우 — PG_ERROR(502)로 분류
+    private static final Set<String> TOSS_SERVER_ERROR_CODES = Set.of(
+        "INVALID_REQUEST",
+        "INVALID_API_KEY",
+        "UNAUTHORIZED_KEY",
+        "FORBIDDEN_REQUEST",
+        "NOT_FOUND_PAYMENT",
+        "NOT_FOUND_PAYMENT_SESSION",
+        "ALREADY_PROCESSED_PAYMENT"
+    );
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -61,10 +73,11 @@ public class TossPaymentGateway implements PaymentGateway {
             .retrieve()
             .onStatus(HttpStatusCode::is4xxClientError, (req, resp) -> {
                 TossErrorResponse error = parseError(resp);
+                PaymentErrorCode errorCode = TOSS_SERVER_ERROR_CODES.contains(error.code())
+                    ? PaymentErrorCode.PG_ERROR
+                    : PaymentErrorCode.PAYMENT_FAILED;
                 throw new PaymentGatewayException(
-                    PaymentErrorCode.PAYMENT_FAILED,
-                    error.code(), error.message(),
-                    requestJson, null
+                    errorCode, error.code(), error.message(), requestJson, null
                 );
             })
             .onStatus(HttpStatusCode::is5xxServerError, (req, resp) -> {

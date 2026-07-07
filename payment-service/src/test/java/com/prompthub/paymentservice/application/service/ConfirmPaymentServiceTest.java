@@ -116,6 +116,41 @@ class ConfirmPaymentServiceTest {
     }
 
     @Test
+    void Toss_서버오류성_4xx_시_FAILED_상태_PG_ERROR_예외() {
+        UUID orderId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+
+        when(paymentRepository.findByIdempotencyKey(anyString()))
+            .thenReturn(Optional.empty());
+        when(paymentRepository.saveAndFlush(any(Payment.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
+        when(paymentRepository.save(any(Payment.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
+        when(paymentGateway.confirm(anyString(), any(), anyInt()))
+            .thenThrow(new PaymentGatewayException(
+                PaymentErrorCode.PG_ERROR, "INVALID_REQUEST", "잘못된 요청입니다.", null, "{}"));
+        when(paymentRepository.findById(any(UUID.class))).thenAnswer(inv -> {
+            Payment p = Payment.create(orderId, userId, "toss-key", "TOSS_PAYMENTS", "CARD", false, 10_000, 0);
+            p.markRequested(OffsetDateTime.now());
+            return Optional.of(p);
+        });
+
+        ConfirmPaymentCommand command = new ConfirmPaymentCommand("toss-key", orderId, 10_000, userId);
+
+        assertThatThrownBy(() -> service.confirm(command))
+            .isInstanceOf(BusinessException.class)
+            .extracting(e -> ((BusinessException) e).getErrorCode())
+            .isEqualTo(PaymentErrorCode.PG_ERROR);
+
+        verify(applicationEventPublisher, never()).publishEvent(any());
+
+        ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
+        Payment lastSaved = captor.getAllValues().get(captor.getAllValues().size() - 1);
+        assertThat(lastSaved.getStatus()).isEqualTo(PaymentStatus.FAILED);
+    }
+
+    @Test
     void Toss_실패_시_FAILED_상태_PAY_FAILED_예외() {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
