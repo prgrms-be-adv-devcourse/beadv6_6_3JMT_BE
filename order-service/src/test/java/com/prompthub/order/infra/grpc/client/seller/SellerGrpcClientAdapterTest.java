@@ -5,6 +5,7 @@ import com.prompthub.order.grpc.seller.SellerBatchQueryResponse;
 import com.prompthub.order.grpc.seller.SellerInfo;
 import com.prompthub.order.grpc.seller.SellerQueryServiceGrpc;
 import io.grpc.ManagedChannel;
+import io.grpc.MethodDescriptor;
 import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
@@ -39,11 +40,20 @@ class SellerGrpcClientAdapterTest {
 	}
 
 	@Test
+	@DisplayName("생성된 SellerQueryService gRPC descriptor는 GetSellers 메서드만 노출한다")
+	void sellerQueryServiceDescriptor_usesGetSellersMethodName() {
+		assertThat(SellerQueryServiceGrpc.getServiceDescriptor().getMethods())
+			.extracting(MethodDescriptor::getBareMethodName)
+			.contains("GetSellers")
+			.doesNotContain("FindSellers");
+	}
+
+	@Test
 	@DisplayName("판매자 ID 목록으로 닉네임을 조회한다")
 	void getSellerNicknames_success() throws IOException {
 		SellerGrpcClientAdapter adapter = adapterWith(new SellerQueryServiceGrpc.SellerQueryServiceImplBase() {
 			@Override
-			public void findSellers(
+			public void getSellers(
 				SellerBatchQueryRequest request,
 				StreamObserver<SellerBatchQueryResponse> responseObserver
 			) {
@@ -86,7 +96,7 @@ class SellerGrpcClientAdapterTest {
 	void getSellerNicknames_grpcFailure_returnsEmptyMap() throws IOException {
 		SellerGrpcClientAdapter adapter = adapterWith(new SellerQueryServiceGrpc.SellerQueryServiceImplBase() {
 			@Override
-			public void findSellers(
+			public void getSellers(
 				SellerBatchQueryRequest request,
 				StreamObserver<SellerBatchQueryResponse> responseObserver
 			) {
@@ -104,7 +114,7 @@ class SellerGrpcClientAdapterTest {
 	void getSellerNicknames_emptyName_filtered() throws IOException {
 		SellerGrpcClientAdapter adapter = adapterWith(new SellerQueryServiceGrpc.SellerQueryServiceImplBase() {
 			@Override
-			public void findSellers(
+			public void getSellers(
 				SellerBatchQueryRequest request,
 				StreamObserver<SellerBatchQueryResponse> responseObserver
 			) {

@@ -43,7 +43,7 @@ public class SellerGrpcClientAdapter implements SellerClient {
 			.build();
 
 		try {
-			SellerBatchQueryResponse response = withDeadline().findSellers(request);
+			SellerBatchQueryResponse response = withDeadline().getSellers(request);
 			return response.getSellersList().stream()
 				.filter(seller -> !seller.getSellerName().isEmpty())
 				.collect(Collectors.toMap(
