@@ -1,15 +1,18 @@
 server:
-  port: 18081
+  port: 8081
 
 spring:
+  cloud:
+    config:
+      enabled: false
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
-    username: ${POSTGRES_USER}
-    password: ${POSTGRES_PASSWORD}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:prompthub}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: create-drop
     show-sql: false
     properties:
       hibernate:
@@ -23,8 +26,15 @@ jwt:
 
 grpc:
   server:
-    port: ${USER_GRPC_SERVER_PORT}
+    port: 9081
   client:
     product-service:
-      address: 'static://product-service:${PRODUCT_GRPC_SERVER_PORT}'
+      address: 'static://localhost:9082'
       negotiation-type: plaintext
+
+eureka:
+  client:
+    enabled: false
+
+cors:
+  allowed-origins: "http://localhost:3000"
