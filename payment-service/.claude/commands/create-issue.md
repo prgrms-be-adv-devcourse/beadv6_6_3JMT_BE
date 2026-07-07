@@ -127,6 +127,7 @@ argument-hint: "[이슈 내용] 예) 결제 승인 API 구현"
 제목: [FEATURE] 결제 승인 API 구현
 라벨: feat
 타입: Feature
+담당자: @me (본인)
 
 본문:
 (작성된 본문 전체)
@@ -145,7 +146,8 @@ argument-hint: "[이슈 내용] 예) 결제 승인 API 구현"
 gh issue create \
   --title "<제목>" \
   --body "<본문>" \
-  --label "<라벨>"
+  --label "<라벨>" \
+  --assignee @me
 ```
 
 실행 후 생성된 이슈 URL을 보고한다.
