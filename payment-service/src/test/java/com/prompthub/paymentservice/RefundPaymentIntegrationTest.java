@@ -94,7 +94,7 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
 
         // Kafka 컨슈머 준비
         KafkaConsumer<String, String> consumer = 컨슈머_생성("refund-test-group");
-        TopicPartition partition = new TopicPartition(PaymentTopic.PAYMENT_REFUNDED, 0);
+        TopicPartition partition = new TopicPartition(PaymentTopic.PAYMENT_EVENTS, 0);
         consumer.assign(java.util.List.of(partition));
         // seekToBeginning은 lazy — 첫 poll() 시 적용됨.
         // poll(ZERO)로 메타데이터를 먼저 초기화해야 seekToBeginning이 올바른 offset으로 적용됨.
@@ -126,7 +126,7 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
                     }
                 }
             }
-            assertThat(found).withFailMessage("10초 내 payment.refunded Kafka 메시지 수신 실패").isTrue();
+            assertThat(found).withFailMessage("10초 내 payment.events Kafka 메시지 수신 실패").isTrue();
         } finally {
             consumer.close();
         }
