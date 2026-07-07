@@ -44,6 +44,7 @@ rpc 계약이 없다 — 연동 카탈로그 §4.)
 | [../trade-offs/settlement-batch-granularity.md](../trade-offs/settlement-batch-granularity.md) | 정산 배치를 판매자 단위 집계 3-step으로 둘지, 단일 chunk 스트리밍으로 둘지 |
 | [../trade-offs/user-identity-propagation.md](../trade-offs/user-identity-propagation.md) | 인증/인가를 게이트웨이가 처리하고 각 서비스는 전달된 식별 정보(헤더)만 읽는 구조 |
 | [../trade-offs/source-line-release-on-cancel.md](../trade-offs/source-line-release-on-cancel.md) | 정산 취소 시 묶인 원천소스(source line)를 행 단위 dirty checking으로 풀지, 단일 벌크 UPDATE로 풀지 |
+| [../trade-offs/negative-settlement-carryforward.md](../trade-offs/negative-settlement-carryforward.md) | 환불 초과로 음수가 된 판매자 정산액을 어떻게 처리할지 — 다음 정산으로 이월(carry-forward) |
 | [../trade-offs/admin-data-access.md](../trade-offs/admin-data-access.md) | 어드민(admin-service)이 정산 데이터를 직접 DB 커넥션으로 접근할지, gRPC 로 조회할지 — 직접 DB 채택 |
 
 ## 이 폴더 밖에 있는 관련 문서
