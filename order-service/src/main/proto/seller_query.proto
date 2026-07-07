@@ -7,7 +7,7 @@ option java_package = "com.prompthub.order.grpc.seller";
 option java_outer_classname = "SellerQueryProto";
 
 service SellerQueryService {
-  rpc FindSellers(SellerBatchQueryRequest) returns (SellerBatchQueryResponse);
+  rpc GetSellers(SellerBatchQueryRequest) returns (SellerBatchQueryResponse);
 }
 
 message SellerBatchQueryRequest {
