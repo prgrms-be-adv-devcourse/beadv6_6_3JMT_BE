@@ -104,7 +104,7 @@ class PaymentControllerTest {
     }
 
     @Test
-    void PG사_결제_실패_시_400_PAY_FAILED() throws Exception {
+    void PG사_결제_실패_시_422_PAY_FAILED() throws Exception {
         when(confirmPaymentUseCase.confirm(any()))
             .thenThrow(new BusinessException(PaymentErrorCode.PAYMENT_FAILED, "카드 한도 초과"));
 
@@ -115,7 +115,7 @@ class PaymentControllerTest {
                 .content(objectMapper.writeValueAsString(
                     new ConfirmPaymentRequest("toss-key", UUID.randomUUID(), 10_000)
                 )))
-            .andExpect(status().isBadRequest())
+            .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.code").value("PAY_FAILED"));
     }
 

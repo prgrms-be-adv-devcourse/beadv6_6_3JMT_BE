@@ -21,7 +21,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.transaction.support.ResourcelessTransactionManager;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,9 +52,17 @@ class ConfirmPaymentServiceTest {
 
     @BeforeEach
     void setUp() {
-        // ResourcelessTransactionManager: 실제 TX 없이 콜백만 실행 (단위 테스트 전용)
-        TransactionTemplate transactionTemplate =
-            new TransactionTemplate(new ResourcelessTransactionManager());
+        // 실제 TX 없이 콜백만 실행하는 no-op PlatformTransactionManager (단위 테스트 전용)
+        TransactionTemplate transactionTemplate = new TransactionTemplate(new PlatformTransactionManager() {
+            @Override
+            public TransactionStatus getTransaction(TransactionDefinition def) {
+                return new SimpleTransactionStatus();
+            }
+            @Override
+            public void commit(TransactionStatus status) {}
+            @Override
+            public void rollback(TransactionStatus status) {}
+        });
         service = new ConfirmPaymentService(
             paymentRepository, paymentGateway, applicationEventPublisher, transactionTemplate, false
         );
