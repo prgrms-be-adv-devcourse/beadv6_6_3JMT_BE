@@ -51,7 +51,9 @@ com.prompthub.paymentservice
 
 트리 주석에 없는 아키텍처 제약만 기재한다. 패키지별 상세 역할은 위 패키지 구조 참조.
 
-- **domain.model**: 외부 레이어 전체 의존 금지. 현재 `model`에 JPA Entity를 두는 실용적 타협을 적용 — 더 확대하지 않는다.
+- **domain.model**: 외부 레이어 전체 의존 금지. 단, 아래 두 가지는 실용적 타협으로 허용한다. 그 외는 확대하지 않는다.
+  - JPA 어노테이션(`@Entity`, `@Column` 등): 영속성 매핑 목적
+  - SLF4J 로깅(`@Slf4j`, `log.debug/info` 등): 상태 전이 추적 목적
 - **domain.repository**: Repository 인터페이스. 도메인이 영속성에 요구하는 계약을 정의한다. `infrastructure`가 구현하며, application 레이어는 이 인터페이스에만 의존한다.
 - **application.usecase**: Input Boundary. UseCase 인터페이스만 위치한다. `presentation`은 이 인터페이스만 의존한다.
 - **application.service**: UseCase 인터페이스 구현체. Spring `@Service` 빈으로 등록되며 비즈니스 흐름을 조율한다.

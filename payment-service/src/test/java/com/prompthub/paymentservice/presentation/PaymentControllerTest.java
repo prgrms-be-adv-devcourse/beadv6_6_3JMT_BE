@@ -104,9 +104,9 @@ class PaymentControllerTest {
     }
 
     @Test
-    void PG사_서버오류성_4xx_시_502_PG_ERROR() throws Exception {
+    void PG사_서버오류성_4xx_시_502_PG_INVALID_REQUEST() throws Exception {
         when(confirmPaymentUseCase.confirm(any()))
-            .thenThrow(new BusinessException(PaymentErrorCode.PG_ERROR, "INVALID_REQUEST"));
+            .thenThrow(new BusinessException(PaymentErrorCode.PG_INVALID_REQUEST, "INVALID_REQUEST"));
 
         mockMvc.perform(post("/api/v1/payments/confirm")
                 .header("X-User-Id", UUID.randomUUID().toString())

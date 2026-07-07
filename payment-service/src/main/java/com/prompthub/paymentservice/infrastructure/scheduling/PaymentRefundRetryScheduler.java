@@ -37,9 +37,16 @@ public class PaymentRefundRetryScheduler {
         List<Payment> stalePayments = paymentRepository
             .findByStatusAndUpdatedAtBefore(PaymentStatus.REFUNDING, threshold);
 
+        log.info("환불 재시도 스케줄러 시작 — 대상 건수={}", stalePayments.size());
+        int successCount = 0, failCount = 0, skipCount = 0;
+
         for (Payment payment : stalePayments) {
             Refund refund = refundRepository.findByPaymentId(payment.getId()).orElse(null);
             if (refund == null) {
+                log.error("환불 내역 없음 — payment가 REFUNDING 상태이나 Refund 레코드 없음. paymentId={}", payment.getId());
+                payment.restoreToRefundFailed();
+                paymentRepository.save(payment);
+                skipCount++;
                 continue;
             }
 
@@ -59,6 +66,7 @@ public class PaymentRefundRetryScheduler {
                         kafkaPaymentEventPublisher.publishRefunded(committedPayment, committedRefund);
                     }
                 });
+                successCount++;
             } catch (PaymentGatewayException e) {
                 log.error("스케줄러 환불 재시도 실패 — paymentId={}, code={}, reason={}",
                     payment.getId(), e.getFailureCode(), e.getFailureReason());
@@ -66,10 +74,14 @@ public class PaymentRefundRetryScheduler {
                 refund.fail();
                 paymentRepository.save(payment);
                 refundRepository.save(refund);
+                failCount++;
             } catch (InvalidRefundStateException e) {
                 log.error("스케줄러 환불 상태 불변 위반 — paymentId={}, refundId={}, message={}",
                     payment.getId(), refund.getId(), e.getMessage());
+                failCount++;
             }
         }
+
+        log.info("환불 재시도 스케줄러 완료 — 성공={}, 실패={}, 건너뜀={}", successCount, failCount, skipCount);
     }
 }

@@ -116,7 +116,7 @@ class ConfirmPaymentServiceTest {
     }
 
     @Test
-    void Toss_서버오류성_4xx_시_FAILED_상태_PG_ERROR_예외() {
+    void Toss_서버오류성_4xx_시_FAILED_상태_PG_INVALID_REQUEST_예외() {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
 
@@ -128,7 +128,7 @@ class ConfirmPaymentServiceTest {
             .thenAnswer(inv -> inv.getArgument(0));
         when(paymentGateway.confirm(anyString(), any(), anyInt()))
             .thenThrow(new PaymentGatewayException(
-                PaymentErrorCode.PG_ERROR, "INVALID_REQUEST", "잘못된 요청입니다.", null, "{}"));
+                PaymentErrorCode.PG_INVALID_REQUEST, "INVALID_REQUEST", "잘못된 요청입니다.", null, "{}"));
         when(paymentRepository.findById(any(UUID.class))).thenAnswer(inv -> {
             Payment p = Payment.create(orderId, userId, "toss-key", "TOSS_PAYMENTS", "CARD", false, 10_000, 0);
             p.markRequested(OffsetDateTime.now());
@@ -140,7 +140,7 @@ class ConfirmPaymentServiceTest {
         assertThatThrownBy(() -> service.confirm(command))
             .isInstanceOf(BusinessException.class)
             .extracting(e -> ((BusinessException) e).getErrorCode())
-            .isEqualTo(PaymentErrorCode.PG_ERROR);
+            .isEqualTo(PaymentErrorCode.PG_INVALID_REQUEST);
 
         verify(applicationEventPublisher, never()).publishEvent(any());
 

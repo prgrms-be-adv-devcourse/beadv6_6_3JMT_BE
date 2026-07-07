@@ -11,7 +11,8 @@ public enum PaymentErrorCode implements ErrorCode {
 
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "V001", "입력값이 올바르지 않습니다."),
     DUPLICATE_PAYMENT(HttpStatus.CONFLICT, "PAY002", "이미 결제된 주문입니다."),
-    PG_ERROR(HttpStatus.BAD_GATEWAY, "PAY003", "PG사 처리 중 오류가 발생했습니다."),
+    PG_INVALID_REQUEST(HttpStatus.BAD_GATEWAY, "PAY003", "잘못된 API 요청으로 인한 PG사 오류입니다."),
+    PG_SERVER_ERROR(HttpStatus.BAD_GATEWAY, "PAY_PG_5XX", "PG사 서버 오류가 발생했습니다."),
     PAYMENT_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "PAY_FAILED", "PG사 결제가 실패했습니다."),
     REFUND_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "PAY004", "환불 가능한 상태가 아닙니다."),
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PAY005", "결제 건을 찾을 수 없습니다."),
