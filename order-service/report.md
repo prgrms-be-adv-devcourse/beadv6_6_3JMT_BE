@@ -1,6 +1,6 @@
 # Order-Service 개선 리포트
 
-> 본 문서는 order-service의 개선 필요 항목들에 대한 전체 리포트입니다. 기존에 완료된 P0 항목과 이전 브랜치 및 현재 브랜치(`refactor/#219-grpc-kafka-convention`)에서 구현 완료된 항목들을 **해결 완료된 항목**으로 분류하여 정리해 둡니다.
+> 본 문서는 order-service의 개선 필요 항목들에 대한 전체 리포트입니다. 기존에 완료된 P0 항목과 이전 브랜치 및 현재 브랜치(`refactor/#219-grpc-kafka-convention`, `refactor/#205-auto-cancel-unpaid-order`)에서 구현 완료된 항목들을 **해결 완료된 항목**으로 분류하여 정리해 둡니다.
 
 ## 1. 해결 완료된 항목
 
@@ -24,6 +24,7 @@
 * **해결 요약**:
   - PG사 결제 요청/승인 직전, 주문의 소유자, 상태, 만료 여부 및 요청 금액 일치 여부를 동기식으로 상호 검증하는 API `/api/v1/orders/{orderId}/payment-ready` 구현.
   - 금액 불일치 결제 승인을 사전에 방어함.
+<<<<<<< HEAD
 
 ### 1.5 [P1] 결제 이벤트 Kafka 메시징 표준화 및 스키마 변경
 * **내용**: 개별 결제 토픽들(`payment.approved`, `payment.refunded`)을 따로 리스닝하며 파싱 방식이 파편화되어 있던 문제
@@ -37,6 +38,7 @@
 * **내용**: 판매자 다건 조회 시 proto 규격과 어댑터의 메서드명이 다른 곳과 일관되지 않던 문제
 * **해결 요약**:
   - `seller_query.proto` 파일 및 `SellerGrpcClientAdapter.java` 에서 판매자 조회 메서드명을 `findSellers` 에서 표준 네이밍인 `getSellers` 로 변경 및 통일 완료.
+
 
 ---
 
