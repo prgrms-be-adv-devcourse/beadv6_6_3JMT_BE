@@ -35,7 +35,18 @@ public class KafkaPaymentEventPublisher {
             payment.getApprovedAmount(),
             toKstString(payment.getApprovedAt())
         );
-        kafkaTemplate.send(PaymentTopic.PAYMENT_EVENTS, payment.getOrderId().toString(), message);
+        kafkaTemplate.send(PaymentTopic.PAYMENT_EVENTS, payment.getOrderId().toString(), message)
+            .whenComplete((result, ex) -> {
+                if (ex != null) {
+                    log.error("결제 승인 Kafka 메시지 발행 실패 — paymentId={}, cause={}",
+                        payment.getId(), ex.getMessage());
+                } else {
+                    log.info("결제 승인 Kafka 메시지 발행 성공 — paymentId={}, partition={}, offset={}",
+                        payment.getId(),
+                        result.getRecordMetadata().partition(),
+                        result.getRecordMetadata().offset());
+                }
+            });
     }
 
     private String toKstString(OffsetDateTime dateTime) {
