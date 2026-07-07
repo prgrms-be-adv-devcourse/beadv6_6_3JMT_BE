@@ -75,7 +75,7 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
 
         Map<String, Object> consumerProps = buildConsumerProps(kafka.getBootstrapServers(), "integration-test-group");
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProps);
-        TopicPartition partition = new TopicPartition(PaymentTopic.PAYMENT_APPROVED, 0);
+        TopicPartition partition = new TopicPartition(PaymentTopic.PAYMENT_EVENTS, 0);
         consumer.assign(java.util.List.of(partition));
         // seekToBeginning은 lazy — poll(ZERO)로 메타데이터 먼저 초기화 후 적용
         consumer.poll(Duration.ZERO);
@@ -120,7 +120,7 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
                     }
                 }
             }
-            assertThat(found).withFailMessage("10초 내 payment.approved Kafka 메시지 수신 실패").isTrue();
+            assertThat(found).withFailMessage("10초 내 payment-events Kafka 메시지 수신 실패").isTrue();
         } finally {
             consumer.close();
         }
