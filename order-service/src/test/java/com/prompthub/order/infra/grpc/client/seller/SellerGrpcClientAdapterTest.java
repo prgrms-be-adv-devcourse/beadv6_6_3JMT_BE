@@ -19,13 +19,14 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import io.grpc.Server;
 
 class SellerGrpcClientAdapterTest {
 
 	private static final UUID SELLER_ID_1 = UUID.fromString("11111111-1111-1111-1111-111111111111");
 	private static final UUID SELLER_ID_2 = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
-	private io.grpc.Server server;
+	private Server server;
 	private ManagedChannel channel;
 
 	@AfterEach

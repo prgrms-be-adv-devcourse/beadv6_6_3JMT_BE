@@ -27,6 +27,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import io.grpc.Server;
 
 class ProductGrpcClientAdapterTest {
 
@@ -35,7 +36,7 @@ class ProductGrpcClientAdapterTest {
 	private static final UUID SELLER_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
 	private static final UUID BUYER_ID = UUID.fromString("44444444-4444-4444-4444-444444444444");
 
-	private io.grpc.Server server;
+	private Server server;
 	private ManagedChannel channel;
 
 	@AfterEach

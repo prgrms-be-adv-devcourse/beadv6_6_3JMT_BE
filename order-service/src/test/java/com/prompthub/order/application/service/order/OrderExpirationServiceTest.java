@@ -30,11 +30,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
+import java.time.LocalDateTime;
 
 @ExtendWith(MockitoExtension.class)
 class OrderExpirationServiceTest {
 
-	private static final java.time.LocalDateTime EXPIRED_AT = CREATED_AT.plusMinutes(20);
+	private static final LocalDateTime EXPIRED_AT = CREATED_AT.plusMinutes(20);
 
 	@Mock
 	private OrderRepository orderRepository;

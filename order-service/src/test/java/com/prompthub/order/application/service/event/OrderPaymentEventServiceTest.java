@@ -32,6 +32,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
+import org.mockito.BDDMockito;
 
 @ExtendWith(MockitoExtension.class)
 class OrderPaymentEventServiceTest {
@@ -205,7 +206,7 @@ class OrderPaymentEventServiceTest {
 				.willReturn(Optional.of(order));
 			given(orderPaymentRepository.existsByPaymentId(event.paymentId()))
 				.willReturn(false);
-			org.mockito.BDDMockito.willThrow(new RuntimeException("Redis Timeout"))
+			BDDMockito.willThrow(new RuntimeException("Redis Timeout"))
 				.given(orderExpirationStore).removeExpiration(order.getId());
 
 			orderPaymentEventService.handlePaymentApproved(event);

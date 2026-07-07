@@ -53,6 +53,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.mockito.ArgumentMatchers;
 
 @ExtendWith(MockitoExtension.class)
 class OrderControllerTest {
@@ -94,7 +95,7 @@ class OrderControllerTest {
 				CREATED_AT.plusMinutes(20)
 			);
 
-			when(orderUseCase.validatePaymentReady(eq(BUYER_ID), eq(ORDER_ID), eq(TOTAL_AMOUNT), org.mockito.ArgumentMatchers.any(LocalDateTime.class)))
+			when(orderUseCase.validatePaymentReady(eq(BUYER_ID), eq(ORDER_ID), eq(TOTAL_AMOUNT), ArgumentMatchers.any(LocalDateTime.class)))
 				.thenReturn(response);
 
 			mockMvc.perform(post("/api/v1/orders/{orderId}/payment-ready", ORDER_ID)
@@ -113,7 +114,7 @@ class OrderControllerTest {
 		@DisplayName("만료된 주문이면 O015를 반환한다")
 		void validatePaymentReady_expiredOrder_conflict() throws Exception {
 			OrderPaymentValidationRequest request = new OrderPaymentValidationRequest(TOTAL_AMOUNT);
-			when(orderUseCase.validatePaymentReady(eq(BUYER_ID), eq(ORDER_ID), eq(TOTAL_AMOUNT), org.mockito.ArgumentMatchers.any(LocalDateTime.class)))
+			when(orderUseCase.validatePaymentReady(eq(BUYER_ID), eq(ORDER_ID), eq(TOTAL_AMOUNT), ArgumentMatchers.any(LocalDateTime.class)))
 				.thenThrow(new OrderException(ErrorCode.ORDER_EXPIRED));
 
 			mockMvc.perform(post("/api/v1/orders/{orderId}/payment-ready", ORDER_ID)
