@@ -8,7 +8,7 @@ public record ProductsByIdsResponse(
 	String title,
 	int amount,
 	String thumbnailUrl,
-	String category,
+	String productType,
 	String model,
 	int salesCount,
 	double averageRating,
