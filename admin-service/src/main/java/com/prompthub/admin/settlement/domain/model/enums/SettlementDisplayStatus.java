@@ -33,4 +33,14 @@ public enum SettlementDisplayStatus {
 			};
 		};
 	}
+
+	public SettlementDisplayStatus toCard() {
+		return switch (this) {
+			case WAITING, APPROVAL_ON_HOLD -> WAITING;
+			case APPROVED, PAYOUT_REQUESTED -> APPROVED;
+			case PAYOUT_ON_HOLD -> PAYOUT_ON_HOLD;
+			case PAID -> PAID;
+			case CANCELLED -> null;
+		};
+	}
 }
