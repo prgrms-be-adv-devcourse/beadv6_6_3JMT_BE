@@ -40,8 +40,9 @@ subprojects {
     }
 }
 
-// ── Spring Boot 앱 8개 (common-module 제외) ──────────────────────────────────
+// ── Spring Boot 앱 9개 (common-module 제외) ──────────────────────────────────
 configure([
+    project(':admin-service'),
     project(':apigateway'),
     project(':config'),
     project(':discovery'),
@@ -66,8 +67,9 @@ configure([
     }
 }
 
-// ── 비즈니스 서비스 5개 ──────────────────────────────────────────────────────
+// ── 비즈니스 서비스 6개 ──────────────────────────────────────────────────────
 configure([
+    project(':admin-service'),
     project(':order-service'),
     project(':payment-service'),
     project(':product-service'),
