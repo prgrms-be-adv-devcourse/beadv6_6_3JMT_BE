@@ -21,6 +21,7 @@ import org.springframework.test.context.jdbc.Sql;
 class SettlementSourceRepositoryAdapterTest {
 
 	private static final UUID SETTLEMENT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
+	private static final UUID OTHER_SETTLEMENT_ID = UUID.fromString("99999999-9999-9999-9999-999999999999");
 
 	@Autowired
 	private SettlementSourceRepository settlementSourceRepository;
@@ -42,6 +43,15 @@ class SettlementSourceRepositoryAdapterTest {
 		lines.forEach(line -> line.release(SETTLEMENT_ID));
 
 		assertThat(lines).allSatisfy(line -> assertThat(line.getSettlementId()).isNull());
+	}
+
+	@Test
+	void 다른_정산아이디로_해제하면_풀리지_않고_기존_정산아이디를_유지한다() {
+		List<SettlementSourceLine> lines = settlementSourceRepository.findBySettlementId(SETTLEMENT_ID);
+
+		lines.forEach(line -> line.release(OTHER_SETTLEMENT_ID));
+
+		assertThat(lines).allSatisfy(line -> assertThat(line.getSettlementId()).isEqualTo(SETTLEMENT_ID));
 	}
 
 	@Test
