@@ -5,6 +5,7 @@ import com.prompthub.admin.settlement.domain.model.enums.PayoutStatus;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementStatus;
 import com.prompthub.admin.settlement.domain.repository.SettlementQueryRepository;
+import com.prompthub.admin.settlement.domain.repository.SettlementStatusAggregate;
 import jakarta.persistence.criteria.Predicate;
 
 import java.util.ArrayList;
@@ -29,6 +30,11 @@ public class SettlementQueryRepositoryAdapter implements SettlementQueryReposito
 		Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "calculatedAt"));
 		Page<Settlement> result = jpaRepository.findAll(displayStatusSpec(status), pageable);
 		return new SettlementPage(result.getContent(), result.getTotalElements());
+	}
+
+	@Override
+	public List<SettlementStatusAggregate> aggregateByStatus() {
+		return jpaRepository.aggregateByStatus();
 	}
 
 	private static Specification<Settlement> displayStatusSpec(SettlementDisplayStatus status) {

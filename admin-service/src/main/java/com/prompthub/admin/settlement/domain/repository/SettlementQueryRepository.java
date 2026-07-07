@@ -8,6 +8,8 @@ public interface SettlementQueryRepository {
 
 	SettlementPage findPage(SettlementDisplayStatus status, int page, int size);
 
+	List<SettlementStatusAggregate> aggregateByStatus();
+
 	record SettlementPage(List<Settlement> content, long totalElements) {
 	}
 }
