@@ -1,5 +1,8 @@
 package com.prompthub.admin.global.exception;
 
+import com.prompthub.admin.settlement.domain.exception.SettlementAlreadyCancelledException;
+import com.prompthub.admin.settlement.domain.exception.SettlementAlreadyPaidException;
+import com.prompthub.admin.settlement.domain.exception.SettlementInvalidStateException;
 import com.prompthub.exception.BusinessException;
 import com.prompthub.exception.ErrorCode;
 import com.prompthub.exception.response.ErrorResponse;
@@ -26,6 +29,28 @@ public class GlobalExceptionHandler {
 		}
 		return ResponseEntity.status(errorCode.getStatus())
 			.body(ErrorResponse.of(errorCode, exception.getMessage()));
+	}
+
+	@ExceptionHandler(SettlementInvalidStateException.class)
+	public ResponseEntity<ErrorResponse> handleSettlementInvalidState(SettlementInvalidStateException exception) {
+		log.warn("정산 상태 전이 충돌 - {}", exception.getMessage());
+		ErrorCode errorCode = AdminErrorCode.SETTLEMENT_INVALID_STATE;
+		return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
+	}
+
+	@ExceptionHandler(SettlementAlreadyPaidException.class)
+	public ResponseEntity<ErrorResponse> handleSettlementAlreadyPaid(SettlementAlreadyPaidException exception) {
+		log.warn("정산 취소 불가(이미 지급 완료) - {}", exception.getMessage());
+		ErrorCode errorCode = AdminErrorCode.SETTLEMENT_ALREADY_PAID;
+		return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
+	}
+
+	@ExceptionHandler(SettlementAlreadyCancelledException.class)
+	public ResponseEntity<ErrorResponse> handleSettlementAlreadyCancelled(
+		SettlementAlreadyCancelledException exception) {
+		log.warn("정산 취소 불가(이미 취소됨) - {}", exception.getMessage());
+		ErrorCode errorCode = AdminErrorCode.SETTLEMENT_ALREADY_CANCELLED;
+		return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
 	}
 
 	@ExceptionHandler({
