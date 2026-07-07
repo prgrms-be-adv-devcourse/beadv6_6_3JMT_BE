@@ -16,6 +16,8 @@
 | `9b06893` | refactor: ConfirmPaymentService 트랜잭션 분리 및 상수 추출 |
 | `b737574` | test: ConfirmPaymentServiceTest TransactionTemplate 적용 |
 | `976363c` | test: TransactionTemplate no-op 구현 및 PAYMENT_FAILED 상태 코드 422 반영 |
+| `be19230` | docs: Toss 4xx 에러 코드 분류 작업 계획 추가 |
+| `2ea1700` | feat: TossPaymentGateway 서버 오류성 4xx 에러 코드 PG_ERROR 분류 처리 |
 
 ---
 
@@ -23,6 +25,7 @@
 
 **src/main:**
 - `application/exception/PaymentErrorCode.java` — PAYMENT_FAILED 422
+- `infrastructure/external/toss/TossPaymentGateway.java` — `TOSS_SERVER_ERROR_CODES` Set 추가, confirm() 4xx 핸들러 분기 (서버 오류성 → PG_ERROR)
 - `application/gateway/external/ConfirmResult.java` — 신규 (구 TossConfirmResult)
 - `application/gateway/external/RefundResult.java` — 신규 (구 TossRefundResult)
 - `application/gateway/external/TossConfirmResult.java` — 삭제
@@ -35,8 +38,8 @@
 - `infrastructure/scheduling/PaymentRefundRetryScheduler.java` — RefundResult 참조 변경
 
 **src/test:**
-- `application/service/ConfirmPaymentServiceTest.java` — TX no-op, findById/saveAndFlush stub
-- `presentation/PaymentControllerTest.java` — PAYMENT_FAILED 기대 상태 422
+- `application/service/ConfirmPaymentServiceTest.java` — TX no-op, findById/saveAndFlush stub, `PG_ERROR` 경로 테스트 추가
+- `presentation/PaymentControllerTest.java` — PAYMENT_FAILED 기대 상태 422, PG_ERROR → 502 테스트 추가
 - `ConfirmPaymentIntegrationTest.java` — ConfirmResult import 변경
 - `RefundPaymentIntegrationTest.java` — ConfirmResult/RefundResult import 변경
 
@@ -97,7 +100,7 @@ void PG사_결제_실패_시_422_PAY_FAILED()
 
 ```
 BUILD SUCCESSFUL
-29 tests completed, 0 failed
+31 tests completed, 0 failed
 ```
 
 ---
@@ -111,3 +114,4 @@ BUILD SUCCESSFUL
 | `ResourcelessTransactionManager` | 계획에 명시 | Spring Boot 4.1 미존재 → 익명 no-op 구현체로 대체 |
 | `PaymentControllerTest` 영향 | "영향 없음"으로 명시 | PAYMENT_FAILED 상태 코드 변경으로 수정 필요 발생 |
 | 참조 파일 수 | 5개 파일로 명시 | `RefundEventHandler`, `PaymentRefundRetryScheduler`, 통합 테스트 2개 추가 발견 |
+| Toss 4xx 분류 (#8) | 계획에 미포함 | T1 대안으로 보류된 에러 코드 분기 로직 추가 구현 |
