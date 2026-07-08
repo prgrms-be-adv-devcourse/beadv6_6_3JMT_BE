@@ -35,25 +35,30 @@
 
 프론트엔드가 토스페이먼츠 SDK로 결제창을 호출한 후, 백엔드에 최종 승인을 요청합니다.
 
-**처리 흐름**
-1. `idempotency_key` 중복 확인 → 중복이면 `409` 즉시 반환
-2. Payment 레코드 생성 (`READY`)
-3. 토스페이먼츠 confirm API 동기 호출 → `REQUESTED` → `PAID` / `FAILED`
-4. `@Transactional`: Payment 상태 저장 → COMMIT → `200` 반환
+**금액의 진실 공급원은 주문 스냅샷**입니다. 요청 body에 `amount`를 받지 않고, `orderId`로 확보한 스냅샷(`order-events` 이벤트 또는 gRPC 폴백)의 금액을 Toss에 전달합니다.
 
-> 동일 `orderId`로 재요청 시 `409(PAY002)`를 반환합니다 (중복 결제 방지).
+**처리 흐름**
+1. 주문 스냅샷 확보: 로컬 조회 → 없으면 gRPC 폴백(order 9083) 후 기록
+   - gRPC 조회 불가/타임아웃 → `503(PAY009)`, Payment 미생성
+   - 주문 없음(gRPC NOT_FOUND) → `404(PAY008)`
+2. 본인 검증: 스냅샷 `buyerId != X-User-Id` → `403(PAY010)`
+3. 중복 판정: 진행·완료 상태(`PAID`/`REFUNDING`/`REFUNDED`/`UNKNOWN`) 존재 시 → `409(PAY002)`
+4. Payment 레코드 생성(`READY` → `REQUESTED`), `pg_tx_id`(=paymentKey) 멱등키 겸용
+5. 토스페이먼츠 confirm API 동기 호출(스냅샷 금액) → `PAID` / `FAILED`
+6. Payment 상태 저장 → `200` 반환
+
+> **재결제 허용**: 중복 판정이 "존재 여부"가 아니라 "진행·완료 상태 존재 여부"이므로, 직전 시도가 `FAILED`면 재결제가 가능합니다(시도마다 새 Payment 행). 동일 `paymentKey` 재요청만 `pg_tx_id` UNIQUE로 `409` 차단됩니다.
 
 **이후 비동기 흐름**
 - 승인 시 → `payment.approved` 발행 (Order PAID 전환 + `is_download = true`)
-- 실패 시 → Order는 `PENDING` 유지 (재결제 시도 가능)
+- 실패 시 → `payment.failed` 발행 (Order `PENDING → FAILED`, 재결제 시 복귀)
 
 #### Request Body
 
 ```json
 {
   "paymentKey": "tossPayments_key_abc123",
-  "orderId":    "660e8400-e29b-41d4-a716-446655440001",
-  "amount":     9900
+  "orderId":    "660e8400-e29b-41d4-a716-446655440001"
 }
 ```
 
@@ -61,7 +66,6 @@
 |---|---|---|---|
 | `paymentKey` | String | ✅ | 토스페이먼츠 SDK에서 전달받은 paymentKey |
 | `orderId` | UUID | ✅ | 결제할 주문 ID |
-| `amount` | Int | ✅ | 결제 금액 (원화) |
 
 #### Responses
 
@@ -69,11 +73,13 @@
 |---|---|---|
 | `200` | 결제 승인 완료 | — |
 | `400` | 입력값 오류 | `V001` |
-| `400` | PG사 결제 실패 | `PAY_FAILED` |
-| `401` | 토큰 만료 | `A003` |
 | `403` | BUYER 역할 없음 | `PAY007` |
-| `409` | 이미 결제된 주문 | `PAY002` |
+| `403` | 본인 주문 아님 | `PAY010` |
+| `404` | 주문 정보 없음 | `PAY008` |
+| `409` | 이미 결제 진행·완료된 주문 | `PAY002` |
+| `422` | PG사 결제 실패 | `PAY_FAILED` |
 | `502` | PG사 처리 오류 | `PAY003` |
+| `503` | 주문 정보 확보 불가 | `PAY009` |
 
 **200 응답 예시**
 ```json

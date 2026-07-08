@@ -11,8 +11,8 @@
 | `apigateway` | 8000 | - | 진입점. JWT 검증, 라우팅, `X-User-Id`/`X-User-Role` 주입 (WebFlux 기반) |
 | `user-service` | 8081 | 9081 (서버) | 회원·인증(JWT 발급)·판매자·찜 |
 | `product-service` | 8082 | 9082 (서버) | 상품·카테고리·리뷰 |
-| `order-service` | 8083 | - | 주문·장바구니·Outbox Relay |
-| `payment-service` | 8084 | - | 결제 (Toss Payments 연동) |
+| `order-service` | 8083 | 9083 (서버, **예정** — 결제정보 폴백용 `OrderInternalService`) | 주문·장바구니·Outbox Relay |
+| `payment-service` | 8084 | - (order 9083 **클라이언트**) | 결제 (Toss Payments 연동), `order-events` 구독 |
 | `settlement-service` | 8085 | - | 정산 (Spring Batch) |
 | `common-module` | - | - | 공용 라이브러리 (`BusinessException`, `ErrorCode`, 공통 응답 래퍼). 루트 `settings.gradle`에 `include 'common-module'`로 서브프로젝트 포함 |
 
@@ -69,6 +69,7 @@ flowchart LR
 | order → user | 9081 | 판매자 정보 조회 | `order-service/.../infra/grpc/client/seller/SellerGrpcClientConfig.java` |
 | settlement → user | 9081 | 판매자 정보 배치 조회 | `settlement-service/.../infrastructure/client/seller/config/SellerGrpcClientConfig.java` |
 | settlement → product | 9082 | 상품 정보 배치 조회 | `settlement-service/.../infrastructure/client/product/config/ProductGrpcClientConfig.java` |
+| payment → order | 9083 | 주문 결제정보 폴백 조회(스냅샷 미확보 시) | `payment-service/.../infrastructure/external/grpc/OrderGrpcClientConfig.java` (**order 측 서버 예정**) |
 
 ### 3) 내부 동기 통신 (HTTP)
 
@@ -76,7 +77,7 @@ flowchart LR
 
 ### 4) 비동기 통신 (Kafka)
 
-토픽 4개: `payment.approved`, `payment.refunded`, `order-events`, `product-events`. 발행/소비 매트릭스·시나리오 시퀀스는 **`event-flow.md`** 참조.
+토픽: `payment.approved`, `payment.refunded`, `payment.failed`(payment 구현), `order-events`, `product-events`. payment는 `order-events`의 `ORDER_CREATED`를 구독한다(주문 스냅샷 확보, order 발행은 예정). 발행/소비 매트릭스·시나리오 시퀀스는 **`event-flow.md`** 참조.
 
 ### 5) 외부 연동
 
