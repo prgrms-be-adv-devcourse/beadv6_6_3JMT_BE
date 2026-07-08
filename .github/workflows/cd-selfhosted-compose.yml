@@ -49,23 +49,57 @@ jobs:
         uses: tj-actions/changed-files@v46
         with:
           files_yaml: |
-            user-service: [user-service/**]
-            product-service: [product-service/**]
-            order-service: [order-service/**]
-            payment-service: [payment-service/**]
-            settlement-service: [settlement-service/**]
-            admin-service: [admin-service/**]
-            apigateway: [apigateway/**]
-            config: [config/**]
-            discovery: [discovery/**]
-            docker_all: [common-module/**, Dockerfile, docker-compose.yml, build.gradle.kts, settings.gradle.kts]
+            user_service:
+              - user-service/**
+            product_service:
+              - product-service/**
+            order_service:
+              - order-service/**
+            payment_service:
+              - payment-service/**
+            settlement_service:
+              - settlement-service/**
+            admin_service:
+              - admin-service/**
+            apigateway:
+              - apigateway/**
+            config:
+              - config/**
+            discovery:
+              - discovery/**
+            docker_all:
+              - common-module/**
+              - Dockerfile
+              - docker-compose.yml
+              - compose.yml
+              - build.gradle.kts
+              - settings.gradle.kts
+              - gradle/**
+              - .github/workflows/**
+
+      - name: 변경 감지 결과 출력
+        if: github.event_name == 'push'
+        run: |
+          echo "user_service=${{ steps.changed.outputs.user_service_any_changed }}"
+          echo "product_service=${{ steps.changed.outputs.product_service_any_changed }}"
+          echo "order_service=${{ steps.changed.outputs.order_service_any_changed }}"
+          echo "payment_service=${{ steps.changed.outputs.payment_service_any_changed }}"
+          echo "settlement_service=${{ steps.changed.outputs.settlement_service_any_changed }}"
+          echo "admin_service=${{ steps.changed.outputs.admin_service_any_changed }}"
+          echo "apigateway=${{ steps.changed.outputs.apigateway_any_changed }}"
+          echo "config=${{ steps.changed.outputs.config_any_changed }}"
+          echo "discovery=${{ steps.changed.outputs.discovery_any_changed }}"
+          echo "docker_all=${{ steps.changed.outputs.docker_all_any_changed }}"
 
       - name: 빌드 대상 결정 및 JSON 배열화
         id: plan
         shell: bash
         run: |
           # 1. 수동 실행이거나, 공통/전역 파일이 변경된 경우 전체 빌드
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ steps.changed.outputs.docker_all_any_changed }}" = "true" ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.rebuild_all }}" = "true" ]; then
+            SERVICES_JSON='["discovery","config","user-service","product-service","order-service","payment-service","settlement-service","admin-service","apigateway"]'
+            DEPLOY="true"
+          elif [ "${{ steps.changed.outputs.docker_all_any_changed }}" = "true" ]; then
             SERVICES_JSON='["discovery","config","user-service","product-service","order-service","payment-service","settlement-service","admin-service","apigateway"]'
             DEPLOY="true"
           else
