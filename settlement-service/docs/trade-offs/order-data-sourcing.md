@@ -111,8 +111,8 @@ REFUND 라인 멱등키 = nameUUIDFromBytes(orderProductId | "REFUND")
 
 "6월 결제(이미 정산) + 7월 환불"에서, 7월에 그 판매자의 다른 결제가 환불액보다 적으면 **7월 정산
 순액이 음수**가 될 수 있다. 이를 다음 달로 이월할지, 마이너스로 확정할지는 **정산 정책 결정**이며
-전송 방식(push/pull)과 무관하다. 이 문서에서는 **그런 경우가 발생할 수 있다는 점만 명시**하고,
-처리 규칙은 별도로 정한다.
+전송 방식(push/pull)과 무관하다. **이월(carry-forward)로 결정**했으며, 처리 규칙은
+`negative-settlement-carryforward.md` 에 정리한다.
 
 ### 배치 흐름 — 앞단에 pull 스텝 하나 추가
 
