@@ -1,16 +1,21 @@
 package com.prompthub.user.sellersettlement.application.service;
 
+import com.prompthub.user.sellersettlement.application.dto.SellerSettlementListQuery;
+import com.prompthub.user.sellersettlement.application.dto.SellerSettlementListResult;
+import com.prompthub.user.sellersettlement.application.dto.SellerSettlementResult;
 import com.prompthub.user.sellersettlement.application.event.SettlementCreatedMessage;
 import com.prompthub.user.sellersettlement.application.usecase.SeedSellerSettlementUseCase;
+import com.prompthub.user.sellersettlement.application.usecase.SellerSettlementUseCase;
 import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class SellerSettlementApplicationService implements SeedSellerSettlementUseCase {
+public class SellerSettlementApplicationService implements SeedSellerSettlementUseCase, SellerSettlementUseCase {
 
     private final SellerSettlementRepository sellerSettlementRepository;
 
@@ -26,5 +31,19 @@ public class SellerSettlementApplicationService implements SeedSellerSettlementU
                 message.totalAmount(), message.settlementTotalAmount(),
                 message.feeTotalAmount(), message.refundAmount(), message.calculatedAt());
         sellerSettlementRepository.save(settlement);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SellerSettlementListResult getMySettlements(SellerSettlementListQuery query) {
+        SellerSettlementRepository.SellerSettlementPage page = sellerSettlementRepository.findPageBySeller(
+                query.sellerId(), query.status(), query.period(), query.page(), query.size());
+        return SellerSettlementListResult.from(page, query.page(), query.size());
+    }
+
+    @Override
+    @Transactional
+    public SellerSettlementResult requestPayout(UUID sellerId, UUID settlementId) {
+        throw new UnsupportedOperationException("Task 8에서 구현");
     }
 }
