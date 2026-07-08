@@ -16,6 +16,10 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: test-group
 
 jwt:
   access-token-expire-seconds: 3600
@@ -24,3 +28,12 @@ jwt:
 eureka:
   client:
     enabled: false
+
+user:
+  kafka:
+    consumer:
+      settlement:
+        topic: settlement-events
+    listener:
+      settlement:
+        enabled: false
