@@ -35,7 +35,8 @@ public class SettlementApplicationService implements SettlementUseCase {
 		SettlementDisplayStatus.WAITING,
 		SettlementDisplayStatus.APPROVED,
 		SettlementDisplayStatus.PAYOUT_ON_HOLD,
-		SettlementDisplayStatus.PAID);
+		SettlementDisplayStatus.PAID
+	);
 
 	private final SettlementQueryRepository settlementQueryRepository;
 	private final SettlementRepository settlementRepository;
