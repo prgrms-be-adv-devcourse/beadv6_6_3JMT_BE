@@ -81,6 +81,29 @@ public class OutboxEvent {
         this.publishedAt = publishedAt;
     }
 
+    public static OutboxEvent orderCreated(
+        UUID orderId,
+        String payload,
+        LocalDateTime occurredAt
+    ) {
+        return orderCreated(UUID.randomUUID(), orderId, payload, occurredAt);
+    }
+
+    public static OutboxEvent orderCreated(
+        UUID eventId,
+        UUID orderId,
+        String payload,
+        LocalDateTime occurredAt
+    ) {
+        return create(
+            eventId,
+            orderId,
+            OrderEventType.ORDER_CREATED.code(),
+            payload,
+            occurredAt
+        );
+    }
+
     public static OutboxEvent orderPaid(
         UUID orderId,
         String payload,
