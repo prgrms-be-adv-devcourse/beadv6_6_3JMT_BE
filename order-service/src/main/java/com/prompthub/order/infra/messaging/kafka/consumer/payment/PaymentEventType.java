@@ -7,16 +7,18 @@ public enum PaymentEventType {
 	PAYMENT_APPROVED,
 	PAYMENT_REFUNDED,
 	PAYMENT_FAILED,
-	PAYMENT_CANCELED,
-	UNKNOWN;
+	PAYMENT_CANCELED;
 
 	PaymentEventType() {
 	}
 
 	public static PaymentEventType from(String value) {
+		if (value == null || value.isBlank()) {
+			return null;
+		}
 		return Arrays.stream(values())
 			.filter(it -> it.name().equals(value))
 			.findFirst()
-			.orElse(UNKNOWN);
+			.orElse(null);
 	}
 }
