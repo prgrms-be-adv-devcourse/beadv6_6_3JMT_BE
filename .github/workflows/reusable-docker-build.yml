@@ -49,17 +49,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Configure AWS credentials
+      - name: Login to GitHub Container Registry
         if: inputs.push-image == true
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: docker/login-action@v3
         with:
-          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
-          aws-region: ${{ inputs.aws-region }}
-
-      - name: Login to Amazon ECR
-        if: inputs.push-image == true
-        id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set image tag
         id: image
@@ -73,7 +69,8 @@ jobs:
               exit 1
             fi
 
-            IMAGE_URI="${{ steps.ecr.outputs.registry }}/${{ inputs.ecr-repository }}:${SHORT_SHA}"
+            OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+            IMAGE_URI="ghcr.io/${OWNER_LC}/${{ inputs.ecr-repository }}:${SHORT_SHA}"
           else
             IMAGE_URI="${{ inputs.module-name }}:${SHORT_SHA}"
           fi
@@ -87,7 +84,9 @@ jobs:
           context: .
           file: ./${{ inputs.dockerfile-path }}
           push: ${{ inputs.push-image }}
-          tags: ${{ steps.image.outputs.image_uri }}
+          tags: |
+            ${{ steps.image.outputs.image_uri }}
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.ecr-repository }}:latest
           build-args: |
             MODULE_NAME=${{ inputs.module-name }}
             MODULE_PATH=${{ inputs.module-path }}
