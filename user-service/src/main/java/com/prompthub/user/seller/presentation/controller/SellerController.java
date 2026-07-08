@@ -35,11 +35,11 @@ public class SellerController {
     @ApiResponse(responseCode = "409", description = "이미 신청된 판매자 (A005)")
     @PostMapping("/register")
     public ResponseEntity<ApiResult<SellerRegisterResponse>> register(
-            @Parameter(hidden = true) @RequestHeader("X-User-Id") UUID userId,
-            @Valid @RequestBody SellerRegisterRequest request
+        @Parameter(hidden = true) @RequestHeader("X-User-Id") UUID userId,
+        @Valid @RequestBody SellerRegisterRequest request
     ) {
         SellerRegisterResponse response = SellerRegisterResponse.from(
-                sellerUseCase.register(request.toCommand(userId))
+            sellerUseCase.register(request.toCommand(userId))
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResult.success(response));
     }
