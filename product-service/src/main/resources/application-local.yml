@@ -1,0 +1,53 @@
+server:
+  port: 8082
+
+spring:
+  cloud:
+    config:
+      enabled: false
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:prompthub_product_dev}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:create-only}
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: product-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+grpc:
+  server:
+    port: ${GRPC_SERVER_PORT:9082}
+  client:
+    user-service:
+      host: ${USER_SERVICE_GRPC_HOST:localhost}
+      port: ${USER_SERVICE_GRPC_PORT:9081}
+
+cloud:
+  aws:
+    region: ${AWS_REGION:ap-northeast-2}
+    s3:
+      bucket: ${AWS_S3_BUCKET:3jmt-prompthub-bucket}
+
+eureka:
+  client:
+    enabled: false
+
+logging:
+  level:
+    com.prompthub.product: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
