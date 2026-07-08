@@ -5,6 +5,5 @@ import java.util.UUID;
 public record ConfirmPaymentCommand(
     String paymentKey,
     UUID orderId,
-    int amount,
     UUID userId
 ) {}

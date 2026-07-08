@@ -13,6 +13,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+    defer-datasource-initialization: true   # Hibernate DDL 이후 schema.sql 실행
     show-sql: true
     properties:
       hibernate:

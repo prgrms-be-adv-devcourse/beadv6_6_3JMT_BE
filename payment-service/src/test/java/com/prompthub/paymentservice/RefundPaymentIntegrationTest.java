@@ -5,14 +5,18 @@ import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
 import com.prompthub.paymentservice.application.gateway.external.ConfirmResult;
 import com.prompthub.paymentservice.application.gateway.external.RefundResult;
+import com.prompthub.paymentservice.domain.model.OrderSnapshot;
+import com.prompthub.paymentservice.domain.model.OrderSnapshotSource;
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;
 import com.prompthub.paymentservice.infrastructure.messaging.config.PaymentTopic;
+import com.prompthub.paymentservice.infrastructure.persistence.OrderSnapshotJpaRepository;
 import com.prompthub.paymentservice.infrastructure.persistence.PaymentJpaRepository;
 import com.prompthub.paymentservice.infrastructure.persistence.RefundJpaRepository;
 import com.prompthub.paymentservice.support.AbstractIntegrationTest;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -54,6 +58,9 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     RefundJpaRepository refundJpaRepository;
 
+    @Autowired
+    OrderSnapshotJpaRepository orderSnapshotJpaRepository;
+
     @MockitoBean
     PaymentGateway paymentGateway;
 
@@ -61,6 +68,7 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
     void setUpRestTemplate() {
         refundJpaRepository.deleteAll();
         paymentJpaRepository.deleteAll();
+        orderSnapshotJpaRepository.deleteAll();
         restTemplate = new RestTemplate();
         restTemplate.setErrorHandler(new DefaultResponseErrorHandler() {
             @Override
@@ -89,7 +97,7 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
         // 결제 승인 먼저
         승인_요청(orderId, userId, 10_000);
 
-        Payment payment = paymentJpaRepository.findByIdempotencyKey("pay-" + orderId).orElseThrow();
+        Payment payment = findPaymentByOrderId(orderId);
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
 
         // Kafka 컨슈머 준비
@@ -143,7 +151,7 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
             .thenThrow(new PaymentGatewayException(PaymentErrorCode.PG_INVALID_REQUEST, "CANCEL_FAILED", "환불 실패", null, null));
 
         승인_요청(orderId, userId, 10_000);
-        Payment payment = paymentJpaRepository.findByIdempotencyKey("pay-" + orderId).orElseThrow();
+        Payment payment = findPaymentByOrderId(orderId);
 
         환불_요청(payment.getId(), userId);
 
@@ -167,7 +175,7 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
             .thenReturn(new ConfirmResult("카드", 10_000, "{}", OffsetDateTime.now()));
 
         승인_요청(orderId, ownerId, 10_000);
-        Payment payment = paymentJpaRepository.findByIdempotencyKey("pay-" + orderId).orElseThrow();
+        Payment payment = findPaymentByOrderId(orderId);
 
         ResponseEntity<Map> response = 환불_요청(payment.getId(), otherId);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
@@ -176,17 +184,27 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
     }
 
     private void 승인_요청(UUID orderId, UUID userId, int amount) {
+        // 결제의 진실 공급원인 주문 스냅샷을 사전 확보(이벤트 경로로 이미 저장된 상황을 모사)
+        orderSnapshotJpaRepository.saveAndFlush(OrderSnapshot.create(
+            orderId, userId, amount, OrderSnapshotSource.EVENT, OffsetDateTime.now(ZoneOffset.ofHours(9))));
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-User-Id", userId.toString());
         headers.set("X-User-Role", "BUYER");
         Map<String, Object> body = Map.of(
             "paymentKey", "toss-key-" + orderId,
-            "orderId", orderId.toString(),
-            "amount", amount
+            "orderId", orderId.toString()
         );
         restTemplate.exchange(url("/api/v1/payments/confirm"), HttpMethod.POST,
             new HttpEntity<>(body, headers), Map.class);
+    }
+
+    private Payment findPaymentByOrderId(UUID orderId) {
+        return paymentJpaRepository.findAll().stream()
+            .filter(p -> p.getOrderId().equals(orderId))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("Payment not found for orderId=" + orderId));
     }
 
     @SuppressWarnings("unchecked")

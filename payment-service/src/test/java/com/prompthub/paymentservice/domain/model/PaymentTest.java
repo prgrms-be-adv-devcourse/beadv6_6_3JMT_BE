@@ -15,7 +15,7 @@ class PaymentTest {
 
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.READY);
         assertThat(payment.getApprovedAmount()).isNull();
-        assertThat(payment.getIdempotencyKey()).startsWith("pay-");
+        assertThat(payment.getPgTxId()).isEqualTo("pg-key-001");
     }
 
     @Test
@@ -84,7 +84,7 @@ class PaymentTest {
         return Payment.create(
             UUID.randomUUID(), UUID.randomUUID(),
             "pg-key-001", "TOSS_PAYMENTS", "UNKNOWN", false,
-            10_000, 0
+            10_000
         );
     }
 }
