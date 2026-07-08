@@ -37,7 +37,7 @@ public class OutboxRelay {
 
 	private void publish(OutboxEvent event) {
 		try {
-			kafkaTemplate.send(event.getTopic(), event.getAggregateId().toString(), event.getPayload()).get();
+			kafkaTemplate.send("order-events", event.getOrderId().toString(), event.getPayload()).get();
 			event.markPublished(LocalDateTime.now());
 		} catch (InterruptedException exception) {
 			Thread.currentThread().interrupt();
@@ -51,7 +51,7 @@ public class OutboxRelay {
 		event.recordPublishFailure(properties.maxRetryCount());
 		log.warn(
 			"아웃박스 이벤트 발행에 실패했습니다. outboxEventId={}, eventType={}, retryCount={}, status={}",
-			event.getId(),
+			event.getEventId(),
 			event.getEventType(),
 			event.getRetryCount(),
 			event.getStatus(),

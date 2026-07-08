@@ -19,10 +19,9 @@ public class OutboxEventAppender {
         String payloadJson = serialize(message);
 
         OutboxEvent entity = OutboxEvent.create(
-                message.aggregateType(),
+                message.eventId(),
                 message.aggregateId(),
                 message.eventType(),
-                topic,
                 payloadJson,
                 message.occurredAt()
         );
