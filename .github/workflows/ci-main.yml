@@ -6,26 +6,29 @@ name: CI - Main
 on:
   pull_request:
     branches:
-      - main
+      - main, infra
     types:
       - opened
       - synchronize
       - reopened
       - ready_for_review
+  push:
+    branches:
+      - infra
 
 permissions:
   contents: read
   id-token: write
 
 concurrency:
-  group: ci-main-pr-${{ github.event.pull_request.number }}
+  group: ci-main-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   changes:
     name: Detect Changed Modules
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false && github.head_ref == 'develop'
+    if: github.event_name == 'push' || (github.event.pull_request.draft == false && github.head_ref == 'develop')
     outputs:
       user_service:       ${{ steps.filter.outputs.user_service_any_changed }}
       product_service:    ${{ steps.filter.outputs.product_service_any_changed }}
