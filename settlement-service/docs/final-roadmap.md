@@ -15,11 +15,13 @@
 ## 1. 어드민 모듈 분리 — 설계 확정
 
 어드민 페이지용 API(`SettlementController`)를 신설 admin-service 로 이관한다.
-배치·스케줄러·판매자 API 는 정산에 남고, 배치 수동 실행 REST(`SettlementBatchController`)도
-배치 테스트용으로 잔류한다. 어드민은 정산을 gRPC 로 호출하지 않고 **각 도메인 DB 를 직접
-바라본다** — 조회는 직접 SELECT, 상태 변경은 직접 UPDATE, 배치 실행은 예약 테이블(§2)로.
+배치·스케줄러는 정산에 남고, 배치 수동 실행 REST(`SettlementBatchController`)도 배치
+테스트용으로 잔류한다(판매자 API·운영 상태는 유저 모듈 seller_settlement 로 이관 — #236).
+어드민은 gRPC 로 호출하지 않고 **DB 를 직접 바라본다** — 운영 조회·상태변경은 운영 단일 진실인
+`seller_settlement`(유저 DB) 직접 SELECT/UPDATE, 배치 실행은 정산 DB 의 예약 테이블(§2)로.
 
 - 설계: [architecture/admin-module-separation.md](architecture/admin-module-separation.md)
+- 운영 단일 진실(seller_settlement) 결정: [trade-offs/seller-settlement-separation.md](trade-offs/seller-settlement-separation.md)
 - 접근 방식 결정(직접 DB vs gRPC): [trade-offs/admin-data-access.md](trade-offs/admin-data-access.md)
 
 ## 2. 수동 정산 → 정산 예약 — 방식 확정 (상세 설계 예정)
