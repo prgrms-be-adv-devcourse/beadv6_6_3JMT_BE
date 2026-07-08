@@ -9,9 +9,6 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
 import java.util.concurrent.ExecutionException;
@@ -28,8 +25,7 @@ import java.util.concurrent.ExecutionException;
 public class OutboxRelay {
 
 	private final OutboxEventRepository outboxEventRepository;
-	private final KafkaTemplate<String, Object> kafkaTemplate;
-	private final ObjectMapper objectMapper;
+	private final KafkaTemplate<String, String> kafkaTemplate;
 	private final OutboxRelayProperties properties;
 
 	@Transactional
@@ -41,13 +37,12 @@ public class OutboxRelay {
 
 	private void publish(OutboxEvent event) {
 		try {
-			JsonNode payload = objectMapper.readTree(event.getPayload());
-			kafkaTemplate.send(event.getTopic(), event.getAggregateId().toString(), payload).get();
+			kafkaTemplate.send(event.getTopic(), event.getAggregateId().toString(), event.getPayload()).get();
 			event.markPublished(LocalDateTime.now());
 		} catch (InterruptedException exception) {
 			Thread.currentThread().interrupt();
 			recordFailure(event, exception);
-		} catch (ExecutionException | JacksonException exception) {
+		} catch (ExecutionException exception) {
 			recordFailure(event, exception);
 		}
 	}
