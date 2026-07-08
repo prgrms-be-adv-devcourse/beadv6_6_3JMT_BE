@@ -1,5 +1,6 @@
 package com.prompthub.user.sellersettlement.domain.model;
 
+import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementInvalidStateException;
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Entity;
@@ -107,5 +108,61 @@ public class SellerSettlement {
         this.refundAmount = refundAmount;
         this.calculatedAt = calculatedAt;
         this.status = SettlementDisplayStatus.WAITING;
+    }
+
+    public void approve() {
+        requireStatus(SettlementDisplayStatus.WAITING);
+        this.status = SettlementDisplayStatus.APPROVED;
+        this.approvedAt = LocalDateTime.now();
+    }
+
+    public void hold() {
+        requireStatus(SettlementDisplayStatus.WAITING);
+        this.status = SettlementDisplayStatus.APPROVAL_ON_HOLD;
+    }
+
+    public void releaseHold() {
+        requireStatus(SettlementDisplayStatus.APPROVAL_ON_HOLD);
+        this.status = SettlementDisplayStatus.WAITING;
+    }
+
+    public void requestPayout() {
+        requireStatus(SettlementDisplayStatus.APPROVED);
+        this.status = SettlementDisplayStatus.PAYOUT_REQUESTED;
+        this.payoutRequestedAt = LocalDateTime.now();
+    }
+
+    public void payout() {
+        requireStatus(SettlementDisplayStatus.PAYOUT_REQUESTED);
+        this.status = SettlementDisplayStatus.PAID;
+        this.paidAt = LocalDateTime.now();
+    }
+
+    public void payoutHold() {
+        requireStatus(SettlementDisplayStatus.PAYOUT_REQUESTED);
+        this.status = SettlementDisplayStatus.PAYOUT_ON_HOLD;
+    }
+
+    public void releasePayoutHold() {
+        requireStatus(SettlementDisplayStatus.PAYOUT_ON_HOLD);
+        this.status = SettlementDisplayStatus.PAYOUT_REQUESTED;
+    }
+
+    public void cancel() {
+        if (this.status == SettlementDisplayStatus.PAID || this.status == SettlementDisplayStatus.CANCELLED) {
+            throw new SellerSettlementInvalidStateException();
+        }
+        this.status = SettlementDisplayStatus.CANCELLED;
+        this.cancelledAt = LocalDateTime.now();
+    }
+
+    public boolean canRequestPayout() {
+        return this.status == SettlementDisplayStatus.APPROVED;
+    }
+
+    private void requireStatus(SettlementDisplayStatus expected) {
+        if (this.status != expected) {
+            throw new SellerSettlementInvalidStateException();
+        }
     }
 }
