@@ -24,10 +24,6 @@ spring:
       auto-offset-reset: earliest
       enable-auto-commit: false
 
-grpc:
-  server:
-    port: 9085
-
 settlement:
   scheduler:
     cron: "0 0 4 1 * *"
