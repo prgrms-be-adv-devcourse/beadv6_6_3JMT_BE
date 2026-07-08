@@ -36,12 +36,16 @@ public class KafkaSettlementEventPublisher implements SettlementEventPublisher {
                 message.settlementId(), message);
         try {
             kafkaTemplate.send(topic, message.settlementId().toString(), envelope)
+                    // 커밋 이후의 비동기 전송 실패(broker down 등)는 at-most-once 로 로깅만 한다.
+                    // (배치 스텝은 성공 — 재전송은 후속 아웃박스가 담당)
                     .whenComplete((result, ex) -> {
                         if (ex != null) {
                             log.error("정산 생성 이벤트 발행 실패(async). settlementId={}", message.settlementId(), ex);
                         }
                     });
         } catch (Exception e) {
+            // 동기 단계 실패(직렬화·설정 오류 등)는 코드/설정 버그일 가능성이 높아
+            // 예외로 던져 배치 스텝을 실패시켜 조기에 드러낸다.
             log.error("정산 생성 이벤트 발행 실패. settlementId={}", message.settlementId(), e);
             throw new SettlementException(SettlementErrorCode.SETTLEMENT_EVENT_PUBLISH_FAILED, e);
         }
