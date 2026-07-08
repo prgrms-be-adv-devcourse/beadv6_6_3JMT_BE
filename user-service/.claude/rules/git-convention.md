@@ -48,8 +48,9 @@
 
 ## 개발 환경
 
-- `prod` — 운영
-- `dev` — 개발
+프로파일은 `local`(개인 PC) / `dev`(AWS 개발서버, CD 배포) / `test`(빌드 테스트 전용)
+3단이다. **운영(prod) 서버는 없다** — `prod` 프로파일·`application-prod.yml`은 만들지
+않는다. 상세 규칙은 `docs/adr/config-management.md` 참고.
 
 ## 병합 전략
 

@@ -33,7 +33,6 @@ public class UserProductGrpcService extends ProductServiceGrpc.ProductServiceImp
 					.setTitle(p.title())
 					.setPrice(p.amount())
 					.setThumbnailUrl(p.thumbnailUrl() != null ? p.thumbnailUrl() : "")
-					.setCategory(p.category() != null ? p.category() : "")
 					.setModel(p.model() != null ? p.model() : "")
 					.setSalesCount(p.salesCount())
 					.setAverageRating(p.averageRating())

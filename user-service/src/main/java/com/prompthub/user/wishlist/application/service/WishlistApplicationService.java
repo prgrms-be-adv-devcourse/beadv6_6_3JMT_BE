@@ -112,7 +112,6 @@ public class WishlistApplicationService implements WishlistUseCase {
                     0.0,
                     0L,
                     null,
-                    null,
                     wishlist.getCreatedAt()
             );
         }
@@ -125,7 +124,6 @@ public class WishlistApplicationService implements WishlistUseCase {
                 sellerNameMap.getOrDefault(product.sellerId(), FALLBACK_SELLER),
                 product.averageRating(),
                 product.salesCount(),
-                product.category(),
                 product.model(),
                 wishlist.getCreatedAt()
         );

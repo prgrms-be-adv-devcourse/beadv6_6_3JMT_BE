@@ -42,8 +42,8 @@ out/
 *.env
 
 # 로컬 전용 설정 오버라이드 (DB 접속정보, 시크릿 등)
-src/main/resources/application-local.yml
-src/main/resources/application-local.yaml
+#src/main/resources/application-local.yml
+#src/main/resources/application-local.yaml
 src/main/resources/application-secret.yml
 src/main/resources/application-secret.yaml
 

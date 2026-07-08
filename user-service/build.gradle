@@ -15,7 +15,12 @@ dependencies {
     // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
 
-    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    // Kafka (settlement.created 소비 — user-service 자체 도입, 루트 build.gradle 미수정)
+    implementation 'org.springframework.boot:spring-boot-starter-kafka'
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'com.h2database:h2'
 }
 
 protobuf {

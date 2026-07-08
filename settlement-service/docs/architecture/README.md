@@ -8,8 +8,9 @@
 
 정산은 자기 DB만으로 끝나지 않는다. 매출/환불 원천은 배치 시점에 order 에서 gRPC 로 당겨와 쌓고,
 판매자명·상품 수는 조회 실행 중에 다른 서비스를 동기로 호출해 당겨온다. (밖으로 내보내는 지급 완료
-알림 발행은 추후·파이널. 어드민 모듈(admin-service)은 gRPC 가 아니라 정산 DB 를 직접 바라보므로
-rpc 계약이 없다 — 연동 카탈로그 §4.)
+알림 발행은 추후·파이널. 어드민 모듈(admin-service)은 gRPC 가 아니라 DB 를 직접 바라보므로
+rpc 계약이 없다 — 운영 조회·상태변경은 `seller_settlement`(유저 DB), 배치 예약·잡 상태는 정산 DB.
+연동 카탈로그 §4.)
 
 | 문서 | 내용 |
 | --- | --- |
@@ -22,7 +23,7 @@ rpc 계약이 없다 — 연동 카탈로그 §4.)
 
 | 문서 | 내용 |
 | --- | --- |
-| [admin-module-separation.md](admin-module-separation.md) | 어드민 API(`SettlementController`)를 신설 admin-service 로 이관하는 설계. 배치·스케줄러·판매자 API·배치 테스트용 수동 실행은 정산에 잔류. 어드민은 정산 DB 를 직접 접근(조회·상태변경)하고, 배치는 예약 테이블 + 폴링으로 실행. |
+| [admin-module-separation.md](admin-module-separation.md) | 어드민 API(`SettlementController`)를 신설 admin-service 로 이관하는 설계. 배치·스케줄러·배치 테스트용 수동 실행은 정산에 잔류(판매자 API 는 유저 모듈로 이관 — #236). 어드민은 운영 조회·상태변경을 `seller_settlement`(유저 DB) 직접 접근, 배치는 정산 DB 예약 테이블 + 폴링으로 실행. |
 | [../final-roadmap.md](../final-roadmap.md) | 파이널 고도화 전체 로드맵 — 어드민 분리, 수동 정산 → 정산 예약, AI 정산 어시스턴트(아이디어), 통계·대시보드. |
 
 ## 배포 (CI/CD)

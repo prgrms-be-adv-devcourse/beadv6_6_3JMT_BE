@@ -27,6 +27,7 @@ jobs:
       payment_service:    ${{ steps.filter.outputs.payment_service_any_changed }}
       order_service:      ${{ steps.filter.outputs.order_service_any_changed }}
       settlement_service: ${{ steps.filter.outputs.settlement_service_any_changed }}
+      admin_service:      ${{ steps.filter.outputs.admin_service_any_changed }}
       apigateway:         ${{ steps.filter.outputs.apigateway_any_changed }}
       config:             ${{ steps.filter.outputs.config_any_changed }}
       discovery:          ${{ steps.filter.outputs.discovery_any_changed }}
@@ -51,6 +52,8 @@ jobs:
               - order-service/**
             settlement_service:
               - settlement-service/**
+            admin_service:
+              - admin-service/**
             apigateway:
               - apigateway/**
             config:
@@ -100,6 +103,14 @@ jobs:
       module-name: settlement-service
       module-path: settlement-service
 
+  admin_service_ci:
+    needs: changes
+    if: needs.changes.outputs.admin_service == 'true' || needs.changes.outputs.common_module == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: admin-service
+      module-path: admin-service
+
   apigateway_ci:
     needs: changes
     if: needs.changes.outputs.apigateway == 'true'
@@ -140,6 +151,7 @@ jobs:
       - payment_service_ci
       - order_service_ci
       - settlement_service_ci
+      - admin_service_ci
       - apigateway_ci
       - config_ci
       - discovery_ci

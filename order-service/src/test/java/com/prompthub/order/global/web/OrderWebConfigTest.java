@@ -4,18 +4,15 @@ import com.prompthub.order.application.usecase.AdminOrderUseCase;
 import com.prompthub.order.application.usecase.CartUseCase;
 import com.prompthub.order.application.usecase.OrderUseCase;
 import com.prompthub.order.global.exception.ErrorCode;
-import com.prompthub.order.global.exception.GlobalExceptionHandler;
-import com.prompthub.order.presentation.AdminOrderController;
-import com.prompthub.order.presentation.CartController;
-import com.prompthub.order.presentation.OrderController;
 import com.prompthub.order.presentation.dto.response.CartResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
@@ -30,15 +27,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest({
-	AdminOrderController.class,
-	OrderController.class,
-	CartController.class
-})
-@Import({
-	WebConfig.class,
-	GlobalExceptionHandler.class
-})
+@SpringBootTest
+@ActiveProfiles("test")
+@AutoConfigureMockMvc
 class OrderWebConfigTest {
 
 	private static final UUID BUYER_ID = UUID.fromString("00000000-0000-0000-0000-000000000101");

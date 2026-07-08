@@ -7,8 +7,6 @@ import java.util.UUID;
 public record ProductDetailResponse(
 	UUID id,
 	String title,
-	String category,
-	String icon,
 	String productType,
 	String model,
 	int amount,
@@ -22,6 +20,7 @@ public record ProductDetailResponse(
 	String desc,
 	String thumbnail_url,
 	String content,
+	List<String> tags,
 	List<ProductVersionResponse> versions,
 	List<String> features,
 	LocalDateTime createdAt,

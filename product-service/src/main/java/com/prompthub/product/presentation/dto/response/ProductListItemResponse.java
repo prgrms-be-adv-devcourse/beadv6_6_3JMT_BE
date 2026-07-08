@@ -1,13 +1,12 @@
 package com.prompthub.product.presentation.dto.response;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public record ProductListItemResponse(
 	UUID id,
 	String title,
-	String category,
-	String icon,
 	String productType,
 	String model,
 	int amount,
@@ -19,6 +18,7 @@ public record ProductListItemResponse(
 	String badge,
 	String desc,
 	String thumbnail_url,
+	List<String> tags,
 	LocalDateTime createdAt,
 	LocalDateTime updatedAt
 ) {
