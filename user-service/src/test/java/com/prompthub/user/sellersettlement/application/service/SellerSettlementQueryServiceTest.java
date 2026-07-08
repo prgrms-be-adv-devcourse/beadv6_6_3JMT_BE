@@ -4,14 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 
 import com.prompthub.user.sellersettlement.application.dto.SellerSettlementListQuery;
-import com.prompthub.user.sellersettlement.application.dto.SellerSettlementListResult;
 import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
-import com.prompthub.user.sellersettlement.domain.model.SettlementDisplayStatus;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
+import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementListResponse;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -40,22 +38,23 @@ class SellerSettlementQueryServiceTest {
     }
 
     @Test
-    void getMySettlements_페이지를_Result로_변환() {
+    void getMySettlements_페이지를_Response로_변환() {
         UUID sellerId = UUID.randomUUID();
         SellerSettlement row = approvedRow(sellerId);
         given(sellerSettlementRepository.findPageBySeller(sellerId, null, null, 0, 10))
                 .willReturn(new SellerSettlementRepository.SellerSettlementPage(List.of(row), 1));
 
-        SellerSettlementListResult result = service.getMySettlements(
+        SellerSettlementListResponse result = service.getMySettlements(
                 new SellerSettlementListQuery(sellerId, null, null, 0, 10));
 
         assertThat(result.totalElements()).isEqualTo(1);
         assertThat(result.items()).hasSize(1);
-        SellerSettlementListResult.Item item = result.items().get(0);
+        SellerSettlementListResponse.Item item = result.items().get(0);
         assertThat(item.settlementId()).isEqualTo(row.getSettlementId());
-        assertThat(item.status()).isEqualTo(SettlementDisplayStatus.APPROVED);
+        assertThat(item.status()).isEqualTo("APPROVED");
         assertThat(item.payoutAmount()).isEqualByComparingTo("260000.00");
-        assertThat(item.canRequestPayout()).isTrue();
-        assertThat(item.period()).isEqualTo(YearMonth.of(2026, 6));
+        assertThat(item.availableActions()).extracting(SellerSettlementListResponse.Action::type)
+                .containsExactly("REQUEST_PAYOUT");
+        assertThat(item.period()).isEqualTo("2026-06");
     }
 }

@@ -1,9 +1,11 @@
-package com.prompthub.user.sellersettlement.presentation.controller.dto.response;
+package com.prompthub.user.sellersettlement.presentation.dto.response;
 
-import com.prompthub.user.sellersettlement.application.dto.SellerSettlementListResult;
+import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,9 +24,10 @@ public record SellerSettlementListResponse(
         int size
 ) {
 
-    public static SellerSettlementListResponse from(SellerSettlementListResult result) {
-        List<Item> items = result.items().stream().map(Item::from).toList();
-        return new SellerSettlementListResponse(items, result.totalElements(), result.page(), result.size());
+    public static SellerSettlementListResponse from(
+            SellerSettlementRepository.SellerSettlementPage page, int pageNo, int size) {
+        List<Item> items = page.content().stream().map(Item::from).toList();
+        return new SellerSettlementListResponse(items, page.totalElements(), pageNo, size);
     }
 
     @Schema(description = "판매자 정산 내역 항목")
@@ -66,20 +69,21 @@ public record SellerSettlementListResponse(
             List<Action> availableActions
     ) {
 
-        public static Item from(SellerSettlementListResult.Item item) {
-            List<Action> actions = item.canRequestPayout() ? List.of(Action.requestPayout()) : List.of();
+        public static Item from(SellerSettlement settlement) {
+            List<Action> actions = settlement.canRequestPayout()
+                    ? List.of(Action.requestPayout()) : List.of();
             return new Item(
-                    item.settlementId(),
-                    item.period().toString(),
-                    item.periodStart(),
-                    item.periodEnd(),
-                    item.salesCount(),
-                    item.grossAmount(),
-                    item.feeAmount(),
-                    item.refundAmount(),
-                    item.payoutAmount(),
-                    item.status().name(),
-                    item.status().getLabel(),
+                    settlement.getSettlementId(),
+                    YearMonth.from(settlement.getPeriodStart()).toString(),
+                    settlement.getPeriodStart(),
+                    settlement.getPeriodEnd(),
+                    settlement.getProductCount(),
+                    settlement.getTotalAmount(),
+                    settlement.getFeeTotalAmount(),
+                    settlement.getRefundAmount(),
+                    settlement.getSettlementTotalAmount(),
+                    settlement.getStatus().name(),
+                    settlement.getStatus().getLabel(),
                     actions);
         }
     }

@@ -1,4 +1,4 @@
-package com.prompthub.user.sellersettlement.domain.model;
+package com.prompthub.user.sellersettlement.domain.model.enums;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

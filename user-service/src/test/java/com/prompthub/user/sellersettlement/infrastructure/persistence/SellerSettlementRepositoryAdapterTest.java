@@ -5,7 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 
-import com.prompthub.user.sellersettlement.domain.model.SettlementDisplayStatus;
+import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
 import java.time.LocalDate;
 import java.time.YearMonth;

@@ -1,4 +1,4 @@
-package com.prompthub.user.sellersettlement.domain.model;
+package com.prompthub.user.sellersettlement.domain.model.enums;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

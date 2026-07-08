@@ -4,9 +4,9 @@ import com.prompthub.exception.response.ErrorResponse;
 import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.user.sellersettlement.application.dto.SellerSettlementListQuery;
 import com.prompthub.user.sellersettlement.application.usecase.SellerSettlementUseCase;
-import com.prompthub.user.sellersettlement.domain.model.SettlementDisplayStatus;
-import com.prompthub.user.sellersettlement.presentation.controller.dto.response.SellerSettlementListResponse;
-import com.prompthub.user.sellersettlement.presentation.controller.dto.response.SellerSettlementStatusResponse;
+import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
+import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementListResponse;
+import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementStatusResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,7 +19,6 @@ import java.time.YearMonth;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -48,7 +47,7 @@ public class SellerSettlementController {
             @ApiResponse(responseCode = "403", description = "SELLER 권한 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    public ResponseEntity<ApiResult<SellerSettlementListResponse>> getMySettlements(
+    public ApiResult<SellerSettlementListResponse> getMySettlements(
             @Parameter(hidden = true)
             @RequestHeader("X-User-Id") UUID sellerId,
             @Parameter(description = "표시 상태 필터(미지정 시 전체)")
@@ -58,10 +57,8 @@ public class SellerSettlementController {
             @Parameter(description = "0-base 페이지 번호") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "페이지 크기") @RequestParam(defaultValue = "10") int size
     ) {
-        SellerSettlementListResponse response = SellerSettlementListResponse.from(
-                sellerSettlementUseCase.getMySettlements(
-                        new SellerSettlementListQuery(sellerId, status, period, page, size)));
-        return ResponseEntity.ok(ApiResult.success(response));
+        return ApiResult.success(sellerSettlementUseCase.getMySettlements(
+                new SellerSettlementListQuery(sellerId, status, period, page, size)));
     }
 
     @PatchMapping("/{settlementId}/payout-request")
@@ -77,13 +74,11 @@ public class SellerSettlementController {
             @ApiResponse(responseCode = "409", description = "승인 상태가 아니라 신청 불가",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    public ResponseEntity<ApiResult<SellerSettlementStatusResponse>> requestPayout(
+    public ApiResult<SellerSettlementStatusResponse> requestPayout(
             @Parameter(hidden = true)
             @RequestHeader("X-User-Id") UUID sellerId,
             @Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId
     ) {
-        SellerSettlementStatusResponse response = SellerSettlementStatusResponse.from(
-                sellerSettlementUseCase.requestPayout(sellerId, settlementId));
-        return ResponseEntity.ok(ApiResult.success(response));
+        return ApiResult.success(sellerSettlementUseCase.requestPayout(sellerId, settlementId));
     }
 }

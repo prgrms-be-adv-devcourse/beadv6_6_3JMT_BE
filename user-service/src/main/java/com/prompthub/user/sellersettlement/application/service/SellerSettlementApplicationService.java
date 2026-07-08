@@ -1,8 +1,6 @@
 package com.prompthub.user.sellersettlement.application.service;
 
 import com.prompthub.user.sellersettlement.application.dto.SellerSettlementListQuery;
-import com.prompthub.user.sellersettlement.application.dto.SellerSettlementListResult;
-import com.prompthub.user.sellersettlement.application.dto.SellerSettlementResult;
 import com.prompthub.user.sellersettlement.application.event.SettlementCreatedMessage;
 import com.prompthub.user.sellersettlement.application.usecase.SeedSellerSettlementUseCase;
 import com.prompthub.user.sellersettlement.application.usecase.SellerSettlementUseCase;
@@ -10,6 +8,8 @@ import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementAcce
 import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementNotFoundException;
 import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
+import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementListResponse;
+import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementStatusResponse;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -37,15 +37,15 @@ public class SellerSettlementApplicationService implements SeedSellerSettlementU
 
     @Override
     @Transactional(readOnly = true)
-    public SellerSettlementListResult getMySettlements(SellerSettlementListQuery query) {
+    public SellerSettlementListResponse getMySettlements(SellerSettlementListQuery query) {
         SellerSettlementRepository.SellerSettlementPage page = sellerSettlementRepository.findPageBySeller(
                 query.sellerId(), query.status(), query.period(), query.page(), query.size());
-        return SellerSettlementListResult.from(page, query.page(), query.size());
+        return SellerSettlementListResponse.from(page, query.page(), query.size());
     }
 
     @Override
     @Transactional
-    public SellerSettlementResult requestPayout(UUID sellerId, UUID settlementId) {
+    public SellerSettlementStatusResponse requestPayout(UUID sellerId, UUID settlementId) {
         SellerSettlement settlement = sellerSettlementRepository.findBySettlementId(settlementId)
                 .orElseThrow(SellerSettlementNotFoundException::new);
         if (!settlement.getSellerId().equals(sellerId)) {
@@ -53,6 +53,6 @@ public class SellerSettlementApplicationService implements SeedSellerSettlementU
         }
         settlement.requestPayout();
         sellerSettlementRepository.save(settlement);
-        return SellerSettlementResult.from(settlement);
+        return SellerSettlementStatusResponse.from(settlement);
     }
 }

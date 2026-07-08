@@ -1,7 +1,7 @@
 package com.prompthub.user.sellersettlement.infrastructure.persistence;
 
 import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
-import com.prompthub.user.sellersettlement.domain.model.SettlementDisplayStatus;
+import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
 import java.time.LocalDate;
 import java.time.YearMonth;

@@ -25,7 +25,7 @@ import org.springframework.util.backoff.FixedBackOff;
 
 @EnableKafka
 @Configuration
-public class KafkaConsumerConfig {
+public class KafkaConfig {
 
     private static final long RETRY_INTERVAL_MS = 1_000L;
     private static final long MAX_RETRY_ATTEMPTS = 3L;
@@ -35,7 +35,7 @@ public class KafkaConsumerConfig {
     private final String autoOffsetReset;
     private final boolean enableAutoCommit;
 
-    public KafkaConsumerConfig(
+    public KafkaConfig(
             @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
             @Value("${spring.kafka.consumer.group-id}") String groupId,
             @Value("${spring.kafka.consumer.auto-offset-reset:earliest}") String autoOffsetReset,

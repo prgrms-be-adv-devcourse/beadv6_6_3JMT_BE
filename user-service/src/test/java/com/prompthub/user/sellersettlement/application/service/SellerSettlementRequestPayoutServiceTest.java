@@ -5,13 +5,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
 
-import com.prompthub.user.sellersettlement.application.dto.SellerSettlementResult;
 import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementAccessDeniedException;
 import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementInvalidStateException;
 import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementNotFoundException;
 import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
-import com.prompthub.user.sellersettlement.domain.model.SettlementDisplayStatus;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
+import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementStatusResponse;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -49,9 +48,9 @@ class SellerSettlementRequestPayoutServiceTest {
         given(sellerSettlementRepository.findBySettlementId(settlementId)).willReturn(Optional.of(row));
         given(sellerSettlementRepository.save(row)).willReturn(row);
 
-        SellerSettlementResult result = service.requestPayout(sellerId, settlementId);
+        SellerSettlementStatusResponse result = service.requestPayout(sellerId, settlementId);
 
-        assertThat(result.status()).isEqualTo(SettlementDisplayStatus.PAYOUT_REQUESTED);
+        assertThat(result.status()).isEqualTo("PAYOUT_REQUESTED");
     }
 
     @Test

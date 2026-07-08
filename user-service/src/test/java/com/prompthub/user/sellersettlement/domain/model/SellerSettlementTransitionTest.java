@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementInvalidStateException;
+import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;

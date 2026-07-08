@@ -19,8 +19,6 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 public class SettlementEventConsumer {
 
-    private static final String EVENT_SETTLEMENT_CREATED = "settlement.created";
-
     private final ObjectMapper objectMapper;
     private final SeedSellerSettlementUseCase seedSellerSettlementUseCase;
 
@@ -32,14 +30,16 @@ public class SettlementEventConsumer {
     )
     public void consume(String message, Acknowledgment acknowledgment) {
         JsonNode root = readTree(message);
-        String eventType = root.path("eventType").stringValue(null);
+        String eventTypeStr = root.path("eventType").stringValue(null);
+        SettlementEventType eventType = SettlementEventType.from(eventTypeStr);
 
-        if (EVENT_SETTLEMENT_CREATED.equals(eventType)) {
-            SettlementEventEnvelope<SettlementCreatedMessage> envelope =
-                    toEnvelope(root, SettlementCreatedMessage.class);
-            seedSellerSettlementUseCase.seed(envelope.payload());
-        } else {
-            log.warn("지원하지 않는 정산 이벤트 타입입니다. eventType={}", eventType);
+        switch (eventType) {
+            case SETTLEMENT_CREATED -> {
+                SettlementEventEnvelope<SettlementCreatedMessage> envelope =
+                        toEnvelope(root, SettlementCreatedMessage.class);
+                seedSellerSettlementUseCase.seed(envelope.payload());
+            }
+            case UNKNOWN -> log.warn("지원하지 않는 정산 이벤트 타입입니다. eventType={}", eventTypeStr);
         }
 
         acknowledgment.acknowledge();

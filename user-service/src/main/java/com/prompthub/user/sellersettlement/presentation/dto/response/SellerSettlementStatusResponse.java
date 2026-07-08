@@ -1,7 +1,7 @@
-package com.prompthub.user.sellersettlement.presentation.controller.dto.response;
+package com.prompthub.user.sellersettlement.presentation.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.prompthub.user.sellersettlement.application.dto.SellerSettlementResult;
+import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -31,14 +31,14 @@ public record SellerSettlementStatusResponse(
         LocalDateTime cancelledAt
 ) {
 
-    public static SellerSettlementStatusResponse from(SellerSettlementResult result) {
+    public static SellerSettlementStatusResponse from(SellerSettlement settlement) {
         return new SellerSettlementStatusResponse(
-                result.settlementId(),
-                result.status().name(),
-                result.status().getLabel(),
-                result.approvedAt(),
-                result.payoutRequestedAt(),
-                result.paidAt(),
-                result.cancelledAt());
+                settlement.getSettlementId(),
+                settlement.getStatus().name(),
+                settlement.getStatus().getLabel(),
+                settlement.getApprovedAt(),
+                settlement.getPayoutRequestedAt(),
+                settlement.getPaidAt(),
+                settlement.getCancelledAt());
     }
 }

@@ -2,6 +2,7 @@ package com.prompthub.user.sellersettlement.domain.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;

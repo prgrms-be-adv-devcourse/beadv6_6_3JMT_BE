@@ -1,13 +1,13 @@
 package com.prompthub.user.sellersettlement.application.usecase;
 
 import com.prompthub.user.sellersettlement.application.dto.SellerSettlementListQuery;
-import com.prompthub.user.sellersettlement.application.dto.SellerSettlementListResult;
-import com.prompthub.user.sellersettlement.application.dto.SellerSettlementResult;
+import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementListResponse;
+import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementStatusResponse;
 import java.util.UUID;
 
 public interface SellerSettlementUseCase {
 
-    SellerSettlementListResult getMySettlements(SellerSettlementListQuery query);
+    SellerSettlementListResponse getMySettlements(SellerSettlementListQuery query);
 
-    SellerSettlementResult requestPayout(UUID sellerId, UUID settlementId);
+    SellerSettlementStatusResponse requestPayout(UUID sellerId, UUID settlementId);
 }

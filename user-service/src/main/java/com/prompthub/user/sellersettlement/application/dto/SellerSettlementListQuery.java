@@ -1,6 +1,6 @@
 package com.prompthub.user.sellersettlement.application.dto;
 
-import com.prompthub.user.sellersettlement.domain.model.SettlementDisplayStatus;
+import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
 import java.time.YearMonth;
 import java.util.UUID;
 

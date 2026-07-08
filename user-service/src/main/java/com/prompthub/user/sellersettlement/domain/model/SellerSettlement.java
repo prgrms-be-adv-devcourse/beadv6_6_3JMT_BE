@@ -1,6 +1,7 @@
 package com.prompthub.user.sellersettlement.domain.model;
 
 import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementInvalidStateException;
+import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Entity;
