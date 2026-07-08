@@ -50,7 +50,6 @@ public class ProductGrpcClient implements ProductClient {
                 product.getTitle(),
                 product.getPrice(),
                 thumbnailUrl,
-                product.getCategory(),
                 product.getModel(),
                 product.getSalesCount(),
                 product.getAverageRating(),

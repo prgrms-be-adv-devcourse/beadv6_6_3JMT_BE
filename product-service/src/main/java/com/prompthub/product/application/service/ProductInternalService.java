@@ -39,7 +39,7 @@ public class ProductInternalService implements ProductInternalUseCase {
 				p.getName(),
 				p.getAmount(),
 				p.getThumbnailUrl(),
-				p.getCategory() != null ? p.getCategory().getCode() : "",
+				p.getProductType().name(),
 				p.getModel() != null ? p.getModel() : "",
 				p.getSalesCount(),
 				productRepository.getAverageRating(p.getId()),

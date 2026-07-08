@@ -7,7 +7,6 @@ import java.util.List;
 
 public record ProductUpdateRequest(
 	@NotBlank String title,
-	@NotBlank String category,
 	String productType,
 	@NotBlank String model,
 	@NotBlank String desc,

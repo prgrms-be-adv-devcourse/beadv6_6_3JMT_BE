@@ -86,21 +86,6 @@
 
 ## Product Service
 
-### category
-
-| 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
-|------|------|:--------:|--------|------|
-| id | UUID | ✓ | gen_random_uuid() | PK |
-| parent_id | UUID | | NULL | 부모 카테고리 FK (자기 참조). 최상위는 NULL |
-| code | VARCHAR(50) | ✓ | | 카테고리 코드. API 필터/응답 식별값. UNIQUE |
-| name | VARCHAR(100) | ✓ | | 카테고리 표시명 (화면 노출용) |
-| icon | VARCHAR(50) | | NULL | 아이콘 slug. FE ICON_MAP key (예: `pen-line`, `code-xml`) |
-| display_order | INT | ✓ | 0 | 노출 순서 |
-| created_at | TIMESTAMPTZ | ✓ | | |
-| updated_at | TIMESTAMPTZ | ✓ | | |
-
----
-
 ### product
 
 | 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
@@ -108,13 +93,12 @@
 | id | UUID | ✓ | gen_random_uuid() | PK |
 | parent_id | UUID | | NULL | FK → product.id. 최초 등록 시 NULL, 버전업 시 원본 상품 id |
 | seller_id | UUID | ✓ | | FK → seller.seller_id |
-| category_id | UUID | | NULL | FK → category.category_id |
 | major_version | SMALLINT | ✓ | 1 | 메이저 버전. MAJOR 선택 시 +1, patch_version 0 리셋 |
 | patch_version | SMALLINT | ✓ | 0 | 패치 버전. PATCH 선택 시 +1. 표기: major.patch |
 | change_reason | VARCHAR(500) | | NULL | 버전업 변경 사유 |
 | name | VARCHAR(200) | ✓ | | 상품명 |
 | description | TEXT | ✓ | | 상품 상세 설명 |
-| product_type | VARCHAR(50) | ✓ | | 상품 유형. PROMPT / TEMPLATE / DATASET / IMAGE_ASSET |
+| product_type | VARCHAR(50) | ✓ | | 상품 유형. PROMPT / NOTION / PPT / EXCEL |
 | model | VARCHAR(100) | | NULL | 판매자가 입력하는 대상 AI 모델명 (예: GPT-4o, Midjourney v6) |
 | amount_type | VARCHAR(20) | ✓ | PAID | FREE / PAID (CHECK constraint) |
 | amount | INT | ✓ | 0 | 판매 가격 |

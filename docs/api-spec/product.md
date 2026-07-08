@@ -25,7 +25,7 @@
 | 파라미터 | 타입 | 필수 | 기본값 | 설명 |
 |---------|------|------|--------|------|
 | q | string | N | `""` | 제목/설명 검색 |
-| category | string | N | `"all"` | `all\|image\|writing\|coding\|marketing\|chatbot\|data` |
+| productType | string | N | `"all"` | `all\|PROMPT\|NOTION\|PPT\|EXCEL` |
 | sort | string | N | `"popular"` | `popular\|rating\|price-asc\|price-desc` |
 | page | number | N | `1` | 페이지 번호 |
 | size | number | N | `20` | 페이지당 항목 수 |
@@ -41,8 +41,6 @@
     {
       "id": "uuid",
       "title": "사진 같은 제품 목업 생성기",
-      "category": "image",
-      "icon": "image",
       "productType": "PROMPT",
       "model": "Midjourney v6",
       "amount": 5900,
@@ -54,6 +52,7 @@
       "badge": "신규",
       "desc": "상품 설명",
       "thumbnail_url": null,
+      "tags": ["이미지생성", "목업"],
       "createdAt": "2026-05-01T00:00:00.000Z",
       "updatedAt": "2026-06-01T00:00:00.000Z"
     }
@@ -72,9 +71,7 @@
 |------|------|------|
 | id | string | 상품 ID |
 | title | string | 상품명 |
-| category | string | 카테고리 |
-| icon | string | 아이콘 |
-| productType | string | 상품 유형 (`PROMPT` \| `TEMPLATE` \| `DATASET` \| `IMAGE_ASSET`) |
+| productType | string | 상품 유형 (`PROMPT` \| `NOTION` \| `PPT` \| `EXCEL`) |
 | model | string | 대상 AI 모델 |
 | amount | integer | 현재 가격 |
 | originalAmount | integer \| null | 할인 전 원래 가격 (할인 없으면 null) |
@@ -85,6 +82,7 @@
 | badge | string | 뱃지 (`신규` 등) |
 | desc | string | 상품 설명 |
 | thumbnail_url | string \| null | 썸네일 이미지 URL |
+| tags | string[] | 판매자 지정 태그 목록 |
 | createdAt | string | 생성일시 (ISO 8601) |
 | updatedAt | string | 수정일시 (ISO 8601) |
 | meta.page | integer | 현재 페이지 번호 |
@@ -114,8 +112,6 @@
   "data": {
     "id": "uuid",
     "title": "사진 같은 제품 목업 생성기",
-    "category": "image",
-    "icon": "image",
     "productType": "PROMPT",
     "model": "Midjourney v6",
     "amount": 5900,
@@ -129,6 +125,7 @@
     "desc": "상품 설명",
     "thumbnail_url": null,
     "content": "[상품명]\n\n전체 내용은 구매 후 확인...",
+    "tags": ["이미지생성", "목업"],
     "versions": [
       { "ver": "v1.3", "date": "2026-06-01", "note": "조명 프리셋 3종 추가" },
       { "ver": "v1.2", "date": "2026-05-10", "note": "배경 제거 옵션 개선" }
@@ -146,7 +143,7 @@
 ### GET /products/{productId}/related — 연관 상품 조회
 
 - 인증: 불필요
-- 동일 카테고리 상품 배열 반환
+- 동일 productType 상품 배열 반환
 
 #### Query Parameters
 
@@ -219,7 +216,6 @@
 ```json
 {
   "title": "새 프롬프트 제목",
-  "category": "coding",
   "productType": "PROMPT",
   "model": "Claude 3.5",
   "desc": "설명",
@@ -233,7 +229,7 @@
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | title | string | Y | 상품명 |
-| category | string | Y | 카테고리 |
+| productType | string | N | 상품 유형 (`PROMPT` \| `NOTION` \| `PPT` \| `EXCEL`, 기본값 `PROMPT`) |
 | model | string | Y | 대상 AI 모델 |
 | desc | string | Y | 상품 설명 |
 | amount | integer | Y | 가격 |
@@ -252,7 +248,7 @@
     "productId": "uuid",
     "sellerId": "uuid",
     "title": "새 프롬프트 제목",
-    "category": "coding",
+    "productType": "PROMPT",
     "model": "Claude 3.5",
     "desc": "설명",
     "amount": 5000,
@@ -285,7 +281,7 @@
 ```json
 {
   "title": "수정된 제목",
-  "category": "coding",
+  "productType": "PROMPT",
   "model": "Claude 3.5",
   "desc": "수정된 설명",
   "amount": 6000,
@@ -300,7 +296,7 @@
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | title | string | Y | 상품명 |
-| category | string | Y | 카테고리 |
+| productType | string | N | 상품 유형 (`PROMPT` \| `NOTION` \| `PPT` \| `EXCEL`, 기본값 `PROMPT`) |
 | model | string | Y | 대상 AI 모델 |
 | desc | string | Y | 상품 설명 |
 | amount | integer | Y | 가격 |
@@ -373,7 +369,6 @@
     {
       "productId": "uuid",
       "title": "상품명",
-      "category": "coding",
       "productType": "PROMPT",
       "model": "Claude 3.5",
       "amount": 5000,
@@ -393,8 +388,7 @@
 |------|------|------|
 | productId | string | 상품 ID |
 | title | string | 상품명 |
-| category | string | 카테고리 |
-| productType | string | 상품 유형 (`PROMPT` \| `TEMPLATE` \| `DATASET` \| `IMAGE_ASSET`) |
+| productType | string | 상품 유형 (`PROMPT` \| `NOTION` \| `PPT` \| `EXCEL`) |
 | model | string | 대상 AI 모델 |
 | amount | integer | 가격 |
 | status | string | `DRAFT` \| `PENDING_REVIEW` \| `ON_SALE` \| `REJECTED` \| `STOPPED` |
@@ -422,7 +416,6 @@
   "data": {
     "productId": "uuid",
     "title": "상품명",
-    "category": "coding",
     "productType": "PROMPT",
     "model": "Claude 3.5",
     "amount": 5000,
@@ -458,7 +451,6 @@
     {
       "productId": "uuid",
       "title": "상품명",
-      "category": "coding",
       "sellerId": "uuid",
       "productType": "PROMPT",
       "model": "Claude 3.5",
@@ -554,7 +546,8 @@
     "productId": "uuid",
     "sellerId": "uuid",
     "title": "상품명",
-    "productType": "GPT-4o",
+    "productType": "PROMPT",
+    "model": "GPT-4o",
     "amount": 5000
   }
 ]
@@ -572,7 +565,8 @@
 {
   "productId": "uuid",
   "title": "상품명",
-  "productType": "GPT-4o",
+  "productType": "PROMPT",
+  "model": "GPT-4o",
   "amount": 5000,
   "thumbnailUrl": "https://...",
   "sellerId": "uuid",
