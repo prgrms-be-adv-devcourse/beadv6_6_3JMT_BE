@@ -96,7 +96,7 @@ class OrderTest {
 			// when & then
 			assertThatThrownBy(order::markPaid)
 				.isInstanceOf(OrderException.class)
-				.hasMessage("대기 상태의 주문만 처리할 수 있습니다.");
+				.hasMessageContaining("변경할 수 없습니다.");
 		}
 	}
 
@@ -132,7 +132,7 @@ class OrderTest {
 			// when & then
 			assertThatThrownBy(order::markFailed)
 				.isInstanceOf(OrderException.class)
-				.hasMessage("대기 상태의 주문만 처리할 수 있습니다.");
+				.hasMessageContaining("변경할 수 없습니다.");
 		}
 	}
 
@@ -141,13 +141,12 @@ class OrderTest {
 	class Cancel {
 
 		@Test
-		@DisplayName("PAID 상태의 주문은 CANCELED 상태로 변경할 수 있다")
-		void cancel_paidOrder_success() {
+		@DisplayName("PENDING 상태의 주문은 CANCELED 상태로 변경할 수 있다")
+		void cancel_pendingOrder_success() {
 			// given
 			Order order = createPendingOrder();
 			OrderProduct orderProduct = createOrderProduct1();
 			order.addOrderProduct(orderProduct);
-			order.markPaid();
 
 			// when
 			order.cancel();
@@ -162,15 +161,54 @@ class OrderTest {
 		}
 
 		@Test
-		@DisplayName("PAID 상태가 아닌 주문은 취소할 수 없다")
-		void cancel_notPaidOrder_throwsException() {
+		@DisplayName("PAID 상태의 주문은 취소할 수 없다")
+		void cancel_paidOrder_throwsException() {
 			// given
 			Order order = createPendingOrder();
+			order.markPaid();
 
 			// when & then
 			assertThatThrownBy(order::cancel)
 				.isInstanceOf(OrderException.class)
-				.hasMessage("결제 완료 상태의 주문만 취소할 수 있습니다.");
+				.hasMessageContaining("변경할 수 없습니다.");
+		}
+	}
+
+	@Nested
+	@DisplayName("주문 마크 취소")
+	class MarkCanceled {
+
+		@Test
+		@DisplayName("PENDING 상태의 주문은 markCanceled를 통해 CANCELED 상태로 변경할 수 있다")
+		void markCanceled_pendingOrder_success() {
+			// given
+			Order order = createPendingOrder();
+			OrderProduct orderProduct = createOrderProduct1();
+			order.addOrderProduct(orderProduct);
+
+			// when
+			order.markCanceled();
+
+			// then
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+			assertThat(order.getCanceledAt()).isNotNull();
+			assertThat(order.getUpdatedAt()).isNotNull();
+
+			assertThat(orderProduct.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+			assertThat(orderProduct.getCanceledAt()).isNotNull();
+		}
+
+		@Test
+		@DisplayName("PAID 상태의 주문은 markCanceled를 통해 취소할 수 없다")
+		void markCanceled_paidOrder_throwsException() {
+			// given
+			Order order = createPendingOrder();
+			order.markPaid();
+
+			// when & then
+			assertThatThrownBy(order::markCanceled)
+				.isInstanceOf(OrderException.class)
+				.hasMessageContaining("변경할 수 없습니다.");
 		}
 	}
 
@@ -208,7 +246,7 @@ class OrderTest {
 			// when & then
 			assertThatThrownBy(order::refund)
 				.isInstanceOf(OrderException.class)
-				.hasMessage("결제 완료 상태의 주문만 환불할 수 있습니다.");
+				.hasMessageContaining("변경할 수 없습니다.");
 		}
 	}
 
