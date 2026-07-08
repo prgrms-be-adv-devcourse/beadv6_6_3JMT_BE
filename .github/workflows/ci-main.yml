@@ -5,7 +5,7 @@ name: CI - Main
 
 on:
   pull_request:
-    branches: ["main", "infra"]
+    branches: ["main"]
     types:
       - opened
       - synchronize
@@ -80,7 +80,6 @@ jobs:
               - settings.gradle.kts
               - build.gradle.kts
               - gradle/**
-              - .github/workflows/**
 
   user_service_ci:
     needs: changes
