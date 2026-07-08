@@ -21,6 +21,10 @@ spring:
       ddl-auto: create-drop
     open-in-view: false
 
+grpc:
+  server:
+    port: 0
+
 prompthub:
   outbox-relay:
     enabled: false
