@@ -6,6 +6,8 @@ import com.prompthub.paymentservice.support.AbstractJpaTest;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

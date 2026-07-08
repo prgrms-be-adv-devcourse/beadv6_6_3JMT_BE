@@ -8,6 +8,7 @@ import com.nimbusds.jose.proc.SecurityContext;
 import com.prompthub.user.global.config.JwtProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -21,6 +22,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
 @Configuration
+@Profile("!test")
 public class JwtConfig {
 
     private static final String PEM_HEADER_FOOTER_REGEX = "-----[^-]+-----|\\s";

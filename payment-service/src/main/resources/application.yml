@@ -1,11 +1,10 @@
 spring:
   application:
-    name: product-service
+    name: payment-service
   config:
     import:
+      - optional:file:.env[.properties]
       - optional:configserver:http://localhost:8888
-      - optional:file:./.env[.properties]
-      - optional:file:./product-service/.env[.properties]
   profiles:
     default: local
   cloud:
