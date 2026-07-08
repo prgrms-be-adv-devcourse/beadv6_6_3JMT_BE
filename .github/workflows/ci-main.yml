@@ -5,8 +5,7 @@ name: CI - Main
 
 on:
   pull_request:
-    branches:
-      - main, infra
+    branches: ["main", "infra"]
     types:
       - opened
       - synchronize

@@ -2,7 +2,7 @@ name: CD - Parallel Self-hosted Compose
 
 on:
   push:
-    branches: [develop,infra]
+    branches: ["develop", "infra"]
   workflow_dispatch:
     inputs:
       rebuild_all:
