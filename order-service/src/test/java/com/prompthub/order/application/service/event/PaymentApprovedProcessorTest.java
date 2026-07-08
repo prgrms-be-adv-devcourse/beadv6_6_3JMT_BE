@@ -129,4 +129,38 @@ class PaymentApprovedProcessorTest {
             .isInstanceOf(OrderException.class)
             .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
     }
+
+    @Test
+    @DisplayName("이미 FAILED 상태인 주문은 PAID로 변경할 수 없으며 상태 변경 없이 처리 완료된다")
+    void process_fromFailedToPaid_ignored() {
+        Order order = createPendingOrderWithProducts();
+        order.markFailed(); // status FAILED
+        PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), TOTAL_AMOUNT);
+        UUID eventId = UUID.randomUUID();
+
+        given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
+        given(orderRepository.findByIdWithOrderProducts(payload.orderId())).willReturn(Optional.of(order));
+
+        processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, payload);
+
+        then(processedEventService).should().markProcessed(eventId, "order-service", "PAYMENT_APPROVED", APPROVED_AT);
+        then(orderPaymentRepository).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("이미 CANCELED 상태인 주문은 PAID로 변경할 수 없으며 상태 변경 없이 처리 완료된다")
+    void process_fromCanceledToPaid_ignored() {
+        Order order = createPendingOrderWithProducts();
+        order.markCanceled(); // status CANCELED
+        PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), TOTAL_AMOUNT);
+        UUID eventId = UUID.randomUUID();
+
+        given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
+        given(orderRepository.findByIdWithOrderProducts(payload.orderId())).willReturn(Optional.of(order));
+
+        processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, payload);
+
+        then(processedEventService).should().markProcessed(eventId, "order-service", "PAYMENT_APPROVED", APPROVED_AT);
+        then(orderPaymentRepository).should(never()).save(any());
+    }
 }
