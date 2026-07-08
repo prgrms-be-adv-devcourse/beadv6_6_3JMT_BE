@@ -645,3 +645,94 @@ cart-snapshot 배열 반환
   "productCount": 12
 }
 ```
+
+## Kafka 이벤트
+
+### 발행 (Producer)
+
+#### `product-events`
+
+`ProductEventProducer`가 발행한다. key는 `productId`(문자열).
+
+| eventType | 발행 시점 | payload |
+|---|---|---|
+| `PRODUCT_DELETED` | 상품 삭제 시 | `productId`, `occurredAt` |
+| `PRODUCT_PRICE_CHANGED` | 상품 가격 변경 시 | `productId`, `previousPrice`, `changedPrice`, `occurredAt` |
+| `PRODUCT_STOPPED` | 상품 판매 중지 시 | `productId`, `occurredAt` |
+
+예시 (`PRODUCT_PRICE_CHANGED`):
+
+```json
+{
+  "eventType": "PRODUCT_PRICE_CHANGED",
+  "productId": "uuid",
+  "previousPrice": 10000,
+  "changedPrice": 8000,
+  "occurredAt": "2026-07-07T12:00:00"
+}
+```
+
+### 구독 (Consumer)
+
+#### `order-events`
+
+`OrderEventConsumer`가 구독한다(`group=product-service`, 수동 커밋).
+
+| eventType | 처리 |
+|---|---|
+| `ORDER_PAID` | `payload.products[].productId` 목록의 판매량(salesCount) 증가 |
+| `ORDER_REFUND` | 위 목록의 판매량 감소 |
+| 그 외 | 무시(로그만 남김) |
+
+예상 payload 구조:
+
+```json
+{
+  "eventType": "ORDER_PAID",
+  "payload": {
+    "products": [
+      { "productId": "uuid" }
+    ]
+  }
+}
+```
+
+## gRPC
+
+### 제공 (Server)
+
+product-service가 서버로 구현해 다른 서비스에 노출하는 서비스다.
+
+#### `ProductQueryService` (소비: settlement-service)
+
+| rpc | 요청 | 응답 |
+|---|---|---|
+| `CountBySeller` | `seller_id` | `seller_id`, `product_count` |
+
+#### `ProductInternalService` (소비: order-service)
+
+| rpc | 요청 | 응답 |
+|---|---|---|
+| `GetOrderSnapshots` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `title`, `product_type`, `amount`, `model` |
+| `GetCartSnapshots` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `seller_nickname`, `title`, `product_type`, `amount`, `thumbnail_url` |
+| `GetProductContent` | `product_id` | `product_id`, `content` |
+
+#### `ProductService` (소비: user-service)
+
+| rpc | 요청 | 응답 |
+|---|---|---|
+| `GetProductsByIds` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `title`, `price`, `thumbnail_url`, `category`, `model`, `sales_count`, `average_rating`, `status` |
+
+### 소비 (Client)
+
+product-service가 클라이언트로 호출하는, 다른 서비스가 제공하는 서비스다.
+
+#### `SellerQueryService` (제공: user-service)
+
+| rpc | 요청 | 응답 |
+|---|---|---|
+| `FindSellers` | `seller_ids[]` | `sellers[]`: `SellerInfo` |
+| `GetSeller` | `seller_id` | `SellerInfo`(`seller_id`, `seller_name`, `profile_image_url`, `status`) |
+
+> `FindSellers`는 이 문서 상단 gRPC 네이밍 컨벤션(`Get{Entity}`)과 다르지만, user-service가
+> 소유한 계약이라 product-service 쪽에서 리네임 후 적용한다.
