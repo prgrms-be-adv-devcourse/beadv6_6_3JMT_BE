@@ -15,12 +15,14 @@ import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.infra.messaging.kafka.event.OrderPaidPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentApprovedProcessor {
@@ -51,7 +53,10 @@ public class PaymentApprovedProcessor {
                 .orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
         if (order.getOrderStatus() != OrderStatus.PENDING) {
-            throw new OrderException(ErrorCode.ORDER_ALREADY_PROCESSED);
+            log.warn("이미 처리된 주문이거나 금지된 상태 전이 시도입니다. 상태 변경 무시. eventId={}, eventType={}, orderId={}, currentStatus={}",
+                    eventId, eventType, payload.orderId(), order.getOrderStatus());
+            processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
+            return;
         }
 
         orderPolicyService.validatePaymentApproval(order, payload);
@@ -88,5 +93,8 @@ public class PaymentApprovedProcessor {
 
         cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId())
                 .ifPresent(cart -> cart.removeProductsByProductIds(orderedProductIds));
+
+        log.info("결제 이벤트 처리 완료. eventId={}, eventType={}, orderId={}, targetStatus={}, consumerGroup={}",
+                eventId, eventType, payload.orderId(), OrderStatus.PAID, CONSUMER_GROUP);
     }
 }
