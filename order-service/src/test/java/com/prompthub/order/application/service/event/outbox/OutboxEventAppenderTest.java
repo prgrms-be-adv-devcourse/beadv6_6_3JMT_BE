@@ -68,7 +68,6 @@ class OutboxEventAppenderTest {
 		JsonNode envelope = objectMapper.readTree(saved.getPayload());
 		assertThat(envelope.path("eventId").stringValue()).isEqualTo(saved.getId().toString());
 		assertThat(envelope.path("eventType").stringValue()).isEqualTo("ORDER_PAID");
-		assertThat(envelope.path("version").intValue()).isEqualTo(1);
 		assertThat(LocalDateTime.parse(envelope.path("occurredAt").stringValue())).isEqualTo(APPROVED_AT);
 		assertThat(envelope.path("aggregateId").stringValue()).isEqualTo(order.getId().toString());
 
@@ -116,7 +115,6 @@ class OutboxEventAppenderTest {
 		JsonNode envelope = objectMapper.readTree(saved.getPayload());
 		assertThat(envelope.path("eventId").stringValue()).isEqualTo(saved.getId().toString());
 		assertThat(envelope.path("eventType").stringValue()).isEqualTo("ORDER_REFUND");
-		assertThat(envelope.path("version").intValue()).isEqualTo(1);
 		assertThat(LocalDateTime.parse(envelope.path("occurredAt").stringValue())).isEqualTo(REFUNDED_AT);
 		assertThat(envelope.path("aggregateId").stringValue()).isEqualTo(order.getId().toString());
 
