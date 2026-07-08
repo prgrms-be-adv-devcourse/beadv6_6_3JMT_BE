@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @ExtendWith(MockitoExtension.class)
 class SellerSettlementRepositoryAdapterTest {
@@ -65,5 +66,20 @@ class SellerSettlementRepositoryAdapterTest {
 
         assertThat(startCaptor.getValue()).isNull();
         assertThat(endCaptor.getValue()).isNull();
+    }
+
+    @Test
+    void findPageBySeller_정렬은_periodStart_DESC_sellerSettlementId_ASC_타이브레이커() {
+        UUID sellerId = UUID.randomUUID();
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        given(jpaRepository.findPageBySeller(
+                eq(sellerId), any(), any(), any(), pageableCaptor.capture()))
+                .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+
+        adapter.findPageBySeller(sellerId, null, null, 0, 10);
+
+        assertThat(pageableCaptor.getValue().getSort()).isEqualTo(
+                Sort.by(Sort.Direction.DESC, "periodStart")
+                        .and(Sort.by(Sort.Direction.ASC, "sellerSettlementId")));
     }
 }

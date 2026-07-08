@@ -39,7 +39,8 @@ public class SellerSettlementRepositoryAdapter implements SellerSettlementReposi
             UUID sellerId, SettlementDisplayStatus status, YearMonth period, int page, int size) {
         LocalDate periodStart = period == null ? null : period.atDay(1);
         LocalDate periodEnd = period == null ? null : period.atEndOfMonth();
-        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "periodStart"));
+        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "periodStart")
+                .and(Sort.by(Sort.Direction.ASC, "sellerSettlementId")));
         Page<SellerSettlement> result = jpaRepository.findPageBySeller(
                 sellerId, status, periodStart, periodEnd, pageable);
         return new SellerSettlementPage(result.getContent(), result.getTotalElements());
