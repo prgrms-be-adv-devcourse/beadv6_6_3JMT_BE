@@ -327,20 +327,21 @@ product_count: 12
 ## 4. 어드민 연동 — admin-service (DB 직접 접근, 추후 — 파이널 단계)
 
 > **현재 범위 아님.** 파이널에서 어드민 API 가 admin-service 로 이관되지만
-> (`admin-module-separation.md`), 어드민은 정산을 gRPC 로 호출하지 않고 **정산 DB 를
-> 직접 바라본다**(결정 배경: `../trade-offs/admin-data-access.md`). 따라서 정산이
-> 어드민에 제공하는 gRPC 서버·proto 는 없다. 이 절은 rpc 계약이 없다는 사실과, 그 대신
-> 계약 역할을 하는 것을 기록한다.
+> (`admin-module-separation.md`), 어드민은 gRPC 로 호출하지 않고 **DB 를 직접 바라본다**
+> (결정 배경: `../trade-offs/admin-data-access.md`). 운영 조회·상태변경은 운영 단일 진실인
+> `seller_settlement`(유저 DB), 배치 예약·잡 상태는 정산 DB 를 본다(셀러 분리 배경:
+> `../trade-offs/seller-settlement-separation.md`). 따라서 정산이 어드민에 제공하는 gRPC
+> 서버·proto 는 없다. 이 절은 rpc 계약이 없다는 사실과, 그 대신 계약 역할을 하는 것을 기록한다.
 
 | 어드민 동작 | 경로 | 계약 |
 |------|------|------|
-| 정산 목록·요약·상세 조회 | 정산 테이블 직접 SELECT | 정산 스키마 |
-| 정산 상태 변경 | 정산 테이블 직접 UPDATE | 정산 스키마 + 상태 전이 표(단일 출처 문서) |
-| 정산 배치 예약 | 배치 예약 테이블 INSERT → 정산 폴링 실행 | 예약 테이블 스키마(설계 시 확정) |
-| 예약·잡 상태 조회 | 예약 테이블·Spring Batch 메타테이블 SELECT | 〃 |
+| 정산 목록·요약·상세 조회 | `seller_settlement` 테이블 직접 SELECT (유저 DB) | seller_settlement 스키마 |
+| 정산 상태 변경 | `seller_settlement` 테이블 직접 UPDATE (유저 DB) | seller_settlement 스키마 + 상태 전이 표(단일 출처 문서) |
+| 정산 배치 예약 | 배치 예약 테이블 INSERT → 정산 폴링 실행 (정산 DB) | 예약 테이블 스키마(설계 시 확정) |
+| 예약·잡 상태 조회 | 예약 테이블·Spring Batch 메타테이블 SELECT (정산 DB) | 〃 |
 
-- **정산 스키마가 사실상의 계약이다.** 정산 테이블 컬럼 변경·리네이밍 시 어드민 쿼리
-  영향 확인을 필수 절차로 둔다.
+- **`seller_settlement` 스키마가 운영 접근의 사실상 계약이다.** 그 컬럼 변경·리네이밍 시 어드민
+  쿼리 영향 확인을 필수 절차로 둔다. (배치 예약·잡 상태는 정산 DB 스키마가 계약이다.)
 - 배치 실행은 어드민이 정산 프로세스를 호출하지 않고 예약 테이블을 사이에 둔다. 구조·상태
   전이는 `admin-module-separation.md` 의 "배치 예약 실행" 절을 본다.
 
@@ -368,5 +369,5 @@ product_count: 12
 | 등록 상품 수 | 동기 조회 — **gRPC** `ProductQueryService.CountBySeller`. 정산 클라이언트 구현 완료(`ProductQueryClient`), Product gRPC 서버 신설 요청 필요 |
 | gRPC 의존성 | 추가됨 (`grpc-stub`·`grpc-protobuf`·`protobuf` + `protobuf-gradle-plugin`), proto `src/main/proto/*.proto` |
 | `settlement.payout.completed` 발행 | **추후(파이널)** — 현재 범위 아님. 발행은 Kafka 유지 |
-| 어드민 연동 (§4) | **추후(파이널)** — gRPC 서버 없음. 어드민이 정산 DB 직접 접근, 배치는 예약 테이블 + 폴링. 예약 테이블 스키마 미정 |
+| 어드민 연동 (§4) | **추후(파이널)** — gRPC 서버 없음. 운영 조회·상태변경은 `seller_settlement`(유저 DB) 직접 접근(#245 재작업), 배치는 정산 DB 예약 테이블 + 폴링. 예약 테이블 스키마 미정 |
 </content>

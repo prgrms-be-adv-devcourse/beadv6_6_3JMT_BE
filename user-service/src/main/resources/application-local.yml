@@ -17,6 +17,12 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: user-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
 
 jwt:
   private-key: ${JWT_PRIVATE_KEY}
@@ -38,3 +44,12 @@ eureka:
 
 cors:
   allowed-origins: "http://localhost:3000"
+
+user:
+  kafka:
+    consumer:
+      settlement:
+        topic: settlement-events
+    listener:
+      settlement:
+        enabled: false   # 통합 검증 시 true
