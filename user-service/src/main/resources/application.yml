@@ -2,7 +2,9 @@ spring:
   application:
     name: user-service
   config:
-    import: optional:configserver:http://localhost:8888
+    import: ${CONFIG_IMPORT:optional:configserver:http://localhost:8888}
+  profiles:
+    default: local
   cloud:
     config:
       fail-fast: true
