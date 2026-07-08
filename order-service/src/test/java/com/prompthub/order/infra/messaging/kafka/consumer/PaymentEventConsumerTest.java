@@ -44,7 +44,7 @@ class PaymentEventConsumerTest {
 			{
 			  "eventId": "%s",
 			  "eventType": "PAYMENT_APPROVED",
-			  "occurredAt": "2026-06-19T12:00:00+09:00",
+			  "occurredAt": "2026-06-19T12:00:00",
 			  "payload": {
 			    "paymentId": "%s",
 			    "orderId": "%s",
@@ -68,7 +68,7 @@ class PaymentEventConsumerTest {
 			{
 			  "eventId": "%s",
 			  "eventType": "PAYMENT_REFUNDED",
-			  "occurredAt": "2026-06-19T12:00:00+09:00",
+			  "occurredAt": "2026-06-19T12:00:00",
 			  "payload": {
 			    "paymentId": "%s",
 			    "orderId": "%s",
@@ -108,7 +108,7 @@ class PaymentEventConsumerTest {
 			{
 			  "eventId": "%s",
 			  "eventType": "PAYMENT_EXPIRED",
-			  "occurredAt": "2026-06-19T12:00:00+09:00",
+			  "occurredAt": "2026-06-19T12:00:00",
 			  "payload": {}
 			}
 			""".formatted(UUID.randomUUID());
@@ -126,7 +126,7 @@ class PaymentEventConsumerTest {
 			{
 			  "eventId": "%s",
 			  "eventType": "PAYMENT_FAILED",
-			  "occurredAt": "2026-06-19T12:00:00+09:00",
+			  "occurredAt": "2026-06-19T12:00:00",
 			  "payload": {}
 			}
 			""".formatted(UUID.randomUUID());
@@ -144,7 +144,7 @@ class PaymentEventConsumerTest {
 			{
 			  "eventId": "%s",
 			  "eventType": "PAYMENT_CANCELED",
-			  "occurredAt": "2026-06-19T12:00:00+09:00",
+			  "occurredAt": "2026-06-19T12:00:00",
 			  "payload": {}
 			}
 			""".formatted(UUID.randomUUID());
@@ -162,7 +162,7 @@ class PaymentEventConsumerTest {
 			{
 			  "eventId": "%s",
 			  "eventType": "PAYMENT_APPROVED",
-			  "occurredAt": "2026-06-19T12:00:00+09:00",
+			  "occurredAt": "2026-06-19T12:00:00",
 			  "payload": {
 			    "paymentId": "%s",
 			    "orderId": "%s",

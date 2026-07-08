@@ -44,11 +44,16 @@ class ProductEventConsumerTest {
 	void consume_productStopped_delegatesAndAcknowledges() {
 		String message = """
 			{
+			  "eventId": "%s",
 			  "eventType": "PRODUCT_STOPPED",
-			  "productId": "%s",
-			  "occurredAt": "%s"
+			  "occurredAt": "%s",
+			  "aggregateType": "PRODUCT",
+			  "aggregateId": "%s",
+			  "payload": {
+			    "productId": "%s"
+			  }
 			}
-			""".formatted(PRODUCT_ID, EVENT_TIME);
+			""".formatted(UUID.randomUUID(), EVENT_TIME, PRODUCT_ID, PRODUCT_ID);
 
 		consumer.consume(message, acknowledgment);
 
@@ -65,11 +70,16 @@ class ProductEventConsumerTest {
 	void consume_productDeleted_delegatesAndAcknowledges() {
 		String message = """
 			{
+			  "eventId": "%s",
 			  "eventType": "PRODUCT_DELETED",
-			  "productId": "%s",
-			  "occurredAt": "%s"
+			  "occurredAt": "%s",
+			  "aggregateType": "PRODUCT",
+			  "aggregateId": "%s",
+			  "payload": {
+			    "productId": "%s"
+			  }
 			}
-			""".formatted(PRODUCT_ID, EVENT_TIME);
+			""".formatted(UUID.randomUUID(), EVENT_TIME, PRODUCT_ID, PRODUCT_ID);
 
 		consumer.consume(message, acknowledgment);
 
@@ -86,13 +96,18 @@ class ProductEventConsumerTest {
 	void consume_productPriceChanged_delegatesAndAcknowledges() {
 		String message = """
 			{
+			  "eventId": "%s",
 			  "eventType": "PRODUCT_PRICE_CHANGED",
-			  "productId": "%s",
-			  "previousPrice": 10000,
-			  "changedPrice": 12000,
-			  "occurredAt": "%s"
+			  "occurredAt": "%s",
+			  "aggregateType": "PRODUCT",
+			  "aggregateId": "%s",
+			  "payload": {
+			    "productId": "%s",
+			    "previousPrice": 10000,
+			    "changedPrice": 12000
+			  }
 			}
-			""".formatted(PRODUCT_ID, EVENT_TIME);
+			""".formatted(UUID.randomUUID(), EVENT_TIME, PRODUCT_ID, PRODUCT_ID);
 
 		consumer.consume(message, acknowledgment);
 
@@ -111,10 +126,14 @@ class ProductEventConsumerTest {
 	void consume_unknownEventType_ignoresAndAcknowledges() {
 		String message = """
 			{
+			  "eventId": "%s",
 			  "eventType": "PRODUCT_UNKNOWN",
-			  "productId": "%s"
+			  "occurredAt": "%s",
+			  "aggregateType": "PRODUCT",
+			  "aggregateId": "%s",
+			  "payload": {}
 			}
-			""".formatted(PRODUCT_ID);
+			""".formatted(UUID.randomUUID(), EVENT_TIME, PRODUCT_ID);
 
 		consumer.consume(message, acknowledgment);
 
