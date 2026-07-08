@@ -17,7 +17,7 @@ public record ProductOrderSnapshotResponse(
 			product.getId(),
 			product.getSellerId(),
 			product.getName(),
-			product.getProductType(),
+			product.getProductType().name(),
 			product.getAmount(),
 			product.getModel() != null ? product.getModel() : ""
 		);

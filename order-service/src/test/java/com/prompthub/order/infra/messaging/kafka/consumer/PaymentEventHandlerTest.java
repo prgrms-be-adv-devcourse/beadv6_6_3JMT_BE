@@ -15,8 +15,11 @@ import tools.jackson.databind.ObjectMapper;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 
 class PaymentEventHandlerTest {
 
@@ -38,9 +41,8 @@ class PaymentEventHandlerTest {
 	@Test
 	@DisplayName("payment-service 승인 메시지 스키마를 PaymentApprovedEvent로 변환해 처리한다")
 	void handle_paymentApprovedMessageSchema_delegatesApprovedEvent() {
-		JsonNode root = objectMapper.readTree("""
+		JsonNode payload = objectMapper.readTree("""
 			{
-			  "eventType": "payment.approved",
 			  "paymentId": "%s",
 			  "orderId": "%s",
 			  "userId": "%s",
@@ -49,11 +51,12 @@ class PaymentEventHandlerTest {
 			}
 			""".formatted(PAYMENT_ID, ORDER_ID, BUYER_ID));
 
-		handler.handle(PaymentEventType.PAYMENT_APPROVED, "payment.approved", "order-service", root);
+		handler.handle(PaymentEventType.PAYMENT_APPROVED, "PAYMENT_APPROVED", payload);
 
 		ArgumentCaptor<PaymentApprovedEvent> eventCaptor = ArgumentCaptor.forClass(PaymentApprovedEvent.class);
 		then(orderPaymentEventService).should().handlePaymentApproved(eventCaptor.capture());
 		PaymentApprovedEvent event = eventCaptor.getValue();
+		assertThat(event.eventType()).isEqualTo("PAYMENT_APPROVED");
 		assertThat(event.paymentId()).isEqualTo(PAYMENT_ID);
 		assertThat(event.orderId()).isEqualTo(ORDER_ID);
 		assertThat(event.userId()).isEqualTo(BUYER_ID);
@@ -64,9 +67,8 @@ class PaymentEventHandlerTest {
 	@Test
 	@DisplayName("payment-service 환불 메시지 스키마를 PaymentRefundedEvent로 변환해 처리한다")
 	void handle_paymentRefundedMessageSchema_delegatesRefundEvent() {
-		JsonNode root = objectMapper.readTree("""
+		JsonNode payload = objectMapper.readTree("""
 			{
-			  "eventType": "payment.refunded",
 			  "paymentId": "%s",
 			  "orderId": "%s",
 			  "userId": "%s",
@@ -75,15 +77,53 @@ class PaymentEventHandlerTest {
 			}
 			""".formatted(PAYMENT_ID, ORDER_ID, BUYER_ID));
 
-		handler.handle(PaymentEventType.PAYMENT_REFUNDED, "payment.refunded", "order-service", root);
+		handler.handle(PaymentEventType.PAYMENT_REFUNDED, "PAYMENT_REFUNDED", payload);
 
 		ArgumentCaptor<PaymentRefundedEvent> eventCaptor = ArgumentCaptor.forClass(PaymentRefundedEvent.class);
 		then(orderPaymentEventService).should().handlePaymentRefunded(eventCaptor.capture());
 		PaymentRefundedEvent event = eventCaptor.getValue();
+		assertThat(event.eventType()).isEqualTo("PAYMENT_REFUNDED");
 		assertThat(event.paymentId()).isEqualTo(PAYMENT_ID);
 		assertThat(event.orderId()).isEqualTo(ORDER_ID);
 		assertThat(event.userId()).isEqualTo(BUYER_ID);
 		assertThat(event.amount()).isEqualTo(30000);
 		assertThat(event.refundedAt().toString()).isEqualTo("2026-06-19T12:00+09:00");
+	}
+
+	@Test
+	@DisplayName("승인 payload의 필수 UUID 필드가 누락되면 예외가 발생한다")
+	void handle_paymentApprovedPayloadMissingRequiredUuid_throwsException() {
+		JsonNode payload = objectMapper.readTree("""
+			{
+			  "orderId": "%s",
+			  "userId": "%s",
+			  "amount": 30000,
+			  "approvedAt": "2026-06-19T12:00:00+09:00"
+			}
+			""".formatted(ORDER_ID, BUYER_ID));
+
+		assertThatThrownBy(() -> handler.handle(PaymentEventType.PAYMENT_APPROVED, "PAYMENT_APPROVED", payload))
+			.isInstanceOf(RuntimeException.class);
+
+		then(orderPaymentEventService).should(never()).handlePaymentApproved(any());
+	}
+
+	@Test
+	@DisplayName("환불 payload의 일시 형식이 잘못되면 예외가 발생한다")
+	void handle_paymentRefundedPayloadInvalidDateTime_throwsException() {
+		JsonNode payload = objectMapper.readTree("""
+			{
+			  "paymentId": "%s",
+			  "orderId": "%s",
+			  "userId": "%s",
+			  "amount": 30000,
+			  "refundedAt": "not-date-time"
+			}
+			""".formatted(PAYMENT_ID, ORDER_ID, BUYER_ID));
+
+		assertThatThrownBy(() -> handler.handle(PaymentEventType.PAYMENT_REFUNDED, "PAYMENT_REFUNDED", payload))
+			.isInstanceOf(RuntimeException.class);
+
+		then(orderPaymentEventService).should(never()).handlePaymentRefunded(any());
 	}
 }

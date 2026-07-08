@@ -2,7 +2,7 @@ package com.prompthub.paymentservice.infrastructure.messaging;
 
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
-import com.prompthub.paymentservice.application.gateway.external.TossRefundResult;
+import com.prompthub.paymentservice.application.gateway.external.RefundResult;
 import com.prompthub.paymentservice.domain.event.PaymentRefundRequestedEvent;
 import com.prompthub.paymentservice.domain.exception.InvalidRefundStateException;
 import com.prompthub.paymentservice.domain.model.Payment;
@@ -42,7 +42,7 @@ public class RefundEventHandler {
             Payment payment = paymentRepository.findById(event.paymentId()).orElseThrow();
             Refund refund = refundRepository.findById(event.refundId()).orElseThrow();
             try {
-                TossRefundResult result = paymentGateway.refund(
+                RefundResult result = paymentGateway.refund(
                     payment.getPgTxId(), payment.getId(), payment.getTotalAmount()
                 );
                 payment.completeRefund(result.refundedAt());

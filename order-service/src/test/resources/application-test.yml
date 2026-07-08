@@ -1,0 +1,39 @@
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: test-group
+  config:
+    import: ""
+  cloud:
+    compatibility-verifier:
+      enabled: false
+    config:
+      enabled: false
+      fail-fast: false
+  datasource:
+    url: jdbc:h2:mem:prompthub_order_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+
+prompthub:
+  outbox-relay:
+    enabled: false
+    fixed-delay-ms: 5000
+    batch-size: 100
+    max-retry-count: 3
+  order:
+    enabled: false
+
+eureka:
+  client:
+    enabled: false
+
+logging:
+  level:
+    com.prompthub.order: debug

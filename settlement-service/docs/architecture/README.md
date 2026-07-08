@@ -8,7 +8,9 @@
 
 정산은 자기 DB만으로 끝나지 않는다. 매출/환불 원천은 배치 시점에 order 에서 gRPC 로 당겨와 쌓고,
 판매자명·상품 수는 조회 실행 중에 다른 서비스를 동기로 호출해 당겨온다. (밖으로 내보내는 지급 완료
-알림 발행, 그리고 어드민 모듈(admin-service)에 제공할 어드민용 gRPC 서버는 추후·파이널.)
+알림 발행은 추후·파이널. 어드민 모듈(admin-service)은 gRPC 가 아니라 DB 를 직접 바라보므로
+rpc 계약이 없다 — 운영 조회·상태변경은 `seller_settlement`(유저 DB), 배치 예약·잡 상태는 정산 DB.
+연동 카탈로그 §4.)
 
 | 문서 | 내용 |
 | --- | --- |
@@ -21,7 +23,7 @@
 
 | 문서 | 내용 |
 | --- | --- |
-| [admin-module-separation.md](admin-module-separation.md) | 어드민 API(`SettlementController`·`SettlementBatchController`)를 신설 admin-service 로 이관하는 설계. 배치·스케줄러·판매자 API 는 정산에 잔류, admin → settlement 는 gRPC 단일 경로. |
+| [admin-module-separation.md](admin-module-separation.md) | 어드민 API(`SettlementController`)를 신설 admin-service 로 이관하는 설계. 배치·스케줄러·배치 테스트용 수동 실행은 정산에 잔류(판매자 API 는 유저 모듈로 이관 — #236). 어드민은 운영 조회·상태변경을 `seller_settlement`(유저 DB) 직접 접근, 배치는 정산 DB 예약 테이블 + 폴링으로 실행. |
 | [../final-roadmap.md](../final-roadmap.md) | 파이널 고도화 전체 로드맵 — 어드민 분리, 수동 정산 → 정산 예약, AI 정산 어시스턴트(아이디어), 통계·대시보드. |
 
 ## 배포 (CI/CD)
@@ -43,7 +45,8 @@
 | [../trade-offs/settlement-batch-granularity.md](../trade-offs/settlement-batch-granularity.md) | 정산 배치를 판매자 단위 집계 3-step으로 둘지, 단일 chunk 스트리밍으로 둘지 |
 | [../trade-offs/user-identity-propagation.md](../trade-offs/user-identity-propagation.md) | 인증/인가를 게이트웨이가 처리하고 각 서비스는 전달된 식별 정보(헤더)만 읽는 구조 |
 | [../trade-offs/source-line-release-on-cancel.md](../trade-offs/source-line-release-on-cancel.md) | 정산 취소 시 묶인 원천소스(source line)를 행 단위 dirty checking으로 풀지, 단일 벌크 UPDATE로 풀지 |
-| [../trade-offs/admin-data-access.md](../trade-offs/admin-data-access.md) | 어드민(admin-service)이 정산 데이터를 직접 DB 커넥션으로 읽을지, gRPC 로 조회할지 |
+| [../trade-offs/negative-settlement-carryforward.md](../trade-offs/negative-settlement-carryforward.md) | 환불 초과로 음수가 된 판매자 정산액을 어떻게 처리할지 — 다음 정산으로 이월(carry-forward) |
+| [../trade-offs/admin-data-access.md](../trade-offs/admin-data-access.md) | 어드민(admin-service)이 정산 데이터를 직접 DB 커넥션으로 접근할지, gRPC 로 조회할지 — 직접 DB 채택 |
 
 ## 이 폴더 밖에 있는 관련 문서
 

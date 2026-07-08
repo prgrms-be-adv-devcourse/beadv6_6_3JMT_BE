@@ -1,7 +1,7 @@
 package com.prompthub.product.domain.repository;
 
-import com.prompthub.product.domain.model.entity.Category;
 import com.prompthub.product.domain.model.entity.Product;
+import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
 import java.util.List;
@@ -15,15 +15,13 @@ public interface ProductRepository {
 
 	Product save(Product product);
 
-	Optional<Category> findCategoryByCode(String code);
+	List<ProductListProjection> findPublicProducts(String keyword, String productType, String sort, Pageable pageable);
 
-	List<ProductListProjection> findPublicProducts(String keyword, String category, String sort, Pageable pageable);
-
-	long countPublicProducts(String keyword, String category);
+	long countPublicProducts(String keyword, String productType);
 
 	double getAverageRating(UUID productId);
 
-	List<ProductListProjection> findRelatedProducts(UUID productId, UUID categoryId, int limit);
+	List<ProductListProjection> findRelatedProducts(UUID productId, ProductType productType, int limit);
 
 	List<ProductReviewProjection> findActiveReviews(UUID productId);
 

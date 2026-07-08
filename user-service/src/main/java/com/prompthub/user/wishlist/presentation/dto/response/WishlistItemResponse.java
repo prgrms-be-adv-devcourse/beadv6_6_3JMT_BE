@@ -14,7 +14,6 @@ public record WishlistItemResponse(
         String sellerNickname,
         double averageRating,
         long salesCount,
-        String category,
         String model,
         LocalDateTime addedAt
 ) {
@@ -29,7 +28,6 @@ public record WishlistItemResponse(
                 result.sellerNickname(),
                 result.averageRating(),
                 result.salesCount(),
-                result.category(),
                 result.model(),
                 result.addedAt()
         );

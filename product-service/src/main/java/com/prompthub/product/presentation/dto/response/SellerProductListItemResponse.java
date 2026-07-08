@@ -7,7 +7,6 @@ import java.util.UUID;
 public record SellerProductListItemResponse(
 	UUID productId,
 	String title,
-	String category,
 	String productType,
 	String model,
 	int amount,
@@ -22,8 +21,7 @@ public record SellerProductListItemResponse(
 		return new SellerProductListItemResponse(
 			product.getId(),
 			product.getName(),
-			product.getCategory() != null ? product.getCategory().getCode() : null,
-			product.getProductType(),
+			product.getProductType().name(),
 			product.getModel(),
 			product.getAmount(),
 			product.getStatus().name(),

@@ -1,6 +1,6 @@
 # Order-Service 개선 리포트
 
-> 본 문서는 order-service의 개선 필요 항목들에 대한 전체 리포트입니다. 기존에 완료된 P0 항목과 이번 브랜치(`refactor/#205-auto-cancel-unpaid-order`)에서 구현 완료된 항목들을 **해결 완료된 항목**으로 분류하여 정리해 둡니다.
+> 본 문서는 order-service의 개선 필요 항목들에 대한 전체 리포트입니다. 기존에 완료된 P0 항목과 여러 리팩토링 브랜치(`refactor/#205-auto-cancel-unpaid-order`, `refactor/#219-grpc-kafka-convention`)에서 구현 완료된 항목들을 **해결 완료된 항목**으로 분류하여 정리해 둡니다.
 
 ## 1. 해결 완료된 항목
 
@@ -24,6 +24,18 @@
 * **해결 요약**:
   - PG사 결제 요청/승인 직전, 주문의 소유자, 상태, 만료 여부 및 요청 금액 일치 여부를 동기식으로 상호 검증하는 API `/api/v1/orders/{orderId}/payment-ready` 구현.
   - 금액 불일치 결제 승인을 사전에 방어함.
+### 1.5 [P1] 결제 이벤트 Kafka 메시징 표준화 및 스키마 변경
+* **내용**: 개별 결제 토픽들(`payment.approved`, `payment.refunded`)을 따로 리스닝하며 파싱 방식이 파편화되어 있던 문제
+* **해결 요약**:
+  - 단일 통합 토픽인 `payment.events`를 구독하는 구조로 단일화 및 표준화.
+  - Envelope Pattern(메타데이터 `eventType` + `payload` 구조)으로 이벤트 스키마 파싱 방식을 표준화.
+  - 대문자 ENUM 표준 명명 규격(`PAYMENT_APPROVED`, `PAYMENT_REFUNDED`, `PAYMENT_FAILED`, `PAYMENT_CANCELED`) 매핑 적용.
+  - 처리가 필요 없거나 무관한 이벤트 타입(`PAYMENT_FAILED`, `PAYMENT_CANCELED`)은 DLT로 보내지 않고 Graceful하게 무시(`shouldIgnore`)하도록 필터링 적용.
+
+### 1.6 [P2] gRPC 연동 메서드명 표준화 및 규격 준수
+* **내용**: 판매자 다건 조회 시 proto 규격과 어댑터의 메서드명이 다른 곳과 일관되지 않던 문제
+* **해결 요약**:
+  - `seller_query.proto` 파일 및 `SellerGrpcClientAdapter.java` 에서 판매자 조회 메서드명을 `findSellers` 에서 표준 네이밍인 `getSellers` 로 변경 및 통일 완료.
 
 ---
 
@@ -33,9 +45,10 @@
 * **현재 상태**: 
   - `validatePaymentReady` API를 통해 결제 승인 직전에 유효성 동기 검증을 수행하여, 비정상 결제가 진행되는 것을 1차적으로 사전에 차단합니다.
   - Kafka `DefaultErrorHandler`가 실패 메시지를 원본 토픽의 `.DLT`로 보내도록 설계되어 있습니다.
+  - 이번 Kafka 메시징 표준화를 통해 잘못된 JSON 형식이나 payload 누락 등 유효하지 않은 결제 메시지가 `payment.events.DLT` 토픽으로 안전하게 이동하도록 처리 흐름을 보완했습니다.
 * **남은 문제 (사후 비동기 검증 및 실패 대응)**:
-  - `.DLT` 토픽을 소비하는 전용 컨슈머 없음
-  - 결제는 승인되었으나 주문 상태 변경(PAID) 처리 중 비동기 단계에서 실패했을 때, `payment.cancel-requested` 같은 환불 요청 이벤트를 발행하는 자동 보상 흐름 없음
+  - `.DLT` 토픽을 실제로 소비하여 재처리하거나 로깅하는 전용 컨슈머 없음
+  - 결제는 승인되었으나 주문 상태 변경(PAID) 처리 중 비동기 단계에서 최종 실패했을 때, `payment.cancel-requested` 같은 환불 요청 이벤트를 발행하는 자동 보상 흐름 없음
   - 수동 조치가 필요한 건에 대한 운영팀 알림(Slack, 이메일 등) 연동 없음
 * **추가 개선 방안**:
   1. 결제 이벤트 DLT 컨슈머를 추가합니다.
@@ -46,8 +59,9 @@
 * **현재 상태**:
   - `WebConfig` 등록 여부 및 `BUYER` 권한 차단 등의 인증/인가 시나리오 검증
   - Redis 만료 큐 보관소, 스케줄러 워커, 도메인 만료 정책에 대한 Mock 단위 테스트 추가 (`RedisOrderExpirationStoreTest`, `OrderExpirationWorkerTest`, `OrderExpirationServiceTest` 등)
+  - **임베디드 카프카(EmbeddedKafka) 기반 스프링 부트 통합 테스트 도입**: `PaymentEventConsumerIntegrationTest.java` 를 추가하여, 실제 EmbeddedKafkaBroker 환경에서 결제 이벤트 수신, JSON 파싱 오류 및 payload 누락 시의 DLT 전송 여부 등 메시징 인프라 연동을 통합 검증하도록 보강되었습니다.
 * **남은 문제**:
-  - `@SpringBootTest` 기반 실제 애플리케이션 컨텍스트 통합 테스트는 아직 없음
+  - `@SpringBootTest` 기반 실제 데이터베이스(PostgreSQL 등) 통합 테스트는 아직 없음
   - Testcontainers 기반 PostgreSQL + Kafka 실환경 테스트는 아직 없음
   - Gateway부터 order-service까지 이어지는 역할별 E2E 보안 시나리오 테스트는 아직 없음
 * **추가 개선 방안**:

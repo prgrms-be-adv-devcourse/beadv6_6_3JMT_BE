@@ -1,0 +1,42 @@
+server:
+  port: 18082
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    consumer:
+      group-id: product-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+grpc:
+  server:
+    port: ${PRODUCT_GRPC_SERVER_PORT}
+  client:
+    user-service:
+      host: user-service
+      port: ${USER_GRPC_SERVER_PORT}
+
+cloud:
+  aws:
+    region: ${AWS_REGION}
+    s3:
+      bucket: ${AWS_S3_BUCKET}
+
+logging:
+  level:
+    com.prompthub.product: INFO
+    org.hibernate.SQL: DEBUG

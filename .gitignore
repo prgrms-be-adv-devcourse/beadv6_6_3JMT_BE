@@ -1,6 +1,9 @@
 # Created by https://www.toptal.com/developers/gitignore/api/java,windows,macos,intellij+all,git,gradle,gitbook
 # Edit at https://www.toptal.com/developers/gitignore?templates=java,windows,macos,intellij+all,git,gradle,gitbook
 
+# ADR & Troubleshooting (로컬 작업용)
+docs/adr/
+
 ### Git ###
 # Created by git for backups. To disable backups in Git:
 # $ git config --global mergetool.keepBackup false
