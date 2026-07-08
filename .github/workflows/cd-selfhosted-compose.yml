@@ -37,13 +37,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: env 확인
-        run: |
-          if [ ! -f "${DEPLOY_DIR}/.env" ]; then 
-            echo "❌ .env 파일을 찾을 수 없습니다."
-            exit 1
-          fi
-
       - name: 변경 모듈 감지
         id: changed
         if: github.event_name == 'push'

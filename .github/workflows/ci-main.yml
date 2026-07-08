@@ -80,6 +80,7 @@ jobs:
               - settings.gradle.kts
               - build.gradle.kts
               - gradle/**
+              - .github/workflows/**
 
   user_service_ci:
     needs: changes
