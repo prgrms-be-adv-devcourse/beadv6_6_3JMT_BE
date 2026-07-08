@@ -116,6 +116,28 @@ public ApiResult<ProductDetailResponse> getProduct(@PathVariable UUID productId)
 public ProductContentResponse getProductContent(@PathVariable UUID productId) { ... }
 ```
 
+## gRPC 메서드 네이밍
+
+product-service가 새로 gRPC 메서드를 추가할 때는 아래 접두어 규칙을 따른다.
+
+| 접두어 | 용도 | 비중 |
+|---|---|---|
+| `Get{Entity}` | 단순 조회(단건 또는 ID 목록 기반 배치 조회) | 전체의 80% 이상 |
+| `Search{Entity}By{조건}` | 조건 기반 검색 | |
+| `Count{Entity}By{조건}` | 집계(개수) | |
+| `Average{Entity}By{조건}` | 집계(평균) | |
+| `Total{Entity}By{조건}` | 집계(합계) | |
+
+- 쓰기(생성·수정·삭제)는 gRPC 메서드로 노출하지 않는다. product-service의 상태 변경은
+  Kafka 이벤트 발행(`product-events` 토픽)으로 처리한다.
+- 이 컨벤션은 **product-service가 새로 추가하는 gRPC 메서드**에 적용한다. 현재
+  product-service가 서빙하는 5개 메서드(`CountBySeller`, `GetOrderSnapshots`,
+  `GetCartSnapshots`, `GetProductContent`, `GetProductsByIds`)는 이미 이 컨벤션에
+  부합한다.
+- `FindSellers`(user-service가 서버로 구현, product-service는 클라이언트로만 소비)처럼
+  다른 서비스가 이미 정의한 계약은 이 규칙의 적용 대상이 아니다. 크로스 서비스 네이밍
+  정합성이 필요하면 별도 이슈에서 다룬다.
+
 ## DDL과 docs 일치 확인
 
 `docs/erd/schema.md`는 실제 DDL의 열람용 미러이므로 최신 상태가 아닐 수 있다.
