@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 concurrency:
   group: cd-selfhosted

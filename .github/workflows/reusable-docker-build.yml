@@ -37,7 +37,7 @@ jobs:
 
     permissions:
       contents: read
-      id-token: write
+      packages: write
 
     outputs:
       image_uri: ${{ steps.image.outputs.image_uri }}
