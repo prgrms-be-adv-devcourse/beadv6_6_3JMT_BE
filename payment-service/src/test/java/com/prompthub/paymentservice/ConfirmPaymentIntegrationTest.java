@@ -1,6 +1,8 @@
 package com.prompthub.paymentservice;
 
+import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
+import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
 import com.prompthub.paymentservice.application.gateway.external.ConfirmResult;
 import com.prompthub.paymentservice.domain.model.OrderSnapshot;
 import com.prompthub.paymentservice.domain.model.OrderSnapshotSource;
@@ -135,6 +137,67 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
                 }
             }
             assertThat(found).withFailMessage("10초 내 payment-events Kafka 메시지 수신 실패").isTrue();
+        } finally {
+            consumer.close();
+        }
+    }
+
+    @Test
+    void PG_결제_실패_시_payment_failed_수신_및_FAILED_저장() {
+        UUID orderId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+
+        when(paymentGateway.confirm(anyString(), eq(orderId), eq(10_000)))
+            .thenThrow(new PaymentGatewayException(
+                PaymentErrorCode.PAYMENT_FAILED, "REJECT", "카드 거절", null, "{}"));
+
+        orderSnapshotJpaRepository.saveAndFlush(OrderSnapshot.create(
+            orderId, userId, 10_000, OrderSnapshotSource.EVENT, OffsetDateTime.now(ZoneOffset.ofHours(9))));
+
+        KafkaConsumer<String, String> consumer =
+            new KafkaConsumer<>(buildConsumerProps(kafka.getBootstrapServers(), "failed-test-group"));
+        TopicPartition partition = new TopicPartition(PaymentTopic.PAYMENT_EVENTS, 0);
+        consumer.assign(java.util.List.of(partition));
+        consumer.poll(Duration.ZERO);
+        consumer.seekToBeginning(java.util.List.of(partition));
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-User-Id", userId.toString());
+        headers.set("X-User-Role", "BUYER");
+        Map<String, Object> body = Map.of(
+            "paymentKey", "toss-failed-key",
+            "orderId", orderId.toString()
+        );
+
+        ResponseEntity<Map> response = restTemplate.exchange(
+            url("/api/v1/payments/confirm"),
+            HttpMethod.POST,
+            new HttpEntity<>(body, headers),
+            Map.class
+        );
+
+        assertThat(response.getStatusCode().value()).isEqualTo(422);
+
+        Payment payment = paymentJpaRepository.findAll().stream()
+            .filter(p -> p.getOrderId().equals(orderId))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("Payment not found for orderId=" + orderId));
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
+
+        try {
+            long deadline = System.currentTimeMillis() + 10_000;
+            boolean found = false;
+            while (!found && System.currentTimeMillis() < deadline) {
+                var polled = consumer.poll(Duration.ofMillis(500));
+                for (var r : polled) {
+                    if (orderId.toString().equals(r.key()) && r.value().contains("payment.failed")) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            assertThat(found).withFailMessage("10초 내 payment.failed Kafka 메시지 수신 실패").isTrue();
         } finally {
             consumer.close();
         }

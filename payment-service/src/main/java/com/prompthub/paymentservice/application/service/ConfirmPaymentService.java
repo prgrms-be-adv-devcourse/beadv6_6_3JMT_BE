@@ -13,6 +13,7 @@ import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayE
 import com.prompthub.paymentservice.application.usecase.ConfirmPaymentUseCase;
 import com.prompthub.paymentservice.application.usecase.RecordOrderSnapshotUseCase;
 import com.prompthub.paymentservice.domain.event.PaymentApprovedEvent;
+import com.prompthub.paymentservice.domain.event.PaymentFailedEvent;
 import com.prompthub.paymentservice.domain.model.OrderSnapshot;
 import com.prompthub.paymentservice.domain.model.OrderSnapshotSource;
 import com.prompthub.paymentservice.domain.model.Payment;
@@ -122,12 +123,13 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
             log.error("PG사 결제 실패 — paymentKey={}, tossCode={}, reason={}",
                 command.paymentKey(), e.getFailureCode(), e.getFailureReason(), e);
 
-            // TX3: 실패 반영
+            // TX3: 실패 반영 + payment.failed 발행 (별도 커밋되므로 AFTER_COMMIT 리스너 정상 발화)
             transactionTemplate.execute(status -> {
                 Payment payment = paymentRepository.findById(paymentId).orElseThrow();
                 payment.fail(e.getFailureCode(), e.getFailureReason(),
                     e.getRequestPayload(), e.getResponsePayload(), OffsetDateTime.now());
                 paymentRepository.save(payment);
+                applicationEventPublisher.publishEvent(new PaymentFailedEvent(payment));
                 return null;
             });
 
