@@ -1,6 +1,6 @@
 package com.prompthub.order.application.service.event;
 
-import com.prompthub.order.domain.model.ProcessedEvent;
+import com.prompthub.order.domain.model.OrderProcessedEvent;
 import com.prompthub.order.domain.repository.ProcessedEventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,7 +23,7 @@ public class ProcessedEventService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void markProcessed(UUID eventId, String consumerGroup, String eventType, LocalDateTime occurredAt) {
-        ProcessedEvent processedEvent = ProcessedEvent.create(eventId, consumerGroup, eventType, occurredAt);
-        processedEventRepository.save(processedEvent);
+        OrderProcessedEvent orderProcessedEvent = OrderProcessedEvent.create(eventId, consumerGroup, eventType, occurredAt);
+        processedEventRepository.save(orderProcessedEvent);
     }
 }
