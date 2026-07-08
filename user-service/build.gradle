@@ -16,6 +16,7 @@ dependencies {
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'com.h2database:h2'
 }
 
 protobuf {
