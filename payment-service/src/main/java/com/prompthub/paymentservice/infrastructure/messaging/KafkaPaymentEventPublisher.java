@@ -1,10 +1,12 @@
 package com.prompthub.paymentservice.infrastructure.messaging;
 
 import com.prompthub.paymentservice.domain.event.PaymentApprovedEvent;
+import com.prompthub.paymentservice.domain.event.PaymentFailedEvent;
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.Refund;
 import com.prompthub.paymentservice.infrastructure.messaging.config.PaymentTopic;
 import com.prompthub.paymentservice.infrastructure.messaging.dto.PaymentApprovedMessage;
+import com.prompthub.paymentservice.infrastructure.messaging.dto.PaymentFailedMessage;
 import com.prompthub.paymentservice.infrastructure.messaging.dto.PaymentRefundedMessage;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -42,6 +44,29 @@ public class KafkaPaymentEventPublisher {
                         payment.getId(), ex.getMessage());
                 } else {
                     log.info("결제 승인 Kafka 메시지 발행 성공 — paymentId={}, partition={}, offset={}",
+                        payment.getId(),
+                        result.getRecordMetadata().partition(),
+                        result.getRecordMetadata().offset());
+                }
+            });
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onPaymentFailed(PaymentFailedEvent event) {
+        Payment payment = event.payment();
+        PaymentFailedMessage message = new PaymentFailedMessage(
+            "payment.failed",
+            payment.getId(),
+            payment.getOrderId(),
+            payment.getUserId()
+        );
+        kafkaTemplate.send(PaymentTopic.PAYMENT_EVENTS, payment.getOrderId().toString(), message)
+            .whenComplete((result, ex) -> {
+                if (ex != null) {
+                    log.error("결제 실패 Kafka 메시지 발행 실패 — paymentId={}, cause={}",
+                        payment.getId(), ex.getMessage());
+                } else {
+                    log.info("결제 실패 Kafka 메시지 발행 성공 — paymentId={}, partition={}, offset={}",
                         payment.getId(),
                         result.getRecordMetadata().partition(),
                         result.getRecordMetadata().offset());
