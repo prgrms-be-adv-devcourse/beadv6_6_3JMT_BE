@@ -9,12 +9,7 @@ spring:
     default: local
   cloud:
     config:
-      fail-fast: true
-      retry:
-        max-attempts: 6
-        initial-interval: 1000
-        max-interval: 2000
-        multiplier: 1.1
+      enabled: true
 
 ---
 
@@ -25,30 +20,12 @@ spring:
   cloud:
     compatibility-verifier:
       enabled: false
+    config:
+      fail-fast: true
+      retry:
+        max-attempts: 6
+        initial-interval: 1000
+        max-interval: 2000
+        multiplier: 1.1
 
----
 
-spring:
-  config:
-    activate:
-      on-profile: test
-  cloud:
-    compatibility-verifier:
-      enabled: false
-  datasource:
-    url: jdbc:h2:mem:prompthub_order_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
-    open-in-view: false
-
-prompthub:
-  outbox-relay:
-    enabled: false
-
-logging:
-  level:
-    com.prompthub.order: debug

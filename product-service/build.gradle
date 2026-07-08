@@ -13,6 +13,17 @@ dependencies {
     runtimeOnly 'io.grpc:grpc-netty-shaded'
     implementation 'com.google.protobuf:protobuf-java'
     compileOnly 'org.apache.tomcat:annotations-api:6.0.53'
+
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+    testImplementation 'org.testcontainers:testcontainers-postgresql'
+    // Root build.gradle에서 상속되지 않는 경우 대비
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'com.h2database:h2'
+}
+
+tasks.named('test') {
+    jvmArgs = ['-Dspring.profiles.active=test']
 }
 
 protobuf {
