@@ -29,7 +29,7 @@ com.prompthub.paymentservice
 │   ├── usecase        ← UseCase 인터페이스(Input Boundary)
 │   ├── service        ← UseCase 구현체 (비즈니스 흐름 조율)
 │   ├── gateway
-│   │   └── external      ← 외부 API Gateway 인터페이스 (예: PaymentGateway)
+│   │   └── external      ← 외부 API Gateway 인터페이스 (예: PaymentGateway, OrderGateway)
 │   └── dto
 │       ├── command    ← 외부 → application 입력 (record 권장)
 │       └── result     ← application → 외부 출력 (record 권장)
@@ -40,11 +40,13 @@ com.prompthub.paymentservice
 └── infrastructure
     ├── persistence    ← Spring Data JPA Repo, domain.repository 구현체, JPA Auditing 설정
     ├── external
-    │   └── toss       ← Toss Payments 연동 (ACL, Client)
-    │       └── dto    ← Toss API 응답 역직렬화 DTO (패키지 외부 노출 금지)
+    │   ├── toss       ← Toss Payments 연동 (ACL, Client)
+    │   │   └── dto    ← Toss API 응답 역직렬화 DTO (패키지 외부 노출 금지)
+    │   └── grpc       ← 주문 정보 조회 gRPC 클라이언트 어댑터 (OrderGateway 구현)
     ├── scheduling     ← @Scheduled 주기 재처리 (환불 retry 등)
     └── messaging      ← 이벤트 발행 구현체 (@TransactionalEventListener), Kafka 설정
-        └── config     ← Kafka Producer/Consumer 빈 설정, 토픽 상수
+        ├── config     ← Kafka Producer/Consumer 빈 설정, 토픽 상수
+        └── consumer   ← Kafka 컨슈머 (order-events 구독 입력 어댑터)
 ```
 
 ## 레이어별 핵심 규칙
@@ -61,6 +63,7 @@ com.prompthub.paymentservice
 - **예외 패키지**: 도메인 불변 위반은 `domain.exception`, API 에러 코드(HTTP 상태·코드 매핑)는 `application.exception`. common-module의 `ErrorCode`를 구현하는 enum은 `application.exception`에 위치한다.
 - **이벤트 발행**: Service 구현체는 `ApplicationEventPublisher.publishEvent(도메인이벤트)`로 Spring 내부 이벤트를 발행한다. `infrastructure.messaging`의 구현체가 `@TransactionalEventListener(phase = AFTER_COMMIT)`으로 구독해 Kafka로 전달한다. `ApplicationEventPublisher`는 `spring-context` 추상 인터페이스이므로 application 레이어 허용. AFTER_COMMIT이 핵심 — 트랜잭션 롤백 시 Kafka 메시지 발행이 차단된다.
 - **스케줄러 예외**: `@Scheduled` 메서드 내부에서는 중첩 `@TransactionalEventListener` 제한(Spring Boot 4.1)으로 Spring 내부 이벤트를 쓰지 않는다. 대신 `TransactionSynchronizationManager.registerSynchronization().afterCommit()`에서 `KafkaPaymentEventPublisher`를 직접 호출한다.
+- **이벤트 구독(입력 어댑터)**: `infrastructure.messaging.consumer`의 `@KafkaListener`는 외부 이벤트를 받아 애플리케이션 흐름을 개시하는 **입력 어댑터**다(presentation의 Controller와 같은 역할, 위치만 infrastructure). 따라서 예외적으로 `application.usecase` 인터페이스에 의존할 수 있다(예: `OrderEventConsumer` → `RecordOrderSnapshotUseCase`). 메시지 파싱은 `StringDeserializer` + `ObjectMapper` 수동 파싱(order 도메인 계약 record라 타입 헤더 의존 불가). `@EnableKafka`는 명시하지 않고 Spring Boot 자동설정에 맡긴다 — 그래야 `KafkaAutoConfiguration`을 제외한 JPA 슬라이스 테스트에서 리스너 컨테이너가 기동되지 않는다.
 - **presentation**: request DTO → `command` 변환 후 UseCase 호출, `result` → response DTO 변환. 요청 유효성 검증 규칙은 `api-error-handling.md` 참조.
 
 ## 의존성 규칙 요약
@@ -70,7 +73,7 @@ com.prompthub.paymentservice
 | `domain` | 없음 | application, presentation, infrastructure |
 | `application` | domain, `ApplicationEventPublisher`(이벤트 발행 전용) | presentation, infrastructure |
 | `presentation` | application.usecase, application.dto | infrastructure |
-| `infrastructure` | application.gateway.external, application.dto, domain.* | presentation |
+| `infrastructure` | application.gateway.external, application.dto, domain.*, (컨슈머 한정) application.usecase | presentation |
 
 ## 데이터 흐름 예시 (결제 승인)
 
