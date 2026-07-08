@@ -258,6 +258,36 @@ services:
     restart: always
     networks: [prompthub]
 
+  admin-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE_NAME: admin-service
+        MODULE_PATH: admin-service
+    container_name: admin-service
+    ports: ["127.0.0.1:8086:8086"]             # 헬스체크용 loopback 노출(외부 차단)
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
+      # admin-service는 정산 DB에 직접 커넥션한다(POSTGRES_* 대신 자체 DB_* 플레이스홀더 사용)
+      DB_HOST: postgres                                                    # DB 호스트
+      DB_PORT: "5432"                                                      # DB 포트
+      DB_NAME: ${POSTGRES_DB}                                              # DB 이름
+      DB_USERNAME: ${POSTGRES_USER}                                        # DB 계정
+      DB_PASSWORD: ${POSTGRES_PASSWORD}                                    # DB 비밀번호
+    depends_on:
+      postgres:
+        condition: service_started
+      discovery:
+        condition: service_healthy
+      config:
+        condition: service_healthy
+      settlement-service:                                                  # 정산 스키마 소유자, ddl-auto: none
+        condition: service_started
+    restart: always
+    networks: [prompthub]
+
   # ----- 게이트웨이(외부 진입점) -----
   apigateway:
     build:

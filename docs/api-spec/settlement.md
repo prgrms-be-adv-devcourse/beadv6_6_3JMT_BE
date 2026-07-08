@@ -2,6 +2,9 @@
 
 **Base:** `http://localhost:8080/api/v1`
 
+> ⚠ `api/v1`은 세미 프로젝트 완성 스냅샷(`v1.0.0` 태그) 기준 경로다. 최종 프로젝트에서
+> `api/v2`로 전환 예정이며 별도 이슈로 진행한다(`docs/adr/config-management.md` §10).
+
 ## 공통 사항
 
 - 인증이 필요한 엔드포인트는 클라이언트가 `Authorization: Bearer {accessToken}` 헤더로 API Gateway 를 호출

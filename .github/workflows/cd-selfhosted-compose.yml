@@ -1,12 +1,15 @@
 # CD — EC2 self-hosted 러너에서 직접 빌드 후 docker compose 로 배포
-# (ECR 방식 cd-main.yml 은 비활성. 전제: EC2에 ${DEPLOY_DIR}/.env, 루트 build 기반 docker-compose.yml)
+# (ECR 방식 cd-main.yml은 폐기됨 — 이 워크플로가 유일한 CD 경로. 전제: EC2에 ${DEPLOY_DIR}/.env, 루트 build 기반 docker-compose.yml)
 # 변경 모듈 감지: push 시 바뀐 모듈만 빌드한다(common-module·Dockerfile·compose·gradle 변경 시 전체).
+# 트리거는 develop 고정이다(ADR-0005) — main은 동결 브랜치라 여기서 배포하지 않는다.
+# configs/{service}.yml 변경은 이미지에 없는 값이라 재빌드가 아니라 재시작만 필요하다
+# (docs/adr/config-management.md §8) — config server가 healthy해진 다음에만 재시작한다.
 
 name: CD - Self-hosted Compose
 
 on:
-  push:                        # main 머지 시 자동 배포
-    branches: [main]
+  push:                        # develop 머지 시 자동 배포 (ADR-0005 — main 트리거 금지)
+    branches: [develop]
   workflow_dispatch:           # 수동 실행
     inputs:
       rebuild_all:
@@ -25,7 +28,10 @@ env:
   DEPLOY_DIR: /home/ubuntu/prompthub        # EC2 배포 디렉토리(.env 위치). Ubuntu 기본 계정 홈
   COMPOSE_FILE: docker-compose.yml          # 레포 루트의 build 기반 compose
   # 기동 순서(앞에서부터): discovery → config → 비즈니스 서비스 → apigateway
-  ALL_SERVICES: "discovery config user-service product-service order-service payment-service settlement-service apigateway"
+  # admin-service는 settlement-service가 소유한 스키마를 직접 읽으므로(ddl-auto: none) 그 뒤에 둔다
+  ALL_SERVICES: "discovery config user-service product-service order-service payment-service settlement-service admin-service apigateway"
+  # config client가 붙은 서비스만 — discovery는 config client를 붙이지 않는다(config-management.md §6)
+  CONFIG_CLIENT_SERVICES: "user-service product-service order-service payment-service settlement-service admin-service apigateway"
 
 jobs:
   deploy:
@@ -65,6 +71,8 @@ jobs:
               - order-service/**
             settlement_service:
               - settlement-service/**
+            admin_service:
+              - admin-service/**
             apigateway:
               - apigateway/**
             config:
@@ -79,15 +87,34 @@ jobs:
               - settings.gradle.kts
               - build.gradle.kts
               - gradle/**
+            # configs/{service}.yml 변경 → 이미지 재빌드는 필요 없지만 해당 서비스는 재시작해야
+            # 새 값을 읽는다(ADR-0005, config-management.md §8). "-dev" 접미사 마이그레이션 전후
+            # 파일명을 모두 매칭하도록 * 를 둔다.
+            config_common:
+              - config/src/main/resources/configs/application*.yml
+            config_user_service:
+              - config/src/main/resources/configs/user-service*.yml
+            config_product_service:
+              - config/src/main/resources/configs/product-service*.yml
+            config_order_service:
+              - config/src/main/resources/configs/order-service*.yml
+            config_payment_service:
+              - config/src/main/resources/configs/payment-service*.yml
+            config_settlement_service:
+              - config/src/main/resources/configs/settlement-service*.yml
+            config_admin_service:
+              - config/src/main/resources/configs/admin-service*.yml
 
       # 4) 빌드 대상을 결정한다
       #    - workflow_dispatch: rebuild_all=true 전체 빌드 / false 이미지 재사용
       #    - push: docker_all(common-module·Dockerfile·compose·gradle) 변경 시 전체, 아니면 바뀐 서비스만
+      #    - configs/{service}.yml만 바뀐 서비스는 빌드 대상엔 안 넣고 재시작 전용 목록(restart_services)에 담는다
       - name: 빌드 대상 결정
         id: plan
         shell: bash
         run: |
           services=""
+          restart_services=""
           build="--build"
           deploy="true"
 
@@ -106,37 +133,64 @@ jobs:
             [ "${{ steps.changed.outputs.order_service_any_changed }}" = "true" ]      && services="$services order-service"
             [ "${{ steps.changed.outputs.payment_service_any_changed }}" = "true" ]    && services="$services payment-service"
             [ "${{ steps.changed.outputs.settlement_service_any_changed }}" = "true" ] && services="$services settlement-service"
+            [ "${{ steps.changed.outputs.admin_service_any_changed }}" = "true" ]      && services="$services admin-service"
             [ "${{ steps.changed.outputs.apigateway_any_changed }}" = "true" ]         && services="$services apigateway"
+
+            # configs/application*.yml(공통) 변경 → config client 전체 재시작
+            if [ "${{ steps.changed.outputs.config_common_any_changed }}" = "true" ]; then
+              restart_services="${CONFIG_CLIENT_SERVICES}"
+            else
+              [ "${{ steps.changed.outputs.config_user_service_any_changed }}" = "true" ]       && restart_services="$restart_services user-service"
+              [ "${{ steps.changed.outputs.config_product_service_any_changed }}" = "true" ]    && restart_services="$restart_services product-service"
+              [ "${{ steps.changed.outputs.config_order_service_any_changed }}" = "true" ]      && restart_services="$restart_services order-service"
+              [ "${{ steps.changed.outputs.config_payment_service_any_changed }}" = "true" ]    && restart_services="$restart_services payment-service"
+              [ "${{ steps.changed.outputs.config_settlement_service_any_changed }}" = "true" ] && restart_services="$restart_services settlement-service"
+              [ "${{ steps.changed.outputs.config_admin_service_any_changed }}" = "true" ]      && restart_services="$restart_services admin-service"
+            fi
           fi
 
           services="$(echo $services | xargs)"   # 앞뒤·중복 공백 정리
-          if [ -z "$services" ]; then
+
+          # 이미 빌드 대상인 서비스는 재시작 목록에서 제외(up -d --build 가 이미 재기동함)
+          dedup_restart=""
+          for svc in $restart_services; do
+            case " $services " in
+              *" $svc "*) ;;                         # 이미 build 대상 → 스킵
+              *) dedup_restart="$dedup_restart $svc" ;;
+            esac
+          done
+          restart_services="$(echo $dedup_restart | xargs)"
+
+          if [ -z "$services" ] && [ -z "$restart_services" ]; then
             deploy="false"
             echo "변경된 서비스 없음 — 배포 생략"
           fi
 
-          echo "deploy=$deploy"     >> "$GITHUB_OUTPUT"
-          echo "build=$build"       >> "$GITHUB_OUTPUT"
-          echo "services=$services" >> "$GITHUB_OUTPUT"
-          echo "빌드 대상: [${services:-(없음)}] / build='${build}'"
+          echo "deploy=$deploy"                     >> "$GITHUB_OUTPUT"
+          echo "build=$build"                        >> "$GITHUB_OUTPUT"
+          echo "services=$services"                  >> "$GITHUB_OUTPUT"
+          echo "restart_services=$restart_services"  >> "$GITHUB_OUTPUT"
+          echo "빌드 대상: [${services:-(없음)}] / build='${build}' / 재시작 전용: [${restart_services:-(없음)}]"
 
       # 5) 대상 서비스만 빌드·기동한다(부분 배포 시 나머지는 그대로 둠)
+      #    services가 비어 있으면(configs 변경만 있는 경우) 인자 없는 up이 전체 서비스를
+      #    건드리므로 반드시 건너뛴다.
       - name: Build & Up (docker compose)
-        if: steps.plan.outputs.deploy == 'true'
+        if: steps.plan.outputs.deploy == 'true' && steps.plan.outputs.services != ''
         shell: bash
         run: |
           docker compose -f "${COMPOSE_FILE}" --env-file "${DEPLOY_DIR}/.env" \
             up -d ${{ steps.plan.outputs.build }} ${{ steps.plan.outputs.services }} --remove-orphans
 
       # 6) 빌드한 서비스만 /actuator/health 로 확인한다(기동 순서대로)
-      - name: Health check
-        if: steps.plan.outputs.deploy == 'true'
+      - name: Health check (빌드 대상)
+        if: steps.plan.outputs.deploy == 'true' && steps.plan.outputs.services != ''
         shell: bash
         run: |
           declare -A PORT=(
             [discovery]=8761 [config]=8888
             [user-service]=8081 [product-service]=8082 [order-service]=8083
-            [payment-service]=8084 [settlement-service]=8085 [apigateway]=80
+            [payment-service]=8084 [settlement-service]=8085 [admin-service]=8086 [apigateway]=80
           )
 
           health_check() {
@@ -160,6 +214,45 @@ jobs:
             case " ${SERVICES} " in
               *" ${svc} "*) health_check "$svc" "http://localhost:${PORT[$svc]}/actuator/health" ;;
             esac
+          done
+
+      # 6.5) configs/{service}.yml만 바뀐 서비스는 재빌드 없이 재시작만 한다.
+      #      config server가 위 health check로 이미 healthy임이 확인된 뒤에만 실행되므로
+      #      새 설정값을 읽고 뜬다(config-management.md §8 순서 보장).
+      - name: Restart config-only 서비스
+        if: steps.plan.outputs.deploy == 'true' && steps.plan.outputs.restart_services != ''
+        shell: bash
+        run: |
+          docker compose -f "${COMPOSE_FILE}" --env-file "${DEPLOY_DIR}/.env" \
+            restart ${{ steps.plan.outputs.restart_services }}
+
+      - name: Health check (재시작 대상)
+        if: steps.plan.outputs.deploy == 'true' && steps.plan.outputs.restart_services != ''
+        shell: bash
+        run: |
+          declare -A PORT=(
+            [user-service]=8081 [product-service]=8082 [order-service]=8083
+            [payment-service]=8084 [settlement-service]=8085 [admin-service]=8086 [apigateway]=80
+          )
+
+          health_check() {
+            local service="$1"
+            local url="$2"
+            for i in {1..40}; do
+              if curl -fsS "$url" > /dev/null; then
+                echo "${service} health check success"
+                return 0
+              fi
+              echo "${service} waiting... attempt=${i}"
+              sleep 5
+            done
+            echo "${service} health check failed"
+            docker logs --tail=200 "$service" || true
+            exit 1
+          }
+
+          for svc in ${{ steps.plan.outputs.restart_services }}; do
+            health_check "$svc" "http://localhost:${PORT[$svc]}/actuator/health"
           done
 
       # 7) 빌드 과정에서 생긴 dangling 이미지를 정리한다
