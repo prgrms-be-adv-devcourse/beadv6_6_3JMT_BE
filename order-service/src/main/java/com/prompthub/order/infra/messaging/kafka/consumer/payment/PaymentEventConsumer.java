@@ -16,15 +16,14 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 public class PaymentEventConsumer {
 
-	private static final String TOPIC_APPROVED = "payment.approved";
-	private static final String TOPIC_REFUNDED = "payment.refunded";
+	private static final String TOPIC_PAYMENT_EVENTS = "payment.events";
 	private static final String GROUP_ID = "order-service";
 
 	private final ObjectMapper objectMapper;
 	private final PaymentEventHandler paymentEventHandler;
 
 	@KafkaListener(
-		topics = {TOPIC_APPROVED, TOPIC_REFUNDED},
+		topics = TOPIC_PAYMENT_EVENTS,
 		groupId = GROUP_ID,
 		containerFactory = "paymentEventKafkaListenerContainerFactory"
 	)
@@ -40,13 +39,30 @@ public class PaymentEventConsumer {
 			}
 
 			PaymentEventType eventType = PaymentEventType.from(eventTypeStr);
-			paymentEventHandler.handle(eventType, eventTypeStr, GROUP_ID, root);
+			if (shouldIgnore(eventType)) {
+				log.warn("지원하지 않거나 처리하지 않는 결제 이벤트 타입입니다. eventType={}", eventTypeStr);
+				acknowledgment.acknowledge();
+				return;
+			}
+
+			JsonNode payload = root.path("payload");
+			if (payload.isMissingNode() || payload.isNull()) {
+				throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 이벤트 payload가 누락되었습니다.");
+			}
+
+			paymentEventHandler.handle(eventType, eventTypeStr, payload);
 			acknowledgment.acknowledge();
 		} catch (Exception e) {
 			log.error("메시지 처리 중 에러 발생: {}", e.getMessage(), e);
 
 			throw e;
 		}
+	}
+
+	private boolean shouldIgnore(PaymentEventType eventType) {
+		return eventType == PaymentEventType.UNKNOWN
+			|| eventType == PaymentEventType.PAYMENT_FAILED
+			|| eventType == PaymentEventType.PAYMENT_CANCELED;
 	}
 
 	private JsonNode readTree(String message) {

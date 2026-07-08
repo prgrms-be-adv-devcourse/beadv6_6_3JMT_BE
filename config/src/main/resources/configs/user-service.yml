@@ -1,3 +1,30 @@
-# user-service 전용 Config Server 관리 설정
-# DB·포트 등 서비스 고유 설정은 user-service/src/main/resources/application.yaml 에서 관리
-# 여기에는 환경별로 달라지는 설정(feature flag, 외부 서비스 URL 등)을 추가한다
+server:
+  port: 18081
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+jwt:
+  private-key: ${JWT_PRIVATE_KEY}
+  public-key: ${JWT_PUBLIC_KEY}
+  access-token-expire-seconds: 3600
+  refresh-token-expire-seconds: 2592000
+
+grpc:
+  server:
+    port: ${USER_GRPC_SERVER_PORT}
+  client:
+    product-service:
+      address: 'static://product-service:${PRODUCT_GRPC_SERVER_PORT}'
+      negotiation-type: plaintext

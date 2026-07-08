@@ -45,7 +45,8 @@ CLI 플래그로 변환해야 한다.
 - `title`: 접두사(`[BUG]`, `[FEATURE]` 등)만 사용한다. 그 뒤에 붙은
   "간단한 버그 설명을 작성하세요." 같은 문구는 **플레이스홀더이므로 실제 제목으로 교체**한다.
 - `labels`: 값을 추출해 `--label`로 넘긴다 (예: `bug`, `feature`).
-- `assignees`: 비어 있으면 아무도 할당하지 않는다.
+- `assignees`: 템플릿 값과 무관하게 **항상 생성자 본인을 할당한다** — `--assignee "@me"`.
+  템플릿에 다른 assignee 가 명시돼 있으면 그 사람과 `@me` 를 함께 넘긴다.
 
 ### 3. 본문 채우기
 
@@ -74,6 +75,7 @@ CLI 플래그로 변환해야 한다.
 gh issue create \
   --title "[BUG] 결제 완료 후 정산 금액이 0원으로 표시됨" \
   --label bug \
+  --assignee "@me" \
   --body-file /tmp/issue-body.md
 ```
 
