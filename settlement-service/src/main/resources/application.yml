@@ -40,6 +40,8 @@ settlement:
   scheduler:
     cron: "0 0 4 1 * *"
   kafka:
+    producer:
+      topic: settlement-events
     listener:
       order:
         enabled: false
