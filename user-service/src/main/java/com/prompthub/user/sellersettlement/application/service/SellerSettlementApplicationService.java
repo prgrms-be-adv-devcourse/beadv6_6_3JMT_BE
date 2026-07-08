@@ -6,6 +6,8 @@ import com.prompthub.user.sellersettlement.application.dto.SellerSettlementResul
 import com.prompthub.user.sellersettlement.application.event.SettlementCreatedMessage;
 import com.prompthub.user.sellersettlement.application.usecase.SeedSellerSettlementUseCase;
 import com.prompthub.user.sellersettlement.application.usecase.SellerSettlementUseCase;
+import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementAccessDeniedException;
+import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementNotFoundException;
 import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
 import java.util.UUID;
@@ -44,6 +46,13 @@ public class SellerSettlementApplicationService implements SeedSellerSettlementU
     @Override
     @Transactional
     public SellerSettlementResult requestPayout(UUID sellerId, UUID settlementId) {
-        throw new UnsupportedOperationException("Task 8에서 구현");
+        SellerSettlement settlement = sellerSettlementRepository.findBySettlementId(settlementId)
+                .orElseThrow(SellerSettlementNotFoundException::new);
+        if (!settlement.getSellerId().equals(sellerId)) {
+            throw new SellerSettlementAccessDeniedException();
+        }
+        settlement.requestPayout();
+        sellerSettlementRepository.save(settlement);
+        return SellerSettlementResult.from(settlement);
     }
 }
