@@ -1,6 +1,7 @@
 package com.prompthub.settlement.application.service;
 
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
+import com.prompthub.settlement.application.event.SettlementCreatedMessage;
 import com.prompthub.settlement.application.usecase.CalculateSettlementUseCase;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementDetail;
@@ -11,6 +12,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,7 @@ public class SettlementCalculationApplicationService implements CalculateSettlem
 
     private final SettlementSourceRepository settlementSourceRepository;
     private final SettlementRepository settlementRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Override
     @Transactional
@@ -42,6 +45,8 @@ public class SettlementCalculationApplicationService implements CalculateSettlem
 
         UUID settlementId = settlement.getId();
         lines.forEach(line -> line.markSettled(settlementId));
+
+        applicationEventPublisher.publishEvent(SettlementCreatedMessage.from(settlement));
 
         return settlement;
     }

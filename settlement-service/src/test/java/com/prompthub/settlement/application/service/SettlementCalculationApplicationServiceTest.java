@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
+import com.prompthub.settlement.application.event.SettlementCreatedMessage;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.repository.SettlementRepository;
@@ -19,9 +20,11 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,6 +35,9 @@ class SettlementCalculationApplicationServiceTest {
 
     @Mock
     private SettlementRepository settlementRepository;
+
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
 
     @InjectMocks
     private SettlementCalculationApplicationService service;
@@ -110,5 +116,29 @@ class SettlementCalculationApplicationServiceTest {
         // then
         assertThat(settlement).isNull();
         verify(settlementRepository, never()).save(any());
+        verify(applicationEventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("정산을 저장한 뒤 SettlementCreatedMessage 이벤트를 발행한다")
+    void calculate_publishesSettlementCreated() {
+        // given
+        UUID sellerId = UUID.randomUUID();
+        YearMonth period = YearMonth.of(2026, 6);
+        CalculateSettlementCommand command = new CalculateSettlementCommand(UUID.randomUUID(), sellerId, period);
+        given(settlementSourceRepository.findSettleableLines(sellerId, period))
+                .willReturn(List.of(paidLine(sellerId, "100.00")));
+        stubSaveAssigningId();
+
+        // when
+        Settlement settlement = service.calculate(command);
+
+        // then : PAID 100 => fee 15, net 85
+        ArgumentCaptor<SettlementCreatedMessage> captor = ArgumentCaptor.forClass(SettlementCreatedMessage.class);
+        verify(applicationEventPublisher).publishEvent(captor.capture());
+        SettlementCreatedMessage published = captor.getValue();
+        assertThat(published.settlementId()).isEqualTo(settlement.getId());
+        assertThat(published.sellerId()).isEqualTo(sellerId);
+        assertThat(published.settlementTotalAmount()).isEqualByComparingTo("85.00");
     }
 }
