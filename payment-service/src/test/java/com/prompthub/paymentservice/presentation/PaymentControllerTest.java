@@ -104,7 +104,23 @@ class PaymentControllerTest {
     }
 
     @Test
-    void PG사_결제_실패_시_400_PAY_FAILED() throws Exception {
+    void PG사_서버오류성_4xx_시_502_PG_INVALID_REQUEST() throws Exception {
+        when(confirmPaymentUseCase.confirm(any()))
+            .thenThrow(new BusinessException(PaymentErrorCode.PG_INVALID_REQUEST, "INVALID_REQUEST"));
+
+        mockMvc.perform(post("/api/v1/payments/confirm")
+                .header("X-User-Id", UUID.randomUUID().toString())
+                .header("X-User-Role", "BUYER")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(
+                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID(), 10_000)
+                )))
+            .andExpect(status().isBadGateway())
+            .andExpect(jsonPath("$.code").value("PAY003"));
+    }
+
+    @Test
+    void PG사_결제_실패_시_422_PAY_FAILED() throws Exception {
         when(confirmPaymentUseCase.confirm(any()))
             .thenThrow(new BusinessException(PaymentErrorCode.PAYMENT_FAILED, "카드 한도 초과"));
 
@@ -115,7 +131,7 @@ class PaymentControllerTest {
                 .content(objectMapper.writeValueAsString(
                     new ConfirmPaymentRequest("toss-key", UUID.randomUUID(), 10_000)
                 )))
-            .andExpect(status().isBadRequest())
+            .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.code").value("PAY_FAILED"));
     }
 

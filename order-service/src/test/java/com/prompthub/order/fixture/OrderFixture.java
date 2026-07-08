@@ -229,7 +229,7 @@ public final class OrderFixture {
 
 	public static PaymentRefundedEvent createPaymentRefundedEvent(UUID orderId) {
 		return new PaymentRefundedEvent(
-			"payment.refunded",
+			"PAYMENT_REFUNDED",
 			PAYMENT_ID,
 			orderId,
 			BUYER_ID,

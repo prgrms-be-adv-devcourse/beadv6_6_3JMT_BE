@@ -38,42 +38,50 @@ class PaymentEventConsumerTest {
 	}
 
 	@Test
-	@DisplayName("payment.approved 수신 시 PaymentEventHandler로 위임하고 ack 한다")
-	void consume_paymentApproved_delegatesAndAcknowledges() {
+	@DisplayName("PAYMENT_APPROVED 수신 시 payload를 PaymentEventHandler로 위임하고 ack 한다")
+	void consume_paymentApprovedEnvelope_delegatesPayloadAndAcknowledges() {
 		String message = """
 			{
-			  "eventType": "payment.approved",
-			  "paymentId": "%s",
-			  "orderId": "%s",
-			  "userId": "%s",
-			  "amount": 30000,
-			  "approvedAt": "2026-06-19T12:00:00+09:00"
+			  "eventId": "%s",
+			  "eventType": "PAYMENT_APPROVED",
+			  "occurredAt": "2026-06-19T12:00:00+09:00",
+			  "payload": {
+			    "paymentId": "%s",
+			    "orderId": "%s",
+			    "userId": "%s",
+			    "amount": 30000,
+			    "approvedAt": "2026-06-19T12:00:00+09:00"
+			  }
 			}
-			""".formatted(PAYMENT_ID, ORDER_ID, BUYER_ID);
+			""".formatted(UUID.randomUUID(), PAYMENT_ID, ORDER_ID, BUYER_ID);
 
 		consumer.consume(message, acknowledgment);
 
-		then(paymentEventHandler).should().handle(eq(PaymentEventType.PAYMENT_APPROVED), eq("payment.approved"), eq("order-service"), any());
+		then(paymentEventHandler).should().handle(eq(PaymentEventType.PAYMENT_APPROVED), eq("PAYMENT_APPROVED"), any());
 		then(acknowledgment).should().acknowledge();
 	}
 
 	@Test
-	@DisplayName("payment.refunded 수신 시 PaymentEventHandler로 위임하고 ack 한다")
-	void consume_paymentRefunded_delegatesAndAcknowledges() {
+	@DisplayName("PAYMENT_REFUNDED 수신 시 payload를 PaymentEventHandler로 위임하고 ack 한다")
+	void consume_paymentRefundedEnvelope_delegatesPayloadAndAcknowledges() {
 		String message = """
 			{
-			  "eventType": "payment.refunded",
-			  "paymentId": "%s",
-			  "orderId": "%s",
-			  "userId": "%s",
-			  "amount": 30000,
-			  "refundedAt": "2026-06-19T12:00:00+09:00"
+			  "eventId": "%s",
+			  "eventType": "PAYMENT_REFUNDED",
+			  "occurredAt": "2026-06-19T12:00:00+09:00",
+			  "payload": {
+			    "paymentId": "%s",
+			    "orderId": "%s",
+			    "userId": "%s",
+			    "amount": 30000,
+			    "refundedAt": "2026-06-19T12:00:00+09:00"
+			  }
 			}
-			""".formatted(PAYMENT_ID, ORDER_ID, BUYER_ID);
+			""".formatted(UUID.randomUUID(), PAYMENT_ID, ORDER_ID, BUYER_ID);
 
 		consumer.consume(message, acknowledgment);
 
-		then(paymentEventHandler).should().handle(eq(PaymentEventType.PAYMENT_REFUNDED), eq("payment.refunded"), eq("order-service"), any());
+		then(paymentEventHandler).should().handle(eq(PaymentEventType.PAYMENT_REFUNDED), eq("PAYMENT_REFUNDED"), any());
 		then(acknowledgment).should().acknowledge();
 	}
 
@@ -89,7 +97,61 @@ class PaymentEventConsumerTest {
 
 		consumer.consume(message, acknowledgment);
 
-		then(paymentEventHandler).should(never()).handle(any(), any(), any(), any());
+		then(paymentEventHandler).should(never()).handle(any(), any(), any());
+		then(acknowledgment).should().acknowledge();
+	}
+
+	@Test
+	@DisplayName("알 수 없는 eventType은 handler 호출 없이 ack 한다")
+	void consume_unknownEventType_acknowledgesWithoutDelegating() {
+		String message = """
+			{
+			  "eventId": "%s",
+			  "eventType": "PAYMENT_EXPIRED",
+			  "occurredAt": "2026-06-19T12:00:00+09:00",
+			  "payload": {}
+			}
+			""".formatted(UUID.randomUUID());
+
+		consumer.consume(message, acknowledgment);
+
+		then(paymentEventHandler).should(never()).handle(any(), any(), any());
+		then(acknowledgment).should().acknowledge();
+	}
+
+	@Test
+	@DisplayName("PAYMENT_FAILED는 handler 호출 없이 ack 한다")
+	void consume_paymentFailed_acknowledgesWithoutDelegating() {
+		String message = """
+			{
+			  "eventId": "%s",
+			  "eventType": "PAYMENT_FAILED",
+			  "occurredAt": "2026-06-19T12:00:00+09:00",
+			  "payload": {}
+			}
+			""".formatted(UUID.randomUUID());
+
+		consumer.consume(message, acknowledgment);
+
+		then(paymentEventHandler).should(never()).handle(any(), any(), any());
+		then(acknowledgment).should().acknowledge();
+	}
+
+	@Test
+	@DisplayName("PAYMENT_CANCELED는 handler 호출 없이 ack 한다")
+	void consume_paymentCanceled_acknowledgesWithoutDelegating() {
+		String message = """
+			{
+			  "eventId": "%s",
+			  "eventType": "PAYMENT_CANCELED",
+			  "occurredAt": "2026-06-19T12:00:00+09:00",
+			  "payload": {}
+			}
+			""".formatted(UUID.randomUUID());
+
+		consumer.consume(message, acknowledgment);
+
+		then(paymentEventHandler).should(never()).handle(any(), any(), any());
 		then(acknowledgment).should().acknowledge();
 	}
 
@@ -98,18 +160,43 @@ class PaymentEventConsumerTest {
 	void consume_otherException_throwsWithoutAcknowledging() {
 		String message = """
 			{
-			  "eventType": "payment.approved",
-			  "paymentId": "%s",
-			  "orderId": "%s"
+			  "eventId": "%s",
+			  "eventType": "PAYMENT_APPROVED",
+			  "occurredAt": "2026-06-19T12:00:00+09:00",
+			  "payload": {
+			    "paymentId": "%s",
+			    "orderId": "%s",
+			    "userId": "%s",
+			    "amount": 30000,
+			    "approvedAt": "2026-06-19T12:00:00+09:00"
+			  }
 			}
-			""".formatted(PAYMENT_ID, ORDER_ID);
+			""".formatted(UUID.randomUUID(), PAYMENT_ID, ORDER_ID, BUYER_ID);
 
 		willThrow(new RuntimeException("DB Connection Error"))
-			.given(paymentEventHandler).handle(any(), any(), any(), any());
+			.given(paymentEventHandler).handle(any(), any(), any());
 
 		assertThatThrownBy(() -> consumer.consume(message, acknowledgment))
 			.isInstanceOf(RuntimeException.class);
 
+		then(acknowledgment).should(never()).acknowledge();
+	}
+
+	@Test
+	@DisplayName("처리 대상 이벤트의 payload 누락은 ack 하지 않고 예외를 전파한다")
+	void consume_missingPayload_throwsWithoutAcknowledging() {
+		String message = """
+			{
+			  "eventId": "%s",
+			  "eventType": "PAYMENT_APPROVED",
+			  "occurredAt": "2026-06-19T12:00:00+09:00"
+			}
+			""".formatted(UUID.randomUUID());
+
+		assertThatThrownBy(() -> consumer.consume(message, acknowledgment))
+			.isInstanceOf(OrderException.class);
+
+		then(paymentEventHandler).should(never()).handle(any(), any(), any());
 		then(acknowledgment).should(never()).acknowledge();
 	}
 

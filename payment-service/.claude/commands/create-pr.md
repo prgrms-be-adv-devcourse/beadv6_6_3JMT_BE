@@ -44,6 +44,20 @@ git diff develop...HEAD --stat
 - `type`: 브랜치명 앞 부분에서 추출. 없으면 커밋 메시지에서 추론.
 - `이슈번호`: `#` 뒤 숫자 추출. 없으면 "이슈 번호를 알려주세요."라고 묻는다.
 
+## 3-1단계: 라벨 결정
+
+추출한 `type` 기반으로 GitHub 라벨을 자동 결정한다.
+
+| type | 라벨 |
+|---|---|
+| `feat` | `feat` |
+| `fix` | `fix` |
+| `docs` | `docs` |
+| `chore` | `chore` |
+| `test` | `test` |
+| `style` | `style` |
+| `refactor` | `refactor` |
+
 ## 4단계: PR 제목 생성
 
 팀 형식: `type: 한국어 설명 (#이슈번호)`
@@ -103,6 +117,8 @@ git diff develop...HEAD --stat
 === PR 초안 ===
 브랜치: <현재 브랜치> → develop
 제목: feat: 결제 승인 API 구현 (#15)
+라벨: feat
+담당자: @me (본인)
 
 커밋 (develop 이후):
 (git log 결과)
@@ -134,7 +150,9 @@ gh pr create \
   --base develop \
   --head <현재 브랜치> \
   --title "<PR 제목>" \
-  --body "<본문>"
+  --body "<본문>" \
+  --label "<라벨>" \
+  --assignee @me
 ```
 
 실행 후 생성된 PR URL을 보고한다.

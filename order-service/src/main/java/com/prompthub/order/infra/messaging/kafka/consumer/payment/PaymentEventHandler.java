@@ -3,8 +3,6 @@ package com.prompthub.order.infra.messaging.kafka.consumer.payment;
 import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
 import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
 import com.prompthub.order.application.service.event.OrderPaymentEventService;
-import com.prompthub.order.global.exception.ErrorCode;
-import com.prompthub.order.global.exception.OrderException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -21,33 +19,33 @@ public class PaymentEventHandler {
     private final OrderPaymentEventService orderPaymentEventService;
 
     @Transactional
-    public void handle(PaymentEventType eventType, String eventTypeStr, String consumerGroup, JsonNode root) {
+    public void handle(PaymentEventType eventType, String eventTypeStr, JsonNode payload) {
         switch (eventType) {
-            case PAYMENT_APPROVED -> orderPaymentEventService.handlePaymentApproved(toPaymentApprovedEvent(root));
-            case PAYMENT_REFUNDED -> orderPaymentEventService.handlePaymentRefunded(toPaymentRefundedEvent(root));
-            case UNKNOWN -> log.warn("지원하지 않는 결제 이벤트 타입입니다. eventType={}", eventTypeStr);
+            case PAYMENT_APPROVED -> orderPaymentEventService.handlePaymentApproved(toPaymentApprovedEvent(eventTypeStr, payload));
+            case PAYMENT_REFUNDED -> orderPaymentEventService.handlePaymentRefunded(toPaymentRefundedEvent(eventTypeStr, payload));
+            default -> log.warn("지원하지 않는 결제 이벤트 타입입니다. eventType={}", eventTypeStr);
         }
     }
 
-    private PaymentApprovedEvent toPaymentApprovedEvent(JsonNode root) {
+    private PaymentApprovedEvent toPaymentApprovedEvent(String eventType, JsonNode payload) {
         return new PaymentApprovedEvent(
-            root.path("eventType").stringValue(null),
-            UUID.fromString(root.path("paymentId").stringValue()),
-            UUID.fromString(root.path("orderId").stringValue()),
-            UUID.fromString(root.path("userId").stringValue()),
-            root.path("amount").intValue(),
-            OffsetDateTime.parse(root.path("approvedAt").stringValue())
+            eventType,
+            UUID.fromString(payload.path("paymentId").stringValue()),
+            UUID.fromString(payload.path("orderId").stringValue()),
+            UUID.fromString(payload.path("userId").stringValue()),
+            payload.path("amount").intValue(),
+            OffsetDateTime.parse(payload.path("approvedAt").stringValue())
         );
     }
 
-    private PaymentRefundedEvent toPaymentRefundedEvent(JsonNode root) {
+    private PaymentRefundedEvent toPaymentRefundedEvent(String eventType, JsonNode payload) {
         return new PaymentRefundedEvent(
-            root.path("eventType").stringValue(null),
-            UUID.fromString(root.path("paymentId").stringValue()),
-            UUID.fromString(root.path("orderId").stringValue()),
-            UUID.fromString(root.path("userId").stringValue()),
-            root.path("amount").intValue(),
-            OffsetDateTime.parse(root.path("refundedAt").stringValue())
+            eventType,
+            UUID.fromString(payload.path("paymentId").stringValue()),
+            UUID.fromString(payload.path("orderId").stringValue()),
+            UUID.fromString(payload.path("userId").stringValue()),
+            payload.path("amount").intValue(),
+            OffsetDateTime.parse(payload.path("refundedAt").stringValue())
         );
     }
 }
