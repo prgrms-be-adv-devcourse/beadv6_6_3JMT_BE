@@ -35,7 +35,12 @@ public class KafkaSettlementEventPublisher implements SettlementEventPublisher {
                 UUID.randomUUID(), EVENT_TYPE, EVENT_VERSION, LocalDateTime.now(),
                 message.settlementId(), message);
         try {
-            kafkaTemplate.send(topic, message.settlementId().toString(), envelope);
+            kafkaTemplate.send(topic, message.settlementId().toString(), envelope)
+                    .whenComplete((result, ex) -> {
+                        if (ex != null) {
+                            log.error("정산 생성 이벤트 발행 실패(async). settlementId={}", message.settlementId(), ex);
+                        }
+                    });
         } catch (Exception e) {
             log.error("정산 생성 이벤트 발행 실패. settlementId={}", message.settlementId(), e);
             throw new SettlementException(SettlementErrorCode.SETTLEMENT_EVENT_PUBLISH_FAILED, e);

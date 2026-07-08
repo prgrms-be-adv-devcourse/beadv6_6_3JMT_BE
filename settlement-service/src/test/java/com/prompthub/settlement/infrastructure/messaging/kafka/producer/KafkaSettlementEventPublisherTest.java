@@ -1,6 +1,7 @@
 package com.prompthub.settlement.infrastructure.messaging.kafka.producer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -15,6 +16,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,6 +50,8 @@ class KafkaSettlementEventPublisherTest {
     void publish_wrapsEnvelopeAndSends() {
         UUID settlementId = UUID.randomUUID();
         SettlementCreatedMessage message = sampleMessage(settlementId);
+        given(kafkaTemplate.send(eq(TOPIC), eq(settlementId.toString()), any()))
+                .willReturn(CompletableFuture.completedFuture(null));
 
         publisher.publishSettlementCreated(message);
 
@@ -71,5 +75,17 @@ class KafkaSettlementEventPublisherTest {
 
         assertThatThrownBy(() -> publisher.publishSettlementCreated(message))
                 .isInstanceOf(SettlementException.class);
+    }
+
+    @Test
+    @DisplayName("발행 후 비동기 전송이 실패해도 예외를 던지지 않고 로깅만 한다")
+    void publish_whenAsyncSendFails_doesNotThrow() {
+        UUID settlementId = UUID.randomUUID();
+        SettlementCreatedMessage message = sampleMessage(settlementId);
+        given(kafkaTemplate.send(eq(TOPIC), eq(settlementId.toString()), any()))
+                .willReturn(CompletableFuture.failedFuture(new RuntimeException("broker down")));
+
+        assertThatCode(() -> publisher.publishSettlementCreated(message))
+                .doesNotThrowAnyException();
     }
 }
