@@ -2,16 +2,14 @@ package com.prompthub.product.domain.model.entity;
 
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
+import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.infra.persistence.converter.TagsConverter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
-import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
+import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -37,13 +35,6 @@ public class Product {
 	@Column(name = "seller_id", nullable = false)
 	private UUID sellerId;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "category_id")
-	private Category category;
-
-	@Column(name = "category_id", insertable = false, updatable = false)
-	private UUID categoryId;
-
 	@Column(name = "major_version", nullable = false)
 	private short majorVersion;
 
@@ -59,8 +50,9 @@ public class Product {
 	@Column(name = "description", nullable = false, columnDefinition = "TEXT")
 	private String description;
 
+	@Enumerated(EnumType.STRING)
 	@Column(name = "product_type", nullable = false, length = 50)
-	private String productType;
+	private ProductType productType;
 
 	@Column(name = "model", length = 100)
 	private String model;
@@ -117,10 +109,9 @@ public class Product {
 	public static Product create(
 		UUID id,
 		UUID sellerId,
-		Category category,
+		ProductType productType,
 		String name,
 		String description,
-		String productType,
 		String model,
 		AmountType amountType,
 		int amount,
@@ -132,11 +123,9 @@ public class Product {
 		Product product = new Product();
 		product.id = id;
 		product.sellerId = sellerId;
-		product.category = category;
-		product.categoryId = category != null ? category.getId() : null;
+		product.productType = productType;
 		product.name = name;
 		product.description = description;
-		product.productType = productType;
 		product.model = model;
 		product.amountType = amountType;
 		product.amount = amount;
@@ -156,10 +145,9 @@ public class Product {
 	}
 
 	public void update(
-		Category category,
+		ProductType productType,
 		String name,
 		String description,
-		String productType,
 		String model,
 		AmountType amountType,
 		int amount,
@@ -170,11 +158,9 @@ public class Product {
 		String changeReason,
 		boolean isMajor
 	) {
-		this.category = category;
-		this.categoryId = category != null ? category.getId() : null;
+		this.productType = productType;
 		this.name = name;
 		this.description = description;
-		this.productType = productType;
 		this.model = model;
 		this.amountType = amountType;
 		this.amount = amount;

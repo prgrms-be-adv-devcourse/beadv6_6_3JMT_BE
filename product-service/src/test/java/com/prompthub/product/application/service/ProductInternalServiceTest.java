@@ -4,6 +4,7 @@ import com.prompthub.product.application.client.SellerClient;
 import com.prompthub.product.application.client.SellerInfo;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
+import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.domain.repository.ReviewRepository;
 import com.prompthub.product.presentation.dto.response.ProductCartSnapshotResponse;
@@ -99,7 +100,7 @@ class ProductInternalServiceTest {
 		ReflectionTestUtils.setField(product, "id", id);
 		ReflectionTestUtils.setField(product, "sellerId", sellerId);
 		ReflectionTestUtils.setField(product, "name", "면접 답변 프롬프트");
-		ReflectionTestUtils.setField(product, "productType", "PROMPT");
+		ReflectionTestUtils.setField(product, "productType", ProductType.PROMPT);
 		ReflectionTestUtils.setField(product, "amount", 15000);
 		ReflectionTestUtils.setField(product, "status", status);
 		return product;

@@ -5,6 +5,7 @@ import com.prompthub.product.application.client.SellerInfo;
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
+import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
 import com.prompthub.product.domain.repository.ProductRepository;
@@ -30,7 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class ProductQueryService implements ProductQueryUseCase {
 
-	private static final String DEFAULT_CATEGORY = "all";
+	private static final String ALL_PRODUCT_TYPES = "all";
 	private static final int DEFAULT_LIMIT = 4;
 
 	private final ProductRepository productRepository;
@@ -38,7 +39,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 
 	public PageResponse<ProductListItemResponse> getProducts(
 		String q,
-		String category,
+		String productType,
 		String sort,
 		int page,
 		int size
@@ -46,26 +47,34 @@ public class ProductQueryService implements ProductQueryUseCase {
 		int normalizedPage = normalizePositive(page);
 		int normalizedSize = normalizePositive(size);
 		String keyword = normalizeKeyword(q);
-		String selectedCategory = normalizeCategory(category);
+		String selectedProductType = normalizeProductType(productType);
 		String selectedSort = normalizeSort(sort);
 
 		List<ProductListProjection> products = productRepository.findPublicProducts(
 			keyword,
-			selectedCategory,
+			selectedProductType,
 			selectedSort,
 			PageRequest.of(normalizedPage - 1, normalizedSize)
 		);
-		long total = productRepository.countPublicProducts(keyword, selectedCategory);
+		long total = productRepository.countPublicProducts(keyword, selectedProductType);
 		boolean hasNext = (long) (normalizedPage - 1) * normalizedSize + products.size() < total;
 
 		Map<UUID, String> sellerNames = products.stream()
 			.map(ProductListProjection::sellerId)
 			.distinct()
 			.collect(Collectors.toMap(id -> id, id -> sellerClient.getSellerInfo(id).sellerName()));
+		Map<UUID, List<String>> tagsByProductId = productRepository
+			.findAllByIdIn(products.stream().map(ProductListProjection::id).toList())
+			.stream()
+			.collect(Collectors.toMap(Product::getId, Product::getTags));
 
 		return PageResponse.success(
 			products.stream()
-				.map(p -> toListItemResponse(p, sellerNames.getOrDefault(p.sellerId(), "")))
+				.map(p -> toListItemResponse(
+					p,
+					sellerNames.getOrDefault(p.sellerId(), ""),
+					tagsByProductId.getOrDefault(p.id(), List.of())
+				))
 				.toList(),
 			normalizedPage,
 			normalizedSize,
@@ -86,9 +95,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 		return new ProductDetailResponse(
 			product.getId(),
 			product.getName(),
-			resolveCategory(product),
-			resolveIcon(product),
-			product.getProductType(),
+			product.getProductType().name(),
 			product.getModel(),
 			product.getAmount(),
 			rating,
@@ -101,6 +108,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 			product.getDescription(),
 			product.getThumbnailUrl(),
 			createPreviewContent(product),
+			product.getTags(),
 			List.of(toVersionResponse(product)),
 			List.of(),
 			product.getCreatedAt(),
@@ -113,15 +121,23 @@ public class ProductQueryService implements ProductQueryUseCase {
 		int normalizedLimit = limit > 0 ? limit : DEFAULT_LIMIT;
 
 		List<ProductListProjection> related = productRepository.findRelatedProducts(
-			product.getId(), product.getCategoryId(), normalizedLimit);
+			product.getId(), product.getProductType(), normalizedLimit);
 
 		Map<UUID, String> sellerNames = related.stream()
 			.map(ProductListProjection::sellerId)
 			.distinct()
 			.collect(Collectors.toMap(id -> id, id -> sellerClient.getSellerInfo(id).sellerName()));
+		Map<UUID, List<String>> tagsByProductId = productRepository
+			.findAllByIdIn(related.stream().map(ProductListProjection::id).toList())
+			.stream()
+			.collect(Collectors.toMap(Product::getId, Product::getTags));
 
 		return related.stream()
-			.map(p -> toListItemResponse(p, sellerNames.getOrDefault(p.sellerId(), "")))
+			.map(p -> toListItemResponse(
+				p,
+				sellerNames.getOrDefault(p.sellerId(), ""),
+				tagsByProductId.getOrDefault(p.id(), List.of())
+			))
 			.toList();
 	}
 
@@ -145,12 +161,10 @@ public class ProductQueryService implements ProductQueryUseCase {
 		return product;
 	}
 
-	private ProductListItemResponse toListItemResponse(ProductListProjection product, String sellerName) {
+	private ProductListItemResponse toListItemResponse(ProductListProjection product, String sellerName, List<String> tags) {
 		return new ProductListItemResponse(
 			product.id(),
 			product.title(),
-			product.category(),
-			resolveIcon(product.categoryIcon()),
 			product.productType(),
 			product.model(),
 			product.amount(),
@@ -162,6 +176,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 			null,
 			product.description(),
 			product.thumbnailUrl(),
+			tags,
 			product.createdAt(),
 			product.updatedAt()
 		);
@@ -190,31 +205,6 @@ public class ProductQueryService implements ProductQueryUseCase {
 		return "[" + product.getName() + "]\n\n전체 내용은 구매 후 확인할 수 있습니다.";
 	}
 
-	private String resolveCategory(Product product) {
-		if (product.getCategory() == null || product.getCategory().getCode() == null) {
-			return "";
-		}
-
-		return product.getCategory().getCode();
-	}
-
-	private String resolveIcon(Product product) {
-		if (product.getCategory() == null || product.getCategory().getIcon() == null
-			|| product.getCategory().getIcon().isBlank()) {
-			return "sparkles";
-		}
-
-		return product.getCategory().getIcon();
-	}
-
-	private String resolveIcon(String categoryCode) {
-		if (categoryCode == null || categoryCode.isBlank()) {
-			return "sparkles";
-		}
-
-		return categoryCode;
-	}
-
 	private int normalizePositive(int value) {
 		return Math.max(value, 1);
 	}
@@ -227,12 +217,16 @@ public class ProductQueryService implements ProductQueryUseCase {
 		return q.trim().toLowerCase(Locale.ROOT);
 	}
 
-	private String normalizeCategory(String category) {
-		if (category == null || category.isBlank()) {
-			return DEFAULT_CATEGORY;
+	private String normalizeProductType(String productType) {
+		if (productType == null || productType.isBlank() || ALL_PRODUCT_TYPES.equalsIgnoreCase(productType)) {
+			return ALL_PRODUCT_TYPES;
 		}
 
-		return category;
+		try {
+			return ProductType.valueOf(productType.toUpperCase(Locale.ROOT)).name();
+		} catch (IllegalArgumentException e) {
+			throw new ProductException(ProductErrorCode.INVALID_PRODUCT_TYPE);
+		}
 	}
 
 	private String normalizeSort(String sort) {

@@ -51,7 +51,7 @@ class WishlistApplicationServiceTest {
     private ProductSummaryDto productSummary() {
         return new ProductSummaryDto(
                 PRODUCT_ID, SELLER_ID, "테스트 상품", 9900L,
-                "https://cdn.example.com/thumb.jpg", "marketing", "GPT-4",
+                "https://cdn.example.com/thumb.jpg", "GPT-4",
                 100L, 4.5, "ACTIVE"
         );
     }
