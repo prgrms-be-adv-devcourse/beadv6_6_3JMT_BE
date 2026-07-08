@@ -21,6 +21,12 @@ spring:
   grpc:
     server:
       port: 9081
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: user-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
 
 jwt:
   private-key: ${JWT_PRIVATE_KEY}
@@ -43,3 +49,12 @@ management:
     web:
       exposure:
         include: health, info
+
+user:
+  kafka:
+    consumer:
+      settlement:
+        topic: settlement-events
+    listener:
+      settlement:
+        enabled: false   # 통합 검증 시 true
