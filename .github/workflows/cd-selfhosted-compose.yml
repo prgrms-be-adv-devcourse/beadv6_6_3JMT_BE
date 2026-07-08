@@ -2,7 +2,7 @@ name: CD - Parallel Self-hosted Compose
 
 on:
   push:
-    branches: [develop,infra]
+    branches: ["develop"]
   workflow_dispatch:
     inputs:
       rebuild_all:
@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 concurrency:
   group: cd-selfhosted
@@ -27,7 +28,7 @@ jobs:
   # ----------------------------------------------------
   planning:
     name: Plan Build Targets
-    runs-on: [self-hosted, linux, deploy]
+    runs-on: ubuntu-latest
     outputs:
       deploy: ${{ steps.plan.outputs.deploy }}
       build_matrix: ${{ steps.plan.outputs.build_matrix }}
@@ -36,36 +37,63 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: env 확인
-        run: |
-          if [ ! -f "${DEPLOY_DIR}/.env" ]; then 
-            echo "❌ .env 파일을 찾을 수 없습니다."
-            exit 1
-          fi
-
       - name: 변경 모듈 감지
         id: changed
         if: github.event_name == 'push'
         uses: tj-actions/changed-files@v46
         with:
           files_yaml: |
-            user-service: [user-service/**]
-            product-service: [product-service/**]
-            order-service: [order-service/**]
-            payment-service: [payment-service/**]
-            settlement-service: [settlement-service/**]
-            admin-service: [admin-service/**]
-            apigateway: [apigateway/**]
-            config: [config/**]
-            discovery: [discovery/**]
-            docker_all: [common-module/**, Dockerfile, docker-compose.yml, build.gradle.kts, settings.gradle.kts]
+            user_service:
+              - user-service/**
+            product_service:
+              - product-service/**
+            order_service:
+              - order-service/**
+            payment_service:
+              - payment-service/**
+            settlement_service:
+              - settlement-service/**
+            admin_service:
+              - admin-service/**
+            apigateway:
+              - apigateway/**
+            config:
+              - config/**
+            discovery:
+              - discovery/**
+            docker_all:
+              - common-module/**
+              - Dockerfile
+              - docker-compose.yml
+              - compose.yml
+              - build.gradle.kts
+              - settings.gradle.kts
+              - gradle/**
+              - .github/workflows/**
+
+      - name: 변경 감지 결과 출력
+        if: github.event_name == 'push'
+        run: |
+          echo "user_service=${{ steps.changed.outputs.user_service_any_changed }}"
+          echo "product_service=${{ steps.changed.outputs.product_service_any_changed }}"
+          echo "order_service=${{ steps.changed.outputs.order_service_any_changed }}"
+          echo "payment_service=${{ steps.changed.outputs.payment_service_any_changed }}"
+          echo "settlement_service=${{ steps.changed.outputs.settlement_service_any_changed }}"
+          echo "admin_service=${{ steps.changed.outputs.admin_service_any_changed }}"
+          echo "apigateway=${{ steps.changed.outputs.apigateway_any_changed }}"
+          echo "config=${{ steps.changed.outputs.config_any_changed }}"
+          echo "discovery=${{ steps.changed.outputs.discovery_any_changed }}"
+          echo "docker_all=${{ steps.changed.outputs.docker_all_any_changed }}"
 
       - name: 빌드 대상 결정 및 JSON 배열화
         id: plan
         shell: bash
         run: |
           # 1. 수동 실행이거나, 공통/전역 파일이 변경된 경우 전체 빌드
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ steps.changed.outputs.docker_all_any_changed }}" = "true" ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.rebuild_all }}" = "true" ]; then
+            SERVICES_JSON='["discovery","config","user-service","product-service","order-service","payment-service","settlement-service","admin-service","apigateway"]'
+            DEPLOY="true"
+          elif [ "${{ steps.changed.outputs.docker_all_any_changed }}" = "true" ]; then
             SERVICES_JSON='["discovery","config","user-service","product-service","order-service","payment-service","settlement-service","admin-service","apigateway"]'
             DEPLOY="true"
           else
@@ -96,40 +124,43 @@ jobs:
           echo "deploy=${DEPLOY}" >> "$GITHUB_OUTPUT"
 
   # ----------------------------------------------------
-  # JOB 2: 서비스별 독립적/병렬 이미지 빌드 (동시 실행)
+  # JOB 2: 서비스별 독립적/병렬 이미지 빌드 (Github-hosted 동시 실행)
   # ----------------------------------------------------
-  parallel-build:
+  parallel-build-and-push:
     name: Build -> ${{ matrix.service }}
     needs: planning
     if: needs.planning.outputs.deploy == 'true' && needs.planning.outputs.build_matrix != '[]'
-    runs-on: [self-hosted, linux, deploy]
     strategy:
       matrix:
         service: ${{ fromJson(needs.planning.outputs.build_matrix) }}
-      fail-fast: false # 하나가 실패해도 다른 서비스 빌드는 끝까지 진행
-    steps:
-      - uses: actions/checkout@v4
-        # fetch-depth: 0 제거 -> 병렬 Job의 빠른 체크아웃(Shallow clone)을 유도
-
-      - name: Parallel Docker Build
-        run: |
-          echo "🚀 ${{ matrix.service }} 이미지를 빌드합니다."
-          docker compose -f "${COMPOSE_FILE}" --env-file "${DEPLOY_DIR}/.env" \
-            build ${{ matrix.service }}
+      fail-fast: false
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: ${{ matrix.service }}
+      module-path: ${{ matrix.service }}
+      push-image: true
+      ecr-repository: prompthub-${{ matrix.service }}
 
   # ----------------------------------------------------
   # JOB 3: 배포 및 순차 헬스체크 실행 (기존 순서 보장)
   # ----------------------------------------------------
   deploy-and-health:
     name: Run & Health Check
-    needs: [planning, parallel-build]
+    needs: [planning, parallel-build-and-push]
     # always()를 제거하여, JOB 2의 병렬 빌드가 모두 성공(Success)했을 때만 배포되도록 보호
     if: needs.planning.outputs.deploy == 'true'
     runs-on: [self-hosted, linux, deploy]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Up containers (No Build, Just Run)
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull and Up containers
         run: |
           echo "🚀 업데이트된 서비스 기동 시작"
           # jq의 join(" ") 기능을 이용해 배열을 공백으로 구분된 문자열로 변환
@@ -137,6 +168,8 @@ jobs:
           
           if [ -n "$SERVICES_STR" ]; then
             echo "실행 대상: $SERVICES_STR"
+            # 최신 이미지 Pull (docker-compose.yml의 image 항목을 통해 다운로드)
+            docker compose -f "${COMPOSE_FILE}" pull $SERVICES_STR
             docker compose -f "${COMPOSE_FILE}" --env-file "${DEPLOY_DIR}/.env" \
               up -d $SERVICES_STR --remove-orphans
           else

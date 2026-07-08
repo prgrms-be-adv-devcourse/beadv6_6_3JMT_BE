@@ -41,6 +41,7 @@ services:
 
   # ----- Spring Cloud 코어(앱보다 먼저) -----
   discovery:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-discovery:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -59,6 +60,7 @@ services:
     networks: [prompthub]
 
   config:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-config:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -83,6 +85,7 @@ services:
 
   # ----- 비즈니스 서비스 -----
   user-service:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-user-service:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -117,6 +120,7 @@ services:
     networks: [prompthub]
 
   product-service:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-product-service:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -153,6 +157,7 @@ services:
     networks: [prompthub]
 
   order-service:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-order-service:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -190,6 +195,7 @@ services:
     networks: [prompthub]
 
   payment-service:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-payment-service:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -222,6 +228,7 @@ services:
     networks: [prompthub]
 
   settlement-service:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-settlement-service:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -259,6 +266,7 @@ services:
     networks: [prompthub]
 
   admin-service:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-admin-service:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -290,6 +298,7 @@ services:
 
   # ----- 게이트웨이(외부 진입점) -----
   apigateway:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-apigateway:latest
     build:
       context: .
       dockerfile: Dockerfile
