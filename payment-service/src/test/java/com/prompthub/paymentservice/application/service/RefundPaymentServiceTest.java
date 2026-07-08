@@ -79,7 +79,7 @@ class RefundPaymentServiceTest {
     void PAID_아닌_상태_환불_시_PAY004_예외() {
         UUID userId = UUID.randomUUID();
         // READY 상태 — PAID 아님
-        Payment payment = Payment.create(UUID.randomUUID(), userId, "pg-key", "TOSS_PAYMENTS", "CARD", false, 10_000, 0);
+        Payment payment = Payment.create(UUID.randomUUID(), userId, "pg-key", "TOSS_PAYMENTS", "CARD", false, 10_000);
         when(paymentRepository.findByIdForUpdate(payment.getId())).thenReturn(Optional.of(payment));
 
         RefundPaymentCommand command = new RefundPaymentCommand(payment.getId(), userId);
@@ -116,7 +116,7 @@ class RefundPaymentServiceTest {
 
     private Payment 결제_생성_후_승인() {
         UUID userId = UUID.randomUUID();
-        Payment payment = Payment.create(UUID.randomUUID(), userId, "pg-key", "TOSS_PAYMENTS", "CARD", false, 10_000, 0);
+        Payment payment = Payment.create(UUID.randomUUID(), userId, "pg-key", "TOSS_PAYMENTS", "CARD", false, 10_000);
         payment.markRequested(OffsetDateTime.now());
         payment.approve(10_000, "카드", "{}", OffsetDateTime.now());
         return payment;

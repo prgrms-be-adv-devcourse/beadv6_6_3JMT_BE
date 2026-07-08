@@ -4,6 +4,7 @@ import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;
 import jakarta.persistence.LockModeType;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -13,7 +14,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PaymentJpaRepository extends JpaRepository<Payment, UUID> {
-    Optional<Payment> findByIdempotencyKey(String idempotencyKey);
+    boolean existsByOrderIdAndStatusIn(UUID orderId, Collection<PaymentStatus> statuses);
     List<Payment> findByStatusAndUpdatedAtBefore(PaymentStatus status, OffsetDateTime threshold);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

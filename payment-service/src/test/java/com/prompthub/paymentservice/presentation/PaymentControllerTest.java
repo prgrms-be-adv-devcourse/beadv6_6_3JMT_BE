@@ -56,7 +56,7 @@ class PaymentControllerTest {
                 .header("X-User-Role", "BUYER")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
-                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID(), 10_000)
+                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID())
                 )))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success").value(true))
@@ -69,20 +69,9 @@ class PaymentControllerTest {
                 .header("X-User-Id", UUID.randomUUID().toString())
                 .header("X-User-Role", "BUYER")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"paymentKey\":\"\",\"orderId\":\"" + UUID.randomUUID() + "\",\"amount\":10000}"))
+                .content("{\"paymentKey\":\"\",\"orderId\":\"" + UUID.randomUUID() + "\"}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.success").value(false))
-            .andExpect(jsonPath("$.code").value("V001"));
-    }
-
-    @Test
-    void amount_음수_시_400_V001() throws Exception {
-        mockMvc.perform(post("/api/v1/payments/confirm")
-                .header("X-User-Id", UUID.randomUUID().toString())
-                .header("X-User-Role", "BUYER")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"paymentKey\":\"key\",\"orderId\":\"" + UUID.randomUUID() + "\",\"amount\":-1}"))
-            .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("V001"));
     }
 
@@ -96,7 +85,7 @@ class PaymentControllerTest {
                 .header("X-User-Role", "BUYER")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
-                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID(), 10_000)
+                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID())
                 )))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.success").value(false))
@@ -113,7 +102,7 @@ class PaymentControllerTest {
                 .header("X-User-Role", "BUYER")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
-                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID(), 10_000)
+                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID())
                 )))
             .andExpect(status().isBadGateway())
             .andExpect(jsonPath("$.code").value("PAY003"));
@@ -129,7 +118,7 @@ class PaymentControllerTest {
                 .header("X-User-Role", "BUYER")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
-                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID(), 10_000)
+                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID())
                 )))
             .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.code").value("PAY_FAILED"));
@@ -142,7 +131,7 @@ class PaymentControllerTest {
                 .header("X-User-Role", "ADMIN")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
-                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID(), 10_000)
+                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID())
                 )))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("PAY007"));

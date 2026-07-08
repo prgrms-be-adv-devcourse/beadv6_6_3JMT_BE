@@ -4,6 +4,7 @@ import com.prompthub.paymentservice.domain.repository.PaymentRepository;
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,8 +38,8 @@ public class PaymentRepositoryAdapter implements PaymentRepository {
     }
 
     @Override
-    public Optional<Payment> findByIdempotencyKey(String idempotencyKey) {
-        return jpaRepository.findByIdempotencyKey(idempotencyKey);
+    public boolean existsByOrderIdAndStatusIn(UUID orderId, Collection<PaymentStatus> statuses) {
+        return jpaRepository.existsByOrderIdAndStatusIn(orderId, statuses);
     }
 
     @Override

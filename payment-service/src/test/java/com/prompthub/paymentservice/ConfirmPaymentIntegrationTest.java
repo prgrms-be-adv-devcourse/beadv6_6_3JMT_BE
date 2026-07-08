@@ -2,13 +2,17 @@ package com.prompthub.paymentservice;
 
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.ConfirmResult;
+import com.prompthub.paymentservice.domain.model.OrderSnapshot;
+import com.prompthub.paymentservice.domain.model.OrderSnapshotSource;
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;
 import com.prompthub.paymentservice.infrastructure.messaging.config.PaymentTopic;
+import com.prompthub.paymentservice.infrastructure.persistence.OrderSnapshotJpaRepository;
 import com.prompthub.paymentservice.infrastructure.persistence.PaymentJpaRepository;
 import com.prompthub.paymentservice.support.AbstractIntegrationTest;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -45,12 +49,16 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     PaymentJpaRepository paymentJpaRepository;
 
+    @Autowired
+    OrderSnapshotJpaRepository orderSnapshotJpaRepository;
+
     @MockitoBean
     PaymentGateway paymentGateway;
 
     @BeforeEach
     void setUpRestTemplate() {
         paymentJpaRepository.deleteAll();
+        orderSnapshotJpaRepository.deleteAll();
         restTemplate = new RestTemplate();
         restTemplate.setErrorHandler(new DefaultResponseErrorHandler() {
             @Override
@@ -73,6 +81,10 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         when(paymentGateway.confirm(anyString(), eq(orderId), eq(10_000)))
             .thenReturn(new ConfirmResult("카드", 10_000, "{}", approvedAt));
 
+        // 이벤트 경로로 확보됐을 스냅샷을 사전 저장 (금액의 진실 공급원)
+        orderSnapshotJpaRepository.saveAndFlush(OrderSnapshot.create(
+            orderId, userId, 10_000, OrderSnapshotSource.EVENT, OffsetDateTime.now(ZoneOffset.ofHours(9))));
+
         Map<String, Object> consumerProps = buildConsumerProps(kafka.getBootstrapServers(), "integration-test-group");
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProps);
         TopicPartition partition = new TopicPartition(PaymentTopic.PAYMENT_EVENTS, 0);
@@ -87,8 +99,7 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         headers.set("X-User-Role", "BUYER");
         Map<String, Object> body = Map.of(
             "paymentKey", "toss-integration-key",
-            "orderId", orderId.toString(),
-            "amount", 10_000
+            "orderId", orderId.toString()
         );
 
         ResponseEntity<Map> response = restTemplate.exchange(
@@ -102,7 +113,10 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         assertThat(response.getBody()).isNotNull();
         assertThat((Boolean) response.getBody().get("success")).isTrue();
 
-        Payment payment = paymentJpaRepository.findByIdempotencyKey("pay-" + orderId).orElseThrow();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> data = (Map<String, Object>) response.getBody().get("data");
+        UUID paymentId = UUID.fromString((String) data.get("paymentId"));
+        Payment payment = paymentJpaRepository.findById(paymentId).orElseThrow();
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
         assertThat(payment.getApprovedAmount()).isEqualTo(10_000);
         assertThat(payment.getUserId()).isEqualTo(userId);
