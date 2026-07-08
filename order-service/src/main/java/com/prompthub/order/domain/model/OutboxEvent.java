@@ -101,6 +101,28 @@ public class OutboxEvent extends BaseEntity {
 		return orderPaid(UUID.randomUUID(), orderId, payload, occurredAt);
 	}
 
+	public static OutboxEvent create(
+		String aggregateType,
+		UUID aggregateId,
+		String eventType,
+		String topic,
+		String payload,
+		LocalDateTime occurredAt
+	) {
+		return new OutboxEvent(
+			UUID.randomUUID(),
+			aggregateId,
+			aggregateType,
+			eventType,
+			topic,
+			payload,
+			OutboxEventStatus.PENDING,
+			0,
+			occurredAt,
+			null
+		);
+	}
+
 	public static OutboxEvent orderPaid(
 		UUID eventId,
 		UUID orderId,
