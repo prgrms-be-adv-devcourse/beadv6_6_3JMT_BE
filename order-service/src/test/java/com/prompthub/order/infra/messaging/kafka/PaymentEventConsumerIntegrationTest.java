@@ -1,8 +1,8 @@
 package com.prompthub.order.infra.messaging.kafka;
 
-import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
-import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
-import com.prompthub.order.application.service.event.OrderPaymentEventService;
+import com.prompthub.common.event.EventMessage;
+import com.prompthub.order.application.service.event.PaymentApprovedEventHandler;
+import com.prompthub.order.application.service.event.PaymentRefundedEventHandler;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -52,15 +52,18 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
 
 	@MockitoBean
-	private OrderPaymentEventService orderPaymentEventService;
+	private PaymentApprovedEventHandler paymentApprovedEventHandler;
+
+	@MockitoBean
+	private PaymentRefundedEventHandler paymentRefundedEventHandler;
 
 	@BeforeEach
 	void clearMocks() {
-		clearInvocations(orderPaymentEventService);
+		clearInvocations(paymentApprovedEventHandler, paymentRefundedEventHandler);
 	}
 
 	@Test
-	@DisplayName("결제 승인 이벤트를 수신하면 OrderPaymentEventService가 호출된다")
+	@DisplayName("결제 승인 이벤트를 수신하면 PaymentApprovedEventHandler가 호출된다")
 	void consumePaymentApprovedEvent() {
 		// given
 		UUID paymentId = UUID.randomUUID();
@@ -87,52 +90,12 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 
 		// then
 		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> 
-			verify(orderPaymentEventService).handlePaymentApproved(any(PaymentApprovedEvent.class))
+			verify(paymentApprovedEventHandler).handle(any(EventMessage.class))
 		);
 	}
 
 	@Test
-	@DisplayName("TC-IDEMPOTENCY-001: 결제 승인 이벤트를 중복 수신하면 한 번만 처리된다")
-	void consumePaymentApprovedEvent_idempotency() throws Exception {
-		// given
-		UUID paymentId = UUID.randomUUID();
-		UUID orderId = UUID.randomUUID();
-		UUID buyerId = UUID.randomUUID();
-
-		Map<String, Object> payload = new HashMap<>();
-		payload.put("paymentId", paymentId.toString());
-		payload.put("orderId", orderId.toString());
-		payload.put("userId", buyerId.toString());
-		payload.put("amount", 30000);
-		payload.put("approvedAt", OffsetDateTime.now(ZoneOffset.ofHours(9)).toString());
-
-		Map<String, Object> message = new HashMap<>();
-		message.put("eventId", UUID.randomUUID().toString());
-		message.put("eventType", "PAYMENT_APPROVED");
-		message.put("occurredAt", LocalDateTime.now().toString());
-		message.put("aggregateType", "ORDER");
-		message.put("aggregateId", orderId.toString());
-		message.put("payload", payload);
-
-		// when - same message sent twice
-		kafkaTemplate.send(PAYMENT_EVENTS_TOPIC, orderId.toString(), message).get(5, TimeUnit.SECONDS);
-		kafkaTemplate.send(PAYMENT_EVENTS_TOPIC, orderId.toString(), message).get(5, TimeUnit.SECONDS);
-
-		// then
-		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
-			verify(orderPaymentEventService, org.mockito.Mockito.atLeastOnce())
-				.handlePaymentApproved(any(PaymentApprovedEvent.class))
-		);
-		// Wait a bit to ensure the second message is processed
-		Thread.sleep(1000);
-		// It will be called twice by the consumer, but the service handles idempotency internally.
-		// However, since orderPaymentEventService is a MOCK in this test, it will just be called twice!
-		// Wait, if it's a mock, we can't test internal service idempotency here.
-		// We just verify the consumer passes it. To test service idempotency, we need another test or real service.
-	}
-
-	@Test
-	@DisplayName("결제 환불 이벤트를 수신하면 OrderPaymentEventService가 호출된다")
+	@DisplayName("결제 환불 이벤트를 수신하면 PaymentRefundedEventHandler가 호출된다")
 	void consumePaymentRefundedEvent() {
 		// given
 		UUID paymentId = UUID.randomUUID();
@@ -159,7 +122,7 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 
 		// then
 		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
-			verify(orderPaymentEventService).handlePaymentRefunded(any(PaymentRefundedEvent.class))
+			verify(paymentRefundedEventHandler).handle(any(EventMessage.class))
 		);
 	}
 
@@ -189,9 +152,10 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 				}
 				""".formatted(UUID.randomUUID(), UUID.randomUUID())).get(5, TimeUnit.SECONDS);
 
-			await().atMost(3, TimeUnit.SECONDS).untilAsserted(() ->
-				verify(orderPaymentEventService, never()).handlePaymentApproved(any(PaymentApprovedEvent.class))
-			);
+			await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
+				verify(paymentApprovedEventHandler, never()).handle(any(EventMessage.class));
+				verify(paymentRefundedEventHandler, never()).handle(any(EventMessage.class));
+			});
 			assertThat(dltConsumer.poll(Duration.ofSeconds(2)).isEmpty()).isTrue();
 		}
 	}
@@ -209,8 +173,8 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 				.get(5, TimeUnit.SECONDS);
 
 			await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
-				verify(orderPaymentEventService, never()).handlePaymentApproved(any(PaymentApprovedEvent.class));
-				verify(orderPaymentEventService, never()).handlePaymentRefunded(any(PaymentRefundedEvent.class));
+				verify(paymentApprovedEventHandler, never()).handle(any(EventMessage.class));
+				verify(paymentRefundedEventHandler, never()).handle(any(EventMessage.class));
 			});
 			assertThat(dltConsumer.poll(Duration.ofSeconds(2)).isEmpty()).isTrue();
 		}
@@ -283,8 +247,7 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 		Map<String, Object> properties = new HashMap<>();
 		properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, embeddedKafkaBroker.getBrokersAsString());
 		properties.put(ConsumerConfig.GROUP_ID_CONFIG, UUID.randomUUID().toString());
-		properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-		properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+		properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 		return new org.springframework.kafka.core.DefaultKafkaConsumerFactory<>(
 			properties,
 			new StringDeserializer(),
