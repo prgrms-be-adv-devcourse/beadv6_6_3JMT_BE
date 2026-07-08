@@ -28,6 +28,11 @@ public enum UserErrorCode implements ErrorCode {
     WISHLIST_NOT_FOUND(HttpStatus.NOT_FOUND, "W002", "찜 항목이 존재하지 않습니다."),
     WISHLIST_FORBIDDEN(HttpStatus.FORBIDDEN, "W003", "본인의 찜 항목이 아닙니다."),
 
+    SELLER_SETTLEMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "SS001", "정산 내역을 찾을 수 없습니다."),
+    SELLER_SETTLEMENT_ACCESS_DENIED(HttpStatus.FORBIDDEN, "SS002", "본인 정산이 아닙니다."),
+    SELLER_SETTLEMENT_INVALID_STATE(HttpStatus.CONFLICT, "SS003", "요청한 상태로 전이할 수 없습니다."),
+    SETTLEMENT_EVENT_DESERIALIZE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "SS004", "정산 이벤트 메시지 역직렬화에 실패했습니다."),
+
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "SYS001", "서버 내부 오류가 발생했습니다.");
 
     private final HttpStatus httpStatus;

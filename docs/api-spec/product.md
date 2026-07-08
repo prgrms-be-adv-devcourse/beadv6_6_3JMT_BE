@@ -2,6 +2,9 @@
 
 **Base:** `http://localhost:xxxx/api/v1`
 
+> ⚠ `api/v1`은 세미 프로젝트 완성 스냅샷(`v1.0.0` 태그) 기준 경로다. 최종 프로젝트에서
+> `api/v2`로 전환 예정이며 별도 이슈로 진행한다(`docs/adr/config-management.md` §10).
+
 ## 공통 사항
 
 - 인증이 필요한 엔드포인트는 `Authorization: Bearer {accessToken}` 헤더 필요
@@ -22,7 +25,7 @@
 | 파라미터 | 타입 | 필수 | 기본값 | 설명 |
 |---------|------|------|--------|------|
 | q | string | N | `""` | 제목/설명 검색 |
-| category | string | N | `"all"` | `all\|image\|writing\|coding\|marketing\|chatbot\|data` |
+| productType | string | N | `"all"` | `all\|PROMPT\|NOTION\|PPT\|EXCEL` |
 | sort | string | N | `"popular"` | `popular\|rating\|price-asc\|price-desc` |
 | page | number | N | `1` | 페이지 번호 |
 | size | number | N | `20` | 페이지당 항목 수 |
@@ -38,8 +41,6 @@
     {
       "id": "uuid",
       "title": "사진 같은 제품 목업 생성기",
-      "category": "image",
-      "icon": "image",
       "productType": "PROMPT",
       "model": "Midjourney v6",
       "amount": 5900,
@@ -51,6 +52,7 @@
       "badge": "신규",
       "desc": "상품 설명",
       "thumbnail_url": null,
+      "tags": ["이미지생성", "목업"],
       "createdAt": "2026-05-01T00:00:00.000Z",
       "updatedAt": "2026-06-01T00:00:00.000Z"
     }
@@ -69,9 +71,7 @@
 |------|------|------|
 | id | string | 상품 ID |
 | title | string | 상품명 |
-| category | string | 카테고리 |
-| icon | string | 아이콘 |
-| productType | string | 상품 유형 (`PROMPT` \| `TEMPLATE` \| `DATASET` \| `IMAGE_ASSET`) |
+| productType | string | 상품 유형 (`PROMPT` \| `NOTION` \| `PPT` \| `EXCEL`) |
 | model | string | 대상 AI 모델 |
 | amount | integer | 현재 가격 |
 | originalAmount | integer \| null | 할인 전 원래 가격 (할인 없으면 null) |
@@ -82,6 +82,7 @@
 | badge | string | 뱃지 (`신규` 등) |
 | desc | string | 상품 설명 |
 | thumbnail_url | string \| null | 썸네일 이미지 URL |
+| tags | string[] | 판매자 지정 태그 목록 |
 | createdAt | string | 생성일시 (ISO 8601) |
 | updatedAt | string | 수정일시 (ISO 8601) |
 | meta.page | integer | 현재 페이지 번호 |
@@ -111,8 +112,6 @@
   "data": {
     "id": "uuid",
     "title": "사진 같은 제품 목업 생성기",
-    "category": "image",
-    "icon": "image",
     "productType": "PROMPT",
     "model": "Midjourney v6",
     "amount": 5900,
@@ -126,6 +125,7 @@
     "desc": "상품 설명",
     "thumbnail_url": null,
     "content": "[상품명]\n\n전체 내용은 구매 후 확인...",
+    "tags": ["이미지생성", "목업"],
     "versions": [
       { "ver": "v1.3", "date": "2026-06-01", "note": "조명 프리셋 3종 추가" },
       { "ver": "v1.2", "date": "2026-05-10", "note": "배경 제거 옵션 개선" }
@@ -143,7 +143,7 @@
 ### GET /products/{productId}/related — 연관 상품 조회
 
 - 인증: 불필요
-- 동일 카테고리 상품 배열 반환
+- 동일 productType 상품 배열 반환
 
 #### Query Parameters
 
@@ -216,7 +216,6 @@
 ```json
 {
   "title": "새 프롬프트 제목",
-  "category": "coding",
   "productType": "PROMPT",
   "model": "Claude 3.5",
   "desc": "설명",
@@ -230,7 +229,7 @@
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | title | string | Y | 상품명 |
-| category | string | Y | 카테고리 |
+| productType | string | N | 상품 유형 (`PROMPT` \| `NOTION` \| `PPT` \| `EXCEL`, 기본값 `PROMPT`) |
 | model | string | Y | 대상 AI 모델 |
 | desc | string | Y | 상품 설명 |
 | amount | integer | Y | 가격 |
@@ -249,7 +248,7 @@
     "productId": "uuid",
     "sellerId": "uuid",
     "title": "새 프롬프트 제목",
-    "category": "coding",
+    "productType": "PROMPT",
     "model": "Claude 3.5",
     "desc": "설명",
     "amount": 5000,
@@ -282,7 +281,7 @@
 ```json
 {
   "title": "수정된 제목",
-  "category": "coding",
+  "productType": "PROMPT",
   "model": "Claude 3.5",
   "desc": "수정된 설명",
   "amount": 6000,
@@ -297,7 +296,7 @@
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | title | string | Y | 상품명 |
-| category | string | Y | 카테고리 |
+| productType | string | N | 상품 유형 (`PROMPT` \| `NOTION` \| `PPT` \| `EXCEL`, 기본값 `PROMPT`) |
 | model | string | Y | 대상 AI 모델 |
 | desc | string | Y | 상품 설명 |
 | amount | integer | Y | 가격 |
@@ -370,7 +369,6 @@
     {
       "productId": "uuid",
       "title": "상품명",
-      "category": "coding",
       "productType": "PROMPT",
       "model": "Claude 3.5",
       "amount": 5000,
@@ -390,8 +388,7 @@
 |------|------|------|
 | productId | string | 상품 ID |
 | title | string | 상품명 |
-| category | string | 카테고리 |
-| productType | string | 상품 유형 (`PROMPT` \| `TEMPLATE` \| `DATASET` \| `IMAGE_ASSET`) |
+| productType | string | 상품 유형 (`PROMPT` \| `NOTION` \| `PPT` \| `EXCEL`) |
 | model | string | 대상 AI 모델 |
 | amount | integer | 가격 |
 | status | string | `DRAFT` \| `PENDING_REVIEW` \| `ON_SALE` \| `REJECTED` \| `STOPPED` |
@@ -419,7 +416,6 @@
   "data": {
     "productId": "uuid",
     "title": "상품명",
-    "category": "coding",
     "productType": "PROMPT",
     "model": "Claude 3.5",
     "amount": 5000,
@@ -455,7 +451,6 @@
     {
       "productId": "uuid",
       "title": "상품명",
-      "category": "coding",
       "sellerId": "uuid",
       "productType": "PROMPT",
       "model": "Claude 3.5",
@@ -551,7 +546,8 @@
     "productId": "uuid",
     "sellerId": "uuid",
     "title": "상품명",
-    "productType": "GPT-4o",
+    "productType": "PROMPT",
+    "model": "GPT-4o",
     "amount": 5000
   }
 ]
@@ -569,7 +565,8 @@
 {
   "productId": "uuid",
   "title": "상품명",
-  "productType": "GPT-4o",
+  "productType": "PROMPT",
+  "model": "GPT-4o",
   "amount": 5000,
   "thumbnailUrl": "https://...",
   "sellerId": "uuid",
@@ -648,3 +645,94 @@ cart-snapshot 배열 반환
   "productCount": 12
 }
 ```
+
+## Kafka 이벤트
+
+### 발행 (Producer)
+
+#### `product-events`
+
+`ProductEventProducer`가 발행한다. key는 `productId`(문자열).
+
+| eventType | 발행 시점 | payload |
+|---|---|---|
+| `PRODUCT_DELETED` | 상품 삭제 시 | `productId`, `occurredAt` |
+| `PRODUCT_PRICE_CHANGED` | 상품 가격 변경 시 | `productId`, `previousPrice`, `changedPrice`, `occurredAt` |
+| `PRODUCT_STOPPED` | 상품 판매 중지 시 | `productId`, `occurredAt` |
+
+예시 (`PRODUCT_PRICE_CHANGED`):
+
+```json
+{
+  "eventType": "PRODUCT_PRICE_CHANGED",
+  "productId": "uuid",
+  "previousPrice": 10000,
+  "changedPrice": 8000,
+  "occurredAt": "2026-07-07T12:00:00"
+}
+```
+
+### 구독 (Consumer)
+
+#### `order-events`
+
+`OrderEventConsumer`가 구독한다(`group=product-service`, 수동 커밋).
+
+| eventType | 처리 |
+|---|---|
+| `ORDER_PAID` | `payload.products[].productId` 목록의 판매량(salesCount) 증가 |
+| `ORDER_REFUND` | 위 목록의 판매량 감소 |
+| 그 외 | 무시(로그만 남김) |
+
+예상 payload 구조:
+
+```json
+{
+  "eventType": "ORDER_PAID",
+  "payload": {
+    "products": [
+      { "productId": "uuid" }
+    ]
+  }
+}
+```
+
+## gRPC
+
+### 제공 (Server)
+
+product-service가 서버로 구현해 다른 서비스에 노출하는 서비스다.
+
+#### `ProductQueryService` (소비: settlement-service)
+
+| rpc | 요청 | 응답 |
+|---|---|---|
+| `CountBySeller` | `seller_id` | `seller_id`, `product_count` |
+
+#### `ProductInternalService` (소비: order-service)
+
+| rpc | 요청 | 응답 |
+|---|---|---|
+| `GetOrderSnapshots` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `title`, `product_type`, `amount`, `model` |
+| `GetCartSnapshots` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `seller_nickname`, `title`, `product_type`, `amount`, `thumbnail_url` |
+| `GetProductContent` | `product_id` | `product_id`, `content` |
+
+#### `ProductService` (소비: user-service)
+
+| rpc | 요청 | 응답 |
+|---|---|---|
+| `GetProductsByIds` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `title`, `price`, `thumbnail_url`, `category`, `model`, `sales_count`, `average_rating`, `status` |
+
+### 소비 (Client)
+
+product-service가 클라이언트로 호출하는, 다른 서비스가 제공하는 서비스다.
+
+#### `SellerQueryService` (제공: user-service)
+
+| rpc | 요청 | 응답 |
+|---|---|---|
+| `FindSellers` | `seller_ids[]` | `sellers[]`: `SellerInfo` |
+| `GetSeller` | `seller_id` | `SellerInfo`(`seller_id`, `seller_name`, `profile_image_url`, `status`) |
+
+> `FindSellers`는 이 문서 상단 gRPC 네이밍 컨벤션(`Get{Entity}`)과 다르지만, user-service가
+> 소유한 계약이라 product-service 쪽에서 리네임 후 적용한다.

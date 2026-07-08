@@ -8,7 +8,6 @@ public record ProductSummaryDto(
         String title,
         long price,
         String thumbnailUrl,
-        String category,
         String model,
         long salesCount,
         double averageRating,

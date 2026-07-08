@@ -4,10 +4,10 @@ import com.prompthub.product.application.client.SellerClient;
 import com.prompthub.product.application.client.SellerInfo;
 import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.application.usecase.ProductSellerUseCase;
-import com.prompthub.product.domain.model.entity.Category;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
+import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
@@ -19,6 +19,7 @@ import com.prompthub.product.presentation.dto.response.SellerProductDetailRespon
 import com.prompthub.product.presentation.dto.response.SellerProductListItemResponse;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProductSellerService implements ProductSellerUseCase {
 
 	private static final String TEMP_PREFIX = "products/temp/";
+	private static final ProductType DEFAULT_PRODUCT_TYPE = ProductType.PROMPT;
 
 	private final ProductRepository productRepository;
 	private final SellerClient sellerClient;
@@ -43,22 +45,19 @@ public class ProductSellerService implements ProductSellerUseCase {
 			throw new ProductException(ProductErrorCode.SELLER_NOT_ACTIVE);
 		}
 
-		Category category = productRepository.findCategoryByCode(request.category())
-			.orElseThrow(() -> new ProductException(ProductErrorCode.CATEGORY_NOT_FOUND));
+		ProductType productType = parseProductType(request.productType());
 
 		UUID productId = UUID.randomUUID();
 		String thumbnailKey = moveToProductPath(extractKey(request.thumbnailUrl()), productId);
 		List<String> imageKeys = moveToProductPaths(extractKeys(request.imageUrls()), productId);
 
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
-		String productType = request.productType() != null ? request.productType() : "PROMPT";
 		Product product = Product.create(
 			productId,
 			sellerId,
-			category,
+			productType,
 			request.title(),
 			request.desc(),
-			productType,
 			request.model(),
 			amountType,
 			request.amount(),
@@ -74,7 +73,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 			saved.getId(),
 			saved.getSellerId(),
 			saved.getName(),
-			category.getCode(),
+			saved.getProductType().name(),
 			saved.getModel(),
 			saved.getDescription(),
 			saved.getAmount(),
@@ -87,21 +86,18 @@ public class ProductSellerService implements ProductSellerUseCase {
 	public void updateProduct(UUID sellerId, UUID productId, ProductUpdateRequest request) {
 		Product product = getProductForSeller(sellerId, productId);
 
-		Category category = productRepository.findCategoryByCode(request.category())
-			.orElseThrow(() -> new ProductException(ProductErrorCode.CATEGORY_NOT_FOUND));
+		ProductType productType = parseProductType(request.productType());
 
 		int previousPrice = product.getAmount();
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
 		boolean isMajor = "MAJOR".equalsIgnoreCase(request.versionType());
-		String productType = request.productType() != null ? request.productType() : "PROMPT";
 		String newThumbnailKey = moveToProductPath(extractKey(request.thumbnailUrl()), productId);
 		List<String> newImageKeys = moveToProductPaths(extractKeys(request.imageUrls()), productId);
 
 		product.update(
-			category,
+			productType,
 			request.title(),
 			request.desc(),
-			productType,
 			request.model(),
 			amountType,
 			request.amount(),
@@ -164,6 +160,17 @@ public class ProductSellerService implements ProductSellerUseCase {
 	public SellerProductDetailResponse getMyProduct(UUID sellerId, UUID productId) {
 		Product product = getProductForSeller(sellerId, productId);
 		return SellerProductDetailResponse.from(product, storageClient);
+	}
+
+	private ProductType parseProductType(String productType) {
+		if (productType == null || productType.isBlank()) {
+			return DEFAULT_PRODUCT_TYPE;
+		}
+		try {
+			return ProductType.valueOf(productType.toUpperCase(Locale.ROOT));
+		} catch (IllegalArgumentException e) {
+			throw new ProductException(ProductErrorCode.INVALID_PRODUCT_TYPE);
+		}
 	}
 
 	private String moveToProductPath(String key, UUID productId) {
