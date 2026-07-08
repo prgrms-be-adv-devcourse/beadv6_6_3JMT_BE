@@ -7,7 +7,7 @@ public record ProductCreateResponse(
 	UUID productId,
 	UUID sellerId,
 	String title,
-	String category,
+	String productType,
 	String model,
 	String desc,
 	int amount,

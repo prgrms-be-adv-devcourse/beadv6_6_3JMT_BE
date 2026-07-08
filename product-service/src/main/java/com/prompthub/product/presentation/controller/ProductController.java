@@ -25,12 +25,12 @@ public class ProductController {
 	@GetMapping("/products")
 	public PageResponse<ProductListItemResponse> getProducts(
 		@RequestParam(defaultValue = "") String q,
-		@RequestParam(defaultValue = "all") String category,
+		@RequestParam(defaultValue = "all") String productType,
 		@RequestParam(defaultValue = "popular") String sort,
 		@RequestParam(defaultValue = "1") int page,
 		@RequestParam(defaultValue = "20") int size
 	) {
-		return productQueryUseCase.getProducts(q, category, sort, page, size);
+		return productQueryUseCase.getProducts(q, productType, sort, page, size);
 	}
 
 	@GetMapping("/products/{productId}")

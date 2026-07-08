@@ -9,7 +9,7 @@ import java.util.UUID;
 
 public interface ProductQueryUseCase {
 
-	PageResponse<ProductListItemResponse> getProducts(String q, String category, String sort, int page, int size);
+	PageResponse<ProductListItemResponse> getProducts(String q, String productType, String sort, int page, int size);
 
 	ProductDetailResponse getProduct(UUID productId);
 
