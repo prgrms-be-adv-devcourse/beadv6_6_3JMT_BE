@@ -3,6 +3,8 @@ package com.prompthub.order.application.service.event.outbox;
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.domain.model.OutboxEvent;
 import com.prompthub.order.domain.repository.OutboxEventRepository;
+import com.prompthub.order.global.exception.ErrorCode;
+import com.prompthub.order.global.exception.OrderException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
@@ -33,7 +35,7 @@ public class OutboxEventAppender {
         try {
             return objectMapper.writeValueAsString(message);
         } catch (JacksonException e) {
-            throw new RuntimeException("Outbox event serialize failed", e);
+            throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 }

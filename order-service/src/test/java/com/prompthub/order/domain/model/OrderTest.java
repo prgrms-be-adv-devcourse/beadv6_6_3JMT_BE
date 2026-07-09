@@ -95,8 +95,7 @@ class OrderTest {
 
 			// when & then
 			assertThatThrownBy(order::markPaid)
-				.isInstanceOf(OrderException.class)
-				.hasMessageContaining("변경할 수 없습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 
@@ -131,8 +130,7 @@ class OrderTest {
 
 			// when & then
 			assertThatThrownBy(order::markFailed)
-				.isInstanceOf(OrderException.class)
-				.hasMessageContaining("변경할 수 없습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 
@@ -169,8 +167,7 @@ class OrderTest {
 
 			// when & then
 			assertThatThrownBy(order::cancel)
-				.isInstanceOf(OrderException.class)
-				.hasMessageContaining("변경할 수 없습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 
@@ -207,8 +204,7 @@ class OrderTest {
 
 			// when & then
 			assertThatThrownBy(order::markCanceled)
-				.isInstanceOf(OrderException.class)
-				.hasMessageContaining("변경할 수 없습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 
@@ -303,8 +299,7 @@ class OrderTest {
 
 			// when & then
 			assertThatThrownBy(order::refund)
-				.isInstanceOf(OrderException.class)
-				.hasMessageContaining("변경할 수 없습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 

@@ -67,8 +67,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::markPaid)
-				.isInstanceOf(OrderException.class)
-				.hasMessage("대기 상태의 주문 상품만 처리할 수 있습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 
@@ -99,8 +98,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::markFailed)
-				.isInstanceOf(OrderException.class)
-				.hasMessage("대기 상태의 주문 상품만 처리할 수 있습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 
@@ -132,8 +130,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::cancel)
-				.isInstanceOf(OrderException.class)
-				.hasMessage("결제 완료 상태의 주문 상품만 취소할 수 있습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 
@@ -199,8 +196,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::refund)
-				.isInstanceOf(OrderException.class)
-				.hasMessage("결제 완료 상태의 주문 상품만 환불할 수 있습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 

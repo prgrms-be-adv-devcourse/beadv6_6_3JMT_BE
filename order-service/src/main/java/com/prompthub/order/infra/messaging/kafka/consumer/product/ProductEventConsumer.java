@@ -40,10 +40,8 @@ public class ProductEventConsumer {
 		try {
 			EventMessage<JsonNode> eventMessage = parseMessage(message);
 			String eventTypeStr = eventMessage.eventType();
-			if (eventTypeStr == null) {
-				log.warn("필수 필드(eventType)가 누락된 메시지입니다. 무시합니다.");
-				acknowledgment.acknowledge();
-				return;
+			if (eventMessage.eventId() == null || eventTypeStr == null) {
+				throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR);
 			}
 
 			ProductEventType eventType = ProductEventType.from(eventTypeStr);
@@ -55,12 +53,12 @@ public class ProductEventConsumer {
 
 			JsonNode payloadNode = eventMessage.payload();
 			if (payloadNode == null || payloadNode.isMissingNode() || payloadNode.isNull()) {
-				throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR, "상품 이벤트 payload가 누락되었습니다.");
+				throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR);
 			}
 
 			LocalDateTime occurredAt = eventMessage.occurredAt();
 			if (occurredAt == null) {
-				throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR, "상품 이벤트 occurredAt이 누락되었습니다.");
+				throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR);
 			}
 
 
@@ -92,7 +90,7 @@ public class ProductEventConsumer {
 		try {
 			return objectMapper.readValue(message, new TypeReference<EventMessage<JsonNode>>() {});
 		} catch (JacksonException exception) {
-			throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR, "상품 이벤트 메시지 파싱에 실패했습니다.");
+			throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR);
 		}
 	}
 }

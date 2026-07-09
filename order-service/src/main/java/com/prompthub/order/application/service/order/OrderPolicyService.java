@@ -42,7 +42,7 @@ public class OrderPolicyService {
 		List<ProductOrderSnapshot> products
 	) {
 		if (products == null || products.size() != requestedProductIds.size()) {
-			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE, "주문 가능한 상품 정보가 올바르지 않습니다.");
+			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
 		}
 
 		Set<UUID> requestedIds = new HashSet<>(requestedProductIds);
@@ -51,7 +51,7 @@ public class OrderPolicyService {
 			.collect(toSet());
 
 		if (!responseIds.containsAll(requestedIds)) {
-			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE, "조회되지 않은 상품이 포함되어 있습니다.");
+			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
 		}
 	}
 
@@ -104,7 +104,7 @@ public class OrderPolicyService {
 			.anyMatch(OrderProduct::isDownloaded);
 
 		if (hasDownloadedProduct) {
-			throw new OrderException(ErrorCode.ORDER_CANCEL_NOT_ALLOWED, "이미 다운로드한 상품은 환불할 수 없습니다.");
+			throw new OrderException(ErrorCode.ORDER_CANCEL_NOT_ALLOWED);
 		}
 	}
 

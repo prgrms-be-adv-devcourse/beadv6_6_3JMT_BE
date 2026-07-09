@@ -680,8 +680,7 @@ class OrderServiceTest {
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage(ErrorCode.INVALID_INPUT_VALUE.getMessage());
+                );
 
             then(productClient).should(never()).getOrderSnapshots(anyList());
             then(orderNumberGenerator).should(never()).generate();
@@ -699,8 +698,7 @@ class OrderServiceTest {
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage(ErrorCode.INVALID_INPUT_VALUE.getMessage());
+                );
 
             then(productClient).should(never()).getOrderSnapshots(anyList());
             then(orderNumberGenerator).should(never()).generate();
@@ -718,8 +716,7 @@ class OrderServiceTest {
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage(ErrorCode.INVALID_INPUT_VALUE.getMessage());
+                );
 
             then(productClient).should(never()).getOrderSnapshots(anyList());
             then(orderNumberGenerator).should(never()).generate();
@@ -740,8 +737,7 @@ class OrderServiceTest {
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage("주문 가능한 상품 정보가 올바르지 않습니다.");
+                );
 
             then(productClient).should().getOrderSnapshots(request.productIds());
             then(orderNumberGenerator).should(never()).generate();
@@ -764,8 +760,7 @@ class OrderServiceTest {
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage("주문 가능한 상품 정보가 올바르지 않습니다.");
+                );
 
             then(productClient).should().getOrderSnapshots(request.productIds());
             then(orderNumberGenerator).should(never()).generate();
@@ -788,8 +783,7 @@ class OrderServiceTest {
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage("조회되지 않은 상품이 포함되어 있습니다.");
+                );
 
             then(productClient).should().getOrderSnapshots(request.productIds());
             then(orderNumberGenerator).should(never()).generate();

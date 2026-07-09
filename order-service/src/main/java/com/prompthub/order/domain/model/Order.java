@@ -172,8 +172,7 @@ public class Order extends BaseEntity {
 
 	private void validateTransition(OrderStatus target) {
 		if (!this.orderStatus.canTransitionTo(target)) {
-			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION,
-				String.format("주문 상태를 %s에서 %s로 변경할 수 없습니다.", this.orderStatus, target));
+			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
 		}
 	}
 }

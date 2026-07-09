@@ -29,7 +29,7 @@
 ### 1.5 [P1] 결제 이벤트 Kafka 메시징 표준화 및 스키마 변경
 * **내용**: 개별 결제 토픽들(`payment.approved`, `payment.refunded`)을 따로 리스닝하며 파싱 방식이 파편화되어 있던 문제
 * **해결 요약**:
-  - 단일 통합 토픽인 `payment.events`를 구독하는 구조로 단일화 및 표준화.
+  - 단일 통합 토픽인 `payment-events`를 구독하는 구조로 단일화 및 표준화.
   - Envelope Pattern(메타데이터 `eventType` + `payload` 구조)으로 이벤트 스키마 파싱 방식을 표준화.
   - 대문자 ENUM 표준 명명 규격(`PAYMENT_APPROVED`, `PAYMENT_REFUNDED`, `PAYMENT_FAILED`, `PAYMENT_CANCELED`) 매핑 적용.
   - 처리가 필요 없거나 무관한 이벤트 타입(`PAYMENT_FAILED`, `PAYMENT_CANCELED`)은 DLT로 보내지 않고 Graceful하게 무시(`shouldIgnore`)하도록 필터링 적용.
@@ -48,7 +48,7 @@
 * **현재 상태**: 
   - `validatePaymentReady` API를 통해 결제 승인 직전에 유효성 동기 검증을 수행하여, 비정상 결제가 진행되는 것을 1차적으로 사전에 차단합니다.
   - Kafka `DefaultErrorHandler`가 실패 메시지를 원본 토픽의 `.DLT`로 보내도록 설계되어 있습니다.
-  - 이번 Kafka 메시징 표준화를 통해 잘못된 JSON 형식이나 payload 누락 등 유효하지 않은 결제 메시지가 `payment.events.DLT` 토픽으로 안전하게 이동하도록 처리 흐름을 보완했습니다.
+  - 이번 Kafka 메시징 표준화를 통해 잘못된 JSON 형식이나 payload 누락 등 유효하지 않은 결제 메시지가 `payment-events.DLT` 토픽으로 안전하게 이동하도록 처리 흐름을 보완했습니다.
 * **남은 문제 (사후 비동기 검증 및 실패 대응)**:
   - `.DLT` 토픽을 실제로 소비하여 재처리하거나 로깅하는 전용 컨슈머 없음
   - 결제는 승인되었으나 주문 상태 변경(PAID) 처리 중 비동기 단계에서 최종 실패했을 때, `payment.cancel-requested` 같은 환불 요청 이벤트를 발행하는 자동 보상 흐름 없음
