@@ -1,9 +1,9 @@
 package com.prompthub.user.sellersettlement.domain.model;
 
+import com.prompthub.user.global.common.BaseEntity;
 import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementInvalidStateException;
 import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
 import jakarta.persistence.Column;
-import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -16,16 +16,12 @@ import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Table(name = "seller_settlement")
 @Getter
-@EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class SellerSettlement {
+public class SellerSettlement extends BaseEntity {
 
     @Id
     @Column(name = "seller_settlement_id", columnDefinition = "uuid")
@@ -76,14 +72,6 @@ public class SellerSettlement {
 
     @Column(name = "cancelled_at")
     private LocalDateTime cancelledAt;
-
-    @CreatedDate
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
-
-    @LastModifiedDate
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
 
     public static SellerSettlement seed(UUID settlementId, UUID sellerId,
             LocalDate periodStart, LocalDate periodEnd, int productCount,
