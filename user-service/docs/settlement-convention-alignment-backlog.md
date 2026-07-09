@@ -27,8 +27,18 @@
 | # | 현재(user 전역) | settlement 기준 | 비고 |
 | --- | --- | --- | --- |
 | B-1 | 도메인 예외 = `BusinessException`+`UserErrorCode`(=`ErrorCode` 의존) | domain은 순수 예외(`extends RuntimeException`), 핸들러가 `ErrorCode` 매핑 | user 예외 11개 전부 이 방식 |
-| B-2 | 엔티티가 `createdAt`/`updatedAt` 직접 선언(`@EntityListeners`) | 공통 `BaseEntity` 상속 | user엔 BaseEntity 자체가 없음 |
+| B-2 | 엔티티가 `createdAt`/`updatedAt` 직접 선언(`@EntityListeners`) | **모듈 자체** `global/common/BaseEntity` 를 만들어 상속 (common-module 공유가 아니라 settlement·admin 처럼 모듈마다 자체 생성하는 방식이 팀 결정) | user 모듈엔 아직 BaseEntity 가 없으므로 정렬 시 신규 생성 |
 | B-3 | `@RequestMapping("/api/v1/...")` 하드코딩 | `${api.init}` 프로퍼티 주입 | user 전 컨트롤러가 하드코딩 |
+
+## C. 구조 점검(2026-07-09)에서 추가 발견 — 신규
+
+| # | 현재 | 문제/기준 | 비고 |
+| --- | --- | --- | --- |
+| C-1 | `admin/application/service`가 `seller.domain.repository`·`user.user.domain.model` 등 **타 기능 패키지의 domain을 직접 import** | 기능 경계가 뚫림. admin이 타 기능의 무엇까지 의존 가능한지 룰 자체가 없음 | **모듈 차원 결정 필요**: ① repository 직접 접근 허용을 명문화 vs ② 타 기능 usecase(인바운드 포트) 경유로 전환. ②는 seller/user UseCase에 어드민용 연산이 늘어나는 대가 |
+| C-2 | `wishlist/application/client`에 아웃바운드 포트 | 비영속 아웃바운드 포트 위치는 `application/port` (rules §4에 명문화됨) | 패키지명 `client`→`port` 리네임만 하면 됨. 구현이 `infrastructure/grpc`에 있는 것은 규칙대로 |
+
+> rules `clean-architecture.md`는 2026-07-09에 §2 트리(admin·sellersettlement 추가), §4(비영속 포트·
+> 메시징 수신), §6(조회·단순 명령의 `~Response` 직접 반환 예외)을 실제 코드에 맞게 갱신했다.
 
 ## 참고
 - 완료 내역·정렬 기준: `user-service/.claude/rules/`, `user-service/CLAUDE.md`

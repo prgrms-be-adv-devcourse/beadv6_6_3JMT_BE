@@ -52,13 +52,29 @@ com.prompthub.user
 │   └── config
 ├── auth                        ← 인증 도메인 (이메일/OAuth 로그인, 토큰)
 │   └── (동일한 4계층 구조)
-├── seller                      ← 판매자 도메인 (등록 신청, 심사)
-│   └── (동일한 4계층 구조)
+├── seller                      ← 판매자 도메인 (등록 신청, 심사, gRPC 제공)
+│   └── (동일한 4계층 구조 + presentation/grpc ← gRPC 서버 어댑터)
+├── sellersettlement            ← 셀러 정산 도메인 (seller_settlement 운영 단일 진실)
+│   ├── presentation            ← controller, dto/response
+│   ├── application
+│   │   ├── usecase / service / dto
+│   │   └── event               ← 외부 이벤트 페이로드 DTO (settlement-service 메시지 계약)
+│   ├── domain
+│   │   ├── model (+ enums)
+│   │   └── repository
+│   └── infrastructure
+│       ├── persistence
+│       └── messaging/kafka     ← config, consumer/settlement (수신 어댑터 → usecase 호출)
+├── admin                       ← 운영(어드민) 기능 — 자기 애그리거트가 없어 domain·infrastructure 없음
+│   ├── presentation            ← controller, dto/{request,response}
+│   └── application             ← usecase, service, dto (user·seller 도메인을 조율)
 └── wishlist                    ← 찜 도메인
-    └── (동일한 4계층 구조)
+    └── (동일한 4계층 구조 + application/client, infrastructure/grpc ← 타 서비스 조회)
 ```
 
-기능이 늘어나면 같은 레벨에 새 기능 패키지를 추가한다.
+기능이 늘어나면 같은 레벨에 새 기능 패키지를 추가한다. **기능 패키지는 애그리거트(엔티티) 단위**로
+나눈다 — 행위자 기준으로 묶지 않는다. (예: 셀러 정산은 seller 애그리거트가 아니라 SellerSettlement
+애그리거트이므로 `seller` 하위가 아닌 별도 `sellersettlement` 패키지)
 
 ## 3. 계층별 책임
 
@@ -79,10 +95,16 @@ com.prompthub.user
 | --- | --- | --- |
 | 인바운드(유스케이스) | `application/usecase` | `application/service` |
 | 아웃바운드(영속성) | `domain/repository` | `infrastructure/persistence` |
+| 아웃바운드(비영속: 타 서비스 동기 조회 등) | `application/port` | `infrastructure/grpc` 등 |
 
 - 인바운드: `UserUseCase`(포트) ← `UserApplicationService`(구현)
 - 아웃바운드: `UserRepository`(포트, domain) ← `UserRepositoryAdapter`(구현, infrastructure)
 - 어댑터는 내부에서 `UserJpaRepository`(Spring Data)를 호출한다.
+- 메시징 수신은 포트 없이 어댑터가 직접 유스케이스를 호출한다:
+  `infrastructure/messaging/kafka/consumer`(@KafkaListener) → `application/usecase`.
+  이벤트 페이로드 DTO(타 서비스 메시지 계약)는 `application/event`에 둔다.
+- 비영속 아웃바운드 포트는 도메인이 알 필요가 없으므로 `domain/repository`가 아닌 `application/port`에
+  둔다. (현재 wishlist 는 `application/client`를 쓰고 있음 — 백로그 C-2, 신규 코드는 `port` 사용)
 
 ```
 application/service/UserApplicationService   implements   application/usecase/UserUseCase
@@ -126,3 +148,7 @@ Request ──▶ Command ──▶ (domain) ──▶ Result ──▶ Response
 - 변환 코드는 각 DTO의 정적 팩토리 메서드(`from`, `of`)에 둔다.
   (예: `UserResponse.from(userResult)`, `request.toCommand()`)
 - 변환 로직이 복잡해지면 표현/애플리케이션 계층에 전용 매퍼를 둘 수 있다.
+- **예외 — 조회(읽기), 그리고 상태 변경이 단순한 명령**(입력이 식별자뿐이고 산출도 변경된 단일 엔티티
+  상태뿐)은 중간 `~Result`를 생략하고 application 서비스가 `~Response`를 직접 만들어 반환할 수 있다.
+  이때만 application → presentation 의존을 허용하며, 컨트롤러는 변환 없이 받아 내려준다.
+  (settlement-service 컨벤션과 동일 — `sellersettlement` 패키지가 이 방식을 쓴다)
