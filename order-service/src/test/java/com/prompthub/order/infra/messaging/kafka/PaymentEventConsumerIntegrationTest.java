@@ -250,7 +250,6 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 			}
 			""".formatted(UUID.randomUUID(), eventType, UUID.randomUUID());
 	}
-
 	private KafkaTemplate<String, String> rawStringKafkaTemplate() {
 		Map<String, Object> properties = KafkaTestUtils.producerProps(embeddedKafkaBroker);
 		properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
