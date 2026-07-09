@@ -109,7 +109,7 @@ public class OrderPolicyService {
 	}
 
 	public void validatePaymentApproval(Order order, PaymentApprovedPayload payload) {
-		if (!order.isPending()) {
+		if (!order.isPending() && order.getOrderStatus() != OrderStatus.FAILED) {
 			throw new OrderException(ErrorCode.ORDER_PAYMENT_STATUS_INVALID);
 		}
 

@@ -54,7 +54,7 @@ public class PaymentApprovedProcessor {
         Order order = orderRepository.findByIdWithOrderProducts(payload.orderId())
                 .orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
-        if (order.getOrderStatus() != OrderStatus.PENDING) {
+        if (order.getOrderStatus() != OrderStatus.PENDING && order.getOrderStatus() != OrderStatus.FAILED) {
             log.warn("이미 처리된 주문이거나 금지된 상태 전이 시도입니다. 상태 변경 무시. eventId={}, eventType={}, orderId={}, currentStatus={}",
                     eventId, eventType, payload.orderId(), order.getOrderStatus());
             processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);

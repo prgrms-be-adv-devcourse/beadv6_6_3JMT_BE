@@ -1,23 +1,21 @@
 package com.prompthub.order.application.service.event;
 
+import tools.jackson.databind.JsonNode;
 import com.prompthub.common.event.EventMessage;
-import com.prompthub.order.global.exception.EventPayloadMappingException;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
+import com.prompthub.order.infra.messaging.kafka.support.EventPayloadMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 
 @Component
 @RequiredArgsConstructor
 public class PaymentFailedEventHandler {
 
-    private final ObjectMapper objectMapper;
+    private final EventPayloadMapper eventPayloadMapper;
     private final PaymentFailedProcessor paymentFailedProcessor;
 
     public void handle(EventMessage<JsonNode> message) {
-        PaymentFailedPayload payload = convertPayload(message);
+        PaymentFailedPayload payload = eventPayloadMapper.convert(message, PaymentFailedPayload.class);
 
         paymentFailedProcessor.process(
                 message.eventId(),
@@ -25,19 +23,5 @@ public class PaymentFailedEventHandler {
                 message.occurredAt(),
                 payload
         );
-    }
-
-    private PaymentFailedPayload convertPayload(EventMessage<JsonNode> message) {
-        try {
-            return objectMapper.treeToValue(
-                    message.payload(),
-                    PaymentFailedPayload.class
-            );
-        } catch (JacksonException e) {
-            throw new EventPayloadMappingException(
-                    "PAYMENT_FAILED payload mapping failed",
-                    e
-            );
-        }
     }
 }

@@ -127,14 +127,14 @@ public class OrderProduct {
     }
 
     public void markPaid() {
-        validatePending();
+        validateTransition(OrderStatus.PAID);
 
         this.orderStatus = OrderStatus.PAID;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void markFailed() {
-        validatePending();
+        validateTransition(OrderStatus.FAILED);
 
         this.orderStatus = OrderStatus.FAILED;
         this.updatedAt = LocalDateTime.now();
@@ -206,8 +206,8 @@ public class OrderProduct {
         return this.orderStatus == OrderStatus.PAID && !this.downloaded;
     }
 
-    private void validatePending() {
-        if (this.orderStatus != OrderStatus.PENDING) {
+    private void validateTransition(OrderStatus target) {
+        if (!this.orderStatus.canTransitionTo(target)) {
             throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
         }
     }

@@ -2,6 +2,8 @@ package com.prompthub.order.application.service.event;
 
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
+import com.prompthub.order.global.exception.OrderException;
+import com.prompthub.order.infra.messaging.kafka.support.EventPayloadMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,6 +28,7 @@ import static org.mockito.Mockito.never;
 class PaymentRefundedEventHandlerTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final EventPayloadMapper eventPayloadMapper = new EventPayloadMapper(objectMapper);
 
     @Mock
     private PaymentRefundedProcessor processor;
@@ -34,7 +37,7 @@ class PaymentRefundedEventHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new PaymentRefundedEventHandler(objectMapper, processor);
+        handler = new PaymentRefundedEventHandler(eventPayloadMapper, processor);
     }
 
     @Test
@@ -105,7 +108,7 @@ class PaymentRefundedEventHandlerTest {
         );
 
         assertThatThrownBy(() -> handler.handle(message))
-            .isInstanceOf(RuntimeException.class);
+            .isInstanceOf(OrderException.class);
 
         then(processor).should(never()).process(any(), any(), any(), any());
     }

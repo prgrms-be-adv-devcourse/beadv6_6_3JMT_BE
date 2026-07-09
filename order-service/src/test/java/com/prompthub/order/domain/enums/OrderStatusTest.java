@@ -33,9 +33,16 @@ class OrderStatusTest {
     }
 
     @Test
-    void canTransitionTo_fromFailed_shouldAlwaysReturnFalse() {
+    void canTransitionTo_fromFailed_shouldReturnTrueForPaid() {
+        assertThat(OrderStatus.FAILED.canTransitionTo(OrderStatus.PAID)).isTrue();
+    }
+
+    @Test
+    void canTransitionTo_fromFailed_shouldReturnFalseForOthers() {
         for (OrderStatus target : OrderStatus.values()) {
-            assertThat(OrderStatus.FAILED.canTransitionTo(target)).isFalse();
+            if (target != OrderStatus.PAID) {
+                assertThat(OrderStatus.FAILED.canTransitionTo(target)).isFalse();
+            }
         }
     }
 
