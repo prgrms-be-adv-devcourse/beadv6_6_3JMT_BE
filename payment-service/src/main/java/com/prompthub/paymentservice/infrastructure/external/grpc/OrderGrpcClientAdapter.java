@@ -3,7 +3,7 @@ package com.prompthub.paymentservice.infrastructure.external.grpc;
 import com.prompthub.exception.BusinessException;
 import com.prompthub.grpc.order.v1.GetOrderPaymentInfoRequest;
 import com.prompthub.grpc.order.v1.GetOrderPaymentInfoResponse;
-import com.prompthub.grpc.order.v1.OrderInternalServiceGrpc;
+import com.prompthub.grpc.order.v1.OrderPaymentServiceGrpc;
 import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.gateway.external.OrderGateway;
 import com.prompthub.paymentservice.application.gateway.external.OrderPaymentInfo;
@@ -26,11 +26,11 @@ public class OrderGrpcClientAdapter implements OrderGateway {
     // 이벤트 createdAt(LocalDateTime)과 동일한 KST 표기 관례 — 존 없는 gRPC 문자열에 부여할 기본 존
     private static final ZoneOffset KST = ZoneOffset.ofHours(9);
 
-    private final OrderInternalServiceGrpc.OrderInternalServiceBlockingStub stub;
+    private final OrderPaymentServiceGrpc.OrderPaymentServiceBlockingStub stub;
     private final int deadlineMs;
 
     public OrderGrpcClientAdapter(
-        OrderInternalServiceGrpc.OrderInternalServiceBlockingStub stub,
+        OrderPaymentServiceGrpc.OrderPaymentServiceBlockingStub stub,
         @Value("${prompthub.grpc.order.deadline-ms:2000}") int deadlineMs
     ) {
         this.stub = stub;

@@ -1,6 +1,6 @@
 package com.prompthub.paymentservice.infrastructure.external.grpc;
 
-import com.prompthub.grpc.order.v1.OrderInternalServiceGrpc;
+import com.prompthub.grpc.order.v1.OrderPaymentServiceGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,9 +21,9 @@ public class OrderGrpcClientConfig {
     }
 
     @Bean
-    public OrderInternalServiceGrpc.OrderInternalServiceBlockingStub orderInternalServiceBlockingStub(
+    public OrderPaymentServiceGrpc.OrderPaymentServiceBlockingStub orderPaymentServiceBlockingStub(
         ManagedChannel orderManagedChannel
     ) {
-        return OrderInternalServiceGrpc.newBlockingStub(orderManagedChannel);
+        return OrderPaymentServiceGrpc.newBlockingStub(orderManagedChannel);
     }
 }
