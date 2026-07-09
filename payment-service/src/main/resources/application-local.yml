@@ -18,6 +18,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  sql:
+    init:
+      mode: always                          # 비내장 PostgreSQL에서도 schema.sql 실행
+
   kafka:
     bootstrap-servers: localhost:9092
     admin:
