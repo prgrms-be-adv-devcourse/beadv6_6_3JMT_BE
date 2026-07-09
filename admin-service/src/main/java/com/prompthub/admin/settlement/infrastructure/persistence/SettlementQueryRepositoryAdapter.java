@@ -1,14 +1,10 @@
 package com.prompthub.admin.settlement.infrastructure.persistence;
 
 import com.prompthub.admin.settlement.domain.model.Settlement;
-import com.prompthub.admin.settlement.domain.model.enums.PayoutStatus;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
-import com.prompthub.admin.settlement.domain.model.enums.SettlementStatus;
 import com.prompthub.admin.settlement.domain.repository.SettlementQueryRepository;
 import com.prompthub.admin.settlement.domain.repository.SettlementStatusAggregate;
-import jakarta.persistence.criteria.Predicate;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import lombok.RequiredArgsConstructor;
@@ -28,7 +24,7 @@ public class SettlementQueryRepositoryAdapter implements SettlementQueryReposito
 	@Override
 	public SettlementPage findPage(SettlementDisplayStatus status, int page, int size) {
 		Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "calculatedAt"));
-		Page<Settlement> result = jpaRepository.findAll(displayStatusSpec(status), pageable);
+		Page<Settlement> result = jpaRepository.findAll(statusSpec(status), pageable);
 		return new SettlementPage(result.getContent(), result.getTotalElements());
 	}
 
@@ -37,22 +33,10 @@ public class SettlementQueryRepositoryAdapter implements SettlementQueryReposito
 		return jpaRepository.aggregateByStatus();
 	}
 
-	private static Specification<Settlement> displayStatusSpec(SettlementDisplayStatus status) {
+	private static Specification<Settlement> statusSpec(SettlementDisplayStatus status) {
 		if (status == null) {
 			return null;
 		}
-		return (root, query, cb) -> {
-			List<Predicate> combos = new ArrayList<>();
-			for (SettlementStatus settlementStatus : SettlementStatus.values()) {
-				for (PayoutStatus payoutStatus : PayoutStatus.values()) {
-					if (SettlementDisplayStatus.from(settlementStatus, payoutStatus) == status) {
-						combos.add(cb.and(
-							cb.equal(root.get("settlementStatus"), settlementStatus),
-							cb.equal(root.get("payoutStatus"), payoutStatus)));
-					}
-				}
-			}
-			return cb.or(combos.toArray(new Predicate[0]));
-		};
+		return (root, query, cb) -> cb.equal(root.get("status"), status);
 	}
 }

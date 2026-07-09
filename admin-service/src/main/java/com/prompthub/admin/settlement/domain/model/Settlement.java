@@ -3,9 +3,7 @@ package com.prompthub.admin.settlement.domain.model;
 import com.prompthub.admin.settlement.domain.exception.SettlementAlreadyCancelledException;
 import com.prompthub.admin.settlement.domain.exception.SettlementAlreadyPaidException;
 import com.prompthub.admin.settlement.domain.exception.SettlementInvalidStateException;
-import com.prompthub.admin.settlement.domain.model.enums.PayoutStatus;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
-import com.prompthub.admin.settlement.domain.model.enums.SettlementStatus;
 import com.prompthub.admin.global.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -24,18 +22,22 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * settlement-service 의 settlement 테이블 재매핑 쓰기 모델(상태 전이).
- * 스키마 소유자는 settlement-service — 컬럼 정의가 바뀌면 이 매핑도 같이 맞춘다.
+ * user-service 의 seller_settlement(운영 단일 진실) 재매핑 쓰기 모델(상태 전이).
+ * 스키마·상태 전이 규칙의 소유자는 user-service SellerSettlement — 컬럼 정의나 전이 가드가
+ * 바뀌면 이 매핑도 같이 맞춘다. 어드민은 이 행을 생성하지 않고(배치 seed) 조회·상태 전이만 한다.
  */
 @Entity
-@Table(name = "settlement")
+@Table(name = "seller_settlement")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Settlement extends BaseEntity {
 
 	@Id
-	@Column(name = "settlement_id")
-	private UUID id;
+	@Column(name = "seller_settlement_id")
+	private UUID sellerSettlementId;
+
+	@Column(name = "settlement_id", nullable = false, unique = true)
+	private UUID settlementId;
 
 	@Column(name = "seller_id", nullable = false)
 	private UUID sellerId;
@@ -58,90 +60,78 @@ public class Settlement extends BaseEntity {
 	@Column(name = "fee_total_amount", nullable = false, precision = 12, scale = 2)
 	private BigDecimal feeTotalAmount;
 
-	@Enumerated(EnumType.STRING)
-	@Column(name = "settlement_status", nullable = false)
-	private SettlementStatus settlementStatus;
-
-	@Enumerated(EnumType.STRING)
-	@Column(name = "payout_status", nullable = false)
-	private PayoutStatus payoutStatus;
-
-	@Column(name = "failed_reason", length = 1000)
-	private String failedReason;
+	@Column(name = "refund_amount", precision = 12, scale = 2)
+	private BigDecimal refundAmount;
 
 	@Column(name = "calculated_at", nullable = false)
 	private LocalDateTime calculatedAt;
 
-	@Column(name = "confirmed_at")
-	private LocalDateTime confirmedAt;
+	@Enumerated(EnumType.STRING)
+	@Column(name = "status", nullable = false, length = 30)
+	private SettlementDisplayStatus status;
+
+	@Column(name = "approved_at")
+	private LocalDateTime approvedAt;
+
+	@Column(name = "payout_requested_at")
+	private LocalDateTime payoutRequestedAt;
 
 	@Column(name = "paid_at")
 	private LocalDateTime paidAt;
 
-	@Column(name = "canceled_at")
-	private LocalDateTime canceledAt;
-
-	@Column(name = "payout_reference", length = 100)
-	private String payoutReference;
+	@Column(name = "cancelled_at")
+	private LocalDateTime cancelledAt;
 
 	public SettlementDisplayStatus displayStatus() {
-		return SettlementDisplayStatus.from(this.settlementStatus, this.payoutStatus);
+		return this.status;
 	}
 
-	public void approve(LocalDateTime confirmedAt) {
-		if (this.settlementStatus != SettlementStatus.PENDING_APPROVAL) {
-			throw new SettlementInvalidStateException("approve", this.settlementStatus, this.payoutStatus);
-		}
-		this.settlementStatus = SettlementStatus.APPROVED;
-		this.payoutStatus = PayoutStatus.READY;
-		this.confirmedAt = confirmedAt;
+	public void approve(LocalDateTime approvedAt) {
+		requireStatus(SettlementDisplayStatus.WAITING, "approve");
+		this.status = SettlementDisplayStatus.APPROVED;
+		this.approvedAt = approvedAt;
 	}
 
 	public void hold() {
-		if (this.settlementStatus != SettlementStatus.PENDING_APPROVAL) {
-			throw new SettlementInvalidStateException("hold", this.settlementStatus, this.payoutStatus);
-		}
-		this.settlementStatus = SettlementStatus.SETTLEMENT_ON_HOLD;
+		requireStatus(SettlementDisplayStatus.WAITING, "hold");
+		this.status = SettlementDisplayStatus.APPROVAL_ON_HOLD;
 	}
 
 	public void releaseHold() {
-		if (this.settlementStatus != SettlementStatus.SETTLEMENT_ON_HOLD) {
-			throw new SettlementInvalidStateException("releaseHold", this.settlementStatus, this.payoutStatus);
-		}
-		this.settlementStatus = SettlementStatus.PENDING_APPROVAL;
+		requireStatus(SettlementDisplayStatus.APPROVAL_ON_HOLD, "releaseHold");
+		this.status = SettlementDisplayStatus.WAITING;
 	}
 
 	public void payout(LocalDateTime paidAt) {
-		if (this.settlementStatus != SettlementStatus.APPROVED || this.payoutStatus != PayoutStatus.PAYOUT_REQUESTED) {
-			throw new SettlementInvalidStateException("payout", this.settlementStatus, this.payoutStatus);
-		}
-		this.payoutStatus = PayoutStatus.PAID;
+		requireStatus(SettlementDisplayStatus.PAYOUT_REQUESTED, "payout");
+		this.status = SettlementDisplayStatus.PAID;
 		this.paidAt = paidAt;
 	}
 
 	public void payoutHold() {
-		if (this.settlementStatus != SettlementStatus.APPROVED || this.payoutStatus != PayoutStatus.PAYOUT_REQUESTED) {
-			throw new SettlementInvalidStateException("payoutHold", this.settlementStatus, this.payoutStatus);
-		}
-		this.payoutStatus = PayoutStatus.PAYOUT_ON_HOLD;
+		requireStatus(SettlementDisplayStatus.PAYOUT_REQUESTED, "payoutHold");
+		this.status = SettlementDisplayStatus.PAYOUT_ON_HOLD;
 	}
 
 	public void releasePayoutHold() {
-		if (this.settlementStatus != SettlementStatus.APPROVED
-			|| this.payoutStatus != PayoutStatus.PAYOUT_ON_HOLD) {
-			throw new SettlementInvalidStateException("releasePayoutHold", this.settlementStatus, this.payoutStatus);
-		}
-		this.payoutStatus = PayoutStatus.PAYOUT_REQUESTED;
+		requireStatus(SettlementDisplayStatus.PAYOUT_ON_HOLD, "releasePayoutHold");
+		this.status = SettlementDisplayStatus.PAYOUT_REQUESTED;
 	}
 
-	public void cancel(LocalDateTime canceledAt) {
-		if (this.payoutStatus == PayoutStatus.PAID) {
-			throw new SettlementAlreadyPaidException(this.id);
+	public void cancel(LocalDateTime cancelledAt) {
+		if (this.status == SettlementDisplayStatus.PAID) {
+			throw new SettlementAlreadyPaidException(this.settlementId);
 		}
-		if (this.settlementStatus == SettlementStatus.CANCELLED) {
-			throw new SettlementAlreadyCancelledException(this.id);
+		if (this.status == SettlementDisplayStatus.CANCELLED) {
+			throw new SettlementAlreadyCancelledException(this.settlementId);
 		}
-		this.settlementStatus = SettlementStatus.CANCELLED;
-		this.canceledAt = canceledAt;
+		this.status = SettlementDisplayStatus.CANCELLED;
+		this.cancelledAt = cancelledAt;
+	}
+
+	private void requireStatus(SettlementDisplayStatus expected, String action) {
+		if (this.status != expected) {
+			throw new SettlementInvalidStateException(action, this.status);
+		}
 	}
 }

@@ -59,6 +59,10 @@ public class SettlementController {
 		@ApiResponse(responseCode = "200", description = "조회 성공",
 			content = @Content(schema = @Schema(implementation = SettlementListResponse.class))),
 		@ApiResponse(responseCode = "400", description = "요청 값 오류",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "401", description = "인증 정보 없음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "403", description = "ADMIN 권한 없음",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public ApiResult<SettlementListResponse> getList(
@@ -94,7 +98,7 @@ public class SettlementController {
 
 	@PatchMapping("/{settlementId}/hold")
 	@Operation(summary = "정산 승인 보류",
-		description = "승인 대기 상태의 정산을 승인 보류(SETTLEMENT_ON_HOLD)로 전환합니다. ADMIN 권한이 필요합니다.")
+		description = "승인 대기 상태의 정산을 승인 보류(APPROVAL_ON_HOLD)로 전환합니다. ADMIN 권한이 필요합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "보류 성공",
 			content = @Content(schema = @Schema(implementation = SettlementStatusResponse.class))),
@@ -116,7 +120,7 @@ public class SettlementController {
 
 	@PatchMapping("/{settlementId}/release-hold")
 	@Operation(summary = "정산 승인 보류 해제",
-		description = "승인 보류 상태의 정산을 승인 대기(PENDING_APPROVAL)로 되돌립니다. ADMIN 권한이 필요합니다.")
+		description = "승인 보류 상태의 정산을 승인 대기(WAITING)로 되돌립니다. ADMIN 권한이 필요합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "보류 해제 성공",
 			content = @Content(schema = @Schema(implementation = SettlementStatusResponse.class))),
@@ -138,7 +142,7 @@ public class SettlementController {
 
 	@PatchMapping("/{settlementId}/payout")
 	@Operation(summary = "정산 지급",
-		description = "지급 준비(READY)된 정산을 지급 완료(PAID)로 전환합니다. ADMIN 권한이 필요합니다.")
+		description = "지급 신청(PAYOUT_REQUESTED)된 정산을 지급 완료(PAID)로 전환합니다. ADMIN 권한이 필요합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "지급 성공",
 			content = @Content(schema = @Schema(implementation = SettlementStatusResponse.class))),
@@ -160,7 +164,7 @@ public class SettlementController {
 
 	@PatchMapping("/{settlementId}/payout-hold")
 	@Operation(summary = "정산 지급 보류",
-		description = "지급 준비(READY)된 정산을 지급 보류(PAYOUT_ON_HOLD)로 전환합니다. ADMIN 권한이 필요합니다.")
+		description = "지급 신청(PAYOUT_REQUESTED)된 정산을 지급 보류(PAYOUT_ON_HOLD)로 전환합니다. ADMIN 권한이 필요합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "지급 보류 성공",
 			content = @Content(schema = @Schema(implementation = SettlementStatusResponse.class))),
@@ -182,7 +186,7 @@ public class SettlementController {
 
 	@PatchMapping("/{settlementId}/payout-hold/release")
 	@Operation(summary = "정산 지급 보류 해제",
-		description = "지급 보류(PAYOUT_ON_HOLD)된 정산을 지급 준비(READY)로 되돌립니다. ADMIN 권한이 필요합니다.")
+		description = "지급 보류(PAYOUT_ON_HOLD)된 정산을 지급 신청(PAYOUT_REQUESTED)으로 되돌립니다. ADMIN 권한이 필요합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "지급 보류 해제 성공",
 			content = @Content(schema = @Schema(implementation = SettlementStatusResponse.class))),
