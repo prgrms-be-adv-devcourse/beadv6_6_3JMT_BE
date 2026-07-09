@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
@@ -49,7 +50,8 @@ class ProductInternalServiceTest {
 		@DisplayName("ON_SALE 상품만 조회하여 판매자 닉네임과 함께 반환한다")
 		void getCartSnapshots_onSaleOnly() {
 			Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
-			given(productRepository.findOnSaleByIdIn(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
 			given(sellerClient.getSellerInfo(SELLER_ID))
 				.willReturn(new SellerInfo(SELLER_ID, "프롬프트상점", null, "ACTIVE"));
 
@@ -68,7 +70,9 @@ class ProductInternalServiceTest {
 		@Test
 		@DisplayName("ON_SALE 아닌 상품이 요청되면 응답에서 제외된다")
 		void getCartSnapshots_excludesNonOnSale() {
-			given(productRepository.findOnSaleByIdIn(List.of(PRODUCT_ID))).willReturn(List.of());
+			Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.DRAFT);
+			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
 
 			List<ProductCartSnapshotResponse> result = productInternalService.getCartSnapshots(List.of(PRODUCT_ID));
 
@@ -82,7 +86,10 @@ class ProductInternalServiceTest {
 			UUID productId2 = UUID.fromString("22222222-2222-2222-2222-222222222222");
 			Product product1 = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
 			Product product2 = product(productId2, SELLER_ID, ProductStatus.ON_SALE);
-			given(productRepository.findOnSaleByIdIn(List.of(PRODUCT_ID, productId2)))
+			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID, productId2)))
+				.willReturn(List.of(product1, product2));
+			given(productRepository.findAllByFamilyRootIds(argThat(ids ->
+				ids != null && java.util.Set.copyOf(ids).equals(java.util.Set.of(PRODUCT_ID, productId2)))))
 				.willReturn(List.of(product1, product2));
 			given(sellerClient.getSellerInfo(SELLER_ID))
 				.willReturn(new SellerInfo(SELLER_ID, "프롬프트상점", null, "ACTIVE"));
@@ -92,6 +99,52 @@ class ProductInternalServiceTest {
 
 			assertThat(result).hasSize(2);
 			then(sellerClient).should().getSellerInfo(SELLER_ID);
+		}
+
+		@Test
+		@DisplayName("요청 id가 SUPERSEDED된 옛 row여도 family의 현재 ON_SALE row 데이터로 응답하고 productId는 요청 id를 유지한다")
+		void getCartSnapshots_resolvesSupersededIdToCurrentOnSale() {
+			UUID oldId = PRODUCT_ID;
+			UUID currentId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+			Product old = product(oldId, SELLER_ID, ProductStatus.SUPERSEDED);
+			Product current = product(currentId, SELLER_ID, ProductStatus.ON_SALE);
+			ReflectionTestUtils.setField(current, "parentId", oldId);
+
+			given(productRepository.findAllByIdIn(List.of(oldId))).willReturn(List.of(old));
+			given(productRepository.findAllByFamilyRootIds(List.of(oldId))).willReturn(List.of(old, current));
+			given(sellerClient.getSellerInfo(SELLER_ID))
+				.willReturn(new SellerInfo(SELLER_ID, "프롬프트상점", null, "ACTIVE"));
+
+			List<ProductCartSnapshotResponse> result = productInternalService.getCartSnapshots(List.of(oldId));
+
+			assertThat(result).hasSize(1);
+			assertThat(result.get(0).productId()).isEqualTo(oldId);
+			assertThat(result.get(0).productTitle()).isEqualTo("면접 답변 프롬프트");
+		}
+	}
+
+	@Nested
+	@DisplayName("리뷰 등록/수정")
+	class UpsertReview {
+
+		@Test
+		@DisplayName("자식 row의 id로 요청해도 family root에 리뷰가 귀속된다")
+		void upsertReview_attachesReviewToFamilyRoot() {
+			UUID rootId = UUID.fromString("44444444-4444-4444-4444-444444444444");
+			Product root = product(rootId, SELLER_ID, ProductStatus.SUPERSEDED);
+			Product child = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
+			ReflectionTestUtils.setField(child, "parentId", rootId);
+
+			given(productRepository.findById(PRODUCT_ID)).willReturn(java.util.Optional.of(child));
+			given(productRepository.findById(rootId)).willReturn(java.util.Optional.of(root));
+			given(reviewRepository.findByUserIdAndProductId(SELLER_ID, rootId)).willReturn(java.util.Optional.empty());
+
+			productInternalService.upsertReview(SELLER_ID, PRODUCT_ID, 5);
+
+			org.mockito.ArgumentCaptor<com.prompthub.product.domain.model.entity.Review> captor =
+				org.mockito.ArgumentCaptor.forClass(com.prompthub.product.domain.model.entity.Review.class);
+			then(reviewRepository).should().save(captor.capture());
+			assertThat(captor.getValue().getProduct()).isEqualTo(root);
 		}
 	}
 
