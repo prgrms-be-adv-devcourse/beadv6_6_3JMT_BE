@@ -109,8 +109,8 @@ class PaymentRefundedProcessorTest {
     }
 
     @Test
-    @DisplayName("PAID가 아닌 주문에 환불 이벤트가 들어오면 상태 전이 예외가 발생한다")
-    void process_pendingOrder_throwsException() {
+    @DisplayName("PAID가 아닌 주문에 환불 이벤트가 들어오면 상태 변경 없이 처리 완료된다")
+    void process_pendingOrder_ignored() {
         Order order = createPendingOrderWithProducts();
         PaymentRefundedPayload payload = createPaymentRefundedPayload(order.getId());
         UUID eventId = UUID.randomUUID();
@@ -118,10 +118,9 @@ class PaymentRefundedProcessorTest {
         given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
         given(orderRepository.findByIdWithOrderProducts(payload.orderId())).willReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> processor.process(eventId, "PAYMENT_REFUNDED", REFUNDED_AT, payload))
-            .isInstanceOf(OrderException.class)
-            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+        processor.process(eventId, "PAYMENT_REFUNDED", REFUNDED_AT, payload);
 
+        then(processedEventService).should().markProcessed(eventId, "order-service", "PAYMENT_REFUNDED", REFUNDED_AT);
         then(outboxEventAppender).should(never()).append(any(), any());
     }
 }

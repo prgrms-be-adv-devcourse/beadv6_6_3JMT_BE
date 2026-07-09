@@ -154,6 +154,16 @@ public class OrderProduct {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void markCanceled(LocalDateTime canceledAt) {
+        if (this.orderStatus != OrderStatus.PENDING) {
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "대기 상태의 주문 상품만 취소할 수 있습니다.");
+        }
+
+        this.orderStatus = OrderStatus.CANCELED;
+        this.canceledAt = canceledAt;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void refund() {
         refund(LocalDateTime.now());
     }

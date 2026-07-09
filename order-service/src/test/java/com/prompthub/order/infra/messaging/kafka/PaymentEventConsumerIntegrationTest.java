@@ -3,6 +3,8 @@ package com.prompthub.order.infra.messaging.kafka;
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.application.service.event.PaymentApprovedEventHandler;
 import com.prompthub.order.application.service.event.PaymentRefundedEventHandler;
+import com.prompthub.order.application.service.event.PaymentFailedEventHandler;
+import com.prompthub.order.application.service.event.PaymentCanceledEventHandler;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -57,9 +59,20 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	@MockitoBean
 	private PaymentRefundedEventHandler paymentRefundedEventHandler;
 
+	@MockitoBean
+	private PaymentFailedEventHandler paymentFailedEventHandler;
+
+	@MockitoBean
+	private PaymentCanceledEventHandler paymentCanceledEventHandler;
+
 	@BeforeEach
 	void clearMocks() {
-		clearInvocations(paymentApprovedEventHandler, paymentRefundedEventHandler);
+		clearInvocations(
+			paymentApprovedEventHandler,
+			paymentRefundedEventHandler,
+			paymentFailedEventHandler,
+			paymentCanceledEventHandler
+		);
 	}
 
 	@Test
@@ -173,6 +186,8 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 				.get(5, TimeUnit.SECONDS);
 
 			await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
+				verify(paymentFailedEventHandler).handle(any(EventMessage.class));
+				verify(paymentCanceledEventHandler).handle(any(EventMessage.class));
 				verify(paymentApprovedEventHandler, never()).handle(any(EventMessage.class));
 				verify(paymentRefundedEventHandler, never()).handle(any(EventMessage.class));
 			});
@@ -235,7 +250,6 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 			}
 			""".formatted(UUID.randomUUID(), eventType, UUID.randomUUID());
 	}
-
 	private KafkaTemplate<String, String> rawStringKafkaTemplate() {
 		Map<String, Object> properties = KafkaTestUtils.producerProps(embeddedKafkaBroker);
 		properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);

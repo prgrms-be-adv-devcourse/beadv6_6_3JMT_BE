@@ -43,11 +43,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.prompthub.common.event.EventMessage;
+
 import static com.prompthub.order.fixture.OrderFixture.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
@@ -69,6 +72,12 @@ class OrderServiceTest {
 
     @Spy
     private OrderPolicyService orderPolicyService;
+
+    @Mock
+    private com.prompthub.order.application.service.event.OrderEventMessageFactory orderEventMessageFactory;
+
+    @Mock
+    private com.prompthub.order.application.service.event.outbox.OutboxEventAppender outboxEventAppender;
 
     @InjectMocks
     private OrderService orderService;
@@ -470,6 +479,9 @@ class OrderServiceTest {
                     return order;
                 });
 
+            given(orderEventMessageFactory.createOrderCreatedMessage(any(), any()))
+                .willReturn(new EventMessage<>(UUID.randomUUID(), "ORDER_CREATED", LocalDateTime.now(), "ORDER", UUID.randomUUID(), null));
+
             // when
             CreateOrderResponse response = orderService.createOrder(BUYER_ID, request);
 
@@ -498,6 +510,7 @@ class OrderServiceTest {
             then(productClient).should().getOrderSnapshots(request.productIds());
             then(orderNumberGenerator).should().generate();
             then(orderRepository).should().save(any(Order.class));
+            then(outboxEventAppender).should().append(eq("order-events"), any());
         }
 
         @Test
@@ -519,6 +532,9 @@ class OrderServiceTest {
                     ReflectionTestUtils.setField(order, "createdAt", LocalDateTime.now());
                     return order;
                 });
+
+            given(orderEventMessageFactory.createOrderCreatedMessage(any(), any()))
+                .willReturn(new EventMessage<>(UUID.randomUUID(), "ORDER_CREATED", LocalDateTime.now(), "ORDER", UUID.randomUUID(), null));
 
             ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
 
@@ -558,6 +574,8 @@ class OrderServiceTest {
                 .allSatisfy(orderProduct ->
                     assertThat(orderProduct.getOrder()).isSameAs(savedOrder)
                 );
+
+            then(outboxEventAppender).should().append(eq("order-events"), any());
         }
 
         @Test
