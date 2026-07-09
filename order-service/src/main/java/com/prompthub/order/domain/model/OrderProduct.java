@@ -174,6 +174,16 @@ public class OrderProduct {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void expirePending(LocalDateTime canceledAt) {
+        if (this.orderStatus != OrderStatus.PENDING) {
+            return;
+        }
+
+        this.orderStatus = OrderStatus.CANCELED;
+        this.canceledAt = canceledAt;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void refund() {
         refund(LocalDateTime.now());
     }
