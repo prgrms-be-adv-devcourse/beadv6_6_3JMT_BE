@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package settlement.order;
+
+option java_multiple_files = true;
+option java_package = "com.prompthub.settlement.grpc.ordersettlement";
+option java_outer_classname = "OrderSettlementQueryProto";
+
+// order-service 의 정산 대상 라인 조회 서비스 미러(settlement → order 아웃바운드 조회 — #260).
+// 기존 Kafka order-events 소비로 SettlementSourceLine 을 건건이 적재하던 방식을,
+// 정산 배치 시작 시 gRPC 로 정산 대상 라인을 bulk 조회해 적재하는 방식으로 전환한다.
+// wire 계약(package·service·message·field 번호)은 order-service 가 신설할 서버 proto 와 일치시켜야 한다.
+service OrderSettlementQueryService {
+  // 정산 기준월(period, YYYY-MM)에 아직 정산되지 않은 결제/환불 라인을 셀러 무관하게 전부 조회한다.
+  rpc GetSettleableLines(SettleableLinesRequest) returns (SettleableLinesResponse);
+}
+
+message SettleableLinesRequest {
+  string period = 1;   // 정산 기준월 (YYYY-MM)
+}
+
+message SettleableLinesResponse {
+  repeated SettleableLine lines = 1;
+}
+
+message SettleableLine {
+  string event_id = 1;          // 라인 dedup 유니크 키(order 가 부여, 재조회 시 안정적이어야 함)
+  string event_type = 2;        // PAID | REFUND
+  string order_id = 3;          // 주문 ID(UUID)
+  string order_product_id = 4;  // 주문 상품 라인 ID(UUID)
+  string seller_id = 5;         // 판매자 ID(UUID)
+  int64 line_amount = 6;        // 라인 금액(원 단위 정수, 양수)
+  string occurred_at = 7;       // 발생 시각 (ISO-8601 LocalDateTime, 예: 2026-06-03T10:15:30)
+}

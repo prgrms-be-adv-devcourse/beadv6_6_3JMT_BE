@@ -1,5 +1,12 @@
+apply plugin: 'com.google.protobuf'
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-batch'
+
+    // gRPC 클라이언트 (order-service 정산 대상 라인 조회용 — #260)
+    implementation 'org.springframework.boot:spring-boot-starter-grpc-client'
+    implementation 'io.grpc:grpc-stub'
+    implementation 'io.grpc:grpc-protobuf'
 
     // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
@@ -9,4 +16,22 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     // 테스트용 인메모리 DB — @SpringBootTest 가 외부 실 PostgreSQL 에 의존하지 않게 한다
     testRuntimeOnly 'com.h2database:h2'
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${protobufVersion}"
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+        }
+    }
+    generateProtoTasks {
+        all().each { task ->
+            task.plugins {
+                grpc {}
+            }
+        }
+    }
 }

@@ -2,6 +2,7 @@ package com.prompthub.settlement.infrastructure.persistence;
 
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -32,6 +33,9 @@ public interface SettlementSourceLineJpaRepository extends JpaRepository<Settlem
                                                    @Param("end") LocalDateTime end);
 
     boolean existsByEventId(UUID eventId);
+
+    @Query("select l.eventId from SettlementSourceLine l where l.eventId in :eventIds")
+    List<UUID> findExistingEventIds(@Param("eventIds") Collection<UUID> eventIds);
 
     List<SettlementSourceLine> findBySettlementId(UUID settlementId);
 }
