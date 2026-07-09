@@ -1,5 +1,7 @@
 package com.prompthub.apigateway.config;
 
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -13,35 +15,29 @@ import org.springframework.security.config.Customizer;
 @Configuration
 public class SecurityConfig {
 
-    private static final String[] WHITE_LIST = {
-        "/api/v1/auth/signup",
-        "/api/v1/auth/login",
-        "/api/v1/auth/oauth/**",
-        "/api/v1/auth/token/refresh",
-        "/actuator/**",
-        "/swagger-ui.html",
-        "/swagger-ui/**",
-        "/v3/api-docs/**",
-        "/webjars/**",
-        "/*/v3/api-docs"
-    };
-
     private final ReactiveJwtDecoder reactiveJwtDecoder;
+    private final GatewayApiVersionProperties apiVersionProperties;
 
-    public SecurityConfig(ReactiveJwtDecoder reactiveJwtDecoder) {
+    public SecurityConfig(ReactiveJwtDecoder reactiveJwtDecoder, GatewayApiVersionProperties apiVersionProperties) {
         this.reactiveJwtDecoder = reactiveJwtDecoder;
+        this.apiVersionProperties = apiVersionProperties;
     }
 
     @Bean
     public SecurityWebFilterChain securityFilterChain(ServerHttpSecurity http) {
+        List<String> authWhitelist = WhitelistPathResolver.authWhitelist(apiVersionProperties);
+        List<String> productReadWhitelist = WhitelistPathResolver.productReadWhitelist(apiVersionProperties);
+
         return http
             .cors(Customizer.withDefaults())
-            .authorizeExchange(ex -> ex
-                .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .pathMatchers(WHITE_LIST).permitAll()
-                .pathMatchers(HttpMethod.GET, "/api/v1/products", "/api/v1/products/**").permitAll()
-                .anyExchange().authenticated()
-            )
+            .authorizeExchange(ex -> {
+                ex.pathMatchers(HttpMethod.OPTIONS, "/**").permitAll();
+                ex.pathMatchers(authWhitelist.toArray(String[]::new)).permitAll();
+                if (!productReadWhitelist.isEmpty()) {
+                    ex.pathMatchers(HttpMethod.GET, productReadWhitelist.toArray(String[]::new)).permitAll();
+                }
+                ex.anyExchange().authenticated();
+            })
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtDecoder(reactiveJwtDecoder))
             )
