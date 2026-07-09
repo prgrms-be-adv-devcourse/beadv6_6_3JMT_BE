@@ -1,8 +1,8 @@
 package com.prompthub.user.sellersettlement.infrastructure.messaging.kafka.consumer.settlement;
 
+import com.prompthub.common.event.EventMessage;
 import com.prompthub.user.global.exception.SettlementEventDeserializeException;
-import com.prompthub.user.sellersettlement.application.event.SettlementCreatedMessage;
-import com.prompthub.user.sellersettlement.application.event.SettlementEventEnvelope;
+import com.prompthub.user.sellersettlement.application.event.SettlementCreatedPayload;
 import com.prompthub.user.sellersettlement.application.usecase.SeedSellerSettlementUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,9 +35,9 @@ public class SettlementEventConsumer {
 
         switch (eventType) {
             case SETTLEMENT_CREATED -> {
-                SettlementEventEnvelope<SettlementCreatedMessage> envelope =
-                        toEnvelope(root, SettlementCreatedMessage.class);
-                seedSellerSettlementUseCase.seed(envelope.payload());
+                EventMessage<SettlementCreatedPayload> eventMessage =
+                        toEventMessage(root, SettlementCreatedPayload.class);
+                seedSellerSettlementUseCase.seed(eventMessage.payload());
             }
             case UNKNOWN -> log.warn("지원하지 않는 정산 이벤트 타입입니다. eventType={}", eventTypeStr);
         }
@@ -53,10 +53,10 @@ public class SettlementEventConsumer {
         }
     }
 
-    private <T> SettlementEventEnvelope<T> toEnvelope(JsonNode root, Class<T> payloadType) {
+    private <T> EventMessage<T> toEventMessage(JsonNode root, Class<T> payloadType) {
         try {
             JavaType type = objectMapper.getTypeFactory()
-                    .constructParametricType(SettlementEventEnvelope.class, payloadType);
+                    .constructParametricType(EventMessage.class, payloadType);
             return objectMapper.treeToValue(root, type);
         } catch (JacksonException exception) {
             throw new SettlementEventDeserializeException("정산 이벤트 페이로드 역직렬화에 실패했습니다.", exception);

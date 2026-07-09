@@ -4,21 +4,15 @@ import java.util.Arrays;
 
 public enum SettlementEventType {
 
-    SETTLEMENT_CREATED("settlement.created"),
-    UNKNOWN("");
-
-    private final String type;
-
-    SettlementEventType(String type) {
-        this.type = type;
-    }
+    SETTLEMENT_CREATED,
+    UNKNOWN;
 
     public static SettlementEventType from(String type) {
         if (type == null) {
             return UNKNOWN;
         }
         return Arrays.stream(values())
-                .filter(eventType -> eventType.type.equals(type))
+                .filter(eventType -> eventType.name().equals(type))
                 .findFirst()
                 .orElse(UNKNOWN);
     }
