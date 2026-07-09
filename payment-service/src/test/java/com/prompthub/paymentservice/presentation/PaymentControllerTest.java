@@ -51,7 +51,7 @@ class PaymentControllerTest {
         UUID paymentId = UUID.randomUUID();
         when(confirmPaymentUseCase.confirm(any())).thenReturn(new PaymentResult(paymentId));
 
-        mockMvc.perform(post("/api/v1/payments/confirm")
+        mockMvc.perform(post("/api/v2/payments/confirm")
                 .header("X-User-Id", UUID.randomUUID().toString())
                 .header("X-User-Role", "BUYER")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -65,7 +65,7 @@ class PaymentControllerTest {
 
     @Test
     void paymentKey_누락_시_400_V001() throws Exception {
-        mockMvc.perform(post("/api/v1/payments/confirm")
+        mockMvc.perform(post("/api/v2/payments/confirm")
                 .header("X-User-Id", UUID.randomUUID().toString())
                 .header("X-User-Role", "BUYER")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -80,7 +80,7 @@ class PaymentControllerTest {
         when(confirmPaymentUseCase.confirm(any()))
             .thenThrow(new BusinessException(PaymentErrorCode.DUPLICATE_PAYMENT));
 
-        mockMvc.perform(post("/api/v1/payments/confirm")
+        mockMvc.perform(post("/api/v2/payments/confirm")
                 .header("X-User-Id", UUID.randomUUID().toString())
                 .header("X-User-Role", "BUYER")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -97,7 +97,7 @@ class PaymentControllerTest {
         when(confirmPaymentUseCase.confirm(any()))
             .thenThrow(new BusinessException(PaymentErrorCode.PG_INVALID_REQUEST, "INVALID_REQUEST"));
 
-        mockMvc.perform(post("/api/v1/payments/confirm")
+        mockMvc.perform(post("/api/v2/payments/confirm")
                 .header("X-User-Id", UUID.randomUUID().toString())
                 .header("X-User-Role", "BUYER")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -113,7 +113,7 @@ class PaymentControllerTest {
         when(confirmPaymentUseCase.confirm(any()))
             .thenThrow(new BusinessException(PaymentErrorCode.PAYMENT_FAILED, "카드 한도 초과"));
 
-        mockMvc.perform(post("/api/v1/payments/confirm")
+        mockMvc.perform(post("/api/v2/payments/confirm")
                 .header("X-User-Id", UUID.randomUUID().toString())
                 .header("X-User-Role", "BUYER")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -126,7 +126,7 @@ class PaymentControllerTest {
 
     @Test
     void BUYER_역할_없으면_결제승인_403_PAY007() throws Exception {
-        mockMvc.perform(post("/api/v1/payments/confirm")
+        mockMvc.perform(post("/api/v2/payments/confirm")
                 .header("X-User-Id", UUID.randomUUID().toString())
                 .header("X-User-Role", "ADMIN")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -139,7 +139,7 @@ class PaymentControllerTest {
 
     @Test
     void BUYER_역할_없으면_환불_403_PAY007() throws Exception {
-        mockMvc.perform(post("/api/v1/payments/{paymentId}/refund", UUID.randomUUID())
+        mockMvc.perform(post("/api/v2/payments/{paymentId}/refund", UUID.randomUUID())
                 .header("X-User-Id", UUID.randomUUID().toString())
                 .header("X-User-Role", "ADMIN"))
             .andExpect(status().isForbidden())
@@ -151,7 +151,7 @@ class PaymentControllerTest {
         doThrow(new BusinessException(PaymentErrorCode.REFUND_NOT_ALLOWED))
             .when(refundPaymentUseCase).refund(any());
 
-        mockMvc.perform(post("/api/v1/payments/{paymentId}/refund", UUID.randomUUID())
+        mockMvc.perform(post("/api/v2/payments/{paymentId}/refund", UUID.randomUUID())
                 .header("X-User-Id", UUID.randomUUID().toString())
                 .header("X-User-Role", "BUYER"))
             .andExpect(status().isBadRequest())
