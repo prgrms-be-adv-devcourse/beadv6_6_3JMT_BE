@@ -214,3 +214,4 @@ nbdist/
 
 ### Superpowers (설계·계획 산출물, 공유 제외) ###
 settlement-service/docs/superpowers/
+docs/adr

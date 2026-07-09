@@ -5,7 +5,7 @@ spring:
   application:
     name: apigateway
   config:
-    import: ${CONFIG_IMPORT:optional:configserver:http://localhost:8888}
+    import: ${CONFIG_IMPORT:}
   profiles:
     default: local
   cloud:
