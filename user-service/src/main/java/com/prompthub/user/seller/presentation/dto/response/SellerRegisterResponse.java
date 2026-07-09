@@ -1,4 +1,4 @@
-package com.prompthub.user.seller.presentation.controller.dto.response;
+package com.prompthub.user.seller.presentation.dto.response;
 
 import com.prompthub.user.seller.application.dto.RegisterSellerResult;
 import io.swagger.v3.oas.annotations.media.Schema;
