@@ -108,7 +108,7 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
 
         // then
         // 1. DB 상태 검증
-        OutboxEvent updatedEvent = outboxEventPersistence.findById(event.getId()).orElseThrow();
+        OutboxEvent updatedEvent = outboxEventPersistence.findById(event.getEventId()).orElseThrow();
         assertThat(updatedEvent.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED);
 
         // 2. Kafka 메시지 검증
@@ -123,11 +123,11 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
             }
         }
         assertThat(matchedMessage).isNotNull();
-        assertThat(matchedMessage.path("eventType").stringValue()).isEqualTo("ORDER_PAID");
-        assertThat(matchedMessage.path("aggregateId").stringValue()).isEqualTo(orderId.toString());
-        assertThat(matchedMessage.path("payload").path("orderId").stringValue()).isEqualTo(orderId.toString());
+        assertThat(matchedMessage.path("eventType").asText()).isEqualTo("ORDER_PAID");
+        assertThat(matchedMessage.path("aggregateId").asText()).isEqualTo(orderId.toString());
+        assertThat(matchedMessage.path("payload").path("orderId").asText()).isEqualTo(orderId.toString());
         assertThat(matchedMessage.path("payload").path("products")).hasSize(1);
-        assertThat(matchedMessage.path("payload").path("products").get(0).path("productId").stringValue())
+        assertThat(matchedMessage.path("payload").path("products").get(0).path("productId").asText())
             .isEqualTo(productId.toString());
     }
 
@@ -175,7 +175,7 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
 
         outboxRelay.publishPendingEvents();
 
-        OutboxEvent updatedEvent = outboxEventPersistence.findById(event.getId()).orElseThrow();
+        OutboxEvent updatedEvent = outboxEventPersistence.findById(event.getEventId()).orElseThrow();
         assertThat(updatedEvent.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED);
 
         ConsumerRecords<String, String> records = KafkaTestUtils.getRecords(consumer, Duration.ofMillis(10000));
@@ -189,10 +189,10 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
             }
         }
         assertThat(matchedMessage).isNotNull();
-        assertThat(matchedMessage.path("eventType").stringValue()).isEqualTo("ORDER_REFUND");
-        assertThat(matchedMessage.path("aggregateId").stringValue()).isEqualTo(orderId.toString());
-        assertThat(matchedMessage.path("payload").path("orderId").stringValue()).isEqualTo(orderId.toString());
-        assertThat(matchedMessage.path("payload").path("paymentId").stringValue()).isEqualTo(paymentId.toString());
+        assertThat(matchedMessage.path("eventType").asText()).isEqualTo("ORDER_REFUND");
+        assertThat(matchedMessage.path("aggregateId").asText()).isEqualTo(orderId.toString());
+        assertThat(matchedMessage.path("payload").path("orderId").asText()).isEqualTo(orderId.toString());
+        assertThat(matchedMessage.path("payload").path("paymentId").asText()).isEqualTo(paymentId.toString());
         assertThat(matchedMessage.path("payload").path("totalRefundAmount").intValue()).isEqualTo(9900);
         assertThat(matchedMessage.path("payload").path("products")).hasSize(1);
         assertThat(matchedMessage.path("payload").path("products").get(0).path("refundAmount").intValue())
