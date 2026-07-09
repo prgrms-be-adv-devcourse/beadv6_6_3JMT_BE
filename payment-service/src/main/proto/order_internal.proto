@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package payment.order;
+
+option java_multiple_files = true;
+option java_package = "com.prompthub.grpc.order.v1";
+option java_outer_classname = "OrderInternalProto";
+
+// order-service가 신설할 내부용 gRPC 계약 (본 문서가 동결, order-service가 미러링).
+// payment-service는 결제 승인 시 이벤트로 확보하지 못한 주문 스냅샷을 이 gRPC로 폴백 조회한다.
+service OrderPaymentService {
+  rpc GetOrderForPayment(GetOrderPaymentInfoRequest) returns (GetOrderPaymentInfoResponse);
+}
+
+message GetOrderPaymentInfoRequest {
+  string order_id = 1;
+}
+
+message GetOrderPaymentInfoResponse {
+  string order_id = 1;
+  string buyer_id = 2;
+  int32 total_amount = 3;
+  string created_at = 4; // ISO 8601
+}

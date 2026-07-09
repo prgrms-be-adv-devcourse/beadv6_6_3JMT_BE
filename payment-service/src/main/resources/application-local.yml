@@ -13,10 +13,15 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+    defer-datasource-initialization: true   # Hibernate DDL 이후 schema.sql 실행
     show-sql: true
     properties:
       hibernate:
         format_sql: true
+  sql:
+    init:
+      mode: always                          # 비내장 PostgreSQL에서도 schema.sql 실행
+
   kafka:
     bootstrap-servers: localhost:9092
     admin:
@@ -37,6 +42,13 @@ payment:
     secret-key: ${TOSS_SECRET_KEY:test-dummy-key}
     base-url: https://api.tosspayments.com/v1
     test-mode: ${TOSS_TEST_MODE:false}
+
+prompthub:
+  grpc:
+    order:
+      host: ${ORDER_GRPC_HOST:localhost}
+      port: ${ORDER_GRPC_PORT:9083}
+      deadline-ms: ${ORDER_GRPC_DEADLINE_MS:2000}
 
 eureka:
   client:
