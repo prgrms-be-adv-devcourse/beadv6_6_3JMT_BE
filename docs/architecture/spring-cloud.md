@@ -99,14 +99,19 @@ sequenceDiagram
 
 **핵심**: `spring.config.import`로 Config Server를 지정하면(예: `optional:configserver:http://localhost:8888`) 별도의 `bootstrap.yml` 없이도 애플리케이션 초기 단계에서 원격 설정을 로드한다.
 
-**Config Server가 관리하는 파일 구조**:
+**Config Server가 관리하는 파일 구조** (목표 상태 — ADR-0004, git 백엔드 + 별도 설정 리포):
 ```
-config/configs/
-├── application.yml        # 모든 서비스 공통 (Eureka 주소 등)
-├── user-service.yml       # user-service 전용 (feature flag, 외부 서비스 URL 등)
-├── product-service.yml
-└── ...
+설정 리포 (팀 org의 private repo)
+├── application.yml          # 모든 서비스 공통 (Eureka 클라이언트, actuator만 — 최소주의)
+├── application-dev.yml      # 공통 dev
+├── application-prod.yml     # 공통 prod
+├── user-service-dev.yml     # 서비스 전용 (DB, gRPC 등 — 호스트는 컨테이너 이름)
+├── user-service-prod.yml
+└── ... ({service}-{dev,prod}.yml 쌍)
 ```
+
+프로파일은 `local`(개인 PC, config server 불필요) / `dev`(로컬 compose 전체 스택) /
+`prod`(EC2 compose) 3단. 규칙과 마이그레이션 절차는 `docs/architecture/config-management.md` 참조.
 
 ---
 
