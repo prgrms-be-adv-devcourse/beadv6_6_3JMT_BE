@@ -1,5 +1,7 @@
 package com.prompthub.user.sellersettlement.application.service;
 
+import com.prompthub.user.sellersettlement.application.client.ProductStatsClient;
+import com.prompthub.user.sellersettlement.application.dto.SellerProductStats;
 import com.prompthub.user.sellersettlement.application.dto.SellerSettlementListQuery;
 import com.prompthub.user.sellersettlement.application.event.SettlementCreatedPayload;
 import com.prompthub.user.sellersettlement.application.usecase.SeedSellerSettlementUseCase;
@@ -10,6 +12,8 @@ import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
 import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementListResponse;
 import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementStatusResponse;
+import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementSummaryResponse;
+import java.math.BigDecimal;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SellerSettlementApplicationService implements SeedSellerSettlementUseCase, SellerSettlementUseCase {
 
     private final SellerSettlementRepository sellerSettlementRepository;
+    private final ProductStatsClient productStatsClient;
 
     @Override
     @Transactional
@@ -41,6 +46,15 @@ public class SellerSettlementApplicationService implements SeedSellerSettlementU
         SellerSettlementRepository.SellerSettlementPage page = sellerSettlementRepository.findPageBySeller(
                 query.sellerId(), query.status(), query.period(), query.page(), query.size());
         return SellerSettlementListResponse.from(page, query.page(), query.size());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SellerSettlementSummaryResponse getMySummary(UUID sellerId) {
+        SellerProductStats stats = productStatsClient.getSellerProductStats(sellerId);
+        BigDecimal totalRevenueAmount = sellerSettlementRepository.sumTotalAmountBySeller(sellerId);
+        BigDecimal totalSettlementAmount = sellerSettlementRepository.sumPaidSettlementAmountBySeller(sellerId);
+        return SellerSettlementSummaryResponse.of(stats, totalRevenueAmount, totalSettlementAmount);
     }
 
     @Override
