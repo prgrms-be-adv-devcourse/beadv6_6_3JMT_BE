@@ -13,9 +13,9 @@ public interface SettlementQueryJpaRepository
 
 	@Query("""
 			select new com.prompthub.admin.settlement.domain.repository.SettlementStatusAggregate(
-				s.status, sum(s.settlementTotalAmount), count(s))
+				s.settlementStatus, s.payoutStatus, sum(s.settlementTotalAmount), count(s))
 			from Settlement s
-			group by s.status
+			group by s.settlementStatus, s.payoutStatus
 			""")
 	List<SettlementStatusAggregate> aggregateByStatus();
 }

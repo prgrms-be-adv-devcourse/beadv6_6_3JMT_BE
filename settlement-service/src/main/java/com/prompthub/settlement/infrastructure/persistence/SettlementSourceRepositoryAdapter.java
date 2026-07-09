@@ -1,7 +1,9 @@
 package com.prompthub.settlement.infrastructure.persistence;
 
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
+import com.prompthub.settlement.domain.model.enums.SettlementSourceEventType;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
@@ -38,6 +40,16 @@ public class SettlementSourceRepositoryAdapter implements SettlementSourceReposi
     @Override
     public List<SettlementSourceLine> findBySettlementId(UUID settlementId) {
         return jpaRepository.findBySettlementId(settlementId);
+    }
+
+    @Override
+    public long countPaidBySeller(UUID sellerId) {
+        return jpaRepository.countBySellerIdAndEventType(sellerId, SettlementSourceEventType.PAID);
+    }
+
+    @Override
+    public BigDecimal sumPaidAmountBySeller(UUID sellerId) {
+        return jpaRepository.sumLineAmountBySellerIdAndEventType(sellerId, SettlementSourceEventType.PAID);
     }
 
     private LocalDateTime startOf(YearMonth period) {

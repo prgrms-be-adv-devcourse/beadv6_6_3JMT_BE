@@ -60,7 +60,8 @@ public class SettlementApplicationService implements SettlementUseCase {
 		}
 
 		for (SettlementStatusAggregate aggregate : settlementQueryRepository.aggregateByStatus()) {
-			SettlementDisplayStatus card = aggregate.status().toCard();
+			SettlementDisplayStatus card =
+				SettlementDisplayStatus.from(aggregate.settlementStatus(), aggregate.payoutStatus()).toCard();
 			if (card == null) {
 				continue;
 			}
@@ -142,7 +143,7 @@ public class SettlementApplicationService implements SettlementUseCase {
 	}
 
 	private Settlement findSettlement(UUID settlementId) {
-		return settlementRepository.findBySettlementId(settlementId)
+		return settlementRepository.findById(settlementId)
 			.orElseThrow(() -> new AdminException(AdminErrorCode.SETTLEMENT_NOT_FOUND));
 	}
 }

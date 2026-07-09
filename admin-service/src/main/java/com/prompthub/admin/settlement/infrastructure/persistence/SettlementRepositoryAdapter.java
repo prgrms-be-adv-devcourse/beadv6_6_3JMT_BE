@@ -14,8 +14,8 @@ public class SettlementRepositoryAdapter implements SettlementRepository {
 	private final SettlementJpaRepository jpaRepository;
 
 	@Override
-	public Optional<Settlement> findBySettlementId(UUID settlementId) {
-		return jpaRepository.findBySettlementId(settlementId);
+	public Optional<Settlement> findById(UUID id) {
+		return jpaRepository.findById(id);
 	}
 
 	@Override

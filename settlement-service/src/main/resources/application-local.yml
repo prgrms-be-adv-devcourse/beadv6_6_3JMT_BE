@@ -24,6 +24,15 @@ spring:
       auto-offset-reset: earliest
       enable-auto-commit: false
 
+grpc:
+  server:
+    port: 9085
+  client:
+    user-service:
+      address: ${USER_SERVICE_GRPC_ADDRESS:localhost:9081}
+    product-service:
+      address: ${PRODUCT_SERVICE_GRPC_ADDRESS:localhost:9082}
+
 settlement:
   scheduler:
     cron: "0 0 4 1 * *"

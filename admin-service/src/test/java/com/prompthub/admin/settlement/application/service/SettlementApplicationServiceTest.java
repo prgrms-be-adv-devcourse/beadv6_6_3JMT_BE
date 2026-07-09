@@ -13,7 +13,9 @@ import com.prompthub.admin.global.exception.AdminException;
 import com.prompthub.admin.settlement.application.dto.SettlementListQuery;
 import com.prompthub.admin.settlement.domain.model.Settlement;
 import com.prompthub.admin.settlement.domain.model.SettlementSourceLine;
+import com.prompthub.admin.settlement.domain.model.enums.PayoutStatus;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
+import com.prompthub.admin.settlement.domain.model.enums.SettlementStatus;
 import com.prompthub.admin.settlement.domain.repository.SettlementQueryRepository;
 import com.prompthub.admin.settlement.domain.repository.SettlementRepository;
 import com.prompthub.admin.settlement.domain.repository.SettlementSourceRepository;
@@ -51,7 +53,7 @@ class SettlementApplicationServiceTest {
 	@Test
 	void 조회_결과를_페이징_응답으로_변환한다() {
 		Settlement settlement = mock(Settlement.class);
-		when(settlement.getSettlementId()).thenReturn(SETTLEMENT_ID);
+		when(settlement.getId()).thenReturn(SETTLEMENT_ID);
 		when(settlement.getSellerId()).thenReturn(SELLER_ID);
 		when(settlement.getPeriodStart()).thenReturn(PERIOD_START);
 		when(settlement.getPeriodEnd()).thenReturn(PERIOD_END);
@@ -89,13 +91,13 @@ class SettlementApplicationServiceTest {
 	void 요약_카드를_상태별로_집계한다() {
 		when(settlementQueryRepository.aggregateByStatus()).thenReturn(List.of(
 			new SettlementStatusAggregate(
-				SettlementDisplayStatus.WAITING, new BigDecimal("100000.00"), 2L),
+				SettlementStatus.PENDING_APPROVAL, PayoutStatus.NOT_READY, new BigDecimal("100000.00"), 2L),
 			new SettlementStatusAggregate(
-				SettlementDisplayStatus.APPROVED, new BigDecimal("200000.00"), 3L),
+				SettlementStatus.APPROVED, PayoutStatus.READY, new BigDecimal("200000.00"), 3L),
 			new SettlementStatusAggregate(
-				SettlementDisplayStatus.PAYOUT_ON_HOLD, new BigDecimal("50000.00"), 1L),
+				SettlementStatus.APPROVED, PayoutStatus.PAYOUT_ON_HOLD, new BigDecimal("50000.00"), 1L),
 			new SettlementStatusAggregate(
-				SettlementDisplayStatus.PAID, new BigDecimal("300000.00"), 4L)
+				SettlementStatus.APPROVED, PayoutStatus.PAID, new BigDecimal("300000.00"), 4L)
 		));
 
 		SettlementSummaryResponse response = service.getSummary();
@@ -125,7 +127,7 @@ class SettlementApplicationServiceTest {
 	@Test
 	void 정산을_승인하면_상태변경_응답을_반환한다() {
 		Settlement settlement = mock(Settlement.class);
-		when(settlementRepository.findBySettlementId(SETTLEMENT_ID)).thenReturn(Optional.of(settlement));
+		when(settlementRepository.findById(SETTLEMENT_ID)).thenReturn(Optional.of(settlement));
 
 		SettlementStatusResponse response = service.approve(SETTLEMENT_ID);
 
@@ -137,7 +139,7 @@ class SettlementApplicationServiceTest {
 	@Test
 	void 정산을_보류하면_상태변경_응답을_반환한다() {
 		Settlement settlement = mock(Settlement.class);
-		when(settlementRepository.findBySettlementId(SETTLEMENT_ID)).thenReturn(Optional.of(settlement));
+		when(settlementRepository.findById(SETTLEMENT_ID)).thenReturn(Optional.of(settlement));
 
 		SettlementStatusResponse response = service.hold(SETTLEMENT_ID);
 
@@ -149,7 +151,7 @@ class SettlementApplicationServiceTest {
 	@Test
 	void 정산_보류를_해제하면_상태변경_응답을_반환한다() {
 		Settlement settlement = mock(Settlement.class);
-		when(settlementRepository.findBySettlementId(SETTLEMENT_ID)).thenReturn(Optional.of(settlement));
+		when(settlementRepository.findById(SETTLEMENT_ID)).thenReturn(Optional.of(settlement));
 
 		SettlementStatusResponse response = service.releaseHold(SETTLEMENT_ID);
 
@@ -161,7 +163,7 @@ class SettlementApplicationServiceTest {
 	@Test
 	void 정산을_지급처리하면_상태변경_응답을_반환한다() {
 		Settlement settlement = mock(Settlement.class);
-		when(settlementRepository.findBySettlementId(SETTLEMENT_ID)).thenReturn(Optional.of(settlement));
+		when(settlementRepository.findById(SETTLEMENT_ID)).thenReturn(Optional.of(settlement));
 
 		SettlementStatusResponse response = service.payout(SETTLEMENT_ID);
 
@@ -173,7 +175,7 @@ class SettlementApplicationServiceTest {
 	@Test
 	void 정산_지급을_보류하면_상태변경_응답을_반환한다() {
 		Settlement settlement = mock(Settlement.class);
-		when(settlementRepository.findBySettlementId(SETTLEMENT_ID)).thenReturn(Optional.of(settlement));
+		when(settlementRepository.findById(SETTLEMENT_ID)).thenReturn(Optional.of(settlement));
 
 		SettlementStatusResponse response = service.payoutHold(SETTLEMENT_ID);
 
@@ -185,7 +187,7 @@ class SettlementApplicationServiceTest {
 	@Test
 	void 정산_지급_보류를_해제하면_상태변경_응답을_반환한다() {
 		Settlement settlement = mock(Settlement.class);
-		when(settlementRepository.findBySettlementId(SETTLEMENT_ID)).thenReturn(Optional.of(settlement));
+		when(settlementRepository.findById(SETTLEMENT_ID)).thenReturn(Optional.of(settlement));
 
 		SettlementStatusResponse response = service.releasePayoutHold(SETTLEMENT_ID);
 
@@ -197,7 +199,7 @@ class SettlementApplicationServiceTest {
 	@Test
 	void 정산을_취소하면_소스라인을_해제하고_취소응답을_반환한다() {
 		Settlement settlement = mock(Settlement.class);
-		when(settlementRepository.findBySettlementId(SETTLEMENT_ID)).thenReturn(Optional.of(settlement));
+		when(settlementRepository.findById(SETTLEMENT_ID)).thenReturn(Optional.of(settlement));
 		when(settlement.displayStatus()).thenReturn(SettlementDisplayStatus.CANCELLED);
 		SettlementSourceLine line1 = mock(SettlementSourceLine.class);
 		SettlementSourceLine line2 = mock(SettlementSourceLine.class);
@@ -214,7 +216,7 @@ class SettlementApplicationServiceTest {
 
 	@Test
 	void 존재하지_않는_정산을_승인하려_하면_예외가_발생한다() {
-		when(settlementRepository.findBySettlementId(SETTLEMENT_ID)).thenReturn(Optional.empty());
+		when(settlementRepository.findById(SETTLEMENT_ID)).thenReturn(Optional.empty());
 
 		AdminException exception =
 			catchThrowableOfType(AdminException.class, () -> service.approve(SETTLEMENT_ID));

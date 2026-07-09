@@ -77,25 +77,6 @@ DB 에 커넥션을 다 맺어놓고 필요한 걸 직접 읽으라는 취지다
 - **어드민이 각 서비스 DB 자격증명을 보유한다.** 어드민 전용 DB 계정을 만들어 필요한
   테이블에 최소 권한만 준다.
 
-## 현재 상태와 남은 전환 — settlement → seller_settlement 재매핑
-
-위 선택(운영 조회·상태 전이는 `seller_settlement`)은 목표(TO-BE) 그림이다. 실제 코드는 아직
-거기 도달하지 않았다.
-
-- **AS-IS**: #218 초기 이관 때 admin-service 정산 컨트롤러·엔티티는 **`settlement`·
-  `settlement_source_line` 테이블(정산 DB)을 직접 매핑**해 조회·상태 전이한다. 즉 어드민 운영
-  상태의 현재 소스가 운영 단일 진실(`seller_settlement`)이 아니라 배치 로그(`settlement`)다.
-- **TO-BE**: 운영 조회(목록·요약·상세)와 **상태 전이(approve/hold/release-hold/payout/
-  payout-hold·release/cancel)를 `seller_settlement`(유저 DB) 대상으로 재매핑**한다. 어드민은
-  `seller_settlement` 를 UPDATE 해 상태를 전이하고, 표시 상태(`SettlementDisplayStatus` 7값)로
-  전이·가드를 판단한다. 잡·예약 상태 조회만 정산 DB 를 계속 본다.
-- **남은 작업**: admin-service 의 정산 매핑 대상을 `settlement` → `seller_settlement` 로 바꾸는
-  재작업(#218 이관분 상당수 재작업). 이 재매핑이 끝나기 전까지는 어드민이 `settlement`(로그)를
-  보는 병행 상태이며, **상태 전이 규칙은 `seller_settlement` 엔티티(유저 모듈)의 불변식과
-  어긋나지 않도록 단일 출처를 따른다**(위 "감수하는 비용" 참고).
-- **선행 의존**: 어드민이 `seller_settlement` 를 보려면 그 테이블에 데이터가 있어야 하므로,
-  배치의 `settlement.created` 발행(#238) 머지 + user-service seed 리스너 활성화(통합)가 앞선다.
-
 ## 정리
 
 - 어드민의 정산 데이터 접근은 **gRPC 조회가 아니라 직접 DB 커넥션**으로 한다. 운영 조회와

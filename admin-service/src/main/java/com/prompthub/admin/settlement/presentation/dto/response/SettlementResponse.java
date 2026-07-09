@@ -17,14 +17,14 @@ public record SettlementResponse(
 	String displayStatus,
 
 	@Schema(description = "취소 시각(취소된 경우)", example = "2026-06-24T09:00:00")
-	LocalDateTime cancelledAt
+	LocalDateTime canceledAt
 ) {
 
 	public static SettlementResponse from(Settlement settlement) {
 		return new SettlementResponse(
-			settlement.getSettlementId(),
+			settlement.getId(),
 			settlement.getSellerId(),
 			settlement.displayStatus().name(),
-			settlement.getCancelledAt());
+			settlement.getCanceledAt());
 	}
 }
