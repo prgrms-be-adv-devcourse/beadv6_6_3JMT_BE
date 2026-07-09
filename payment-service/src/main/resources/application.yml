@@ -4,7 +4,7 @@ spring:
   config:
     import:
       - optional:file:.env[.properties]
-      - optional:configserver:http://localhost:8888
+      - ${CONFIG_IMPORT:}
   profiles:
     default: local
   cloud:
