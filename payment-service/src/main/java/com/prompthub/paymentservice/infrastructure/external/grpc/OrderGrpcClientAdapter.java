@@ -42,7 +42,7 @@ public class OrderGrpcClientAdapter implements OrderGateway {
         try {
             GetOrderPaymentInfoResponse response = stub
                 .withDeadlineAfter(deadlineMs, TimeUnit.MILLISECONDS)
-                .getOrderPaymentInfo(GetOrderPaymentInfoRequest.newBuilder()
+                .getOrderForPayment(GetOrderPaymentInfoRequest.newBuilder()
                     .setOrderId(orderId.toString())
                     .build());
             return new OrderPaymentInfo(
