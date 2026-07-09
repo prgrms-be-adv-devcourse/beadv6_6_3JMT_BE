@@ -23,7 +23,7 @@ class OutboxEventTest {
 		assertThat(table).isNotNull();
 		assertThat(Arrays.stream(table.indexes()))
 			.anySatisfy(index -> {
-				assertThat(index.name()).isEqualTo("idx_outbox_event_status_occurred_at");
+				assertThat(index.name()).isEqualTo("idx_order_outbox_event_status_occurred_at");
 				assertThat(index.columnList()).isEqualTo("status, occurred_at");
 			});
 	}
@@ -35,11 +35,9 @@ class OutboxEventTest {
 
 		OutboxEvent outboxEvent = OutboxEvent.orderPaid(ORDER_ID, payload, APPROVED_AT);
 
-		assertThat(outboxEvent.getId()).isInstanceOf(UUID.class);
-		assertThat(outboxEvent.getAggregateId()).isEqualTo(ORDER_ID);
-		assertThat(outboxEvent.getAggregateType()).isEqualTo("ORDER");
+		assertThat(outboxEvent.getEventId()).isInstanceOf(UUID.class);
+		assertThat(outboxEvent.getOrderId()).isEqualTo(ORDER_ID);
 		assertThat(outboxEvent.getEventType()).isEqualTo("ORDER_PAID");
-		assertThat(outboxEvent.getTopic()).isEqualTo("order-events");
 		assertThat(outboxEvent.getPayload()).isEqualTo(payload);
 		assertThat(outboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
 		assertThat(outboxEvent.getRetryCount()).isZero();
@@ -54,11 +52,9 @@ class OutboxEventTest {
 
 		OutboxEvent outboxEvent = OutboxEvent.orderRefund(ORDER_ID, payload, APPROVED_AT);
 
-		assertThat(outboxEvent.getId()).isInstanceOf(UUID.class);
-		assertThat(outboxEvent.getAggregateId()).isEqualTo(ORDER_ID);
-		assertThat(outboxEvent.getAggregateType()).isEqualTo("ORDER");
+		assertThat(outboxEvent.getEventId()).isInstanceOf(UUID.class);
+		assertThat(outboxEvent.getOrderId()).isEqualTo(ORDER_ID);
 		assertThat(outboxEvent.getEventType()).isEqualTo("ORDER_REFUND");
-		assertThat(outboxEvent.getTopic()).isEqualTo("order-events");
 		assertThat(outboxEvent.getPayload()).isEqualTo(payload);
 		assertThat(outboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
 		assertThat(outboxEvent.getRetryCount()).isZero();

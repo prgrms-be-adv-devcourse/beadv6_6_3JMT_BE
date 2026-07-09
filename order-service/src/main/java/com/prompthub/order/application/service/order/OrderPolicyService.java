@@ -1,7 +1,7 @@
 package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
-import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -108,12 +108,12 @@ public class OrderPolicyService {
 		}
 	}
 
-	public void validatePaymentApproval(Order order, PaymentApprovedEvent event) {
+	public void validatePaymentApproval(Order order, PaymentApprovedPayload payload) {
 		if (!order.isPending()) {
 			throw new OrderException(ErrorCode.ORDER_PAYMENT_STATUS_INVALID);
 		}
 
-		if (order.getTotalOrderAmount() != event.amount()) {
+		if (order.getTotalOrderAmount() != payload.approvedAmount()) {
 			throw new OrderException(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
 		}
 	}
