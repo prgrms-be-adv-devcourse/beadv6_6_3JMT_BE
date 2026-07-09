@@ -5,5 +5,6 @@ public enum ProductStatus {
 	PENDING_REVIEW,
 	ON_SALE,
 	REJECTED,
-	STOPPED
+	STOPPED,
+	SUPERSEDED
 }

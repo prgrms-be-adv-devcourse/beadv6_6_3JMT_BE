@@ -32,7 +32,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			p.updatedAt
 		)
 		from Product p
-		left join Review r on r.product = p and r.status = :activeReviewStatus and r.deletedAt is null
+		left join Review r on r.product.id = coalesce(p.parentId, p.id) and r.status = :activeReviewStatus and r.deletedAt is null
 		where p.status = :onSaleStatus
 			and p.deletedAt is null
 			and (:productType = 'all' or str(p.productType) = :productType)
@@ -118,7 +118,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			p.updatedAt
 		)
 		from Product p
-		left join Review r on r.product = p and r.status = :activeReviewStatus and r.deletedAt is null
+		left join Review r on r.product.id = coalesce(p.parentId, p.id) and r.status = :activeReviewStatus and r.deletedAt is null
 		where p.status = :onSaleStatus
 			and p.deletedAt is null
 			and p.id <> :productId
@@ -186,8 +186,6 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 
 	long countBySellerIdAndStatusAndDeletedAtIsNull(UUID sellerId, ProductStatus status);
 
-	List<Product> findAllByIdInAndStatusAndDeletedAtIsNull(List<UUID> ids, ProductStatus status);
-
 	@Query("""
 		select p
 		from Product p
@@ -204,4 +202,12 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 		order by p.createdAt desc
 		""")
 	List<Product> findAllAdminProducts();
+
+	@Query("""
+		select p
+		from Product p
+		where p.id in :familyRootIds
+			or p.parentId in :familyRootIds
+		""")
+	List<Product> findAllByFamilyRootIds(@Param("familyRootIds") List<UUID> familyRootIds);
 }

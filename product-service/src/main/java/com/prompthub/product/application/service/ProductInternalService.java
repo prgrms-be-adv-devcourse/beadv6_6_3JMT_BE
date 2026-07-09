@@ -3,6 +3,7 @@ package com.prompthub.product.application.service;
 import com.prompthub.product.application.client.SellerClient;
 import com.prompthub.product.application.usecase.ProductInternalUseCase;
 import com.prompthub.product.domain.model.entity.Product;
+import com.prompthub.product.domain.model.entity.ProductFamily;
 import com.prompthub.product.domain.model.entity.Review;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.domain.repository.ReviewRepository;
@@ -13,9 +14,12 @@ import com.prompthub.product.presentation.dto.response.ProductContentResponse;
 import com.prompthub.product.presentation.dto.response.ProductCountResponse;
 import com.prompthub.product.presentation.dto.response.ProductOrderSnapshotResponse;
 import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,70 +36,115 @@ public class ProductInternalService implements ProductInternalUseCase {
 
 	@Override
 	public List<ProductsByIdsResponse> getProductsByIds(List<UUID> productIds) {
-		return productRepository.findAllByIdIn(productIds).stream()
-			.map(p -> new ProductsByIdsResponse(
-				p.getId(),
-				p.getSellerId(),
-				p.getName(),
-				p.getAmount(),
-				p.getThumbnailUrl(),
-				p.getProductType().name(),
-				p.getModel() != null ? p.getModel() : "",
-				p.getSalesCount(),
-				productRepository.getAverageRating(p.getId()),
-				p.getStatus().name()
-			))
+		Map<UUID, Product> resolved = resolveFamilyRepresentatives(productIds, ProductFamily::currentForWishlist);
+		return productIds.stream()
+			.filter(resolved::containsKey)
+			.map(id -> {
+				Product p = resolved.get(id);
+				return new ProductsByIdsResponse(
+					id,
+					p.getSellerId(),
+					p.getName(),
+					p.getAmount(),
+					p.getThumbnailUrl(),
+					p.getProductType().name(),
+					p.getModel() != null ? p.getModel() : "",
+					p.getSalesCount(),
+					productRepository.getAverageRating(p.familyRootId()),
+					p.getStatus().name()
+				);
+			})
 			.toList();
 	}
 
 	@Override
 	public List<ProductOrderSnapshotResponse> getOrderSnapshots(List<UUID> productIds) {
-		return productRepository.findOnSaleByIdIn(productIds).stream()
-			.map(ProductOrderSnapshotResponse::from)
+		Map<UUID, Product> resolved = resolveFamilyRepresentatives(productIds, ProductFamily::currentOnSale);
+		return productIds.stream()
+			.filter(resolved::containsKey)
+			.map(id -> ProductOrderSnapshotResponse.from(id, resolved.get(id)))
 			.toList();
 	}
 
 	@Override
 	public ProductCartSnapshotResponse getCartSnapshot(UUID productId) {
-		Product product = productRepository.findById(productId)
-			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
+		Map<UUID, Product> resolved = resolveFamilyRepresentatives(List.of(productId), ProductFamily::currentOnSale);
+		Product product = resolved.get(productId);
+		if (product == null) {
+			throw new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND);
+		}
 		String sellerNickname = sellerClient.getSellerInfo(product.getSellerId()).sellerName();
-		return ProductCartSnapshotResponse.from(product, sellerNickname);
+		return ProductCartSnapshotResponse.from(productId, product, sellerNickname);
 	}
 
 	@Override
 	public List<ProductCartSnapshotResponse> getCartSnapshots(List<UUID> productIds) {
-		List<Product> products = productRepository.findOnSaleByIdIn(productIds);
-		Map<UUID, String> sellerNicknames = products.stream()
+		Map<UUID, Product> resolved = resolveFamilyRepresentatives(productIds, ProductFamily::currentOnSale);
+		Map<UUID, String> sellerNicknames = resolved.values().stream()
 			.map(Product::getSellerId)
 			.distinct()
 			.collect(Collectors.toMap(id -> id, id -> sellerClient.getSellerInfo(id).sellerName()));
-		return products.stream()
-			.map(p -> ProductCartSnapshotResponse.from(p, sellerNicknames.get(p.getSellerId())))
+		return productIds.stream()
+			.filter(resolved::containsKey)
+			.map(id -> {
+				Product product = resolved.get(id);
+				return ProductCartSnapshotResponse.from(id, product, sellerNicknames.get(product.getSellerId()));
+			})
 			.toList();
 	}
 
 	@Override
 	public ProductContentResponse getProductContent(UUID productId) {
-		Product product = productRepository.findById(productId)
-			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
-		return ProductContentResponse.from(product);
+		Map<UUID, Product> resolved = resolveFamilyRepresentatives(List.of(productId), ProductFamily::currentOnSale);
+		Product product = resolved.get(productId);
+		if (product == null) {
+			throw new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND);
+		}
+		return ProductContentResponse.from(productId, product);
 	}
 
 	@Override
 	@Transactional
 	public void upsertReview(UUID buyerId, UUID productId, Integer rating) {
-		Product product = productRepository.findById(productId)
+		Product anchor = productRepository.findById(productId)
 			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
-		reviewRepository.findByUserIdAndProductId(buyerId, productId)
+		Product root = productRepository.findById(anchor.familyRootId())
+			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
+		reviewRepository.findByUserIdAndProductId(buyerId, root.getId())
 			.ifPresentOrElse(
 				review -> review.updateRating((short) rating.intValue()),
-				() -> reviewRepository.save(Review.create(buyerId, product, (short) rating.intValue()))
+				() -> reviewRepository.save(Review.create(buyerId, root, (short) rating.intValue()))
 			);
 	}
 
 	@Override
 	public ProductCountResponse getProductCount(UUID sellerId) {
 		return new ProductCountResponse(sellerId, productRepository.countBySellerId(sellerId));
+	}
+
+	private Map<UUID, Product> resolveFamilyRepresentatives(
+		List<UUID> requestedIds,
+		Function<ProductFamily, Optional<Product>> selector
+	) {
+		List<Product> anchors = productRepository.findAllByIdIn(requestedIds);
+		Map<UUID, UUID> familyRootByRequestedId = anchors.stream()
+			.collect(Collectors.toMap(Product::getId, Product::familyRootId));
+		List<UUID> familyRootIds = familyRootByRequestedId.values().stream().distinct().toList();
+		List<Product> allMembers = familyRootIds.isEmpty()
+			? List.of()
+			: productRepository.findAllByFamilyRootIds(familyRootIds);
+		Map<UUID, List<Product>> membersByFamily = allMembers.stream()
+			.collect(Collectors.groupingBy(Product::familyRootId));
+
+		Map<UUID, Product> result = new LinkedHashMap<>();
+		for (UUID requestedId : requestedIds) {
+			UUID familyRootId = familyRootByRequestedId.get(requestedId);
+			if (familyRootId == null) {
+				continue;
+			}
+			ProductFamily family = ProductFamily.of(familyRootId, membersByFamily.getOrDefault(familyRootId, List.of()));
+			selector.apply(family).ifPresent(product -> result.put(requestedId, product));
+		}
+		return result;
 	}
 }

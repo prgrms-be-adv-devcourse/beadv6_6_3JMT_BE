@@ -2,6 +2,7 @@ package com.prompthub.product.application.service;
 
 import com.prompthub.product.application.usecase.ProductAdminUseCase;
 import com.prompthub.product.domain.model.entity.Product;
+import com.prompthub.product.domain.model.entity.ProductFamily;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.exception.ProductException;
@@ -33,9 +34,15 @@ public class ProductAdminService implements ProductAdminUseCase {
 	@Override
 	public void approveProduct(String role, UUID productId) {
 		validateAdmin(role);
-		Product product = getProductInPendingReview(productId);
-		product.approve();
-		productRepository.save(product);
+		Product target = getProductInPendingReview(productId);
+		UUID familyRootId = target.familyRootId();
+		ProductFamily family = ProductFamily.of(familyRootId, productRepository.findAllByFamilyRootIds(List.of(familyRootId)));
+		family.currentOnSale().ifPresent(previous -> {
+			previous.supersede();
+			productRepository.save(previous);
+		});
+		target.approve();
+		productRepository.save(target);
 	}
 
 	@Override
@@ -49,13 +56,23 @@ public class ProductAdminService implements ProductAdminUseCase {
 	@Override
 	public void revertProductToPendingReview(String role, UUID productId) {
 		validateAdmin(role);
-		Product product = productRepository.findById(productId)
+		Product target = productRepository.findById(productId)
 			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
-		if (product.getStatus() != ProductStatus.ON_SALE && product.getStatus() != ProductStatus.REJECTED) {
+		if (target.getStatus() != ProductStatus.ON_SALE && target.getStatus() != ProductStatus.REJECTED) {
 			throw new ProductException(ProductErrorCode.PRODUCT_INVALID_STATUS);
 		}
-		product.revertToPendingReview();
-		productRepository.save(product);
+
+		if (target.getStatus() == ProductStatus.ON_SALE) {
+			UUID familyRootId = target.familyRootId();
+			ProductFamily family = ProductFamily.of(familyRootId, productRepository.findAllByFamilyRootIds(List.of(familyRootId)));
+			family.mostRecentSuperseded().ifPresent(paired -> {
+				paired.restoreFromSuperseded();
+				productRepository.save(paired);
+			});
+		}
+
+		target.revertToPendingReview();
+		productRepository.save(target);
 	}
 
 	private void validateAdmin(String role) {

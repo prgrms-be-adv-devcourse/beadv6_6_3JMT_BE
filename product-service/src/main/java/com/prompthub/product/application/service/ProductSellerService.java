@@ -5,6 +5,7 @@ import com.prompthub.product.application.client.SellerInfo;
 import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.application.usecase.ProductSellerUseCase;
 import com.prompthub.product.domain.model.entity.Product;
+import com.prompthub.product.domain.model.entity.ProductFamily;
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
@@ -18,9 +19,12 @@ import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductListItemResponse;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -84,35 +88,52 @@ public class ProductSellerService implements ProductSellerUseCase {
 
 	@Override
 	public void updateProduct(UUID sellerId, UUID productId, ProductUpdateRequest request) {
-		Product product = getProductForSeller(sellerId, productId);
+		Product anchor = getProductForSeller(sellerId, productId);
 
 		ProductType productType = parseProductType(request.productType());
-
-		int previousPrice = product.getAmount();
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
 		boolean isMajor = "MAJOR".equalsIgnoreCase(request.versionType());
 		String newThumbnailKey = moveToProductPath(extractKey(request.thumbnailUrl()), productId);
 		List<String> newImageKeys = moveToProductPaths(extractKeys(request.imageUrls()), productId);
 
-		product.update(
-			productType,
-			request.title(),
-			request.desc(),
-			request.model(),
-			amountType,
-			request.amount(),
-			newThumbnailKey,
-			newImageKeys,
-			request.content(),
-			request.tags(),
-			request.changeReason(),
-			isMajor
-		);
+		UUID familyRootId = anchor.familyRootId();
+		ProductFamily family = ProductFamily.of(familyRootId, productRepository.findAllByFamilyRootIds(List.of(familyRootId)));
 
-		productRepository.save(product);
+		int previousPrice;
+		if (!family.hasEverBeenOnSale()) {
+			previousPrice = anchor.getAmount();
+			anchor.update(
+				productType, request.title(), request.desc(), request.model(), amountType, request.amount(),
+				newThumbnailKey, newImageKeys, request.content(), request.tags(), request.changeReason(), isMajor
+			);
+			productRepository.save(anchor);
+		} else {
+			Product onSale = family.currentOnSale()
+				.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_INVALID_STATUS));
+			previousPrice = onSale.getAmount();
 
-		if (previousPrice != product.getAmount()) {
-			productEventProducer.publishPriceChanged(product.getId(), previousPrice, product.getAmount());
+			if (isMajor) {
+				if (family.pendingReview().isPresent()) {
+					throw new ProductException(ProductErrorCode.PRODUCT_INVALID_STATUS);
+				}
+				Product next = onSale.nextVersion(
+					true, productType, request.title(), request.desc(), request.model(), amountType, request.amount(),
+					newThumbnailKey, newImageKeys, request.content(), request.tags(), request.changeReason()
+				);
+				productRepository.save(next);
+			} else {
+				Product next = onSale.nextVersion(
+					false, productType, request.title(), request.desc(), request.model(), amountType, request.amount(),
+					newThumbnailKey, newImageKeys, request.content(), request.tags(), request.changeReason()
+				);
+				onSale.supersede();
+				productRepository.save(onSale);
+				productRepository.save(next);
+			}
+		}
+
+		if (previousPrice != request.amount()) {
+			productEventProducer.publishPriceChanged(productId, previousPrice, request.amount());
 		}
 	}
 
@@ -143,7 +164,14 @@ public class ProductSellerService implements ProductSellerUseCase {
 	@Override
 	@Transactional(readOnly = true)
 	public List<SellerProductListItemResponse> getMyProducts(UUID sellerId) {
-		return productRepository.findBySellerId(sellerId).stream()
+		List<Product> all = productRepository.findBySellerId(sellerId);
+		Map<UUID, List<Product>> byFamily = all.stream()
+			.collect(Collectors.groupingBy(Product::familyRootId));
+		return byFamily.entrySet().stream()
+			.map(entry -> ProductFamily.of(entry.getKey(), entry.getValue()))
+			.map(family -> family.currentForSeller()
+				.orElseThrow(() -> new IllegalStateException("family에 대표 row가 없습니다. familyRootId=" + family.familyRootId())))
+			.sorted(Comparator.comparing(Product::getUpdatedAt).reversed())
 			.map(SellerProductListItemResponse::from)
 			.toList();
 	}
@@ -158,8 +186,13 @@ public class ProductSellerService implements ProductSellerUseCase {
 	@Override
 	@Transactional(readOnly = true)
 	public SellerProductDetailResponse getMyProduct(UUID sellerId, UUID productId) {
-		Product product = getProductForSeller(sellerId, productId);
-		return SellerProductDetailResponse.from(product, storageClient);
+		Product anchor = getProductForSeller(sellerId, productId);
+		UUID familyRootId = anchor.familyRootId();
+		List<Product> members = productRepository.findAllByFamilyRootIds(List.of(familyRootId));
+		ProductFamily family = ProductFamily.of(familyRootId, members);
+		Product representative = family.currentForSeller().orElse(anchor);
+		Product liveOnSale = family.currentOnSale().orElse(null);
+		return SellerProductDetailResponse.from(representative, liveOnSale, family.sellerHistory(), storageClient);
 	}
 
 	private ProductType parseProductType(String productType) {

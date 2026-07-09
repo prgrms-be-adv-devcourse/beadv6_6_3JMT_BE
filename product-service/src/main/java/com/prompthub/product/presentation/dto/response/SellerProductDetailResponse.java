@@ -17,9 +17,16 @@ public record SellerProductDetailResponse(
 	String version,
 	String thumbnailUrl,
 	List<String> imageUrls,
-	List<String> tags
+	List<String> tags,
+	String liveVersion,
+	List<SellerProductVersionResponse> versions
 ) {
-	public static SellerProductDetailResponse from(Product product, StorageClient storageClient) {
+	public static SellerProductDetailResponse from(
+		Product product,
+		Product liveOnSale,
+		List<Product> historyMembers,
+		StorageClient storageClient
+	) {
 		return new SellerProductDetailResponse(
 			product.getId(),
 			product.getName(),
@@ -32,7 +39,9 @@ public record SellerProductDetailResponse(
 			product.getMajorVersion() + "." + product.getPatchVersion(),
 			toUrl(product.getThumbnailUrl(), storageClient),
 			toUrls(product.getImageUrls(), storageClient),
-			product.getTags()
+			product.getTags(),
+			liveOnSale != null ? liveOnSale.getMajorVersion() + "." + liveOnSale.getPatchVersion() : null,
+			historyMembers.stream().map(SellerProductVersionResponse::from).toList()
 		);
 	}
 
