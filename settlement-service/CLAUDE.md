@@ -42,6 +42,10 @@ API 문서화(Swagger/OpenAPI 애너테이션) 규칙은 아래 문서를 따른
 
 @.claude/rules/swagger.md
 
+서비스 간 Kafka 이벤트(내부 비동기 통신) 메시지 구조·네이밍·발행/소비 규칙은 아래 문서를 따른다.
+
+@.claude/rules/kafka-event.md
+
 ## Git 컨벤션
 
 커밋 메시지, 브랜치 명명, 병합 전략은 아래 문서를 따른다.
