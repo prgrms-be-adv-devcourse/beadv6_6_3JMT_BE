@@ -211,6 +211,77 @@ public class Product {
 		this.updatedAt = LocalDateTime.now();
 	}
 
+	public UUID familyRootId() {
+		return this.parentId != null ? this.parentId : this.id;
+	}
+
+	public boolean isFamilyRoot() {
+		return this.parentId == null;
+	}
+
+	public Product nextVersion(
+		boolean isMajor,
+		ProductType productType,
+		String name,
+		String description,
+		String model,
+		AmountType amountType,
+		int amount,
+		String thumbnailUrl,
+		List<String> imageUrls,
+		String content,
+		List<String> tags,
+		String changeReason
+	) {
+		Product next = new Product();
+		next.id = UUID.randomUUID();
+		next.parentId = this.familyRootId();
+		next.sellerId = this.sellerId;
+		next.productType = productType;
+		next.name = name;
+		next.description = description;
+		next.model = model;
+		next.amountType = amountType;
+		next.amount = amount;
+		next.thumbnailUrl = thumbnailUrl;
+		next.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
+		next.content = content;
+		next.tags = tags != null ? tags : new ArrayList<>();
+		next.changeReason = changeReason;
+		next.badge = null; // 새 버전 row는 뱃지를 물려받지 않고 초기화한다(예: "신규" 뱃지가 계속 남는 걸 방지)
+		if (isMajor) {
+			next.majorVersion = (short) (this.majorVersion + 1);
+			next.patchVersion = 0;
+			next.status = ProductStatus.PENDING_REVIEW;
+		} else {
+			next.majorVersion = this.majorVersion;
+			next.patchVersion = (short) (this.patchVersion + 1);
+			next.status = ProductStatus.ON_SALE;
+		}
+		next.salesCount = 0;
+		next.viewCount = 0;
+		next.wishCount = 0;
+		next.createdAt = LocalDateTime.now();
+		next.updatedAt = LocalDateTime.now();
+		return next;
+	}
+
+	public void supersede() {
+		if (this.status != ProductStatus.ON_SALE) {
+			throw new IllegalStateException("ON_SALE 상태의 상품만 SUPERSEDED로 전환할 수 있습니다. current=" + this.status);
+		}
+		this.status = ProductStatus.SUPERSEDED;
+		this.updatedAt = LocalDateTime.now();
+	}
+
+	public void restoreFromSuperseded() {
+		if (this.status != ProductStatus.SUPERSEDED) {
+			throw new IllegalStateException("SUPERSEDED 상태의 상품만 ON_SALE로 복원할 수 있습니다. current=" + this.status);
+		}
+		this.status = ProductStatus.ON_SALE;
+		this.updatedAt = LocalDateTime.now();
+	}
+
 	public void submitForReview() {
 		if (this.status != ProductStatus.DRAFT && this.status != ProductStatus.REJECTED) {
 			throw new IllegalStateException("검수 요청할 수 없는 상태입니다. current=" + this.status);

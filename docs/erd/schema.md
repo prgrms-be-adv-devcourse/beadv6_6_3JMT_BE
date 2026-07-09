@@ -14,7 +14,7 @@
 | `user_role_type` | USER / SELLER / ADMIN |
 | `seller_status_type` | PENDING / ACTIVE / SUSPENDED |
 | `auth_provider_type` | KAKAO / NAVER / GOOGLE |
-| `product_status_type` | DRAFT / PENDING_REVIEW / ON_SALE / REJECTED / STOPPED |
+| `product_status_type` | DRAFT / PENDING_REVIEW / ON_SALE / REJECTED / STOPPED / SUPERSEDED |
 | `amount_type_enum` | FREE / PAID |
 | `order_status_type` | PENDING / PAID / FAILED / CANCELED / REFUNDED |
 | `order_product_status_type` | PENDING / PAID / FAILED / CANCELED / REFUNDED |
@@ -106,7 +106,7 @@
 | image_urls | TEXT | | NULL | 추가 이미지 URL 목록 (쉼표 구분, 최대 5개) |
 | content | TEXT | | NULL | 프롬프트/템플릿 원문. **외부 응답 노출 금지** |
 | badge | VARCHAR(50) | | NULL | 상품 뱃지 (`신규` 등) |
-| status | VARCHAR(30) | ✓ | DRAFT | DRAFT / PENDING_REVIEW / ON_SALE / REJECTED / STOPPED (CHECK constraint) |
+| status | VARCHAR(30) | ✓ | DRAFT | DRAFT / PENDING_REVIEW / ON_SALE / REJECTED / STOPPED / SUPERSEDED (CHECK constraint). SUPERSEDED = 버전업 승인 시 밀려난 이전 ON_SALE row |
 | rejection_reason | VARCHAR(1000) | | NULL | 검수 반려 사유. REJECTED 상태에서만 유효 |
 | sales_count | INT | ✓ | 0 | 누적 판매 수 |
 | view_count | INT | ✓ | 0 | 조회 수 |

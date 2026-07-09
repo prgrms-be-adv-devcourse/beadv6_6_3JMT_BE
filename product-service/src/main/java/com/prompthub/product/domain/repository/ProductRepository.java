@@ -29,8 +29,6 @@ public interface ProductRepository {
 
 	List<Product> findAllByIdIn(List<UUID> productIds);
 
-	List<Product> findOnSaleByIdIn(List<UUID> productIds);
-
 	long countBySellerId(UUID sellerId);
 
 	long countOnSaleProductsBySellerId(UUID sellerId);
@@ -38,4 +36,6 @@ public interface ProductRepository {
 	List<Product> findPendingReviewProducts();
 
 	List<Product> findAllAdminProducts();
+
+	List<Product> findAllByFamilyRootIds(List<UUID> familyRootIds);
 }
