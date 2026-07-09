@@ -1,16 +1,17 @@
 package com.prompthub.order.presentation;
 
 import com.prompthub.order.application.usecase.OrderUseCase;
-import com.prompthub.order.global.web.AuthHeaders;
-import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
+import com.prompthub.order.presentation.dto.request.OrderPaymentValidationRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
+import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
+import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.presentation.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -22,8 +23,17 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static com.prompthub.order.global.web.AuthHeaders.USER_ID;
@@ -68,6 +78,31 @@ public class OrderController {
 		@PathVariable UUID orderId
 	) {
 		return ApiResult.success(orderUseCase.getOrderDetail(buyerId, orderId));
+	}
+
+	@Operation(summary = "결제 승인 전 유효성 검사", description = "PG 승인 요청 전에 주문 소유자, 상태, 만료 시간, 결제 금액을 검증합니다.")
+	@PostMapping("/{orderId}/payment-ready")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "결제 가능 주문"),
+		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패, O014 주문 금액 불일치"),
+		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음"),
+		@ApiResponse(responseCode = "403", description = "A004 권한 없음"),
+		@ApiResponse(responseCode = "404", description = "O001 주문 없음"),
+		@ApiResponse(responseCode = "409", description = "O010 이미 처리된 주문, O015 만료된 주문")
+	})
+	public ApiResult<OrderPaymentValidationResponse> validatePaymentReady(
+		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@RequestHeader(USER_ID) UUID buyerId,
+		@Parameter(description = "주문 ID", example = "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111")
+		@PathVariable UUID orderId,
+		@RequestBody @Valid OrderPaymentValidationRequest request
+	) {
+		return ApiResult.success(orderUseCase.validatePaymentReady(
+			buyerId,
+			orderId,
+			request.amount(),
+			LocalDateTime.now()
+		));
 	}
 
 	@GetMapping("/{orderId}/content/{orderProductId}")

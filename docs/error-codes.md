@@ -85,6 +85,7 @@
 | `ORDER_PRODUCT_NOT_FOUND` | O012 | 주문 상품을 찾을 수 없습니다. | 404 |
 | `ORDER_PAYMENT_STATUS_INVALID` | O013 | 결제 완료 처리할 수 없는 주문 상태입니다. | 400 |
 | `ORDER_PAYMENT_AMOUNT_MISMATCH` | O014 | 주문 금액과 결제 승인 금액이 일치하지 않습니다. | 400 |
+| `ORDER_EXPIRED` | O015 | 만료된 주문입니다. | 409 |
 | `ORDER_CONTENT_ACCESS_DENIED` | E001 | 구매 콘텐츠를 열람할 수 없습니다. | 403 |
 | `ORDER_REVIEW_ACCESS_DENIED` | E002 | 구매한 상품에만 리뷰를 작성할 수 있습니다. | 403 |
 

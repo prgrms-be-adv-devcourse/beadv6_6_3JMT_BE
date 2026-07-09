@@ -18,6 +18,7 @@ dependencies {
 
     // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.grpc:grpc-inprocess'
