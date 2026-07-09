@@ -2,35 +2,35 @@ package com.prompthub.admin.settlement.domain.model.enums;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class SettlementDisplayStatusTest {
 
 	@Test
-	void 승인대기는_WAITING_으로_표시한다() {
-		assertThat(SettlementDisplayStatus.from(SettlementStatus.PENDING_APPROVAL, PayoutStatus.NOT_READY))
-			.isEqualTo(SettlementDisplayStatus.WAITING);
+	@DisplayName("대기·승인보류는 요약 카드에서 WAITING 버킷으로 묶인다")
+	void toCard_waitingBucket() {
+		assertThat(SettlementDisplayStatus.WAITING.toCard()).isEqualTo(SettlementDisplayStatus.WAITING);
+		assertThat(SettlementDisplayStatus.APPROVAL_ON_HOLD.toCard()).isEqualTo(SettlementDisplayStatus.WAITING);
 	}
 
 	@Test
-	void 승인완료는_지급상태에_따라_갈린다() {
-		assertThat(SettlementDisplayStatus.from(SettlementStatus.APPROVED, PayoutStatus.NOT_READY))
-			.isEqualTo(SettlementDisplayStatus.APPROVED);
-		assertThat(SettlementDisplayStatus.from(SettlementStatus.APPROVED, PayoutStatus.READY))
-			.isEqualTo(SettlementDisplayStatus.APPROVED);
-		assertThat(SettlementDisplayStatus.from(SettlementStatus.APPROVED, PayoutStatus.PAYOUT_REQUESTED))
-			.isEqualTo(SettlementDisplayStatus.PAYOUT_REQUESTED);
-		assertThat(SettlementDisplayStatus.from(SettlementStatus.APPROVED, PayoutStatus.PAYOUT_ON_HOLD))
-			.isEqualTo(SettlementDisplayStatus.PAYOUT_ON_HOLD);
-		assertThat(SettlementDisplayStatus.from(SettlementStatus.APPROVED, PayoutStatus.PAID))
-			.isEqualTo(SettlementDisplayStatus.PAID);
+	@DisplayName("승인·지급신청은 요약 카드에서 APPROVED 버킷으로 묶인다")
+	void toCard_approvedBucket() {
+		assertThat(SettlementDisplayStatus.APPROVED.toCard()).isEqualTo(SettlementDisplayStatus.APPROVED);
+		assertThat(SettlementDisplayStatus.PAYOUT_REQUESTED.toCard()).isEqualTo(SettlementDisplayStatus.APPROVED);
 	}
 
 	@Test
-	void 보류와_취소는_지급상태와_무관하다() {
-		assertThat(SettlementDisplayStatus.from(SettlementStatus.SETTLEMENT_ON_HOLD, PayoutStatus.NOT_READY))
-			.isEqualTo(SettlementDisplayStatus.APPROVAL_ON_HOLD);
-		assertThat(SettlementDisplayStatus.from(SettlementStatus.CANCELLED, PayoutStatus.PAID))
-			.isEqualTo(SettlementDisplayStatus.CANCELLED);
+	@DisplayName("지급보류·지급완료는 각자 자기 카드로 묶인다")
+	void toCard_ownBucket() {
+		assertThat(SettlementDisplayStatus.PAYOUT_ON_HOLD.toCard()).isEqualTo(SettlementDisplayStatus.PAYOUT_ON_HOLD);
+		assertThat(SettlementDisplayStatus.PAID.toCard()).isEqualTo(SettlementDisplayStatus.PAID);
+	}
+
+	@Test
+	@DisplayName("취소는 요약 카드 집계 대상이 아니다(null)")
+	void toCard_cancelledExcluded() {
+		assertThat(SettlementDisplayStatus.CANCELLED.toCard()).isNull();
 	}
 }

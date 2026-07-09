@@ -11,9 +11,7 @@ import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.global.exception.AdminException;
 import com.prompthub.admin.settlement.application.usecase.SettlementUseCase;
 import com.prompthub.admin.settlement.domain.exception.SettlementInvalidStateException;
-import com.prompthub.admin.settlement.domain.model.enums.PayoutStatus;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
-import com.prompthub.admin.settlement.domain.model.enums.SettlementStatus;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementListResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementStatusResponse;
@@ -74,17 +72,14 @@ class SettlementControllerTest {
 	}
 
 	@Test
-	void 정산을_승인하면_변경된_상태를_내려준다() throws Exception {
+	void 정산을_승인하면_변경된_표시상태를_내려준다() throws Exception {
 		UUID settlementId = UUID.randomUUID();
 		UUID actorId = UUID.randomUUID();
 		when(settlementUseCase.approve(settlementId))
 			.thenReturn(new SettlementStatusResponse(
 				settlementId,
-				SettlementStatus.APPROVED,
-				PayoutStatus.READY,
 				SettlementDisplayStatus.APPROVED,
 				LocalDateTime.now(),
-				null,
 				null,
 				null,
 				LocalDateTime.now()));
@@ -92,7 +87,7 @@ class SettlementControllerTest {
 		mockMvc.perform(patch("/api/v1/admin/settlements/{settlementId}/approve", settlementId)
 				.header("X-User-Id", actorId.toString()))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.settlementStatus").value("APPROVED"));
+			.andExpect(jsonPath("$.data.displayStatus").value("APPROVED"));
 	}
 
 	@Test
@@ -127,8 +122,7 @@ class SettlementControllerTest {
 		UUID settlementId = UUID.randomUUID();
 		UUID actorId = UUID.randomUUID();
 		when(settlementUseCase.approve(settlementId))
-			.thenThrow(new SettlementInvalidStateException(
-				"approve", SettlementStatus.CANCELLED, PayoutStatus.NOT_READY));
+			.thenThrow(new SettlementInvalidStateException("approve", SettlementDisplayStatus.CANCELLED));
 
 		mockMvc.perform(patch("/api/v1/admin/settlements/{settlementId}/approve", settlementId)
 				.header("X-User-Id", actorId.toString()))
