@@ -196,7 +196,7 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
             "paymentKey", "toss-key-" + orderId,
             "orderId", orderId.toString()
         );
-        restTemplate.exchange(url("/api/v1/payments/confirm"), HttpMethod.POST,
+        restTemplate.exchange(url("/api/v2/payments/confirm"), HttpMethod.POST,
             new HttpEntity<>(body, headers), Map.class);
     }
 
@@ -213,7 +213,7 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
         headers.set("X-User-Id", userId.toString());
         headers.set("X-User-Role", "BUYER");
         return restTemplate.exchange(
-            url("/api/v1/payments/" + paymentId + "/refund"),
+            url("/api/v2/payments/" + paymentId + "/refund"),
             HttpMethod.POST,
             new HttpEntity<>(null, headers),
             Map.class

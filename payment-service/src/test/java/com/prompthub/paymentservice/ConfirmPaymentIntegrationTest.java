@@ -105,7 +105,7 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         );
 
         ResponseEntity<Map> response = restTemplate.exchange(
-            url("/api/v1/payments/confirm"),
+            url("/api/v2/payments/confirm"),
             HttpMethod.POST,
             new HttpEntity<>(body, headers),
             Map.class
@@ -171,7 +171,7 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         );
 
         ResponseEntity<Map> response = restTemplate.exchange(
-            url("/api/v1/payments/confirm"),
+            url("/api/v2/payments/confirm"),
             HttpMethod.POST,
             new HttpEntity<>(body, headers),
             Map.class
