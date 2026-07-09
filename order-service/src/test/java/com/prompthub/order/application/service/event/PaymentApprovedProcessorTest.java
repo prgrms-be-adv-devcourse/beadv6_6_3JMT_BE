@@ -131,10 +131,47 @@ class PaymentApprovedProcessorTest {
     }
 
     @Test
-    @DisplayName("이미 FAILED 상태인 주문은 PAID로 변경할 수 없으며 상태 변경 없이 처리 완료된다")
-    void process_fromFailedToPaid_ignored() {
+    @DisplayName("FAILED 상태인 주문도 재결제를 통해 PAID로 변경될 수 있다")
+    void process_fromFailedToPaid_success() {
         Order order = createPendingOrderWithProducts();
         order.markFailed(); // status FAILED
+        PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), TOTAL_AMOUNT);
+        Cart cart = mock(Cart.class);
+        UUID eventId = UUID.randomUUID();
+        String eventType = "PAYMENT_APPROVED";
+
+        given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
+        given(orderRepository.findByIdWithOrderProducts(payload.orderId())).willReturn(Optional.of(order));
+        given(cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId())).willReturn(Optional.of(cart));
+
+        EventMessage<OrderPaidPayload> orderPaidMessage = new EventMessage<>(
+            UUID.randomUUID(), "ORDER_PAID", payload.approvedAt(), "ORDER", order.getId(), OrderPaidPayload.from(order)
+        );
+        given(orderEventMessageFactory.createOrderPaidMessage(eq(order.getId()), any(OrderPaidPayload.class)))
+            .willReturn(orderPaidMessage);
+
+        processor.process(eventId, eventType, APPROVED_AT, payload);
+
+        assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(order.getPaidAt()).isEqualTo(APPROVED_AT);
+
+        ArgumentCaptor<OrderPayment> paymentCaptor = ArgumentCaptor.forClass(OrderPayment.class);
+        then(orderPaymentRepository).should().save(paymentCaptor.capture());
+        OrderPayment savedPayment = paymentCaptor.getValue();
+        assertThat(savedPayment.getOrderId()).isEqualTo(order.getId());
+        assertThat(savedPayment.getPaymentId()).isEqualTo(PAYMENT_ID);
+        assertThat(savedPayment.getApprovedAmount()).isEqualTo(TOTAL_AMOUNT);
+
+        then(outboxEventAppender).should().append("order-events", orderPaidMessage);
+        then(processedEventService).should().markProcessed(eventId, "order-service", eventType, APPROVED_AT);
+        then(cart).should().removeProductsByProductIds(productIds());
+    }
+
+    @Test
+    @DisplayName("이미 CANCELED 상태인 주문은 PAID로 변경할 수 없으며 상태 변경 없이 처리 완료된다")
+    void process_fromCanceledToPaid_ignored() {
+        Order order = createPendingOrderWithProducts();
+        order.markCanceled(); // status CANCELED
         PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), TOTAL_AMOUNT);
         UUID eventId = UUID.randomUUID();
 
@@ -148,10 +185,10 @@ class PaymentApprovedProcessorTest {
     }
 
     @Test
-    @DisplayName("이미 CANCELED 상태인 주문은 PAID로 변경할 수 없으며 상태 변경 없이 처리 완료된다")
-    void process_fromCanceledToPaid_ignored() {
+    @DisplayName("이미 REFUNDED 상태인 주문은 PAID로 변경할 수 없으며 상태 변경 없이 처리 완료된다")
+    void process_fromRefundedToPaid_ignored() {
         Order order = createPendingOrderWithProducts();
-        order.markCanceled(); // status CANCELED
+        org.springframework.test.util.ReflectionTestUtils.setField(order, "orderStatus", OrderStatus.REFUNDED);
         PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), TOTAL_AMOUNT);
         UUID eventId = UUID.randomUUID();
 
