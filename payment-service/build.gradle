@@ -12,6 +12,13 @@ dependencies {
     compileOnly 'org.apache.tomcat:annotations-api:6.0.53'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    // gRPC (버전은 Boot BOM의 grpc-bom이 관리)
+    implementation 'io.grpc:grpc-protobuf'
+    implementation 'io.grpc:grpc-stub'
+    implementation 'com.google.protobuf:protobuf-java'
+    runtimeOnly 'io.grpc:grpc-netty-shaded'
+    compileOnly 'org.apache.tomcat:annotations-api:6.0.53'
+
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
     testImplementation 'org.testcontainers:testcontainers-postgresql'
