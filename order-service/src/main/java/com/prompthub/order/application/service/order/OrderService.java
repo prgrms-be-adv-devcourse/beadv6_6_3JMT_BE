@@ -24,6 +24,10 @@ import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
+import com.prompthub.common.event.EventMessage;
+import com.prompthub.order.application.service.event.OrderEventMessageFactory;
+import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
+import com.prompthub.order.infra.messaging.kafka.event.OrderCreatedPayload;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -45,6 +49,8 @@ public class OrderService implements OrderUseCase {
 	private final OrderNumberGenerator orderNumberGenerator;
 	private final ProductClient productClient;
 	private final OrderPolicyService orderPolicyService;
+	private final OrderEventMessageFactory orderEventMessageFactory;
+	private final OutboxEventAppender outboxEventAppender;
 
 	@Override
 	public CreateOrderResponse createOrder(UUID buyerId, CreateOrderRequest request) {
@@ -63,6 +69,15 @@ public class OrderService implements OrderUseCase {
 				.forEach(order::addOrderProduct);
 
 		Order savedOrder = orderRepository.save(order);
+
+		OrderCreatedPayload orderCreatedPayload = OrderCreatedPayload.from(savedOrder);
+		EventMessage<OrderCreatedPayload> orderCreatedMessage =
+				orderEventMessageFactory.createOrderCreatedMessage(
+						savedOrder.getId(),
+						orderCreatedPayload
+				);
+		outboxEventAppender.append("order-events", orderCreatedMessage);
+
 		var responseProducts = savedOrder.getOrderProducts().stream()
 			.map(it -> new OrderProductsResponse(
 				it.getId(),

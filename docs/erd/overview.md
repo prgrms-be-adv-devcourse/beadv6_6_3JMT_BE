@@ -45,20 +45,12 @@ erDiagram
     %% ───────────────────────────────
     %% Product Service
     %% ───────────────────────────────
-    category {
-        UUID id PK
-        UUID parent_id FK
-        VARCHAR code
-        VARCHAR name
-        VARCHAR icon
-        INT display_order
-    }
     product {
         UUID id PK
         UUID seller_id FK
-        UUID category_id FK
         SMALLINT major_version
         SMALLINT patch_version
+        VARCHAR product_type
         VARCHAR name
         VARCHAR status
         VARCHAR amount_type
@@ -215,9 +207,6 @@ erDiagram
 
     seller ||--o{ product : "seller_id"
     seller ||--o{ settlement : "seller_id"
-
-    category ||--o{ category : "parent_id"
-    category ||--o{ product : "category_id"
 
     product ||--o{ product_image : "product_id"
     product ||--o{ wishlist : "product_id"

@@ -102,7 +102,7 @@ public class Order extends BaseEntity {
 	}
 
 	public void markPaid(LocalDateTime paidAt) {
-		validatePending();
+		validateTransition(OrderStatus.PAID);
 
 		this.orderStatus = OrderStatus.PAID;
 		this.paidAt = paidAt;
@@ -110,7 +110,7 @@ public class Order extends BaseEntity {
 	}
 
 	public void markFailed() {
-		validatePending();
+		validateTransition(OrderStatus.FAILED);
 
 		this.orderStatus = OrderStatus.FAILED;
 		this.orderProducts.forEach(OrderProduct::markFailed);
@@ -121,13 +121,19 @@ public class Order extends BaseEntity {
 	}
 
 	public void cancel(LocalDateTime canceledAt) {
-		if (this.orderStatus != OrderStatus.PAID) {
-			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "결제 완료 상태의 주문만 취소할 수 있습니다.");
-		}
+		markCanceled(canceledAt);
+	}
+
+	public void markCanceled() {
+		markCanceled(LocalDateTime.now());
+	}
+
+	public void markCanceled(LocalDateTime canceledAt) {
+		validateTransition(OrderStatus.CANCELED);
 
 		this.orderStatus = OrderStatus.CANCELED;
 		this.canceledAt = canceledAt;
-		this.orderProducts.forEach(orderProduct -> orderProduct.cancel(canceledAt));
+		this.orderProducts.forEach(orderProduct -> orderProduct.markCanceled(canceledAt));
 	}
 
 	public void refund() {
@@ -135,9 +141,7 @@ public class Order extends BaseEntity {
 	}
 
 	public void refund(LocalDateTime refundedAt) {
-		if (this.orderStatus != OrderStatus.PAID) {
-			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "결제 완료 상태의 주문만 환불할 수 있습니다.");
-		}
+		validateTransition(OrderStatus.REFUNDED);
 
 		this.orderStatus = OrderStatus.REFUNDED;
 		this.refundedAt = refundedAt;
@@ -152,9 +156,10 @@ public class Order extends BaseEntity {
 		return this.orderStatus == OrderStatus.PAID;
 	}
 
-	private void validatePending() {
-		if (this.orderStatus != PENDING) {
-			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "대기 상태의 주문만 처리할 수 있습니다.");
+	private void validateTransition(OrderStatus target) {
+		if (!this.orderStatus.canTransitionTo(target)) {
+			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION,
+				String.format("주문 상태를 %s에서 %s로 변경할 수 없습니다.", this.orderStatus, target));
 		}
 	}
 }

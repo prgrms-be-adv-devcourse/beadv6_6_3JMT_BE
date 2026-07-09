@@ -1,0 +1,39 @@
+server:
+  port: 18085
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  batch:
+    job:
+      enabled: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    consumer:
+      group-id: settlement-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+grpc:
+  server:
+    port: ${SETTLEMENT_GRPC_SERVER_PORT}
+  client:
+    user-service:
+      address: user-service:${USER_GRPC_SERVER_PORT}
+    product-service:
+      address: product-service:${PRODUCT_GRPC_SERVER_PORT}
+
+settlement:
+  scheduler:
+    cron: "0 0 4 1 * *"
+  kafka:
+    listener:
+      order:
+        enabled: false

@@ -2,6 +2,7 @@ package com.prompthub.product.infra.persistence;
 
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
+import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.model.enums.ReviewStatus;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
@@ -19,9 +20,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 		select new com.prompthub.product.domain.model.projection.ProductListProjection(
 			p.id,
 			p.name,
-			coalesce(c.code, ''),
-			coalesce(c.icon, ''),
-			p.productType,
+			str(p.productType),
 			p.model,
 			p.amount,
 			coalesce(avg(r.rating), 0.0),
@@ -33,15 +32,14 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			p.updatedAt
 		)
 		from Product p
-		left join p.category c
 		left join Review r on r.product = p and r.status = :activeReviewStatus and r.deletedAt is null
 		where p.status = :onSaleStatus
 			and p.deletedAt is null
-			and (:category = 'all' or c.code = :category)
+			and (:productType = 'all' or str(p.productType) = :productType)
 			and (:keyword = ''
 				or lower(p.name) like concat('%', :keyword, '%')
 				or lower(p.description) like concat('%', :keyword, '%'))
-		group by p.id, p.name, c.code, c.icon, p.productType, p.model, p.amount, p.salesCount, p.sellerId,
+		group by p.id, p.name, p.productType, p.model, p.amount, p.salesCount, p.sellerId,
 			p.description, p.thumbnailUrl, p.createdAt, p.updatedAt
 		order by
 			case when :sort = 'rating' then coalesce(avg(r.rating), 0.0) end desc,
@@ -52,7 +50,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 		""")
 	List<ProductListProjection> findPublicProducts(
 		@Param("keyword") String keyword,
-		@Param("category") String category,
+		@Param("productType") String productType,
 		@Param("sort") String sort,
 		@Param("onSaleStatus") ProductStatus onSaleStatus,
 		@Param("activeReviewStatus") ReviewStatus activeReviewStatus,
@@ -61,32 +59,31 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 
 	default List<ProductListProjection> findPublicProducts(
 		String keyword,
-		String category,
+		String productType,
 		String sort,
 		Pageable pageable
 	) {
-		return findPublicProducts(keyword, category, sort, ProductStatus.ON_SALE, ReviewStatus.ACTIVE, pageable);
+		return findPublicProducts(keyword, productType, sort, ProductStatus.ON_SALE, ReviewStatus.ACTIVE, pageable);
 	}
 
 	@Query("""
 		select count(p)
 		from Product p
-		left join p.category c
 		where p.status = :onSaleStatus
 			and p.deletedAt is null
-			and (:category = 'all' or c.code = :category)
+			and (:productType = 'all' or str(p.productType) = :productType)
 			and (:keyword = ''
 				or lower(p.name) like concat('%', :keyword, '%')
 				or lower(p.description) like concat('%', :keyword, '%'))
 		""")
 	long countPublicProducts(
 		@Param("keyword") String keyword,
-		@Param("category") String category,
+		@Param("productType") String productType,
 		@Param("onSaleStatus") ProductStatus onSaleStatus
 	);
 
-	default long countPublicProducts(String keyword, String category) {
-		return countPublicProducts(keyword, category, ProductStatus.ON_SALE);
+	default long countPublicProducts(String keyword, String productType) {
+		return countPublicProducts(keyword, productType, ProductStatus.ON_SALE);
 	}
 
 	@Query("""
@@ -109,9 +106,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 		select new com.prompthub.product.domain.model.projection.ProductListProjection(
 			p.id,
 			p.name,
-			coalesce(c.code, ''),
-			coalesce(c.icon, ''),
-			p.productType,
+			str(p.productType),
 			p.model,
 			p.amount,
 			coalesce(avg(r.rating), 0.0),
@@ -123,28 +118,31 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			p.updatedAt
 		)
 		from Product p
-		left join p.category c
 		left join Review r on r.product = p and r.status = :activeReviewStatus and r.deletedAt is null
 		where p.status = :onSaleStatus
 			and p.deletedAt is null
 			and p.id <> :productId
-			and (:categoryId is null or p.categoryId = :categoryId)
-		group by p.id, p.name, c.code, c.icon, p.productType, p.model, p.amount, p.salesCount, p.sellerId,
+			and p.productType = :productType
+		group by p.id, p.name, p.productType, p.model, p.amount, p.salesCount, p.sellerId,
 			p.description, p.thumbnailUrl, p.createdAt, p.updatedAt
 		order by p.salesCount desc, p.createdAt desc
 		""")
 	List<ProductListProjection> findRelatedProducts(
 		@Param("productId") UUID productId,
-		@Param("categoryId") UUID categoryId,
+		@Param("productType") ProductType productType,
 		@Param("onSaleStatus") ProductStatus onSaleStatus,
 		@Param("activeReviewStatus") ReviewStatus activeReviewStatus,
 		Pageable pageable
 	);
 
-	default List<ProductListProjection> findRelatedProducts(UUID productId, UUID categoryId, int limit) {
+	default List<ProductListProjection> findRelatedProducts(
+		UUID productId,
+		ProductType productType,
+		int limit
+	) {
 		return findRelatedProducts(
 			productId,
-			categoryId,
+			productType,
 			ProductStatus.ON_SALE,
 			ReviewStatus.ACTIVE,
 			PageRequest.of(0, limit)

@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package prompthub.order.v1;
+
+option java_multiple_files = true;
+option java_package = "com.prompthub.grpc.order.v1";
+option java_outer_classname = "OrderPaymentProto";
+
+service OrderPaymentService {
+  rpc GetOrderForPayment(GetOrderForPaymentRequest)
+      returns (GetOrderForPaymentResponse);
+}
+
+message GetOrderForPaymentRequest {
+  string order_id = 1;
+}
+
+enum OrderLookupStatus {
+  ORDER_LOOKUP_STATUS_UNSPECIFIED = 0;
+  FOUND = 1;
+  NOT_FOUND = 2;
+}
+
+message GetOrderForPaymentResponse {
+  OrderLookupStatus status = 1;
+  string order_id = 2;
+  string buyer_id = 3;
+  string order_number = 4;
+  int32 total_amount = 5;
+  string order_status = 6;
+  string created_at = 7;
+}

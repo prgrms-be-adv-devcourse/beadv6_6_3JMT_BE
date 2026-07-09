@@ -8,5 +8,13 @@ public enum OrderStatus {
     PAID,
     FAILED,
     CANCELED,
-    REFUNDED
+    REFUNDED;
+
+    public boolean canTransitionTo(OrderStatus target) {
+        return switch (this) {
+            case PENDING -> target == PAID || target == FAILED || target == CANCELED;
+            case PAID -> target == REFUNDED;
+            case FAILED, CANCELED, REFUNDED -> false;
+        };
+    }
 }

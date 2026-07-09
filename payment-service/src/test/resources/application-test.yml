@@ -1,14 +1,24 @@
 spring:
+  config:
+    import: ""
   jpa:
     open-in-view: false
     show-sql: false
     properties:
       hibernate:
         format_sql: false
-  cloud:
-    config:
-      enabled: false
+  kafka:
+    bootstrap-servers: localhost:9092
+    admin:
+      auto-create: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 eureka:
   client:
     enabled: false
+
+payment:
+  toss:
+    secret-key: mock_secret_key_for_test

@@ -6,7 +6,7 @@ import java.util.UUID;
 
 public interface SettlementRepository {
 
-	Optional<Settlement> findById(UUID id);
+	Optional<Settlement> findBySettlementId(UUID settlementId);
 
 	Settlement save(Settlement settlement);
 }

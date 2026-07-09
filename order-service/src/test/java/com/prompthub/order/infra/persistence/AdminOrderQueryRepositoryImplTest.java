@@ -105,7 +105,7 @@ class AdminOrderQueryRepositoryImplTest {
 
 		Order canceledOrder = createSingleProductPaidOrder("ORD-20260624-0005", LocalDateTime.of(2026, 6, 11, 10, 0));
 		persistPayment(canceledOrder, UUID.fromString("00000000-0000-0000-0000-000000000412"), PRODUCT_AMOUNT_2, LocalDateTime.of(2026, 6, 11, 10, 1));
-		canceledOrder.cancel(LocalDateTime.of(2026, 6, 12, 10, 0));
+		cancelOrderForTest(canceledOrder, LocalDateTime.of(2026, 6, 12, 10, 0));
 
 		Order refundedOrder = createSingleProductPaidOrder("ORD-20260624-0006", LocalDateTime.of(2026, 6, 13, 10, 0));
 		persistPayment(refundedOrder, UUID.fromString("00000000-0000-0000-0000-000000000413"), PRODUCT_AMOUNT_1, LocalDateTime.of(2026, 6, 13, 10, 1));
@@ -126,7 +126,7 @@ class AdminOrderQueryRepositoryImplTest {
 		persistPayment(paidOrder, UUID.fromString("00000000-0000-0000-0000-000000000414"), PRODUCT_AMOUNT_1, day.atTime(10, 1));
 		Order canceledOrder = createSingleProductPaidOrder("ORD-20260624-0008", day.atTime(11, 0));
 		persistPayment(canceledOrder, UUID.fromString("00000000-0000-0000-0000-000000000415"), PRODUCT_AMOUNT_2, day.atTime(11, 1));
-		canceledOrder.cancel(day.atTime(12, 0));
+		cancelOrderForTest(canceledOrder, day.atTime(12, 0));
 		entityManager.flush();
 		entityManager.clear();
 
@@ -148,7 +148,7 @@ class AdminOrderQueryRepositoryImplTest {
 		LocalDate canceledDay = LocalDate.of(2026, 6, 24);
 		Order canceledOrder = createSingleProductPaidOrder("ORD-20260624-0009", approvedDay.atTime(11, 0));
 		persistPayment(canceledOrder, UUID.fromString("00000000-0000-0000-0000-000000000416"), PRODUCT_AMOUNT_2, approvedDay.atTime(11, 1));
-		canceledOrder.cancel(canceledDay.atTime(12, 0));
+		cancelOrderForTest(canceledOrder, canceledDay.atTime(12, 0));
 		entityManager.flush();
 		entityManager.clear();
 
@@ -163,6 +163,16 @@ class AdminOrderQueryRepositoryImplTest {
 		assertThat(result.get(0).transactionAmount()).isEqualTo(PRODUCT_AMOUNT_2);
 		assertThat(result.get(1).transactionCount()).isZero();
 		assertThat(result.get(1).transactionAmount()).isEqualTo(-PRODUCT_AMOUNT_2);
+	}
+
+	private void cancelOrderForTest(Order order, LocalDateTime canceledAt) {
+		ReflectionTestUtils.setField(order, "orderStatus", OrderStatus.CANCELED);
+		ReflectionTestUtils.setField(order, "canceledAt", canceledAt);
+		order.getOrderProducts().forEach(op -> {
+			ReflectionTestUtils.setField(op, "orderStatus", OrderStatus.CANCELED);
+			ReflectionTestUtils.setField(op, "canceledAt", canceledAt);
+		});
+		entityManager.persist(order);
 	}
 
 	private Order createSingleProductPaidOrder(String orderNumber, LocalDateTime createdAt) {
