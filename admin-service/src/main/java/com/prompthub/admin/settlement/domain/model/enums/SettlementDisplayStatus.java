@@ -1,5 +1,9 @@
 package com.prompthub.admin.settlement.domain.model.enums;
 
+/**
+ * 정산 운영 상태(운영 단일 진실 seller_settlement.status)의 단일 표시 상태. 7값.
+ * user-service SellerSettlement 의 SettlementDisplayStatus 와 값이 일치해야 한다(같은 컬럼 매핑).
+ */
 public enum SettlementDisplayStatus {
 
 	WAITING("대기"),
@@ -20,20 +24,9 @@ public enum SettlementDisplayStatus {
 		return label;
 	}
 
-	public static SettlementDisplayStatus from(SettlementStatus settlementStatus, PayoutStatus payoutStatus) {
-		return switch (settlementStatus) {
-			case PENDING_APPROVAL -> WAITING;
-			case SETTLEMENT_ON_HOLD -> APPROVAL_ON_HOLD;
-			case CANCELLED -> CANCELLED;
-			case APPROVED -> switch (payoutStatus) {
-				case NOT_READY, READY -> APPROVED;
-				case PAYOUT_REQUESTED -> PAYOUT_REQUESTED;
-				case PAYOUT_ON_HOLD -> PAYOUT_ON_HOLD;
-				case PAID -> PAID;
-			};
-		};
-	}
-
+	/**
+	 * 요약(summary) 카드 집계용 버킷. 취소는 카드 집계 대상이 아니므로 null.
+	 */
 	public SettlementDisplayStatus toCard() {
 		return switch (this) {
 			case WAITING, APPROVAL_ON_HOLD -> WAITING;
