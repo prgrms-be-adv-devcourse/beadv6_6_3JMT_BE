@@ -23,7 +23,12 @@ spring:
             - id: settlement-service
               uri: lb://SETTLEMENT-SERVICE
               predicates:
-                - Path=/api/v1/sellers/me/settlements/**, /api/v1/admin/settlements/**
+                - Path=/api/v1/admin/settlements/batch/**
+
+            - id: admin-service
+              uri: lb://ADMIN-SERVICE
+              predicates:
+                - Path=/api/v1/admin/settlements/**
 
             - id: order-service
               uri: lb://ORDER-SERVICE

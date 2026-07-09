@@ -1,7 +1,7 @@
 package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
-import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -42,7 +42,7 @@ public class OrderPolicyService {
 		List<ProductOrderSnapshot> products
 	) {
 		if (products == null || products.size() != requestedProductIds.size()) {
-			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE, "주문 가능한 상품 정보가 올바르지 않습니다.");
+			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
 		}
 
 		Set<UUID> requestedIds = new HashSet<>(requestedProductIds);
@@ -51,7 +51,7 @@ public class OrderPolicyService {
 			.collect(toSet());
 
 		if (!responseIds.containsAll(requestedIds)) {
-			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE, "조회되지 않은 상품이 포함되어 있습니다.");
+			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
 		}
 	}
 
@@ -104,16 +104,16 @@ public class OrderPolicyService {
 			.anyMatch(OrderProduct::isDownloaded);
 
 		if (hasDownloadedProduct) {
-			throw new OrderException(ErrorCode.ORDER_CANCEL_NOT_ALLOWED, "이미 다운로드한 상품은 환불할 수 없습니다.");
+			throw new OrderException(ErrorCode.ORDER_CANCEL_NOT_ALLOWED);
 		}
 	}
 
-	public void validatePaymentApproval(Order order, PaymentApprovedEvent event) {
+	public void validatePaymentApproval(Order order, PaymentApprovedPayload payload) {
 		if (!order.isPending()) {
 			throw new OrderException(ErrorCode.ORDER_PAYMENT_STATUS_INVALID);
 		}
 
-		if (order.getTotalOrderAmount() != event.amount()) {
+		if (order.getTotalOrderAmount() != payload.approvedAmount()) {
 			throw new OrderException(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
 		}
 	}

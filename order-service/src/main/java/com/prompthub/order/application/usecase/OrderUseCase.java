@@ -7,9 +7,11 @@ import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
+import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import org.springframework.data.domain.Page;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 public interface OrderUseCase {
@@ -21,6 +23,8 @@ public interface OrderUseCase {
 	OrderContentResponse getOrderContent(UUID buyerId, UUID orderId, UUID orderProductId);
 
 	OrderProductDownloadResponse confirmDownload(UUID buyerId, UUID orderId, UUID orderProductId);
+
+	OrderPaymentValidationResponse validatePaymentReady(UUID buyerId, UUID orderId, int amount, LocalDateTime now);
 
 	Page<OrderListResponse> getOrders(UUID buyerId, PageRequestParams request);
 

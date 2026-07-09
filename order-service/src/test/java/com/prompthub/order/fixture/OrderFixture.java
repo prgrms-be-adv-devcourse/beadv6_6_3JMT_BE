@@ -3,8 +3,8 @@ package com.prompthub.order.fixture;
 import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
-import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
-import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -155,8 +155,8 @@ public final class OrderFixture {
 			TOTAL_AMOUNT,
 			TOTAL_ITEM_COUNT
 		);
-		ReflectionTestUtils.setField(order, "createdAt", LocalDateTime.now());
-		ReflectionTestUtils.setField(order, "updatedAt", LocalDateTime.now());
+		ReflectionTestUtils.setField(order, "createdAt", CREATED_AT);
+		ReflectionTestUtils.setField(order, "updatedAt", CREATED_AT);
 		return order;
 	}
 
@@ -207,34 +207,34 @@ public final class OrderFixture {
 		return List.of(PRODUCT_ID_1, PRODUCT_ID_2);
 	}
 
-	public static PaymentApprovedEvent createPaymentApprovedEvent(UUID orderId) {
-		return createPaymentApprovedEvent(orderId, TOTAL_AMOUNT);
+	public static PaymentApprovedPayload createPaymentApprovedPayload(UUID orderId) {
+		return createPaymentApprovedPayload(orderId, TOTAL_AMOUNT);
 	}
 
-	public static PaymentApprovedEvent createPaymentApprovedEvent(
+	public static PaymentApprovedPayload createPaymentApprovedPayload(
 		UUID orderId,
 		int approvedAmount
 	) {
-		return new PaymentApprovedEvent(
-			"PAYMENT_APPROVED",
-			PAYMENT_ID,
+		return new PaymentApprovedPayload(
 			orderId,
+			PAYMENT_ID,
 			BUYER_ID,
+			"pg-tx-123",
+			"CARD",
+			"TOSS",
 			approvedAmount,
-			APPROVED_AT.atOffset(ZoneOffset.UTC)
+			APPROVED_AT
 		);
 	}
 
-
-
-	public static PaymentRefundedEvent createPaymentRefundedEvent(UUID orderId) {
-		return new PaymentRefundedEvent(
-			"PAYMENT_REFUNDED",
-			PAYMENT_ID,
+	public static PaymentRefundedPayload createPaymentRefundedPayload(UUID orderId) {
+		return new PaymentRefundedPayload(
 			orderId,
+			PAYMENT_ID,
 			BUYER_ID,
+			"pg-tx-123",
 			TOTAL_AMOUNT,
-			REFUNDED_AT.atOffset(ZoneOffset.UTC)
+			REFUNDED_AT
 		);
 	}
 

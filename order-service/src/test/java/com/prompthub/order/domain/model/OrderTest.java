@@ -95,8 +95,7 @@ class OrderTest {
 
 			// when & then
 			assertThatThrownBy(order::markPaid)
-				.isInstanceOf(OrderException.class)
-				.hasMessage("대기 상태의 주문만 처리할 수 있습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 
@@ -131,8 +130,7 @@ class OrderTest {
 
 			// when & then
 			assertThatThrownBy(order::markFailed)
-				.isInstanceOf(OrderException.class)
-				.hasMessage("대기 상태의 주문만 처리할 수 있습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 
@@ -141,13 +139,12 @@ class OrderTest {
 	class Cancel {
 
 		@Test
-		@DisplayName("PAID 상태의 주문은 CANCELED 상태로 변경할 수 있다")
-		void cancel_paidOrder_success() {
+		@DisplayName("PENDING 상태의 주문은 CANCELED 상태로 변경할 수 있다")
+		void cancel_pendingOrder_success() {
 			// given
 			Order order = createPendingOrder();
 			OrderProduct orderProduct = createOrderProduct1();
 			order.addOrderProduct(orderProduct);
-			order.markPaid();
 
 			// when
 			order.cancel();
@@ -162,17 +159,113 @@ class OrderTest {
 		}
 
 		@Test
-		@DisplayName("PAID 상태가 아닌 주문은 취소할 수 없다")
-		void cancel_notPaidOrder_throwsException() {
+		@DisplayName("PAID 상태의 주문은 취소할 수 없다")
+		void cancel_paidOrder_throwsException() {
+			// given
+			Order order = createPendingOrder();
+			order.markPaid();
+
+			// when & then
+			assertThatThrownBy(order::cancel)
+				.isInstanceOf(OrderException.class);
+		}
+	}
+
+	@Nested
+	@DisplayName("주문 마크 취소")
+	class MarkCanceled {
+
+		@Test
+		@DisplayName("PENDING 상태의 주문은 markCanceled를 통해 CANCELED 상태로 변경할 수 있다")
+		void markCanceled_pendingOrder_success() {
+			// given
+			Order order = createPendingOrder();
+			OrderProduct orderProduct = createOrderProduct1();
+			order.addOrderProduct(orderProduct);
+
+			// when
+			order.markCanceled();
+
+			// then
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+			assertThat(order.getCanceledAt()).isNotNull();
+			assertThat(order.getUpdatedAt()).isNotNull();
+
+			assertThat(orderProduct.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+			assertThat(orderProduct.getCanceledAt()).isNotNull();
+		}
+
+		@Test
+		@DisplayName("PAID 상태의 주문은 markCanceled를 통해 취소할 수 없다")
+		void markCanceled_paidOrder_throwsException() {
+			// given
+			Order order = createPendingOrder();
+			order.markPaid();
+
+			// when & then
+			assertThatThrownBy(order::markCanceled)
+				.isInstanceOf(OrderException.class);
+		}
+	}
+
+	@Nested
+	@DisplayName("주문 결제 대기 만료")
+	class ExpirePending {
+
+		@Test
+		@DisplayName("PENDING 상태의 주문은 결제 대기 만료로 주문상품과 함께 CANCELED 상태가 된다")
+		void expirePending_pendingOrder_success() {
+			// given
+			Order order = createPendingOrder();
+			OrderProduct orderProduct = createOrderProduct1();
+			order.addOrderProduct(orderProduct);
+
+			// when
+			order.expirePending(CANCELED_AT);
+
+			// then
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+			assertThat(order.getCanceledAt()).isEqualTo(CANCELED_AT);
+			assertThat(orderProduct.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+			assertThat(orderProduct.getCanceledAt()).isEqualTo(CANCELED_AT);
+		}
+
+		@Test
+		@DisplayName("PENDING 상태가 아닌 주문은 결제 대기 만료 처리해도 변경되지 않는다")
+		void expirePending_notPendingOrder_doNothing() {
+			// given
+			Order order = createPendingOrder();
+			order.markPaid(PAID_AT);
+
+			// when
+			order.expirePending(CANCELED_AT);
+
+			// then
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+			assertThat(order.getCanceledAt()).isNull();
+		}
+
+		@Test
+		@DisplayName("createdAt에 제한 시간을 더한 시각이 현재 시각 이하이면 만료된 주문이다")
+		void isExpired_nowAfterExpireAt_returnsTrue() {
 			// given
 			Order order = createPendingOrder();
 
 			// when & then
-			assertThatThrownBy(order::cancel)
-				.isInstanceOf(OrderException.class)
-				.hasMessage("결제 완료 상태의 주문만 취소할 수 있습니다.");
+			assertThat(order.isExpired(CREATED_AT.plusMinutes(20), 20)).isTrue();
+		}
+
+		@Test
+		@DisplayName("createdAt에 제한 시간을 더한 시각보다 현재 시각이 빠르면 만료되지 않은 주문이다")
+		void isExpired_nowBeforeExpireAt_returnsFalse() {
+			// given
+			Order order = createPendingOrder();
+
+			// when & then
+			assertThat(order.isExpired(CREATED_AT.plusMinutes(19), 20)).isFalse();
 		}
 	}
+
 
 	@Nested
 	@DisplayName("주문 환불")
@@ -207,8 +300,7 @@ class OrderTest {
 
 			// when & then
 			assertThatThrownBy(order::refund)
-				.isInstanceOf(OrderException.class)
-				.hasMessage("결제 완료 상태의 주문만 환불할 수 있습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 

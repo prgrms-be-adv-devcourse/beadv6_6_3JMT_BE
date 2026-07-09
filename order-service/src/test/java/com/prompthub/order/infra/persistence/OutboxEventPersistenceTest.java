@@ -45,12 +45,10 @@ class OutboxEventPersistenceTest {
 		entityManager.flush();
 		entityManager.clear();
 
-		OutboxEvent found = outboxEventPersistence.findById(saved.getId()).orElseThrow();
+		OutboxEvent found = outboxEventPersistence.findById(saved.getEventId()).orElseThrow();
 
-		assertThat(found.getAggregateId()).isEqualTo(ORDER_ID);
-		assertThat(found.getAggregateType()).isEqualTo("ORDER");
+		assertThat(found.getOrderId()).isEqualTo(ORDER_ID);
 		assertThat(found.getEventType()).isEqualTo("ORDER_PAID");
-		assertThat(found.getTopic()).isEqualTo("order-events");
 		assertThat(found.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
 		assertThat(found.getRetryCount()).isZero();
 		assertThat(found.getOccurredAt()).isEqualTo(APPROVED_AT);
@@ -92,7 +90,7 @@ class OutboxEventPersistenceTest {
 		);
 
 		assertThat(found)
-			.extracting(OutboxEvent::getAggregateId)
-			.containsExactly(oldestPending.getAggregateId(), middlePending.getAggregateId());
+			.extracting(OutboxEvent::getOrderId)
+			.containsExactly(oldestPending.getOrderId(), middlePending.getOrderId());
 	}
 }

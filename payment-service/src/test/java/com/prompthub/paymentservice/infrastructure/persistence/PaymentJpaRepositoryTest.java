@@ -24,7 +24,7 @@ class PaymentJpaRepositoryTest extends AbstractJpaTest {
         Payment payment = Payment.create(
             orderId, userId,
             "pg-tx-001", "TOSS_PAYMENTS", "CARD", true,
-            10_000, 1_000
+            9_000
         );
 
         Payment saved = paymentJpaRepository.saveAndFlush(payment);
@@ -35,7 +35,6 @@ class PaymentJpaRepositoryTest extends AbstractJpaTest {
         assertThat(found.getId()).isEqualTo(saved.getId());
         assertThat(found.getOrderId()).isEqualTo(orderId);
         assertThat(found.getPgTxId()).isEqualTo("pg-tx-001");
-        assertThat(found.getIdempotencyKey()).isEqualTo("pay-" + orderId);
         assertThat(found.getTotalAmount()).isEqualTo(9_000);
         assertThat(found.getStatus()).isEqualTo(PaymentStatus.READY);
         assertThat(found.getApprovedAmount()).isNull();

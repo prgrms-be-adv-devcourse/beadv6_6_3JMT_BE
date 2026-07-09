@@ -14,6 +14,11 @@ import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import com.prompthub.common.event.EventMessage;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -32,33 +37,60 @@ public class ProductEventConsumer {
 		containerFactory = "productEventKafkaListenerContainerFactory"
 	)
 	public void consume(String message, Acknowledgment acknowledgment) {
-		JsonNode root = readTree(message);
-		String eventTypeStr = root.path("eventType").stringValue(null);
-		ProductEventType eventType = ProductEventType.from(eventTypeStr);
+		try {
+			EventMessage<JsonNode> eventMessage = parseMessage(message);
+			String eventTypeStr = eventMessage.eventType();
+			if (eventMessage.eventId() == null || eventTypeStr == null) {
+				throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR);
+			}
 
-		switch (eventType) {
-			case PRODUCT_STOPPED -> orderProductEventService.handleProductStopped(toEvent(root, ProductStoppedEvent.class));
-			case PRODUCT_DELETED -> orderProductEventService.handleProductDeleted(toEvent(root, ProductDeletedEvent.class));
-			case PRODUCT_PRICE_CHANGED -> orderProductEventService.handleProductPriceChanged(toEvent(root, ProductPriceChangedEvent.class));
-			case UNKNOWN -> log.warn("지원하지 않는 상품 이벤트 타입입니다. eventType={}", eventTypeStr);
+			ProductEventType eventType = ProductEventType.from(eventTypeStr);
+			if (eventType == ProductEventType.UNKNOWN) {
+				log.warn("지원하지 않는 상품 이벤트 타입입니다. eventType={}", eventTypeStr);
+				acknowledgment.acknowledge();
+				return;
+			}
+
+			JsonNode payloadNode = eventMessage.payload();
+			if (payloadNode == null || payloadNode.isMissingNode() || payloadNode.isNull()) {
+				throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR);
+			}
+
+			LocalDateTime occurredAt = eventMessage.occurredAt();
+			if (occurredAt == null) {
+				throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR);
+			}
+
+
+			switch (eventType) {
+				case PRODUCT_STOPPED -> {
+					UUID productId = UUID.fromString(payloadNode.path("productId").stringValue());
+					orderProductEventService.handleProductStopped(new ProductStoppedEvent("PRODUCT_STOPPED", productId, occurredAt));
+				}
+				case PRODUCT_DELETED -> {
+					UUID productId = UUID.fromString(payloadNode.path("productId").stringValue());
+					orderProductEventService.handleProductDeleted(new ProductDeletedEvent("PRODUCT_DELETED", productId, occurredAt));
+				}
+				case PRODUCT_PRICE_CHANGED -> {
+					UUID productId = UUID.fromString(payloadNode.path("productId").stringValue());
+					int previousPrice = payloadNode.path("previousPrice").intValue();
+					int changedPrice = payloadNode.path("changedPrice").intValue();
+					orderProductEventService.handleProductPriceChanged(new ProductPriceChangedEvent("PRODUCT_PRICE_CHANGED", productId, previousPrice, changedPrice, occurredAt));
+				}
+			}
+
+			acknowledgment.acknowledge();
+		} catch (Exception e) {
+			log.error("상품 메시지 처리 중 에러 발생: {}", e.getMessage(), e);
+			throw e;
 		}
-
-		acknowledgment.acknowledge();
 	}
 
-	private JsonNode readTree(String message) {
+	private EventMessage<JsonNode> parseMessage(String message) {
 		try {
-			return objectMapper.readTree(message);
+			return objectMapper.readValue(message, new TypeReference<EventMessage<JsonNode>>() {});
 		} catch (JacksonException exception) {
-			throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR, "상품 이벤트 메시지 파싱에 실패했습니다.");
-		}
-	}
-
-	private <T> T toEvent(JsonNode root, Class<T> eventType) {
-		try {
-			return objectMapper.treeToValue(root, eventType);
-		} catch (JacksonException exception) {
-			throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR, "상품 이벤트 페이로드 역직렬화에 실패했습니다.");
+			throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR);
 		}
 	}
 }

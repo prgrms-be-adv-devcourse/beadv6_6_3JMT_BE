@@ -1,7 +1,7 @@
 package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
-import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -83,8 +83,7 @@ class OrderPolicyServiceTest {
 		@DisplayName("상품 스냅샷 응답이 null이면 입력값 검증 예외가 발생한다")
 		void nullProductSnapshots_throwsException() {
 			assertThatThrownBy(() -> orderPolicyService.validateProductSnapshots(productIds(), null))
-				.isInstanceOf(OrderException.class)
-				.hasMessage("주문 가능한 상품 정보가 올바르지 않습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 
 		@Test
@@ -93,8 +92,7 @@ class OrderPolicyServiceTest {
 			List<ProductOrderSnapshot> snapshots = createSingleProductSnapshot();
 
 			assertThatThrownBy(() -> orderPolicyService.validateProductSnapshots(productIds(), snapshots))
-				.isInstanceOf(OrderException.class)
-				.hasMessage("주문 가능한 상품 정보가 올바르지 않습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 
 		@Test
@@ -103,8 +101,7 @@ class OrderPolicyServiceTest {
 			List<ProductOrderSnapshot> snapshots = createProductSnapshotsWithUnknownProduct();
 
 			assertThatThrownBy(() -> orderPolicyService.validateProductSnapshots(productIds(), snapshots))
-				.isInstanceOf(OrderException.class)
-				.hasMessage("조회되지 않은 상품이 포함되어 있습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 
@@ -213,8 +210,7 @@ class OrderPolicyServiceTest {
 				.isInstanceOf(OrderException.class)
 				.satisfies(exception ->
 					assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.ORDER_CANCEL_NOT_ALLOWED)
-				)
-				.hasMessage("이미 다운로드한 상품은 환불할 수 없습니다.");
+				);
 		}
 	}
 
@@ -226,9 +222,9 @@ class OrderPolicyServiceTest {
 		@DisplayName("주문이 PENDING이고 승인 금액이 일치하면 예외가 발생하지 않는다")
 		void validatePaymentApproval_pendingAndAmountMatched_success() {
 			Order order = createPendingOrderWithProducts();
-			PaymentApprovedEvent event = createPaymentApprovedEvent(order.getId(), TOTAL_AMOUNT);
+			PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), TOTAL_AMOUNT);
 
-			orderPolicyService.validatePaymentApproval(order, event);
+			orderPolicyService.validatePaymentApproval(order, payload);
 		}
 
 		@Test
@@ -236,9 +232,9 @@ class OrderPolicyServiceTest {
 		void validatePaymentApproval_notPending_throwsException() {
 			Order order = createPendingOrderWithProducts();
 			order.updateOrderStatus(OrderStatus.CANCELED);
-			PaymentApprovedEvent event = createPaymentApprovedEvent(order.getId(), TOTAL_AMOUNT);
+			PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), TOTAL_AMOUNT);
 
-			assertThatThrownBy(() -> orderPolicyService.validatePaymentApproval(order, event))
+			assertThatThrownBy(() -> orderPolicyService.validatePaymentApproval(order, payload))
 				.isInstanceOf(OrderException.class)
 				.satisfies(exception ->
 					assertThat(((OrderException) exception).getErrorCode())
@@ -250,9 +246,9 @@ class OrderPolicyServiceTest {
 		@DisplayName("승인 금액과 주문 금액이 다르면 결제 승인 금액 불일치 예외가 발생한다")
 		void validatePaymentApproval_amountMismatch_throwsException() {
 			Order order = createPendingOrderWithProducts();
-			PaymentApprovedEvent event = createPaymentApprovedEvent(order.getId(), PRODUCT_AMOUNT_2);
+			PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), PRODUCT_AMOUNT_2);
 
-			assertThatThrownBy(() -> orderPolicyService.validatePaymentApproval(order, event))
+			assertThatThrownBy(() -> orderPolicyService.validatePaymentApproval(order, payload))
 				.isInstanceOf(OrderException.class)
 				.satisfies(exception ->
 					assertThat(((OrderException) exception).getErrorCode())

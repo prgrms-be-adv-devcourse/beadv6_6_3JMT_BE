@@ -146,7 +146,7 @@ public class OrderProduct {
 
     public void cancel(LocalDateTime canceledAt) {
         if (this.orderStatus != OrderStatus.PAID) {
-            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "결제 완료 상태의 주문 상품만 취소할 수 있습니다.");
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
         }
 
         this.orderStatus = OrderStatus.CANCELED;
@@ -154,13 +154,34 @@ public class OrderProduct {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void expirePending(LocalDateTime canceledAt) {
+        if (this.orderStatus != OrderStatus.PENDING) {
+            return;
+        }
+
+        this.orderStatus = OrderStatus.CANCELED;
+        this.canceledAt = canceledAt;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void markCanceled(LocalDateTime canceledAt) {
+        if (this.orderStatus != OrderStatus.PENDING) {
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+        }
+
+        this.orderStatus = OrderStatus.CANCELED;
+        this.canceledAt = canceledAt;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+
     public void refund() {
         refund(LocalDateTime.now());
     }
 
     public void refund(LocalDateTime refundedAt) {
         if (this.orderStatus != OrderStatus.PAID) {
-            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "결제 완료 상태의 주문 상품만 환불할 수 있습니다.");
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
         }
 
         this.orderStatus = OrderStatus.REFUNDED;
@@ -187,7 +208,7 @@ public class OrderProduct {
 
     private void validatePending() {
         if (this.orderStatus != OrderStatus.PENDING) {
-            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION, "대기 상태의 주문 상품만 처리할 수 있습니다.");
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
         }
     }
 }

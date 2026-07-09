@@ -21,12 +21,18 @@ spring:
       ddl-auto: create-drop
     open-in-view: false
 
+grpc:
+  server:
+    port: 0
+
 prompthub:
   outbox-relay:
     enabled: false
     fixed-delay-ms: 5000
     batch-size: 100
     max-retry-count: 3
+  order:
+    enabled: false
 
 eureka:
   client:

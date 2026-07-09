@@ -67,8 +67,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::markPaid)
-				.isInstanceOf(OrderException.class)
-				.hasMessage("대기 상태의 주문 상품만 처리할 수 있습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 
@@ -99,8 +98,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::markFailed)
-				.isInstanceOf(OrderException.class)
-				.hasMessage("대기 상태의 주문 상품만 처리할 수 있습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 
@@ -132,8 +130,41 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::cancel)
-				.isInstanceOf(OrderException.class)
-				.hasMessage("결제 완료 상태의 주문 상품만 취소할 수 있습니다.");
+				.isInstanceOf(OrderException.class);
+		}
+	}
+
+	@Nested
+	@DisplayName("주문상품 결제 대기 만료")
+	class ExpirePending {
+
+		@Test
+		@DisplayName("PENDING 상태의 주문상품은 결제 대기 만료로 CANCELED 상태가 된다")
+		void expirePending_pendingOrderProduct_success() {
+			// given
+			OrderProduct orderProduct = createOrderProduct1();
+
+			// when
+			orderProduct.expirePending(CANCELED_AT);
+
+			// then
+			assertThat(orderProduct.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+			assertThat(orderProduct.getCanceledAt()).isEqualTo(CANCELED_AT);
+		}
+
+		@Test
+		@DisplayName("PENDING 상태가 아닌 주문상품은 결제 대기 만료 처리해도 변경되지 않는다")
+		void expirePending_notPendingOrderProduct_doNothing() {
+			// given
+			OrderProduct orderProduct = createOrderProduct1();
+			orderProduct.markPaid();
+
+			// when
+			orderProduct.expirePending(CANCELED_AT);
+
+			// then
+			assertThat(orderProduct.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+			assertThat(orderProduct.getCanceledAt()).isNull();
 		}
 	}
 
@@ -165,8 +196,7 @@ class OrderProductTest {
 
 			// when & then
 			assertThatThrownBy(orderProduct::refund)
-				.isInstanceOf(OrderException.class)
-				.hasMessage("결제 완료 상태의 주문 상품만 환불할 수 있습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 

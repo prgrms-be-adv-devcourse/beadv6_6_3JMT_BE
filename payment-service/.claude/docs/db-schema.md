@@ -1,6 +1,6 @@
 # DB 테이블 구조
 
-payment-service가 소유하는 테이블 요약. **원본 DDL**: `src/main/resources/sql/ddl.sql`
+payment-service가 소유하는 테이블 요약. 스키마는 **JPA 엔티티(`ddl-auto: update`)** 로 생성되고, `update`가 표현/수행하지 못하는 델타(컬럼 제거·타입 확장·부분 유니크 인덱스)는 멱등 **`src/main/resources/schema.sql`** 로 처리한다(`defer-datasource-initialization: true`, `sql.init.mode: always`).
 
 모노레포 전체 ERD: `../../../docs/erd/schema.md`
 
@@ -35,16 +35,13 @@ payment-service가 소유하는 테이블 요약. **원본 DDL**: `src/main/reso
 | `id` | UUID | ✅ | — | PK |
 | `order_id` | UUID | ✅ | — | 연결된 주문 ID |
 | `user_id` | UUID | ✅ | — | 결제 요청 사용자 ID |
-| `pg_tx_id` | VARCHAR(100) | ✅ | — | 토스페이먼츠 paymentKey (중복 처리 방지 기준값) |
+| `pg_tx_id` | VARCHAR(255) | ✅ | — | 토스페이먼츠 paymentKey. **UNIQUE**(`uk_payment_pg_tx_id`) — 멱등키 겸용(동일 paymentKey 이중 confirm 차단) |
 | `status` | payment_status | ✅ | `READY` | 결제 상태 |
 | `payment_method` | VARCHAR(30) | ✅ | — | 결제 수단 (예: CARD) |
 | `provider` | VARCHAR(30) | ✅ | — | PG사 구분 (예: TOSS_PAYMENTS) |
 | `is_test` | BOOLEAN | ✅ | `FALSE` | 테스트 결제 여부 |
-| `total_amount` | INT | ✅ | — | 최종 결제 요청 금액 (product_amount - discount_amount) |
-| `product_amount` | INT | ✅ | — | 상품 원금액 |
-| `discount_amount` | INT | ✅ | `0` | 할인 금액 (쿠폰·포인트 확장 시 사용) |
+| `total_amount` | INT | ✅ | — | 결제 요청 금액 (주문 스냅샷 `total_amount` 기준) |
 | `approved_amount` | INT | — | NULL | PG사 실제 승인 금액 (승인 전 NULL) |
-| `idempotency_key` | VARCHAR(255) | ✅ | — | 중복 결제 방지 키. 형식: `pay-{order_id}` |
 | `failure_code` | VARCHAR(100) | — | NULL | PG사 결제 실패 코드 |
 | `failure_reason` | TEXT | — | NULL | PG사 결제 실패 상세 사유 |
 | `request_payload` | JSONB | — | NULL | PG사 결제 요청 원문 JSON (분쟁·디버깅용) |
@@ -53,6 +50,32 @@ payment-service가 소유하는 테이블 요약. **원본 DDL**: `src/main/reso
 | `approved_at` | TIMESTAMPTZ | — | NULL | PG사 결제 승인 완료 일시 |
 | `failed_at` | TIMESTAMPTZ | — | NULL | PG사 결제 실패 일시 |
 | `refunded_at` | TIMESTAMPTZ | — | NULL | PG사 환불 완료 일시 |
+| `created_at` | TIMESTAMPTZ | ✅ | `NOW()` | 생성 일시 |
+| `updated_at` | TIMESTAMPTZ | ✅ | `NOW()` | 수정 일시 |
+
+**인덱스** (`schema.sql`):
+
+| 인덱스 | 대상 | 목적 |
+|---|---|---|
+| `uk_payment_pg_tx_id` | UNIQUE (`pg_tx_id`) | 동일 paymentKey 이중 confirm 차단(멱등) |
+| `uk_payment_order_paid` | UNIQUE (`order_id`) WHERE `status='PAID'` | 같은 주문 동시 결제 시 두 번째 PAID 전이 차단(동시성 방어). 부분 유니크라 재결제(FAILED 다건)는 허용 |
+
+> 중복 판정은 `existsByOrderIdAndStatusIn(order_id, {PAID, REFUNDING, REFUNDED, UNKNOWN})` 로 수행한다. REQUESTED·FAILED·READY는 비차단이라 재결제가 가능하고, 한 주문에 FAILED 행이 여러 개 존재할 수 있다.
+
+---
+
+## order_snapshot 테이블
+
+결제 금액의 진실 공급원이 되는 주문 스냅샷. `order-events`의 `ORDER_CREATED` 이벤트 또는 gRPC 폴백으로 확보한다. `order_id` 기준 불변 데이터(upsert-ignore).
+
+| 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
+|---|---|---|---|---|
+| `id` | UUID | ✅ | — | PK |
+| `order_id` | UUID | ✅ | — | 주문 ID. **UNIQUE** |
+| `buyer_id` | UUID | ✅ | — | 주문자 ID (결제 본인 검증 기준) |
+| `total_amount` | INT | ✅ | — | 결제할 총액 |
+| `source` | VARCHAR(10) | ✅ | — | 확보 경로: `EVENT` / `GRPC` |
+| `order_created_at` | TIMESTAMPTZ | ✅ | — | 주문 생성 일시 (KST 부여) |
 | `created_at` | TIMESTAMPTZ | ✅ | `NOW()` | 생성 일시 |
 | `updated_at` | TIMESTAMPTZ | ✅ | `NOW()` | 수정 일시 |
 

@@ -5,10 +5,13 @@ import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
+import com.prompthub.order.application.event.order.OrderCreatedEvent;
 import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
+import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.domain.repository.OrderPaymentRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -20,6 +23,7 @@ import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
+import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +39,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Sort;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -43,11 +48,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.prompthub.common.event.EventMessage;
+
 import static com.prompthub.order.fixture.OrderFixture.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
@@ -62,17 +70,99 @@ class OrderServiceTest {
     private OrderPaymentRepository orderPaymentRepository;
 
     @Mock
+    private CartRepository cartRepository;
+
+    @Mock
     private OrderNumberGenerator orderNumberGenerator;
 
     @Mock
     private ProductClient productClient;
 
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
+
     @Spy
     private OrderPolicyService orderPolicyService;
+
+    @Mock
+    private com.prompthub.order.application.service.event.OrderEventMessageFactory orderEventMessageFactory;
+
+    @Mock
+    private com.prompthub.order.application.service.event.outbox.OutboxEventAppender outboxEventAppender;
+
+    @Mock
+    private OrderExpirationPolicy expirationPolicy;
 
     @InjectMocks
     private OrderService orderService;
 
+
+    @Nested
+    @DisplayName("결제 전 주문 검증")
+    class ValidatePaymentReady {
+
+        @Test
+        @DisplayName("PENDING 상태이고 만료 전이며 금액이 일치하면 결제 가능 응답을 반환한다")
+        void validatePaymentReady_pendingNotExpiredAndAmountMatched_success() {
+            Order order = createPendingOrderWithProducts();
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+            given(expirationPolicy.paymentTimeoutMinutes()).willReturn(20);
+
+            OrderPaymentValidationResponse response = orderService.validatePaymentReady(
+                BUYER_ID,
+                order.getId(),
+                TOTAL_AMOUNT,
+                CREATED_AT.plusMinutes(19)
+            );
+
+            assertThat(response.payable()).isTrue();
+            assertThat(response.orderId()).isEqualTo(order.getId());
+            assertThat(response.buyerId()).isEqualTo(BUYER_ID);
+            assertThat(response.totalAmount()).isEqualTo(TOTAL_AMOUNT);
+            assertThat(response.expiresAt()).isEqualTo(CREATED_AT.plusMinutes(20));
+        }
+
+        @Test
+        @DisplayName("PENDING 상태여도 만료 시간이 지났으면 O015 예외가 발생한다")
+        void validatePaymentReady_expiredOrder_throwsException() {
+            Order order = createPendingOrderWithProducts();
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+            given(expirationPolicy.paymentTimeoutMinutes()).willReturn(20);
+
+            assertThatThrownBy(() -> orderService.validatePaymentReady(
+                BUYER_ID,
+                order.getId(),
+                TOTAL_AMOUNT,
+                CREATED_AT.plusMinutes(20)
+            ))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.ORDER_EXPIRED)
+                );
+        }
+
+        @Test
+        @DisplayName("결제 요청 금액이 주문 금액과 다르면 O014 예외가 발생한다")
+        void validatePaymentReady_amountMismatch_throwsException() {
+            Order order = createPendingOrderWithProducts();
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+            given(expirationPolicy.paymentTimeoutMinutes()).willReturn(20);
+
+            assertThatThrownBy(() -> orderService.validatePaymentReady(
+                BUYER_ID,
+                order.getId(),
+                PRODUCT_AMOUNT_1,
+                CREATED_AT.plusMinutes(19)
+            ))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH)
+                );
+        }
+    }
 
     @Nested
     @DisplayName("주문상품 다운로드 확정")
@@ -456,6 +546,9 @@ class OrderServiceTest {
             // given
             CreateOrderRequest request = createOrderRequest();
             List<ProductOrderSnapshot> productSnapshots = createProductSnapshots();
+            Cart cart = Cart.create(BUYER_ID);
+            cart.addProduct(PRODUCT_ID_1);
+            cart.addProduct(PRODUCT_ID_2);
 
             given(productClient.getOrderSnapshots(request.productIds()))
                 .willReturn(productSnapshots);
@@ -469,6 +562,11 @@ class OrderServiceTest {
                     ReflectionTestUtils.setField(order, "createdAt", LocalDateTime.now());
                     return order;
                 });
+            given(cartRepository.findByBuyerIdWithCartProducts(BUYER_ID))
+                .willReturn(Optional.of(cart));
+
+            given(orderEventMessageFactory.createOrderCreatedMessage(any(), any()))
+                .willReturn(new EventMessage<>(UUID.randomUUID(), "ORDER_CREATED", LocalDateTime.now(), "ORDER", UUID.randomUUID(), null));
 
             // when
             CreateOrderResponse response = orderService.createOrder(BUYER_ID, request);
@@ -498,6 +596,10 @@ class OrderServiceTest {
             then(productClient).should().getOrderSnapshots(request.productIds());
             then(orderNumberGenerator).should().generate();
             then(orderRepository).should().save(any(Order.class));
+            assertThat(cart.getCartProducts()).isEmpty();
+            then(cartRepository).should().save(cart);
+            then(outboxEventAppender).should().append(eq("order-events"), any());
+            then(applicationEventPublisher).should().publishEvent(any(OrderCreatedEvent.class));
         }
 
         @Test
@@ -519,6 +621,11 @@ class OrderServiceTest {
                     ReflectionTestUtils.setField(order, "createdAt", LocalDateTime.now());
                     return order;
                 });
+            given(cartRepository.findByBuyerIdWithCartProducts(BUYER_ID))
+                .willReturn(Optional.empty());
+
+            given(orderEventMessageFactory.createOrderCreatedMessage(any(), any()))
+                .willReturn(new EventMessage<>(UUID.randomUUID(), "ORDER_CREATED", LocalDateTime.now(), "ORDER", UUID.randomUUID(), null));
 
             ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
 
@@ -558,6 +665,8 @@ class OrderServiceTest {
                 .allSatisfy(orderProduct ->
                     assertThat(orderProduct.getOrder()).isSameAs(savedOrder)
                 );
+
+            then(outboxEventAppender).should().append(eq("order-events"), any());
         }
 
         @Test
@@ -571,8 +680,7 @@ class OrderServiceTest {
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage(ErrorCode.INVALID_INPUT_VALUE.getMessage());
+                );
 
             then(productClient).should(never()).getOrderSnapshots(anyList());
             then(orderNumberGenerator).should(never()).generate();
@@ -590,8 +698,7 @@ class OrderServiceTest {
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage(ErrorCode.INVALID_INPUT_VALUE.getMessage());
+                );
 
             then(productClient).should(never()).getOrderSnapshots(anyList());
             then(orderNumberGenerator).should(never()).generate();
@@ -609,8 +716,7 @@ class OrderServiceTest {
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage(ErrorCode.INVALID_INPUT_VALUE.getMessage());
+                );
 
             then(productClient).should(never()).getOrderSnapshots(anyList());
             then(orderNumberGenerator).should(never()).generate();
@@ -631,8 +737,7 @@ class OrderServiceTest {
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage("주문 가능한 상품 정보가 올바르지 않습니다.");
+                );
 
             then(productClient).should().getOrderSnapshots(request.productIds());
             then(orderNumberGenerator).should(never()).generate();
@@ -655,8 +760,7 @@ class OrderServiceTest {
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage("주문 가능한 상품 정보가 올바르지 않습니다.");
+                );
 
             then(productClient).should().getOrderSnapshots(request.productIds());
             then(orderNumberGenerator).should(never()).generate();
@@ -679,8 +783,7 @@ class OrderServiceTest {
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                )
-                .hasMessage("조회되지 않은 상품이 포함되어 있습니다.");
+                );
 
             then(productClient).should().getOrderSnapshots(request.productIds());
             then(orderNumberGenerator).should(never()).generate();
