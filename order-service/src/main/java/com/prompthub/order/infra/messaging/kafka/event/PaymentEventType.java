@@ -19,8 +19,9 @@ public enum PaymentEventType implements EventType {
             return null;
         }
 
+        String normalizedValue = value.toUpperCase().replace(".", "_");
         for (PaymentEventType type : values()) {
-            if (type.name().equals(value)) {
+            if (type.name().equals(normalizedValue)) {
                 return type;
             }
         }

@@ -87,11 +87,11 @@ class OrderTest {
 		}
 
 		@Test
-		@DisplayName("PENDING 상태가 아닌 주문은 PAID 상태로 변경할 수 없다")
-		void markPaid_notPendingOrder_throwsException() {
+		@DisplayName("PENDING/FAILED 상태가 아닌 주문은 PAID 상태로 변경할 수 없다")
+		void markPaid_notPendingOrFailedOrder_throwsException() {
 			// given
 			Order order = createPendingOrder();
-			order.markFailed();
+			order.cancel(); // Now CANCELED
 
 			// when & then
 			assertThatThrownBy(order::markPaid)

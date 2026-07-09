@@ -1,14 +1,15 @@
 package com.prompthub.order.infra.grpc.server;
 
-import com.prompthub.grpc.order.v1.GetOrderForPaymentRequest;
-import com.prompthub.grpc.order.v1.GetOrderForPaymentResponse;
-import com.prompthub.grpc.order.v1.OrderLookupStatus;
+import com.prompthub.grpc.order.v1.GetOrderPaymentInfoRequest;
+import com.prompthub.grpc.order.v1.GetOrderPaymentInfoResponse;
 import com.prompthub.grpc.order.v1.OrderPaymentServiceGrpc;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.fixture.OrderFixture;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import org.junit.jupiter.api.AfterEach;
@@ -21,6 +22,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 class OrderPaymentGrpcServiceTest {
@@ -66,20 +68,18 @@ class OrderPaymentGrpcServiceTest {
         UUID orderId = order.getId();
         when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
 
-        GetOrderForPaymentRequest request = GetOrderForPaymentRequest.newBuilder()
+        GetOrderPaymentInfoRequest request = GetOrderPaymentInfoRequest.newBuilder()
                 .setOrderId(orderId.toString())
                 .build();
 
         // when
-        GetOrderForPaymentResponse response = blockingStub.getOrderForPayment(request);
+        GetOrderPaymentInfoResponse response = blockingStub.getOrderForPayment(request);
 
         // then
-        assertThat(response.getStatus()).isEqualTo(OrderLookupStatus.FOUND);
         assertThat(response.getOrderId()).isEqualTo(orderId.toString());
         assertThat(response.getBuyerId()).isEqualTo(order.getBuyerId().toString());
-        assertThat(response.getOrderNumber()).isEqualTo(order.getOrderNumber());
         assertThat(response.getTotalAmount()).isEqualTo(order.getTotalOrderAmount());
-        assertThat(response.getOrderStatus()).isEqualTo(order.getOrderStatus().name());
+        assertThat(response.getCreatedAt()).isEqualTo(order.getCreatedAt().toString());
     }
 
     @Test
@@ -88,48 +88,32 @@ class OrderPaymentGrpcServiceTest {
         UUID orderId = UUID.randomUUID();
         when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.empty());
 
-        GetOrderForPaymentRequest request = GetOrderForPaymentRequest.newBuilder()
+        GetOrderPaymentInfoRequest request = GetOrderPaymentInfoRequest.newBuilder()
                 .setOrderId(orderId.toString())
                 .build();
 
-        // when
-        GetOrderForPaymentResponse response = blockingStub.getOrderForPayment(request);
-
-        // then
-        assertThat(response.getStatus()).isEqualTo(OrderLookupStatus.NOT_FOUND);
-        assertThat(response.getOrderId()).isEmpty();
+        // when & then
+        assertThatThrownBy(() -> blockingStub.getOrderForPayment(request))
+                .isInstanceOf(StatusRuntimeException.class)
+                .satisfies(e -> {
+                    StatusRuntimeException statusException = (StatusRuntimeException) e;
+                    assertThat(statusException.getStatus().getCode()).isEqualTo(Status.Code.NOT_FOUND);
+                });
     }
 
     @Test
-    void getOrderForPayment_invalidUuid_shouldReturnNotFound() {
+    void getOrderForPayment_invalidUuid_shouldReturnInvalidArgument() {
         // given
-        GetOrderForPaymentRequest request = GetOrderForPaymentRequest.newBuilder()
+        GetOrderPaymentInfoRequest request = GetOrderPaymentInfoRequest.newBuilder()
                 .setOrderId("invalid-uuid-string")
                 .build();
 
-        // when
-        GetOrderForPaymentResponse response = blockingStub.getOrderForPayment(request);
-
-        // then
-        assertThat(response.getStatus()).isEqualTo(OrderLookupStatus.NOT_FOUND);
-    }
-
-    @Test
-    void getOrderForPayment_otherStatuses_shouldReturnFound() {
-        // given
-        Order order = OrderFixture.createPaidOrderWithProducts(); // status PAID
-        UUID orderId = order.getId();
-        when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
-
-        GetOrderForPaymentRequest request = GetOrderForPaymentRequest.newBuilder()
-                .setOrderId(orderId.toString())
-                .build();
-
-        // when
-        GetOrderForPaymentResponse response = blockingStub.getOrderForPayment(request);
-
-        // then
-        assertThat(response.getStatus()).isEqualTo(OrderLookupStatus.FOUND);
-        assertThat(response.getOrderStatus()).isEqualTo("PAID");
+        // when & then
+        assertThatThrownBy(() -> blockingStub.getOrderForPayment(request))
+                .isInstanceOf(StatusRuntimeException.class)
+                .satisfies(e -> {
+                    StatusRuntimeException statusException = (StatusRuntimeException) e;
+                    assertThat(statusException.getStatus().getCode()).isEqualTo(Status.Code.INVALID_ARGUMENT);
+                });
     }
 }
