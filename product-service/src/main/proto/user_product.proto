@@ -24,9 +24,8 @@ message Product {
   string title = 3;
   int64 price = 4;
   string thumbnail_url = 5;
-  string category = 6;
-  string model = 7;
-  int64 sales_count = 8;
-  double average_rating = 9;
-  string status = 10;
+  string model = 6;
+  int64 sales_count = 7;
+  double average_rating = 8;
+  string status = 9;
 }

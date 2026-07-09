@@ -1,153 +1,181 @@
 # 주문 데이터 수급 방식
 
-정산은 한 기간의 정산 대상 주문 라인 — PAID 상태이면서 아직 정산되지 않은 order_product —
-이 필요하다. 지금은 이 데이터를 주문 테이블에서 직접 읽는다. 서비스를 분리하면 이 읽기가
-서비스 경계를 넘어야 하므로, 어떻게 가져올지가 문제가 된다.
+정산은 한 기간의 정산 대상 주문 라인 — 그 기간에 결제 확정된 order_product, 그리고 그 기간에
+환불된 order_product — 이 필요하다. 이 데이터는 order 서비스가 소유하므로, 서비스 경계를 넘어
+어떻게 가져올지가 문제가 된다.
 
-## 지금 구조
+## 결정 히스토리
 
-- `SettlementSourceRepository`가 정산이 주문 데이터를 가져오는 유일한 통로다.
-- 어댑터는 읽기 전용 뷰 엔티티(`OrderProductSource`, Hibernate `@Subselect` / `@Immutable`)를
-  통해 `order_product`를 직접 읽는다.
-- "정산 대상" 필터는 쿼리에서 건다: `order_product_status = 'PAID'`, 기간 내,
-  그리고 `order_product_id not in (select from SettlementDetail)`로 이미 정산된 라인은 제외.
+이 문서의 결론은 두 번 바뀌었다. 경위를 남겨 둔다.
 
-```
-settlement-service ──SELECT──▶ order_product (order 소유)
-```
+1. **테이블 직접 조회** — 초기엔 `order_product` 를 `@Subselect`/`@Immutable` 뷰로 직접 읽었다.
+   공유 DB 전제라 서비스 분리 시 끊어야 할 결합이었다.
+2. **Kafka push(이벤트)** — 서비스 분리를 대비해 order 가 `ORDER_PAID`/`ORDER_REFUNDED` 를 발행하고
+   정산이 컨슈머로 로컬에 사본을 쌓는 방식으로 한 번 구현했다.
+3. **gRPC pull(현재 결정)** — 배포를 k8s 로 옮기며 배치를 CronJob 으로 분리하기로 하면서, 상시
+   컨슈머를 없애고 **배치 시점에 order 를 gRPC 로 당겨오는** 방식으로 되돌린다. 이 문서가 정하는 방향이다.
 
-이 방식은 DB를 공유하거나, 최소한 order 테이블에 읽기 접근이 있다는 걸 전제한다. 정산이
-order 스키마에 결합되는 구조다. 모놀리식/공유 DB에선 괜찮지만, 서비스를 쪼갤 때 끊어내야 할
-결합이 바로 이것이다.
+## 지금 구조(전환 대상)
 
-## 결정해야 할 것
+- `SettlementSourceRepository` 가 정산이 주문 데이터를 가져오는 유일한 통로다. (이 포트는 유지된다.)
+- 원천은 정산이 소유하는 로컬 테이블 `settlement_source_line` 에 쌓는다. (이 테이블도 유지된다.)
+- 지금은 이 테이블을 **Kafka 컨슈머(`OrderEventConsumer`)가 실시간으로 채운다.** 이 채우는 경로를
+  gRPC pull 로 교체하는 것이 이번 전환의 골자다. **`settlement_source_line` 과 배치 계산부는 그대로다.**
 
-order가 서비스 경계 뒤에서 자기 데이터를 소유하게 되면, 정산은 필요할 때 당겨오거나(pull)
-미리 받아두거나(push) 둘 중 하나다. 선택 기준은 **데이터의 성격**이지, 누가 실행을 트리거했는지가
-아니다.
+## 왜 pull 로 되돌리나
 
-- **gRPC (pull):** 배치 시점에 order에게 해당 기간 PAID 라인을 요청한다. order가 진실의 원천으로
-  남고, 정산은 "아직 정산 안 됨" 필터를 자기 `SettlementDetail` 기준으로 직접 건다. 동기 호출 한 번
-  (양이 많으면 페이징/스트리밍).
-- **Kafka (push):** order가 결제 발생 시점마다 이벤트를 발행하고, 정산은 로컬에 사본을 쌓아두며
-  배치는 그 사본을 읽는다. 배치가 도는 시점에 order가 떠 있지 않아도 된다.
+선택 기준은 **데이터의 성격**이지, 누가 실행을 트리거했는지가 아니다. 정산 데이터의 성격을 보면
+pull 이 더 맞는다.
 
-수동 실행이든 스케줄 실행이든 정산이 필요로 하는 데이터는 같다: "이 기간의 정산 대상 라인."
-그러니 전송 방식도 둘 다 같아야 한다. 트리거 기준으로 쪼개면(수동 → 이벤트, 스케줄 → gRPC)
-같은 데이터를 가져오는 경로가 둘이 된다 — 코드도 두 배고, 한쪽이 뒤처지면 같은 질문에 답이 둘이
-되어 어긋날 수 있다.
+- **정산은 월 마감 도메인이다.** 실시간 즉시성이 필요 없다. 배치가 도는 시점에 한 번, 그 기간의
+  확정 데이터를 당겨오면 충분하다. Kafka 의 실시간성은 정산에서 쓰이지 않는 이점이었다.
+- **k8s CronJob 아키텍처와 정합한다.** 배치를 CronJob 으로 분리하면 상시 프로세스는 API 서버뿐이다.
+  컨슈머를 없애면 "배치는 CronJob, 상시부는 API 만"으로 깔끔해진다.
+  (배포 분리 배경은 `deployment-ci-cd.md` 참고.)
+- **Kafka 운영 복잡도가 통째로 사라진다.** push 는 멱등 upsert·순서·재처리·오프셋·dead-letter·백필,
+  그리고 **order 쪽 transactional outbox** 를 전제로 했다. outbox 가 없으면 정산이 라인을 조용히 놓쳐
+  과소 정산할 수 있었다. pull 은 배치가 기간 단위로 전량을 훑으므로 이 전제가 모두 없어진다.
+- **완전성(누락 없음)에 강하다.** push 는 이벤트 유실 시 조용히 누락되지만, pull 은 order 를 진실의
+  원천으로 그 기간 전체를 조회하므로 누락에 강하다.
+- **소유는 유지된다.** gRPC 로 받은 걸 `settlement_source_line` 에 박제하므로, 감사·재현·dedup(이미
+  정산된 라인 제외)은 그대로 살아 있다. "당겨와서 즉석 계산 후 폐기"가 아니라 "당겨와서 소유"다.
 
-## 선택지
+pull 의 대가는 **배치 시점에 order 가 떠 있어야 한다**는 것과 **대량 조회를 페이징/스트리밍으로**
+받아야 한다는 것이다. 월 배치라 order 일시 장애는 재시도로 흡수되고, 스트리밍으로 양은 감당한다.
+
+## 선택지 (비교)
 
 | 방식 | 장점 | 단점 |
 | --- | --- | --- |
-| 테이블 직접 조회 (현재) | 가장 단순; 항상 최신 데이터; 추가 인프라 없음 | order 스키마에 결합; 공유 DB 필요; 서비스 분리 후엔 불가 |
-| gRPC pull (단일 전송) | order가 진실의 원천; 로컬 복제본 없음; 시점 일관성 깔끔; dedup은 로컬 유지 | 배치 시점에 order가 떠 있어야 함; 대량 조회는 페이징/스트리밍 필요 |
-| Kafka push (단일 전송) | order 가용성과 무관; 독립 배포 | 로컬 사본 + 중복/순서/재처리 관리; 최종 일관성; 스트림 위에서 기간 경계를 직접 그어야 함 |
-| 트리거 분리 (수동=이벤트, 스케줄=gRPC) | — | 같은 데이터에 경로 둘; 정합성 리스크; 수동과 스케줄이 정말 다른 걸 정산할 때만 정당화됨 |
+| 테이블 직접 조회 | 가장 단순; 항상 최신; 추가 인프라 없음 | order 스키마에 결합; 공유 DB 필요; 서비스 분리 후엔 불가 |
+| Kafka push | order 가용성과 무관; 독립 배포 | 로컬 사본 + 중복/순서/재처리; outbox 전제; 최종 일관성; 상시 컨슈머 필요 |
+| **gRPC pull (선택)** | order 가 진실의 원천; 상시 컨슈머 불필요(CronJob 정합); outbox·DLT·백필 불필요; 완전성 강함; 소유 유지 | 배치 시점 order 가용성 필요; 대량은 페이징/스트리밍 |
 
-## 방향
+## gRPC pull 설계 (선택한 방향)
 
-- 두 트리거에 **하나의** 전송 방식을 쓴다. 수동과 스케줄은 트리거만 다를 뿐 읽는 데이터는 같다.
-- 기간 스냅샷을 읽는 주기 배치이고, order가 진실의 원천이며, dedup 필터가 정산 쪽에 있다는 점을
-  보면 **gRPC pull이 더 단순한 선택**이다. 단, order의 가용성과 무관하게 정산이 돌아야 한다는
-  요구가 분명하면 Kafka로 간다.
-- 트리거 분리 하이브리드는 "수동"이 방금 발생한 특정 건을 정산하는 것(이벤트 페이로드 자체가
-  데이터)이고 "스케줄"이 기간 전체를 쓸어담는 경우에만 값을 한다. 둘 다 같은 기간을 정산한다면
-  쪼개지 마라. 쪼갠다면 두 경로 모두 같은 `SettlementDetail` 기준으로 dedup 해서 이중 정산을 막아야
-  한다.
-- 어느 쪽이든 바뀌는 건 어댑터뿐이다. `SettlementSourceRepository`(포트)와 계산 유스케이스는
-  그대로라, 안쪽 계층을 건드리지 않고 교체할 수 있다.
+### 핵심 원리 — 상태(status)가 아니라 시각(timestamp)으로 조회한다
 
-## 이벤트 설계 (선택한 방향)
+`order_product` 는 결제/환불을 **상태 enum 을 in-place 로 바꿔** 표현한다(`PAID` → `REFUNDED`).
+그래서 "지금 status 가 뭐냐"로 정산 대상을 고르면 시점 귀속이 깨진다 — 6월에 결제돼 6월 정산에
+들어간 라인이 7월에 환불되면, 배치 시점 status 는 이미 `REFUNDED` 라 6월 결제 사실이 사라진다.
 
-Kafka로 간다. 골자는, order가 paid 라인 이벤트를 발행하고 정산은 정산 대상 라인의 사본을 자기
-쪽에 보관하며 배치가 그 사본을 읽는 것이다. `order_product` 위의 `@Subselect`는 없어진다.
+대신 **발생 시각 두 개(`paidAt`·`refundedAt`)를 각각 기간 필터로** 조회한다. status 는 보지 않는다.
+timestamp 는 불변이라, 상태가 in-place 로 바뀌어도 각 사건이 자기 기간에 정확히 귀속된다.
+사실상 `paidAt` = PAID 사건, `refundedAt` = REFUND 사건을 두 컬럼으로 근사하는 것이다.
 
-### 형태: 데이터를 이벤트에 실어 보낸다
+> **전제(order 팀 합의됨):** `order_product` 가 `paidAt`(결제 확정 시각)·`refundedAt`(환불 시각)을
+> 갖고, gRPC 응답으로 넘겨준다. `refundedAt` 은 이미 있고, `paidAt` 은 order 가 추가한다.
 
-이벤트가 정산에 필요한 필드를 담아서, 정산이 order로 되묻지 않게 한다(event-carried state
-transfer). 비동기로 가는 이유가 이것이다 — 데이터를 채우려고 여전히 order를 호출해야 한다면
-gRPC가 더 간단하다.
-
-정산이 필요로 하는 건 작다: order product id, seller id, 금액, 결제 시각.
+기간 P 를 정산할 때 order 에 두 종류를 요청한다.
 
 ```
-order_product PAID  ──event──▶  Kafka topic  ──▶  settlement consumer
-                                                      └─ settleable_order_line(로컬)에 upsert
-                                                            └─ 배치가 로컬 테이블을 읽음
-                                                                  └─ SettlementDetail로 dedup
+결제 라인:  WHERE paidAt     BETWEEN P.start AND P.end   → PAID   SourceLine 으로 적재
+환불 라인:  WHERE refundedAt BETWEEN P.start AND P.end   → REFUND SourceLine 으로 적재(음수)
 ```
 
-### 토픽과 계약(contract)
+### 케이스 검증 (7월 배치 기준)
 
-- 토픽: order-product 라이프사이클 사실 단위로 하나, 예: `order-product-paid`
-  (취소/환불은 `order-product-cancelled` / `-refunded` 추가 — 아래 참고).
-- 키: `orderProductId`. 같은 라인의 paid→cancel 이벤트가 같은 파티션에 떨어져 순서가 유지된다.
-- 페이로드(팀 간 안정 계약 — 버전을 매기고, 변경은 호환 깨짐으로 취급):
+| 상황 | paidAt | refundedAt | 결제쿼리(7월) | 환불쿼리(7월) | 7월 정산 반영 |
+| --- | --- | --- | --- | --- | --- |
+| 7월 결제, 유효 | 7월 | 없음 | ✅ | ✗ | +결제 |
+| 7월 결제 + 7월 환불 | 7월 | 7월 | ✅ | ✅ | +결제 −환불 = 상계 |
+| 6월 결제(이미 정산) + 7월 환불 | 6월 | 7월 | ✗ | ✅ | −환불 보정만 |
+| 7월 결제, 8월 환불 | 7월 | 없음(아직) | ✅ | ✗ | +결제 (환불은 8월에) |
 
-```json
-{
-  "orderProductId": "uuid",
-  "sellerId": "uuid",
-  "amount": 12000,
-  "occurredAt": "2026-06-03T10:15:30",
-  "eventId": "uuid"
+세 번째가 "정산 후 환불"이다. 6월 결제분은 `paidAt=6월` 이라 7월 결제쿼리에 안 걸리고,
+`refundedAt=7월` 이라 환불쿼리에만 걸린다. **이미 확정된 6월 정산은 건드리지 않고, 7월에 −환불
+보정 라인만 추가**한다. 확정 정산을 소급 수정하지 않는 것이 회계 원칙이며, `settlement_source_line`
+이 PAID/REFUND 를 별도 라인으로 쌓는 구조라 이 보정 방식을 그대로 지원한다.
+
+### 멱등 — "환불로 변한 것"을 별도 라인으로 잡는다
+
+push 시절 멱등키는 `nameUUIDFromBytes(주문eventId | orderProductId | 상태)` 였다. pull 은 이벤트가
+없어 `주문eventId` 가 사라지므로, **`orderProductId` + 상태**로 seed 를 재구성한다.
+
+```
+PAID   라인 멱등키 = nameUUIDFromBytes(orderProductId | "PAID")
+REFUND 라인 멱등키 = nameUUIDFromBytes(orderProductId | "REFUND")
+```
+
+- 한 order_product 는 결제 1회·환불 1회라(`OrderProduct.refund()` 는 전액 1회) 이 seed 로 라인이
+  유일해진다. 부분·다중 환불이 생기면 order 가 `refundId` 를 함께 주고 seed 에 더한다.
+- **환불 체크의 핵심:** 같은 `orderProductId` 가 이미 PAID 라인으로 적재돼 있어도, REFUND 는 상태가
+  달라(`...|PAID` vs `...|REFUND`) **PAID 를 덮어쓰지 않고 별도 REFUND 라인으로 적재**된다. 배치는
+  PAID 합에서 REFUND 합을 빼 순액을 낸다. "환불로 변한 것"이 결제 라인을 지우는 게 아니라 음수
+  보정 라인으로 더해지는 것 — 이게 시점 귀속과 감사 추적을 동시에 지킨다.
+- 배치 재실행 시 같은 기간을 재조회해도 같은 멱등키라 `existsByEventId` 로 걸러 중복 적재를 막는다.
+  (지금의 `SettlementSourceApplicationService` 멱등 로직을 seed 만 바꿔 그대로 쓴다.)
+- `settlement_source_line.event_id`(단일 unique) 스키마·도메인 제약은 그대로 둔다.
+
+### 음수 정산 (정책 결정 대상 — 여기선 존재만 명시)
+
+"6월 결제(이미 정산) + 7월 환불"에서, 7월에 그 판매자의 다른 결제가 환불액보다 적으면 **7월 정산
+순액이 음수**가 될 수 있다. 이를 다음 달로 이월할지, 마이너스로 확정할지는 **정산 정책 결정**이며
+전송 방식(push/pull)과 무관하다. **이월(carry-forward)로 결정**했으며, 처리 규칙은
+`negative-settlement-carryforward.md` 에 정리한다.
+
+### 배치 흐름 — 앞단에 pull 스텝 하나 추가
+
+```
+[Step 0] order gRPC pull → settlement_source_line upsert   ← 신규(이 전환의 유일한 추가)
+   ↓
+[Step 1] 정산 생성  (CreateSettlementBatchTasklet)          ← 그대로
+[Step 2] 계산       (SettlementTargetReader→Processor→Writer) ← 그대로
+[Step 3] 완료       (CompleteSettlementBatchTasklet)         ← 그대로
+```
+
+Step 0 가 gRPC 로 그 기간의 결제·환불 라인을 당겨 `settlement_source_line` 에 멱등 적재한다.
+이후 스텝은 지금과 동일하게 로컬 테이블만 읽는다.
+
+### order 가 제공할 gRPC 계약 (정산이 제안, order 팀이 서버 구현)
+
+period 하나로 결제·환불 라인을 `lineType` 으로 구분해 스트리밍한다(대량 대응).
+
+```protobuf
+service OrderSettlementQueryService {
+  rpc GetSettleableLines(SettleablePeriodRequest) returns (stream SettleableLine);
+}
+
+message SettleablePeriodRequest {
+  string period = 1;   // "2026-06" — paidAt/refundedAt '발생 시각' 기준 기간
+}
+
+message SettleableLine {
+  string order_product_id = 1;
+  string order_id         = 2;
+  string seller_id        = 3;
+  int64  amount           = 4;   // PAID 는 결제액, REFUND 는 환불액
+  string line_type        = 5;   // PAID | REFUND
+  string occurred_at      = 6;   // PAID 면 paidAt, REFUND 면 refundedAt
 }
 ```
 
-### 컨슈머 측 (정산)
-
-- 새 로컬 테이블 `settleable_order_line`이 `@Subselect` 뷰가 읽던 것을 대신 보관한다. 정산이
-  소유하고, 컨슈머만 채운다.
-- `infrastructure/event`의 `@KafkaListener`가 이벤트를 이 테이블에 upsert 한다.
-- `SettlementSourceRepositoryAdapter`는 이제 `order_product`가 아니라 이 로컬 테이블을 읽는다.
-  기간 필터와 `not in SettlementDetail` dedup은 그대로 — 대상만 로컬 테이블로 바뀐다.
-- paid 라인은 들어오는 대로 전부 저장한다. "정산됨/안됨"을 컨슈머에서 추적하지 마라. 그건 배치가
-  이미 `SettlementDetail` 기준으로 거른다. 컨슈머는 단순하게, dedup은 한곳에.
-
-### 멱등성 (필수)
-
-Kafka는 at-least-once라 같은 이벤트가 두 번 올 수 있다. upsert는 멱등이어야 한다.
-
-- 로컬 행을 `orderProductId`(unique)로 식별한다. 재전송은 같은 행을 덮어쓰니 중복이 없다.
-- blind insert가 아니라 insert-or-update(`ON CONFLICT (order_product_id) DO UPDATE` / merge)를 쓴다.
-- 행이 영속화된 뒤에만 ack 한다. 처리 도중 크래시는 유실이 아니라 재처리가 되도록.
-
-### 역전 처리 (paid → 취소 / 환불)
-
-결제됐던 라인이 이후 정산 대상에서 빠질 수 있다. 어떻게 모델링할지 order 팀과 정한다.
-
-- order가 같은 `orderProductId`에 대해 취소/환불 이벤트를 발행한다.
-- 아직 정산 전이면 → 로컬 라인을 제거(또는 플래그)해 집계에서 빠지게 한다.
-- 이미 `SettlementDetail`에 들어갔으면 → 조용히 지우지 마라. 그건 다음 기간의 보정(환불 라인)이지
-  삭제가 아니다. 기본값이 아니라 명시적 규칙이 필요하다.
-
-### 신뢰성
-
-- **발행 측 (order):** transactional outbox 패턴을 써서, DB 커밋은 성공했는데 broker 발행이 실패해도
-  이벤트가 유실되지 않게 한다. 이건 order 쪽 전제 조건이다 — 없으면 정산이 조용히 라인을 놓쳐
-  과소 정산할 수 있다.
-- **소비 측 (정산):** 계속 실패하는 메시지를 위한 dead-letter topic을 두고, 거기로 보내기 전 제한된
-  재시도를 둔다. poison 메시지가 파티션을 막으면 안 된다.
-
-### 일관성 경계
-
-로컬 사본은 최종 일관성을 가진다. 배치는 실행 시점에 로컬 테이블에 있는 것을 정산하고, 이벤트가
-아직 도착하지 않은 라인은 다음 기간에 정산된다. 월 배치라면 괜찮다 — dedup이 이중 정산을
-보장하니 지연은 단지 미룸일 뿐이다. 늦은 이벤트를 버그로 오해하지 않도록 이 점을 명시해 둔다.
+- 서버는 내부적으로 `paidAt ∈ P`(결제 라인)과 `refundedAt ∈ P`(환불 라인) 두 쿼리를 합쳐 스트리밍한다.
+- **status 로 필터하지 않는다.** 환불된 라인도 `paidAt` 이 P 안이면 결제 라인으로, `refundedAt` 이
+  P 안이면 환불 라인으로 각각 내려온다.
 
 ### 코드에서 바뀌는 것
 
-- 신규: `settleable_order_line` 엔티티 + 테이블; `infrastructure/event`의 Kafka 리스너; 멱등 upsert
-  리포지토리.
-- 변경: `SettlementSourceRepositoryAdapter`가 로컬 테이블을 읽음; `OrderProductSource`(`@Subselect`)
-  제거.
-- 그대로: `SettlementSourceRepository` 포트, `CalculateSettlementUseCase`, 배치 자체.
+- **제거:** `infrastructure/messaging/kafka/consumer/order/*`(`OrderEventConsumer`·`OrderEventType`),
+  Kafka consumer 설정, `application/event` 의 order 이벤트 DTO, `settlement.kafka.listener.order.*` 설정.
+- **신규:** `infrastructure/client/order/`(`OrderSettlementQueryClient` + `config`), `application/port`
+  의 `OrderSettlementQueryPort`, `src/main/proto/order_settlement_query.proto`, 배치 Step 0 tasklet.
+- **변경:** `SettlementSourceApplicationService` — 이벤트 핸들러(`recordOrderPaid`/`recordOrderRefunded`)
+  대신 "기간 라인 동기화" 메서드로. 멱등키 seed 를 `orderProductId | 상태` 로 재구성.
+- **그대로:** `settlement_source_line`(`SettlementSourceLine`), `SettlementSourceRepository` 포트,
+  `findSettleableLines`, 계산 유스케이스, 배치 뒷단계 전부.
 
-### 남은 질문
+포트(`application/port`)·어댑터(`infrastructure/client`) 분리 덕에 안쪽 계층은 전송이 gRPC 로 바뀐
+걸 모른다. 이미 `SellerQueryClient`·`ProductQueryClient` 가 같은 패턴이라 order client 를 그 옆에 하나
+더 붙이는 형태다. (포트·어댑터 규칙은 `clean-architecture.md` §4, gRPC 선택 근거는 `internal-sync-transport.md`.)
 
-- 위 역전 규칙(정산 후 취소/환불) — order와 합의된 정책이 필요하다.
-- order 쪽 outbox — 스트림에 의존하기 전에 적용돼 있는지 확인한다.
-- 백필 — 컨슈머가 생기기 전 결제된 주문에 대해 로컬 테이블을 어떻게 채울지(일회성 리플레이,
-  또는 컷오버 시 벌크 임포트).
+## order 팀 합의 사항
+
+1. **`order_product.paidAt` 추가** — 결제 확정 시각 전용 컬럼. `updatedAt` 은 다운로드·환불 등으로도
+   갱신돼 결제 귀속에 못 쓴다. (`refundedAt` 은 이미 있다.)
+2. **`GetSettleableLines(period)` gRPC 서버 신설** — `paidAt`/`refundedAt` 시각 기준으로 결제·환불
+   라인을 스트리밍. status 스냅샷이 아니라 시각 기준이어야 한다.
+3. **기존 이벤트 발행 정리** — order 의 `ORDER_PAID`/`ORDER_REFUNDED` 발행은 정산이 더 이상 구독하지
+   않는다. 다른 구독자가 없으면 정리 대상이나, 이는 order 팀 판단이다.
+</content>
+</invoke>

@@ -1,0 +1,12 @@
+rootProject.name = 'prompthub-be'
+
+include 'admin-service'
+include 'apigateway'
+include 'common-module'
+include 'config'
+include 'discovery'
+include 'order-service'
+include 'payment-service'
+include 'product-service'
+include 'settlement-service'
+include 'user-service'

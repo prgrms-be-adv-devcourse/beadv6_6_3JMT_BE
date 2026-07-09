@@ -5,11 +5,13 @@ ARG MODULE_PATH
 
 WORKDIR /workspace
 
-COPY common-module ./common-module
-COPY ${MODULE_PATH} ./${MODULE_PATH}
+# 멀티모듈 루트 settings.gradle 이 전체 모듈을 include 하므로 소스 전체를 복사한다.
+# 일부 모듈만 복사하면 컨테이너에 없는 모듈 디렉토리에서 Gradle 설정이 실패한다.
+# (.dockerignore 가 .git·.idea·docs·style·**/build·**/.gradle 을 제외한다)
+COPY . .
 
-RUN chmod +x ./${MODULE_PATH}/gradlew
-RUN ./${MODULE_PATH}/gradlew -p ./${MODULE_PATH} clean bootJar --no-daemon
+RUN chmod +x gradlew
+RUN ./gradlew :${MODULE_PATH}:bootJar --no-daemon
 
 FROM eclipse-temurin:21-jre
 

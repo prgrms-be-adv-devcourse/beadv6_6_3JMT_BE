@@ -1,0 +1,47 @@
+apply plugin: 'com.google.protobuf'
+
+dependencies {
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+
+    // gRPC (버전은 Boot BOM의 grpc-bom이 관리)
+    implementation 'io.grpc:grpc-protobuf'
+    implementation 'io.grpc:grpc-stub'
+    implementation 'com.google.protobuf:protobuf-java'
+    runtimeOnly 'io.grpc:grpc-netty-shaded'
+    compileOnly 'org.apache.tomcat:annotations-api:6.0.53'
+
+    // QueryDSL
+    implementation 'com.querydsl:querydsl-jpa:5.1.0:jakarta'
+    annotationProcessor 'com.querydsl:querydsl-apt:5.1.0:jakarta'
+    annotationProcessor 'jakarta.annotation:jakarta.annotation-api'
+    annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
+
+    // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.grpc:grpc-inprocess'
+    testRuntimeOnly 'com.h2database:h2'
+}
+
+tasks.named('test') {
+    jvmArgs = ['-Dspring.profiles.active=test']
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${protobufVersion}"
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+        }
+    }
+    generateProtoTasks {
+        all().each { task ->
+            task.plugins {
+                grpc {}
+            }
+        }
+    }
+}

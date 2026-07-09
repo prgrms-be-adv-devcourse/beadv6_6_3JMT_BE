@@ -2,6 +2,9 @@
 
 **Base:** `http://localhost:8081/api/v1`
 
+> ⚠ `api/v1`은 세미 프로젝트 완성 스냅샷(`v1.0.0` 태그) 기준 경로다. 최종 프로젝트에서
+> `api/v2`로 전환 예정이며 별도 이슈로 진행한다(`docs/adr/config-management.md` §10).
+
 ## 공통 사항
 
 - 인증이 필요한 엔드포인트는 `Authorization: Bearer {accessToken}` 헤더 필요
@@ -331,7 +334,6 @@
       "sellerNickname": "프롬작가",
       "averageRating": 4.7,
       "salesCount": 128,
-      "category": "marketing",
       "model": "GPT-4",
       "addedAt": "2025-03-01T12:00:00Z"
     }
@@ -356,7 +358,6 @@
 | sellerNickname | string | 판매자 닉네임 |
 | averageRating | number | 평균 별점 |
 | salesCount | integer | 판매 수량 (UI PromptCard 표시용) |
-| category | string | 카테고리 (UI PromptCard 표시용) |
 | model | string | AI 모델 (UI PromptCard 표시용) |
 | addedAt | string | 찜 등록일시 (ISO 8601) |
 | meta.page | integer | 현재 페이지 번호 |
@@ -693,7 +694,7 @@
 
 ## product-service 연동 — Kafka 이벤트 구독 스펙
 
-> 찜 목록 응답에 `salesCount`, `category`, `model`, `icon` 필드를 포함하기 위해  
+> 찜 목록 응답에 `salesCount`, `model` 필드를 포함하기 위해  
 > user-service는 product-service가 발행하는 아래 이벤트를 구독한다.
 
 ### 요청 토픽: `product.created` / `product.updated`
@@ -710,7 +711,6 @@
   "title": "...",
   "price": 9900,
   "thumbnailUrl": "...",
-  "category": "marketing",
   "model": "GPT-4",
   "salesCount": 0,
   "averageRating": 0.0,
@@ -727,7 +727,6 @@
 | title | string | 상품명 |
 | price | integer | 가격 |
 | thumbnailUrl | string \| null | 썸네일 이미지 URL |
-| category | string | 카테고리 |
 | model | string | AI 모델 |
 | salesCount | integer | 판매 수량 |
 | averageRating | number | 평균 별점 |

@@ -1,0 +1,129 @@
+plugins {
+    id 'org.springframework.boot' version '4.1.0' apply false
+    id 'io.spring.dependency-management' version '1.1.7' apply false
+    id 'com.google.protobuf' version '0.9.6' apply false
+}
+
+allprojects {
+    group   = 'com.prompthub'
+    version = '0.0.1-SNAPSHOT'
+
+    ext {
+        springCloudVersion = '2025.1.2'
+        // grpcVersion/protobufVersion은 protobuf{} 코드젠 아티팩트(protoc, protoc-gen-grpc-java) 전용.
+        // 의존성 버전은 Boot BOM(grpc-bom, protobuf-bom)이 관리하므로 Boot 업그레이드 시 BOM과 같이 올릴 것.
+        grpcVersion        = '1.80.0'  // = Boot 4.1.0 BOM grpc-java.version
+        protobufVersion    = '4.34.2'  // = Boot 4.1.0 BOM protobuf-java.version
+        springdocVersion   = '3.0.0'
+    }
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+        systemProperty 'spring.cloud.config.enabled', 'false'
+        systemProperty 'spring.cloud.config.fail-fast', 'false'
+    }
+
+    dependencies {
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+}
+
+// ── Spring Boot 앱 8개 (common-module 제외, apigateway 제외) ──────────────────────────────────
+configure([
+    project(':admin-service'),
+    project(':config'),
+    project(':discovery'),
+    project(':order-service'),
+    project(':payment-service'),
+    project(':product-service'),
+    project(':settlement-service'),
+    project(':user-service')
+]) {
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
+
+    dependencyManagement {
+        imports {
+            mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+        }
+    }
+
+    dependencies {
+        implementation 'org.springframework.boot:spring-boot-starter-actuator'
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    }
+}
+
+// ── 비즈니스 서비스 6개 ──────────────────────────────────────────────────────
+configure([
+    project(':admin-service'),
+    project(':order-service'),
+    project(':payment-service'),
+    project(':product-service'),
+    project(':settlement-service'),
+    project(':user-service')
+]) {
+    apply plugin: 'checkstyle'
+
+    checkstyle {
+        configFile = file("${rootProject.projectDir}/style/checkstyle/prompthub-checkstyle-rules.xml")
+        toolVersion = '10.12.0'
+        ignoreFailures = true
+    }
+
+    tasks.named('checkstyleTest') {
+        enabled = false
+    }
+
+    dependencies {
+        implementation project(':common-module')
+
+        compileOnly 'org.projectlombok:lombok'
+        annotationProcessor 'org.projectlombok:lombok'
+        testCompileOnly 'org.projectlombok:lombok'
+        testAnnotationProcessor 'org.projectlombok:lombok'
+//        // 👈 테스트 환경용 인메모리 데이터베이스 추가
+//        testRuntimeOnly 'com.h2database:h2'
+
+        implementation 'org.springframework.boot:spring-boot-starter-web'
+        implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+        testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+        testImplementation 'org.springframework.boot:spring-boot-webmvc-test'
+        runtimeOnly    'org.postgresql:postgresql'
+        testRuntimeOnly 'com.h2database:h2'
+        implementation 'org.springframework.boot:spring-boot-starter-validation'
+        implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+        implementation 'org.springframework.cloud:spring-cloud-starter-config'
+        implementation 'org.springframework.retry:spring-retry'
+        implementation 'org.springframework:spring-aspects'
+
+    }
+}
+
+// ── Kafka 사용 서비스 4개 (user-service는 이벤트 미사용) ────────────────────
+configure([
+    project(':order-service'),
+    project(':payment-service'),
+    project(':product-service'),
+    project(':settlement-service')
+]) {
+    dependencies {
+        implementation 'org.springframework.boot:spring-boot-starter-kafka'
+        testImplementation 'org.springframework.kafka:spring-kafka-test'
+    }
+}

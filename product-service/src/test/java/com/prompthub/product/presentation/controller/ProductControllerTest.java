@@ -56,13 +56,13 @@ class ProductControllerTest {
 		@Test
 		@DisplayName("로그인 없이 상품 목록을 조회한다")
 		void getProducts_success() throws Exception {
-			ProductListItemResponse item = productListItemResponse(PRODUCT_ID, "coding");
-			given(productQueryUseCase.getProducts("react", "coding", "popular", 1, 8))
+			ProductListItemResponse item = productListItemResponse(PRODUCT_ID, "PROMPT");
+			given(productQueryUseCase.getProducts("react", "PROMPT", "popular", 1, 8))
 				.willReturn(PageResponse.success(List.of(item), 1, 8, 1, false));
 
 			mockMvc.perform(get("/api/v1/products")
 					.param("q", "react")
-					.param("category", "coding")
+					.param("productType", "PROMPT")
 					.param("sort", "popular")
 					.param("page", "1")
 					.param("size", "8"))
@@ -70,7 +70,8 @@ class ProductControllerTest {
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.message").value("success"))
 				.andExpect(jsonPath("$.data[0].id").value(PRODUCT_ID.toString()))
-				.andExpect(jsonPath("$.data[0].category").value("coding"))
+				.andExpect(jsonPath("$.data[0].productType").value("PROMPT"))
+				.andExpect(jsonPath("$.data[0].tags[0]").value("리액트"))
 				.andExpect(jsonPath("$.meta.page").value(1))
 				.andExpect(jsonPath("$.meta.size").value(8));
 		}
@@ -91,7 +92,8 @@ class ProductControllerTest {
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.data.id").value(PRODUCT_ID.toString()))
 				.andExpect(jsonPath("$.data.title").value("리액트 컴포넌트 리팩터링 도우미"))
-				.andExpect(jsonPath("$.data.category").value("coding"))
+				.andExpect(jsonPath("$.data.productType").value("PROMPT"))
+				.andExpect(jsonPath("$.data.tags[0]").value("리액트"))
 				.andExpect(jsonPath("$.data.versions[0].ver").value("v1.3"));
 		}
 
@@ -126,7 +128,7 @@ class ProductControllerTest {
 		@Test
 		@DisplayName("로그인 없이 연관 상품을 조회한다")
 		void getRelatedProducts_success() throws Exception {
-			ProductListItemResponse item = productListItemResponse(PRODUCT_ID, "coding");
+			ProductListItemResponse item = productListItemResponse(PRODUCT_ID, "PROMPT");
 			given(productQueryUseCase.getRelatedProducts(PRODUCT_ID, 4)).willReturn(List.of(item));
 
 			mockMvc.perform(get("/api/v1/products/{productId}/related", PRODUCT_ID))
@@ -174,13 +176,11 @@ class ProductControllerTest {
 		}
 	}
 
-	private ProductListItemResponse productListItemResponse(UUID productId, String category) {
+	private ProductListItemResponse productListItemResponse(UUID productId, String productType) {
 		return new ProductListItemResponse(
 			productId,
 			"리액트 컴포넌트 리팩터링 도우미",
-			category,
-			"coding",
-			"PROMPT",
+			productType,
 			"GPT-4o",
 			7900,
 			null,
@@ -191,6 +191,7 @@ class ProductControllerTest {
 			null,
 			"컴포넌트 분리, 상태 정리, 타입 개선",
 			null,
+			List.of("리액트", "리팩터링"),
 			CREATED_AT,
 			UPDATED_AT
 		);
@@ -200,8 +201,6 @@ class ProductControllerTest {
 		return new ProductDetailResponse(
 			PRODUCT_ID,
 			"리액트 컴포넌트 리팩터링 도우미",
-			"coding",
-			"coding",
 			"PROMPT",
 			"GPT-4o",
 			7900,
@@ -215,6 +214,7 @@ class ProductControllerTest {
 			"컴포넌트 분리, 상태 정리, 타입 개선",
 			null,
 			"[리액트 컴포넌트 리팩터링 도우미]\n\n전체 내용은 구매 후 확인할 수 있습니다.",
+			List.of("리액트", "리팩터링"),
 			List.of(new ProductVersionResponse("v1.3", "2026-06-01", "테스트 개선")),
 			List.of(),
 			CREATED_AT,

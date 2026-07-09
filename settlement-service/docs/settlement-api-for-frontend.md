@@ -5,6 +5,20 @@
 
 > 이 문서는 실제 컨트롤러·DTO·enum 코드를 기준으로 작성됐다. 백엔드 코드가 바뀌면 같이 갱신한다.
 
+> **파이널 변경 예정 (아직 미적용 — 현재 스펙은 아래 그대로 유효)**
+>
+> - 관리자 API(§2-A `/admin/settlements`, §2-C `/admin/settlements/batch`)는 어드민 모듈
+>   (admin-service)로 이관 예정이다. 이관되면 base URL·prefix 가 admin-service 기준으로 바뀐다.
+>   판매자 API(§2-B)는 **유저(셀러) 모듈로 이관 예정**이다(#236 — 운영 단일 진실 seller_settlement).
+>   (`architecture/admin-module-separation.md`, `trade-offs/seller-settlement-separation.md`)
+> - **상태 모델이 이중상태(`SettlementStatus`×`PayoutStatus`)에서 `SettlementDisplayStatus` 7값
+>   단일로 바뀔 예정이다.** 이관 후 어드민·셀러 응답은 표시상태(7값) 하나만 노출하고, 아래에
+>   서술된 raw 이중상태(`settlementStatus`/`payoutStatus`) 조합·노출은 정리된다.
+>   (`trade-offs/seller-settlement-separation.md`)
+> - 배치잡 수동 실행(C-1)은 **즉시 실행 → 시간 지정 예약 실행**으로 바뀔 예정이다. 예약
+>   접수·상태 조회는 admin-service 의 새 API 가 맡고(요청에 실행 시각 추가), 기존 즉시 실행
+>   API 는 배치 테스트용으로 정산에 남는다. 설계 후 이 문서에 반영한다. (`final-roadmap.md` §2)
+
 ---
 
 ## 0. 기본 정보

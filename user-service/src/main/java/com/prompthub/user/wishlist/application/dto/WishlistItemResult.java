@@ -12,7 +12,6 @@ public record WishlistItemResult(
         String sellerNickname,
         double averageRating,
         long salesCount,
-        String category,
         String model,
         LocalDateTime addedAt
 ) {

@@ -19,7 +19,7 @@ public record ProductCartSnapshotResponse(
 			product.getId(),
 			product.getSellerId(),
 			product.getName(),
-			product.getProductType(),
+			product.getProductType().name(),
 			product.getAmount(),
 			product.getThumbnailUrl(),
 			sellerNickname,

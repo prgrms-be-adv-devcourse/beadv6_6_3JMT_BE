@@ -1,60 +1,17 @@
 # Order Service 상세 유즈케이스
 
-`docs/architecture/order-usecase.md`의 유즈케이스 다이어그램을 기준으로 각 UC의 상세 흐름을 정리한다. API 경로와 이벤트명은 `docs/api-spec/order.md`, `docs/api-spec/payment.md`를 따른다. 각 UC의 흐름 다이어그램은 Mermaid `sequenceDiagram`으로 표현한다.
+이 문서는 현재 `order-service` 구현을 기준으로 장바구니, 주문, 구매 콘텐츠, 결제 이벤트, 관리자 조회 흐름을 정리한다. 공개 API 경로는 `docs/api-spec/order.md`와 동일하게 실제 컨트롤러의 `/api/v1/...` 경로를 사용한다.
 
 ## UC-CART-01 장바구니 조회
 
 | 항목 | 내용 |
 |------|------|
 | 주 액터 | 구매자 |
-| 목표 | 구매자가 자신의 장바구니 상품 목록과 합계 금액을 확인한다. |
-| API | `GET /cart` |
-| 사전조건 | 구매자가 인증되어 있고 Gateway가 `X-User-Id`, `X-User-Role`을 전달한다. |
-| 완료 조건 | 구매자 기준 장바구니, 장바구니 항목, 상품 스냅샷 정보가 응답된다. |
-
-흐름 다이어그램:
-
-```mermaid
-sequenceDiagram
-    actor Buyer as 구매자
-    participant Gateway as API Gateway
-    participant Order as Order Service
-    participant DB as Order DB
-
-    Buyer->>Gateway: GET /cart
-    Gateway->>Order: X-User-Id 전달
-    Order->>DB: 구매자 장바구니와 항목 조회
-    DB-->>Order: cart, cart_product 목록
-    Order->>Order: 합계 금액과 상품 수 구성
-    Order-->>Buyer: 장바구니 조회 응답
-```
-
-기본 흐름:
-
-1. 구매자가 장바구니 조회를 요청한다.
-2. Order Service는 요청 헤더의 구매자 ID를 확인한다.
-3. 구매자 소유 장바구니와 장바구니 항목을 조회한다.
-4. 각 항목의 상품명, 상품 유형, 가격, 썸네일, 판매자 정보, 판매 상태를 응답 모델로 구성한다.
-5. 전체 금액과 전체 상품 수를 함께 반환한다.
-
-대안/예외:
-
-- 장바구니가 없거나 항목이 없으면 빈 상품 목록과 합계 `0`을 반환하는 정책을 기본으로 한다.
-- 인증 헤더가 없거나 유효하지 않으면 Gateway 또는 공통 예외 처리에서 인증 오류로 응답한다.
-
-## UC-CART-02 장바구니 상품 담기
-
-| 항목 | 내용 |
-|------|------|
-| 주 액터 | 구매자 |
 | 보조 액터 | Product Service |
-| 목표 | 구매자가 판매 중인 상품을 자신의 장바구니에 담는다. |
-| API | `POST /cart/products` |
-| 포함 UC | 상품 주문 스냅샷 조회 |
-| 사전조건 | 구매자가 인증되어 있고 요청 본문에 `productId`가 있다. |
-| 완료 조건 | 장바구니 항목이 생성되고 갱신된 장바구니 요약이 응답된다. |
-
-흐름 다이어그램:
+| API | `GET /api/v1/cart/products` |
+| 목표 | 구매자가 자신의 장바구니 상품 목록과 합계 금액을 확인한다. |
+| 사전조건 | Gateway가 `X-User-Id`를 전달한다. |
+| 완료 조건 | 장바구니 요약과 상품 스냅샷 목록이 반환된다. |
 
 ```mermaid
 sequenceDiagram
@@ -64,43 +21,76 @@ sequenceDiagram
     participant Product as Product Service
     participant DB as Order DB
 
-    Buyer->>Gateway: POST /cart/products
-    Gateway->>Order: productId, X-User-Id 전달
-    Order->>Product: 상품 주문 스냅샷 조회
-    Product-->>Order: 상품 상태와 가격 스냅샷
-    Order->>Order: ON_SALE 및 중복 여부 확인
-    Order->>DB: 장바구니 생성 또는 항목 추가
-    DB-->>Order: 갱신된 장바구니
-    Order-->>Buyer: 장바구니 담기 응답
+    Buyer->>Gateway: GET /api/v1/cart/products
+    Gateway->>Order: X-User-Id 전달
+    Order->>DB: 구매자 장바구니와 항목 조회
+    alt 장바구니 항목 있음
+        Order->>Product: 상품 장바구니 스냅샷 목록 조회
+        Product-->>Order: 상품명, 가격, 판매자, 상태
+        Order->>Order: totalAmount, totalItemCount 계산
+    else 장바구니 없음 또는 항목 없음
+        Order->>Order: 빈 목록과 합계 0 구성
+    end
+    Order-->>Buyer: 장바구니 응답
 ```
 
 기본 흐름:
 
-1. 구매자가 상품 ID로 장바구니 담기를 요청한다.
-2. Order Service는 Product Service에 상품 주문 스냅샷을 조회한다.
-3. 상품이 `ON_SALE` 상태인지 확인한다.
-4. 구매자 장바구니가 없으면 생성한다.
-5. 동일 상품이 이미 장바구니에 있는지 확인한다.
-6. 장바구니 항목을 추가하고 장바구니 합계 금액과 상품 수를 갱신한다.
-7. 생성된 장바구니 항목과 갱신된 요약 정보를 반환한다.
+1. Order Service는 구매자 ID로 장바구니와 항목을 조회한다.
+2. 장바구니가 없으면 `cartId: null`, 빈 목록, 합계 `0`을 반환한다.
+3. 항목이 있으면 Product Service에서 상품 스냅샷을 조회한다.
+4. 상품 스냅샷과 장바구니 항목을 합쳐 `CartResponse`를 만든다.
 
 대안/예외:
 
-- 상품이 존재하지 않거나 판매 중이 아니면 장바구니에 담지 않는다.
-- 동일 상품이 이미 장바구니에 있으면 중복 추가를 거부한다.
-- Product Service 스냅샷 응답이 유효하지 않으면 실패 처리한다.
+- Product Service 응답에서 필요한 상품 스냅샷이 누락되면 `SYS002`로 실패한다.
+- 인증/권한 헤더가 없거나 유효하지 않으면 인증 또는 권한 오류로 응답한다.
+
+## UC-CART-02 장바구니 상품 추가
+
+| 항목 | 내용 |
+|------|------|
+| 주 액터 | 구매자 |
+| 보조 액터 | Product Service |
+| API | `POST /api/v1/cart/products` |
+| 목표 | 구매자가 판매 중인 상품을 장바구니에 담는다. |
+| 사전조건 | 요청 본문에 `productId`가 있다. |
+| 완료 조건 | 장바구니 항목이 생성되고 추가된 상품 스냅샷이 반환된다. |
+
+```mermaid
+sequenceDiagram
+    actor Buyer as 구매자
+    participant Gateway as API Gateway
+    participant Order as Order Service
+    participant Product as Product Service
+    participant DB as Order DB
+
+    Buyer->>Gateway: POST /api/v1/cart/products
+    Gateway->>Order: productId, X-User-Id 전달
+    Order->>Product: 상품 장바구니 스냅샷 조회
+    Product-->>Order: 상품 상태와 표시 정보
+    Order->>Order: ON_SALE 검증
+    Order->>DB: 구매자 장바구니 조회 또는 생성
+    Order->>Order: 동일 상품 중복 확인
+    Order->>DB: cart_product 추가 및 저장
+    Order-->>Buyer: 추가된 장바구니 상품 응답
+```
+
+대안/예외:
+
+- 상품 상태가 `ON_SALE`이 아니면 `O003`으로 거부한다.
+- 이미 담긴 상품이면 `C001`로 거부한다.
+- Product Service를 사용할 수 없으면 `SYS002`로 응답한다.
 
 ## UC-CART-03 장바구니 상품 삭제
 
 | 항목 | 내용 |
 |------|------|
 | 주 액터 | 구매자 |
-| 목표 | 구매자가 자신의 장바구니에서 특정 상품을 제거한다. |
-| API | `DELETE /cart/products/{cartProductId}` |
-| 사전조건 | 구매자가 인증되어 있고 `cartProductId`가 존재한다. |
-| 완료 조건 | 대상 장바구니 항목이 삭제되고 장바구니 합계가 갱신된다. |
-
-흐름 다이어그램:
+| API | `DELETE /api/v1/cart/products/{cartProductId}` |
+| 목표 | 구매자가 자신의 장바구니 상품을 삭제한다. |
+| 사전조건 | `cartProductId`가 존재한다. |
+| 완료 조건 | 대상 장바구니 항목이 삭제된다. |
 
 ```mermaid
 sequenceDiagram
@@ -109,28 +99,18 @@ sequenceDiagram
     participant Order as Order Service
     participant DB as Order DB
 
-    Buyer->>Gateway: DELETE /cart/products/{cartProductId}
+    Buyer->>Gateway: DELETE /api/v1/cart/products/{cartProductId}
     Gateway->>Order: cartProductId, X-User-Id 전달
-    Order->>DB: 장바구니 항목 조회
-    DB-->>Order: cart_product
+    Order->>DB: 장바구니 항목과 장바구니 조회
     Order->>Order: 구매자 소유 여부 확인
-    Order->>DB: 항목 삭제 및 합계 갱신
-    Order-->>Buyer: 삭제 성공 응답
+    Order->>DB: cart_product 제거 및 저장
+    Order-->>Buyer: 성공 응답
 ```
-
-기본 흐름:
-
-1. 구매자가 장바구니 항목 삭제를 요청한다.
-2. Order Service는 장바구니 항목을 조회한다.
-3. 해당 항목이 요청한 구매자의 장바구니에 속하는지 확인한다.
-4. 장바구니 항목을 삭제한다.
-5. 장바구니 합계 금액과 상품 수를 갱신한다.
-6. 성공 응답을 반환한다.
 
 대안/예외:
 
-- 장바구니 항목이 없으면 `CART_PRODUCT_NOT_FOUND` 계열 오류로 응답한다.
-- 다른 구매자의 장바구니 항목이면 접근 거부로 응답한다.
+- 항목이 없으면 `O006`으로 응답한다.
+- 다른 구매자의 장바구니 항목이면 `C003`으로 응답한다.
 
 ## UC-ORDER-01 주문 생성
 
@@ -138,13 +118,10 @@ sequenceDiagram
 |------|------|
 | 주 액터 | 구매자 |
 | 보조 액터 | Product Service |
-| 목표 | 구매자가 단건 또는 복수 상품에 대한 결제 대기 주문을 생성한다. |
-| API | `POST /orders` |
-| 포함 UC | 상품 주문 스냅샷 조회, 주문/주문항목 PENDING 생성 |
-| 사전조건 | 구매자가 인증되어 있고 `productId` 또는 `productIds` 중 하나를 전달한다. |
-| 완료 조건 | `PENDING` 상태의 주문과 주문항목이 생성되고 `orderId`가 반환된다. |
-
-흐름 다이어그램:
+| API | `POST /api/v1/orders` |
+| 목표 | 상품 ID 목록으로 결제 대기 주문을 생성한다. |
+| 사전조건 | `productIds`가 비어 있지 않다. |
+| 완료 조건 | `PENDING` 주문과 주문 상품이 생성되고 `CreateOrderResponse`가 반환된다. |
 
 ```mermaid
 sequenceDiagram
@@ -154,46 +131,35 @@ sequenceDiagram
     participant Product as Product Service
     participant DB as Order DB
 
-    Buyer->>Gateway: POST /orders
-    Gateway->>Order: productId 또는 productIds 전달
-    Order->>Order: 상품 ID 정규화 및 중복 검증
-    Order->>Product: 상품 주문 스냅샷 조회
-    Product-->>Order: 상품별 판매자, 유형, 가격
-    Order->>Order: 주문 번호와 총 금액 계산
+    Buyer->>Gateway: POST /api/v1/orders
+    Gateway->>Order: productIds, X-User-Id 전달
+    Order->>Order: 요청 검증
+    Order->>Product: 주문 상품 스냅샷 목록 조회
+    Product-->>Order: 판매자, 상품명, 유형, 모델, 가격
+    Order->>Order: 응답 수와 요청 수 검증
+    Order->>Order: 주문번호, 총 금액, 총 상품 수 계산
     Order->>DB: order PENDING 저장
-    Order->>DB: order_product PENDING 저장
-    Order-->>Buyer: orderId 응답
+    loop 상품 스냅샷별
+        Order->>DB: order_product PENDING 저장
+    end
+    Order-->>Buyer: 주문 생성 응답
 ```
-
-기본 흐름:
-
-1. 구매자가 단건 상품 ID 또는 복수 상품 ID로 주문 생성을 요청한다.
-2. Order Service는 요청 상품 ID 목록을 정규화하고 중복 여부를 검증한다.
-3. Product Service에 주문용 상품 스냅샷을 조회한다.
-4. 조회된 상품 수와 요청 상품 수가 일치하는지 확인한다.
-5. 상품별 판매자 ID, 상품명, 상품 유형, 가격 스냅샷을 확보한다.
-6. 주문 번호를 생성하고 총 주문 금액과 총 상품 수를 계산한다.
-7. `order`를 `PENDING` 상태로 생성한다.
-8. 각 상품에 대한 `order_product`를 `PENDING` 상태로 생성한다.
-9. 생성된 주문 ID를 반환한다.
 
 대안/예외:
 
-- 요청 상품 ID가 비어 있거나 중복되면 입력 오류로 응답한다.
-- 상품 스냅샷이 누락되거나 유효하지 않으면 주문 생성을 중단한다.
-- 상품 가격 또는 판매 상태가 주문 가능 조건을 만족하지 않으면 주문을 생성하지 않는다.
+- `productIds`가 비어 있거나 null 항목이 있으면 `V001`로 응답한다.
+- Product Service 스냅샷이 요청 상품 수와 맞지 않으면 주문 생성을 중단한다.
+- 주문 생성 응답에는 주문 상품 스냅샷 필드와 `totalAmount`, `createdAt`, `canceledAt`이 포함된다.
 
 ## UC-ORDER-02 내 주문 목록 조회
 
 | 항목 | 내용 |
 |------|------|
 | 주 액터 | 구매자 |
-| 목표 | 구매자가 자신의 주문과 주문항목 이력을 조건별로 조회한다. |
-| API | `GET /orders` |
+| API | `GET /api/v1/orders` |
+| 목표 | 구매자가 자신의 주문 상품 목록을 조건별로 조회한다. |
 | 사전조건 | 구매자가 인증되어 있다. |
-| 완료 조건 | 구매자 소유 주문 목록과 페이지 메타 정보가 반환된다. |
-
-흐름 다이어그램:
+| 완료 조건 | 주문 상품 row 기준 페이지 응답이 반환된다. |
 
 ```mermaid
 sequenceDiagram
@@ -202,82 +168,28 @@ sequenceDiagram
     participant Order as Order Service
     participant DB as Order DB
 
-    Buyer->>Gateway: GET /orders
-    Gateway->>Order: 조회 조건과 X-User-Id 전달
-    Order->>DB: 구매자 주문 목록 조건 조회
-    DB-->>Order: 주문과 주문항목 목록
-    Order->>Order: 결제 시각, 리뷰 평점, 페이지 메타 구성
-    Order-->>Buyer: 내 주문 목록 응답
+    Buyer->>Gateway: GET /api/v1/orders
+    Gateway->>Order: X-User-Id, page, size, status, from, to 전달
+    Order->>Order: 페이지와 기간 조건 검증
+    Order->>DB: 구매자 주문 상품 목록 조건 조회
+    DB-->>Order: 주문 상품 projection 페이지
+    Order-->>Buyer: PageResponse<OrderListResponse>
 ```
-
-기본 흐름:
-
-1. 구매자가 페이지, 크기, 상태, 기간 조건으로 주문 목록을 요청한다.
-2. Order Service는 요청 헤더의 구매자 ID를 기준으로 조회 범위를 제한한다.
-3. 주문 상태와 기간 조건을 적용한다.
-4. 주문과 주문항목, 결제 완료 시각, 리뷰 평점 여부를 목록 응답으로 구성한다.
-5. 페이지 메타 정보와 함께 반환한다.
 
 대안/예외:
 
-- 조건에 맞는 주문이 없으면 빈 목록과 페이지 메타 정보를 반환한다.
-- 허용되지 않은 상태값이나 잘못된 기간 형식은 입력 오류로 처리한다.
+- `page < 1`, `size < 1`, `size > 100`, `from > to`이면 `V001`로 응답한다.
+- 조건에 맞는 항목이 없으면 빈 목록과 페이지 메타를 반환한다.
 
 ## UC-ORDER-03 주문 상세 조회
 
 | 항목 | 내용 |
 |------|------|
-| 주 액터 | 구매자, 관리자 |
-| 목표 | 주문 단위의 상태, 금액, 항목, 콘텐츠 열람 가능 여부를 확인한다. |
-| API | `GET /orders/{orderId}` |
-| 사전조건 | 요청자가 인증되어 있고 주문 조회 권한을 가진다. |
-| 완료 조건 | 주문 상세와 주문항목 목록이 반환된다. |
-
-흐름 다이어그램:
-
-```mermaid
-sequenceDiagram
-    participant Requester as 요청자
-    participant Gateway as API Gateway
-    participant Order as Order Service
-    participant DB as Order DB
-
-    Requester->>Gateway: GET /orders/:orderId
-    Gateway->>Order: orderId, 인증 헤더 전달
-    Order->>DB: 주문과 주문항목 조회
-    DB-->>Order: order, order_product 목록
-    Order->>Order: 역할별 접근 범위 확인
-    Order->>Order: 취소 가능 여부와 콘텐츠 가능 여부 계산
-    Order-->>Requester: 주문 상세 응답
-```
-
-기본 흐름:
-
-1. 액터가 주문 ID로 상세 조회를 요청한다.
-2. Order Service는 주문과 주문항목을 조회한다.
-3. 구매자 요청이면 주문의 `buyer_id`와 요청자 ID가 일치하는지 확인한다.
-4. 관리자 요청이면 관리자 권한을 확인한다.
-5. 주문 상태, 결제/취소/환불 시각, 취소 가능 여부, 다운로드 여부를 계산한다.
-6. 주문항목별 상품 스냅샷, 항목 상태, 열람 여부, 콘텐츠 열람 가능 여부를 구성한다.
-7. 주문 상세 응답을 반환한다.
-
-대안/예외:
-
-- 주문이 없으면 `ORDER_NOT_FOUND` 계열 오류로 응답한다.
-- 조회 권한이 없으면 접근 거부로 응답한다.
-
-## UC-ORDER-04 구매 상품 콘텐츠 열람
-
-| 항목 | 내용 |
-|------|------|
 | 주 액터 | 구매자 |
-| 목표 | 결제 완료된 주문항목의 구매 콘텐츠를 열람한다. |
-| API | `GET /orders/{orderId}/content/{orderProductId}` |
-| 포함 UC | PAID 상태 확인, 주문항목 다운로드 처리 |
-| 사전조건 | 구매자가 인증되어 있고 주문과 주문항목이 구매자 소유이다. |
-| 완료 조건 | 콘텐츠 열람 응답이 반환되고 최초 열람이면 `downloaded`가 `true`로 변경된다. |
-
-흐름 다이어그램:
+| API | `GET /api/v1/orders/{orderId}` |
+| 목표 | 주문 단위 상태, 금액, 주문 상품, 열람/환불 가능 여부를 확인한다. |
+| 사전조건 | 주문이 요청 구매자 소유이다. |
+| 완료 조건 | `OrderDetailResponse`가 반환된다. |
 
 ```mermaid
 sequenceDiagram
@@ -286,87 +198,97 @@ sequenceDiagram
     participant Order as Order Service
     participant DB as Order DB
 
-    Buyer->>Gateway: GET /orders/{orderId}/content/{orderProductId}
-    Gateway->>Order: 주문 ID, 주문항목 ID 전달
-    Order->>DB: 주문과 주문항목 조회
-    DB-->>Order: order, order_product
-    Order->>Order: 구매자 소유 및 PAID 상태 확인
-    alt 최초 열람
-        Order->>DB: downloaded = true 갱신
-    end
-    Order-->>Buyer: 콘텐츠 열람 응답
+    Buyer->>Gateway: GET /api/v1/orders/{orderId}
+    Gateway->>Order: orderId, X-User-Id 전달
+    Order->>DB: 주문과 주문 상품 조회
+    Order->>Order: 구매자 소유 여부 확인
+    Order->>Order: isContentAccessible, isRefundable, hasDownloadedProduct 계산
+    Order-->>Buyer: 주문 상세 응답
 ```
-
-기본 흐름:
-
-1. 구매자가 주문 ID와 주문항목 ID로 콘텐츠 열람을 요청한다.
-2. Order Service는 주문과 주문항목을 조회한다.
-3. 주문이 요청 구매자 소유인지 확인한다.
-4. 주문항목이 해당 주문에 속하는지 확인한다.
-5. 주문항목 상태가 `PAID`인지 확인한다.
-6. 최초 열람이면 주문항목의 `downloaded`를 `true`로 갱신한다.
-7. 주문 번호, 상품 ID, 열람 여부, 콘텐츠 접근 정보를 반환한다.
 
 대안/예외:
 
-- 주문 또는 주문항목이 없으면 조회 실패로 응답한다.
-- 구매자 소유가 아니면 접근 거부로 응답한다.
-- 주문항목이 `PAID`가 아니면 콘텐츠 열람을 허용하지 않는다.
+- 주문이 없으면 `O001`로 응답한다.
+- 다른 구매자의 주문이면 권한 오류로 응답한다.
 
-## UC-ORDER-05 리뷰 평점 생성/수정
+## UC-ORDER-04 구매 콘텐츠 열람
 
 | 항목 | 내용 |
 |------|------|
 | 주 액터 | 구매자 |
-| 목표 | 구매자가 구매한 상품에 대한 리뷰 평점을 생성하거나 수정한다. |
-| API | `POST /orders/review` |
-| 사전조건 | 구매자가 인증되어 있고 요청 본문에 `productId`, `rating`이 있다. |
-| 완료 조건 | 상품 리뷰 평점이 생성되거나 기존 평점이 갱신된다. |
-
-흐름 다이어그램:
+| 보조 액터 | Product Service |
+| API | `GET /api/v1/orders/{orderId}/content/{orderProductId}` |
+| 목표 | 결제 완료된 주문 상품의 콘텐츠 원문을 열람한다. |
+| 사전조건 | 주문과 주문 상품이 모두 `PAID` 상태이고 요청 구매자 소유이다. |
+| 완료 조건 | `OrderContentResponse`가 반환된다. |
 
 ```mermaid
 sequenceDiagram
     actor Buyer as 구매자
     participant Gateway as API Gateway
     participant Order as Order Service
-    participant DB as Order DB
     participant Product as Product Service
+    participant DB as Order DB
 
-    Buyer->>Gateway: POST /orders/review
-    Gateway->>Order: productId, rating 전달
-    Order->>DB: 구매자의 결제 완료 주문항목 조회
-    DB-->>Order: 구매 이력
-    Order->>Order: 평점 범위 확인
-    Order->>Product: 리뷰 평점 생성 또는 수정 요청
-    Product-->>Order: 처리 완료
-    Order-->>Buyer: 리뷰 평점 저장 응답
+    Buyer->>Gateway: GET /api/v1/orders/{orderId}/content/{orderProductId}
+    Gateway->>Order: orderId, orderProductId, X-User-Id 전달
+    Order->>DB: 주문과 주문 상품 조회
+    Order->>Order: 소유자, 주문 PAID, 주문 상품 PAID 검증
+    Order->>Product: 상품 콘텐츠 원문 조회
+    Product-->>Order: content
+    Order-->>Buyer: 콘텐츠 원문 응답
 ```
-
-기본 흐름:
-
-1. 구매자가 상품 ID와 평점으로 리뷰 평점 저장을 요청한다.
-2. Order Service는 구매자가 해당 상품을 결제 완료했는지 확인한다.
-3. 평점이 허용 범위 안에 있는지 확인한다.
-4. Order Service는 Product Service에 리뷰 평점 생성 또는 수정을 위임한다.
-5. 성공 응답을 반환한다.
 
 대안/예외:
 
-- 구매 이력이 없거나 결제 완료 상태가 아니면 리뷰 작성을 허용하지 않는다.
-- 평점이 허용 범위를 벗어나면 입력 오류로 응답한다.
+- 주문이 없으면 `O001`로 응답한다.
+- 주문 상품이 주문에 없거나 `PAID`가 아니면 `E001`로 응답한다.
+- 이 API는 `downloaded`를 변경하지 않는다. 다운로드 확정은 UC-ORDER-05가 담당한다.
 
-## UC-ORDER-06 결제 내역 조회
+## UC-ORDER-05 주문 상품 다운로드 확정
 
 | 항목 | 내용 |
 |------|------|
 | 주 액터 | 구매자 |
-| 목표 | 구매자가 주문항목 기준 결제 내역과 환불 여부를 조회한다. |
-| API | `GET /orders/payments` |
-| 사전조건 | 구매자가 인증되어 있다. |
-| 완료 조건 | 결제 ID, 결제 상태, 상품 정보, 금액, 결제 완료 시각이 목록으로 반환된다. |
+| 보조 액터 | Product Service |
+| API | `PATCH /api/v1/orders/{orderId}/products/{orderProductId}/download` |
+| 목표 | 구매자가 콘텐츠 열람/다운로드를 확정했음을 기록한다. |
+| 사전조건 | 주문과 주문 상품이 모두 `PAID` 상태이고 요청 구매자 소유이다. |
+| 완료 조건 | 주문 상품의 `downloaded`가 `true`가 되고 환불 가능 여부가 반환된다. |
 
-흐름 다이어그램:
+```mermaid
+sequenceDiagram
+    actor Buyer as 구매자
+    participant Gateway as API Gateway
+    participant Order as Order Service
+    participant Product as Product Service
+    participant DB as Order DB
+
+    Buyer->>Gateway: PATCH /api/v1/orders/{orderId}/products/{orderProductId}/download
+    Gateway->>Order: orderId, orderProductId, X-User-Id 전달
+    Order->>DB: 주문과 주문 상품 조회
+    Order->>Order: 소유자, 주문 PAID, 주문 상품 PAID 검증
+    Order->>Product: 상품 콘텐츠 조회로 접근 가능성 확인
+    Product-->>Order: content
+    Order->>DB: downloaded = true 저장
+    Order-->>Buyer: 다운로드 확정 응답
+```
+
+대안/예외:
+
+- 주문 상품이 없으면 `O012`로 응답한다.
+- 이미 다운로드 확정된 상품이면 값을 유지하고 성공 응답을 반환한다.
+- 다운로드 확정 이후 해당 주문 상품의 `isRefundable`은 false가 된다.
+
+## UC-ORDER-06 주문 결제 내역 조회
+
+| 항목 | 내용 |
+|------|------|
+| 주 액터 | 구매자 |
+| API | `GET /api/v1/orders/payments` |
+| 목표 | 구매자가 자신의 주문 결제 내역을 조회한다. |
+| 사전조건 | 구매자가 인증되어 있다. |
+| 완료 조건 | 결제 내역 페이지 응답이 반환된다. |
 
 ```mermaid
 sequenceDiagram
@@ -375,37 +297,63 @@ sequenceDiagram
     participant Order as Order Service
     participant DB as Order DB
 
-    Buyer->>Gateway: GET /orders/payments
-    Gateway->>Order: X-User-Id 전달
-    Order->>DB: 구매자 주문/주문항목 결제 내역 조회
-    DB-->>Order: 결제 내역 목록
-    Order->>Order: 결제 상태와 환불 여부 구성
-    Order-->>Buyer: 결제 내역 응답
+    Buyer->>Gateway: GET /api/v1/orders/payments
+    Gateway->>Order: X-User-Id, page, size 전달
+    Order->>Order: 페이지 조건 검증
+    Order->>DB: 구매자 결제 내역 조회
+    DB-->>Order: 결제 projection 페이지
+    Order->>Order: OrderStatus를 PaymentStatus로 변환
+    Order-->>Buyer: PageResponse<OrderPaymentListResponse>
 ```
-
-기본 흐름:
-
-1. 구매자가 결제 내역 목록을 요청한다.
-2. Order Service는 요청 구매자 기준으로 주문과 주문항목을 조회한다.
-3. 결제 상태, 환불 여부, 상품 유형, 상품명, 결제 금액, 결제 완료 시각을 구성한다.
-4. 페이지 메타 정보와 함께 반환한다.
 
 대안/예외:
 
-- 결제 내역이 없으면 빈 목록을 반환한다.
-- 다른 구매자의 결제 내역은 조회 범위에 포함하지 않는다.
+- 결제 내역이 없으면 빈 목록과 페이지 메타를 반환한다.
+- 현재 구현은 `PageRequestParams`의 `status`, `from`, `to`를 결제 내역 조회에 적용하지 않는다.
 
-## UC-ADMIN-01 전체 주문 관리 내역 조회
+## UC-ADMIN-01 전체 주문 관리 목록 조회
 
 | 항목 | 내용 |
 |------|------|
 | 주 액터 | 관리자 |
-| 목표 | 관리자가 전체 주문 현황을 상태별로 조회한다. |
-| API | `GET /admin/orders` |
-| 사전조건 | 요청자가 관리자 권한을 가진다. |
-| 완료 조건 | 전체 주문 관리 목록과 페이지 메타 정보가 반환된다. |
+| 보조 액터 | Seller Service |
+| API | `GET /api/v1/admin/orders` |
+| 목표 | 관리자가 전체 주문 목록을 상태별로 조회한다. |
+| 사전조건 | `X-User-Role`이 `ADMIN`이다. |
+| 완료 조건 | 관리자 주문 목록 페이지가 반환된다. |
 
-흐름 다이어그램:
+```mermaid
+sequenceDiagram
+    actor Admin as 관리자
+    participant Gateway as API Gateway
+    participant Order as Order Service
+    participant Seller as Seller Service
+    participant DB as Order DB
+
+    Admin->>Gateway: GET /api/v1/admin/orders
+    Gateway->>Order: X-User-Role, orderStatus, page, size 전달
+    Order->>Order: 관리자 권한 및 조회 조건 검증
+    Order->>DB: 전체 주문 목록 조회
+    DB-->>Order: 관리자 주문 projection 페이지
+    Order->>Seller: 판매자 닉네임 목록 조회
+    Seller-->>Order: sellerId별 닉네임
+    Order-->>Admin: 관리자 주문 목록 응답
+```
+
+대안/예외:
+
+- `orderStatus`가 `ALL`이면 상태 조건 없이 조회한다.
+- 판매자 닉네임을 찾을 수 없으면 `알 수 없음`을 사용한다.
+
+## UC-ADMIN-02 이번 달 실제 거래액 조회
+
+| 항목 | 내용 |
+|------|------|
+| 주 액터 | 관리자 |
+| API | `GET /api/v1/admin/orders/month` |
+| 목표 | 관리자가 이번 달 거래액 합계를 확인한다. |
+| 사전조건 | `X-User-Role`이 `ADMIN`이다. |
+| 완료 조건 | `monthlyTransactionAmount`가 반환된다. |
 
 ```mermaid
 sequenceDiagram
@@ -414,77 +362,29 @@ sequenceDiagram
     participant Order as Order Service
     participant DB as Order DB
 
-    Admin->>Gateway: GET /admin/orders
-    Gateway->>Order: 관리자 인증 헤더와 조회 조건 전달
+    Admin->>Gateway: GET /api/v1/admin/orders/month
+    Gateway->>Order: X-User-Role 전달
     Order->>Order: 관리자 권한 확인
-    Order->>DB: 전체 주문 상태별 조회
-    DB-->>Order: 주문 관리 목록
-    Order-->>Admin: 전체 주문 관리 응답
+    Order->>DB: 이번 달 시작부터 다음 달 시작 전까지 거래액 집계
+    DB-->>Order: 합계
+    Order-->>Admin: 월 거래액 응답
 ```
-
-기본 흐름:
-
-1. 관리자가 주문 상태, 페이지, 크기 조건으로 전체 주문 목록을 요청한다.
-2. Order Service는 관리자 권한을 확인한다.
-3. 상태 조건을 적용해 전체 주문을 조회한다.
-4. 판매자 닉네임, 상품명, 주문항목 수, 주문 금액, 주문 상태, 생성 시각을 구성한다.
-5. 페이지 메타 정보와 함께 반환한다.
 
 대안/예외:
 
-- 관리자 권한이 없으면 접근 거부로 응답한다.
-- 조건에 맞는 주문이 없으면 빈 목록을 반환한다.
-
-## UC-ADMIN-02 이번 달 거래액 조회
-
-| 항목 | 내용 |
-|------|------|
-| 주 액터 | 관리자 |
-| 목표 | 관리자가 이번 달 총 거래액을 확인한다. |
-| API | `GET /admin/orders/month` |
-| 사전조건 | 요청자가 관리자 권한을 가진다. |
-| 완료 조건 | 이번 달 총 거래액이 반환된다. |
-
-흐름 다이어그램:
-
-```mermaid
-sequenceDiagram
-    actor Admin as 관리자
-    participant Gateway as API Gateway
-    participant Order as Order Service
-    participant DB as Order DB
-
-    Admin->>Gateway: GET /admin/orders/month
-    Gateway->>Order: 관리자 인증 헤더 전달
-    Order->>Order: 관리자 권한 확인
-    Order->>DB: 이번 달 거래액 집계
-    DB-->>Order: 월 거래액 합계
-    Order-->>Admin: 이번 달 거래액 응답
-```
-
-기본 흐름:
-
-1. 관리자가 이번 달 거래액 조회를 요청한다.
-2. Order Service는 관리자 권한을 확인한다.
-3. 현재 월의 거래 대상 주문을 집계한다.
-4. 월 거래액 합계를 반환한다.
-
-대안/예외:
-
-- 집계 대상 주문이 없으면 `0`을 반환한다.
-- 관리자 권한이 없으면 접근 거부로 응답한다.
+- 집계 대상이 없으면 `0`을 반환한다.
 
 ## UC-ADMIN-03 최근 7일 거래량 조회
 
 | 항목 | 내용 |
 |------|------|
 | 주 액터 | 관리자 |
-| 목표 | 관리자가 최근 7일 거래 건수와 거래액 추이를 확인한다. |
-| API | `GET /admin/orders/weekend` |
-| 사전조건 | 요청자가 관리자 권한을 가진다. |
-| 완료 조건 | 최근 7일 합계와 일자별 거래 건수/거래액이 반환된다. |
+| API | `GET /api/v1/admin/orders/weekend` |
+| 목표 | 관리자가 최근 7일 거래 건수와 거래액을 일자별로 확인한다. |
+| 사전조건 | `X-User-Role`이 `ADMIN`이다. |
+| 완료 조건 | 전체 합계, 조회 기간, 일자별 거래량이 반환된다. |
 
-흐름 다이어그램:
+> 현재 구현 경로는 `/weekend`이다. 의미상 `/week`에 가깝지만 이 문서는 구현 경로를 우선한다.
 
 ```mermaid
 sequenceDiagram
@@ -493,191 +393,28 @@ sequenceDiagram
     participant Order as Order Service
     participant DB as Order DB
 
-    Admin->>Gateway: GET /admin/orders/weekend
-    Gateway->>Order: 관리자 인증 헤더 전달
+    Admin->>Gateway: GET /api/v1/admin/orders/weekend
+    Gateway->>Order: X-User-Role 전달
     Order->>Order: 관리자 권한 및 최근 7일 기간 산정
-    Order->>DB: 일자별 거래량과 거래액 집계
-    DB-->>Order: 일자별 집계 결과
+    Order->>DB: 기간 내 일자별 거래량 조회
+    DB-->>Order: 일자별 projection
+    Order->>Order: 누락 일자는 0으로 채우고 전체 합계 계산
     Order-->>Admin: 최근 7일 거래량 응답
 ```
 
-기본 흐름:
-
-1. 관리자가 최근 7일 거래량 조회를 요청한다.
-2. Order Service는 관리자 권한을 확인한다.
-3. 조회 시작일과 종료일을 산정한다.
-4. 기간 내 거래 건수와 거래액을 일자별로 집계한다.
-5. 전체 합계와 일자별 목록을 반환한다.
-
 대안/예외:
 
-- 특정 일자에 거래가 없으면 해당 일자의 거래 건수와 거래액은 `0`으로 집계한다.
-- 관리자 권한이 없으면 접근 거부로 응답한다.
-
-## UC-INT-01 상품 주문 스냅샷 조회
-
-| 항목 | 내용 |
-|------|------|
-| 주 액터 | Order Service |
-| 보조 액터 | Product Service |
-| 목표 | 주문과 장바구니에 필요한 상품 상태와 구매 시점 스냅샷을 확보한다. |
-| 사용 위치 | 장바구니 상품 담기, 주문 생성 |
-| 사전조건 | 상품 ID 목록이 있다. |
-| 완료 조건 | 상품 ID별 판매자 ID, 상품명, 상품 유형, 가격, 판매 상태가 확보된다. |
-
-흐름 다이어그램:
-
-```mermaid
-sequenceDiagram
-    participant Order as Order Service
-    participant Product as Product Service
-
-    Order->>Product: 상품 ID 목록으로 스냅샷 요청
-    Product->>Product: 상품 존재 여부와 판매 상태 확인
-    Product-->>Order: 상품별 판매자, 유형, 가격, 상태 반환
-    Order->>Order: 요청 수와 응답 수 검증
-    Order->>Order: 호출 UC에 스냅샷 전달
-```
-
-기본 흐름:
-
-1. Order Service가 Product Service에 상품 ID 목록을 전달한다.
-2. Product Service는 상품 존재 여부와 판매 상태를 확인한다.
-3. Product Service는 주문/장바구니에 필요한 상품 스냅샷을 반환한다.
-4. Order Service는 요청 상품 수와 응답 상품 수를 검증한다.
-5. Order Service는 반환된 스냅샷을 장바구니 또는 주문 생성에 사용한다.
-
-대안/예외:
-
-- 일부 상품이 없거나 판매 가능 상태가 아니면 호출 유즈케이스를 실패 처리한다.
-- 스냅샷에 가격, 판매자, 상품명 등 필수 값이 없으면 호출 유즈케이스를 실패 처리한다.
-
-## UC-INT-02 주문/주문항목 PENDING 생성
-
-| 항목 | 내용 |
-|------|------|
-| 주 액터 | Order Service |
-| 목표 | 결제 요청 전에 주문과 주문항목을 결제 대기 상태로 저장한다. |
-| 사용 위치 | 주문 생성 |
-| 사전조건 | 구매자 ID, 주문 번호, 상품 스냅샷, 총 금액, 총 상품 수가 준비되어 있다. |
-| 완료 조건 | `order`, `order_product`가 모두 `PENDING` 상태로 저장된다. |
-
-흐름 다이어그램:
-
-```mermaid
-sequenceDiagram
-    participant Order as Order Service
-    participant DB as Order DB
-
-    Order->>Order: 주문 번호 생성
-    Order->>Order: 총 주문 금액과 상품 수 계산
-    Order->>DB: order PENDING 저장
-    loop 상품 스냅샷별
-        Order->>DB: order_product PENDING 저장
-    end
-    DB-->>Order: 저장된 주문과 주문항목
-```
-
-기본 흐름:
-
-1. Order Service는 주문 번호를 생성한다.
-2. 상품 스냅샷 가격을 기준으로 총 주문 금액을 계산한다.
-3. 구매자 ID, 주문 번호, 총 금액, 총 상품 수로 주문을 생성한다.
-4. 각 상품 스냅샷으로 주문항목을 생성한다.
-5. 주문과 주문항목의 양방향 관계를 설정한다.
-6. 주문과 주문항목을 저장한다.
-
-대안/예외:
-
-- 주문 번호 생성에 실패하거나 중복되면 저장을 중단하고 재시도 또는 실패 처리한다.
-- 상품 스냅샷이 유효하지 않으면 주문과 주문항목을 생성하지 않는다.
-
-## UC-INT-03 PAID 상태 확인
-
-| 항목 | 내용 |
-|------|------|
-| 주 액터 | Order Service |
-| 목표 | 콘텐츠 열람 가능한 주문항목인지 확인한다. |
-| 사용 위치 | 구매 상품 콘텐츠 열람, 주문 상세 응답의 `contentAvailable` 산정 |
-| 사전조건 | 주문항목이 조회되어 있다. |
-| 완료 조건 | 주문항목이 `PAID`이면 열람 가능, 아니면 열람 불가로 판단한다. |
-
-흐름 다이어그램:
-
-```mermaid
-sequenceDiagram
-    participant Order as Order Service
-    participant Item as 주문항목
-
-    Order->>Item: order_product_status 확인
-    alt PAID
-        Item-->>Order: 콘텐츠 열람 가능
-    else PAID 아님
-        Item-->>Order: 콘텐츠 열람 불가
-    end
-```
-
-기본 흐름:
-
-1. Order Service는 주문항목 상태를 확인한다.
-2. 상태가 `PAID`이면 콘텐츠 열람 가능으로 판단한다.
-3. 상태가 `PAID`가 아니면 콘텐츠 열람 불가로 판단한다.
-
-대안/예외:
-
-- 주문항목이 없으면 호출 유즈케이스에서 조회 실패로 처리한다.
-- `REFUNDED`, `CANCELED`, `FAILED`, `PENDING` 상태는 콘텐츠 열람을 허용하지 않는다.
-
-## UC-INT-04 주문항목 다운로드 처리
-
-| 항목 | 내용 |
-|------|------|
-| 주 액터 | Order Service |
-| 목표 | 구매자가 콘텐츠를 열람한 이력을 주문항목에 기록한다. |
-| 사용 위치 | 구매 상품 콘텐츠 열람 |
-| 사전조건 | 주문항목이 `PAID` 상태이다. |
-| 완료 조건 | 주문항목의 `downloaded`가 `true`가 된다. |
-
-흐름 다이어그램:
-
-```mermaid
-sequenceDiagram
-    participant Order as Order Service
-    participant DB as Order DB
-
-    Order->>DB: 주문항목 downloaded 조회
-    DB-->>Order: 현재 열람 여부
-    alt 최초 열람
-        Order->>DB: downloaded = true 저장
-    else 이미 열람
-        Order->>Order: 상태 유지
-    end
-    Order-->>Order: 응답용 열람 여부 반영
-```
-
-기본 흐름:
-
-1. Order Service는 주문항목의 `downloaded` 값을 확인한다.
-2. `false`이면 `true`로 변경한다.
-3. 이미 `true`이면 상태를 유지한다.
-4. 갱신된 열람 여부를 콘텐츠 열람 응답에 반영한다.
-
-대안/예외:
-
-- 주문항목이 `PAID`가 아니면 다운로드 처리하지 않는다.
+- 특정 일자에 거래가 없으면 거래 건수와 거래액을 `0`으로 반환한다.
 
 ## UC-EVENT-01 결제 승인 이벤트 반영
 
 | 항목 | 내용 |
 |------|------|
 | 주 액터 | Payment Service |
-| 목표 | 결제 승인 결과를 주문 상태에 반영한다. |
 | 이벤트 | `payment.approved` |
-| 포함 UC | 주문/주문항목 PAID 처리, 결제 완료 상품 장바구니 제거 |
+| 목표 | 결제 승인 결과를 주문 상태와 결제 내역에 반영한다. |
 | 사전조건 | 이벤트에 `paymentId`, `orderId`, `userId`, `amount`, `approvedAt`이 있다. |
-| 완료 조건 | 주문과 주문항목이 `PAID` 상태가 되고 결제된 상품이 장바구니에서 제거된다. |
-
-흐름 다이어그램:
+| 완료 조건 | 주문과 주문 상품이 `PAID`가 되고 `ORDER_PAID` outbox 이벤트가 저장된다. |
 
 ```mermaid
 sequenceDiagram
@@ -685,127 +422,29 @@ sequenceDiagram
     participant Order as Order Service
     participant DB as Order DB
 
-    Payment->>Order: payment.approved 이벤트 발행
-    Order->>DB: orderId로 주문 조회
-    DB-->>Order: 주문과 주문항목
-    Order->>Order: 승인 금액과 주문 금액 검증
-    alt 주문이 PENDING
-        Order->>DB: 주문/주문항목 PAID 처리
-        Order->>DB: 결제 완료 상품 장바구니 제거
-    else 이미 PAID
-        Order->>Order: 중복 이벤트로 무시
-    end
+    Payment->>Order: payment.approved 이벤트
+    Order->>DB: orderId로 주문과 주문 상품 조회
+    Order->>Order: 멱등성, 주문 상태, 승인 금액 검증
+    Order->>DB: 주문/주문 상품 PAID 처리
+    Order->>DB: OrderPayment 저장
+    Order->>DB: ORDER_PAID outbox 저장
+    Order->>DB: 결제 완료 상품 장바구니 제거
 ```
-
-기본 흐름:
-
-1. Payment Service가 `payment.approved` 이벤트를 발행한다.
-2. Order Service는 이벤트의 주문 ID로 주문을 조회한다.
-3. 이벤트 금액과 주문 총 금액이 일치하는지 확인한다.
-4. 주문이 이미 `PAID`이면 중복 이벤트로 보고 후속 처리를 생략한다.
-5. 주문이 `PENDING`이면 주문과 주문항목을 `PAID` 상태로 변경한다.
-6. 주문의 결제 완료 시각을 이벤트 승인 시각으로 반영한다.
-7. 구매자 장바구니가 있으면 결제 완료된 상품을 장바구니에서 제거한다.
 
 대안/예외:
 
-- 주문이 없으면 이벤트 처리 실패로 기록한다.
-- 주문 상태가 `PENDING`이 아니고 `PAID`도 아니면 허용되지 않은 상태 전이로 처리한다.
-- 이벤트 금액과 주문 총 금액이 다르면 결제 승인 반영을 거부한다.
-- 장바구니가 없으면 주문 결제 완료 처리는 그대로 성공한다.
+- 이미 `PAID`이고 결제 내역이 있으면 중복 이벤트로 보고 생략한다.
+- 주문이 없으면 `O001`, 금액이 다르면 `O014`, 처리할 수 없는 상태이면 `O013` 또는 `O009`로 실패한다.
 
-## UC-EVENT-02 주문/주문항목 PAID 처리
-
-| 항목 | 내용 |
-|------|------|
-| 주 액터 | Order Service |
-| 목표 | 결제 승인된 주문과 주문항목을 구매 완료 상태로 변경한다. |
-| 사용 위치 | 결제 승인 이벤트 반영 |
-| 사전조건 | 주문과 주문항목이 `PENDING` 상태이다. |
-| 완료 조건 | 주문과 모든 주문항목이 `PAID` 상태가 된다. |
-
-흐름 다이어그램:
-
-```mermaid
-sequenceDiagram
-    participant Order as Order Service
-    participant DB as Order DB
-
-    Order->>DB: 주문 상태 조회
-    DB-->>Order: PENDING 주문과 주문항목
-    Order->>Order: 상태 전이 가능 여부 확인
-    Order->>DB: order_status = PAID, paid_at 저장
-    loop 주문항목별
-        Order->>DB: order_product_status = PAID 저장
-    end
-```
-
-기본 흐름:
-
-1. Order Service는 주문 상태가 `PENDING`인지 확인한다.
-2. 주문 상태를 `PAID`로 변경한다.
-3. 주문의 `paid_at`을 설정한다.
-4. 모든 주문항목 상태를 `PAID`로 변경한다.
-5. 각 주문항목의 수정 시각을 갱신한다.
-
-대안/예외:
-
-- 주문 또는 주문항목이 `PENDING`이 아니면 상태 변경을 거부한다.
-- 이미 `PAID`인 주문은 멱등 처리를 위해 추가 상태 변경을 하지 않는다.
-
-## UC-EVENT-03 결제 완료 상품 장바구니 제거
-
-| 항목 | 내용 |
-|------|------|
-| 주 액터 | Order Service |
-| 목표 | 결제 완료된 상품을 구매자의 장바구니에서 제거한다. |
-| 사용 위치 | 결제 승인 이벤트 반영 |
-| 사전조건 | 주문이 `PAID` 처리되었고 주문항목의 상품 ID 목록이 있다. |
-| 완료 조건 | 구매자 장바구니에서 주문 상품 ID와 일치하는 항목이 제거된다. |
-
-흐름 다이어그램:
-
-```mermaid
-sequenceDiagram
-    participant Order as Order Service
-    participant DB as Order DB
-
-    Order->>DB: 구매자 장바구니 조회
-    alt 장바구니 존재
-        DB-->>Order: cart와 cart_product 목록
-        Order->>Order: 주문 상품 ID 목록 생성
-        Order->>DB: 일치하는 cart_product 제거
-        Order->>DB: 장바구니 합계 갱신
-    else 장바구니 없음
-        DB-->>Order: 없음
-        Order->>Order: 제거 작업 생략
-    end
-```
-
-기본 흐름:
-
-1. Order Service는 주문의 구매자 ID로 장바구니를 조회한다.
-2. 주문항목의 상품 ID 목록을 만든다.
-3. 장바구니 항목 중 주문 상품 ID와 일치하는 항목을 제거한다.
-4. 장바구니 합계와 상품 수를 갱신한다.
-
-대안/예외:
-
-- 구매자 장바구니가 없으면 제거 작업을 생략한다.
-- 일부 상품이 장바구니에 없으면 존재하는 항목만 제거한다.
-
-## UC-EVENT-04 환불 완료 이벤트 반영
+## UC-EVENT-02 환불 완료 이벤트 반영
 
 | 항목 | 내용 |
 |------|------|
 | 주 액터 | Payment Service |
-| 목표 | 전체 환불 완료 결과를 주문 상태에 반영한다. |
 | 이벤트 | `payment.refunded` |
-| 포함 UC | 주문/주문항목 REFUNDED 처리 |
+| 목표 | 전체 환불 완료 결과를 주문 상태에 반영한다. |
 | 사전조건 | 이벤트에 `paymentId`, `orderId`, `userId`, `amount`, `refundedAt`이 있다. |
-| 완료 조건 | 주문과 주문항목이 `REFUNDED` 상태가 된다. |
-
-흐름 다이어그램:
+| 완료 조건 | 주문과 주문 상품이 `REFUNDED`가 되고 `ORDER_REFUND` outbox 이벤트가 저장된다. |
 
 ```mermaid
 sequenceDiagram
@@ -813,106 +452,52 @@ sequenceDiagram
     participant Order as Order Service
     participant DB as Order DB
 
-    Payment->>Order: payment.refunded 이벤트 발행
-    Order->>DB: orderId로 주문 조회
-    DB-->>Order: 주문과 주문항목
+    Payment->>Order: payment.refunded 이벤트
+    Order->>DB: orderId로 주문과 주문 상품 조회
     Order->>Order: PAID 상태 확인
-    alt 환불 가능
-        Order->>DB: 주문/주문항목 REFUNDED 처리
-    else 환불 불가
-        Order->>Order: 상태 변경 거부
-    end
+    Order->>DB: 주문/주문 상품 REFUNDED 처리
+    Order->>DB: ORDER_REFUND outbox 저장
 ```
-
-기본 흐름:
-
-1. Payment Service가 `payment.refunded` 이벤트를 발행한다.
-2. Order Service는 이벤트의 주문 ID로 주문을 조회한다.
-3. 주문이 환불 가능한 `PAID` 상태인지 확인한다.
-4. 주문과 주문항목을 `REFUNDED` 상태로 변경한다.
-5. 주문의 환불 완료 시각을 이벤트 환불 시각으로 반영한다.
 
 대안/예외:
 
-- 주문이 없으면 이벤트 처리 실패로 기록한다.
-- 주문이 `PAID` 상태가 아니면 환불 상태 변경을 거부한다.
+- 주문이 없으면 `O001`로 실패한다.
+- 주문이 `PAID`가 아니면 상태 변경을 거부한다.
 - 현재 기준은 전체 환불이며 부분 환불은 별도 확장으로 다룬다.
 
-## UC-EVENT-05 주문/주문항목 REFUNDED 처리
+## UC-EVENT-03 Outbox 이벤트 발행
 
 | 항목 | 내용 |
 |------|------|
 | 주 액터 | Order Service |
-| 목표 | 환불 완료된 주문과 주문항목을 환불 상태로 변경한다. |
-| 사용 위치 | 환불 완료 이벤트 반영 |
-| 사전조건 | 주문과 주문항목이 `PAID` 상태이다. |
-| 완료 조건 | 주문과 모든 주문항목이 `REFUNDED` 상태가 된다. |
-
-흐름 다이어그램:
+| 토픽 | `order-events` |
+| 목표 | 주문 상태 변경 이벤트를 Kafka로 발행한다. |
+| 사전조건 | `PENDING` outbox 이벤트가 저장되어 있다. |
+| 완료 조건 | Kafka 발행 성공 시 outbox 상태가 `PUBLISHED`가 된다. |
 
 ```mermaid
 sequenceDiagram
-    participant Order as Order Service
+    participant Relay as OutboxRelay
     participant DB as Order DB
+    participant Kafka as Kafka
 
-    Order->>DB: 주문 상태 조회
-    DB-->>Order: PAID 주문과 주문항목
-    Order->>Order: 환불 상태 전이 가능 여부 확인
-    Order->>DB: order_status = REFUNDED, refunded_at 저장
-    loop 주문항목별
-        Order->>DB: order_product_status = REFUNDED 저장
+    Relay->>DB: PENDING outbox 이벤트 최대 100건 조회
+    loop 이벤트별
+        Relay->>Kafka: order-events 발행
+        alt 발행 성공
+            Relay->>DB: PUBLISHED 처리
+        else 발행 실패
+            Relay->>DB: retryCount 증가 또는 FAILED 처리
+        end
     end
 ```
 
-기본 흐름:
-
-1. Order Service는 주문 상태가 `PAID`인지 확인한다.
-2. 주문 상태를 `REFUNDED`로 변경한다.
-3. 주문의 `refunded_at`을 설정한다.
-4. 모든 주문항목 상태를 `REFUNDED`로 변경한다.
-5. 각 주문항목의 `refunded_at`과 수정 시각을 갱신한다.
-
 대안/예외:
 
-- 주문 또는 주문항목이 `PAID`가 아니면 상태 변경을 거부한다.
-- 이미 `REFUNDED`인 주문은 중복 이벤트로 보고 추가 상태 변경을 하지 않는다.
+- 발행 실패가 3회를 초과하면 `FAILED`로 전이한다.
+- 발행은 at-least-once 전제이며 소비자는 멱등성을 갖춰야 한다.
 
-## UC-INT-05 정산 대상 PAID 주문 제공
+## 미구현 또는 별도 문서 대상
 
-| 항목 | 내용 |
-|------|------|
-| 주 액터 | Settlement Service |
-| 목표 | 정산 배치가 판매자별 정산 대상 주문항목을 조회할 수 있게 한다. |
-| API | `GET /internal/orders/paid` |
-| 사전조건 | Settlement Service가 내부 호출 권한을 가진다. |
-| 완료 조건 | 정산 대상 `PAID` 주문과 주문항목 데이터가 반환된다. |
-
-흐름 다이어그램:
-
-```mermaid
-sequenceDiagram
-    participant Settlement as Settlement Service
-    participant Order as Order Service
-    participant DB as Order DB
-
-    Settlement->>Order: GET /internal/orders/paid
-    Order->>Order: 내부 호출 권한 확인
-    Order->>DB: 기간 내 PAID 주문과 주문항목 조회
-    DB-->>Order: 정산 대상 주문항목 목록
-    Order->>Order: 판매자별 정산 필요 데이터 구성
-    Order-->>Settlement: 정산 대상 PAID 주문 응답
-```
-
-기본 흐름:
-
-1. Settlement Service가 정산 기간 조건으로 PAID 주문 조회를 요청한다.
-2. Order Service는 내부 호출 권한을 확인한다.
-3. 정산 대상 기간에 속하는 `PAID` 주문과 주문항목을 조회한다.
-4. 판매자 ID, 주문항목 ID, 상품 금액, 결제 완료 시각 등 정산에 필요한 데이터를 구성한다.
-5. Settlement Service에 조회 결과를 반환한다.
-
-대안/예외:
-
-- 정산 대상 주문이 없으면 빈 목록을 반환한다.
-- 내부 호출 권한이 없으면 접근 거부로 응답한다.
-- 환불된 주문항목은 정산 대상에서 제외하거나 환불 차감 라인으로 처리할 수 있으며, 최종 정책은 Settlement Service 정산 규칙을 따른다.
+- 리뷰 생성/수정 공개 API는 현재 `OrderController`에 없다. 리뷰 관련 타입이 일부 남아 있어도 구현된 API로 보지 않는다.
+- 정산 대상 내부 조회 API는 현재 `order-service` 컨트롤러에 없다. 정산은 Kafka 주문 이벤트 또는 추후 내부 API 설계에서 별도로 다룬다.

@@ -30,49 +30,28 @@ X-User-Role: BUYER | SELLER | ADMIN
 
 Product Service는 인증 필요 API에서 Gateway가 주입한 헤더만 읽는다.
 
-## Category 계약
+## productType 계약
 
-프론트와 API는 category 값을 code로 주고받는다.
+프론트와 API는 상품 유형을 `productType` 값으로 주고받는다. 이전의 고정 category
+엔티티/테이블 개념은 완전히 폐지되었고, 자유 입력 `tags`와 이 `productType`으로 대체됐다.
 
-허용 category code:
+허용값:
 
-- `image`
-- `writing`
-- `coding`
-- `marketing`
-- `chatbot`
-- `data`
+- `PROMPT`
+- `NOTION`
+- `PPT`
+- `EXCEL`
 
-권장 DB 구조:
+**필터링**: 프론트가 `?productType=NOTION`으로 보내면 `productType = :productType`으로
+매칭한다. `all`이면 전체 조회.
 
-```text
-category.code = API 요청/응답 및 필터링 값
-category.name = 화면 표시명
-```
-
-예시:
-
-```text
-code=writing, name=글쓰기
-code=coding, name=코딩
-```
-
-DB category 테이블은 `code`와 `name` 두 컬럼을 모두 가진다.
-
-| 컬럼 | 역할 | 예시 |
-|------|------|------|
-| `code` | 필터 query param 매칭값 | `image`, `coding` |
-| `name` | 화면 표시명 | `이미지 생성`, `코딩` |
-| `icon` | FE ICON_MAP key (Lucide 아이콘 slug) | `pen-line`, `code-xml` |
-
-**필터링**: 프론트가 `?category=coding`으로 보내면 `c.code = :category`로 매칭한다.
-
-**API 응답**: `category` 필드는 `c.name`(표시명), `icon` 필드는 `c.code`(코드)를 반환한다.
+**API 응답**: `productType` 필드에 위 값 중 하나를 그대로 반환한다. 잘못된 값으로
+생성/수정 요청 시 `400 Bad Request`(`P004: 올바르지 않은 상품 유형입니다.`)를 반환한다.
 
 ```json
 {
-  "category": "코딩",
-  "icon": "coding"
+  "productType": "NOTION",
+  "tags": ["회의록", "정리"]
 }
 ```
 
@@ -98,6 +77,45 @@ ID 타입은 API 명세와 현재 DDL을 확인한 뒤 구현한다.
 ```
 
 목록/페이지 응답은 `docs/api-spec/product.md`를 따른다.
+
+## 응답 wrapper 규칙
+
+- 외부(공개/판매자/관리자) API는 `ApiResult<T>` 또는 `PageResponse<T>`로 감싼다.
+- 내부(`/internal/**`, 타 서비스 간 호출) API는 wrapper 없이 raw DTO를 반환한다.
+
+예시:
+
+```java
+// 외부 — wrapper 있음
+@GetMapping("/products/{productId}")
+public ApiResult<ProductDetailResponse> getProduct(@PathVariable UUID productId) { ... }
+
+// 내부 — wrapper 없음
+@GetMapping("/internal/products/{productId}/content")
+public ProductContentResponse getProductContent(@PathVariable UUID productId) { ... }
+```
+
+## gRPC 메서드 네이밍
+
+product-service가 새로 gRPC 메서드를 추가할 때는 아래 접두어 규칙을 따른다.
+
+| 접두어 | 용도 | 비중 |
+|---|---|---|
+| `Get{Entity}` | 단순 조회(단건 또는 ID 목록 기반 배치 조회) | 전체의 80% 이상 |
+| `Search{Entity}By{조건}` | 조건 기반 검색 | |
+| `Count{Entity}By{조건}` | 집계(개수) | |
+| `Average{Entity}By{조건}` | 집계(평균) | |
+| `Total{Entity}By{조건}` | 집계(합계) | |
+
+- 쓰기(생성·수정·삭제)는 gRPC 메서드로 노출하지 않는다. product-service의 상태 변경은
+  Kafka 이벤트 발행(`product-events` 토픽)으로 처리한다.
+- 이 컨벤션은 **product-service가 새로 추가하는 gRPC 메서드**에 적용한다. 현재
+  product-service가 서빙하는 5개 메서드(`CountBySeller`, `GetOrderSnapshots`,
+  `GetCartSnapshots`, `GetProductContent`, `GetProductsByIds`)는 이미 이 컨벤션에
+  부합한다.
+- `FindSellers`(user-service가 서버로 구현, product-service는 클라이언트로만 소비)처럼
+  다른 서비스가 이미 정의한 계약은 이 규칙의 적용 대상이 아니다. 크로스 서비스 네이밍
+  정합성이 필요하면 별도 이슈에서 다룬다.
 
 ## DDL과 docs 일치 확인
 

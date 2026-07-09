@@ -46,11 +46,9 @@ jobs:
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
-        working-directory: ${{ inputs.module-path }}
 
       - name: Build and test
-        run: ./gradlew clean build --no-daemon
-        working-directory: ${{ inputs.module-path }}
+        run: ./gradlew :${{ inputs.module-path }}:build --no-daemon
 
       - name: Upload test report
         if: failure()

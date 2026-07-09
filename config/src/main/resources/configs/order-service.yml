@@ -1,0 +1,60 @@
+server:
+  port: 18083
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+    consumer:
+      group-id: order-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+        spring.json.trusted.packages: com.prompthub.order.*
+    listener:
+      ack-mode: manual
+  cloud:
+    openfeign:
+      client:
+        config:
+          product-service:
+            connect-timeout: 2000
+            read-timeout: 3000
+
+grpc:
+  server:
+    port: ${ORDER_GRPC_SERVER_PORT}
+
+prompthub:
+  clients:
+    product-service:
+      url: http://product-service:8082
+  grpc:
+    product:
+      host: product-service
+      port: ${PRODUCT_GRPC_SERVER_PORT}
+      deadline-ms: 2000
+    seller:
+      host: user-service
+      port: ${USER_GRPC_SERVER_PORT}
+      deadline-ms: 2000
+  outbox-relay:
+    enabled: true
+    fixed-delay-ms: 5000
+    batch-size: 100
+    max-retry-count: 3

@@ -3,8 +3,8 @@ package com.prompthub.paymentservice;
 import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
-import com.prompthub.paymentservice.application.gateway.external.TossConfirmResult;
-import com.prompthub.paymentservice.application.gateway.external.TossRefundResult;
+import com.prompthub.paymentservice.application.gateway.external.ConfirmResult;
+import com.prompthub.paymentservice.application.gateway.external.RefundResult;
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;
 import com.prompthub.paymentservice.infrastructure.messaging.config.PaymentTopic;
@@ -82,9 +82,9 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
         OffsetDateTime refundedAt = OffsetDateTime.now();
 
         when(paymentGateway.confirm(anyString(), any(), anyInt()))
-            .thenReturn(new TossConfirmResult("카드", 10_000, "{}", approvedAt));
+            .thenReturn(new ConfirmResult("카드", 10_000, "{}", approvedAt));
         when(paymentGateway.refund(anyString(), any(), anyInt()))
-            .thenReturn(new TossRefundResult(refundedAt));
+            .thenReturn(new RefundResult(refundedAt));
 
         // 결제 승인 먼저
         승인_요청(orderId, userId, 10_000);
@@ -94,7 +94,7 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
 
         // Kafka 컨슈머 준비
         KafkaConsumer<String, String> consumer = 컨슈머_생성("refund-test-group");
-        TopicPartition partition = new TopicPartition(PaymentTopic.PAYMENT_REFUNDED, 0);
+        TopicPartition partition = new TopicPartition(PaymentTopic.PAYMENT_EVENTS, 0);
         consumer.assign(java.util.List.of(partition));
         // seekToBeginning은 lazy — 첫 poll() 시 적용됨.
         // poll(ZERO)로 메타데이터를 먼저 초기화해야 seekToBeginning이 올바른 offset으로 적용됨.
@@ -126,7 +126,7 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
                     }
                 }
             }
-            assertThat(found).withFailMessage("10초 내 payment.refunded Kafka 메시지 수신 실패").isTrue();
+            assertThat(found).withFailMessage("10초 내 payment-events Kafka 메시지 수신 실패").isTrue();
         } finally {
             consumer.close();
         }
@@ -138,9 +138,9 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
         UUID userId = UUID.randomUUID();
 
         when(paymentGateway.confirm(anyString(), any(), anyInt()))
-            .thenReturn(new TossConfirmResult("카드", 10_000, "{}", OffsetDateTime.now()));
+            .thenReturn(new ConfirmResult("카드", 10_000, "{}", OffsetDateTime.now()));
         when(paymentGateway.refund(anyString(), any(), anyInt()))
-            .thenThrow(new PaymentGatewayException(PaymentErrorCode.PG_ERROR, "CANCEL_FAILED", "환불 실패", null, null));
+            .thenThrow(new PaymentGatewayException(PaymentErrorCode.PG_INVALID_REQUEST, "CANCEL_FAILED", "환불 실패", null, null));
 
         승인_요청(orderId, userId, 10_000);
         Payment payment = paymentJpaRepository.findByIdempotencyKey("pay-" + orderId).orElseThrow();
@@ -164,7 +164,7 @@ class RefundPaymentIntegrationTest extends AbstractIntegrationTest {
         UUID otherId = UUID.randomUUID();
 
         when(paymentGateway.confirm(anyString(), any(), anyInt()))
-            .thenReturn(new TossConfirmResult("카드", 10_000, "{}", OffsetDateTime.now()));
+            .thenReturn(new ConfirmResult("카드", 10_000, "{}", OffsetDateTime.now()));
 
         승인_요청(orderId, ownerId, 10_000);
         Payment payment = paymentJpaRepository.findByIdempotencyKey("pay-" + orderId).orElseThrow();

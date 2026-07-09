@@ -10,6 +10,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
@@ -19,6 +20,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import static jakarta.persistence.EnumType.STRING;
 import static lombok.AccessLevel.PROTECTED;
 
+@Slf4j
 @Getter
 @Entity
 @Table(name = "payment")
@@ -175,6 +177,7 @@ public class Payment {
         if (this.status != PaymentStatus.PAID) {
             throw new IllegalStateException("PAID 상태에서만 REFUNDING으로 전환할 수 있습니다.");
         }
+        log.debug("Payment 상태 전이 — id={}, {} → REFUNDING", id, status);
         this.status = PaymentStatus.REFUNDING;
     }
 
@@ -182,6 +185,7 @@ public class Payment {
         if (this.status != PaymentStatus.REFUNDING) {
             throw new IllegalStateException("REFUNDING 상태에서만 REFUNDED로 전환할 수 있습니다.");
         }
+        log.debug("Payment 상태 전이 — id={}, {} → REFUNDED", id, status);
         this.status = PaymentStatus.REFUNDED;
         this.refundedAt = refundedAt;
     }
@@ -190,6 +194,7 @@ public class Payment {
         if (this.status != PaymentStatus.REFUNDING) {
             throw new IllegalStateException("REFUNDING 상태에서만 PAID로 복원할 수 있습니다.");
         }
+        log.debug("Payment 상태 전이 — id={}, {} → PAID (환불 실패 복원)", id, status);
         this.status = PaymentStatus.PAID;
     }
 }

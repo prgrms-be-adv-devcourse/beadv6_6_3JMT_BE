@@ -1,34 +1,41 @@
+# main은 동결 브랜치다(ADR-0005) — 이 워크플로는 develop → main 최종 머지 PR
+# (v1.0.0 다음 v2.0.0 태그 시점) 1회를 검증하기 위해 남겨둔다. 그 외 main 대상 PR은
+# head_ref == 'develop' 조건에 걸려 changes job이 스킵된다.
 name: CI - Main
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: ["main"]
     types:
       - opened
       - synchronize
       - reopened
       - ready_for_review
+  push:
+    branches:
+      - infra
 
 permissions:
   contents: read
   id-token: write
+  packages: write
 
 concurrency:
-  group: ci-main-pr-${{ github.event.pull_request.number }}
+  group: ci-main-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   changes:
     name: Detect Changed Modules
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false && github.head_ref == 'develop'
+    if: github.event_name == 'push' || (github.event.pull_request.draft == false && github.head_ref == 'develop')
     outputs:
       user_service:       ${{ steps.filter.outputs.user_service_any_changed }}
       product_service:    ${{ steps.filter.outputs.product_service_any_changed }}
       payment_service:    ${{ steps.filter.outputs.payment_service_any_changed }}
       order_service:      ${{ steps.filter.outputs.order_service_any_changed }}
       settlement_service: ${{ steps.filter.outputs.settlement_service_any_changed }}
+      admin_service:      ${{ steps.filter.outputs.admin_service_any_changed }}
       apigateway:         ${{ steps.filter.outputs.apigateway_any_changed }}
       config:             ${{ steps.filter.outputs.config_any_changed }}
       discovery:          ${{ steps.filter.outputs.discovery_any_changed }}
@@ -55,6 +62,8 @@ jobs:
               - order-service/**
             settlement_service:
               - settlement-service/**
+            admin_service:
+              - admin-service/**
             apigateway:
               - apigateway/**
             config:
@@ -111,6 +120,14 @@ jobs:
     with:
       module-name: settlement-service
       module-path: settlement-service
+
+  admin_service_ci:
+    needs: changes
+    if: needs.changes.outputs.admin_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: admin-service
+      module-path: admin-service
 
   apigateway_ci:
     needs: changes
@@ -209,6 +226,19 @@ jobs:
       ecr-repository: prompthub-settlement-service
       push-image: false
 
+  admin_service_image_build:
+    needs:
+      - changes
+      - admin_service_ci
+    if: needs.changes.outputs.admin_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: admin-service
+      module-path: admin-service
+      dockerfile-path: Dockerfile
+      ecr-repository: prompthub-admin-service
+      push-image: false
+
   apigateway_image_build:
     needs:
       - changes
@@ -257,6 +287,7 @@ jobs:
       - payment_service_ci
       - order_service_ci
       - settlement_service_ci
+      - admin_service_ci
       - apigateway_ci
       - config_ci
       - discovery_ci
@@ -266,6 +297,7 @@ jobs:
       - payment_service_image_build
       - order_service_image_build
       - settlement_service_image_build
+      - admin_service_image_build
       - apigateway_image_build
       - config_image_build
       - discovery_image_build

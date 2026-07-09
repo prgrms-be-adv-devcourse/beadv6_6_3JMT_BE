@@ -41,6 +41,7 @@ services:
 
   # ----- Spring Cloud 코어(앱보다 먼저) -----
   discovery:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-discovery:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -59,6 +60,7 @@ services:
     networks: [prompthub]
 
   config:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-config:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -83,6 +85,7 @@ services:
 
   # ----- 비즈니스 서비스 -----
   user-service:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-user-service:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -94,13 +97,16 @@ services:
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092                           # Kafka 브로커 주소
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}  # DB 주소
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}                        # DB 계정
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}                    # DB 비밀번호
-      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}                                 # JWT 서명 키(비공개)
-      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}                                   # JWT 검증 키(공개)
-      PRODUCT_SERVICE_GRPC_ADDRESS: static://product-service:9082         # product gRPC 대상
+      POSTGRES_HOST: postgres                                              # DB 호스트
+      POSTGRES_PORT: "5432"                                                # DB 포트
+      POSTGRES_DB: ${POSTGRES_DB}                                          # DB 이름
+      POSTGRES_USER: ${POSTGRES_USER}                                      # DB 계정
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}                              # DB 비밀번호
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092                                  # Kafka 브로커 주소
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}                                  # JWT 서명 키(비공개)
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}                                    # JWT 검증 키(공개)
+      USER_GRPC_SERVER_PORT: "9081"                                        # user gRPC 서버 포트
+      PRODUCT_GRPC_SERVER_PORT: "9082"                                     # product gRPC 서버 포트
     depends_on:
       postgres:
         condition: service_started
@@ -114,6 +120,7 @@ services:
     networks: [prompthub]
 
   product-service:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-product-service:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -125,14 +132,16 @@ services:
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092                           # Kafka 브로커 주소
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}  # DB 주소
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}                        # DB 계정
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}                    # DB 비밀번호
-      USER_SERVICE_GRPC_HOST: user-service                               # user gRPC 호스트
-      USER_SERVICE_GRPC_PORT: "9081"                                     # user gRPC 포트
-      AWS_REGION: ${AWS_REGION:-ap-northeast-2}                          # S3 리전(미설정 시 기본값)
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-3jmt-prompthub-bucket}             # S3 버킷명(미설정 시 기본값)
+      POSTGRES_HOST: postgres                                              # DB 호스트
+      POSTGRES_PORT: "5432"                                                # DB 포트
+      POSTGRES_DB: ${POSTGRES_DB}                                          # DB 이름
+      POSTGRES_USER: ${POSTGRES_USER}                                      # DB 계정
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}                              # DB 비밀번호
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092                                  # Kafka 브로커 주소
+      PRODUCT_GRPC_SERVER_PORT: "9082"                                     # product gRPC 서버 포트
+      USER_GRPC_SERVER_PORT: "9081"                                        # user gRPC 서버 포트
+      AWS_REGION: ${AWS_REGION}                                            # S3 리전
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}                                      # S3 버킷명
     depends_on:
       postgres:
         condition: service_started
@@ -148,6 +157,7 @@ services:
     networks: [prompthub]
 
   order-service:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-order-service:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -159,14 +169,15 @@ services:
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092                           # Kafka 브로커 주소
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}  # DB 주소
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}                        # DB 계정
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}                    # DB 비밀번호
-      PRODUCT_GRPC_HOST: product-service                                 # product gRPC 호스트
-      PRODUCT_GRPC_PORT: "9082"                                          # product gRPC 포트
-      SELLER_GRPC_HOST: user-service                                     # seller(user) gRPC 호스트
-      SELLER_GRPC_PORT: "9081"                                           # seller(user) gRPC 포트
+      POSTGRES_HOST: postgres                                              # DB 호스트
+      POSTGRES_PORT: "5432"                                                # DB 포트
+      POSTGRES_DB: ${POSTGRES_DB}                                          # DB 이름
+      POSTGRES_USER: ${POSTGRES_USER}                                      # DB 계정
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}                              # DB 비밀번호
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092                                  # Kafka 브로커 주소
+      ORDER_GRPC_SERVER_PORT: "9083"                                       # order gRPC 서버 포트
+      PRODUCT_GRPC_SERVER_PORT: "9082"                                     # product gRPC 서버 포트
+      USER_GRPC_SERVER_PORT: "9081"                                        # user gRPC 서버 포트
     depends_on:
       postgres:
         condition: service_started
@@ -184,6 +195,7 @@ services:
     networks: [prompthub]
 
   payment-service:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-payment-service:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -195,11 +207,14 @@ services:
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092                           # Kafka 브로커 주소
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}  # DB 주소
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}                        # DB 계정
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}                    # DB 비밀번호
-      TOSS_SECRET_KEY: ${TOSS_SECRET_KEY}                                # Toss 결제 시크릿 키
+      POSTGRES_HOST: postgres                                              # DB 호스트
+      POSTGRES_PORT: "5432"                                                # DB 포트
+      POSTGRES_DB: ${POSTGRES_DB}                                          # DB 이름
+      POSTGRES_USER: ${POSTGRES_USER}                                      # DB 계정
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}                              # DB 비밀번호
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092                                  # Kafka 브로커 주소
+      TOSS_SECRET_KEY: ${TOSS_SECRET_KEY}                                  # Toss 결제 시크릿 키
+      TOSS_TEST_MODE: ${TOSS_TEST_MODE}                                    # Toss 테스트 모드 여부
     depends_on:
       postgres:
         condition: service_started
@@ -213,6 +228,7 @@ services:
     networks: [prompthub]
 
   settlement-service:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-settlement-service:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -224,12 +240,15 @@ services:
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092                           # Kafka 브로커 주소
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}  # DB 주소
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}                        # DB 계정
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}                    # DB 비밀번호
-      USER_SERVICE_GRPC_ADDRESS: user-service:9081                        # user gRPC 대상
-      PRODUCT_SERVICE_GRPC_ADDRESS: product-service:9082                 # product gRPC 대상
+      POSTGRES_HOST: postgres                                              # DB 호스트
+      POSTGRES_PORT: "5432"                                                # DB 포트
+      POSTGRES_DB: ${POSTGRES_DB}                                          # DB 이름
+      POSTGRES_USER: ${POSTGRES_USER}                                      # DB 계정
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}                              # DB 비밀번호
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092                                  # Kafka 브로커 주소
+      SETTLEMENT_GRPC_SERVER_PORT: "9085"                                  # settlement gRPC 서버 포트
+      USER_GRPC_SERVER_PORT: "9081"                                        # user gRPC 서버 포트
+      PRODUCT_GRPC_SERVER_PORT: "9082"                                     # product gRPC 서버 포트
     depends_on:
       postgres:
         condition: service_started
@@ -246,8 +265,40 @@ services:
     restart: always
     networks: [prompthub]
 
+  admin-service:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-admin-service:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE_NAME: admin-service
+        MODULE_PATH: admin-service
+    container_name: admin-service
+    ports: ["127.0.0.1:8086:8086"]             # 헬스체크용 loopback 노출(외부 차단)
+    environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
+      # admin-service는 정산 DB에 직접 커넥션한다(POSTGRES_* 대신 자체 DB_* 플레이스홀더 사용)
+      DB_HOST: postgres                                                    # DB 호스트
+      DB_PORT: "5432"                                                      # DB 포트
+      DB_NAME: ${POSTGRES_DB}                                              # DB 이름
+      DB_USERNAME: ${POSTGRES_USER}                                        # DB 계정
+      DB_PASSWORD: ${POSTGRES_PASSWORD}                                    # DB 비밀번호
+    depends_on:
+      postgres:
+        condition: service_started
+      discovery:
+        condition: service_healthy
+      config:
+        condition: service_healthy
+      settlement-service:                                                  # 정산 스키마 소유자, ddl-auto: none
+        condition: service_started
+    restart: always
+    networks: [prompthub]
+
   # ----- 게이트웨이(외부 진입점) -----
   apigateway:
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-apigateway:latest
     build:
       context: .
       dockerfile: Dockerfile

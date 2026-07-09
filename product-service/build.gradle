@@ -1,66 +1,29 @@
-plugins {
-    id 'java'
-    id 'org.springframework.boot' version '4.1.0'
-    id 'io.spring.dependency-management' version '1.1.7'
-    id 'checkstyle'
-    id 'com.google.protobuf' version '0.9.4'
-}
-
-group = 'com.prompthub'
-version = '0.0.1-SNAPSHOT'
-
-ext {
-    grpcVersion = '1.80.0'
-    protobufVersion = '4.28.2'
-}
-
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-}
-
-configurations {
-    compileOnly {
-        extendsFrom annotationProcessor
-    }
-}
-
-repositories {
-    mavenCentral()
-}
-
-ext {
-    set('springCloudVersion', "2025.1.2")
-}
+apply plugin: 'com.google.protobuf'
 
 dependencies {
-    // common-module
-    implementation 'com.prompthub:common-module'
-    implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    implementation 'org.springframework.boot:spring-boot-starter-validation'
-    implementation 'org.springframework.boot:spring-boot-starter-actuator' // 헬스체크 엔드포인트
-    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
-    implementation 'org.springframework.cloud:spring-cloud-starter-config'
-    compileOnly 'org.projectlombok:lombok'
-    runtimeOnly 'org.postgresql:postgresql'
-    annotationProcessor 'org.projectlombok:lombok'
-    implementation 'org.springframework.kafka:spring-kafka'
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0'
+    // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
 
     // AWS S3
     implementation 'software.amazon.awssdk:s3:2.25.60'
 
-    // gRPC (서버: settlement·order → product, 클라이언트: product → user-service)
-    implementation "io.grpc:grpc-stub:${grpcVersion}"
-    implementation "io.grpc:grpc-protobuf:${grpcVersion}"
-    runtimeOnly "io.grpc:grpc-netty-shaded:${grpcVersion}"
-    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
+    // gRPC (서버: settlement·order → product, 클라이언트: product → user-service / 버전은 Boot BOM의 grpc-bom이 관리)
+    implementation 'io.grpc:grpc-stub'
+    implementation 'io.grpc:grpc-protobuf'
+    runtimeOnly 'io.grpc:grpc-netty-shaded'
+    implementation 'com.google.protobuf:protobuf-java'
     compileOnly 'org.apache.tomcat:annotations-api:6.0.53'
 
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+    testImplementation 'org.testcontainers:testcontainers-postgresql'
+    // Root build.gradle에서 상속되지 않는 경우 대비
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testRuntimeOnly 'org.postgresql:postgresql'
+    testRuntimeOnly 'com.h2database:h2'
+}
+
+tasks.named('test') {
+    jvmArgs = ['-Dspring.profiles.active=test']
 }
 
 protobuf {
@@ -79,24 +42,4 @@ protobuf {
             }
         }
     }
-}
-
-dependencyManagement {
-    imports {
-        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
-    }
-}
-
-tasks.named('test') {
-    useJUnitPlatform()
-}
-
-checkstyle {
-    configFile = file('../style/checkstyle/prompthub-checkstyle-rules.xml')
-    toolVersion = '10.12.0'
-    ignoreFailures = true    // Do not fail the build on checkstyle warnings
-}
-
-tasks.named('checkstyleTest') {
-    enabled = false
 }

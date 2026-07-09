@@ -1,0 +1,13 @@
+spring:
+  main:
+    allow-bean-definition-overriding: true # 👈 중복 빈 등록 허용
+  config:
+    import: optional:file:./  # Config Server 대신 로컬 파일 사용 (아무것도 로드 안 함)
+  cloud:
+    config:
+      enabled: false
+      fail-fast: false
+
+eureka:
+  client:
+    enabled: false

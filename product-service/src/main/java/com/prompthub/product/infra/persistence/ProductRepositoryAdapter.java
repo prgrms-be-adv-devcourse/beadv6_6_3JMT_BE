@@ -1,8 +1,8 @@
 package com.prompthub.product.infra.persistence;
 
-import com.prompthub.product.domain.model.entity.Category;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
+import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
 import com.prompthub.product.domain.repository.ProductRepository;
@@ -19,7 +19,6 @@ import org.springframework.stereotype.Repository;
 public class ProductRepositoryAdapter implements ProductRepository {
 
 	private final ProductJpaRepository productJpaRepository;
-	private final CategoryJpaRepository categoryJpaRepository;
 
 	@Override
 	public Optional<Product> findById(UUID productId) {
@@ -32,18 +31,13 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	}
 
 	@Override
-	public Optional<Category> findCategoryByCode(String code) {
-		return categoryJpaRepository.findByCode(code);
+	public List<ProductListProjection> findPublicProducts(String keyword, String productType, String sort, Pageable pageable) {
+		return productJpaRepository.findPublicProducts(keyword, productType, sort, pageable);
 	}
 
 	@Override
-	public List<ProductListProjection> findPublicProducts(String keyword, String category, String sort, Pageable pageable) {
-		return productJpaRepository.findPublicProducts(keyword, category, sort, pageable);
-	}
-
-	@Override
-	public long countPublicProducts(String keyword, String category) {
-		return productJpaRepository.countPublicProducts(keyword, category);
+	public long countPublicProducts(String keyword, String productType) {
+		return productJpaRepository.countPublicProducts(keyword, productType);
 	}
 
 	@Override
@@ -52,8 +46,8 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	}
 
 	@Override
-	public List<ProductListProjection> findRelatedProducts(UUID productId, UUID categoryId, int limit) {
-		return productJpaRepository.findRelatedProducts(productId, categoryId, limit);
+	public List<ProductListProjection> findRelatedProducts(UUID productId, ProductType productType, int limit) {
+		return productJpaRepository.findRelatedProducts(productId, productType, limit);
 	}
 
 	@Override
