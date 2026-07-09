@@ -67,7 +67,7 @@ public record SettlementListResponse(
 
 		public static Item from(Settlement settlement) {
 			return new Item(
-				settlement.getId(),
+				settlement.getSettlementId(),
 				settlement.getSellerId(),
 				null,
 				settlement.getPeriodStart(),

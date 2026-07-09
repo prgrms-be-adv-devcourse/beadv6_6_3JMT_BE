@@ -4,8 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
 import com.prompthub.admin.settlement.domain.model.Settlement;
-import com.prompthub.admin.settlement.domain.model.enums.PayoutStatus;
-import com.prompthub.admin.settlement.domain.model.enums.SettlementStatus;
+import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.admin.settlement.domain.repository.SettlementQueryRepository;
 import com.prompthub.admin.settlement.domain.repository.SettlementRepository;
 import com.prompthub.admin.settlement.domain.repository.SettlementStatusAggregate;
@@ -41,34 +40,30 @@ class SettlementRepositoryAdapterTest {
 	private TestEntityManager entityManager;
 
 	@Test
-	void 아이디로_정산건을_조회한다() {
-		Optional<Settlement> found = settlementRepository.findById(SETTLEMENT_ID);
+	void settlementId로_정산건을_조회한다() {
+		Optional<Settlement> found = settlementRepository.findBySettlementId(SETTLEMENT_ID);
 
 		assertThat(found).isPresent();
 		assertThat(found.get().getSellerId()).isEqualTo(SELLER_ID);
 	}
 
 	@Test
-	void 상태조합별로_합계금액과_건수를_집계한다() {
+	void 표시상태별로_합계금액과_건수를_집계한다() {
 		List<SettlementStatusAggregate> result = settlementQueryRepository.aggregateByStatus();
 
 		assertThat(result)
-			.extracting(SettlementStatusAggregate::settlementStatus,
-				SettlementStatusAggregate::payoutStatus,
+			.extracting(SettlementStatusAggregate::status,
 				SettlementStatusAggregate::sumSettlementTotal,
 				SettlementStatusAggregate::count)
 			.containsExactlyInAnyOrder(
-				tuple(SettlementStatus.PENDING_APPROVAL, PayoutStatus.NOT_READY,
-					new BigDecimal("459000.00"), 1L),
-				tuple(SettlementStatus.APPROVED, PayoutStatus.PAID,
-					new BigDecimal("765000.00"), 1L),
-				tuple(SettlementStatus.APPROVED, PayoutStatus.READY,
-					new BigDecimal("85000.00"), 1L));
+				tuple(SettlementDisplayStatus.WAITING, new BigDecimal("459000.00"), 1L),
+				tuple(SettlementDisplayStatus.PAID, new BigDecimal("765000.00"), 1L),
+				tuple(SettlementDisplayStatus.APPROVED, new BigDecimal("85000.00"), 1L));
 	}
 
 	@Test
 	void 승인_후_저장하면_재조회시_승인상태가_유지된다() {
-		Settlement settlement = settlementRepository.findById(SETTLEMENT_ID).orElseThrow();
+		Settlement settlement = settlementRepository.findBySettlementId(SETTLEMENT_ID).orElseThrow();
 
 		settlement.approve(LocalDateTime.of(2026, 7, 7, 10, 0));
 		settlementRepository.save(settlement);
@@ -76,8 +71,8 @@ class SettlementRepositoryAdapterTest {
 		entityManager.flush();
 		entityManager.clear();
 
-		Settlement reloaded = settlementRepository.findById(SETTLEMENT_ID).orElseThrow();
-		assertThat(reloaded.getSettlementStatus()).isEqualTo(SettlementStatus.APPROVED);
-		assertThat(reloaded.getPayoutStatus()).isEqualTo(PayoutStatus.READY);
+		Settlement reloaded = settlementRepository.findBySettlementId(SETTLEMENT_ID).orElseThrow();
+		assertThat(reloaded.displayStatus()).isEqualTo(SettlementDisplayStatus.APPROVED);
+		assertThat(reloaded.getApprovedAt()).isEqualTo(LocalDateTime.of(2026, 7, 7, 10, 0));
 	}
 }
