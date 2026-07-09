@@ -179,6 +179,7 @@ gradle-app.setting
 **/agent-creator/
 
 /AGENTS.md
+/docs/qa/
 /docs/superpowers/
 /.env
 /order-service/.env
