@@ -2,6 +2,7 @@ package com.prompthub.order.application.service.event;
 
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
+import com.prompthub.order.application.service.order.OrderExpirationStore;
 import com.prompthub.order.application.service.order.OrderPolicyService;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
@@ -37,6 +38,7 @@ public class PaymentApprovedProcessor {
     private final OrderEventMessageFactory orderEventMessageFactory;
     private final OutboxEventAppender outboxEventAppender;
     private final OrderPolicyService orderPolicyService;
+    private final OrderExpirationStore orderExpirationStore;
 
     @Transactional
     public void process(
@@ -70,6 +72,8 @@ public class PaymentApprovedProcessor {
                 payload.approvedAt()
         ));
 
+        removeExpirationQuietly(order.getId());
+
         OrderPaidPayload orderPaidPayload = OrderPaidPayload.from(order);
 
         EventMessage<OrderPaidPayload> orderPaidMessage =
@@ -96,5 +100,14 @@ public class PaymentApprovedProcessor {
 
         log.info("결제 이벤트 처리 완료. eventId={}, eventType={}, orderId={}, targetStatus={}, consumerGroup={}",
                 eventId, eventType, payload.orderId(), OrderStatus.PAID, CONSUMER_GROUP);
+    }
+
+    private void removeExpirationQuietly(UUID orderId) {
+        try {
+            orderExpirationStore.removeExpiration(orderId);
+            orderExpirationStore.clearRetryCount(orderId);
+        } catch (Exception exception) {
+            log.warn("결제 완료 주문의 Redis 만료 대상 제거에 실패했습니다. orderId={}", orderId, exception);
+        }
     }
 }

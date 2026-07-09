@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.LinkedHashSet;
 
 @Slf4j
 @Service
@@ -118,7 +119,7 @@ public class AdminOrderService implements AdminOrderUseCase {
 		}
 		return orders.stream()
 			.map(AdminOrderListProjection::sellerId)
-			.collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+			.collect(Collectors.toCollection(LinkedHashSet::new));
 	}
 
 	private AdminDailyTransactionResponse toDailyTransactionResponse(

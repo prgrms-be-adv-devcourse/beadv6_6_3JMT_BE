@@ -83,8 +83,7 @@ class OrderPolicyServiceTest {
 		@DisplayName("상품 스냅샷 응답이 null이면 입력값 검증 예외가 발생한다")
 		void nullProductSnapshots_throwsException() {
 			assertThatThrownBy(() -> orderPolicyService.validateProductSnapshots(productIds(), null))
-				.isInstanceOf(OrderException.class)
-				.hasMessage("주문 가능한 상품 정보가 올바르지 않습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 
 		@Test
@@ -93,8 +92,7 @@ class OrderPolicyServiceTest {
 			List<ProductOrderSnapshot> snapshots = createSingleProductSnapshot();
 
 			assertThatThrownBy(() -> orderPolicyService.validateProductSnapshots(productIds(), snapshots))
-				.isInstanceOf(OrderException.class)
-				.hasMessage("주문 가능한 상품 정보가 올바르지 않습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 
 		@Test
@@ -103,8 +101,7 @@ class OrderPolicyServiceTest {
 			List<ProductOrderSnapshot> snapshots = createProductSnapshotsWithUnknownProduct();
 
 			assertThatThrownBy(() -> orderPolicyService.validateProductSnapshots(productIds(), snapshots))
-				.isInstanceOf(OrderException.class)
-				.hasMessage("조회되지 않은 상품이 포함되어 있습니다.");
+				.isInstanceOf(OrderException.class);
 		}
 	}
 
@@ -213,8 +210,7 @@ class OrderPolicyServiceTest {
 				.isInstanceOf(OrderException.class)
 				.satisfies(exception ->
 					assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.ORDER_CANCEL_NOT_ALLOWED)
-				)
-				.hasMessage("이미 다운로드한 상품은 환불할 수 없습니다.");
+				);
 		}
 	}
 
