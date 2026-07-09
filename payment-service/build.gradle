@@ -38,3 +38,10 @@ protobuf {
 tasks.named('test') {
     maxParallelForks = 1
 }
+
+tasks.withType(Checkstyle).configureEach {
+    // protobuf/grpc가 생성하는 스텁 코드는 검사 대상에서 제외 (직접 작성한 코드가 아님)
+    // 생성 소스 디렉터리 자체가 소스셋 루트로 추가되어 있어 exclude 패턴이 상대 경로에
+    // 매칭되지 않으므로, 절대 경로 기준으로 소스를 필터링한다.
+    source = source.filter { file -> !file.path.contains('/generated/sources/proto/') }
+}
