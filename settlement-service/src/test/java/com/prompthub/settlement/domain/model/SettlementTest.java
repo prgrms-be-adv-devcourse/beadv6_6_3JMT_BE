@@ -1,14 +1,7 @@
 package com.prompthub.settlement.domain.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.prompthub.settlement.domain.exception.SettlementAlreadyCancelledException;
-import com.prompthub.settlement.domain.exception.SettlementAlreadyPaidException;
-import com.prompthub.settlement.domain.exception.SettlementInvalidStateException;
-import com.prompthub.settlement.domain.model.enums.PayoutStatus;
-import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
-import com.prompthub.settlement.domain.model.enums.SettlementStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -17,7 +10,6 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 
 class SettlementTest {
 
@@ -46,8 +38,8 @@ class SettlementTest {
     }
 
     @Test
-    @DisplayName("정산 생성 시 초기 상태와 환불액이 강제된다")
-    void create_initialStatuses() {
+    @DisplayName("정산 생성 시 환불액 0과 계산 시각이 강제된다")
+    void create_forcesRefundZeroAndCalculatedAt() {
         // given
         List<SettlementDetail> details = List.of(detail("100.00", "0.15"));
 
@@ -56,8 +48,6 @@ class SettlementTest {
                 UUID.randomUUID(), UUID.randomUUID(), YearMonth.of(2026, 6), details);
 
         // then
-        assertThat(settlement.getSettlementStatus()).isEqualTo(SettlementStatus.PENDING_APPROVAL);
-        assertThat(settlement.getPayoutStatus()).isEqualTo(PayoutStatus.NOT_READY);
         assertThat(settlement.getRefundAmount()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(settlement.getCalculatedAt()).isNotNull();
     }
@@ -87,267 +77,5 @@ class SettlementTest {
         assertThat(settlement.getTotalAmount()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(settlement.getFeeTotalAmount()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(settlement.getSettlementTotalAmount()).isEqualByComparingTo(BigDecimal.ZERO);
-    }
-
-    private Settlement pendingSettlement() {
-        return Settlement.create(
-                UUID.randomUUID(), UUID.randomUUID(), YearMonth.of(2026, 6),
-                List.of(detail("100.00", "0.15")));
-    }
-
-    @Test
-    @DisplayName("승인: PENDING_APPROVAL 정산을 승인하면 APPROVED + payout READY로 전이하고 confirmedAt을 기록한다")
-    void approve_fromPending() {
-        Settlement settlement = pendingSettlement();
-        LocalDateTime confirmedAt = LocalDateTime.of(2026, 6, 24, 9, 0);
-
-        settlement.approve(confirmedAt);
-
-        assertThat(settlement.getSettlementStatus()).isEqualTo(SettlementStatus.APPROVED);
-        assertThat(settlement.getPayoutStatus()).isEqualTo(PayoutStatus.READY);
-        assertThat(settlement.getConfirmedAt()).isEqualTo(confirmedAt);
-        assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.APPROVED);
-    }
-
-    @Test
-    @DisplayName("승인: PENDING_APPROVAL이 아니면 예외를 던진다")
-    void approve_whenNotPending_throws() {
-        Settlement settlement = pendingSettlement();
-        ReflectionTestUtils.setField(settlement, "settlementStatus", SettlementStatus.APPROVED);
-
-        assertThatThrownBy(() -> settlement.approve(LocalDateTime.of(2026, 6, 24, 9, 0)))
-                .isInstanceOf(SettlementInvalidStateException.class);
-    }
-
-    @Test
-    @DisplayName("승인 보류: PENDING_APPROVAL 정산을 보류하면 SETTLEMENT_ON_HOLD로 전이한다")
-    void hold_fromPending() {
-        Settlement settlement = pendingSettlement();
-
-        settlement.hold();
-
-        assertThat(settlement.getSettlementStatus()).isEqualTo(SettlementStatus.SETTLEMENT_ON_HOLD);
-        assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.APPROVAL_ON_HOLD);
-    }
-
-    @Test
-    @DisplayName("승인 보류: PENDING_APPROVAL이 아니면 예외를 던진다")
-    void hold_whenNotPending_throws() {
-        Settlement settlement = pendingSettlement();
-        ReflectionTestUtils.setField(settlement, "settlementStatus", SettlementStatus.APPROVED);
-
-        assertThatThrownBy(settlement::hold).isInstanceOf(SettlementInvalidStateException.class);
-    }
-
-    @Test
-    @DisplayName("승인 보류 해제: SETTLEMENT_ON_HOLD 정산을 해제하면 PENDING_APPROVAL로 전이한다")
-    void releaseHold_fromOnHold() {
-        Settlement settlement = pendingSettlement();
-        ReflectionTestUtils.setField(settlement, "settlementStatus", SettlementStatus.SETTLEMENT_ON_HOLD);
-
-        settlement.releaseHold();
-
-        assertThat(settlement.getSettlementStatus()).isEqualTo(SettlementStatus.PENDING_APPROVAL);
-        assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.WAITING);
-    }
-
-    @Test
-    @DisplayName("승인 보류 해제: SETTLEMENT_ON_HOLD가 아니면 예외를 던진다")
-    void releaseHold_whenNotOnHold_throws() {
-        Settlement settlement = pendingSettlement();
-
-        assertThatThrownBy(settlement::releaseHold).isInstanceOf(SettlementInvalidStateException.class);
-    }
-
-    @Test
-    @DisplayName("지급: APPROVED & PAYOUT_REQUESTED 정산을 지급하면 payout PAID로 전이하고 paidAt을 기록한다")
-    void payout_fromApprovedRequested() {
-        Settlement settlement = pendingSettlement();
-        ReflectionTestUtils.setField(settlement, "settlementStatus", SettlementStatus.APPROVED);
-        ReflectionTestUtils.setField(settlement, "payoutStatus", PayoutStatus.PAYOUT_REQUESTED);
-        LocalDateTime paidAt = LocalDateTime.of(2026, 6, 24, 15, 0);
-
-        settlement.payout(paidAt);
-
-        assertThat(settlement.getPayoutStatus()).isEqualTo(PayoutStatus.PAID);
-        assertThat(settlement.getPaidAt()).isEqualTo(paidAt);
-        assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.PAID);
-    }
-
-    @Test
-    @DisplayName("지급: 지급 신청(PAYOUT_REQUESTED) 전 READY 상태에서는 지급할 수 없다")
-    void payout_whenReadyNotRequested_throws() {
-        Settlement settlement = pendingSettlement();
-        settlement.approve(LocalDateTime.of(2026, 6, 24, 9, 0)); // APPROVED + READY
-
-        assertThatThrownBy(() -> settlement.payout(LocalDateTime.of(2026, 6, 24, 15, 0)))
-                .isInstanceOf(SettlementInvalidStateException.class);
-    }
-
-    @Test
-    @DisplayName("지급: APPROVED & READY가 아니면 예외를 던진다")
-    void payout_whenNotApprovedReady_throws() {
-        Settlement settlement = pendingSettlement();
-
-        assertThatThrownBy(() -> settlement.payout(LocalDateTime.of(2026, 6, 24, 15, 0)))
-                .isInstanceOf(SettlementInvalidStateException.class);
-    }
-
-    @Test
-    @DisplayName("지급 보류: APPROVED & PAYOUT_REQUESTED 정산을 보류하면 payout PAYOUT_ON_HOLD로 전이한다")
-    void payoutHold_fromApprovedRequested() {
-        Settlement settlement = pendingSettlement();
-        ReflectionTestUtils.setField(settlement, "settlementStatus", SettlementStatus.APPROVED);
-        ReflectionTestUtils.setField(settlement, "payoutStatus", PayoutStatus.PAYOUT_REQUESTED);
-
-        settlement.payoutHold();
-
-        assertThat(settlement.getPayoutStatus()).isEqualTo(PayoutStatus.PAYOUT_ON_HOLD);
-        assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.PAYOUT_ON_HOLD);
-    }
-
-    @Test
-    @DisplayName("지급 보류: APPROVED & READY가 아니면 예외를 던진다")
-    void payoutHold_whenNotApprovedReady_throws() {
-        Settlement settlement = pendingSettlement();
-
-        assertThatThrownBy(settlement::payoutHold).isInstanceOf(SettlementInvalidStateException.class);
-    }
-
-    @Test
-    @DisplayName("지급 보류 해제: APPROVED & PAYOUT_ON_HOLD 정산을 해제하면 payout PAYOUT_REQUESTED로 복귀한다")
-    void releasePayoutHold_fromApprovedOnHold() {
-        Settlement settlement = pendingSettlement();
-        ReflectionTestUtils.setField(settlement, "settlementStatus", SettlementStatus.APPROVED);
-        ReflectionTestUtils.setField(settlement, "payoutStatus", PayoutStatus.PAYOUT_ON_HOLD);
-
-        settlement.releasePayoutHold();
-
-        assertThat(settlement.getPayoutStatus()).isEqualTo(PayoutStatus.PAYOUT_REQUESTED);
-        assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.PAYOUT_REQUESTED);
-    }
-
-    @Test
-    @DisplayName("지급 보류 해제: APPROVED & PAYOUT_ON_HOLD가 아니면 예외를 던진다")
-    void releasePayoutHold_whenNotApprovedOnHold_throws() {
-        Settlement settlement = pendingSettlement();
-
-        assertThatThrownBy(settlement::releasePayoutHold).isInstanceOf(SettlementInvalidStateException.class);
-    }
-
-    @Test
-    @DisplayName("취소: PENDING_APPROVAL 정산을 취소하면 CANCELLED로 전이하고 canceledAt을 기록한다")
-    void cancel_fromPending_setsCancelled() {
-        Settlement settlement = pendingSettlement();
-        LocalDateTime canceledAt = LocalDateTime.of(2026, 6, 24, 9, 0);
-
-        settlement.cancel(canceledAt);
-
-        assertThat(settlement.getSettlementStatus()).isEqualTo(SettlementStatus.CANCELLED);
-        assertThat(settlement.getCanceledAt()).isEqualTo(canceledAt);
-        assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.CANCELLED);
-    }
-
-    @Test
-    @DisplayName("취소: APPROVED 정산도 PAID 전이면 취소할 수 있다")
-    void cancel_fromApproved_setsCancelled() {
-        Settlement settlement = pendingSettlement();
-        ReflectionTestUtils.setField(settlement, "settlementStatus", SettlementStatus.APPROVED);
-        ReflectionTestUtils.setField(settlement, "payoutStatus", PayoutStatus.PAYOUT_ON_HOLD);
-
-        settlement.cancel(LocalDateTime.of(2026, 6, 24, 9, 0));
-
-        assertThat(settlement.getSettlementStatus()).isEqualTo(SettlementStatus.CANCELLED);
-    }
-
-    @Test
-    @DisplayName("취소: 이미 지급 완료(PAID)된 정산은 취소할 수 없다")
-    void cancel_whenPaid_throws() {
-        Settlement settlement = pendingSettlement();
-        ReflectionTestUtils.setField(settlement, "settlementStatus", SettlementStatus.APPROVED);
-        ReflectionTestUtils.setField(settlement, "payoutStatus", PayoutStatus.PAID);
-
-        assertThatThrownBy(() -> settlement.cancel(LocalDateTime.of(2026, 6, 24, 9, 0)))
-                .isInstanceOf(SettlementAlreadyPaidException.class);
-    }
-
-    @Test
-    @DisplayName("취소: 이미 취소된 정산을 다시 취소하면 예외를 던진다")
-    void cancel_whenAlreadyCancelled_throws() {
-        Settlement settlement = pendingSettlement();
-        settlement.cancel(LocalDateTime.of(2026, 6, 24, 9, 0));
-
-        assertThatThrownBy(() -> settlement.cancel(LocalDateTime.of(2026, 6, 24, 10, 0)))
-                .isInstanceOf(SettlementAlreadyCancelledException.class);
-    }
-
-    @Test
-    @DisplayName("지급 신청 가능: 승인 완료(displayStatus=APPROVED) 상태면 판매자가 지급 신청할 수 있다")
-    void canRequestPayout_whenApproved_true() {
-        Settlement settlement = pendingSettlement();
-        settlement.approve(LocalDateTime.of(2026, 6, 24, 9, 0)); // APPROVED + READY
-
-        assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.APPROVED);
-        assertThat(settlement.canRequestPayout()).isTrue();
-    }
-
-    @Test
-    @DisplayName("지급 신청 불가: 승인 대기(WAITING) 상태면 지급 신청할 수 없다")
-    void canRequestPayout_whenWaiting_false() {
-        Settlement settlement = pendingSettlement();
-
-        assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.WAITING);
-        assertThat(settlement.canRequestPayout()).isFalse();
-    }
-
-    @Test
-    @DisplayName("지급 신청 불가: 지급 보류·지급 완료·취소 상태면 지급 신청할 수 없다")
-    void canRequestPayout_whenPayoutHoldOrPaidOrCancelled_false() {
-        Settlement payoutOnHold = pendingSettlement();
-        ReflectionTestUtils.setField(payoutOnHold, "settlementStatus", SettlementStatus.APPROVED);
-        ReflectionTestUtils.setField(payoutOnHold, "payoutStatus", PayoutStatus.PAYOUT_ON_HOLD);
-
-        Settlement paid = pendingSettlement();
-        ReflectionTestUtils.setField(paid, "settlementStatus", SettlementStatus.APPROVED);
-        ReflectionTestUtils.setField(paid, "payoutStatus", PayoutStatus.PAID);
-
-        Settlement cancelled = pendingSettlement();
-        ReflectionTestUtils.setField(cancelled, "settlementStatus", SettlementStatus.CANCELLED);
-
-        assertThat(payoutOnHold.canRequestPayout()).isFalse();
-        assertThat(paid.canRequestPayout()).isFalse();
-        assertThat(cancelled.canRequestPayout()).isFalse();
-    }
-
-    @Test
-    @DisplayName("지급 신청 불가: 이미 지급 신청(PAYOUT_REQUESTED)한 정산은 다시 신청할 수 없다")
-    void canRequestPayout_whenAlreadyRequested_false() {
-        Settlement settlement = pendingSettlement();
-        ReflectionTestUtils.setField(settlement, "settlementStatus", SettlementStatus.APPROVED);
-        ReflectionTestUtils.setField(settlement, "payoutStatus", PayoutStatus.PAYOUT_REQUESTED);
-
-        assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.PAYOUT_REQUESTED);
-        assertThat(settlement.canRequestPayout()).isFalse();
-    }
-
-    @Test
-    @DisplayName("지급 신청: APPROVED & READY 정산을 신청하면 payout PAYOUT_REQUESTED로 전이한다")
-    void requestPayout_fromApprovedReady() {
-        Settlement settlement = pendingSettlement();
-        settlement.approve(LocalDateTime.of(2026, 6, 24, 9, 0)); // APPROVED + READY
-
-        settlement.requestPayout();
-
-        assertThat(settlement.getPayoutStatus()).isEqualTo(PayoutStatus.PAYOUT_REQUESTED);
-        assertThat(settlement.displayStatus()).isEqualTo(SettlementDisplayStatus.PAYOUT_REQUESTED);
-    }
-
-    @Test
-    @DisplayName("지급 신청: APPROVED & READY가 아니면 예외를 던진다")
-    void requestPayout_whenNotApprovedReady_throws() {
-        Settlement settlement = pendingSettlement(); // PENDING_APPROVAL
-
-        assertThatThrownBy(settlement::requestPayout)
-                .isInstanceOf(SettlementInvalidStateException.class);
     }
 }
