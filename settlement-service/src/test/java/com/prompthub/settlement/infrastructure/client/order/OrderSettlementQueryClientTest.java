@@ -36,13 +36,11 @@ class OrderSettlementQueryClientTest {
     @DisplayName("gRPC 응답을 SettleableLine 목록으로 매핑한다")
     void fetch_mapsResponse() {
         // given
-        UUID eventId = UUID.randomUUID();
         UUID orderId = UUID.randomUUID();
         UUID orderProductId = UUID.randomUUID();
         UUID sellerId = UUID.randomUUID();
         SettleableLinesResponse response = SettleableLinesResponse.newBuilder()
                 .addLines(com.prompthub.settlement.grpc.ordersettlement.SettleableLine.newBuilder()
-                        .setEventId(eventId.toString())
                         .setEventType("PAID")
                         .setOrderId(orderId.toString())
                         .setOrderProductId(orderProductId.toString())
@@ -59,7 +57,6 @@ class OrderSettlementQueryClientTest {
         // then
         assertThat(lines).hasSize(1);
         SettleableLine line = lines.get(0);
-        assertThat(line.eventId()).isEqualTo(eventId);
         assertThat(line.eventType()).isEqualTo(SettlementSourceEventType.PAID);
         assertThat(line.orderId()).isEqualTo(orderId);
         assertThat(line.orderProductId()).isEqualTo(orderProductId);

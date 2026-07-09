@@ -7,10 +7,9 @@ import java.util.UUID;
 
 /**
  * order-service 에서 gRPC 로 조회한 정산 대상 라인 1건.
- * SettleableLineQueryPort 가 반환하며, SettlementSourceLine 으로 적재된다.
+ * OrderSettlementQueryPort 가 반환하며, 멱등키(orderProductId + eventType)는 적재 시 정산이 파생한다.
  */
 public record SettleableLine(
-        UUID eventId,
         SettlementSourceEventType eventType,
         UUID orderId,
         UUID orderProductId,

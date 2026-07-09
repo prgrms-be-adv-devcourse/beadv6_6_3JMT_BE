@@ -1,7 +1,7 @@
 package com.prompthub.settlement.infrastructure.client.order;
 
 import com.prompthub.settlement.application.dto.SettleableLine;
-import com.prompthub.settlement.application.port.SettleableLineQueryPort;
+import com.prompthub.settlement.application.port.OrderSettlementQueryPort;
 import com.prompthub.settlement.domain.model.enums.SettlementSourceEventType;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
 import com.prompthub.settlement.global.exception.SettlementException;
@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class OrderSettlementQueryClient implements SettleableLineQueryPort {
+public class OrderSettlementQueryClient implements OrderSettlementQueryPort {
 
     private final OrderSettlementQueryServiceBlockingStub orderSettlementQueryStub;
 
@@ -47,7 +47,6 @@ public class OrderSettlementQueryClient implements SettleableLineQueryPort {
     private SettleableLine toSettleableLine(
             com.prompthub.settlement.grpc.ordersettlement.SettleableLine line) {
         return new SettleableLine(
-                UUID.fromString(line.getEventId()),
                 SettlementSourceEventType.valueOf(line.getEventType()),
                 UUID.fromString(line.getOrderId()),
                 UUID.fromString(line.getOrderProductId()),

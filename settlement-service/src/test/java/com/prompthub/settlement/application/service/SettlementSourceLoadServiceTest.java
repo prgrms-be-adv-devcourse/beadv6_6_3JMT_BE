@@ -8,11 +8,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.prompthub.settlement.application.dto.SettleableLine;
-import com.prompthub.settlement.application.port.SettleableLineQueryPort;
+import com.prompthub.settlement.application.port.OrderSettlementQueryPort;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.model.enums.SettlementSourceEventType;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
@@ -33,7 +34,7 @@ class SettlementSourceLoadServiceTest {
     private SettlementSourceRepository settlementSourceRepository;
 
     @Mock
-    private SettleableLineQueryPort settleableLineQueryPort;
+    private OrderSettlementQueryPort orderSettlementQueryPort;
 
     @InjectMocks
     private SettlementSourceApplicationService service;
@@ -41,28 +42,33 @@ class SettlementSourceLoadServiceTest {
     @Captor
     private ArgumentCaptor<List<SettlementSourceLine>> savedLinesCaptor;
 
+    // 서비스와 동일한 멱등키 파생식(orderProductId + eventType). 계약을 테스트가 명시적으로 문서화한다.
+    private static UUID eventId(UUID orderProductId, SettlementSourceEventType type) {
+        return UUID.nameUUIDFromBytes((orderProductId + "|" + type).getBytes(StandardCharsets.UTF_8));
+    }
+
     @Test
-    @DisplayName("정산 대상 라인을 gRPC로 bulk 조회해 이미 적재된 eventId는 건너뛰고 신규만 저장한다")
+    @DisplayName("정산 대상 라인을 gRPC로 bulk 조회해 이미 적재된 멱등키는 건너뛰고 신규만 저장한다")
     void load_savesOnlyNewLines() {
         // given
         YearMonth period = YearMonth.of(2026, 6);
         UUID orderId = UUID.randomUUID();
         UUID seller = UUID.randomUUID();
         LocalDateTime occurredAt = LocalDateTime.of(2026, 6, 3, 10, 15);
-        UUID existingEventId = UUID.randomUUID();
-        UUID newPaidEventId = UUID.randomUUID();
-        UUID newRefundEventId = UUID.randomUUID();
+        UUID existingOrderProductId = UUID.randomUUID();
+        UUID newPaidOrderProductId = UUID.randomUUID();
+        UUID newRefundOrderProductId = UUID.randomUUID();
 
         List<SettleableLine> lines = List.of(
-                new SettleableLine(existingEventId, SettlementSourceEventType.PAID, orderId,
-                        UUID.randomUUID(), seller, new BigDecimal("1000"), occurredAt),
-                new SettleableLine(newPaidEventId, SettlementSourceEventType.PAID, orderId,
-                        UUID.randomUUID(), seller, new BigDecimal("2000"), occurredAt),
-                new SettleableLine(newRefundEventId, SettlementSourceEventType.REFUND, orderId,
-                        UUID.randomUUID(), seller, new BigDecimal("500"), occurredAt));
-        given(settleableLineQueryPort.fetchSettleableLines(period)).willReturn(lines);
+                new SettleableLine(SettlementSourceEventType.PAID, orderId,
+                        existingOrderProductId, seller, new BigDecimal("1000"), occurredAt),
+                new SettleableLine(SettlementSourceEventType.PAID, orderId,
+                        newPaidOrderProductId, seller, new BigDecimal("2000"), occurredAt),
+                new SettleableLine(SettlementSourceEventType.REFUND, orderId,
+                        newRefundOrderProductId, seller, new BigDecimal("500"), occurredAt));
+        given(orderSettlementQueryPort.fetchSettleableLines(period)).willReturn(lines);
         given(settlementSourceRepository.findExistingEventIds(anyCollection()))
-                .willReturn(List.of(existingEventId));
+                .willReturn(List.of(eventId(existingOrderProductId, SettlementSourceEventType.PAID)));
 
         // when
         int saved = service.load(period);
@@ -71,8 +77,12 @@ class SettlementSourceLoadServiceTest {
         assertThat(saved).isEqualTo(2);
         verify(settlementSourceRepository).saveAll(savedLinesCaptor.capture());
         List<SettlementSourceLine> savedLines = savedLinesCaptor.getValue();
+        assertThat(savedLines).extracting(SettlementSourceLine::getOrderProductId)
+                .containsExactlyInAnyOrder(newPaidOrderProductId, newRefundOrderProductId);
         assertThat(savedLines).extracting(SettlementSourceLine::getEventId)
-                .containsExactlyInAnyOrder(newPaidEventId, newRefundEventId);
+                .containsExactlyInAnyOrder(
+                        eventId(newPaidOrderProductId, SettlementSourceEventType.PAID),
+                        eventId(newRefundOrderProductId, SettlementSourceEventType.REFUND));
         assertThat(savedLines).extracting(SettlementSourceLine::getEventType)
                 .containsExactlyInAnyOrder(SettlementSourceEventType.PAID, SettlementSourceEventType.REFUND);
     }
@@ -82,7 +92,7 @@ class SettlementSourceLoadServiceTest {
     void load_empty_noSave() {
         // given
         YearMonth period = YearMonth.of(2026, 6);
-        given(settleableLineQueryPort.fetchSettleableLines(period)).willReturn(List.of());
+        given(orderSettlementQueryPort.fetchSettleableLines(period)).willReturn(List.of());
 
         // when
         int saved = service.load(period);
