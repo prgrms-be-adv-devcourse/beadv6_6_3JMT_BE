@@ -129,6 +129,7 @@ class ProductQueryServiceTest {
 		void getProduct_success() {
 			Product product = product(ProductStatus.ON_SALE, null);
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
 			given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(4.5);
 			given(sellerClient.getSellerInfo(SELLER_ID))
 				.willReturn(new SellerInfo(SELLER_ID, "테스트판매자", null, "ACTIVE"));
@@ -169,6 +170,58 @@ class ProductQueryServiceTest {
 	}
 
 	@Nested
+	@DisplayName("family resolution")
+	class FamilyResolution {
+
+		@Test
+		@DisplayName("SUPERSEDED된 옛 id로 조회해도 family의 현재 ON_SALE row로 resolve한다")
+		void getProduct_oldSupersededId_resolvesToCurrentOnSale() {
+			UUID oldId = PRODUCT_ID;
+			UUID currentId = RELATED_PRODUCT_ID;
+			Product old = productFixture(oldId, null, ProductStatus.SUPERSEDED, (short) 1, (short) 0);
+			Product current = productFixture(currentId, oldId, ProductStatus.ON_SALE, (short) 2, (short) 0);
+
+			given(productRepository.findById(oldId)).willReturn(Optional.of(old));
+			given(productRepository.findAllByFamilyRootIds(List.of(oldId))).willReturn(List.of(old, current));
+			given(productRepository.getAverageRating(oldId)).willReturn(4.5);
+			given(sellerClient.getSellerInfo(SELLER_ID))
+				.willReturn(new com.prompthub.product.application.client.SellerInfo(SELLER_ID, "판매자", null, "ACTIVE"));
+			given(productRepository.countOnSaleProductsBySellerId(SELLER_ID)).willReturn(1L);
+
+			ProductDetailResponse result = productQueryService.getProduct(oldId);
+
+			assertThat(result.id()).isEqualTo(currentId);
+			assertThat(result.versions()).hasSize(2);
+		}
+
+		@Test
+		@DisplayName("family에 ON_SALE row가 없으면 404를 던진다")
+		void getProduct_noOnSaleInFamily_throwsNotFound() {
+			Product rejected = productFixture(PRODUCT_ID, null, ProductStatus.REJECTED, (short) 1, (short) 0);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(rejected));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(rejected));
+
+			assertThatThrownBy(() -> productQueryService.getProduct(PRODUCT_ID))
+				.isInstanceOf(ProductException.class);
+		}
+	}
+
+	private Product productFixture(UUID id, UUID parentId, ProductStatus status, short majorVersion, short patchVersion) {
+		Product product = Product.create(
+			id, SELLER_ID, ProductType.PROMPT,
+			"제목", "설명", "model", com.prompthub.product.domain.model.enums.AmountType.PAID, 1000,
+			null, List.of(), "content", List.of()
+		);
+		ReflectionTestUtils.setField(product, "parentId", parentId);
+		ReflectionTestUtils.setField(product, "status", status);
+		ReflectionTestUtils.setField(product, "majorVersion", majorVersion);
+		ReflectionTestUtils.setField(product, "patchVersion", patchVersion);
+		ReflectionTestUtils.setField(product, "createdAt", CREATED_AT);
+		ReflectionTestUtils.setField(product, "updatedAt", UPDATED_AT);
+		return product;
+	}
+
+	@Nested
 	@DisplayName("연관 상품 조회")
 	class GetRelatedProducts {
 
@@ -179,6 +232,7 @@ class ProductQueryServiceTest {
 			Product related = product(ProductStatus.ON_SALE, null);
 			ReflectionTestUtils.setField(related, "id", RELATED_PRODUCT_ID);
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
 			given(productRepository.findRelatedProducts(PRODUCT_ID, ProductType.PROMPT, 4))
 				.willReturn(List.of(productListProjection(RELATED_PRODUCT_ID, "PROMPT")));
 			given(sellerClient.getSellerInfo(SELLER_ID))
@@ -212,6 +266,7 @@ class ProductQueryServiceTest {
 				UPDATED_AT
 			);
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
 			given(productRepository.findActiveReviews(PRODUCT_ID)).willReturn(List.of(projection));
 
 			List<ProductReviewResponse> response = productQueryService.getProductReviews(PRODUCT_ID);

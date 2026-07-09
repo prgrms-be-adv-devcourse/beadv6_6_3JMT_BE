@@ -4,7 +4,7 @@ import com.prompthub.product.application.client.SellerClient;
 import com.prompthub.product.application.client.SellerInfo;
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.domain.model.entity.Product;
-import com.prompthub.product.domain.model.enums.ProductStatus;
+import com.prompthub.product.domain.model.entity.ProductFamily;
 import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
@@ -88,7 +88,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 		Product product = getOnSaleProduct(productId);
 		product.incrementViewCount();
 		productRepository.save(product);
-		double rating = productRepository.getAverageRating(productId);
+		double rating = productRepository.getAverageRating(product.familyRootId());
 		SellerInfo seller = sellerClient.getSellerInfo(product.getSellerId());
 		int sellerProductCount = (int) productRepository.countOnSaleProductsBySellerId(product.getSellerId());
 
@@ -109,7 +109,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 			product.getThumbnailUrl(),
 			createPreviewContent(product),
 			product.getTags(),
-			List.of(toVersionResponse(product)),
+			toVersionHistory(product.familyRootId()),
 			List.of(),
 			product.getCreatedAt(),
 			product.getUpdatedAt()
@@ -142,23 +142,30 @@ public class ProductQueryService implements ProductQueryUseCase {
 	}
 
 	public List<ProductReviewResponse> getProductReviews(UUID productId) {
-		getOnSaleProduct(productId);
+		Product product = getOnSaleProduct(productId);
 
-		return productRepository.findActiveReviews(productId)
+		return productRepository.findActiveReviews(product.familyRootId())
 			.stream()
 			.map(this::toReviewResponse)
 			.toList();
 	}
 
 	private Product getOnSaleProduct(UUID productId) {
-		Product product = productRepository.findById(productId)
+		Product anchor = productRepository.findById(productId)
 			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
+		UUID familyRootId = anchor.familyRootId();
+		List<Product> members = productRepository.findAllByFamilyRootIds(List.of(familyRootId));
+		ProductFamily family = ProductFamily.of(familyRootId, members);
+		return family.currentOnSale()
+			.filter(p -> p.getDeletedAt() == null)
+			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
+	}
 
-		if (product.getStatus() != ProductStatus.ON_SALE || product.getDeletedAt() != null) {
-			throw new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND);
-		}
-
-		return product;
+	private List<ProductVersionResponse> toVersionHistory(UUID familyRootId) {
+		List<Product> members = productRepository.findAllByFamilyRootIds(List.of(familyRootId));
+		return ProductFamily.of(familyRootId, members).publicHistory().stream()
+			.map(this::toVersionResponse)
+			.toList();
 	}
 
 	private ProductListItemResponse toListItemResponse(ProductListProjection product, String sellerName, List<String> tags) {
