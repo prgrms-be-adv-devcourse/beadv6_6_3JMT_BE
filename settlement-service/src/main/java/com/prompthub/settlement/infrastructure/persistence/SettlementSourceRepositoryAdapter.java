@@ -4,6 +4,7 @@ import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +22,18 @@ public class SettlementSourceRepositoryAdapter implements SettlementSourceReposi
     }
 
     @Override
+    public void saveAll(List<SettlementSourceLine> lines) {
+        jpaRepository.saveAll(lines);
+    }
+
+    @Override
     public boolean existsByEventId(UUID eventId) {
         return jpaRepository.existsByEventId(eventId);
+    }
+
+    @Override
+    public List<UUID> findExistingEventIds(Collection<UUID> eventIds) {
+        return jpaRepository.findExistingEventIds(eventIds);
     }
 
     @Override

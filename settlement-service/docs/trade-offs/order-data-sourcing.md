@@ -129,45 +129,58 @@ Step 0 가 gRPC 로 그 기간의 결제·환불 라인을 당겨 `settlement_so
 
 ### order 가 제공할 gRPC 계약 (정산이 제안, order 팀이 서버 구현)
 
-period 하나로 결제·환불 라인을 `lineType` 으로 구분해 스트리밍한다(대량 대응).
+period 하나로 결제·환불 라인을 `event_type` 으로 구분해 한 응답(`repeated`)으로 받는다.
+
+> **전송 방식은 unary + `repeated` 로 구현했다(#260).** 초안은 대량 대응 server-streaming 이었으나
+> 월 배치 1회 호출·구현 단순성을 우선했다. 볼륨이 실제 문제가 되면 streaming 으로 전환한다.
+> 실제 커밋된 계약은 `src/main/proto/order_settlement_query.proto` 이며 아래와 같다.
 
 ```protobuf
 service OrderSettlementQueryService {
-  rpc GetSettleableLines(SettleablePeriodRequest) returns (stream SettleableLine);
+  rpc GetSettleableLines(SettleableLinesRequest) returns (SettleableLinesResponse);
 }
 
-message SettleablePeriodRequest {
+message SettleableLinesRequest {
   string period = 1;   // "2026-06" — paidAt/refundedAt '발생 시각' 기준 기간
 }
 
+message SettleableLinesResponse {
+  repeated SettleableLine lines = 1;
+}
+
 message SettleableLine {
-  string order_product_id = 1;
+  string event_type       = 1;   // PAID | REFUND
   string order_id         = 2;
-  string seller_id        = 3;
-  int64  amount           = 4;   // PAID 는 결제액, REFUND 는 환불액
-  string line_type        = 5;   // PAID | REFUND
+  string order_product_id = 3;
+  string seller_id        = 4;
+  int64  line_amount      = 5;   // PAID 는 결제액, REFUND 는 환불액(양수)
   string occurred_at      = 6;   // PAID 면 paidAt, REFUND 면 refundedAt
 }
 ```
 
-- 서버는 내부적으로 `paidAt ∈ P`(결제 라인)과 `refundedAt ∈ P`(환불 라인) 두 쿼리를 합쳐 스트리밍한다.
+- 서버는 내부적으로 `paidAt ∈ P`(결제 라인)과 `refundedAt ∈ P`(환불 라인) 두 쿼리를 합쳐 내려준다.
 - **status 로 필터하지 않는다.** 환불된 라인도 `paidAt` 이 P 안이면 결제 라인으로, `refundedAt` 이
   P 안이면 환불 라인으로 각각 내려온다.
+- 멱등키 `event_id` 는 order 가 주지 않는다. 정산이 `(order_product_id + event_type)` 로 로컬 파생한다.
 
-### 코드에서 바뀌는 것
+### 코드에서 바뀌는 것 (구현 결과 — #260)
 
-- **제거:** `infrastructure/messaging/kafka/consumer/order/*`(`OrderEventConsumer`·`OrderEventType`),
-  Kafka consumer 설정, `application/event` 의 order 이벤트 DTO, `settlement.kafka.listener.order.*` 설정.
-- **신규:** `infrastructure/client/order/`(`OrderSettlementQueryClient` + `config`), `application/port`
-  의 `OrderSettlementQueryPort`, `src/main/proto/order_settlement_query.proto`, 배치 Step 0 tasklet.
-- **변경:** `SettlementSourceApplicationService` — 이벤트 핸들러(`recordOrderPaid`/`recordOrderRefunded`)
-  대신 "기간 라인 동기화" 메서드로. 멱등키 seed 를 `orderProductId | 상태` 로 재구성.
-- **그대로:** `settlement_source_line`(`SettlementSourceLine`), `SettlementSourceRepository` 포트,
+- **신규:** `infrastructure/client/order/`(`OrderSettlementQueryClient` + `config/OrderGrpcClientConfig`),
+  `application/port/OrderSettlementQueryPort`, `application/dto/SettleableLine`,
+  `application/usecase/LoadSettlementSourceUseCase`, `src/main/proto/order_settlement_query.proto`,
+  배치 첫 스텝 `LoadSettlementSourceTasklet`(`loadSettlementSourceStep`).
+- **변경:** `SettlementSourceApplicationService` — 이벤트 핸들러(`recordOrderPaid`/`recordOrderRefunded`)는
+  **남겨두고**, `LoadSettlementSourceUseCase.load(period)` 를 추가로 구현(gRPC pull → bulk 적재). 멱등키
+  seed 는 pull 경로용으로 `orderProductId | eventType`(`pullLineEventId`)을 새로 둔다.
+  `SettlementSourceRepository` 에 `saveAll`·`findExistingEventIds` 추가.
+- **유지(제거는 order 서버 가동 후):** `infrastructure/messaging/kafka/consumer/order/*`
+  (`OrderEventConsumer`·`OrderEventType`), order 이벤트 DTO 는 남겨두고 `settlement.kafka.listener.order.enabled: false`
+  로 비활성. order gRPC 서버가 아직 없어 유일하게 계약이 있는 폴백이라, 서버 가동 후 정리한다.
+- **그대로:** `settlement_source_line`(`SettlementSourceLine`), `SettlementSourceRepository` 조회 계약,
   `findSettleableLines`, 계산 유스케이스, 배치 뒷단계 전부.
 
 포트(`application/port`)·어댑터(`infrastructure/client`) 분리 덕에 안쪽 계층은 전송이 gRPC 로 바뀐
-걸 모른다. 이미 `SellerQueryClient`·`ProductQueryClient` 가 같은 패턴이라 order client 를 그 옆에 하나
-더 붙이는 형태다. (포트·어댑터 규칙은 `clean-architecture.md` §4, gRPC 선택 근거는 `internal-sync-transport.md`.)
+걸 모른다. (포트·어댑터 규칙은 `clean-architecture.md` §4, gRPC 선택 근거는 `internal-sync-transport.md`.)
 
 ## order 팀 합의 사항
 

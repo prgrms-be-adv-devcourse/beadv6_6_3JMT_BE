@@ -1,11 +1,14 @@
 # 정산 배치 처리 단위
 
-정산 잡은 판매자 단위로 집계하는 3-step 파이프라인이다. 주문을 한 건씩 흘려보내는
-단일 chunk step이 아니다.
+정산 잡은 판매자 단위로 집계하는 파이프라인이다(원천 적재 step 뒤에 3-step 집계가 붙는다).
+주문을 한 건씩 흘려보내는 단일 chunk step이 아니다.
 
 ## 지금 구조
 
-- 잡은 세 step을 순서대로 돈다.
+- 잡은 네 step을 순서대로 돈다. 맨 앞 원천 적재 step은 #260에서 order gRPC pull로 붙었다
+  (배경·계약은 `order-data-sourcing.md`). 이 문서의 관심사인 "집계 단위"는 그다음 `settlementStep`이다.
+  - `loadSettlementSourceStep` (tasklet) — 그 기간의 결제·환불 라인을 order에서 gRPC pull로 당겨
+    `settlement_source_line`에 멱등 적재한다.
   - `createSettlementBatchStep` (tasklet) — 해당 기간의 `SettlementBatch` 레코드를 연다.
   - `settlementStep` (chunk) — 실제 정산 작업.
   - `completeSettlementBatchStep` (tasklet) — 배치를 완료로 표시한다.
@@ -19,7 +22,8 @@
 ```java
 new JobBuilder(SETTLEMENT_JOB_NAME, jobRepository)
         .listener(settlementBatchFailureListener)
-        .start(createSettlementBatchStep)
+        .start(loadSettlementSourceStep)
+        .next(createSettlementBatchStep)
         .next(settlementStep)
         .next(completeSettlementBatchStep)
         .build();

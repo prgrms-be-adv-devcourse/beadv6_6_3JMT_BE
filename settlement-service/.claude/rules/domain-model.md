@@ -18,10 +18,10 @@
 도메인이 JPA에 의존하게 되는 대신, 다음을 지켜 모델이 단순 데이터 덩어리로 전락하지 않게 한다.
 
 - **비즈니스 상태 변경용 public setter 를 두지 않는다.** 상태 변경은 의도를 드러내는
-  도메인 메서드로 표현한다. (예: `order.markPaid()`, `settlement.confirm()`, `settlementBatch.complete()`)
+  도메인 메서드로 표현한다. (예: `order.markPaid()`, `settlementBatch.complete()`, `settlementBatch.fail(...)`)
 - 비즈니스 규칙·불변식은 도메인 메서드 안에서 보장한다.
 - **공통 생성일·수정일(`createdAt`·`updatedAt`)은 `BaseEntity` 에서 관리하고, 개별 엔티티에서
-  중복 선언하지 않는다.** 비즈니스 시각(`confirmedAt`·`paidAt`·`executedAt` 등)은 엔티티별 필드로 둔다.
+  중복 선언하지 않는다.** 비즈니스 시각(`calculatedAt`·`executedAt` 등)은 엔티티별 필드로 둔다.
 - **반복되는 비즈니스 규칙이 실제로 해당 aggregate 에 속한다면 도메인 모델로 이동한다.**
   서비스에 흩어진 규칙을 도메인이 끌어안는 방향으로 정리한다.
 - **Entity 를 단순 데이터 컨테이너로만 사용하지 않는다.** 행위 없는 getter/setter 덩어리는 지양한다.
@@ -83,10 +83,9 @@ private Settlement(...) {
 **초기 상태는 외부에서 받지 않고 엔티티 내부에서 강제한다.**
 
 ```java
-// 지양: Settlement.create(..., SettlementStatus.APPROVED);
+// 지양: SettlementBatch.start(..., SettlementBatchStatus.COMPLETED);
 // 권장:
-this.settlementStatus = SettlementStatus.PENDING_APPROVAL;
-this.payoutStatus = PayoutStatus.NOT_READY;
+this.status = SettlementBatchStatus.PROCESSING;
 ```
 
 **상세 목록·원본 데이터로부터 계산 가능한 값(파생값)은 외부에서 직접 받지 않는다.**
@@ -143,7 +142,7 @@ public void addDetail(SettlementDetail detail) {
 HTTP 상태로의 변환은 핸들러가 맡는다. (`controller-exception.md` §2-4)
 
 ```java
-// 지양: settlement.setSettlementStatus(APPROVED);
+// 지양: settlementBatch.setStatus(COMPLETED);
 // 권장:
 public void complete() {
     if (this.status != SettlementBatchStatus.PROCESSING) {
