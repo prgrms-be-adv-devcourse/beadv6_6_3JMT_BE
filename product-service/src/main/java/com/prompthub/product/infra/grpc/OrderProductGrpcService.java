@@ -1,15 +1,15 @@
 package com.prompthub.product.infra.grpc;
 
 import com.prompthub.product.application.usecase.ProductInternalUseCase;
-import com.prompthub.grpc.product.v1.GetCartSnapshotsRequest;
-import com.prompthub.grpc.product.v1.GetCartSnapshotsResponse;
-import com.prompthub.grpc.product.v1.GetOrderSnapshotsRequest;
-import com.prompthub.grpc.product.v1.GetOrderSnapshotsResponse;
-import com.prompthub.grpc.product.v1.GetProductContentRequest;
-import com.prompthub.grpc.product.v1.GetProductContentResponse;
-import com.prompthub.grpc.product.v1.ProductCartSnapshotMessage;
-import com.prompthub.grpc.product.v1.ProductInternalServiceGrpc;
-import com.prompthub.grpc.product.v1.ProductOrderSnapshot;
+import com.prompthub.grpc.product.GetCartSnapshotsRequest;
+import com.prompthub.grpc.product.GetCartSnapshotsResponse;
+import com.prompthub.grpc.product.GetOrderSnapshotsRequest;
+import com.prompthub.grpc.product.GetOrderSnapshotsResponse;
+import com.prompthub.grpc.product.GetProductContentRequest;
+import com.prompthub.grpc.product.GetProductContentResponse;
+import com.prompthub.grpc.product.ProductCartSnapshotMessage;
+import com.prompthub.grpc.product.ProductInternalServiceGrpc;
+import com.prompthub.grpc.product.ProductOrderSnapshot;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.util.List;
