@@ -61,12 +61,12 @@ gateway:
   # 서비스별 활성 API 버전 리스트. 병행 서빙이 필요해지면 [v1, v2]로 바꾼다.
   # 리스트를 비우거나 서비스 키를 지우면 해당 서비스의 라우트/화이트리스트는 사라지고 404가 된다. (ADR-0007)
   api-versions:
-    settlement-service: [ v1 ]
-    admin-service: [ v1 ]
-    order-service: [ v1 ]
-    product-service: [ v1 ]
-    payment-service: [ v1 ]
-    user-service: [ v1 ]
+    settlement-service: [ v1, v2 ]
+    admin-service: [ v1, v2 ]
+    order-service: [ v1, v2 ]
+    product-service: [ v1, v2 ]
+    payment-service: [ v1, v2 ]
+    user-service: [ v1, v2 ]
 
 jwt:
   public-key: ${JWT_PUBLIC_KEY}
