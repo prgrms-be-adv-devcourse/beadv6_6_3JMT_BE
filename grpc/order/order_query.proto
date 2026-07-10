@@ -1,38 +1,28 @@
 syntax = "proto3";
 
-// 루트 공유 gRPC 계약 — 소유: order-service (order 도메인, OrderQueryService 서버).
-// 소비: settlement-service (정산 대상 라인 bulk 조회 클라이언트 — #260).
-// 현재 order 서버는 미구현이라 이 계약은 정산 클라이언트 쪽이 유일본이다. order 팀이 서버를 신설할 때
-// 이 계약과 wire(package·service·message·field 번호)를 일치시킨다.
-// 디렉토리 grpc/order = 소유 모듈, 파일·서비스 order = 도메인. 규칙은 settlement-service/docs/architecture/grpc-contract-ownership.md 참고.
-// 각 소비/제공 모듈은 build.gradle 의 proto srcDir 로 이 경로(grpc/order)를 참조한다.
 package settlement.order;
 
 option java_multiple_files = true;
-option java_package = "com.prompthub.settlement.grpc.ordersettlement";
+option java_package = "com.prompthub.grpc.order";
 option java_outer_classname = "OrderQueryProto";
 
 service OrderQueryService {
-  // 정산 기준월(period, YYYY-MM)에 아직 정산되지 않은 결제/환불 라인을 셀러 무관하게 전부 조회한다.
-  // order 는 상태가 아니라 시각(paidAt/refundedAt) 기준으로 해당 월의 라인을 내려준다.
   rpc GetSettleableLines(GetSettleableLinesRequest) returns (GetSettleableLinesResponse);
 }
 
 message GetSettleableLinesRequest {
-  string period = 1;   // 정산 기준월 (YYYY-MM)
+  string period = 1;
 }
 
 message GetSettleableLinesResponse {
   repeated SettleableLine lines = 1;
 }
 
-// 정산측 멱등키는 (order_product_id + line_type) 로 정산이 로컬에서 파생한다(재-pull 멱등).
-// 환불 라인은 결제 라인을 덮지 않고 REFUND 타입 별도 라인으로 더해진다.
 message SettleableLine {
-  string line_type = 1;         // PAID | REFUND
-  string order_id = 2;          // 주문 ID(UUID)
-  string order_product_id = 3;  // 주문 상품 라인 ID(UUID)
-  string seller_id = 4;         // 판매자 ID(UUID)
-  int64 line_amount = 5;        // 라인 금액(원 단위 정수, 양수)
-  string occurred_at = 6;       // 발생 시각(ISO-8601 LocalDateTime, PAID=paidAt / REFUND=refundedAt)
+  string line_type = 1;
+  string order_id = 2;
+  string order_product_id = 3;
+  string seller_id = 4;
+  int64 line_amount = 5;
+  string occurred_at = 6;
 }

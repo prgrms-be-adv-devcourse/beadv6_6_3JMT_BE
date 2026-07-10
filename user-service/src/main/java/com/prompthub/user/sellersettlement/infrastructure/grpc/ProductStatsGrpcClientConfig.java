@@ -1,6 +1,6 @@
 package com.prompthub.user.sellersettlement.infrastructure.grpc;
 
-import com.prompthub.user.grpc.productquery.ProductQueryServiceGrpc;
+import com.prompthub.grpc.product.ProductQueryServiceGrpc;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.grpc.client.ImportGrpcClients;
 

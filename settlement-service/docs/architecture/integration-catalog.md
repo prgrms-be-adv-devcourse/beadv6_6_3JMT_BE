@@ -72,7 +72,7 @@ syntax = "proto3";
 package settlement.order;
 
 option java_multiple_files = true;
-option java_package = "com.prompthub.settlement.grpc.ordersettlement";
+option java_package = "com.prompthub.grpc.order";
 option java_outer_classname = "OrderQueryProto";
 
 service OrderQueryService {
