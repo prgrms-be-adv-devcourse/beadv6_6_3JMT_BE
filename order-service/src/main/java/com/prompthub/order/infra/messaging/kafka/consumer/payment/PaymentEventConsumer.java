@@ -51,9 +51,12 @@ public class PaymentEventConsumer {
 
             paymentEventRouter.route(eventMessage);
             acknowledgment.acknowledge();
+        } catch (OrderException e) {
+            log.error("주문 예외 발생: {}", e.getMessage(), e);
+            throw e;
         } catch (Exception e) {
             log.error("결제 메시지 처리 중 에러 발생: {}", e.getMessage(), e);
-            throw new RuntimeException(e);
+            throw new OrderException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 }
