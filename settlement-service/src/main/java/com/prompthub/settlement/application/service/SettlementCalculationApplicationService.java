@@ -53,7 +53,7 @@ public class SettlementCalculationApplicationService implements CalculateSettlem
     }
 
     private SettlementDetail toDetail(SettlementSourceLine line) {
-        return switch (line.getEventType()) {
+        return switch (line.getLineType()) {
             case PAID -> SettlementDetail.sale(
                     line.getOrderProductId(), line.getLineAmount(), DEFAULT_FEE_RATE, line.getOccurredAt());
             case REFUND -> SettlementDetail.refund(

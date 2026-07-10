@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.prompthub.settlement.domain.exception.SettlementSourceLineAlreadySettledException;
-import com.prompthub.settlement.domain.model.enums.SettlementSourceEventType;
+import com.prompthub.settlement.domain.model.enums.SettlementSourceLineType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -25,7 +25,7 @@ class SettlementSourceLineTest {
         SettlementSourceLine line = SettlementSourceLine.paid(
                 EVENT_ID, ORDER_ID, ORDER_PRODUCT_ID, SELLER_ID, new BigDecimal("100.00"), OCCURRED_AT);
 
-        assertThat(line.getEventType()).isEqualTo(SettlementSourceEventType.PAID);
+        assertThat(line.getLineType()).isEqualTo(SettlementSourceLineType.PAID);
         assertThat(line.getEventId()).isEqualTo(EVENT_ID);
         assertThat(line.getLineAmount()).isEqualByComparingTo("100.00");
         assertThat(line.getSettlementId()).isNull();
@@ -33,12 +33,12 @@ class SettlementSourceLineTest {
     }
 
     @Test
-    @DisplayName("환불 라인은 REFUND 유형과 양수 금액으로 생성된다 (가산/차감은 event_type으로 구분)")
+    @DisplayName("환불 라인은 REFUND 유형과 양수 금액으로 생성된다 (가산/차감은 line_type으로 구분)")
     void refunded_createsPositiveRefundLine() {
         SettlementSourceLine line = SettlementSourceLine.refunded(
                 EVENT_ID, ORDER_ID, ORDER_PRODUCT_ID, SELLER_ID, new BigDecimal("100.00"), OCCURRED_AT);
 
-        assertThat(line.getEventType()).isEqualTo(SettlementSourceEventType.REFUND);
+        assertThat(line.getLineType()).isEqualTo(SettlementSourceLineType.REFUND);
         assertThat(line.getLineAmount()).isEqualByComparingTo("100.00");
     }
 

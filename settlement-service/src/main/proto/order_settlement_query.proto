@@ -24,10 +24,10 @@ message SettleableLinesResponse {
   repeated SettleableLine lines = 1;
 }
 
-// 정산측 멱등키는 (order_product_id + event_type) 로 정산이 로컬에서 파생한다(재-pull 멱등).
+// 정산측 멱등키는 (order_product_id + line_type) 로 정산이 로컬에서 파생한다(재-pull 멱등).
 // 환불 라인은 결제 라인을 덮지 않고 REFUND 타입 별도 라인으로 더해진다.
 message SettleableLine {
-  string event_type = 1;        // PAID | REFUND
+  string line_type = 1;         // PAID | REFUND
   string order_id = 2;          // 주문 ID(UUID)
   string order_product_id = 3;  // 주문 상품 라인 ID(UUID)
   string seller_id = 4;         // 판매자 ID(UUID)

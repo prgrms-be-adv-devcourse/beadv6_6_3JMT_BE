@@ -2,7 +2,7 @@ package com.prompthub.settlement.infrastructure.client.order;
 
 import com.prompthub.settlement.application.dto.SettleableLine;
 import com.prompthub.settlement.application.port.OrderSettlementQueryPort;
-import com.prompthub.settlement.domain.model.enums.SettlementSourceEventType;
+import com.prompthub.settlement.domain.model.enums.SettlementSourceLineType;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
 import com.prompthub.settlement.global.exception.SettlementException;
 import com.prompthub.settlement.grpc.ordersettlement.OrderSettlementQueryServiceGrpc.OrderSettlementQueryServiceBlockingStub;
@@ -47,7 +47,7 @@ public class OrderSettlementQueryClient implements OrderSettlementQueryPort {
     private SettleableLine toSettleableLine(
             com.prompthub.settlement.grpc.ordersettlement.SettleableLine line) {
         return new SettleableLine(
-                SettlementSourceEventType.valueOf(line.getEventType()),
+                SettlementSourceLineType.valueOf(line.getLineType()),
                 UUID.fromString(line.getOrderId()),
                 UUID.fromString(line.getOrderProductId()),
                 UUID.fromString(line.getSellerId()),

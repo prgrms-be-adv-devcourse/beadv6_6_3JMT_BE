@@ -1,6 +1,6 @@
 package com.prompthub.settlement.domain.model.enums;
 
-public enum SettlementSourceEventType {
+public enum SettlementSourceLineType {
 
     PAID,
     REFUND
