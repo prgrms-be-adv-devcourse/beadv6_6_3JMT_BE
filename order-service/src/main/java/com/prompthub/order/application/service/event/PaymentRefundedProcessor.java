@@ -23,7 +23,6 @@ import java.util.UUID;
 public class PaymentRefundedProcessor {
 
     private static final String CONSUMER_GROUP = "order-service";
-    private static final String ORDER_EVENTS_TOPIC = "order-events";
 
     private final ProcessedEventService processedEventService;
     private final OrderRepository orderRepository;
@@ -61,7 +60,7 @@ public class PaymentRefundedProcessor {
                         orderRefundPayload
                 );
 
-        outboxEventAppender.append(ORDER_EVENTS_TOPIC, orderRefundMessage);
+        outboxEventAppender.append(orderRefundMessage);
 
         processedEventService.markProcessed(
                 eventId,

@@ -96,7 +96,7 @@ class PaymentApprovedProcessorTest {
         assertThat(savedPayment.getPaymentId()).isEqualTo(PAYMENT_ID);
         assertThat(savedPayment.getApprovedAmount()).isEqualTo(TOTAL_AMOUNT);
 
-        then(outboxEventAppender).should().append("order-events", orderPaidMessage);
+        then(outboxEventAppender).should().append(orderPaidMessage);
         then(processedEventService).should().markProcessed(eventId, "order-service", eventType, APPROVED_AT);
         then(cart).should().removeProductsByProductIds(productIds());
     }
@@ -162,7 +162,7 @@ class PaymentApprovedProcessorTest {
         assertThat(savedPayment.getPaymentId()).isEqualTo(PAYMENT_ID);
         assertThat(savedPayment.getApprovedAmount()).isEqualTo(TOTAL_AMOUNT);
 
-        then(outboxEventAppender).should().append("order-events", orderPaidMessage);
+        then(outboxEventAppender).should().append(orderPaidMessage);
         then(processedEventService).should().markProcessed(eventId, "order-service", eventType, APPROVED_AT);
         then(cart).should().removeProductsByProductIds(productIds());
     }
