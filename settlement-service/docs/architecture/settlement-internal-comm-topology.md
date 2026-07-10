@@ -29,7 +29,7 @@
           │  → order-service (서버 미구현·요청대기)                      │  → product-service (서버 있음·호출 가능)
           ▼                                                            ▼
    order-service                                               product-service
-   (OrderSettlementQueryService 신설 요청)                      (ProductQueryService 구현됨, sales_count만 확장 대기)
+   (OrderQueryService 신설 요청)                      (ProductQueryService 구현됨, sales_count만 확장 대기)
 
   ┌────────────────────────────┐
   │ admin-service (어드민 정산)  │  ──── DB 직접(JPA read-side) ────▶  정산 테이블
@@ -91,10 +91,10 @@
 | 트리거 | 정산 배치 첫 스텝 `loadSettlementSourceStep` (`LoadSettlementSourceTasklet`) |
 | 실패정책 | `StatusRuntimeException` → `SettlementException(SETTLEMENT_SOURCE_QUERY_FAILED)` **throw**(배치 중단, 빈값 폴백 아님 — 조용한 0건 정산 방지) |
 | 채널 | `grpc.client.order-service.address` |
-| 상태 | **정산측 완비, order-service 에 `OrderSettlementQueryService` 서버 미구현 → 요청 대기** (계약: #260 이슈 코멘트) |
+| 상태 | **정산측 완비, order-service 에 `OrderQueryService` 서버 미구현 → 요청 대기** (계약: #260 이슈 코멘트) |
 
 **gRPC 서버** — 없음. (`grpc.server.port` yml 선언은 있으나 등록된 비즈니스 서비스 없음.
-`order_settlement_query.proto` 는 서버 계약이 아니라 order 서버 미러 — 클라이언트 스텁 생성용.)
+`order_query.proto` 는 서버 계약이 아니라 order 서버 미러 — 클라이언트 스텁 생성용.)
 
 > **미사용 채널:** yml 에 `grpc.client.user-service`·`grpc.client.product-service` 채널이 선언돼 있으나,
 > 이를 호출하는 클라이언트 코드는 settlement-service 에 **없다**(선언만 남은 상태 — §4-2 참고).
@@ -126,7 +126,7 @@
 | 채널 | `grpc.client.product-service.address` |
 | 상태 | **product-service 서버 구현됨(`ProductQueryGrpcService.countBySeller`) → 호출 가능.** 단 응답 `sales_count`(#262 신규 필드)는 서버가 아직 안 채워 0 폴백 — **필드 확장만 대기**(rpc 자체는 대기 아님) |
 
-**gRPC 서버** — `sellersettlement` 패키지 자체엔 없음. (셀러 정보 조회 서버 `SettlementSellerQueryGrpcService`(FindSellers)는 user-service 의 별도 `seller` 패키지에 있고 live 다. §4 참고.)
+**gRPC 서버** — `sellersettlement` 패키지 자체엔 없음. (셀러 정보 조회 서버 `SettlementSellerQueryGrpcService`(GetSellers)는 user-service 의 별도 `seller` 패키지에 있고 live 다. §4 참고.)
 
 ### 3-3. admin-service `settlement` (어드민 정산)
 
@@ -144,13 +144,13 @@
 지금 "한쪽만 준비되어 실제로는 아직 못 붙는" 통신을 명시한다.
 
 1. **settlement → order `GetSettleableLines`** (#260)
-   - settlement 클라이언트·포트·배치 스텝 완비. **order-service 에 `OrderSettlementQueryService` 서버가 없어 요청 대기.**
+   - settlement 클라이언트·포트·배치 스텝 완비. **order-service 에 `OrderQueryService` 서버가 없어 요청 대기.**
    - order 팀 필요 작업: `order_product.paidAt` 추가 + `GetSettleableLines` gRPC 서버 신설(계약: #260 이슈 코멘트).
 
 2. **user `sellersettlement` → product `CountBySeller` 의 `sales_count`**
    - rpc·서버는 있어 **호출은 된다**. 다만 응답 `sales_count`(#262 확장 필드)를 product 서버가 아직 안 채워 0 으로 내려온다. **product 팀의 필드 확장만 대기.**
 
-3. **settlement → user `FindSellers`** (판매자명 조회, 참고 데이터)
+3. **settlement → user `GetSellers`** (판매자명 조회, 참고 데이터)
    - user-service `seller` 패키지에 서버(`SettlementSellerQueryGrpcService`)가 **live** 이나, settlement-service 에 이 스텁을 호출하는 **클라이언트가 아직 없다**(yml `grpc.client.user-service` 채널도 미사용). → 정산측 클라이언트 신설 시 붙는다.
 
 4. **settlement yml 의 `grpc.client.product-service` 채널**

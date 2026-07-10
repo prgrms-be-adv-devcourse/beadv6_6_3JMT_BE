@@ -41,6 +41,16 @@ protobuf {
     }
 }
 
+// 루트 공유 gRPC 계약(소유: user 서버)을 이 모듈 proto 소스에 더한다.
+// settlement-service/docs/architecture/grpc-contract-ownership.md 참고.
+sourceSets {
+    main {
+        proto {
+            srcDir "${rootProject.projectDir}/grpc/user"
+        }
+    }
+}
+
 tasks.named('test') {
     jvmArgs = ['-Dspring.profiles.active=test']
     def envFile = file('.env')

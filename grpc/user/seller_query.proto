@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+// 루트 공유 gRPC 계약 — 소유: user-service (seller 도메인, SellerQueryService 서버 = SettlementSellerQueryGrpcService).
+// 소비: settlement-service (정산 셀러명 조회 클라이언트, 도입 예정).
+// 디렉토리 grpc/user = 소유 모듈, 파일·서비스 seller = 도메인. 규칙은 settlement-service/docs/architecture/grpc-contract-ownership.md 참고.
+// 각 소비/제공 모듈은 build.gradle 의 proto srcDir 로 이 경로(grpc/user)를 참조한다.
+package settlement.seller;
+
+option java_multiple_files = true;
+option java_package = "com.prompthub.settlement.grpc.seller";
+option java_outer_classname = "SellerQueryProto";
+
+service SellerQueryService {
+  rpc GetSellers(GetSellersRequest) returns (GetSellersResponse);
+}
+
+message GetSellersRequest {
+  repeated string seller_ids = 1;
+}
+
+message GetSellersResponse {
+  repeated SellerInfo sellers = 1;
+}
+
+message SellerInfo {
+  string seller_id = 1;
+  string seller_name = 2;
+  string profile_image_url = 3;
+  string status = 4;
+}

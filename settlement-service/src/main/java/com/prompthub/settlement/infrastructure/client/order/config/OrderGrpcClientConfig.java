@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.client.order.config;
 
-import com.prompthub.settlement.grpc.ordersettlement.OrderSettlementQueryServiceGrpc;
+import com.prompthub.settlement.grpc.ordersettlement.OrderQueryServiceGrpc;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.grpc.client.ImportGrpcClients;
 
@@ -11,7 +11,7 @@ import org.springframework.grpc.client.ImportGrpcClients;
 @Configuration
 @ImportGrpcClients(
         target = "order-service",
-        types = OrderSettlementQueryServiceGrpc.OrderSettlementQueryServiceBlockingStub.class
+        types = OrderQueryServiceGrpc.OrderQueryServiceBlockingStub.class
 )
 public class OrderGrpcClientConfig {
 }

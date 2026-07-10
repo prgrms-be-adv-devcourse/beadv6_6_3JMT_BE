@@ -8,8 +8,8 @@ import static org.mockito.BDDMockito.given;
 import com.prompthub.settlement.application.dto.SettleableLine;
 import com.prompthub.settlement.domain.model.enums.SettlementSourceLineType;
 import com.prompthub.settlement.global.exception.SettlementException;
-import com.prompthub.settlement.grpc.ordersettlement.OrderSettlementQueryServiceGrpc.OrderSettlementQueryServiceBlockingStub;
-import com.prompthub.settlement.grpc.ordersettlement.SettleableLinesResponse;
+import com.prompthub.settlement.grpc.ordersettlement.OrderQueryServiceGrpc.OrderQueryServiceBlockingStub;
+import com.prompthub.settlement.grpc.ordersettlement.GetSettleableLinesResponse;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.time.LocalDateTime;
@@ -27,7 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class OrderSettlementQueryClientTest {
 
     @Mock
-    private OrderSettlementQueryServiceBlockingStub stub;
+    private OrderQueryServiceBlockingStub stub;
 
     @InjectMocks
     private OrderSettlementQueryClient client;
@@ -39,7 +39,7 @@ class OrderSettlementQueryClientTest {
         UUID orderId = UUID.randomUUID();
         UUID orderProductId = UUID.randomUUID();
         UUID sellerId = UUID.randomUUID();
-        SettleableLinesResponse response = SettleableLinesResponse.newBuilder()
+        GetSettleableLinesResponse response = GetSettleableLinesResponse.newBuilder()
                 .addLines(com.prompthub.settlement.grpc.ordersettlement.SettleableLine.newBuilder()
                         .setLineType("PAID")
                         .setOrderId(orderId.toString())
