@@ -113,10 +113,13 @@ admin-service                          settlement-service
 > **아직 미완(설계만):** 배치 예약 테이블 + 예약 폴링 스케줄러는 **미구현**이다. 현재 배치 실행
 > 경로는 `SettlementBatchController` 즉시 실행뿐이고, "시간 지정 예약 실행"은 도입 전이다.
 >
-> **확인 필요(문서 vs 구현 괴리):** 이 문서는 어드민 운영 조회·상태변경의 소스를 `seller_settlement`
-> (유저 DB) 직접 접근으로 설계했으나, 현재 admin-service 는 `settlement`/`settlement_source_line`
-> 기준 `Settlement`·`SettlementSourceLine` 엔티티로 구현돼 있다(취소·상태변경 포함). 설계(TO-BE)와
-> 구현(AS-IS)이 어긋나는 지점 — #245 재매핑 완료 여부를 admin-service 기준으로 재확인해야 한다.
+> **구현 확인(설계와 일치):** admin-service `settlement` 패키지의 운영 상태는 `Settlement` 엔티티가
+> `@Table("seller_settlement")` 로 유저 DB 를 매핑하고(조회·상태변경·취소 대상), 원천 라인은
+> `SettlementSourceLine` 엔티티가 `@Table("settlement_source_line")` 로 정산 DB 를 매핑한다(취소 시
+> 해제 대상). 운영은 seller_settlement, 원천은 settlement_source_line — 이 문서 설계대로다. (클래스명이
+> `Settlement`·`SettlementSourceLine` 이라 **이름만으로는 정산 본체 테이블로 오해하기 쉬우니** 주의.)
+> 한편 정산 본체(settlement-service)의 `Settlement` 는 운영 상태·전이를 걷어내고 **계산 로그로 축소**
+> 중이다(#254, PR #279 — `seller-settlement-separation.md` "settlement=로그").
 
 ## 관련 문서
 
