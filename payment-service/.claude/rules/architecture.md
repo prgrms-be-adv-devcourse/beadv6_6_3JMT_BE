@@ -24,16 +24,19 @@ com.prompthub.paymentservice
 ├── domain
 │   ├── model          ← 핵심 도메인 객체(Entity) 및 상태 enum
 │   ├── event          ← 도메인 이벤트 (결제/환불 상태 변화, 순수 Java)
-│   └── repository     ← Repository 인터페이스 (도메인이 정의하는 영속성 계약)
+│   ├── repository     ← Repository 인터페이스 (도메인이 정의하는 영속성 계약)
+│   └── exception      ← 도메인 불변 위반 예외
 ├── application
 │   ├── usecase        ← UseCase 인터페이스(Input Boundary)
 │   ├── service        ← UseCase 구현체 (비즈니스 흐름 조율)
 │   ├── gateway
 │   │   └── external      ← 외부 API Gateway 인터페이스 (예: PaymentGateway, OrderGateway)
+│   ├── exception      ← API 에러 코드(HTTP 상태·코드 매핑), common-module ErrorCode 구현
 │   └── dto
 │       ├── command    ← 외부 → application 입력 (record 권장)
 │       └── result     ← application → 외부 출력 (record 권장)
 ├── presentation       ← REST Controller, ExceptionHandler
+│   ├── config         ← Swagger 등 presentation 계층 설정
 │   └── dto
 │       ├── request    ← HTTP 요청 DTO (@Valid 검증)
 │       └── response   ← HTTP 응답 DTO
@@ -46,6 +49,7 @@ com.prompthub.paymentservice
     ├── scheduling     ← @Scheduled 주기 재처리 (환불 retry 등)
     └── messaging      ← 이벤트 발행 구현체 (@TransactionalEventListener), Kafka 설정
         ├── config     ← Kafka Producer/Consumer 빈 설정, 토픽 상수
+        ├── dto        ← Kafka로 발행·구독하는 메시지 페이로드 DTO
         └── consumer   ← Kafka 컨슈머 (order-events 구독 입력 어댑터)
 ```
 

@@ -123,7 +123,7 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
             log.error("PG사 결제 실패 — paymentKey={}, tossCode={}, reason={}",
                 command.paymentKey(), e.getFailureCode(), e.getFailureReason(), e);
 
-            // TX3: 실패 반영 + payment.failed 발행 (별도 커밋되므로 AFTER_COMMIT 리스너 정상 발화)
+            // TX3: 실패 반영 + PAYMENT_FAILED 발행 (별도 커밋되므로 AFTER_COMMIT 리스너 정상 발화)
             transactionTemplate.execute(status -> {
                 Payment payment = paymentRepository.findById(paymentId).orElseThrow();
                 payment.fail(e.getFailureCode(), e.getFailureReason(),
