@@ -32,7 +32,9 @@ public enum ErrorCode implements com.prompthub.exception.ErrorCode {
     ORDER_CONTENT_ACCESS_DENIED(HttpStatus.FORBIDDEN, "E001", "구매 콘텐츠를 열람할 수 없습니다."),
     ORDER_REVIEW_ACCESS_DENIED(HttpStatus.FORBIDDEN, "E002", "구매한 상품에만 리뷰를 작성할 수 있습니다."),
     CART_ITEM_DUPLICATED(HttpStatus.CONFLICT, "C001", "이미 장바구니에 담긴 상품입니다."),
-    CART_ITEM_FORBIDDEN(HttpStatus.FORBIDDEN, "C003", "본인의 장바구니 항목이 아닙니다.")
+    CART_ITEM_FORBIDDEN(HttpStatus.FORBIDDEN, "C003", "본인의 장바구니 항목이 아닙니다."),
+    
+    EVENT_PAYLOAD_MAPPING_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "E003", "이벤트 페이로드 매핑에 실패했습니다.")
     ;
 
     private final HttpStatus httpStatus;

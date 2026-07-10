@@ -14,9 +14,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -27,21 +25,15 @@ public class OrderGrpcClientAdapter implements OrderGateway {
     private static final ZoneOffset KST = ZoneOffset.ofHours(9);
 
     private final OrderPaymentServiceGrpc.OrderPaymentServiceBlockingStub stub;
-    private final int deadlineMs;
 
-    public OrderGrpcClientAdapter(
-        OrderPaymentServiceGrpc.OrderPaymentServiceBlockingStub stub,
-        @Value("${prompthub.grpc.order.deadline-ms:2000}") int deadlineMs
-    ) {
+    public OrderGrpcClientAdapter(OrderPaymentServiceGrpc.OrderPaymentServiceBlockingStub stub) {
         this.stub = stub;
-        this.deadlineMs = deadlineMs;
     }
 
     @Override
     public OrderPaymentInfo getOrderPaymentInfo(UUID orderId) {
         try {
             GetOrderPaymentInfoResponse response = stub
-                .withDeadlineAfter(deadlineMs, TimeUnit.MILLISECONDS)
                 .getOrderForPayment(GetOrderPaymentInfoRequest.newBuilder()
                     .setOrderId(orderId.toString())
                     .build());

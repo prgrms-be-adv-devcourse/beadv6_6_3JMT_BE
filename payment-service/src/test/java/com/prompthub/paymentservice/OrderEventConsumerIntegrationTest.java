@@ -89,11 +89,15 @@ class OrderEventConsumerIntegrationTest extends AbstractIntegrationTest {
         assertThat(orderSnapshotJpaRepository.findByOrderId(ignoredOrderId)).isEmpty();
     }
 
-    private String orderCreatedJson(UUID orderId, UUID buyerId, int totalOrderAmount) {
+    // order-service 실제 발행 포맷(EventMessage<OrderCreatedPayload> 봉투)을 흉내낸다.
+    // payload는 orderNumber/orderStatus 등 payment-service가 쓰지 않는 필드도 포함해 무시됨을 검증한다.
+    private String orderCreatedJson(UUID orderId, UUID buyerId, int totalAmount) {
         return String.format(
-            "{\"eventType\":\"ORDER_CREATED\",\"orderId\":\"%s\",\"buyerId\":\"%s\","
-                + "\"totalOrderAmount\":%d,\"createdAt\":\"2026-07-05T12:00:00\"}",
-            orderId, buyerId, totalOrderAmount);
+            "{\"eventId\":\"%s\",\"eventType\":\"ORDER_CREATED\",\"occurredAt\":\"2026-07-05T12:00:00\","
+                + "\"aggregateType\":\"ORDER\",\"aggregateId\":\"%s\",\"payload\":{"
+                + "\"orderId\":\"%s\",\"buyerId\":\"%s\",\"orderNumber\":\"ORD-TEST\","
+                + "\"totalAmount\":%d,\"orderStatus\":\"PENDING\",\"createdAt\":\"2026-07-05T12:00:00\"}}",
+            UUID.randomUUID(), orderId, orderId, buyerId, totalAmount);
     }
 
     private String orderPaidJson(UUID orderId, UUID buyerId) {

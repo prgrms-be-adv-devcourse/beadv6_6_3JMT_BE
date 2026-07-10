@@ -14,7 +14,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * order-events 구독. 평면 메시지(§2.1)의 최상위 eventType으로 필터링한다.
+ * order-events 구독. 공통 이벤트 규칙(EventMessage&lt;T&gt; 봉투)의 최상위 eventType으로 필터링한다.
  * ORDER_CREATED만 처리하고, 다른 eventType(ORDER_PAID/ORDER_REFUND 등)은 무시한다.
  */
 @Slf4j
@@ -48,13 +48,14 @@ public class OrderEventConsumer {
                 return;
             }
 
-            OrderCreatedMessage created = objectMapper.treeToValue(root, OrderCreatedMessage.class);
+            JsonNode payload = root.path("payload");
+            OrderCreatedMessage created = objectMapper.treeToValue(payload, OrderCreatedMessage.class);
             validate(created);
 
             recordOrderSnapshotUseCase.record(new RecordOrderSnapshotCommand(
                 created.orderId(),
                 created.buyerId(),
-                created.totalOrderAmount(),
+                created.totalAmount(),
                 created.createdAt().atOffset(KST),
                 OrderSnapshotSource.EVENT
             ));

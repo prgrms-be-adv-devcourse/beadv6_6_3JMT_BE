@@ -20,36 +20,8 @@ spring:
       server:
         webflux:
           routes:
-            - id: settlement-service
-              uri: lb://SETTLEMENT-SERVICE
-              predicates:
-                - Path=/api/v1/admin/settlements/batch/**
-
-            - id: admin-service
-              uri: lb://ADMIN-SERVICE
-              predicates:
-                - Path=/api/v1/admin/settlements/**
-
-            - id: order-service
-              uri: lb://ORDER-SERVICE
-              predicates:
-                - Path=/api/v1/orders, /api/v1/orders/**, /api/v1/cart, /api/v1/cart/**, /api/v1/admin/orders, /api/v1/admin/orders/**, /api/v1/internal/orders/**
-
-            - id: product-service
-              uri: lb://PRODUCT-SERVICE
-              predicates:
-                 - Path=/api/v1/products, /api/v1/products/**, /api/v1/sellers/me/products, /api/v1/sellers/me/products/**, /api/v1/admin/products, /api/v1/admin/products/**
-
-            - id: payment-service
-              uri: lb://PAYMENT-SERVICE
-              predicates:
-                - Path=/api/v1/payments/**
-
-            - id: user-service
-              uri: lb://USER-SERVICE
-              predicates:
-                - Path=/api/v1/auth/**, /api/v1/users/**, /api/v1/seller/**, /api/v1/sellers/**, /api/v1/wishlists/**, /api/v1/admin/**
-
+            # settlement-service ~ user-service 라우트는 gateway.api-versions 설정을 소스로
+            # VersionedRouteDefinitionLocator(코드)가 동적으로 생성한다. (ADR-0007)
             - id: user-service-docs
               uri: lb://USER-SERVICE
               predicates:
@@ -84,6 +56,17 @@ spring:
                 - Path=/settlement-service/v3/api-docs
               filters:
                 - RewritePath=/settlement-service/v3/api-docs, /v3/api-docs
+
+gateway:
+  # 서비스별 활성 API 버전 리스트. 병행 서빙이 필요해지면 [v1, v2]로 바꾼다.
+  # 리스트를 비우거나 서비스 키를 지우면 해당 서비스의 라우트/화이트리스트는 사라지고 404가 된다. (ADR-0007)
+  api-versions:
+    settlement-service: [ v1, v2 ]
+    admin-service: [ v1, v2 ]
+    order-service: [ v1, v2 ]
+    product-service: [ v1, v2 ]
+    payment-service: [ v1, v2 ]
+    user-service: [ v1, v2 ]
 
 jwt:
   public-key: ${JWT_PUBLIC_KEY}

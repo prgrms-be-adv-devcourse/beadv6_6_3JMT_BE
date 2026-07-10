@@ -8,7 +8,7 @@ public record ProductContentResponse(
 	String content
 ) {
 
-	public static ProductContentResponse from(Product product) {
-		return new ProductContentResponse(product.getId(), product.getContent());
+	public static ProductContentResponse from(UUID productId, Product product) {
+		return new ProductContentResponse(productId, product.getContent());
 	}
 }

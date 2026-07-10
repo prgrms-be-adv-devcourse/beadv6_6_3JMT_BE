@@ -66,11 +66,6 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	}
 
 	@Override
-	public List<Product> findOnSaleByIdIn(List<UUID> productIds) {
-		return productJpaRepository.findAllByIdInAndStatusAndDeletedAtIsNull(productIds, ProductStatus.ON_SALE);
-	}
-
-	@Override
 	public long countBySellerId(UUID sellerId) {
 		return productJpaRepository.countBySellerIdAndDeletedAtIsNull(sellerId);
 	}
@@ -88,5 +83,10 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	@Override
 	public List<Product> findAllAdminProducts() {
 		return productJpaRepository.findAllAdminProducts();
+	}
+
+	@Override
+	public List<Product> findAllByFamilyRootIds(List<UUID> familyRootIds) {
+		return productJpaRepository.findAllByFamilyRootIds(familyRootIds);
 	}
 }

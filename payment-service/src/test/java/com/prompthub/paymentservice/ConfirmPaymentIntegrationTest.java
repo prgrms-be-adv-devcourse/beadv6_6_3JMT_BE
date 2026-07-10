@@ -191,13 +191,13 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
             while (!found && System.currentTimeMillis() < deadline) {
                 var polled = consumer.poll(Duration.ofMillis(500));
                 for (var r : polled) {
-                    if (orderId.toString().equals(r.key()) && r.value().contains("payment.failed")) {
+                    if (orderId.toString().equals(r.key()) && r.value().contains("PAYMENT_FAILED")) {
                         found = true;
                         break;
                     }
                 }
             }
-            assertThat(found).withFailMessage("10초 내 payment.failed Kafka 메시지 수신 실패").isTrue();
+            assertThat(found).withFailMessage("10초 내 PAYMENT_FAILED Kafka 메시지 수신 실패").isTrue();
         } finally {
             consumer.close();
         }

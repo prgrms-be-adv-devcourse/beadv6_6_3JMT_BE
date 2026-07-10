@@ -59,11 +59,12 @@ class OrderProductTest {
 		}
 
 		@Test
-		@DisplayName("PENDING 상태가 아닌 주문상품은 PAID 상태로 변경할 수 없다")
-		void markPaid_notPendingOrderProduct_throwsException() {
+		@DisplayName("PENDING/FAILED 상태가 아닌 주문상품은 PAID 상태로 변경할 수 없다")
+		void markPaid_notPendingOrFailedOrderProduct_throwsException() {
 			// given
 			OrderProduct orderProduct = createOrderProduct1();
-			orderProduct.markFailed();
+			orderProduct.markPaid();
+			orderProduct.cancel(); // Now CANCELED
 
 			// when & then
 			assertThatThrownBy(orderProduct::markPaid)

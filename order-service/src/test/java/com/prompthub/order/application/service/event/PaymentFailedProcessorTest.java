@@ -91,6 +91,46 @@ class PaymentFailedProcessorTest {
     }
 
     @Test
+    void process_alreadyCanceledOrder_shouldReturnGracefully() {
+        // given
+        UUID eventId = UUID.randomUUID();
+        UUID orderId = OrderFixture.ORDER_ID;
+        PaymentFailedPayload payload = new PaymentFailedPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, "Failed PG confirm", LocalDateTime.now());
+
+        Order order = OrderFixture.createPendingOrderWithProducts();
+        order.markCanceled(); // status CANCELED
+        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
+        when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
+
+        // when
+        paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload);
+
+        // then
+        verify(processedEventService).markProcessed(eq(eventId), eq("order-service"), eq("PAYMENT_FAILED"), any());
+    }
+
+    @Test
+    void process_alreadyRefundedOrder_shouldReturnGracefully() {
+        // given
+        UUID eventId = UUID.randomUUID();
+        UUID orderId = OrderFixture.ORDER_ID;
+        PaymentFailedPayload payload = new PaymentFailedPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, "Failed PG confirm", LocalDateTime.now());
+
+        Order order = OrderFixture.createPendingOrderWithProducts();
+        order.markCanceled(); // Hack to transition easily if refunded is complicated, let's use Reflection or direct transition
+        org.springframework.test.util.ReflectionTestUtils.setField(order, "orderStatus", OrderStatus.REFUNDED);
+
+        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
+        when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
+
+        // when
+        paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload);
+
+        // then
+        verify(processedEventService).markProcessed(eq(eventId), eq("order-service"), eq("PAYMENT_FAILED"), any());
+    }
+
+    @Test
     void process_duplicateEvent_shouldReturnEarly() {
         // given
         UUID eventId = UUID.randomUUID();
@@ -104,6 +144,24 @@ class PaymentFailedProcessorTest {
 
         // then
         verifyNoInteractions(orderRepository);
+        verify(processedEventService, never()).markProcessed(any(), any(), any(), any());
+    }
+
+    @Test
+    void process_orderNotFound_shouldThrowException() {
+        // given
+        UUID eventId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        PaymentFailedPayload payload = new PaymentFailedPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, "Failed PG confirm", LocalDateTime.now());
+
+        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
+        when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload))
+                .isInstanceOf(OrderException.class)
+                .hasFieldOrPropertyWithValue("errorCode", com.prompthub.order.global.exception.ErrorCode.ORDER_NOT_FOUND);
+
         verify(processedEventService, never()).markProcessed(any(), any(), any(), any());
     }
 }

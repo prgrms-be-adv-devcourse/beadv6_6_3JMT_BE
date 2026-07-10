@@ -33,6 +33,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import com.prompthub.order.infra.messaging.kafka.event.OrderCreatedPayload;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -598,6 +599,15 @@ class OrderServiceTest {
             then(orderRepository).should().save(any(Order.class));
             assertThat(cart.getCartProducts()).isEmpty();
             then(cartRepository).should().save(cart);
+            
+            ArgumentCaptor<OrderCreatedPayload> payloadCaptor = ArgumentCaptor.forClass(OrderCreatedPayload.class);
+            then(orderEventMessageFactory).should().createOrderCreatedMessage(any(), payloadCaptor.capture());
+            OrderCreatedPayload capturedPayload = payloadCaptor.getValue();
+            assertThat(capturedPayload.orderId()).isNotNull();
+            assertThat(capturedPayload.buyerId()).isEqualTo(BUYER_ID);
+            assertThat(capturedPayload.totalAmount()).isEqualTo(TOTAL_AMOUNT);
+            assertThat(capturedPayload.createdAt()).isNotNull();
+
             then(outboxEventAppender).should().append(eq("order-events"), any());
             then(applicationEventPublisher).should().publishEvent(any(OrderCreatedEvent.class));
         }

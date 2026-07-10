@@ -37,18 +37,19 @@ spring:
       properties:
         spring.json.trusted.packages: "com.prompthub.paymentservice.*"
 
+  grpc:
+    client:
+      channel:
+        order:
+          target: static://${ORDER_GRPC_HOST:localhost}:${ORDER_GRPC_PORT:9083}
+          default:
+            deadline: ${ORDER_GRPC_DEADLINE_MS:2000}ms
+
 payment:
   toss:
     secret-key: ${TOSS_SECRET_KEY:test-dummy-key}
     base-url: https://api.tosspayments.com/v1
     test-mode: ${TOSS_TEST_MODE:false}
-
-prompthub:
-  grpc:
-    order:
-      host: ${ORDER_GRPC_HOST:localhost}
-      port: ${ORDER_GRPC_PORT:9083}
-      deadline-ms: ${ORDER_GRPC_DEADLINE_MS:2000}
 
 eureka:
   client:
