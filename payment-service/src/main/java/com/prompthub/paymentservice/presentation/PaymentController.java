@@ -35,7 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "Payment", description = "결제 승인 및 환불 API")
 @RestController
-@RequestMapping("/api/v1/payments")
+@RequestMapping("/api/v2/payments")
 @RequiredArgsConstructor
 public class PaymentController {
 
@@ -87,15 +87,47 @@ public class PaymentController {
                       "code": "PAY002"
                     }
                     """))),
-        @ApiResponse(responseCode = "403", description = "BUYER 역할 없음(PAY007)",
+        @ApiResponse(responseCode = "403", description = "BUYER 역할 없음(PAY007) 또는 본인 주문 아님(PAY010)",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponse.class),
+                examples = {
+                    @ExampleObject(name = "BUYER 역할 없음", value = """
+                        {
+                          "success": false,
+                          "data": null,
+                          "message": "결제/환불 권한이 없습니다.",
+                          "code": "PAY007"
+                        }
+                        """),
+                    @ExampleObject(name = "본인 주문 아님", value = """
+                        {
+                          "success": false,
+                          "data": null,
+                          "message": "본인 주문만 결제할 수 있습니다.",
+                          "code": "PAY010"
+                        }
+                        """)
+                })),
+        @ApiResponse(responseCode = "404", description = "주문 정보 없음(PAY008)",
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = ErrorResponse.class),
                 examples = @ExampleObject(value = """
                     {
                       "success": false,
                       "data": null,
-                      "message": "결제/환불 권한이 없습니다.",
-                      "code": "PAY007"
+                      "message": "주문 정보를 찾을 수 없습니다.",
+                      "code": "PAY008"
+                    }
+                    """))),
+        @ApiResponse(responseCode = "503", description = "주문 정보 확보 불가(PAY009)",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponse.class),
+                examples = @ExampleObject(value = """
+                    {
+                      "success": false,
+                      "data": null,
+                      "message": "주문 정보를 확보할 수 없습니다.",
+                      "code": "PAY009"
                     }
                     """))),
         @ApiResponse(responseCode = "502", description = "PG사 처리 오류(PAY003)",
@@ -124,7 +156,7 @@ public class PaymentController {
             throw new BusinessException(PaymentErrorCode.INSUFFICIENT_ROLE);
         }
         ConfirmPaymentCommand command = new ConfirmPaymentCommand(
-            request.paymentKey(), request.orderId(), request.amount(), userId
+            request.paymentKey(), request.orderId(), userId
         );
         PaymentResult result = confirmPaymentUseCase.confirm(command);
         return ResponseEntity.ok(ApiResult.success(new ConfirmPaymentResponse(result.paymentId())));

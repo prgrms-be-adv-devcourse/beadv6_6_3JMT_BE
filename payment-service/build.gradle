@@ -1,14 +1,47 @@
+apply plugin: 'com.google.protobuf'
+
 dependencies {
     // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
+
+    // gRPC (Spring Boot 4.1 네이티브 starter — grpc-netty/grpc-stub 전이 포함, 버전은 Boot BOM 관리)
+    implementation 'org.springframework.boot:spring-boot-starter-grpc-client'
+    // 생성된 스텁이 io.grpc.protobuf.ProtoUtils를 직접 참조 — client starter에는 전이되지 않아 명시 필요
+    implementation 'io.grpc:grpc-protobuf'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
     testImplementation 'org.testcontainers:testcontainers-postgresql'
     testImplementation 'org.testcontainers:testcontainers-kafka'
+    testImplementation 'io.grpc:grpc-inprocess'
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${protobufVersion}"
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+        }
+    }
+    generateProtoTasks {
+        all().each { task ->
+            task.plugins {
+                grpc {}
+            }
+        }
+    }
 }
 
 tasks.named('test') {
     maxParallelForks = 1
+}
+
+tasks.withType(Checkstyle).configureEach {
+    // protobuf/grpc가 생성하는 스텁 코드는 검사 대상에서 제외 (직접 작성한 코드가 아님)
+    // 생성 소스 디렉터리 자체가 소스셋 루트로 추가되어 있어 exclude 패턴이 상대 경로에
+    // 매칭되지 않으므로, 절대 경로 기준으로 소스를 필터링한다.
+    source = source.filter { file -> !file.path.contains('/generated/sources/proto/') }
 }

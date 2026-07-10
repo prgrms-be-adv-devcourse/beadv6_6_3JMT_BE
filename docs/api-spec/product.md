@@ -424,11 +424,31 @@
     "status": "DRAFT",
     "version": "1.0",
     "thumbnailUrl": null,
-    "tags": ["태그1", "태그2"]
+    "tags": ["태그1", "태그2"],
+    "liveVersion": "1.0",
+    "versions": [
+      {
+        "version": "1.0",
+        "status": "ON_SALE",
+        "date": "2026-07-01",
+        "changeReason": null,
+        "rejectionReason": null
+      }
+    ]
   },
   "message": "success"
 }
 ```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| liveVersion | string \| null | 현재 판매중(ON_SALE) 버전 표기(`major.patch`). 판매중 버전이 없으면 null |
+| versions | array | 이 상품의 버전 이력 목록 |
+| versions[].version | string | 버전 표기(`major.patch`) |
+| versions[].status | string | 해당 버전 상태 (`ON_SALE` / `SUPERSEDED` / `PENDING_REVIEW` / `REJECTED` 등) |
+| versions[].date | string | 해당 버전 갱신일(YYYY-MM-DD) |
+| versions[].changeReason | string \| null | 버전업 변경 사유 |
+| versions[].rejectionReason | string \| null | 검수 반려 사유 (반려된 버전만) |
 
 ---
 

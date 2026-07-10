@@ -3,7 +3,7 @@ spring:
     name: product-service
   config:
     import:
-      - optional:configserver:http://localhost:8888
+      - ${CONFIG_IMPORT:}
       - optional:file:./.env[.properties]
       - optional:file:./product-service/.env[.properties]
   profiles:

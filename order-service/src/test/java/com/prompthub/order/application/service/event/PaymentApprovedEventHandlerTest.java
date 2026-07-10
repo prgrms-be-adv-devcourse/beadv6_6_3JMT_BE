@@ -3,6 +3,7 @@ package com.prompthub.order.application.service.event;
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
+import com.prompthub.order.infra.messaging.kafka.support.EventPayloadMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,7 @@ import static org.mockito.Mockito.never;
 class PaymentApprovedEventHandlerTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final EventPayloadMapper eventPayloadMapper = new EventPayloadMapper(objectMapper);
 
     @Mock
     private PaymentApprovedProcessor processor;
@@ -35,7 +37,7 @@ class PaymentApprovedEventHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new PaymentApprovedEventHandler(objectMapper, processor);
+        handler = new PaymentApprovedEventHandler(eventPayloadMapper, processor);
     }
 
     @Test
@@ -108,7 +110,7 @@ class PaymentApprovedEventHandlerTest {
         );
 
         assertThatThrownBy(() -> handler.handle(message))
-            .isInstanceOf(RuntimeException.class);
+            .isInstanceOf(OrderException.class);
 
         then(processor).should(never()).process(any(), any(), any(), any());
     }

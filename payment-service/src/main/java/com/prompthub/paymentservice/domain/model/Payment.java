@@ -38,7 +38,7 @@ public class Payment {
     @Column(name = "user_id", columnDefinition = "uuid", nullable = false)
     private UUID userId;
 
-    @Column(name = "pg_tx_id", length = 100, nullable = false)
+    @Column(name = "pg_tx_id", length = 255, nullable = false)
     private String pgTxId;
 
     @Enumerated(STRING)
@@ -57,17 +57,8 @@ public class Payment {
     @Column(name = "total_amount", nullable = false)
     private int totalAmount;
 
-    @Column(name = "product_amount", nullable = false)
-    private int productAmount;
-
-    @Column(name = "discount_amount", nullable = false)
-    private int discountAmount;
-
     @Column(name = "approved_amount")
     private Integer approvedAmount;
-
-    @Column(name = "idempotency_key", length = 255, nullable = false, unique = true)
-    private String idempotencyKey;
 
     @Column(name = "failure_code", length = 100)
     private String failureCode;
@@ -107,9 +98,8 @@ public class Payment {
         UUID id, UUID orderId, UUID userId,
         String pgTxId, PaymentStatus status,
         String paymentMethod, String provider, boolean isTest,
-        int totalAmount, int productAmount, int discountAmount,
-        Integer approvedAmount,
-        String idempotencyKey
+        int totalAmount,
+        Integer approvedAmount
     ) {
         this.id = id;
         this.orderId = orderId;
@@ -120,25 +110,21 @@ public class Payment {
         this.provider = provider;
         this.isTest = isTest;
         this.totalAmount = totalAmount;
-        this.productAmount = productAmount;
-        this.discountAmount = discountAmount;
         this.approvedAmount = approvedAmount;
-        this.idempotencyKey = idempotencyKey;
     }
 
+    // pgTxId(=Toss paymentKey)가 멱등키 역할을 겸한다(pg_tx_id UNIQUE). 별도 idempotency_key 컬럼 없음(D8).
     public static Payment create(
         UUID orderId, UUID userId,
         String pgTxId, String provider, String paymentMethod, boolean isTest,
-        int productAmount, int discountAmount
+        int totalAmount
     ) {
         return new Payment(
             UUID.randomUUID(), orderId, userId,
             pgTxId, PaymentStatus.READY,
             paymentMethod, provider, isTest,
-            productAmount - discountAmount,
-            productAmount, discountAmount,
-            null,
-            "pay-" + orderId
+            totalAmount,
+            null
         );
     }
 
