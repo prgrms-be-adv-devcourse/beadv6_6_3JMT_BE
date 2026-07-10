@@ -119,7 +119,10 @@ public class ProductInternalService implements ProductInternalUseCase {
 
 	@Override
 	public ProductCountResponse getProductCount(UUID sellerId) {
-		return new ProductCountResponse(sellerId, productRepository.countBySellerId(sellerId));
+		return new ProductCountResponse(
+			sellerId,
+			productRepository.countFamiliesBySellerId(sellerId),
+			productRepository.sumSalesCountBySellerId(sellerId));
 	}
 
 	private Map<UUID, Product> resolveFamilyRepresentatives(

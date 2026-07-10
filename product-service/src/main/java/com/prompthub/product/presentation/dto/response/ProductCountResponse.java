@@ -4,6 +4,7 @@ import java.util.UUID;
 
 public record ProductCountResponse(
 	UUID sellerId,
-	long productCount
+	long productCount,
+	long salesCount
 ) {
 }

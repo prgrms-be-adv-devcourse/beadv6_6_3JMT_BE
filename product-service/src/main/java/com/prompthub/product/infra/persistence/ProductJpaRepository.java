@@ -190,7 +190,21 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 		""")
 	List<Product> findBySellerId(@Param("sellerId") UUID sellerId);
 
-	long countBySellerIdAndDeletedAtIsNull(UUID sellerId);
+	@Query("""
+		select count(distinct coalesce(p.parentId, p.id))
+		from Product p
+		where p.sellerId = :sellerId
+			and p.deletedAt is null
+		""")
+	long countFamiliesBySellerId(@Param("sellerId") UUID sellerId);
+
+	@Query("""
+		select coalesce(sum(p.salesCount), 0)
+		from Product p
+		where p.sellerId = :sellerId
+			and p.deletedAt is null
+		""")
+	long sumSalesCountBySellerId(@Param("sellerId") UUID sellerId);
 
 	long countBySellerIdAndStatusAndDeletedAtIsNull(UUID sellerId, ProductStatus status);
 

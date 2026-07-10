@@ -17,4 +17,5 @@ message ProductCountRequest {
 message ProductCountResponse {
   string seller_id = 1;
   int32 product_count = 2;
+  int64 sales_count = 3;
 }

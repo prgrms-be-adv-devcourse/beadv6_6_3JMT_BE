@@ -25,6 +25,7 @@ public class ProductQueryGrpcService extends ProductQueryServiceGrpc.ProductQuer
 			responseObserver.onNext(ProductCountResponse.newBuilder()
 				.setSellerId(result.sellerId().toString())
 				.setProductCount((int) result.productCount())
+				.setSalesCount(result.salesCount())
 				.build());
 			responseObserver.onCompleted();
 		} catch (Exception e) {
@@ -32,6 +33,7 @@ public class ProductQueryGrpcService extends ProductQueryServiceGrpc.ProductQuer
 			responseObserver.onNext(ProductCountResponse.newBuilder()
 				.setSellerId(request.getSellerId())
 				.setProductCount(0)
+				.setSalesCount(0)
 				.build());
 			responseObserver.onCompleted();
 		}
