@@ -13,6 +13,11 @@ public enum ErrorCode implements com.prompthub.exception.ErrorCode {
     FORBIDDEN(HttpStatus.FORBIDDEN, "A004", "권한이 없습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "SYS001", "서버 내부 오류가 발생했습니다."),
     PRODUCT_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "SYS002", "상품 서비스를 사용할 수 없습니다."),
+    PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "상품을 찾을 수 없습니다."),
+    PRODUCT_REQUEST_INVALID(HttpStatus.BAD_REQUEST, "P002", "상품 요청이 올바르지 않습니다."),
+    PRODUCT_OPERATION_CONFLICT(HttpStatus.CONFLICT, "P003", "상품 요청이 현재 상태와 충돌합니다."),
+    PRODUCT_SERVICE_UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "P004", "상품 서비스 인증에 실패했습니다."),
+    PRODUCT_SERVICE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "P005", "상품 서비스 접근 권한이 없습니다."),
 
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "O001", "주문을 찾을 수 없습니다."),
     ORDER_CANCEL_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "O002", "취소할 수 없는 주문 상태입니다."),
