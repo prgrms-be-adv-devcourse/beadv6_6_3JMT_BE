@@ -6,6 +6,7 @@ import com.prompthub.settlement.infrastructure.batch.processor.SettlementProcess
 import com.prompthub.settlement.infrastructure.batch.reader.SettlementTargetReader;
 import com.prompthub.settlement.infrastructure.batch.tasklet.CompleteSettlementBatchTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.CreateSettlementBatchTasklet;
+import com.prompthub.settlement.infrastructure.batch.tasklet.LoadSettlementSourceTasklet;
 import com.prompthub.settlement.infrastructure.batch.writer.SettlementWriter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.repository.JobRepository;
@@ -23,6 +24,13 @@ public class SettlementStepConfig {
 
 	private final JobRepository jobRepository;
 	private final PlatformTransactionManager transactionManager;
+
+	@Bean
+	public Step loadSettlementSourceStep(LoadSettlementSourceTasklet loadSettlementSourceTasklet) {
+		return new StepBuilder("loadSettlementSourceStep", jobRepository)
+			.tasklet(loadSettlementSourceTasklet, transactionManager)
+			.build();
+	}
 
 	@Bean
 	public Step createSettlementBatchStep(CreateSettlementBatchTasklet createSettlementBatchTasklet) {

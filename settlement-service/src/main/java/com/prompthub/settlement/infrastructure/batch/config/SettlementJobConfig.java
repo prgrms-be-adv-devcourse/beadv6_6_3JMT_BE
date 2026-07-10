@@ -19,6 +19,7 @@ public class SettlementJobConfig {
 
 	@Bean
 	public Job settlementJob(
+		Step loadSettlementSourceStep,
 		Step createSettlementBatchStep,
 		Step settlementStep,
 		Step completeSettlementBatchStep,
@@ -26,7 +27,8 @@ public class SettlementJobConfig {
 	) {
 		return new JobBuilder(SETTLEMENT_JOB_NAME, jobRepository)
 			.listener(settlementBatchFailureListener)
-			.start(createSettlementBatchStep)
+			.start(loadSettlementSourceStep)
+			.next(createSettlementBatchStep)
 			.next(settlementStep)
 			.next(completeSettlementBatchStep)
 			.build();

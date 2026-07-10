@@ -20,6 +20,11 @@ spring:
 #      enabled: false
 #      fail-fast: false
 
+settlement:
+  kafka:
+    producer:
+      topic: settlement-events
+
 eureka:
   client:
     enabled: false

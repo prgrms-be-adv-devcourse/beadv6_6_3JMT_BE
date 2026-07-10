@@ -46,9 +46,9 @@ user-service (셀러 모듈 — 운영 소유, #236)
 
 | 대상 | 현재 위치 | 분리 후 |
 | --- | --- | --- |
-| `SettlementController` (어드민 정산 조회·상태변경) | settlement `presentation` | **admin-service 로 이관** — 어드민이 `seller_settlement`(운영 단일 진실) 직접 조회·UPDATE 로 재구현 |
-| `SettlementBatchController` (배치 수동 실행·잡 상태) | settlement `presentation` | 잔류 — **배치 테스트용**. 어드민 프론트 경로에서는 제외 |
-| `SellerSettlementController` (판매자용 조회·지급요청) | settlement `presentation` | **유저(셀러) 모듈로 이관(#236)** — 운영 단일 진실 `seller_settlement` 소유 |
+| `SettlementController` (어드민 정산 조회·상태변경) | settlement `presentation` | **admin-service 로 이관 완료(#234)** — settlement `presentation` 에서 제거됨. 어드민이 정산 데이터를 직접 조회·UPDATE 로 재구현 |
+| `SettlementBatchController` (배치 수동 실행·잡 상태) | settlement `presentation` | 잔류 — **배치 테스트용**. 현재 settlement `presentation` 에 유일하게 남은 컨트롤러 |
+| `SellerSettlementController` (판매자용 조회·지급요청) | settlement `presentation` | **유저(셀러) 모듈로 이관 완료(#236)** — settlement 에서 제거됨. 운영 단일 진실 `seller_settlement` 소유 |
 | Spring Batch 잡 (Job/Step/Reader/…) | settlement `infrastructure/batch` | 잔류 — 배치는 정산 도메인 로직 |
 | `SettlementBatchScheduler` (@Scheduled 자동 정산) | settlement `infrastructure/batch/scheduler` | 잔류 + **예약 폴링 스케줄러 추가** |
 | 배치 예약 테이블 | 없음 | **정산 DB 에 신설** — 어드민이 INSERT, 정산이 폴링 |
@@ -102,14 +102,24 @@ admin-service                          settlement-service
 
 ## 이행 단계
 
-1. **문서 반영(지금)** — 이 문서 + trade-off + 연동 카탈로그.
-2. **계약 확정** — 배치 예약 테이블 스키마·상태 전이 표 확정, admin-service 모듈 뼈대 생성,
-   어드민 전용 DB 계정·권한 준비.
-3. **API 이관** — 정산에 예약 폴링 스케줄러 구현, admin-service 에 어드민 REST 구현(운영 조회·
-   상태변경은 `seller_settlement`(유저 DB) 직접 SELECT/UPDATE, 배치예약은 정산 DB INSERT). 이
-   기간엔 정산의 어드민 REST 와 병행 운영. seller_settlement 재작업은 #245, 병행 제거는 #234.
-4. **정리** — 어드민 프론트가 admin-service 로 전환 완료되면 settlement 의
-   `SettlementController` 제거. `SettlementBatchController` 는 배치 테스트용으로 남긴다.
+1. ~~**문서 반영**~~ — 이 문서 + trade-off + 연동 카탈로그. **완료.**
+2. ~~**모듈 뼈대**~~ — admin-service 모듈 생성·정산 패키지 뼈대 완료(#218). (배치 예약 테이블
+   스키마·상태 전이 표·어드민 전용 DB 계정은 예약 기능 설계 시 확정 — 아래 미완 참고.)
+3. ~~**API 이관**~~ — admin-service 에 어드민 REST 구현, 정산의 어드민 REST 와 병행 후
+   **병행 제거 완료(#234)**. seller_settlement 재작업 #245. (운영 데이터 소스 상세는 아래 노트.)
+4. ~~**정리**~~ — settlement 의 `SettlementController`·`SellerSettlementController` **제거 완료**.
+   현재 settlement `presentation` 엔 `SettlementBatchController`(배치 테스트용)만 남는다.
+
+> **아직 미완(설계만):** 배치 예약 테이블 + 예약 폴링 스케줄러는 **미구현**이다. 현재 배치 실행
+> 경로는 `SettlementBatchController` 즉시 실행뿐이고, "시간 지정 예약 실행"은 도입 전이다.
+>
+> **구현 확인(설계와 일치):** admin-service `settlement` 패키지의 운영 상태는 `Settlement` 엔티티가
+> `@Table("seller_settlement")` 로 유저 DB 를 매핑하고(조회·상태변경·취소 대상), 원천 라인은
+> `SettlementSourceLine` 엔티티가 `@Table("settlement_source_line")` 로 정산 DB 를 매핑한다(취소 시
+> 해제 대상). 운영은 seller_settlement, 원천은 settlement_source_line — 이 문서 설계대로다. (클래스명이
+> `Settlement`·`SettlementSourceLine` 이라 **이름만으로는 정산 본체 테이블로 오해하기 쉬우니** 주의.)
+> 한편 정산 본체(settlement-service)의 `Settlement` 는 운영 상태·전이를 걷어내고 **계산 로그로 축소**
+> 중이다(#254, PR #279 — `seller-settlement-separation.md` "settlement=로그").
 
 ## 관련 문서
 

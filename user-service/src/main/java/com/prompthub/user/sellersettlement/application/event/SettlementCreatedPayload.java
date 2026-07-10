@@ -5,7 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public record SettlementCreatedMessage(
+public record SettlementCreatedPayload(
         UUID settlementId,
         UUID sellerId,
         LocalDate periodStart,

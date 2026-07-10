@@ -2,6 +2,7 @@ package com.prompthub.user.sellersettlement.infrastructure.persistence;
 
 import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
 import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,4 +31,14 @@ public interface SellerSettlementJpaRepository extends JpaRepository<SellerSettl
             @Param("periodStart") LocalDate periodStart,
             @Param("periodEnd") LocalDate periodEnd,
             Pageable pageable);
+
+    @Query("select coalesce(sum(s.totalAmount), 0) from SellerSettlement s where s.sellerId = :sellerId")
+    BigDecimal sumTotalAmountBySeller(@Param("sellerId") UUID sellerId);
+
+    @Query("""
+            select coalesce(sum(s.settlementTotalAmount), 0) from SellerSettlement s
+            where s.sellerId = :sellerId and s.status = :status
+            """)
+    BigDecimal sumSettlementTotalAmountBySellerAndStatus(
+            @Param("sellerId") UUID sellerId, @Param("status") SettlementDisplayStatus status);
 }
