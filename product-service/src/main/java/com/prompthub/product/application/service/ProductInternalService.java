@@ -49,7 +49,7 @@ public class ProductInternalService implements ProductInternalUseCase {
 					p.getThumbnailUrl(),
 					p.getProductType().name(),
 					p.getModel() != null ? p.getModel() : "",
-					p.getSalesCount(),
+					(int) productRepository.sumSalesCountByFamilyRootId(p.familyRootId()),
 					productRepository.getAverageRating(p.familyRootId()),
 					p.getStatus().name()
 				);
