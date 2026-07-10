@@ -50,7 +50,7 @@ class ProductControllerTest {
 	}
 
 	@Nested
-	@DisplayName("GET /api/v1/products")
+	@DisplayName("GET /api/v2/products")
 	class GetProducts {
 
 		@Test
@@ -60,7 +60,7 @@ class ProductControllerTest {
 			given(productQueryUseCase.getProducts("react", "PROMPT", "popular", 1, 8))
 				.willReturn(PageResponse.success(List.of(item), 1, 8, 1, false));
 
-			mockMvc.perform(get("/api/v1/products")
+			mockMvc.perform(get("/api/v2/products")
 					.param("q", "react")
 					.param("productType", "PROMPT")
 					.param("sort", "popular")
@@ -78,7 +78,7 @@ class ProductControllerTest {
 	}
 
 	@Nested
-	@DisplayName("GET /api/v1/products/{productId}")
+	@DisplayName("GET /api/v2/products/{productId}")
 	class GetProduct {
 
 		@Test
@@ -87,7 +87,7 @@ class ProductControllerTest {
 			ProductDetailResponse response = productDetailResponse();
 			given(productQueryUseCase.getProduct(PRODUCT_ID)).willReturn(response);
 
-			mockMvc.perform(get("/api/v1/products/{productId}", PRODUCT_ID))
+			mockMvc.perform(get("/api/v2/products/{productId}", PRODUCT_ID))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.data.id").value(PRODUCT_ID.toString()))
@@ -100,7 +100,7 @@ class ProductControllerTest {
 		@Test
 		@DisplayName("UUID가 아니면 400 응답을 반환한다")
 		void getProduct_invalidProductId() throws Exception {
-			mockMvc.perform(get("/api/v1/products/not-uuid"))
+			mockMvc.perform(get("/api/v2/products/not-uuid"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.code").value("V001"));
@@ -114,7 +114,7 @@ class ProductControllerTest {
 			given(productQueryUseCase.getProduct(PRODUCT_ID))
 				.willThrow(new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
 
-			mockMvc.perform(get("/api/v1/products/{productId}", PRODUCT_ID))
+			mockMvc.perform(get("/api/v2/products/{productId}", PRODUCT_ID))
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.code").value("P001"));
@@ -122,7 +122,7 @@ class ProductControllerTest {
 	}
 
 	@Nested
-	@DisplayName("GET /api/v1/products/{productId}/related")
+	@DisplayName("GET /api/v2/products/{productId}/related")
 	class GetRelatedProducts {
 
 		@Test
@@ -131,7 +131,7 @@ class ProductControllerTest {
 			ProductListItemResponse item = productListItemResponse(PRODUCT_ID, "PROMPT");
 			given(productQueryUseCase.getRelatedProducts(PRODUCT_ID, 4)).willReturn(List.of(item));
 
-			mockMvc.perform(get("/api/v1/products/{productId}/related", PRODUCT_ID))
+			mockMvc.perform(get("/api/v2/products/{productId}/related", PRODUCT_ID))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.data[0].id").value(PRODUCT_ID.toString()));
@@ -142,7 +142,7 @@ class ProductControllerTest {
 		void getRelatedProducts_withLimit() throws Exception {
 			given(productQueryUseCase.getRelatedProducts(PRODUCT_ID, 2)).willReturn(List.of());
 
-			mockMvc.perform(get("/api/v1/products/{productId}/related", PRODUCT_ID)
+			mockMvc.perform(get("/api/v2/products/{productId}/related", PRODUCT_ID)
 					.param("limit", "2"))
 				.andExpect(status().isOk());
 
@@ -151,7 +151,7 @@ class ProductControllerTest {
 	}
 
 	@Nested
-	@DisplayName("GET /api/v1/products/{productId}/reviews")
+	@DisplayName("GET /api/v2/products/{productId}/reviews")
 	class GetProductReviews {
 
 		@Test
@@ -168,7 +168,7 @@ class ProductControllerTest {
 			);
 			given(productQueryUseCase.getProductReviews(PRODUCT_ID)).willReturn(List.of(review));
 
-			mockMvc.perform(get("/api/v1/products/{productId}/reviews", PRODUCT_ID))
+			mockMvc.perform(get("/api/v2/products/{productId}/reviews", PRODUCT_ID))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.data[0].id").value(reviewId.toString()))

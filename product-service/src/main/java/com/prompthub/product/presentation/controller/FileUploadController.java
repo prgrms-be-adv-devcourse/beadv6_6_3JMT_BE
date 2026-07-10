@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/api/v1/sellers/me/products")
+@RequestMapping("/api/v2/sellers/me/products")
 @RequiredArgsConstructor
 public class FileUploadController {
 

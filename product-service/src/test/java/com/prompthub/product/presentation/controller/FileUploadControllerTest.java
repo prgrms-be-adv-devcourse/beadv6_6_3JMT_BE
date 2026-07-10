@@ -50,7 +50,7 @@ class FileUploadControllerTest {
     }
 
     @Nested
-    @DisplayName("POST /api/v1/sellers/me/products/images")
+    @DisplayName("POST /api/v2/sellers/me/products/images")
     class UploadImage {
 
         @Test
@@ -62,7 +62,7 @@ class FileUploadControllerTest {
             given(storageClient.upload(any(), any(), eq("image/png"))).willReturn("ignored");
             given(storageClient.generatePresignedDownloadUrl(any())).willReturn(PRESIGNED_URL);
 
-            mockMvc.perform(multipart("/api/v1/sellers/me/products/images")
+            mockMvc.perform(multipart("/api/v2/sellers/me/products/images")
                     .file(file)
                     .header("X-User-Id", SELLER_ID.toString())
                     .header("X-User-Role", "SELLER"))
@@ -81,7 +81,7 @@ class FileUploadControllerTest {
             given(storageClient.upload(any(), any(), eq("image/jpeg"))).willReturn("ignored");
             given(storageClient.generatePresignedDownloadUrl(any())).willReturn(PRESIGNED_URL);
 
-            mockMvc.perform(multipart("/api/v1/sellers/me/products/images")
+            mockMvc.perform(multipart("/api/v2/sellers/me/products/images")
                     .file(file)
                     .param("productId", productId.toString())
                     .param("purpose", "gallery")
@@ -100,7 +100,7 @@ class FileUploadControllerTest {
             given(storageClient.upload(any(), any(), any()))
                 .willThrow(new ProductException(ProductErrorCode.S3_PRESIGN_FAILED));
 
-            mockMvc.perform(multipart("/api/v1/sellers/me/products/images")
+            mockMvc.perform(multipart("/api/v2/sellers/me/products/images")
                     .file(file)
                     .header("X-User-Id", SELLER_ID.toString())
                     .header("X-User-Role", "SELLER"))
@@ -109,7 +109,7 @@ class FileUploadControllerTest {
     }
 
     @Nested
-    @DisplayName("DELETE /api/v1/sellers/me/products/images")
+    @DisplayName("DELETE /api/v2/sellers/me/products/images")
     class DeleteTempImages {
 
         @Test
@@ -117,7 +117,7 @@ class FileUploadControllerTest {
         void deleteTempImages_success() throws Exception {
             List<String> urls = List.of(PRESIGNED_URL);
 
-            mockMvc.perform(delete("/api/v1/sellers/me/products/images")
+            mockMvc.perform(delete("/api/v2/sellers/me/products/images")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(urls))
                     .header("X-User-Id", SELLER_ID.toString())
@@ -134,7 +134,7 @@ class FileUploadControllerTest {
                 "https://3jmt-prompthub-bucket.s3.ap-northeast-2.amazonaws.com/products/some-id/thumbnail/uuid.png?X-Amz-Expires=3600"
             );
 
-            mockMvc.perform(delete("/api/v1/sellers/me/products/images")
+            mockMvc.perform(delete("/api/v2/sellers/me/products/images")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(urls))
                     .header("X-User-Id", SELLER_ID.toString())

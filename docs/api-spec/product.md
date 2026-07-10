@@ -1,9 +1,10 @@
 # Product Service API
 
-**Base:** `http://localhost:xxxx/api/v1`
+**Base:** `http://localhost:xxxx/api/v2`
 
-> ⚠ `api/v1`은 세미 프로젝트 완성 스냅샷(`v1.0.0` 태그) 기준 경로다. 최종 프로젝트에서
-> `api/v2`로 전환 예정이며 별도 이슈로 진행한다(`docs/adr/config-management.md` §10).
+> 최종 프로젝트 전환에 따라 product-service 외부 API는 `/api/v2`로 서빙한다(#273).
+> 게이트웨이는 경로를 rewrite하지 않으므로(ADR-0007) 각 서비스가 해당 버전 경로를 직접 서빙한다.
+> 내부 통신(`/internal/**`)은 버전 없이 유지한다.
 
 ## 공통 사항
 
