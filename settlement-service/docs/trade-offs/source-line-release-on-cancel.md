@@ -4,9 +4,20 @@
 도메인 메서드로 `settlementId`를 비우면, JPA dirty checking이 행마다 `UPDATE` 하나씩을 날린다.
 단일 벌크 `UPDATE`가 아니다.
 
-## 지금 구조
+> **현황(이관됨):** 이 취소 흐름(정산 취소 → 원천 라인 해제)은 settlement 본체에서 **admin-service
+> 로 이관**됐다(#234). 정산 본체(settlement-service)엔 도메인 메서드 `Settlement.cancel()`·
+> `SettlementSourceLine.release()` 가 남아 있으나 이를 호출하는 애플리케이션 서비스가 없어 **현재
+> 실행 경로가 없다(고아 코드).** 어드민 정산 취소는 admin-service `settlement` 패키지
+> (`SettlementApplicationService`·`Settlement`·`SettlementSourceLine`)가 정산 DB 를 직접 다뤄 수행한다.
+> 아래는 이 흐름이 정산 본체에 살아 있던 시점의 코드 기준이며, 트레이드오프(행 단위 dirty checking
+> vs 벌크 UPDATE)는 취소가 실제로 도는 곳(admin-service) 기준의 설계 근거로 보존한다. admin 실제
+> 구현이 아래와 같은지는 admin-service 기준으로 재확인이 필요하다.
+> (어드민 데이터 접근 배경: `admin-data-access.md`, 모듈 분리: `../architecture/admin-module-separation.md`)
 
-`SettlementApplicationService.cancel()`은 하나의 `@Transactional` 안에서 돈다.
+## 원래 구조 (정산 본체 기준 — 현재 admin-service 로 이관)
+
+정산 본체에 취소가 살아 있던 시점, `SettlementApplicationService.cancel()`은 하나의
+`@Transactional` 안에서 돌았다. (현재 이 서비스는 정산 본체에 없고 admin-service 에 있다.)
 
 ```java
 @Override

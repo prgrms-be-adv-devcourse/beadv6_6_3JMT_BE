@@ -167,8 +167,9 @@ message SettleableLine {
 > **한 번에** `FindSellers` 로 조회해 `sellerId → sellerName` 으로 매핑한다.
 > 단건(정산 단건/요약)도 같은 rpc 에 `sellerIds` 1건을 담아 호출한다(단건 전용 rpc 를 따로 두지 않는다).
 
-- **통신 방식: gRPC.** proto 계약(`src/main/proto/seller_query.proto`·`product_query.proto`)을 **정산이
-  정의해 제안**하고, User·Product 팀에 해당 gRPC 서버 신설을 요청한다. (REST/OpenFeign 아님 — 전환됨)
+- **통신 방식: gRPC.** (REST/OpenFeign 아님 — 전환됨.) **단, 이 참고 조회의 proto·클라이언트는
+  정산 본체(settlement-service)에 더 이상 없다** — 셀러 정산이 user-service 로 이관되며 그쪽에서
+  계약·구현을 소유한다(§2-1·§2-2). 아래 서술은 이관 전 "정산 본체 직접 조회" 기준 설계 배경이다.
 - 채널은 게이트웨이를 거치지 않고 서비스 간 직접 호출한다. 채널 주소는 `grpc.client.{user,product}-service.address`
   로 주입한다(서비스 디스커버리 연동은 상대 서버 연동 시 확정). 평문(`usePlaintext`) 기본, 보안(TLS)은 추후.
 - **(현재)** 상품 수 조회 클라이언트는 셀러 정산(user-service `sellersettlement`)의 `ProductStatsGrpcClient`
@@ -181,157 +182,25 @@ message SettleableLine {
 > 직접 영향**을 주므로 실패를 삼키면 안 된다 — 배치가 멈추고 재시도해야 한다. (장식은 비우고, 돈은
 > 멈춘다 — `internal-sync-transport.md`.)
 
-### 2-1. User — 판매자 정보 조회 (gRPC `SellerQueryService`)
+### 2-1. User — 판매자 정보 조회 (`FindSellers`)
 
-정산이 판매자명을 가져오려고 User 서비스에 신설 요청하는 gRPC 서비스다.
-정산 목록은 판매자가 여러 명이라 **다건(batch) rpc 하나**로 N+1 을 피한다. 단건(정산 단건/요약)도
-같은 rpc 에 `seller_ids` 1건을 담아 호출한다.
+판매자명(상점명) 조회다. 정산 목록은 판매자가 여러 명이라 다건(batch) rpc 하나로 N+1 을 피하는
+모양(`seller_ids` → `sellerId→sellerName` 매핑, 실패 시 빈 맵 폴백)이 된다.
 
-> **정산 계좌 정보는 이 응답에 없다.** 지급 실행을 붙이는 단계에서 계좌(은행 코드·계좌번호·예금주)를
-> 어떻게 받을지 별도로 정한다. 지금은 셀러 식별·표시 정보만 가져온다.
+> **현황:** `FindSellers` **서버는 user-service `seller` 패키지에 live** 이나, 이를 호출하는 **정산측
+> 클라이언트는 아직 없다**(요청 대기 — `settlement-internal-comm-topology.md` §4-3). 정산 본체에
+> `seller_query.proto`·클라이언트는 **존재하지 않는다.** 계약 전문(proto·필드)은 서버를 소유한
+> user-service `seller` 쪽에서 관리한다. (정산 계좌 정보는 여기 없다 — 지급 실행 붙일 때 별도로 정한다.)
 
-- 제공(요청 대상): User 서비스 (gRPC 서버 신설 요청)
-- 호출: Settlement → User
-- 호출 시점: 정산 목록·단건·요약 조회 시(판매자명 표시)
-- proto: `settlement-service/src/main/proto/seller_query.proto` (정산이 정의해 제안)
+### 2-2. Product — 판매자 등록 상품 수·판매건수 조회 (`CountBySeller`)
 
-**proto 계약 (전문 — User 팀이 그대로 받아 서버를 구현한다)**
+셀러 정산 요약의 등록 상품 수(`registeredPromptCount`)·판매건수를 채운다.
 
-```protobuf
-syntax = "proto3";
-
-package settlement.seller;
-
-option java_multiple_files = true;
-option java_package = "com.prompthub.settlement.grpc.seller";
-option java_outer_classname = "SellerQueryProto";
-
-service SellerQueryService {
-  rpc FindSellers(SellerBatchQueryRequest) returns (SellerBatchQueryResponse);
-}
-
-message SellerBatchQueryRequest {
-  repeated string seller_ids = 1;
-}
-
-message SellerBatchQueryResponse {
-  repeated SellerInfo sellers = 1;
-}
-
-message SellerInfo {
-  string seller_id = 1;
-  string seller_name = 2;
-  string profile_image_url = 3;
-  string status = 4;
-}
-```
-
-**요청 — `SellerBatchQueryRequest`**
-
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `seller_ids` | repeated string(UUID) | ✅ | 조회할 판매자 ID 목록. 중복은 호출 전 제거 권장 |
-
-**응답 — `SellerBatchQueryResponse` (`sellers`: repeated `SellerInfo`)**
-
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `seller_id` | string(UUID) | ✅ | 판매자 ID |
-| `seller_name` | string | ✅ | 판매자명 |
-| `profile_image_url` | string | ⬜ | 프로필 이미지 URL(없으면 빈 문자열) |
-| `status` | string | ⬜ | 판매자/계정 상태 (예: `ACTIVE`) |
-
-**메시지 예시** (gRPC 는 바이너리라, 값은 textproto 표기로 보인다)
-
-```textproto
-# 요청 SellerBatchQueryRequest
-seller_ids: "770e8400-e29b-41d4-a716-446655440002"
-seller_ids: "881e8400-e29b-41d4-a716-446655440013"
-```
-
-```textproto
-# 응답 SellerBatchQueryResponse
-sellers { seller_id: "770e8400-e29b-41d4-a716-446655440002" seller_name: "프롬프트마스터" profile_image_url: "https://cdn.example.com/p.jpg" status: "ACTIVE" }
-sellers { seller_id: "881e8400-e29b-41d4-a716-446655440013" seller_name: "AI스튜디오" status: "ACTIVE" }
-```
-
-- **정산이 실제 쓰는 필드는 `seller_id`·`seller_name` 뿐이다.** `profile_image_url`·`status` 는 받되 사용하지 않는다.
-- **존재하지 않는 `seller_id` 는 응답에서 빠진다**(요청 N개 != 응답 N개). 정산은 매핑에 없는 판매자명을 빈 값/대체 표기로 처리한다.
-- 응답 순서는 보장하지 않는다. 정산은 `seller_id` 키로 매핑해 쓴다.
-- 조회 실패는 gRPC status(예: `UNAVAILABLE`)로 내려오면 되고, 정산은 이를 빈 결과로 폴백한다.
-
-> (아래는 계약 설계 예시다.) `FindSellers` 서버는 user-service `seller` 패키지에 live 이나, 이를 호출하는
-> **정산측 클라이언트는 아직 없다**(요청 대기 — `settlement-internal-comm-topology.md` §4-3). 붙일 때는 포트
-> `~QueryPort.findSellerNames(List<UUID>)` 로 다건을 받고 어댑터가 블로킹 스텁으로 `FindSellers` 를 호출하며,
-> 실패(`StatusRuntimeException`)는 빈 맵으로 폴백하는 모양이 된다. (포트·어댑터 규칙은 `clean-architecture.md` §4)
-
-### 2-2. Product — 판매자 등록 상품 수 조회 (gRPC `ProductQueryService`)
-
-정산 요약 화면의 등록 상품 수(`registeredPromptCount`)를 채울 때 조회한다.
-
-- 호출: Settlement → Product
-- 호출 시점: 판매자 정산 요약 조회 시
-- proto: `settlement-service/src/main/proto/product_query.proto` (정산이 정의해 제안)
-
-**proto 계약 (전문 — Product 팀이 그대로 받아 서버를 구현한다)**
-
-```protobuf
-syntax = "proto3";
-
-package settlement.product;
-
-option java_multiple_files = true;
-option java_package = "com.prompthub.settlement.grpc.product";
-option java_outer_classname = "ProductQueryProto";
-
-service ProductQueryService {
-  rpc CountBySeller(ProductCountRequest) returns (ProductCountResponse);
-}
-
-message ProductCountRequest {
-  string seller_id = 1;
-}
-
-message ProductCountResponse {
-  string seller_id = 1;
-  int32 product_count = 2;
-  int64 sales_count = 3;   // #262 확장 — 셀러 누적 판매건수. product 서버 미충족 시 0
-}
-```
-
-**요청 — `ProductCountRequest`**
-
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `seller_id` | string(UUID) | ✅ | 판매자(사용자) ID |
-
-**응답 — `ProductCountResponse`**
-
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `seller_id` | string(UUID) | ✅ | 판매자(사용자) ID |
-| `product_count` | int32 | ✅ | 판매자가 등록한(판매 중인) 상품 수 |
-| `sales_count` | int64 | ⬜ | 셀러 누적 판매건수(#262 확장). 서버 미충족 시 proto3 기본값 0 |
-
-**메시지 예시**
-
-```textproto
-# 요청 ProductCountRequest
-seller_id: "770e8400-e29b-41d4-a716-446655440002"
-```
-
-```textproto
-# 응답 ProductCountResponse
-seller_id: "770e8400-e29b-41d4-a716-446655440002"
-product_count: 12
-```
-
-- 정산이 실제 쓰는 값은 `product_count` 다. 받은 값을 정산 요약에 그대로 노출한다.
-- 집계 기준(판매 중만 vs 전체 상태 포함)은 Product 팀과 확정한다.
-- 이 조회는 셀러 정산이 user-service 로 이관되며 그쪽에서 수행된다. 어댑터
-  `sellersettlement/infrastructure/grpc/ProductStatsGrpcClient` 가 `CountBySeller` 를 호출하고,
-  실패(gRPC status) 시 `SellerProductStats.empty()`(0) 으로 폴백한다. product 서버는 live —
-  `sales_count`(#262 확장) 필드만 서버 채움 대기.
+> **현황(이관·구현됨):** 이 조회는 셀러 정산이 user-service 로 이관되며 **`sellersettlement` 의
+> `ProductStatsGrpcClient`(→ product `CountBySeller`)로 구현·호출된다.** product 서버는 live 이고,
+> `sales_count`(#262 확장) 필드만 서버 채움 대기다(실패 시 `SellerProductStats.empty()`(0) 폴백).
+> 정산 본체엔 `product_query.proto`·클라이언트가 **없다.** 계약 전문(proto·필드)은 user-service
+> `sellersettlement` 쪽에서 관리한다. 집계 기준(판매 중만 vs 전체)은 Product 팀과 확정한다.
 
 ---
 
@@ -349,16 +218,11 @@ product_count: 12
 배치가 정산을 계산·생성할 때, 셀러 정산(user-service `sellersettlement`) 운영행을 seed 하도록 발행한다.
 공통 래퍼 `EventMessage<T>` 로 감싸며(규칙은 `common-kafka-event-message.md`), 개별 envelope 를 새로 두지 않는다.
 
-| 항목 | 값 |
-|------|-----|
-| 포트 / 어댑터 | `application/port/SettlementEventPublisher` ← `infrastructure/messaging/kafka/producer/KafkaSettlementEventPublisher` |
-| 래퍼 | `EventMessage<SettlementCreatedPayload>` |
-| eventType | `SETTLEMENT_CREATED` (`SettlementEventType.SETTLEMENT_CREATED.code()`) |
-| aggregateType / key | `SETTLEMENT` / `settlementId` |
-| 페이로드 | `SettlementCreatedPayload` — settlementId·sellerId·periodStart·periodEnd·productCount·totalAmount·settlementTotalAmount·feeTotalAmount·refundAmount·calculatedAt (10필드) |
-| 발행 시점 | 정산 생성(계산) 트랜잭션 커밋 후(AFTER_COMMIT) |
-| 실패정책 | 비동기 전송 실패는 로깅만(at-most-once). 동기 직렬화/설정 실패만 `SettlementException` |
-| 구독측 | user `sellersettlement` 컨슈머가 `EventMessage` 수동 역직렬화 → `SeedSellerSettlementUseCase.seed` (멱등: `settlementId` 유니크) |
+> **발행 스펙·현황의 상세(포트/어댑터·페이로드 10필드·발행 시점·실패 정책·구독측)는
+> `settlement-internal-comm-topology.md` §3-1 이 SSOT 다.** 삼중 서술을 피하려 여기서는 요약만 둔다 —
+> `EventMessage<SettlementCreatedPayload>` 를 `settlement-events` 토픽에 `settlementId`(=`aggregateId`) 키로
+> AFTER_COMMIT 직접 발행하고, user `sellersettlement` 컨슈머가 seed 한다(멱등: `settlementId` 유니크).
+> 코드가 어느 계층·패키지에 놓이는지는 `kafka-messaging-design.md` 를 본다.
 
 ### 3-2. `settlement.payout.completed` (추후 — 파이널 단계)
 
