@@ -46,6 +46,11 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	}
 
 	@Override
+	public long sumSalesCountByFamilyRootId(UUID familyRootId) {
+		return productJpaRepository.sumSalesCountByFamilyRootId(familyRootId);
+	}
+
+	@Override
 	public List<ProductListProjection> findRelatedProducts(UUID productId, ProductType productType, int limit) {
 		return productJpaRepository.findRelatedProducts(productId, productType, limit);
 	}

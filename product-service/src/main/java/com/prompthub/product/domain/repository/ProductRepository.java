@@ -21,6 +21,8 @@ public interface ProductRepository {
 
 	double getAverageRating(UUID productId);
 
+	long sumSalesCountByFamilyRootId(UUID familyRootId);
+
 	List<ProductListProjection> findRelatedProducts(UUID productId, ProductType productType, int limit);
 
 	List<ProductReviewProjection> findActiveReviews(UUID productId);

@@ -99,7 +99,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 			product.getModel(),
 			product.getAmount(),
 			rating,
-			product.getSalesCount(),
+			(int) productRepository.sumSalesCountByFamilyRootId(product.familyRootId()),
 			seller.sellerName(),
 			product.getSellerId(),
 			seller.profileImageUrl(),
