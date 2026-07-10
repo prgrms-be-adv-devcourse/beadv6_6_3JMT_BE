@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+// 루트 공유 gRPC 계약 — 소유: product-service (product 도메인, ProductQueryService 서버).
+// 소비: user-service (셀러 정산의 셀러 상품수·판매건수 조회 클라이언트).
+// 주의: product-service/src/main/proto/product_query.proto 에 서버 원본이 살아있다(product 는 정산 담당
+// 범위 밖이라 원본을 제거하지 못한다). 이 파일은 소비자(user) 미러를 옮긴 것으로, 원본과
+// wire(package settlement.product·service·message·field 번호)를 일치시킨다. product 팀이 공유 grpc/ 에
+// 참여하면 서버 원본을 이 파일로 통합해 미러 이중 관리를 없앤다.
+// 디렉토리 grpc/product = 소유 모듈, 파일·서비스 product = 도메인. 규칙은 settlement-service/docs/architecture/grpc-contract-ownership.md 참고.
+// java_package 는 소비자(user) 이름을 유지한다(생성 클래스 import 불변). 소유자 기준 정규화는 필요 시 별도 작업.
+package settlement.product;
+
+option java_multiple_files = true;
+option java_package = "com.prompthub.user.grpc.productquery";
+option java_outer_classname = "ProductQueryProto";
+
+// sales_count(3) 는 이 이슈(#262)에서 신규 제안 — product 팀이 서버 응답에 채워주면 셀러 등록 상품 수와
+// 판매건수를 한 응답으로 받는다. 서버가 아직 안 주면 proto3 기본값 0 으로 내려와 폴백과 동일하게 동작한다.
+service ProductQueryService {
+  rpc CountBySeller(ProductCountRequest) returns (ProductCountResponse);
+}
+
+message ProductCountRequest {
+  string seller_id = 1;
+}
+
+message ProductCountResponse {
+  string seller_id = 1;
+  int32 product_count = 2;   // 셀러가 등록한(판매 중) 상품(프롬프트) 수
+  int64 sales_count = 3;     // 셀러 누적 판매건수 (product 팀 서버 확장 요청)
+}

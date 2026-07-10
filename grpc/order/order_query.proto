@@ -1,15 +1,17 @@
 syntax = "proto3";
 
+// 루트 공유 gRPC 계약 — 소유: order-service (order 도메인, OrderQueryService 서버).
+// 소비: settlement-service (정산 대상 라인 bulk 조회 클라이언트 — #260).
+// 현재 order 서버는 미구현이라 이 계약은 정산 클라이언트 쪽이 유일본이다. order 팀이 서버를 신설할 때
+// 이 계약과 wire(package·service·message·field 번호)를 일치시킨다.
+// 디렉토리 grpc/order = 소유 모듈, 파일·서비스 order = 도메인. 규칙은 settlement-service/docs/architecture/grpc-contract-ownership.md 참고.
+// 각 소비/제공 모듈은 build.gradle 의 proto srcDir 로 이 경로(grpc/order)를 참조한다.
 package settlement.order;
 
 option java_multiple_files = true;
 option java_package = "com.prompthub.settlement.grpc.ordersettlement";
 option java_outer_classname = "OrderQueryProto";
 
-// order-service 의 정산 대상 라인 조회 서비스 미러(settlement → order 아웃바운드 조회 — #260).
-// 기존 Kafka order-events 소비로 SettlementSourceLine 을 건건이 적재하던 방식을,
-// 정산 배치 시작 시 gRPC 로 정산 대상 라인을 bulk 조회해 적재하는 방식으로 전환한다.
-// wire 계약(package·service·message·field 번호)은 order-service 가 신설할 서버 proto 와 일치시켜야 한다.
 service OrderQueryService {
   // 정산 기준월(period, YYYY-MM)에 아직 정산되지 않은 결제/환불 라인을 셀러 무관하게 전부 조회한다.
   // order 는 상태가 아니라 시각(paidAt/refundedAt) 기준으로 해당 월의 라인을 내려준다.

@@ -15,14 +15,17 @@
   sourceSets { main { proto { srcDir "${rootProject.projectDir}/grpc/user" } } }
   ```
 
-- 여기로 옮긴 계약은 원래 모듈 `src/main/proto` 에서 삭제한다(이중 생성 충돌 방지).
+- 여기로 옮긴 계약은 원래 모듈 `src/main/proto` 에서 삭제한다(이중 생성 충돌 방지). 단 서버가 담당 범위 밖이면
+  그 서버의 원본은 남는다(예: `product_query.proto` 서버 원본은 product-service 에 잔존).
 - `java_package` 는 그대로 유지해 생성 클래스·import 를 안 바꾼다.
 
 ## 현재 레이아웃
 
 ```
 grpc/
-└── user/seller_query.proto   ← SellerQueryService.GetSellers (소유: user)
+├── user/seller_query.proto      ← SellerQueryService.GetSellers        (소유: user)
+├── order/order_query.proto      ← OrderQueryService.GetSettleableLines (소유: order, 서버 미구현)
+└── product/product_query.proto  ← ProductQueryService.CountBySeller    (소유: product, 서버 원본 잔존)
 ```
 
 전문 규칙과 정산 계약 현황은 `settlement-service/docs/architecture/grpc-contract-ownership.md` 를 본다.

@@ -66,8 +66,12 @@ a ◀──응답── b
 ```
 beadv6_6_3JMT_BE/
 └── grpc/                      ← 루트 공유 gRPC 계약
-    └── user/                  ← user-service 가 서버인 계약
-        └── seller_query.proto   ← SellerQueryService.GetSellers
+    ├── user/                  ← user-service 가 서버인 계약
+    │   └── seller_query.proto   ← SellerQueryService.GetSellers
+    ├── order/                 ← order-service 가 서버인 계약(서버 미구현 — 정산 클라이언트가 유일본)
+    │   └── order_query.proto    ← OrderQueryService.GetSettleableLines
+    └── product/               ← product-service 가 서버인 계약(서버 원본은 product-service 에 잔존)
+        └── product_query.proto  ← ProductQueryService.CountBySeller
 ```
 
 기능이 늘면 서버 모듈명으로 하위 디렉토리를 추가한다(`grpc/order/`, `grpc/product/` …).
@@ -96,19 +100,28 @@ sourceSets {
 
 | 계약(rpc) | 요청자(client) | 서버(owner) | 위치 | 비고 |
 | --- | --- | --- | --- | --- |
-| `GetSellers`(셀러 정보) | settlement | **user** | `grpc/user/seller_query.proto` | 루트 공유+네이밍 정리 완료. settlement 클라이언트는 도입 예정 |
-| `CountBySeller`(셀러 상품·판매수) | user(sellersettlement) | product | user `src/main/proto/product_query.proto` (미러) | 서버가 product(범위 밖) — 미러 유지 |
-| `GetSettleableLines`(정산 원천) | settlement | order | settlement `src/main/proto/order_query.proto` (미러) | 서버가 order(범위 밖·미구현) — 미러 유지, 네이밍 규칙 적용 |
+| `GetSellers`(셀러 정보) | settlement | **user** | `grpc/user/seller_query.proto` | 루트 공유 이관 완료(서버=user 담당). settlement 클라이언트는 도입 예정 |
+| `GetSettleableLines`(정산 원천) | settlement | **order** | `grpc/order/order_query.proto` | 루트 공유 이관 완료. order 서버 미구현이라 정산 클라이언트가 유일본 |
+| `CountBySeller`(셀러 상품·판매수) | user(sellersettlement) | **product** | `grpc/product/product_query.proto` | 루트 공유 이관(소비자 user 미러). product 서버 원본은 product-service 에 잔존(범위 밖) |
 
-### 미러를 아직 남겨둔 이유 (예외)
+### product 서버 원본이 잔존하는 이유 (예외)
 
-`CountBySeller`·`GetSettleableLines` 는 서버가 **order·product** 로, 정산 담당 범위(정산 본체·셀러 정산·
-어드민 정산) 밖이다. 그 모듈을 직접 수정하지 않으므로, 지금은 우리 쪽 **클라이언트 미러를 그대로 둔다.**
-order·product 팀이 공유 `grpc/` 에 참여하는 시점에 각각 `grpc/order/`·`grpc/product/` 로 이관한다.
+세 계약을 모두 `grpc/` 로 이관했다. 다만 `CountBySeller` 는 서버 원본이
+`product-service/src/main/proto/product_query.proto` 에 **살아있다.** product 는 정산 담당 범위 밖이라
+그 원본을 제거하지 못한다. 그래서 `grpc/product/product_query.proto` 는 소비자(user) 미러를 옮긴 것이고,
+product 원본과 같은 wire(`package settlement.product`·service·message·필드 번호)로 **이중 존재**한다.
+product 팀이 공유 `grpc/` 에 참여하면 서버 원본을 이 파일로 통합해 이중 관리를 없앤다.
+
+반면 `GetSettleableLines` 는 order 서버가 미구현이라 order-service 에 원본이 없어,
+`grpc/order/order_query.proto` 가 유일본이다(이중 존재 아님). order 팀이 서버를 신설하면 이 계약을 그대로 참조한다.
 
 ### 참고 — `java_package` 네이밍
 
-`seller_query.proto` 의 `java_package` 는 `com.prompthub.settlement.grpc.seller` 로, 소유자
-(user)가 아니라 **소비자(settlement) 이름**을 따른다. 지금은 코드 변경을 만들지 않으려 그대로 두었다.
-소유자 기준으로 정규화(`...user.grpc.seller`)하려면 서버·클라이언트 코드의 import 를 함께 바꿔야 하므로,
-필요 시 별도 작업으로 다룬다.
+세 계약의 `java_package` 는 모두 소유자가 아니라 **소비자 이름**을 따른다.
+
+- `seller_query.proto` → `com.prompthub.settlement.grpc.seller` (소비자 settlement)
+- `order_query.proto` → `com.prompthub.settlement.grpc.ordersettlement` (소비자 settlement)
+- `product_query.proto` → `com.prompthub.user.grpc.productquery` (소비자 user)
+
+계약을 옮겨도 이 값을 유지해 생성 클래스 import 를 바꾸지 않는다(코드 변경 0). 소유자 기준으로 정규화하려면
+서버·클라이언트 코드의 import 를 함께 바꿔야 하므로, 필요 시 별도 작업으로 다룬다.

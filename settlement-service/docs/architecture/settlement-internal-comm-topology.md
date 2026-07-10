@@ -94,7 +94,7 @@
 | 상태 | **정산측 완비, order-service 에 `OrderQueryService` 서버 미구현 → 요청 대기** (계약: #260 이슈 코멘트) |
 
 **gRPC 서버** — 없음. (`grpc.server.port` yml 선언은 있으나 등록된 비즈니스 서비스 없음.
-`order_query.proto` 는 서버 계약이 아니라 order 서버 미러 — 클라이언트 스텁 생성용.)
+`grpc/order/order_query.proto`(루트 공유) 는 서버 계약이 아니라 정산 클라이언트 스텁 생성용 — order 서버 미구현이라 유일본.)
 
 > **미사용 채널:** yml 에 `grpc.client.user-service`·`grpc.client.product-service` 채널이 선언돼 있으나,
 > 이를 호출하는 클라이언트 코드는 settlement-service 에 **없다**(선언만 남은 상태 — §4-2 참고).
