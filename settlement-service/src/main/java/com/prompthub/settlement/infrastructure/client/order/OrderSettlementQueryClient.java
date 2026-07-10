@@ -5,9 +5,9 @@ import com.prompthub.settlement.application.port.OrderSettlementQueryPort;
 import com.prompthub.settlement.domain.model.enums.SettlementSourceLineType;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
 import com.prompthub.settlement.global.exception.SettlementException;
-import com.prompthub.grpc.order.OrderQueryServiceGrpc.OrderQueryServiceBlockingStub;
-import com.prompthub.grpc.order.GetSettleableLinesRequest;
-import com.prompthub.grpc.order.GetSettleableLinesResponse;
+import com.prompthub.order.grpc.OrderQueryServiceGrpc.OrderQueryServiceBlockingStub;
+import com.prompthub.order.grpc.GetSettleableLinesRequest;
+import com.prompthub.order.grpc.GetSettleableLinesResponse;
 import io.grpc.StatusRuntimeException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -45,7 +45,7 @@ public class OrderSettlementQueryClient implements OrderSettlementQueryPort {
     }
 
     private SettleableLine toSettleableLine(
-            com.prompthub.grpc.order.SettleableLine line) {
+            com.prompthub.order.grpc.SettleableLine line) {
         return new SettleableLine(
                 SettlementSourceLineType.valueOf(line.getLineType()),
                 UUID.fromString(line.getOrderId()),

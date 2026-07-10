@@ -8,8 +8,8 @@ import static org.mockito.BDDMockito.given;
 import com.prompthub.settlement.application.dto.SettleableLine;
 import com.prompthub.settlement.domain.model.enums.SettlementSourceLineType;
 import com.prompthub.settlement.global.exception.SettlementException;
-import com.prompthub.grpc.order.OrderQueryServiceGrpc.OrderQueryServiceBlockingStub;
-import com.prompthub.grpc.order.GetSettleableLinesResponse;
+import com.prompthub.order.grpc.OrderQueryServiceGrpc.OrderQueryServiceBlockingStub;
+import com.prompthub.order.grpc.GetSettleableLinesResponse;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.time.LocalDateTime;
@@ -40,7 +40,7 @@ class OrderSettlementQueryClientTest {
         UUID orderProductId = UUID.randomUUID();
         UUID sellerId = UUID.randomUUID();
         GetSettleableLinesResponse response = GetSettleableLinesResponse.newBuilder()
-                .addLines(com.prompthub.grpc.order.SettleableLine.newBuilder()
+                .addLines(com.prompthub.order.grpc.SettleableLine.newBuilder()
                         .setLineType("PAID")
                         .setOrderId(orderId.toString())
                         .setOrderProductId(orderProductId.toString())

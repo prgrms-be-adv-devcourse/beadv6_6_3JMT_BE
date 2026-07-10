@@ -1,8 +1,8 @@
 package com.prompthub.user.seller.presentation.grpc;
 
-import com.prompthub.grpc.seller.GetSellersRequest;
-import com.prompthub.grpc.seller.GetSellersResponse;
-import com.prompthub.grpc.seller.SellerInfo;
+import com.prompthub.user.grpc.seller.GetSellersRequest;
+import com.prompthub.user.grpc.seller.GetSellersResponse;
+import com.prompthub.user.grpc.seller.SellerInfo;
 import com.prompthub.user.seller.application.dto.SellerInfoResult;
 import com.prompthub.user.seller.application.usecase.SellerQueryUseCase;
 import io.grpc.stub.StreamObserver;

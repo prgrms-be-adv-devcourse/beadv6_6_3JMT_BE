@@ -1,8 +1,8 @@
 package com.prompthub.user.sellersettlement.infrastructure.grpc;
 
-import com.prompthub.grpc.product.GetSellerStatsRequest;
-import com.prompthub.grpc.product.GetSellerStatsResponse;
-import com.prompthub.grpc.product.ProductQueryServiceGrpc;
+import com.prompthub.product.grpc.GetSellerStatsRequest;
+import com.prompthub.product.grpc.GetSellerStatsResponse;
+import com.prompthub.product.grpc.ProductQueryServiceGrpc;
 import com.prompthub.user.sellersettlement.application.client.ProductStatsClient;
 import com.prompthub.user.sellersettlement.application.dto.SellerProductStats;
 import io.grpc.StatusRuntimeException;

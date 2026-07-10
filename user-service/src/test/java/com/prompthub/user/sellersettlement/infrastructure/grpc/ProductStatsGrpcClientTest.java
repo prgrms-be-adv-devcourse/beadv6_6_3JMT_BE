@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-import com.prompthub.grpc.product.GetSellerStatsResponse;
-import com.prompthub.grpc.product.ProductQueryServiceGrpc;
+import com.prompthub.product.grpc.GetSellerStatsResponse;
+import com.prompthub.product.grpc.ProductQueryServiceGrpc;
 import com.prompthub.user.sellersettlement.application.dto.SellerProductStats;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;

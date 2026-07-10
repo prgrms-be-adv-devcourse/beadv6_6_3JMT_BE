@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.client.order.config;
 
-import com.prompthub.grpc.order.OrderQueryServiceGrpc;
+import com.prompthub.order.grpc.OrderQueryServiceGrpc;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.grpc.client.ImportGrpcClients;
 
