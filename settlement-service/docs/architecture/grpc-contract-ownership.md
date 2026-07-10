@@ -10,7 +10,7 @@
 ## 1. 배경 — 왜 루트에서 공유하나
 
 기존에는 같은 gRPC 계약을 **서버 모듈과 클라이언트 모듈이 각자 `.proto` 미러로** 들고 있었다.
-(예: `CountBySeller` 가 product-service 원본 + user-service 미러로 양쪽 존재.) 한 계약을 두 곳에서
+(예: `GetSellerStats` 가 product-service 원본 + user-service 미러로 양쪽 존재.) 한 계약을 두 곳에서
 수정·관리하니 필드가 어긋날 위험이 있었다(드리프트).
 
 이를 줄이기 위해 계약 `.proto` 를 **레포 루트 `grpc/` 한곳**에 두고, 필요한 모듈이 빌드 시 그 경로를
@@ -71,7 +71,7 @@ beadv6_6_3JMT_BE/
     ├── order/                 ← order-service 가 서버인 계약(서버 미구현 — 정산 클라이언트가 유일본)
     │   └── order_query.proto    ← OrderQueryService.GetSettleableLines
     └── product/               ← product-service 가 서버인 계약(서버 원본은 product-service 에 잔존)
-        └── product_query.proto  ← ProductQueryService.CountBySeller
+        └── product_query.proto  ← ProductQueryService.GetSellerStats
 ```
 
 기능이 늘면 서버 모듈명으로 하위 디렉토리를 추가한다(`grpc/order/`, `grpc/product/` …).
@@ -102,15 +102,19 @@ sourceSets {
 | --- | --- | --- | --- | --- |
 | `GetSellers`(셀러 정보) | settlement | **user** | `grpc/user/seller_query.proto` | 루트 공유 이관 완료(서버=user 담당). settlement 클라이언트는 도입 예정 |
 | `GetSettleableLines`(정산 원천) | settlement | **order** | `grpc/order/order_query.proto` | 루트 공유 이관 완료. order 서버 미구현이라 정산 클라이언트가 유일본 |
-| `CountBySeller`(셀러 상품·판매수) | user(sellersettlement) | **product** | `grpc/product/product_query.proto` | 루트 공유 이관(소비자 user 미러). product 서버 원본은 product-service 에 잔존(범위 밖) |
+| `GetSellerStats`(셀러 상품·판매수) | user(sellersettlement) | **product** | `grpc/product/product_query.proto` | 루트 공유 이관(소비자 user 미러). product 서버 원본은 product-service 에 잔존(범위 밖) |
 
 ### product 서버 원본이 잔존하는 이유 (예외)
 
-세 계약을 모두 `grpc/` 로 이관했다. 다만 `CountBySeller` 는 서버 원본이
+세 계약을 모두 `grpc/` 로 이관했다. 다만 `GetSellerStats` 는 서버 원본이
 `product-service/src/main/proto/product_query.proto` 에 **살아있다.** product 는 정산 담당 범위 밖이라
 그 원본을 제거하지 못한다. 그래서 `grpc/product/product_query.proto` 는 소비자(user) 미러를 옮긴 것이고,
 product 원본과 같은 wire(`package settlement.product`·service·message·필드 번호)로 **이중 존재**한다.
 product 팀이 공유 `grpc/` 에 참여하면 서버 원본을 이 파일로 통합해 이중 관리를 없앤다.
+
+**진행 중 wire 불일치 주의:** 이 계약의 메서드명을 규칙에 맞춰 `CountBySeller`→`GetSellerStats` 로 바꿨다.
+product 서버 원본은 아직 `CountBySeller` 라, product 팀이 서버를 `GetSellerStats` 로 리네임하기 전까지
+user↔product 호출이 wire 불일치(UNIMPLEMENTED)다. 서버 리네임은 조율됐으며, 서버 반영과 타이밍을 맞춰 머지한다.
 
 반면 `GetSettleableLines` 는 order 서버가 미구현이라 order-service 에 원본이 없어,
 `grpc/order/order_query.proto` 가 유일본이다(이중 존재 아님). order 팀이 서버를 신설하면 이 계약을 그대로 참조한다.

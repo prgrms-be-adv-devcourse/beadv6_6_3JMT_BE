@@ -25,7 +25,7 @@
 grpc/
 ├── user/seller_query.proto      ← SellerQueryService.GetSellers        (소유: user)
 ├── order/order_query.proto      ← OrderQueryService.GetSettleableLines (소유: order, 서버 미구현)
-└── product/product_query.proto  ← ProductQueryService.CountBySeller    (소유: product, 서버 원본 잔존)
+└── product/product_query.proto  ← ProductQueryService.GetSellerStats    (소유: product, 서버 원본 잔존)
 ```
 
 전문 규칙과 정산 계약 현황은 `settlement-service/docs/architecture/grpc-contract-ownership.md` 를 본다.

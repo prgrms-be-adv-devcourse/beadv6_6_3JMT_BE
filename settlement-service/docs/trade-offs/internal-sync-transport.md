@@ -17,7 +17,7 @@ REST(HTTP/JSON)냐 gRPC냐 — 가 이 문서의 주제다.
 - **settlement-service(정산 본체)** — `OrderSettlementQueryClient` → order 서비스:
   배치 시점에 그 기간의 정산 라인(`GetSettleableLines`)을 bulk 로 당겨 `settlement_source_line` 에 적재.
 - **user-service `sellersettlement`(셀러 정산)** — `ProductStatsGrpcClient` → product 서비스:
-  셀러 등록 상품 수·판매건수(`CountBySeller`)를 요약 조회 시 한 응답으로 조회.
+  셀러 등록 상품 수·판매건수(`GetSellerStats`)를 요약 조회 시 한 응답으로 조회.
 
 ```
 settlement-service    ─gRPC(blocking)─▶ order-service    (정산 원천 라인 pull, #260)

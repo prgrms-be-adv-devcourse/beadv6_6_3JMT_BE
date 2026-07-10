@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-import com.prompthub.grpc.product.ProductCountResponse;
+import com.prompthub.grpc.product.GetSellerStatsResponse;
 import com.prompthub.grpc.product.ProductQueryServiceGrpc;
 import com.prompthub.user.sellersettlement.application.dto.SellerProductStats;
 import io.grpc.Status;
@@ -23,12 +23,12 @@ class ProductStatsGrpcClientTest {
     private ProductQueryServiceGrpc.ProductQueryServiceBlockingStub productQueryStub;
 
     @Test
-    @DisplayName("CountBySeller 응답의 상품 수·판매건수를 SellerProductStats로 매핑한다")
+    @DisplayName("GetSellerStats 응답의 상품 수·판매건수를 SellerProductStats로 매핑한다")
     void getSellerProductStats_mapsResponse() {
         // given
         UUID sellerId = UUID.randomUUID();
-        when(productQueryStub.countBySeller(any())).thenReturn(
-                ProductCountResponse.newBuilder()
+        when(productQueryStub.getSellerStats(any())).thenReturn(
+                GetSellerStatsResponse.newBuilder()
                         .setSellerId(sellerId.toString())
                         .setProductCount(3)
                         .setSalesCount(1342L)
@@ -47,7 +47,7 @@ class ProductStatsGrpcClientTest {
     @DisplayName("gRPC 조회 실패 시 0으로 폴백해 정산 요약 조회를 막지 않는다")
     void getSellerProductStats_onFailure_fallsBackToZero() {
         // given
-        when(productQueryStub.countBySeller(any()))
+        when(productQueryStub.getSellerStats(any()))
                 .thenThrow(new StatusRuntimeException(Status.UNAVAILABLE));
         ProductStatsGrpcClient client = new ProductStatsGrpcClient(productQueryStub);
 

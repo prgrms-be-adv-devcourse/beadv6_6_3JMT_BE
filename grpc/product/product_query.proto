@@ -7,14 +7,14 @@ option java_package = "com.prompthub.grpc.product";
 option java_outer_classname = "ProductQueryProto";
 
 service ProductQueryService {
-  rpc CountBySeller(ProductCountRequest) returns (ProductCountResponse);
+  rpc GetSellerStats(GetSellerStatsRequest) returns (GetSellerStatsResponse);
 }
 
-message ProductCountRequest {
+message GetSellerStatsRequest {
   string seller_id = 1;
 }
 
-message ProductCountResponse {
+message GetSellerStatsResponse {
   string seller_id = 1;
   int32 product_count = 2;
   int64 sales_count = 3;
