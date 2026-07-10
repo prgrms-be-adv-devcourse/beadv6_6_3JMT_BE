@@ -1,4 +1,4 @@
-package com.prompthub.user.seller.presentation.controller.dto.request;
+package com.prompthub.user.seller.presentation.dto.request;
 
 import java.util.List;
 import java.util.UUID;

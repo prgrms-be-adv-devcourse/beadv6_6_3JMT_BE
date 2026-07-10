@@ -1,5 +1,6 @@
 package com.prompthub.user.user.domain.model;
 
+import com.prompthub.user.global.common.BaseEntity;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -18,16 +19,12 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "\"user\"")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class User {
+public class User extends BaseEntity {
 
     @Id
     @Column(name = "id", columnDefinition = "uuid")
@@ -48,14 +45,6 @@ public class User {
 
     @Column(name = "terms_agreed", nullable = false)
     private boolean termsAgreed;
-
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_role", joinColumns = @JoinColumn(name = "user_id"))
