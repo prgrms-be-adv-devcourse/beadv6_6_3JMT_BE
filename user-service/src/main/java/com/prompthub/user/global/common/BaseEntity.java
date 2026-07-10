@@ -1,4 +1,4 @@
-package com.prompthub.settlement.global.common;
+package com.prompthub.user.global.common;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;
