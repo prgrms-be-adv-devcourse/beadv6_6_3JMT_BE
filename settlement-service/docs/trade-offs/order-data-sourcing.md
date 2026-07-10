@@ -129,7 +129,7 @@ Step 0 가 gRPC 로 그 기간의 결제·환불 라인을 당겨 `settlement_so
 
 ### order 가 제공할 gRPC 계약 (정산이 제안, order 팀이 서버 구현)
 
-period 하나로 결제·환불 라인을 `event_type` 으로 구분해 한 응답(`repeated`)으로 받는다.
+period 하나로 결제·환불 라인을 `line_type` 으로 구분해 한 응답(`repeated`)으로 받는다.
 
 > **전송 방식은 unary + `repeated` 로 구현했다(#260).** 초안은 대량 대응 server-streaming 이었으나
 > 월 배치 1회 호출·구현 단순성을 우선했다. 볼륨이 실제 문제가 되면 streaming 으로 전환한다.
@@ -149,7 +149,7 @@ message SettleableLinesResponse {
 }
 
 message SettleableLine {
-  string event_type       = 1;   // PAID | REFUND
+  string line_type        = 1;   // PAID | REFUND
   string order_id         = 2;
   string order_product_id = 3;
   string seller_id        = 4;
@@ -161,7 +161,7 @@ message SettleableLine {
 - 서버는 내부적으로 `paidAt ∈ P`(결제 라인)과 `refundedAt ∈ P`(환불 라인) 두 쿼리를 합쳐 내려준다.
 - **status 로 필터하지 않는다.** 환불된 라인도 `paidAt` 이 P 안이면 결제 라인으로, `refundedAt` 이
   P 안이면 환불 라인으로 각각 내려온다.
-- 멱등키 `event_id` 는 order 가 주지 않는다. 정산이 `(order_product_id + event_type)` 로 로컬 파생한다.
+- 멱등키 `event_id` 는 order 가 주지 않는다. 정산이 `(order_product_id + line_type)` 로 로컬 파생한다.
 
 ### 코드에서 바뀌는 것 (구현 결과 — #260)
 
