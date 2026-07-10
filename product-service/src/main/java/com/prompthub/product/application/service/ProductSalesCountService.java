@@ -3,6 +3,7 @@ package com.prompthub.product.application.service;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.ProductFamily;
 import com.prompthub.product.domain.repository.ProductRepository;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,8 +38,9 @@ public class ProductSalesCountService {
 			}));
 	}
 
-	// 판매수는 family 전체 버전 합산으로 노출하므로, 감소는 현재 ON_SALE에 우선 적용하되
-	// ON_SALE 판매수가 0이면 family 내 판매수>0 버전에 적용해 family 합이 정확히 줄어들게 한다.
+	// 판매수는 family 전체 버전 합산으로 노출하고, 어느 버전 판매였는지는 추적하지 않는다.
+	// 감소는 현재 ON_SALE에 우선 적용하되, ON_SALE 판매수가 0이면 판매수>0인 "가장 최신 버전"에 적용한다.
+	// 어느 row에서 빼든 family 합계 결과는 동일하며, findFirst의 순서 비보장을 피해 재현성을 확보하려는 목적이다.
 	private Optional<Product> decrementTarget(ProductFamily family) {
 		Optional<Product> onSale = family.currentOnSale();
 		if (onSale.isPresent() && onSale.get().getSalesCount() > 0) {
@@ -46,7 +48,8 @@ public class ProductSalesCountService {
 		}
 		return family.members().stream()
 			.filter(member -> member.getSalesCount() > 0)
-			.findFirst();
+			.max(Comparator.comparingInt((Product member) -> (int) member.getMajorVersion())
+				.thenComparingInt(member -> (int) member.getPatchVersion()));
 	}
 
 	// 요청 id를 family의 현재 ON_SALE로 resolve하기 위해, 요청 row와 그 family 전체를 로드한다.

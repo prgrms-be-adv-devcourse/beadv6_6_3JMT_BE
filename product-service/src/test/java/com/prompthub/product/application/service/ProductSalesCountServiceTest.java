@@ -95,6 +95,26 @@ class ProductSalesCountServiceTest {
 			assertThat(current.getSalesCount()).isEqualTo(0);
 			then(productRepository).should().save(old);
 		}
+
+		@Test
+		@DisplayName("판매수>0 버전이 여럿이면 가장 최신 버전에서 감소한다")
+		void decrement_multiplePositive_reducesLatestVersion() {
+			UUID v11Id = UUID.fromString("33333333-3333-3333-3333-333333333333");
+			Product v10 = product(ROOT_ID, null, ProductStatus.SUPERSEDED, 3);
+			ReflectionTestUtils.setField(v10, "patchVersion", (short) 0);
+			Product v11 = product(v11Id, ROOT_ID, ProductStatus.SUPERSEDED, 2);
+			ReflectionTestUtils.setField(v11, "patchVersion", (short) 1);
+			Product v12 = product(CHILD_ID, ROOT_ID, ProductStatus.ON_SALE, 0);
+			ReflectionTestUtils.setField(v12, "patchVersion", (short) 2);
+			given(productRepository.findAllByIdIn(List.of(CHILD_ID))).willReturn(List.of(v12));
+			given(productRepository.findAllByFamilyRootIds(List.of(ROOT_ID))).willReturn(List.of(v10, v11, v12));
+
+			productSalesCountService.decrementSalesCount(List.of(CHILD_ID));
+
+			assertThat(v11.getSalesCount()).isEqualTo(1);
+			assertThat(v10.getSalesCount()).isEqualTo(3);
+			then(productRepository).should().save(v11);
+		}
 	}
 
 	private Product product(UUID id, UUID parentId, ProductStatus status, int salesCount) {
