@@ -26,6 +26,8 @@ import static org.mockito.BDDMockito.then;
 @ExtendWith(MockitoExtension.class)
 class OutboxRelayTest {
 
+	private static final String ORDER_EVENTS_TOPIC = "order-events-test";
+
 	private static final UUID NEXT_ORDER_ID =
 		UUID.fromString("00000000-0000-0000-0000-000000000502");
 
@@ -48,17 +50,17 @@ class OutboxRelayTest {
 		OutboxRelay relay = new OutboxRelay(
 			outboxEventRepository,
 			kafkaTemplate,
-			new OutboxRelayProperties(true, 5_000L, 100, 3)
+			new OutboxRelayProperties(true, 5_000L, 100, 3, ORDER_EVENTS_TOPIC)
 		);
 		given(outboxEventRepository.findPendingEvents(100)).willReturn(List.of(event));
-		given(kafkaTemplate.send(eq("order-events"), eq(ORDER_ID.toString()), any(String.class)))
+		given(kafkaTemplate.send(eq(ORDER_EVENTS_TOPIC), eq(ORDER_ID.toString()), any(String.class)))
 			.willReturn(CompletableFuture.completedFuture(null));
 
 		relay.publishPendingEvents();
 
 		ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
 		then(kafkaTemplate).should()
-			.send(eq("order-events"), eq(ORDER_ID.toString()), payloadCaptor.capture());
+			.send(eq(ORDER_EVENTS_TOPIC), eq(ORDER_ID.toString()), payloadCaptor.capture());
 		assertThat((String) payloadCaptor.getValue()).contains("ORDER_PAID");
 		assertThat(event.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED);
 		assertThat(event.getPublishedAt()).isNotNull();
@@ -80,7 +82,7 @@ class OutboxRelayTest {
 		OutboxRelay relay = new OutboxRelay(
 			outboxEventRepository,
 			kafkaTemplate,
-			new OutboxRelayProperties(true, 5_000L, 100, 3)
+			new OutboxRelayProperties(true, 5_000L, 100, 3, "order-events")
 		);
 		given(outboxEventRepository.findPendingEvents(100)).willReturn(List.of(failedEvent, nextEvent));
 		given(kafkaTemplate.send(eq("order-events"), eq(ORDER_ID.toString()), any(String.class)))
@@ -108,7 +110,7 @@ class OutboxRelayTest {
 		OutboxRelay relay = new OutboxRelay(
 			outboxEventRepository,
 			kafkaTemplate,
-			new OutboxRelayProperties(true, 5_000L, 100, 3)
+			new OutboxRelayProperties(true, 5_000L, 100, 3, "order-events")
 		);
 		given(outboxEventRepository.findPendingEvents(100)).willReturn(List.of(event));
 		given(kafkaTemplate.send(eq("order-events"), eq(ORDER_ID.toString()), any(String.class)))

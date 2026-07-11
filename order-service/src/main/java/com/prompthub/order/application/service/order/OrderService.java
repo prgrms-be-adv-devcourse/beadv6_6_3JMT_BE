@@ -85,7 +85,7 @@ public class OrderService implements OrderUseCase {
 						savedOrder.getId(),
 						orderCreatedPayload
 				);
-		outboxEventAppender.append("order-events", orderCreatedMessage);
+		outboxEventAppender.append(orderCreatedMessage);
 
 		applicationEventPublisher.publishEvent(new OrderCreatedEvent(savedOrder.getId(), savedOrder.getCreatedAt()));
 
