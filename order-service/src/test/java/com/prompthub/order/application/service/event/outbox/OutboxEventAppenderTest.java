@@ -12,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import tools.jackson.databind.ObjectMapper;
 
+import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -25,6 +26,14 @@ class OutboxEventAppenderTest {
 
 	@Mock
 	private OutboxEventRepository outboxEventRepository;
+
+	@Test
+	@DisplayName("아웃박스 추가는 메시지만 받는다")
+	void append_acceptsOnlyEventMessage() throws Exception {
+		Method append = OutboxEventAppender.class.getMethod("append", EventMessage.class);
+
+		assertThat(append.getParameterCount()).isEqualTo(1);
+	}
 
 	@Test
 	@DisplayName("EventMessage를 직렬화하여 OutboxEvent로 저장한다")
@@ -44,7 +53,7 @@ class OutboxEventAppenderTest {
 			new DummyPayload("test")
 		);
 
-		appender.append("order-events", message);
+		appender.append(message);
 
 		ArgumentCaptor<OutboxEvent> captor = ArgumentCaptor.forClass(OutboxEvent.class);
 		then(outboxEventRepository).should().save(captor.capture());

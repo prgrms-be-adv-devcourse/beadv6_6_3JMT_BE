@@ -17,7 +17,7 @@ public class OutboxEventAppender {
     private final ObjectMapper objectMapper;
     private final OutboxEventRepository outboxEventRepository;
 
-    public void append(String topic, EventMessage<?> message) {
+    public void append(EventMessage<?> message) {
         String payloadJson = serialize(message);
 
         OutboxEvent entity = OutboxEvent.create(
