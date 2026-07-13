@@ -52,4 +52,19 @@ class RefundJpaRepositoryTest extends AbstractJpaTest {
         assertThatThrownBy(() -> refundJpaRepository.saveAndFlush(duplicate))
             .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
+
+    @Test
+    void findByPaymentIdAndStatus_COMPLETED_건만_조회() {
+        UUID paymentId = UUID.randomUUID();
+        Refund completed = Refund.create(paymentId, UUID.randomUUID(), 3_000, null, UUID.randomUUID());
+        completed.complete(java.time.OffsetDateTime.now());
+        Refund requested = Refund.create(paymentId, UUID.randomUUID(), 2_000, null, UUID.randomUUID());
+        refundJpaRepository.saveAndFlush(completed);
+        refundJpaRepository.saveAndFlush(requested);
+
+        java.util.List<Refund> found = refundJpaRepository.findByPaymentIdAndStatus(paymentId, RefundStatus.COMPLETED);
+
+        assertThat(found).hasSize(1);
+        assertThat(found.get(0).getRefundAmount()).isEqualTo(3_000);
+    }
 }

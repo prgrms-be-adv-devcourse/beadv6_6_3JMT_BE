@@ -12,4 +12,5 @@ public interface PaymentRepository {
     Optional<Payment> findById(UUID id);
     Optional<Payment> findByIdForUpdate(UUID id);
     boolean existsByOrderIdAndStatusIn(UUID orderId, Collection<PaymentStatus> statuses);
+    Optional<Payment> findByOrderIdAndStatusInForUpdate(UUID orderId, Collection<PaymentStatus> statuses);
 }

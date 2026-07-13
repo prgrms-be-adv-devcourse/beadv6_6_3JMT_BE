@@ -39,4 +39,9 @@ public class PaymentRepositoryAdapter implements PaymentRepository {
     public boolean existsByOrderIdAndStatusIn(UUID orderId, Collection<PaymentStatus> statuses) {
         return jpaRepository.existsByOrderIdAndStatusIn(orderId, statuses);
     }
+
+    @Override
+    public Optional<Payment> findByOrderIdAndStatusInForUpdate(UUID orderId, Collection<PaymentStatus> statuses) {
+        return jpaRepository.findByOrderIdAndStatusInForUpdate(orderId, statuses);
+    }
 }
