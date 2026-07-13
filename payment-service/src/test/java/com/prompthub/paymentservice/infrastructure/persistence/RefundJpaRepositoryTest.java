@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RefundJpaRepositoryTest extends AbstractJpaTest {
 
@@ -39,17 +40,16 @@ class RefundJpaRepositoryTest extends AbstractJpaTest {
     }
 
     @Test
-    void refund_without_order_product_id() {
-        Refund refund = Refund.create(
-            UUID.randomUUID(), UUID.randomUUID(),
-            10_000, "전체 환불", null
-        );
+    void 같은_결제_같은_상품_중복_환불_시_유니크_제약_위반() {
+        UUID paymentId = UUID.randomUUID();
+        UUID orderProductId = UUID.randomUUID();
 
-        Refund saved = refundJpaRepository.saveAndFlush(refund);
+        Refund first = Refund.create(paymentId, UUID.randomUUID(), 5_000, null, orderProductId);
+        refundJpaRepository.saveAndFlush(first);
 
-        Refund found = refundJpaRepository.findById(saved.getId())
-            .orElseThrow(() -> new AssertionError("Refund not found"));
+        Refund duplicate = Refund.create(paymentId, UUID.randomUUID(), 3_000, null, orderProductId);
 
-        assertThat(found.getOrderProductId()).isNull();
+        assertThatThrownBy(() -> refundJpaRepository.saveAndFlush(duplicate))
+            .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 }

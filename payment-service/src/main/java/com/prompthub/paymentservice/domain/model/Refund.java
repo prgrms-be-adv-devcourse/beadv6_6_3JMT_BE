@@ -34,7 +34,7 @@ public class Refund {
     @Column(name = "payment_id", columnDefinition = "uuid", nullable = false)
     private UUID paymentId;
 
-    @Column(name = "order_product_id", columnDefinition = "uuid")
+    @Column(name = "order_product_id", columnDefinition = "uuid", nullable = false)
     private UUID orderProductId;
 
     @Column(name = "user_id", columnDefinition = "uuid", nullable = false)
