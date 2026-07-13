@@ -27,7 +27,7 @@ import java.util.UUID;
 
 @Tag(name = "인증", description = "OAuth 소셜 로그인, 토큰 재발급, 로그아웃")
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/api/v2/auth")
 @RequiredArgsConstructor
 public class AuthController {
 

@@ -68,7 +68,7 @@ class AuthControllerTest {
 
         OAuthLoginRequest request = new OAuthLoginRequest("kakao-access-token");
 
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao")
+        mockMvc.perform(post("/api/v2/auth/oauth/kakao")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -85,7 +85,7 @@ class AuthControllerTest {
 
         OAuthLoginRequest request = new OAuthLoginRequest("kakao-access-token");
 
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao")
+        mockMvc.perform(post("/api/v2/auth/oauth/kakao")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -96,7 +96,7 @@ class AuthControllerTest {
     void oAuthLogin_accessToken_누락_400() throws Exception {
         String body = "{}";
 
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao")
+        mockMvc.perform(post("/api/v2/auth/oauth/kakao")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
@@ -106,7 +106,7 @@ class AuthControllerTest {
     void oAuthLogin_accessToken_빈_문자열_400() throws Exception {
         OAuthLoginRequest request = new OAuthLoginRequest("");
 
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao")
+        mockMvc.perform(post("/api/v2/auth/oauth/kakao")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -118,7 +118,7 @@ class AuthControllerTest {
 
         OAuthLoginRequest request = new OAuthLoginRequest("twitter-access-token");
 
-        mockMvc.perform(post("/api/v1/auth/oauth/twitter")
+        mockMvc.perform(post("/api/v2/auth/oauth/twitter")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -130,7 +130,7 @@ class AuthControllerTest {
 
         OAuthLoginRequest request = new OAuthLoginRequest("invalid-access-token");
 
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao")
+        mockMvc.perform(post("/api/v2/auth/oauth/kakao")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
@@ -139,7 +139,7 @@ class AuthControllerTest {
 
     @Test
     void oAuthLogin_요청_본문_없음_400() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao")
+        mockMvc.perform(post("/api/v2/auth/oauth/kakao")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
     }
@@ -151,7 +151,7 @@ class AuthControllerTest {
 
         TokenRefreshRequest request = new TokenRefreshRequest("valid-refresh-token");
 
-        mockMvc.perform(post("/api/v1/auth/token/refresh")
+        mockMvc.perform(post("/api/v2/auth/token/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -165,7 +165,7 @@ class AuthControllerTest {
 
         TokenRefreshRequest request = new TokenRefreshRequest("expired-refresh-token");
 
-        mockMvc.perform(post("/api/v1/auth/token/refresh")
+        mockMvc.perform(post("/api/v2/auth/token/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
@@ -178,7 +178,7 @@ class AuthControllerTest {
 
         TokenRefreshRequest request = new TokenRefreshRequest("invalid-refresh-token");
 
-        mockMvc.perform(post("/api/v1/auth/token/refresh")
+        mockMvc.perform(post("/api/v2/auth/token/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
@@ -189,7 +189,7 @@ class AuthControllerTest {
     void refreshToken_RT_누락_400() throws Exception {
         String body = "{}";
 
-        mockMvc.perform(post("/api/v1/auth/token/refresh")
+        mockMvc.perform(post("/api/v2/auth/token/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
@@ -199,7 +199,7 @@ class AuthControllerTest {
     void logout_정상_200() throws Exception {
         willDoNothing().given(authUseCase).logout(any(UUID.class));
 
-        mockMvc.perform(post("/api/v1/auth/logout")
+        mockMvc.perform(post("/api/v2/auth/logout")
                         .header("X-User-Id", USER_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -208,7 +208,7 @@ class AuthControllerTest {
 
     @Test
     void logout_XUserId_헤더_누락_403() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/logout"))
+        mockMvc.perform(post("/api/v2/auth/logout"))
                 .andExpect(status().isForbidden());
     }
 }
