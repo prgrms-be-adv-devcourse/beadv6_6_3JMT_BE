@@ -3,11 +3,6 @@ spring:
     name: settlement-service
   config:
     import: ${CONFIG_IMPORT:}
-  profiles:
-    default: local
-  batch:
-    job:
-      enabled: false
   cloud:
     config:
       fail-fast: true
@@ -16,6 +11,9 @@ spring:
         initial-interval: 1000
         max-interval: 2000
         multiplier: 1.1
+  batch:
+    job:
+      enabled: false
 
 api:
   init: /api/v1
