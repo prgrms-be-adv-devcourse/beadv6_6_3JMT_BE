@@ -15,6 +15,29 @@ class EventMessageTest {
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@Test
+	@DisplayName("TC-COMMON-004: 공통 팩토리가 EventMessage envelope를 생성한다")
+	void create_eventMessage_envelope() {
+		UUID aggregateId = UUID.randomUUID();
+		LocalDateTime occurredAt = LocalDateTime.of(2026, 7, 13, 15, 0);
+		OrderPaidPayload payload = new OrderPaidPayload(aggregateId, 30000);
+
+		EventMessage<OrderPaidPayload> message = EventMessage.create(
+			TestEventType.ORDER_PAID,
+			occurredAt,
+			"ORDER",
+			aggregateId,
+			payload
+		);
+
+		assertThat(message.eventId()).isNotNull();
+		assertThat(message.eventType()).isEqualTo("ORDER_PAID");
+		assertThat(message.occurredAt()).isEqualTo(occurredAt);
+		assertThat(message.aggregateType()).isEqualTo("ORDER");
+		assertThat(message.aggregateId()).isEqualTo(aggregateId);
+		assertThat(message.payload()).isSameAs(payload);
+	}
+
+	@Test
 	@DisplayName("TC-COMMON-001: EventMessage가 정상 JSON으로 직렬화된다")
 	void serialize_eventMessage_to_json() throws Exception {
 		// Given
@@ -82,12 +105,21 @@ class EventMessageTest {
 		assertThat(eventMessage.eventType()).isEqualTo("PAYMENT_APPROVED");
 		assertThat(eventMessage.aggregateType()).isEqualTo("ORDER");
 		assertThat(eventMessage.aggregateId()).isEqualTo(aggregateId);
-		
+
 		JsonNode payloadNode = eventMessage.payload();
 		assertThat(payloadNode.path("paymentId").stringValue()).isEqualTo("payment-123");
 		assertThat(payloadNode.path("amount").intValue()).isEqualTo(30000);
 	}
 
 	record OrderPaidPayload(UUID orderId, int amount) {
+	}
+
+	private enum TestEventType implements EventType {
+		ORDER_PAID;
+
+		@Override
+		public String code() {
+			return name();
+		}
 	}
 }

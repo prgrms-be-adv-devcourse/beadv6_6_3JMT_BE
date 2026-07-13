@@ -11,4 +11,21 @@ public record EventMessage<T>(
         UUID aggregateId,
         T payload
 ) {
+
+    public static <T> EventMessage<T> create(
+            EventType eventType,
+            LocalDateTime occurredAt,
+            String aggregateType,
+            UUID aggregateId,
+            T payload
+    ) {
+        return new EventMessage<>(
+                UUID.randomUUID(),
+                eventType.code(),
+                occurredAt,
+                aggregateType,
+                aggregateId,
+                payload
+        );
+    }
 }
