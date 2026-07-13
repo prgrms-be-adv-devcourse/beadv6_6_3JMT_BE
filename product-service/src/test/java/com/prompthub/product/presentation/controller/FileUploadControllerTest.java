@@ -26,6 +26,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -47,6 +48,71 @@ class FileUploadControllerTest {
             .setControllerAdvice(new ProductExceptionHandler())
             .build();
         objectMapper = new ObjectMapper();
+    }
+
+    @Nested
+    @DisplayName("POST /api/v2/sellers/me/products/uploads")
+    class CreateUploadUrl {
+
+        @Test
+        @DisplayName("PPT 파일은 pptx content-type으로 presigned PUT URL을 발급한다")
+        void createUploadUrl_pptxFile() throws Exception {
+            given(storageClient.generatePresignedUploadUrl(
+                org.mockito.ArgumentMatchers.startsWith("products/temp/file/"),
+                eq("application/vnd.openxmlformats-officedocument.presentationml.presentation")))
+                .willReturn("https://put-url");
+            given(storageClient.generatePresignedDownloadUrl(org.mockito.ArgumentMatchers.anyString()))
+                .willReturn("https://get-url");
+
+            mockMvc.perform(post("/api/v2/sellers/me/products/uploads")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"purpose\":\"file\",\"fileName\":\"a.pptx\",\"productType\":\"PPT\"}")
+                    .header("X-User-Id", SELLER_ID.toString())
+                    .header("X-User-Role", "SELLER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.uploadUrl").value("https://put-url"))
+                .andExpect(jsonPath("$.data.fileUrl").value("https://get-url"));
+        }
+
+        @Test
+        @DisplayName("이미지는 확장자에 맞는 content-type으로 발급한다")
+        void createUploadUrl_image() throws Exception {
+            given(storageClient.generatePresignedUploadUrl(
+                org.mockito.ArgumentMatchers.startsWith("products/temp/thumbnail/"), eq("image/png")))
+                .willReturn("https://put-url");
+            given(storageClient.generatePresignedDownloadUrl(org.mockito.ArgumentMatchers.anyString()))
+                .willReturn("https://get-url");
+
+            mockMvc.perform(post("/api/v2/sellers/me/products/uploads")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"purpose\":\"thumbnail\",\"fileName\":\"t.png\"}")
+                    .header("X-User-Id", SELLER_ID.toString())
+                    .header("X-User-Role", "SELLER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.uploadUrl").value("https://put-url"));
+        }
+
+        @Test
+        @DisplayName("productType과 확장자가 맞지 않으면 400")
+        void createUploadUrl_extMismatch() throws Exception {
+            mockMvc.perform(post("/api/v2/sellers/me/products/uploads")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"purpose\":\"file\",\"fileName\":\"a.xlsx\",\"productType\":\"PPT\"}")
+                    .header("X-User-Id", SELLER_ID.toString())
+                    .header("X-User-Role", "SELLER"))
+                .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("purpose=file인데 productType이 없으면 400")
+        void createUploadUrl_fileWithoutType() throws Exception {
+            mockMvc.perform(post("/api/v2/sellers/me/products/uploads")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"purpose\":\"file\",\"fileName\":\"a.pptx\"}")
+                    .header("X-User-Id", SELLER_ID.toString())
+                    .header("X-User-Role", "SELLER"))
+                .andExpect(status().isBadRequest());
+        }
     }
 
     @Nested

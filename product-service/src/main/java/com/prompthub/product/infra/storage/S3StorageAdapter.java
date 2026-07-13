@@ -17,6 +17,8 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 @Slf4j
 @Component
@@ -24,6 +26,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 public class S3StorageAdapter implements StorageClient {
 
     private static final Duration PRESIGNED_GET_EXPIRATION = Duration.ofHours(1);
+    private static final Duration PRESIGNED_PUT_EXPIRATION = Duration.ofMinutes(10);
 
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
@@ -43,6 +46,26 @@ public class S3StorageAdapter implements StorageClient {
             return presigned.url().toString();
         } catch (Exception e) {
             log.error("S3 presign download failed key={}: {}", key, e.getMessage(), e);
+            throw new ProductException(ProductErrorCode.S3_PRESIGN_FAILED);
+        }
+    }
+
+    @Override
+    public String generatePresignedUploadUrl(String key, String contentType) {
+        try {
+            PutObjectRequest objectRequest = PutObjectRequest.builder()
+                .bucket(awsS3Properties.s3().bucket())
+                .key(key)
+                .contentType(contentType)
+                .build();
+            PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
+                .signatureDuration(PRESIGNED_PUT_EXPIRATION)
+                .putObjectRequest(objectRequest)
+                .build();
+            PresignedPutObjectRequest presigned = s3Presigner.presignPutObject(presignRequest);
+            return presigned.url().toString();
+        } catch (Exception e) {
+            log.error("S3 presign upload failed key={}: {}", key, e.getMessage(), e);
             throw new ProductException(ProductErrorCode.S3_PRESIGN_FAILED);
         }
     }
