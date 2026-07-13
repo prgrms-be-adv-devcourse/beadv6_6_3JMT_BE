@@ -35,7 +35,7 @@ import java.util.UUID;
 @Tag(name = "관리자 - 판매자", description = "관리자 판매자 등록 신청 심사")
 @SecurityRequirement(name = "Bearer")
 @RestController
-@RequestMapping("/api/v1/admin")
+@RequestMapping("/api/v2/admin")
 @RequiredArgsConstructor
 public class AdminSellerController {
 
