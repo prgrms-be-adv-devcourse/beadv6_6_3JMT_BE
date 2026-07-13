@@ -30,7 +30,6 @@ public class WebClientAuthorizeClient implements AuthorizeClient {
                 .bodyToMono(AuthorizeApiResponse.class)
                 .map(response -> new AuthorizeResult(response.status(), GatewayRole.valueOf(response.role())))
                 .timeout(TIMEOUT)
-                .onErrorMap(this::isAlreadyMapped, error -> error)
                 .onErrorMap(WebClientResponseException.class, this::mapResponseException)
                 .onErrorMap(this::isUnmapped, AuthorizeUnavailableException::new);
     }
