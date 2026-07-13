@@ -1,6 +1,6 @@
 interface:
   display_name: "Create Settlement PR"
-  short_description: "정산 브랜치를 검증하고 템플릿 기반 PR을 생성"
-  default_prompt: "Use $create-settlement-pr to validate this settlement-service branch and prepare a pull request."
+  short_description: "정산 요청을 범용 검증과 템플릿 기반 PR로 연결"
+  default_prompt: "Use $create-settlement-pr to validate this branch and prepare a settlement pull request."
 policy:
   allow_implicit_invocation: true
