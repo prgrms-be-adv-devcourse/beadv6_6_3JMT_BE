@@ -76,7 +76,7 @@
 
 ## Codex skill 라우팅
 
-Codex 전용 워크플로는 `settlement-service/.codex/skills/`에 있다. 다음 문맥이면 해당 `SKILL.md`를 완전히 읽고 따른다.
+Codex 전용 워크플로는 `settlement-service/.codex/skills/`에 있다. 범용 스킬도 이 모듈 하위에 보관하므로 `settlement-service` 외부나 저장소 루트 문맥에서는 자동 discovery를 보장하지 않는다. 그 문맥에서 사용할 때는 해당 `SKILL.md` 경로나 스킬 이름을 명시해 호출한다. 다음 문맥이면 해당 `SKILL.md`를 완전히 읽고 따른다.
 
 - 정산 계산, 상태 전이, 중복, 권한, 예외, 금액 규칙 구현 또는 버그 수정:
   `settlement-service/.codex/skills/test-settlement-first/SKILL.md`
