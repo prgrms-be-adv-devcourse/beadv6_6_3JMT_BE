@@ -196,7 +196,7 @@
 
 ## 상품 (판매자)
 
-### POST /products — 상품 등록
+### POST /sellers/me/products — 상품 등록
 
 - UC: UC-PRODUCT-01
 - 인증: 필요
@@ -262,7 +262,7 @@
 
 ---
 
-### PUT /products/{productId} — 상품 수정
+### PUT /sellers/me/products/{productId} — 상품 수정
 
 - UC: UC-PRODUCT-02
 - 인증: 필요
@@ -313,7 +313,7 @@
 
 ---
 
-### DELETE /products/{productId} — 상품 삭제 / 판매 중단
+### DELETE /sellers/me/products/{productId} — 상품 삭제 / 판매 중단
 
 - UC: UC-PRODUCT-04
 - 인증: 필요
@@ -333,7 +333,7 @@
 
 ---
 
-### PATCH /products/{productId}/submit — 검수 요청
+### PATCH /sellers/me/products/{productId}/submit — 검수 요청
 
 - UC: UC-PRODUCT-06
 - 인증: 필요
