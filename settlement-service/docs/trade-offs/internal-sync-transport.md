@@ -17,21 +17,21 @@ REST(HTTP/JSON)냐 gRPC냐 — 가 이 문서의 주제다.
 - **settlement-service(정산 본체)** — `OrderSettlementQueryClient` → order 서비스:
   배치 시점에 그 기간의 정산 라인(`GetSettleableLines`)을 bulk 로 당겨 `settlement_source_line` 에 적재.
 - **user-service `sellersettlement`(셀러 정산)** — `ProductStatsGrpcClient` → product 서비스:
-  셀러 등록 상품 수·판매건수(`CountBySeller`)를 요약 조회 시 한 응답으로 조회.
+  셀러 등록 상품 수·판매건수(`GetSellerStats`)를 요약 조회 시 한 응답으로 조회.
 
 ```
 settlement-service    ─gRPC(blocking)─▶ order-service    (정산 원천 라인 pull, #260)
 user sellersettlement ─gRPC(blocking)─▶ product-service  (상품 수·판매건수)
 ```
 
-- 계약은 각 서비스 `src/main/proto`의 `.proto`에 둔다(`order_settlement_query.proto`,
-  `product_query.proto`). 스텁은 빌드 시 생성된다.
+- 계약은 루트 `grpc/<소유서버>/`에 두고 각 모듈이 build.gradle 의 proto `srcDir`로 참조한다
+  (`grpc/order/order_query.proto`, `grpc/product/product_query.proto`). 스텁은 빌드 시 생성된다.
 - 채널·스텁 빈은 호출 대상 서비스별 config에서 따로 만든다
   (`OrderGrpcClientConfig`, `ProductStatsGrpcClientConfig`). 주소는 yml로 주입한다
   (`grpc.client.<service>.address`).
 - 어댑터는 `application/port`의 포트(`OrderSettlementQueryPort` 등)를 구현한다. 안쪽 계층은
   전송이 gRPC인지 모른다 — 포트 뒤에 가려져 있다.
-- 판매자명 조회(`FindSellers`) 서버는 user-service `seller` 패키지에 live 이나, 이를 부르는
+- 판매자명 조회(`GetSellers`) 서버는 user-service `seller` 패키지에 live 이나, 이를 부르는
   정산측 클라이언트는 아직 없다. 실제 구현/대기 현황은 `../architecture/settlement-internal-comm-topology.md`.
 
 ## 무엇을 견주는가

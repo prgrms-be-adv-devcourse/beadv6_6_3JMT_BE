@@ -2,7 +2,7 @@ package com.prompthub.settlement.domain.model;
 
 import com.prompthub.settlement.global.common.BaseEntity;
 import com.prompthub.settlement.domain.exception.SettlementSourceLineAlreadySettledException;
-import com.prompthub.settlement.domain.model.enums.SettlementSourceEventType;
+import com.prompthub.settlement.domain.model.enums.SettlementSourceLineType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -35,8 +35,8 @@ public class SettlementSourceLine extends BaseEntity {
 	private UUID eventId;
 
 	@Enumerated(EnumType.STRING)
-	@Column(name = "event_type", nullable = false, length = 30)
-	private SettlementSourceEventType eventType;
+	@Column(name = "line_type", nullable = false, length = 30)
+	private SettlementSourceLineType lineType;
 
 	@Column(name = "order_id")
 	private UUID orderId;
@@ -66,7 +66,7 @@ public class SettlementSourceLine extends BaseEntity {
 	) {
 		return new SettlementSourceLine(
 			eventId,
-			SettlementSourceEventType.PAID,
+			SettlementSourceLineType.PAID,
 			orderId, orderProductId,
 			sellerId,
 			requirePositive(amount),
@@ -84,7 +84,7 @@ public class SettlementSourceLine extends BaseEntity {
 	) {
 		return new SettlementSourceLine(
 			eventId,
-			SettlementSourceEventType.REFUND,
+			SettlementSourceLineType.REFUND,
 			orderId,
 			orderProductId,
 			sellerId,
@@ -93,11 +93,11 @@ public class SettlementSourceLine extends BaseEntity {
 		);
 	}
 
-	private SettlementSourceLine(UUID eventId, SettlementSourceEventType eventType, UUID orderId,
+	private SettlementSourceLine(UUID eventId, SettlementSourceLineType lineType, UUID orderId,
 		UUID orderProductId, UUID sellerId, BigDecimal lineAmount,
 		LocalDateTime occurredAt) {
 		this.eventId = require(eventId, "eventId");
-		this.eventType = eventType;
+		this.lineType = lineType;
 		this.orderId = orderId;
 		this.orderProductId = require(orderProductId, "orderProductId");
 		this.sellerId = require(sellerId, "sellerId");

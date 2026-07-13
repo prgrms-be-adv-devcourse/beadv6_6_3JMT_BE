@@ -3,18 +3,18 @@ syntax = "proto3";
 package settlement.seller;
 
 option java_multiple_files = true;
-option java_package = "com.prompthub.settlement.grpc.seller";
-option java_outer_classname = "SettlementSellerQueryProto";
+option java_package = "com.prompthub.user.grpc.seller";
+option java_outer_classname = "SellerQueryProto";
 
 service SellerQueryService {
-  rpc FindSellers(SellerBatchQueryRequest) returns (SellerBatchQueryResponse);
+  rpc GetSellers(GetSellersRequest) returns (GetSellersResponse);
 }
 
-message SellerBatchQueryRequest {
+message GetSellersRequest {
   repeated string seller_ids = 1;
 }
 
-message SellerBatchQueryResponse {
+message GetSellersResponse {
   repeated SellerInfo sellers = 1;
 }
 

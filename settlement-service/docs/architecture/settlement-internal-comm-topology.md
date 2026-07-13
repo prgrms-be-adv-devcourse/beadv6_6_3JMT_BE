@@ -25,11 +25,11 @@
   │ settlement-service│                                    │ user-service               │
   │  (정산 본체)       │                                    │  sellersettlement (셀러 정산)│
   └───────┬───────────┘                                    └───────────┬────────────────┘
-          │ gRPC GetSettleableLines (#260)                             │ gRPC CountBySeller
-          │  → order-service (서버 미구현·요청대기)                      │  → product-service (서버 있음·호출 가능)
+          │ gRPC GetSettleableLines (#260)                             │ gRPC GetSellerStats
+          │  → order-service (서버 미구현·요청대기)                      │  → product-service (서버 리네임 대기)
           ▼                                                            ▼
    order-service                                               product-service
-   (OrderSettlementQueryService 신설 요청)                      (ProductQueryService 구현됨, sales_count만 확장 대기)
+   (OrderQueryService 신설 요청)                      (ProductQueryService: CountBySeller→GetSellerStats 리네임 대기)
 
   ┌────────────────────────────┐
   │ admin-service (어드민 정산)  │  ──── DB 직접(JPA read-side) ────▶  정산 테이블
@@ -46,7 +46,7 @@
 | 도메인 | Kafka 발행 | Kafka 구독 | gRPC 서버 | gRPC 클라이언트 |
 |---|---|---|---|---|
 | **settlement-service** | ✅ 구현 — `settlement-events` / `SETTLEMENT_CREATED` | ⚠️ 비활성(기본 OFF) — `order-events`, pull로 대체 중 | ❌ 없음 | ⚠️ order만 구현·상대 서버 대기 |
-| **user `sellersettlement`** | ❌ 없음 | ✅ 구현(기본 OFF) — `settlement-events` | ❌ 없음(셀러조회 서버는 `seller` 패키지) | ✅ 구현 — product `CountBySeller` |
+| **user `sellersettlement`** | ❌ 없음 | ✅ 구현(기본 OFF) — `settlement-events` | ❌ 없음(셀러조회 서버는 `seller` 패키지) | ⚠️ product `GetSellerStats`(서버 리네임 대기) |
 | **admin `settlement`** | ❌ 없음 | ❌ 없음 | ❌ 없음 | ❌ 없음 — DB 직접 접근 |
 
 범례: ✅ 구현·동작 가능(게이트 별개) · ⚠️ 비활성/부분(기본 OFF 또는 상대 부재) · ❌ 없음
@@ -91,10 +91,10 @@
 | 트리거 | 정산 배치 첫 스텝 `loadSettlementSourceStep` (`LoadSettlementSourceTasklet`) |
 | 실패정책 | `StatusRuntimeException` → `SettlementException(SETTLEMENT_SOURCE_QUERY_FAILED)` **throw**(배치 중단, 빈값 폴백 아님 — 조용한 0건 정산 방지) |
 | 채널 | `grpc.client.order-service.address` |
-| 상태 | **정산측 완비, order-service 에 `OrderSettlementQueryService` 서버 미구현 → 요청 대기** (계약: #260 이슈 코멘트) |
+| 상태 | **정산측 완비, order-service 에 `OrderQueryService` 서버 미구현 → 요청 대기** (계약: #260 이슈 코멘트) |
 
 **gRPC 서버** — 없음. (`grpc.server.port` yml 선언은 있으나 등록된 비즈니스 서비스 없음.
-`order_settlement_query.proto` 는 서버 계약이 아니라 order 서버 미러 — 클라이언트 스텁 생성용.)
+`grpc/order/order_query.proto`(루트 공유) 는 서버 계약이 아니라 정산 클라이언트 스텁 생성용 — order 서버 미구현이라 유일본.)
 
 > **미사용 채널:** yml 에 `grpc.client.user-service`·`grpc.client.product-service` 채널이 선언돼 있으나,
 > 이를 호출하는 클라이언트 코드는 settlement-service 에 **없다**(선언만 남은 상태 — §4-2 참고).
@@ -114,19 +114,19 @@
 | 처리 | `eventType == SETTLEMENT_CREATED` → `SeedSellerSettlementUseCase.seed(payload)` → `seller_settlement` 시딩 |
 | 페이로드 | 자체 `SettlementCreatedPayload`(정산 본체 발행 DTO 와 필드 미러) |
 
-**gRPC 클라이언트 — 구현됨(상대 서버 있음)**
+**gRPC 클라이언트 — 구현됨(상대 서버 리네임 대기)**
 
 | 항목 | 값 |
 |---|---|
 | Config | `sellersettlement/infrastructure/grpc/ProductStatsGrpcClientConfig` — `@ImportGrpcClients(target="product-service")` |
 | 어댑터 | `sellersettlement/infrastructure/grpc/ProductStatsGrpcClient` (`ProductStatsClient` 구현) |
-| 호출 | `CountBySeller(sellerId)` → 셀러 등록 상품 수(`product_count`) + 판매건수(`sales_count`) |
+| 호출 | `GetSellerStats(sellerId)` → 셀러 등록 상품 수(`product_count`) + 판매건수(`sales_count`) |
 | 사용처 | 판매자 정산 요약(#267) `registeredPromptCount`·`totalSalesCount` |
 | 실패정책 | `StatusRuntimeException` → `SellerProductStats.empty()`(0) **빈값 폴백**(표시용 참고 데이터라 요약 조회를 막지 않음) |
 | 채널 | `grpc.client.product-service.address` |
-| 상태 | **product-service 서버 구현됨(`ProductQueryGrpcService.countBySeller`) → 호출 가능.** 단 응답 `sales_count`(#262 신규 필드)는 서버가 아직 안 채워 0 폴백 — **필드 확장만 대기**(rpc 자체는 대기 아님) |
+| 상태 | **계약·클라이언트는 `GetSellerStats`. product 서버는 아직 `ProductQueryGrpcService.countBySeller` 라 서버 리네임 전까지 wire 불일치(UNIMPLEMENTED) — 서버 리네임 대기(조율됨).** 응답 `sales_count`(#262)도 서버 확장 대기 |
 
-**gRPC 서버** — `sellersettlement` 패키지 자체엔 없음. (셀러 정보 조회 서버 `SettlementSellerQueryGrpcService`(FindSellers)는 user-service 의 별도 `seller` 패키지에 있고 live 다. §4 참고.)
+**gRPC 서버** — `sellersettlement` 패키지 자체엔 없음. (셀러 정보 조회 서버 `SettlementSellerQueryGrpcService`(GetSellers)는 user-service 의 별도 `seller` 패키지에 있고 live 다. §4 참고.)
 
 ### 3-3. admin-service `settlement` (어드민 정산)
 
@@ -144,13 +144,14 @@
 지금 "한쪽만 준비되어 실제로는 아직 못 붙는" 통신을 명시한다.
 
 1. **settlement → order `GetSettleableLines`** (#260)
-   - settlement 클라이언트·포트·배치 스텝 완비. **order-service 에 `OrderSettlementQueryService` 서버가 없어 요청 대기.**
+   - settlement 클라이언트·포트·배치 스텝 완비. **order-service 에 `OrderQueryService` 서버가 없어 요청 대기.**
    - order 팀 필요 작업: `order_product.paidAt` 추가 + `GetSettleableLines` gRPC 서버 신설(계약: #260 이슈 코멘트).
 
-2. **user `sellersettlement` → product `CountBySeller` 의 `sales_count`**
-   - rpc·서버는 있어 **호출은 된다**. 다만 응답 `sales_count`(#262 확장 필드)를 product 서버가 아직 안 채워 0 으로 내려온다. **product 팀의 필드 확장만 대기.**
+2. **user `sellersettlement` → product `GetSellerStats`**
+   - 계약·클라이언트를 `GetSellerStats` 로 리네임했다(규칙 정합). **product 서버는 아직 `CountBySeller` 라, product 팀이 서버를 `GetSellerStats` 로 바꾸기 전까지 wire 불일치(UNIMPLEMENTED) — 서버 리네임 대기(조율됨).**
+   - 응답 `sales_count`(#262 확장 필드)도 서버가 아직 안 채워 0 으로 내려온다 — 필드 확장도 함께 대기.
 
-3. **settlement → user `FindSellers`** (판매자명 조회, 참고 데이터)
+3. **settlement → user `GetSellers`** (판매자명 조회, 참고 데이터)
    - user-service `seller` 패키지에 서버(`SettlementSellerQueryGrpcService`)가 **live** 이나, settlement-service 에 이 스텁을 호출하는 **클라이언트가 아직 없다**(yml `grpc.client.user-service` 채널도 미사용). → 정산측 클라이언트 신설 시 붙는다.
 
 4. **settlement yml 의 `grpc.client.product-service` 채널**

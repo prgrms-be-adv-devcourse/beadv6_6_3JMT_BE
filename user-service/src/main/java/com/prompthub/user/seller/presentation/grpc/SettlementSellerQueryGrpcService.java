@@ -4,10 +4,10 @@ import java.util.List;
 
 import org.springframework.grpc.server.service.GrpcService;
 
-import com.prompthub.settlement.grpc.seller.SellerBatchQueryRequest;
-import com.prompthub.settlement.grpc.seller.SellerBatchQueryResponse;
-import com.prompthub.settlement.grpc.seller.SellerInfo;
-import com.prompthub.settlement.grpc.seller.SellerQueryServiceGrpc;
+import com.prompthub.user.grpc.seller.GetSellersRequest;
+import com.prompthub.user.grpc.seller.GetSellersResponse;
+import com.prompthub.user.grpc.seller.SellerInfo;
+import com.prompthub.user.grpc.seller.SellerQueryServiceGrpc;
 import com.prompthub.user.seller.application.usecase.SellerQueryUseCase;
 
 import io.grpc.stub.StreamObserver;
@@ -20,7 +20,7 @@ public class SettlementSellerQueryGrpcService extends SellerQueryServiceGrpc.Sel
     private final SellerQueryUseCase sellerQueryUseCase;
 
     @Override
-    public void findSellers(SellerBatchQueryRequest request, StreamObserver<SellerBatchQueryResponse> responseObserver) {
+    public void getSellers(GetSellersRequest request, StreamObserver<GetSellersResponse> responseObserver) {
         List<SellerInfo> sellers = sellerQueryUseCase.findSellers(request.getSellerIdsList())
                 .stream()
                 .map(result -> SellerInfo.newBuilder()
@@ -31,7 +31,7 @@ public class SettlementSellerQueryGrpcService extends SellerQueryServiceGrpc.Sel
                         .build())
                 .toList();
 
-        SellerBatchQueryResponse response = SellerBatchQueryResponse.newBuilder()
+        GetSellersResponse response = GetSellersResponse.newBuilder()
                 .addAllSellers(sellers)
                 .build();
 

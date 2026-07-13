@@ -10,7 +10,7 @@ import static org.mockito.Mockito.verify;
 import com.prompthub.settlement.application.dto.SettleableLine;
 import com.prompthub.settlement.application.port.OrderSettlementQueryPort;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
-import com.prompthub.settlement.domain.model.enums.SettlementSourceEventType;
+import com.prompthub.settlement.domain.model.enums.SettlementSourceLineType;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -42,8 +42,8 @@ class SettlementSourceLoadServiceTest {
     @Captor
     private ArgumentCaptor<List<SettlementSourceLine>> savedLinesCaptor;
 
-    // 서비스와 동일한 멱등키 파생식(orderProductId + eventType). 계약을 테스트가 명시적으로 문서화한다.
-    private static UUID eventId(UUID orderProductId, SettlementSourceEventType type) {
+    // 서비스와 동일한 멱등키 파생식(orderProductId + lineType). 계약을 테스트가 명시적으로 문서화한다.
+    private static UUID eventId(UUID orderProductId, SettlementSourceLineType type) {
         return UUID.nameUUIDFromBytes((orderProductId + "|" + type).getBytes(StandardCharsets.UTF_8));
     }
 
@@ -60,15 +60,15 @@ class SettlementSourceLoadServiceTest {
         UUID newRefundOrderProductId = UUID.randomUUID();
 
         List<SettleableLine> lines = List.of(
-                new SettleableLine(SettlementSourceEventType.PAID, orderId,
+                new SettleableLine(SettlementSourceLineType.PAID, orderId,
                         existingOrderProductId, seller, new BigDecimal("1000"), occurredAt),
-                new SettleableLine(SettlementSourceEventType.PAID, orderId,
+                new SettleableLine(SettlementSourceLineType.PAID, orderId,
                         newPaidOrderProductId, seller, new BigDecimal("2000"), occurredAt),
-                new SettleableLine(SettlementSourceEventType.REFUND, orderId,
+                new SettleableLine(SettlementSourceLineType.REFUND, orderId,
                         newRefundOrderProductId, seller, new BigDecimal("500"), occurredAt));
         given(orderSettlementQueryPort.fetchSettleableLines(period)).willReturn(lines);
         given(settlementSourceRepository.findExistingEventIds(anyCollection()))
-                .willReturn(List.of(eventId(existingOrderProductId, SettlementSourceEventType.PAID)));
+                .willReturn(List.of(eventId(existingOrderProductId, SettlementSourceLineType.PAID)));
 
         // when
         int saved = service.load(period);
@@ -81,10 +81,10 @@ class SettlementSourceLoadServiceTest {
                 .containsExactlyInAnyOrder(newPaidOrderProductId, newRefundOrderProductId);
         assertThat(savedLines).extracting(SettlementSourceLine::getEventId)
                 .containsExactlyInAnyOrder(
-                        eventId(newPaidOrderProductId, SettlementSourceEventType.PAID),
-                        eventId(newRefundOrderProductId, SettlementSourceEventType.REFUND));
-        assertThat(savedLines).extracting(SettlementSourceLine::getEventType)
-                .containsExactlyInAnyOrder(SettlementSourceEventType.PAID, SettlementSourceEventType.REFUND);
+                        eventId(newPaidOrderProductId, SettlementSourceLineType.PAID),
+                        eventId(newRefundOrderProductId, SettlementSourceLineType.REFUND));
+        assertThat(savedLines).extracting(SettlementSourceLine::getLineType)
+                .containsExactlyInAnyOrder(SettlementSourceLineType.PAID, SettlementSourceLineType.REFUND);
     }
 
     @Test

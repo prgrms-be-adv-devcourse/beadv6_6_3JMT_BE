@@ -13,7 +13,7 @@ import com.prompthub.settlement.application.event.OrderPaidProduct;
 import com.prompthub.settlement.application.event.OrderRefundedEvent;
 import com.prompthub.settlement.application.event.OrderRefundedProduct;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
-import com.prompthub.settlement.domain.model.enums.SettlementSourceEventType;
+import com.prompthub.settlement.domain.model.enums.SettlementSourceLineType;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -59,7 +59,7 @@ class SettlementSourceApplicationServiceTest {
         ArgumentCaptor<SettlementSourceLine> captor = ArgumentCaptor.forClass(SettlementSourceLine.class);
         verify(settlementSourceRepository, times(2)).save(captor.capture());
         assertThat(captor.getAllValues())
-                .allMatch(line -> line.getEventType() == SettlementSourceEventType.PAID)
+                .allMatch(line -> line.getLineType() == SettlementSourceLineType.PAID)
                 .anyMatch(line -> line.getLineAmount().compareTo(BigDecimal.valueOf(9900)) == 0);
     }
 
@@ -112,7 +112,7 @@ class SettlementSourceApplicationServiceTest {
 
         ArgumentCaptor<SettlementSourceLine> captor = ArgumentCaptor.forClass(SettlementSourceLine.class);
         verify(settlementSourceRepository).save(captor.capture());
-        assertThat(captor.getValue().getEventType()).isEqualTo(SettlementSourceEventType.REFUND);
+        assertThat(captor.getValue().getLineType()).isEqualTo(SettlementSourceLineType.REFUND);
     }
 
     @Test
