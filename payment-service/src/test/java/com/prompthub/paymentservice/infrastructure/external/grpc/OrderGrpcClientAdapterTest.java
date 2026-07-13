@@ -1,8 +1,8 @@
 package com.prompthub.paymentservice.infrastructure.external.grpc;
 
 import com.prompthub.exception.BusinessException;
-import com.prompthub.order.grpc.GetOrderPaymentInfoRequest;
-import com.prompthub.order.grpc.GetOrderPaymentInfoResponse;
+import com.prompthub.order.grpc.GetOrderRequest;
+import com.prompthub.order.grpc.GetOrderResponse;
 import com.prompthub.order.grpc.OrderQueryServiceGrpc;
 import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.gateway.external.OrderPaymentInfo;
@@ -57,9 +57,9 @@ class OrderGrpcClientAdapterTest {
 
         OrderGrpcClientAdapter adapter = adapterWith(new OrderQueryServiceGrpc.OrderQueryServiceImplBase() {
             @Override
-            public void getOrderForPayment(GetOrderPaymentInfoRequest request,
-                    StreamObserver<GetOrderPaymentInfoResponse> responseObserver) {
-                responseObserver.onNext(GetOrderPaymentInfoResponse.newBuilder()
+            public void getOrder(GetOrderRequest request,
+                    StreamObserver<GetOrderResponse> responseObserver) {
+                responseObserver.onNext(GetOrderResponse.newBuilder()
                     .setOrderId(orderId.toString())
                     .setBuyerId(buyerId.toString())
                     .setTotalAmount(10_000)
@@ -84,9 +84,9 @@ class OrderGrpcClientAdapterTest {
 
         OrderGrpcClientAdapter adapter = adapterWith(new OrderQueryServiceGrpc.OrderQueryServiceImplBase() {
             @Override
-            public void getOrderForPayment(GetOrderPaymentInfoRequest request,
-                    StreamObserver<GetOrderPaymentInfoResponse> responseObserver) {
-                responseObserver.onNext(GetOrderPaymentInfoResponse.newBuilder()
+            public void getOrder(GetOrderRequest request,
+                    StreamObserver<GetOrderResponse> responseObserver) {
+                responseObserver.onNext(GetOrderResponse.newBuilder()
                     .setOrderId(orderId.toString())
                     .setBuyerId(buyerId.toString())
                     .setTotalAmount(5_000)
@@ -107,8 +107,8 @@ class OrderGrpcClientAdapterTest {
 
         OrderGrpcClientAdapter adapter = adapterWith(new OrderQueryServiceGrpc.OrderQueryServiceImplBase() {
             @Override
-            public void getOrderForPayment(GetOrderPaymentInfoRequest request,
-                    StreamObserver<GetOrderPaymentInfoResponse> responseObserver) {
+            public void getOrder(GetOrderRequest request,
+                    StreamObserver<GetOrderResponse> responseObserver) {
                 responseObserver.onError(Status.NOT_FOUND.withDescription("주문 없음").asRuntimeException());
             }
         });
@@ -125,8 +125,8 @@ class OrderGrpcClientAdapterTest {
 
         OrderGrpcClientAdapter adapter = adapterWith(new OrderQueryServiceGrpc.OrderQueryServiceImplBase() {
             @Override
-            public void getOrderForPayment(GetOrderPaymentInfoRequest request,
-                    StreamObserver<GetOrderPaymentInfoResponse> responseObserver) {
+            public void getOrder(GetOrderRequest request,
+                    StreamObserver<GetOrderResponse> responseObserver) {
                 responseObserver.onError(Status.UNAVAILABLE.withDescription("주문 서비스 다운").asRuntimeException());
             }
         });

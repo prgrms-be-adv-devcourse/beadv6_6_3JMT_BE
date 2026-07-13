@@ -1,7 +1,7 @@
 package com.prompthub.order.infra.grpc.server;
 
-import com.prompthub.order.grpc.GetOrderPaymentInfoRequest;
-import com.prompthub.order.grpc.GetOrderPaymentInfoResponse;
+import com.prompthub.order.grpc.GetOrderRequest;
+import com.prompthub.order.grpc.GetOrderResponse;
 import com.prompthub.order.grpc.OrderQueryServiceGrpc;
 import com.prompthub.order.application.dto.OrderForPaymentResult;
 import com.prompthub.order.application.service.order.OrderService;
@@ -65,14 +65,14 @@ class OrderQueryGrpcServerTest {
     }
 
     @Test
-    void getOrderForPayment_existingOrder_returnsMappedResponse() {
+    void getOrder_existingOrder_returnsMappedResponse() {
         UUID orderId = UUID.randomUUID();
         UUID buyerId = UUID.randomUUID();
         LocalDateTime createdAt = LocalDateTime.of(2026, 7, 13, 12, 30);
         given(orderService.getOrderForPayment(orderId))
                 .willReturn(new OrderForPaymentResult(orderId, buyerId, 15000, createdAt));
 
-        GetOrderPaymentInfoResponse response = blockingStub.getOrderForPayment(request(orderId.toString()));
+        GetOrderResponse response = blockingStub.getOrder(request(orderId.toString()));
 
         assertThat(response.getOrderId()).isEqualTo(orderId.toString());
         assertThat(response.getBuyerId()).isEqualTo(buyerId.toString());
@@ -82,19 +82,19 @@ class OrderQueryGrpcServerTest {
     }
 
     @Test
-    void getOrderForPayment_missingCreatedAt_returnsEmptyString() {
+    void getOrder_missingCreatedAt_returnsEmptyString() {
         UUID orderId = UUID.randomUUID();
         UUID buyerId = UUID.randomUUID();
         given(orderService.getOrderForPayment(orderId))
                 .willReturn(new OrderForPaymentResult(orderId, buyerId, 15000, null));
 
-        GetOrderPaymentInfoResponse response = blockingStub.getOrderForPayment(request(orderId.toString()));
+        GetOrderResponse response = blockingStub.getOrder(request(orderId.toString()));
 
         assertThat(response.getCreatedAt()).isEmpty();
     }
 
     @Test
-    void getOrderForPayment_missingOrder_returnsNotFound() {
+    void getOrder_missingOrder_returnsNotFound() {
         UUID orderId = UUID.randomUUID();
         given(orderService.getOrderForPayment(orderId))
                 .willThrow(new OrderException(ErrorCode.ORDER_NOT_FOUND));
@@ -103,19 +103,19 @@ class OrderQueryGrpcServerTest {
     }
 
     @Test
-    void getOrderForPayment_invalidUuid_returnsInvalidArgument() {
+    void getOrder_invalidUuid_returnsInvalidArgument() {
         assertStatusCode(request("invalid-uuid-string"), Status.Code.INVALID_ARGUMENT);
 
         then(orderService).should(never()).getOrderForPayment(Mockito.any());
     }
 
     @Test
-    void getOrderForPayment_unexpectedFailure_returnsInternal() {
+    void getOrder_unexpectedFailure_returnsInternal() {
         UUID orderId = UUID.randomUUID();
         given(orderService.getOrderForPayment(orderId))
                 .willThrow(new IllegalArgumentException("database credentials must stay private"));
 
-        assertThatThrownBy(() -> blockingStub.getOrderForPayment(request(orderId.toString())))
+        assertThatThrownBy(() -> blockingStub.getOrder(request(orderId.toString())))
                 .isInstanceOf(StatusRuntimeException.class)
                 .satisfies(exception -> {
                     StatusRuntimeException statusException = (StatusRuntimeException) exception;
@@ -125,19 +125,19 @@ class OrderQueryGrpcServerTest {
     }
 
     @Test
-    void getOrderForPayment_preservesWireMethodName() {
-        assertThat(OrderQueryServiceGrpc.getGetOrderForPaymentMethod().getFullMethodName())
-                .isEqualTo("prompthub.order.OrderQueryService/GetOrderForPayment");
+    void getOrder_preservesWireMethodName() {
+        assertThat(OrderQueryServiceGrpc.getGetOrderMethod().getFullMethodName())
+                .isEqualTo("prompthub.order.OrderQueryService/GetOrder");
     }
 
-    private GetOrderPaymentInfoRequest request(String orderId) {
-        return GetOrderPaymentInfoRequest.newBuilder()
+    private GetOrderRequest request(String orderId) {
+        return GetOrderRequest.newBuilder()
                 .setOrderId(orderId)
                 .build();
     }
 
-    private void assertStatusCode(GetOrderPaymentInfoRequest request, Status.Code expectedCode) {
-        assertThatThrownBy(() -> blockingStub.getOrderForPayment(request))
+    private void assertStatusCode(GetOrderRequest request, Status.Code expectedCode) {
+        assertThatThrownBy(() -> blockingStub.getOrder(request))
                 .isInstanceOf(StatusRuntimeException.class)
                 .satisfies(exception -> {
                     StatusRuntimeException statusException = (StatusRuntimeException) exception;

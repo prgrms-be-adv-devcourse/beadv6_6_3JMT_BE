@@ -8,7 +8,7 @@ option java_outer_classname = "OrderQueryProto";
 
 service OrderQueryService {
   rpc GetSettleableLines(GetSettleableLinesRequest) returns (GetSettleableLinesResponse);
-  rpc GetOrderForPayment(GetOrderPaymentInfoRequest) returns (GetOrderPaymentInfoResponse);
+  rpc GetOrder(GetOrderRequest) returns (GetOrderResponse);
 }
 
 message GetSettleableLinesRequest {
@@ -29,11 +29,11 @@ message SettleableLine {
 }
 
 // --- 결제 정보 조회 (payment 소비) ---
-message GetOrderPaymentInfoRequest {
+message GetOrderRequest {
   string order_id = 1;
 }
 
-message GetOrderPaymentInfoResponse {
+message GetOrderResponse {
   string order_id = 1;
   string buyer_id = 2;
   int32 total_amount = 3;

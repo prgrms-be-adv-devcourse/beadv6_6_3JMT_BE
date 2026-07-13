@@ -1,8 +1,8 @@
 package com.prompthub.paymentservice.infrastructure.external.grpc;
 
 import com.prompthub.exception.BusinessException;
-import com.prompthub.order.grpc.GetOrderPaymentInfoRequest;
-import com.prompthub.order.grpc.GetOrderPaymentInfoResponse;
+import com.prompthub.order.grpc.GetOrderRequest;
+import com.prompthub.order.grpc.GetOrderResponse;
 import com.prompthub.order.grpc.OrderQueryServiceGrpc;
 import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.gateway.external.OrderGateway;
@@ -33,8 +33,8 @@ public class OrderGrpcClientAdapter implements OrderGateway {
     @Override
     public OrderPaymentInfo getOrderPaymentInfo(UUID orderId) {
         try {
-            GetOrderPaymentInfoResponse response = stub
-                .getOrderForPayment(GetOrderPaymentInfoRequest.newBuilder()
+            GetOrderResponse response = stub
+                .getOrder(GetOrderRequest.newBuilder()
                     .setOrderId(orderId.toString())
                     .build());
             return new OrderPaymentInfo(

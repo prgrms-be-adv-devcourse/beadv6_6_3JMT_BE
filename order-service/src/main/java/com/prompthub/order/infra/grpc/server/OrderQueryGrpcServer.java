@@ -1,7 +1,7 @@
 package com.prompthub.order.infra.grpc.server;
 
-import com.prompthub.order.grpc.GetOrderPaymentInfoRequest;
-import com.prompthub.order.grpc.GetOrderPaymentInfoResponse;
+import com.prompthub.order.grpc.GetOrderRequest;
+import com.prompthub.order.grpc.GetOrderResponse;
 import com.prompthub.order.grpc.OrderQueryServiceGrpc;
 import com.prompthub.order.application.dto.OrderForPaymentResult;
 import com.prompthub.order.application.service.order.OrderService;
@@ -23,9 +23,9 @@ public class OrderQueryGrpcServer extends OrderQueryServiceGrpc.OrderQueryServic
     private final OrderService orderService;
 
     @Override
-    public void getOrderForPayment(
-            GetOrderPaymentInfoRequest request,
-            StreamObserver<GetOrderPaymentInfoResponse> responseObserver
+    public void getOrder(
+            GetOrderRequest request,
+            StreamObserver<GetOrderResponse> responseObserver
     ) {
         try {
             UUID orderId = parseOrderId(request.getOrderId());
@@ -50,8 +50,8 @@ public class OrderQueryGrpcServer extends OrderQueryServiceGrpc.OrderQueryServic
         }
     }
 
-    private GetOrderPaymentInfoResponse toResponse(OrderForPaymentResult result) {
-        return GetOrderPaymentInfoResponse.newBuilder()
+    private GetOrderResponse toResponse(OrderForPaymentResult result) {
+        return GetOrderResponse.newBuilder()
                 .setOrderId(result.orderId().toString())
                 .setBuyerId(result.buyerId().toString())
                 .setTotalAmount(result.totalAmount())
@@ -62,7 +62,7 @@ public class OrderQueryGrpcServer extends OrderQueryServiceGrpc.OrderQueryServic
     private void handleOrderException(
             String orderId,
             OrderException exception,
-            StreamObserver<GetOrderPaymentInfoResponse> responseObserver
+            StreamObserver<GetOrderResponse> responseObserver
     ) {
         if (exception.getErrorCode() == ErrorCode.ORDER_NOT_FOUND) {
             responseObserver.onError(Status.NOT_FOUND
