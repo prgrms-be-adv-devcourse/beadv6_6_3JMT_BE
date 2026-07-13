@@ -4,13 +4,13 @@
 
 **Goal:** PR 생성, 이슈 생성, 변경 검증을 특정 서비스에 제한하지 않고 저장소 전체에서 사용할 수 있는 Codex 스킬로 만든다.
 
-**Architecture:** 범용 동작은 `create-project-pr`, `create-project-issue`, `verify-project-changes`가 담당한다. 기존 정산 스킬은 이름 호환을 위해 남기되 범용 스킬을 필수 호출하고 자체적으로 경로를 제한하지 않는다.
+**Architecture:** 범용 동작은 `create-project-pr`, `create-project-issue`, `verify-project-changes`가 담당한다. 정산 요청을 포함한 모든 도메인 요청은 이 세 스킬로 통합한다.
 
 **Tech Stack:** Markdown 기반 Codex skills, `agents/openai.yaml`, Git, GitHub CLI, Gradle 멀티 모듈 저장소
 
 ## Global Constraints
 
-- 새 스킬, 호환 스킬, 설계·계획 문서는 모두 `settlement-service/` 아래에 둔다.
+- 새 스킬과 설계·계획 문서는 모두 `settlement-service/` 아래에 둔다.
 - 저장소 루트에 `.codex`, `AGENTS.md`, 스킬 라우팅 파일을 만들지 않는다.
 - PR과 코드 검증은 base 대비 전체 diff를 대상으로 한다.
 - 프로젝트 규칙은 변경 경로별로 발견하고 적용하며, 규칙이 없는 모듈도 일반 코드 검토에서 제외하지 않는다.
@@ -123,12 +123,12 @@ Expected: 두 스킬 모두 validation success
 - Create: `settlement-service/docs/superpowers/plans/2026-07-13-generic-github-skills.md`
 
 **Interfaces:**
-- Consumes: 범용 스킬 세 개와 호환 스킬 세 개
+- Consumes: 범용 스킬 세 개
 - Produces: 명확한 스킬 라우팅과 재현 가능한 검증 결과
 
 - [ ] **Step 1: Codex 라우팅 갱신**
 
-일반 PR·이슈·전체 diff 검증은 범용 스킬로, 기존 정산 이름을 명시한 호출은 호환 스킬로 연결한다.
+일반 요청과 정산 요청 모두 PR·이슈·전체 diff 검증 범용 스킬로 연결한다.
 
 - [ ] **Step 2: 금지 문구와 범위 계약 점검**
 
@@ -146,3 +146,25 @@ Run: `git diff --check` 및 전체 스킬 validator
 Expected: 오류 없음
 
 Commit: `docs: GitHub 작업 스킬 범용화`
+
+### Task 5: 정산 호환 진입점 제거
+
+**Files:**
+- Delete: `settlement-service/.codex/skills/create-settlement-pr/`
+- Delete: `settlement-service/.codex/skills/create-settlement-issue/`
+- Delete: `settlement-service/.codex/skills/verify-settlement-rules/`
+- Modify: `settlement-service/AGENTS.md`
+- Modify: `settlement-service/docs/superpowers/specs/2026-07-13-generic-pr-review-skills-design.md`
+
+- [ ] **Step 1: 중복 이름 제거**
+
+호환용 이름만 제공하던 정산 스킬 세 개를 삭제하고 범용 스킬 세 개만 유지한다.
+
+- [ ] **Step 2: 라우팅과 문서 정리**
+
+정산 요청도 범용 스킬로 직접 연결하고 호환 진입점 설명을 제거한다.
+
+- [ ] **Step 3: 최종 검증**
+
+Run: 범용 스킬 세 개 `quick_validate.py`, 제거된 스킬 이름 `rg`, `git diff --check`
+Expected: 범용 스킬 3/3 validation success, 삭제된 스킬 참조 없음, diff 오류 없음

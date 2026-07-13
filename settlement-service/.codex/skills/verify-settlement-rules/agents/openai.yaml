@@ -1,6 +1,0 @@
-interface:
-  display_name: "Verify Settlement Rules"
-  short_description: "전체 diff를 검증하고 정산 규칙 결과를 강조"
-  default_prompt: "Use $verify-settlement-rules to review the complete diff and highlight settlement-specific rule results."
-policy:
-  allow_implicit_invocation: true

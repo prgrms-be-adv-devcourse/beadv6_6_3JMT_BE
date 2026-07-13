@@ -9,9 +9,8 @@
 - `settlement-service/.codex/skills/create-project-pr/`: 저장소의 모든 작업 브랜치에서 PR을 준비하고 생성하는 범용 스킬
 - `settlement-service/.codex/skills/create-project-issue/`: 저장소의 모든 도메인에서 이슈를 준비하고 생성하는 범용 스킬
 - `settlement-service/.codex/skills/verify-project-changes/`: 현재 diff 전체의 코드 품질과 규칙을 검증하는 범용 스킬
-- `create-settlement-pr`, `create-settlement-issue`, `verify-settlement-rules`: 기존 호출을 유지하는 호환용 진입점
 
-호환용 스킬은 범용 스킬을 필수로 호출하며 `settlement-service/` 경로로 검증 범위를 다시 제한하지 않는다.
+정산 전용 PR·이슈·규칙 검증 스킬 이름은 별도 호환 진입점으로 유지하지 않는다. 정산 요청을 포함한 모든 도메인 요청은 위 범용 스킬을 사용한다.
 
 ## 전체 diff 검증
 
