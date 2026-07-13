@@ -1,12 +1,17 @@
 ---
 name: verify-settlement-rules
-description: settlement-service diff를 기존 CLAUDE.md와 .claude/rules의 아키텍처·도메인·Controller·스타일·Swagger·Kafka·보안·Git 규칙에 대조한다. 정산 코드 리뷰, "정산 룰 검증", "세틀먼트 컨벤션 확인", 정산 PR 전 규칙 체크 요청에 사용한다. 검증만 하며 별도 수정 요청이 없으면 코드를 바꾸지 않는다.
+description: Use when 정산 코드 리뷰, "정산 룰 검증", "세틀먼트 컨벤션 확인", 정산 PR 전 규칙 체크를 요청받았을 때.
 ---
 
-# 정산 서비스 규칙 검증
+# 정산 규칙 검증 호환 진입점
 
-1. 저장소 루트 기준으로 현재 diff, 변경 파일, commit 제목을 수집하고 `settlement-service/` 변경만 검증한다.
-2. `settlement-service/CLAUDE.md`와 다음 원본을 완전히 읽는다.
+**REQUIRED SUB-SKILL:** 먼저 `verify-project-changes`를 사용한다.
+
+이 스킬은 정산 규칙을 강조하는 호환 진입점이다. 검증 범위를 정산 경로로 제한하지 않는다.
+
+1. `verify-project-changes`의 절차로 base, head, 전체 `base...HEAD` diff, commit, 작업 트리 변경을 수집한다.
+2. 전체 변경 경로에 적용되는 `AGENTS.md`, `CLAUDE.md`, `.claude/rules/*.md`를 매핑한다.
+3. 정산 경로에는 다음 규칙을 포함한다.
    - `settlement-service/.claude/rules/clean-architecture.md`
    - `settlement-service/.claude/rules/domain-model.md`
    - `settlement-service/.claude/rules/controller-exception.md`
@@ -15,9 +20,9 @@ description: settlement-service diff를 기존 CLAUDE.md와 .claude/rules의 아
    - `settlement-service/.claude/rules/kafka-event.md`
    - `settlement-service/.claude/rules/security.md`
    - `settlement-service/.claude/rules/git-convention.md`
-3. 파일별 적용 가능한 규칙만 검사한다. 특히 계층 의존 방향, 도메인 setter/Lombok, 예외·응답, 이벤트 계약, 테스트, secret을 확인한다.
-4. commit 메시지에 `Co-Authored-By` trailer가 없는지 확인한다.
-5. 이슈·PR 초안이 포함된 변경이나 검증 요청이면 번호 유형 표기, 담백한 문체, 실제 라벨, assignee·Type·Project·Status·reviewer 기본값도 확인한다.
-6. `.claude/worktrees/`, 과거 plan·review 산출물은 현재 규칙으로 사용하지 않는다.
-7. 결과를 심각도 순으로 `파일:라인 — 규칙 — 근거` 형식으로 보고한다. 불확실하면 `확인 필요`로 구분한다.
-8. 위반이 없으면 확인한 규칙과 `위반 없음`을 명시한다.
+4. commit message의 `Co-Authored-By` trailer와 이슈·PR 초안의 번호 유형, 담백한 문체, 실제 메타데이터도 해당 규칙과 지침에 따라 확인한다.
+5. 정산 외 변경은 해당 경로의 프로젝트 규칙으로 검사하고, 규칙이 없으면 일반 정확성·회귀·테스트·보안 검토를 수행한다.
+6. `.claude/worktrees/`와 과거 plan·review 산출물은 현재 규칙으로 사용하지 않는다.
+7. 결과는 `verify-project-changes`의 `RULE / SCOPE / STATUS / FINDINGS` 형식을 유지한다. 정산 규칙 결과를 먼저 보여줄 수 있지만 다른 경로 결과와 `coverage-completeness`를 생략하지 않는다.
+
+규칙이나 증거를 확인하지 못한 항목은 `UNVERIFIED`로 보고하며 `PASS`로 간주하지 않는다. 별도 수정 요청이 없으면 코드를 바꾸지 않는다.
