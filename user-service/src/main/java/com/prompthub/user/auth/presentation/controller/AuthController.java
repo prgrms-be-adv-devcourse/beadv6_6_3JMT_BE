@@ -35,6 +35,8 @@ public class AuthController {
 
     @Operation(summary = "OAuth 소셜 로그인", description = "최초 로그인 시 자동 회원가입 처리. 현재 지원 provider: kakao")
     @ApiResponse(responseCode = "200", description = "로그인 성공")
+    @ApiResponse(responseCode = "400", description = "지원하지 않는 OAuth 공급자 (A009)")
+    @ApiResponse(responseCode = "401", description = "카카오 인증에 실패함 (A011)")
     @PostMapping("/oauth/{provider}")
     public ApiResult<OAuthLoginResponse> oAuthLogin(
             @Parameter(description = "OAuth 제공자", example = "kakao") @PathVariable String provider,

@@ -23,6 +23,7 @@ public enum UserErrorCode implements ErrorCode {
     AUTH_SELLER_APPLICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "A008", "판매자 등록 신청 내역이 없습니다."),
     UNSUPPORTED_OAUTH_PROVIDER(HttpStatus.BAD_REQUEST, "A009", "지원하지 않는 OAuth 공급자입니다."),
     AUTH_WITHDRAW_ORDER_IN_PROGRESS(HttpStatus.BAD_REQUEST, "A010", "진행 중인 주문이 있어 탈퇴할 수 없습니다."),
+    AUTH_OAUTH_VERIFICATION_FAILED(HttpStatus.UNAUTHORIZED, "A011", "OAuth 인증에 실패했습니다."),
 
     WISHLIST_DUPLICATED(HttpStatus.CONFLICT, "W001", "이미 찜한 상품입니다."),
     WISHLIST_NOT_FOUND(HttpStatus.NOT_FOUND, "W002", "찜 항목이 존재하지 않습니다."),

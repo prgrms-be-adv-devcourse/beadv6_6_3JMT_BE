@@ -5,6 +5,7 @@ import com.prompthub.user.auth.application.dto.OAuthLoginResult;
 import com.prompthub.user.auth.application.dto.TokenRefreshResult;
 import com.prompthub.user.auth.application.usecase.AuthUseCase;
 import com.prompthub.user.auth.domain.exception.InvalidRefreshTokenException;
+import com.prompthub.user.auth.domain.exception.OAuthVerificationFailedException;
 import com.prompthub.user.auth.domain.exception.TokenExpiredException;
 import com.prompthub.user.auth.domain.exception.UnsupportedOAuthProviderException;
 import com.prompthub.user.auth.presentation.dto.request.OAuthLoginRequest;
@@ -17,9 +18,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
@@ -67,9 +66,7 @@ class AuthControllerTest {
     void oAuthLogin_kakao_기존_사용자_200() throws Exception {
         given(authUseCase.oAuthLogin(any())).willReturn(successResult(false));
 
-        OAuthLoginRequest request = new OAuthLoginRequest(
-                "kakao_123456", "테스트유저", "https://img.kakao.com/profile.jpg", "test@kakao.com"
-        );
+        OAuthLoginRequest request = new OAuthLoginRequest("kakao-access-token");
 
         mockMvc.perform(post("/api/v1/auth/oauth/kakao")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -86,9 +83,7 @@ class AuthControllerTest {
     void oAuthLogin_kakao_신규_사용자_isNewUser_true() throws Exception {
         given(authUseCase.oAuthLogin(any())).willReturn(successResult(true));
 
-        OAuthLoginRequest request = new OAuthLoginRequest(
-                "kakao_new_user", "신규유저", "https://img.kakao.com/profile.jpg", "newuser@kakao.com"
-        );
+        OAuthLoginRequest request = new OAuthLoginRequest("kakao-access-token");
 
         mockMvc.perform(post("/api/v1/auth/oauth/kakao")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -98,14 +93,8 @@ class AuthControllerTest {
     }
 
     @Test
-    void oAuthLogin_oauthId_누락_400() throws Exception {
-        String body = """
-                {
-                    "nickname": "테스트유저",
-                    "profileImage": "https://img.kakao.com/profile.jpg",
-                    "email": "test@kakao.com"
-                }
-                """;
+    void oAuthLogin_accessToken_누락_400() throws Exception {
+        String body = "{}";
 
         mockMvc.perform(post("/api/v1/auth/oauth/kakao")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -114,22 +103,8 @@ class AuthControllerTest {
     }
 
     @Test
-    void oAuthLogin_email_형식_오류_400() throws Exception {
-        OAuthLoginRequest request = new OAuthLoginRequest(
-                "kakao_123456", "테스트유저", "https://img.kakao.com/profile.jpg", "not-an-email"
-        );
-
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void oAuthLogin_nickname_빈_문자열_400() throws Exception {
-        OAuthLoginRequest request = new OAuthLoginRequest(
-                "kakao_123456", "", "https://img.kakao.com/profile.jpg", "test@kakao.com"
-        );
+    void oAuthLogin_accessToken_빈_문자열_400() throws Exception {
+        OAuthLoginRequest request = new OAuthLoginRequest("");
 
         mockMvc.perform(post("/api/v1/auth/oauth/kakao")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -141,14 +116,25 @@ class AuthControllerTest {
     void oAuthLogin_미지원_provider_400() throws Exception {
         given(authUseCase.oAuthLogin(any())).willThrow(new UnsupportedOAuthProviderException("twitter"));
 
-        OAuthLoginRequest request = new OAuthLoginRequest(
-                "twitter_123", "트위터유저", "https://img.twitter.com/profile.jpg", "test@twitter.com"
-        );
+        OAuthLoginRequest request = new OAuthLoginRequest("twitter-access-token");
 
         mockMvc.perform(post("/api/v1/auth/oauth/twitter")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void oAuthLogin_카카오_인증_실패_401() throws Exception {
+        given(authUseCase.oAuthLogin(any())).willThrow(new OAuthVerificationFailedException("유효하지 않은 액세스 토큰"));
+
+        OAuthLoginRequest request = new OAuthLoginRequest("invalid-access-token");
+
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("A011"));
     }
 
     @Test
