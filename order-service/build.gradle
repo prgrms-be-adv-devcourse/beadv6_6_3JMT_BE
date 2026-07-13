@@ -57,6 +57,7 @@ sourceSets {
     main {
         proto {
             srcDir "${rootProject.projectDir}/grpc/order"
+            srcDir "${rootProject.projectDir}/grpc/payment"
             srcDir "${rootProject.projectDir}/grpc/product"
             srcDir "${rootProject.projectDir}/grpc/user"
         }
