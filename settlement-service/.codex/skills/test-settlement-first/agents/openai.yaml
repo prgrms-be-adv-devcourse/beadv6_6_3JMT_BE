@@ -1,0 +1,6 @@
+interface:
+  display_name: "Test Settlement First"
+  short_description: "정산 핵심 비즈니스 로직을 실패 단위 테스트부터 구현"
+  default_prompt: "Use $test-settlement-first to define failing tests before implementing this settlement behavior."
+policy:
+  allow_implicit_invocation: true

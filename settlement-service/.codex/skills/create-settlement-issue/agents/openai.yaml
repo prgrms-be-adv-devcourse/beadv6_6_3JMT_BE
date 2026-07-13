@@ -1,0 +1,6 @@
+interface:
+  display_name: "Create Settlement Issue"
+  short_description: "정산 요청을 저장소 템플릿 기반 GitHub 이슈로 생성"
+  default_prompt: "Use $create-settlement-issue to draft a GitHub issue for this settlement-service request."
+policy:
+  allow_implicit_invocation: true
