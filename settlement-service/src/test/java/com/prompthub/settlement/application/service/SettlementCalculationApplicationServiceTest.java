@@ -2,12 +2,15 @@ package com.prompthub.settlement.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
 import com.prompthub.settlement.application.event.SettlementCreatedPayload;
+import com.prompthub.settlement.application.port.OutboxEventAppender;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.repository.SettlementRepository;
@@ -20,11 +23,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,7 +38,7 @@ class SettlementCalculationApplicationServiceTest {
     private SettlementRepository settlementRepository;
 
     @Mock
-    private ApplicationEventPublisher eventPublisher;
+    private OutboxEventAppender outboxEventAppender;
 
     @InjectMocks
     private SettlementCalculationApplicationService service;
@@ -116,12 +117,12 @@ class SettlementCalculationApplicationServiceTest {
         // then
         assertThat(settlement).isNull();
         verify(settlementRepository, never()).save(any());
-        verify(eventPublisher, never()).publishEvent(any());
+        then(outboxEventAppender).shouldHaveNoInteractions();
     }
 
     @Test
-    @DisplayName("정산 저장 후 settlement.created 페이로드를 발행 이벤트로 등록한다")
-    void calculate_publishesSettlementCreatedAfterSave() {
+    @DisplayName("정산 저장 후 배치 ID와 생성된 정산 페이로드로 아웃박스를 적재한다")
+    void calculate_appendsSettlementCreatedToOutboxAfterSave() {
         // given
         UUID sellerId = UUID.randomUUID();
         YearMonth period = YearMonth.of(2026, 6);
@@ -133,9 +134,10 @@ class SettlementCalculationApplicationServiceTest {
         // when
         Settlement settlement = service.calculate(command);
 
-        // then : 저장된 정산 ID로 payload가 발행된다
-        ArgumentCaptor<SettlementCreatedPayload> captor = ArgumentCaptor.forClass(SettlementCreatedPayload.class);
-        verify(eventPublisher).publishEvent(captor.capture());
-        assertThat(captor.getValue().settlementId()).isEqualTo(settlement.getId());
+        // then : 저장된 정산 ID로 payload가 적재된다
+        then(outboxEventAppender).should().appendSettlementCreated(
+                eq(command.settlementBatchId()),
+                org.mockito.ArgumentMatchers.argThat(
+                        payload -> payload.settlementId().equals(settlement.getId())));
     }
 }
