@@ -1,0 +1,6 @@
+interface:
+  display_name: "Create Project Issue"
+  short_description: "실제 템플릿과 메타데이터로 GitHub 이슈 생성"
+  default_prompt: "Use $create-project-issue to draft a repository issue and create it after approval."
+policy:
+  allow_implicit_invocation: true
