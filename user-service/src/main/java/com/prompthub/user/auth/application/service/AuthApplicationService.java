@@ -16,6 +16,7 @@ import com.prompthub.user.auth.application.usecase.AuthUseCase;
 import com.prompthub.user.auth.domain.exception.InvalidRefreshTokenException;
 import com.prompthub.user.auth.domain.exception.OAuthEmailAlreadyUsedException;
 import com.prompthub.user.auth.domain.exception.OrphanedAuthRecordException;
+import com.prompthub.user.auth.domain.exception.RefreshTokenReuseDetectedException;
 import com.prompthub.user.auth.domain.exception.UnsupportedOAuthProviderException;
 import com.prompthub.user.auth.domain.model.Auth;
 import com.prompthub.user.auth.domain.model.OAuthProvider;
@@ -78,13 +79,14 @@ public class AuthApplicationService implements AuthUseCase {
             isNewUser = true;
         }
 
-        JwtTokenProvider.TokenResult accessTokenResult = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getRoles(), user.getStatus());
         JwtTokenProvider.TokenResult refreshTokenResult = jwtTokenProvider.generateRefreshToken(user.getUserId());
-
         refreshTokenRepository.deleteByUserId(user.getUserId());
-        refreshTokenRepository.save(
+        RefreshToken savedRefreshToken = refreshTokenRepository.save(
                 RefreshToken.create(user.getUserId(), refreshTokenResult.token(), refreshTokenResult.expiresAt())
         );
+
+        JwtTokenProvider.TokenResult accessTokenResult =
+                jwtTokenProvider.generateAccessToken(user.getUserId(), savedRefreshToken.getEpoch());
 
         return new OAuthLoginResult(
                 user.getUserId(),
@@ -100,17 +102,31 @@ public class AuthApplicationService implements AuthUseCase {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public TokenRefreshResult refresh(TokenRefreshCommand command) {
         UUID userId = jwtTokenProvider.parseRefreshToken(command.refreshToken());
 
-        refreshTokenRepository.findByToken(command.refreshToken())
+        RefreshToken stored = refreshTokenRepository.findByUserId(userId)
                 .orElseThrow(InvalidRefreshTokenException::new);
 
-        User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+        if (!stored.getToken().equals(command.refreshToken())) {
+            refreshTokenRepository.deleteByUserId(userId);
+            throw new RefreshTokenReuseDetectedException();
+        }
 
-        JwtTokenProvider.TokenResult result = jwtTokenProvider.generateAccessToken(userId, user.getRoles(), user.getStatus());
-        return new TokenRefreshResult(result.token(), result.expiresAt());
+        userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+
+        JwtTokenProvider.TokenResult newRefreshTokenResult = jwtTokenProvider.generateRefreshToken(userId);
+        stored.rotate(newRefreshTokenResult.token(), newRefreshTokenResult.expiresAt());
+        RefreshToken rotated = refreshTokenRepository.save(stored);
+
+        JwtTokenProvider.TokenResult newAccessTokenResult =
+                jwtTokenProvider.generateAccessToken(userId, rotated.getEpoch());
+
+        return new TokenRefreshResult(
+                newAccessTokenResult.token(),
+                newAccessTokenResult.expiresAt(),
+                newRefreshTokenResult.token()
+        );
     }
 
     @Override

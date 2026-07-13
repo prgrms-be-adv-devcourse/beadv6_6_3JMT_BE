@@ -16,7 +16,6 @@ import com.prompthub.user.auth.domain.repository.RefreshTokenRepository;
 import com.prompthub.user.auth.infrastructure.jwt.JwtTokenProvider;
 import com.prompthub.user.user.domain.model.User;
 import com.prompthub.user.user.domain.model.UserRole;
-import com.prompthub.user.user.domain.model.UserStatus;
 import com.prompthub.user.user.domain.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +30,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
@@ -83,7 +83,7 @@ class OAuthApplicationServiceTest {
                 .willReturn(Optional.of(existingAuth));
         given(userRepository.findById(existingUser.getUserId()))
                 .willReturn(Optional.of(existingUser));
-        given(jwtTokenProvider.generateAccessToken(any(), any(), any(UserStatus.class)))
+        given(jwtTokenProvider.generateAccessToken(any(UUID.class), eq(0L)))
                 .willReturn(new JwtTokenProvider.TokenResult("access-token", ACCESS_EXPIRES_AT));
         given(jwtTokenProvider.generateRefreshToken(any()))
                 .willReturn(new JwtTokenProvider.TokenResult("refresh-token", REFRESH_EXPIRES_AT));
@@ -121,7 +121,7 @@ class OAuthApplicationServiceTest {
         given(userRepository.existsByEmail("test@kakao.com")).willReturn(false);
         given(userRepository.save(any(User.class))).willAnswer(inv -> inv.getArgument(0));
         given(authRepository.save(any(Auth.class))).willAnswer(inv -> inv.getArgument(0));
-        given(jwtTokenProvider.generateAccessToken(any(), any(), any(UserStatus.class)))
+        given(jwtTokenProvider.generateAccessToken(any(UUID.class), eq(0L)))
                 .willReturn(new JwtTokenProvider.TokenResult("access-token", ACCESS_EXPIRES_AT));
         given(jwtTokenProvider.generateRefreshToken(any()))
                 .willReturn(new JwtTokenProvider.TokenResult("refresh-token", REFRESH_EXPIRES_AT));
@@ -144,7 +144,7 @@ class OAuthApplicationServiceTest {
         given(userRepository.existsByEmail("test@kakao.com")).willReturn(false);
         given(userRepository.save(any(User.class))).willAnswer(inv -> inv.getArgument(0));
         given(authRepository.save(any(Auth.class))).willAnswer(inv -> inv.getArgument(0));
-        given(jwtTokenProvider.generateAccessToken(any(), any(), any(UserStatus.class)))
+        given(jwtTokenProvider.generateAccessToken(any(UUID.class), eq(0L)))
                 .willReturn(new JwtTokenProvider.TokenResult("access-token", ACCESS_EXPIRES_AT));
         given(jwtTokenProvider.generateRefreshToken(any()))
                 .willReturn(new JwtTokenProvider.TokenResult("refresh-token", REFRESH_EXPIRES_AT));

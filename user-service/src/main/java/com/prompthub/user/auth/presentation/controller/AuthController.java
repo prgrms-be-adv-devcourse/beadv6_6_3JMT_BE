@@ -47,9 +47,9 @@ public class AuthController {
         return ApiResult.success(OAuthLoginResponse.from(result));
     }
 
-    @Operation(summary = "토큰 재발급", description = "Refresh Token으로 새 Access Token을 발급")
+    @Operation(summary = "토큰 재발급", description = "Refresh Token으로 새 Access Token과 새 Refresh Token을 발급(RTR)")
     @ApiResponse(responseCode = "200", description = "재발급 성공")
-    @ApiResponse(responseCode = "401", description = "리프레시 토큰이 유효하지 않거나 만료됨 (A003, A006)")
+    @ApiResponse(responseCode = "401", description = "리프레시 토큰이 유효하지 않거나 만료되었거나 재사용이 감지됨 (A003, A006, A012)")
     @PostMapping("/token/refresh")
     public ApiResult<TokenRefreshResponse> refreshToken(
             @Valid @RequestBody TokenRefreshRequest request

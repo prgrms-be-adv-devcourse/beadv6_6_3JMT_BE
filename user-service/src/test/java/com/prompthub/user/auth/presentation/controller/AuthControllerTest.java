@@ -6,6 +6,7 @@ import com.prompthub.user.auth.application.dto.TokenRefreshResult;
 import com.prompthub.user.auth.application.usecase.AuthUseCase;
 import com.prompthub.user.auth.domain.exception.InvalidRefreshTokenException;
 import com.prompthub.user.auth.domain.exception.OAuthVerificationFailedException;
+import com.prompthub.user.auth.domain.exception.RefreshTokenReuseDetectedException;
 import com.prompthub.user.auth.domain.exception.TokenExpiredException;
 import com.prompthub.user.auth.domain.exception.UnsupportedOAuthProviderException;
 import com.prompthub.user.auth.presentation.dto.request.OAuthLoginRequest;
@@ -146,7 +147,7 @@ class AuthControllerTest {
 
     @Test
     void refreshToken_유효한_RT_새_AT_발급_200() throws Exception {
-        TokenRefreshResult result = new TokenRefreshResult("new-access-token", EXPIRES_AT);
+        TokenRefreshResult result = new TokenRefreshResult("new-access-token", EXPIRES_AT, "new-refresh-token");
         given(authUseCase.refresh(any())).willReturn(result);
 
         TokenRefreshRequest request = new TokenRefreshRequest("valid-refresh-token");
@@ -193,6 +194,33 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void refreshToken_정상_응답에_새_RT_포함() throws Exception {
+        TokenRefreshResult result = new TokenRefreshResult("new-access-token", EXPIRES_AT, "new-refresh-token");
+        given(authUseCase.refresh(any())).willReturn(result);
+
+        TokenRefreshRequest request = new TokenRefreshRequest("valid-refresh-token");
+
+        mockMvc.perform(post("/api/v2/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.refreshToken").value("new-refresh-token"));
+    }
+
+    @Test
+    void refreshToken_재사용_감지시_401() throws Exception {
+        given(authUseCase.refresh(any())).willThrow(new RefreshTokenReuseDetectedException());
+
+        TokenRefreshRequest request = new TokenRefreshRequest("reused-refresh-token");
+
+        mockMvc.perform(post("/api/v2/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("A012"));
     }
 
     @Test
