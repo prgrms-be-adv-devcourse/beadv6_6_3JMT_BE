@@ -37,7 +37,7 @@ description: Use when any service, module, or shared area in the current reposit
 
 - `title`: `[BUG]`, `[FEATURE]` 같은 접두어만 유지하고 안내용 플레이스홀더는 요청을 요약한 제목으로 교체한다.
 - `labels`: YAML 문자열, 쉼표 구분 문자열, 목록을 모두 개별 후보로 정규화한다. 이후 실제 라벨 검증을 통과한 값만 각각 `--label`로 전달한다.
-- `assignees`: 빈 값을 버리고 각 login을 후보로 보존한다. 생성자 본인 `@me`는 템플릿 값과 무관하게 항상 추가하며, 중복 login은 제거한다.
+- `assignees`: YAML 문자열, 쉼표 구분 문자열, 목록을 login 배열로 정규화하고 빈 값을 버린다. 생성자 본인 `@me`는 템플릿 값과 무관하게 항상 추가하며, 중복 login은 제거한다.
 - `name`, `about` 등 웹 UI 전용 값과 frontmatter 구분자는 이슈 본문에 넣지 않는다.
 
 본문의 섹션 제목, 순서, 체크리스트와 기존 이모지는 유지하고 안내 문구를 사용자 요청의 실제 내용으로 교체한다. 필수 정보가 부족하면 여러 번 나누지 말고 한 번에 묻는다.
@@ -54,7 +54,7 @@ description: Use when any service, module, or shared area in the current reposit
 
 1. `gh label list --limit 200 --json name,description,color`로 실제 라벨을 읽는다. frontmatter 후보가 존재하면 그대로 사용한다. 존재하지 않으면 이름과 설명상 대응이 하나뿐인 실제 라벨로 교체할 수 있다(예: `feature` → `feat`, `bug` → `fix`). 교체 근거를 승인 화면에 표시한다. 대응이 없거나 둘 이상이면 새 라벨을 만들지 말고 사용자에게 선택을 요청한다.
 2. `gh api user`로 `@me`의 실제 login을 확인한다. frontmatter의 다른 assignee는 `repos/<owner>/<repo>/assignees/<login>` 조회로 할당 가능성을 확인한다. 확인되지 않은 login은 전달하지 않고 영향을 설명한다.
-3. `gh api repos/<owner>/<repo>/issue-types`로 이 저장소의 Type 이름과 ID를 읽고 요청에 맞는 정확한 `Feature`, `Bug`, `Task`를 선택한다. 없으면 비슷한 값을 추측하거나 새 Type을 만들지 않는다.
+3. `gh api repos/<owner>/<repo>/issue-types`로 이 저장소의 Type 이름, REST 숫자 `id`, GraphQL `node_id`를 읽고 요청에 맞는 정확한 `Feature`, `Bug`, `Task`를 선택한다. 두 ID를 구분해 보존하며 `updateIssueIssueType.issueTypeId`에는 반드시 `node_id`를 사용한다. Type이 없으면 비슷한 값을 추측하거나 새 Type을 만들지 않는다.
 4. 저장소 owner의 `gh project view 45 --owner <owner> --format json`으로 `#45 (프로젝트)`의 제목과 ID를 확인한다. 이어서 `gh project field-list 45 --owner <owner> --format json`으로 정확히 `Status` 필드와 `Todo` 옵션의 ID를 찾는다. Priority와 Effort는 설정하지 않는다.
 
 Project 조회와 쓰기에는 필요한 token scope가 있어야 한다. scope 부족, `#45 (프로젝트)` 부재, Status/Todo 또는 Type 부재, 권한 부족이 발생하면 생성 전에 확인된 값과 누락된 영향 및 필요한 사용자 조치를 보고한다. 누락된 ID를 추측하지 않으며, 사용자가 누락 필드 없이 진행할지 명시적으로 선택하기 전에는 생성하지 않는다.
@@ -64,7 +64,7 @@ Project 조회와 쓰기에는 필요한 token scope가 있어야 한다. scope 
 다음을 한 번에 보여주고 **명시적 승인**을 받는다.
 
 - 대상 repository와 선택한 템플릿 경로
-- Type과 분류 근거
+- Type 이름과 GraphQL `node_id`, 분류 근거
 - 제목
 - frontmatter를 제외한 Markdown 본문 전체
 - 라벨과 frontmatter 원본·실제 라벨 사이의 교체 근거
@@ -80,7 +80,7 @@ Project 조회와 쓰기에는 필요한 token scope가 있어야 한다. scope 
 승인 직전에 템플릿 파일과 조회한 라벨·assignee·Type·Project·Status를 다시 확인한다. 승인 화면과 달라졌으면 초안과 승인을 다시 수행한다.
 
 1. 승인된 본문만 `/tmp` 파일에 저장하고 `gh issue create --title --body-file --label --assignee`로 생성한다. 현재 `gh issue create --help`가 `--type`을 지원하면 조회한 Type 이름도 함께 전달한다. frontmatter 자체와 존재하지 않는 라벨은 전달하지 않는다.
-2. 생성 결과의 URL과 번호, node ID를 즉시 기록한다. 생성 명령에서 Type을 지원하지 않았다면 조회한 Type ID와 이슈 node ID로 `updateIssueIssueType` GraphQL mutation을 실행한다.
+2. 생성 결과의 URL과 번호를 즉시 기록한다. 생성 명령에서 Type을 지원하지 않았다면 `gh issue view <url-or-number> --json id,number,url`로 생성된 이슈의 GraphQL node ID인 `id`를 조회하고, 이 이슈 node ID와 Type의 `node_id`를 `updateIssueIssueType` mutation의 `issueId`, `issueTypeId`로 사용한다. 이슈 node ID 조회나 mutation이 실패하면 Type 적용 실패로 기록하고 생성된 이슈는 부분 성공으로 보고한다.
 3. `gh project item-add 45 --owner <owner> --url <issue-url> --format json`으로 프로젝트에 추가하고 반환된 item ID를 기록한다.
 4. `gh project item-edit --id <item-id> --project-id <project-id> --field-id <status-field-id> --single-select-option-id <todo-option-id>`로 Status를 `Todo`로 설정한다.
 
@@ -116,5 +116,6 @@ Project 조회와 쓰기에는 필요한 token scope가 있어야 한다. scope 
 - frontmatter를 본문에 복사하거나 label을 검증 없이 전달: CLI 입력 변환 계약을 어긴다.
 - 템플릿의 안내 문구를 실제 내용처럼 남김: 모든 필수 섹션을 요청 내용으로 교체한다.
 - Project 제목만 기억하고 `#45 (프로젝트)`나 Status ID를 조회하지 않음: 현재 메타데이터를 다시 읽는다.
+- REST Type의 숫자 `id`를 GraphQL mutation에 전달: `issueTypeId`에는 `node_id`만 사용한다.
 - 제목과 요약만 보여주고 승인받음: 본문 전체와 모든 필드 적용 동작이 승인 대상이다.
 - 필드 적용 실패 뒤 이슈 삭제 또는 재생성: 생성된 이슈는 유지하고 부분 성공을 보고한다.
