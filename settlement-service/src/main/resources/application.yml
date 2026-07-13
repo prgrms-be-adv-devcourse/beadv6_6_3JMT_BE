@@ -13,4 +13,4 @@ spring:
         multiplier: 1.1
 
 api:
-  init: /api/v1
+  init: /api/v2

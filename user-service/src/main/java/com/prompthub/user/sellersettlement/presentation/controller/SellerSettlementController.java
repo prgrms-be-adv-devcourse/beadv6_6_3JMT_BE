@@ -31,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Seller Settlement", description = "판매자 정산 조회·지급요청 API")
 @SecurityRequirement(name = "Bearer")
 @RestController
-@RequestMapping("/api/v1/sellers/me/settlements")
+@RequestMapping("/api/v2/sellers/me/settlements")
 @RequiredArgsConstructor
 public class SellerSettlementController {
 

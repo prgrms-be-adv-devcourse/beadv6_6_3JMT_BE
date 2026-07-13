@@ -25,7 +25,7 @@ import lombok.RequiredArgsConstructor;
 @Tag(name = "회원", description = "회원 프로필 조회 및 수정")
 @SecurityRequirement(name = "Bearer")
 @RestController
-@RequestMapping("/api/v1/users")
+@RequestMapping("/api/v2/users")
 @RequiredArgsConstructor
 public class UserController {
 
