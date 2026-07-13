@@ -3,6 +3,8 @@ package com.prompthub.product.domain.model.entity;
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
+import com.prompthub.product.exception.ProductException;
+import com.prompthub.product.exception.enums.ProductErrorCode;
 import com.prompthub.product.infra.persistence.converter.TagsConverter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
@@ -128,6 +130,7 @@ public class Product {
 		String contentFileUrl,
 		List<String> tags
 	) {
+		validateTypeFields(productType, content, fileUrl, contentFileUrl);
 		Product product = new Product();
 		product.id = id;
 		product.sellerId = sellerId;
@@ -170,6 +173,7 @@ public class Product {
 		String changeReason,
 		boolean isMajor
 	) {
+		validateTypeFields(productType, content, fileUrl, contentFileUrl);
 		this.productType = productType;
 		this.name = name;
 		this.description = description;
@@ -249,6 +253,7 @@ public class Product {
 		List<String> tags,
 		String changeReason
 	) {
+		validateTypeFields(productType, content, fileUrl, contentFileUrl);
 		Product next = new Product();
 		next.id = UUID.randomUUID();
 		next.parentId = this.familyRootId();
@@ -333,5 +338,22 @@ public class Product {
 		this.status = ProductStatus.PENDING_REVIEW;
 		this.rejectionReason = null;
 		this.updatedAt = LocalDateTime.now();
+	}
+
+	private static void validateTypeFields(
+		ProductType productType, String content, String fileUrl, String contentFileUrl
+	) {
+		boolean hasContent = content != null && !content.isBlank();
+		boolean hasFileUrl = fileUrl != null && !fileUrl.isBlank();
+		boolean hasContentFileUrl = contentFileUrl != null && !contentFileUrl.isBlank();
+
+		boolean ok = switch (productType) {
+			case PROMPT -> hasContent && !hasFileUrl && !hasContentFileUrl;
+			case PPT, EXCEL -> hasFileUrl && !hasContent && !hasContentFileUrl;
+			case NOTION -> hasContentFileUrl && !hasContent && !hasFileUrl;
+		};
+		if (!ok) {
+			throw new ProductException(ProductErrorCode.PRODUCT_TYPE_FIELD_MISMATCH);
+		}
 	}
 }

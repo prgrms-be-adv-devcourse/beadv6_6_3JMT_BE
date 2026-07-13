@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
+import com.prompthub.product.exception.ProductException;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -152,5 +153,43 @@ class ProductTest {
 		product.restoreFromSuperseded();
 
 		assertThat(product.getStatus()).isEqualTo(ProductStatus.ON_SALE);
+	}
+
+	@Test
+	void create_prompt_withFileUrl_throws() {
+		assertThatThrownBy(() -> Product.create(
+			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
+			"제목", "설명", "model", AmountType.PAID, 1000,
+			null, List.of(), "content", "products/x.pptx", null, List.of()
+		)).isInstanceOf(ProductException.class);
+	}
+
+	@Test
+	void create_ppt_withoutFileUrl_throws() {
+		assertThatThrownBy(() -> Product.create(
+			UUID.randomUUID(), UUID.randomUUID(), ProductType.PPT,
+			"제목", "설명", "model", AmountType.PAID, 1000,
+			null, List.of(), null, null, null, List.of()
+		)).isInstanceOf(ProductException.class);
+	}
+
+	@Test
+	void create_notion_withContentFileUrl_succeeds() {
+		Product product = Product.create(
+			UUID.randomUUID(), UUID.randomUUID(), ProductType.NOTION,
+			"제목", "설명", "model", AmountType.PAID, 1000,
+			null, List.of(), null, null, "https://notion.so/t", List.of()
+		);
+		assertThat(product.getContentFileUrl()).isEqualTo("https://notion.so/t");
+	}
+
+	@Test
+	void create_ppt_withFileUrl_succeeds() {
+		Product product = Product.create(
+			UUID.randomUUID(), UUID.randomUUID(), ProductType.PPT,
+			"제목", "설명", "model", AmountType.PAID, 1000,
+			null, List.of(), null, "products/1/file/a.pptx", null, List.of()
+		);
+		assertThat(product.getFileUrl()).isEqualTo("products/1/file/a.pptx");
 	}
 }
