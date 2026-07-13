@@ -20,7 +20,7 @@ public class GrpcServerConfig {
     @Value("${grpc.server.port:9083}")
     private int grpcPort;
 
-    private final OrderPaymentGrpcService orderPaymentGrpcService;
+    private final OrderQueryGrpcServer orderQueryGrpcServer;
     private Server server;
 
     @EventListener(ContextRefreshedEvent.class)
@@ -29,17 +29,17 @@ public class GrpcServerConfig {
             return;
         }
         server = ServerBuilder.forPort(grpcPort)
-                .addService(orderPaymentGrpcService)
+                .addService(orderQueryGrpcServer)
                 .build()
                 .start();
-        log.info("gRPC server started on port {}", grpcPort);
+        log.info("gRPC 서버가 포트 {}에서 시작되었습니다.", grpcPort);
     }
 
     @PreDestroy
     public void stopGrpcServer() {
         if (server != null) {
             server.shutdown();
-            log.info("gRPC server stopped");
+            log.info("gRPC 서버가 종료되었습니다.");
         }
     }
 }

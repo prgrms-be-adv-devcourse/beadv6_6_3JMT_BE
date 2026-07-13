@@ -1,6 +1,7 @@
 package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.client.ProductClient;
+import com.prompthub.order.application.dto.OrderForPaymentResult;
 import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductContent;
@@ -122,6 +123,19 @@ public class OrderService implements OrderUseCase {
 	private void removeOrderedProducts(Cart cart, List<UUID> productIds) {
 		cart.removeProductsByProductIds(productIds);
 		cartRepository.save(cart);
+	}
+
+	@Transactional(readOnly = true)
+	public OrderForPaymentResult getOrderForPayment(UUID orderId) {
+		Order order = orderRepository.findByIdWithOrderProducts(orderId)
+			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
+
+		return new OrderForPaymentResult(
+			order.getId(),
+			order.getBuyerId(),
+			order.getTotalOrderAmount(),
+			order.getCreatedAt()
+		);
 	}
 
 	@Override

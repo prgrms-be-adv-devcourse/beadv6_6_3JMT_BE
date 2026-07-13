@@ -1,6 +1,7 @@
 package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.client.ProductClient;
+import com.prompthub.order.application.dto.OrderForPaymentResult;
 import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductContent;
@@ -96,6 +97,41 @@ class OrderServiceTest {
 
     @InjectMocks
     private OrderService orderService;
+
+    @Nested
+    @DisplayName("결제용 주문 조회")
+    class GetOrderForPayment {
+
+        @Test
+        @DisplayName("주문이 존재하면 결제에 필요한 주문 정보를 반환한다")
+        void getOrderForPayment_existingOrder_returnsResult() {
+            Order order = createPendingOrderWithProducts();
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            OrderForPaymentResult result = orderService.getOrderForPayment(order.getId());
+
+            assertThat(result.orderId()).isEqualTo(order.getId());
+            assertThat(result.buyerId()).isEqualTo(order.getBuyerId());
+            assertThat(result.totalAmount()).isEqualTo(order.getTotalOrderAmount());
+            assertThat(result.createdAt()).isEqualTo(order.getCreatedAt());
+        }
+
+        @Test
+        @DisplayName("주문이 존재하지 않으면 O001 예외가 발생한다")
+        void getOrderForPayment_missingOrder_throwsOrderNotFound() {
+            UUID orderId = UUID.randomUUID();
+            given(orderRepository.findByIdWithOrderProducts(orderId))
+                .willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> orderService.getOrderForPayment(orderId))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ORDER_NOT_FOUND)
+                );
+        }
+    }
 
 
     @Nested
