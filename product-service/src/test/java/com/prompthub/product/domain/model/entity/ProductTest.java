@@ -174,13 +174,13 @@ class ProductTest {
 	}
 
 	@Test
-	void create_notion_withContentFileUrl_succeeds() {
+	void create_notion_withExternalUrl_succeeds() {
 		Product product = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), ProductType.NOTION,
 			"제목", "설명", "model", AmountType.PAID, 1000,
 			null, List.of(), null, null, "https://notion.so/t", List.of()
 		);
-		assertThat(product.getContentFileUrl()).isEqualTo("https://notion.so/t");
+		assertThat(product.getExternalUrl()).isEqualTo("https://notion.so/t");
 	}
 
 	@Test

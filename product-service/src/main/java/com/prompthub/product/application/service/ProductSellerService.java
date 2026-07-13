@@ -70,7 +70,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 			imageKeys,
 			request.content(),
 			fileKey,
-			request.contentFileUrl(),
+			request.externalUrl(),
 			request.tags()
 		);
 
@@ -108,7 +108,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 			previousPrice = anchor.getAmount();
 			anchor.update(
 				productType, request.title(), request.desc(), request.model(), amountType, request.amount(),
-				newThumbnailKey, newImageKeys, request.content(), newFileKey, request.contentFileUrl(),
+				newThumbnailKey, newImageKeys, request.content(), newFileKey, request.externalUrl(),
 				request.tags(), request.changeReason(), isMajor
 			);
 			productRepository.save(anchor);
@@ -123,14 +123,14 @@ public class ProductSellerService implements ProductSellerUseCase {
 				}
 				Product next = onSale.nextVersion(
 					true, productType, request.title(), request.desc(), request.model(), amountType, request.amount(),
-					newThumbnailKey, newImageKeys, request.content(), newFileKey, request.contentFileUrl(),
+					newThumbnailKey, newImageKeys, request.content(), newFileKey, request.externalUrl(),
 					request.tags(), request.changeReason()
 				);
 				productRepository.save(next);
 			} else {
 				Product next = onSale.nextVersion(
 					false, productType, request.title(), request.desc(), request.model(), amountType, request.amount(),
-					newThumbnailKey, newImageKeys, request.content(), newFileKey, request.contentFileUrl(),
+					newThumbnailKey, newImageKeys, request.content(), newFileKey, request.externalUrl(),
 					request.tags(), request.changeReason()
 				);
 				onSale.supersede();

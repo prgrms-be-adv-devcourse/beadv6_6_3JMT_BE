@@ -126,8 +126,8 @@ class ProductSellerServiceTest {
 	class CreateProduct {
 
 		@Test
-		@DisplayName("NOTION 생성 시 content_file_url을 외부 링크 원문 그대로 저장한다")
-		void createProduct_notion_savesContentFileUrlRaw() {
+		@DisplayName("NOTION 생성 시 external_url을 외부 링크 원문 그대로 저장한다")
+		void createProduct_notion_savesExternalUrlRaw() {
 			given(sellerClient.getSellerInfo(SELLER_ID))
 				.willReturn(new com.prompthub.product.application.client.SellerInfo(
 					SELLER_ID, "판매자", null, "ACTIVE"));
@@ -142,7 +142,7 @@ class ProductSellerServiceTest {
 
 			ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
 			then(productRepository).should().save(captor.capture());
-			assertThat(captor.getValue().getContentFileUrl()).isEqualTo("https://notion.so/my-template");
+			assertThat(captor.getValue().getExternalUrl()).isEqualTo("https://notion.so/my-template");
 			assertThat(captor.getValue().getFileUrl()).isNull();
 			then(storageClient).shouldHaveNoInteractions();
 		}
@@ -166,7 +166,7 @@ class ProductSellerServiceTest {
 			then(productRepository).should().save(captor.capture());
 			assertThat(captor.getValue().getFileUrl()).startsWith("products/");
 			assertThat(captor.getValue().getFileUrl()).endsWith("/file/abc.pptx");
-			assertThat(captor.getValue().getContentFileUrl()).isNull();
+			assertThat(captor.getValue().getExternalUrl()).isNull();
 			then(storageClient).should().copyObject(
 				org.mockito.ArgumentMatchers.eq("products/temp/file/abc.pptx"),
 				org.mockito.ArgumentMatchers.anyString());
@@ -228,7 +228,7 @@ class ProductSellerServiceTest {
 		}
 
 		@Test
-		@DisplayName("판매자 상세는 fileUrl을 presigned로, contentFileUrl을 원문으로 반환한다")
+		@DisplayName("판매자 상세는 fileUrl을 presigned로, externalUrl을 원문으로 반환한다")
 		void getMyProduct_exposesTypeFields() {
 			Product onSale = product(PRODUCT_ID, null, ProductStatus.ON_SALE, (short) 1, (short) 0);
 			ReflectionTestUtils.setField(onSale, "fileUrl", "products/1/file/a.pptx");
@@ -241,7 +241,7 @@ class ProductSellerServiceTest {
 				productSellerService.getMyProduct(SELLER_ID, PRODUCT_ID);
 
 			assertThat(result.fileUrl()).isEqualTo("https://s3/presigned-file");
-			assertThat(result.contentFileUrl()).isNull();
+			assertThat(result.externalUrl()).isNull();
 		}
 	}
 

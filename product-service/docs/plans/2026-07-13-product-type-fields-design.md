@@ -17,7 +17,7 @@
 ## 2. 범위
 
 ### 이 spec(A)이 다루는 것
-- `product` 테이블에 `file_url`, `content_file_url` 컬럼 2개 추가
+- `product` 테이블에 `file_url`, `external_url` 컬럼 2개 추가
 - `Product` 엔티티 필드 및 팩토리(`create`/`update`/`nextVersion`) 시그니처 확장
 - 유형별 필드 정합성 **도메인 검증**(불일치 시 에러 거부)
 - 생성/수정 요청·응답 DTO 변경 및 유형별 필드 API 계약 문서화
@@ -30,7 +30,7 @@
   해결. ppt/excel 산출물 파일의 **실제 업로드 UX**는 B에서 완성된다. A에서는 `file_url`을
   기존 저장 흐름(키 추출·이동)으로 받아 저장하는 것까지만 다룬다.
 - **C (별도 spec)**: 구매자 산출물 전달. gRPC `GetProductContent` 응답을 유형별
-  산출물(content/file_url/content_file_url)로 일반화. **proto 변경 → order-service(소비자)
+  산출물(content/file_url/external_url)로 일반화. **proto 변경 → order-service(소비자)
   영향 → 사용자 승인 + order-service 조율 게이트 필요.** order proto 정렬은 사용자가 소유.
   A·B 완료 후 진행.
 - **FE 구현**: 유형별 입력 폼 분기는 FE repo(`beadv6_6_3JMT_FE`) 별도 트랙. 이 spec은
@@ -42,7 +42,7 @@
 
 ## 3. 유형별 필드 매트릭스
 
-| 유형 | `content` (기존 TEXT) | `file_url` (신규) | `content_file_url` (신규) |
+| 유형 | `content` (기존 TEXT) | `file_url` (신규) | `external_url` (신규) |
 |---|---|---|---|
 | PROMPT | 필수 | null | null |
 | PPT | null | 필수 | null |
@@ -58,7 +58,7 @@
 
 - `file_url` — TEXT, NULL. **우리가 호스팅하는 산출물 파일의 스토리지 키**를 저장
   (`thumbnail_url`과 동일하게 key 저장, 조회 시 presigned download URL 생성).
-- `content_file_url` — TEXT, NULL. **판매자 외부 노션 링크**를 원문 URL 그대로 저장
+- `external_url` — TEXT, NULL. **판매자 외부 노션 링크**를 원문 URL 그대로 저장
   (presign 처리 없음).
 
 product-service는 **JPA `ddl-auto`로 스키마를 생성**한다(로컬 `create-only`, 테스트
@@ -73,16 +73,16 @@ product-service는 **JPA `ddl-auto`로 스키마를 생성**한다(로컬 `creat
 
 ## 5. 도메인 모델 변경
 
-- `Product`에 `private String fileUrl;`, `private String contentFileUrl;` 필드 추가.
+- `Product`에 `private String fileUrl;`, `private String externalUrl;` 필드 추가.
 - 팩토리/변경 메서드 시그니처에 두 값을 `content` 옆에 추가:
-  - `create(..., String content, String fileUrl, String contentFileUrl, List<String> tags)`
-  - `update(..., String content, String fileUrl, String contentFileUrl, ...)`
-  - `nextVersion(..., String content, String fileUrl, String contentFileUrl, ...)`
+  - `create(..., String content, String fileUrl, String externalUrl, List<String> tags)`
+  - `update(..., String content, String fileUrl, String externalUrl, ...)`
+  - `nextVersion(..., String content, String fileUrl, String externalUrl, ...)`
 - 세 메서드 모두 값 대입 전에 유형 검증 메서드를 호출한다.
 
 ### 검증 메서드
 도메인에 유형별 정합성 검증을 둔다(예: `Product.validateTypeFields(ProductType type,
-String content, String fileUrl, String contentFileUrl)`):
+String content, String fileUrl, String externalUrl)`):
 
 - 유형에 맞는 **필수 필드가 blank/null**이면 → `ProductException(PRODUCT_TYPE_FIELD_MISMATCH)`
 - 유형에 맞지 않는 필드가 **채워져 있으면** → `ProductException(PRODUCT_TYPE_FIELD_MISMATCH)`
@@ -93,10 +93,10 @@ String content, String fileUrl, String contentFileUrl)`):
 
 | 유형 | 필수 | 반드시 null |
 |---|---|---|
-| PROMPT | content | file_url, content_file_url |
-| PPT | file_url | content, content_file_url |
-| EXCEL | file_url | content, content_file_url |
-| NOTION | content_file_url | content, file_url |
+| PROMPT | content | file_url, external_url |
+| PPT | file_url | content, external_url |
+| EXCEL | file_url | content, external_url |
+| NOTION | external_url | content, file_url |
 
 - 위반 시 400 응답, 에러 코드 `PRODUCT_TYPE_FIELD_MISMATCH`.
 
@@ -110,7 +110,7 @@ String content, String fileUrl, String contentFileUrl)`):
   `products/temp/file/{uuid}.{ext}` → `products/{productId}/file/{uuid}.{ext}`.
   경로 패턴은 기존과 동일하고 `moveToProductPath()`를 그대로 재사용한다. ppt/excel별로
   경로를 더 쪼개지 않는다(확장자 .pptx/.xlsx가 유형을 구분).
-- **NOTION**: `content_file_url`은 외부 링크이므로 **가공 없이 원문 저장**(extractKey/move 없음).
+- **NOTION**: `external_url`은 외부 링크이므로 **가공 없이 원문 저장**(extractKey/move 없음).
 - **PROMPT**: `content`만 저장(기존과 동일), 두 신규 필드는 null.
 
 > 참고: A에서는 `file_url` 소스 URL이 어디서 오는지에 무관하게 기존 저장 플럼빙을 재사용한다.
@@ -121,14 +121,14 @@ String content, String fileUrl, String contentFileUrl)`):
 
 ### 요청 DTO — `ProductCreateRequest`, `ProductUpdateRequest`
 - `content`의 `@NotBlank` **제거**(전 유형 필수 → PROMPT 전용). 유형별 필수는 도메인이 검증.
-- `String fileUrl`, `String contentFileUrl` 필드 추가(모두 nullable).
+- `String fileUrl`, `String externalUrl` 필드 추가(모두 nullable).
 
 ### 응답 DTO — `SellerProductDetailResponse` (판매자 상세만)
-- `fileUrl`, `contentFileUrl` 추가.
+- `fileUrl`, `externalUrl` 추가.
 - `fileUrl`은 `storageClient.generatePresignedDownloadUrl(key)`로 presign,
-  `contentFileUrl`은 원문 그대로 반환.
+  `externalUrl`은 원문 그대로 반환.
 - **공개 상세(`ProductDetailResponse`)에는 넣지 않는다.** 공개 상세는 구매 전 노출이라
-  유료 산출물(file_url/content_file_url)을 내보내면 안 된다. 구매자에게의 산출물 전달은
+  유료 산출물(file_url/external_url)을 내보내면 안 된다. 구매자에게의 산출물 전달은
   C(gRPC `GetProductContent`)에서 다룬다. 공개 상세는 기존 `createPreviewContent()` 미리보기 유지.
 
 ### FE 계약 문서화
@@ -144,7 +144,7 @@ String content, String fileUrl, String contentFileUrl)`):
 ## 10. 테스트 계획
 
 - **도메인**: 유형별 정합성 검증 — 각 유형 정상 케이스 + 필수 누락/불일치 필드 위반 예외.
-- **application 서비스**: PPT/EXCEL의 file_url 키 추출·이동 처리, NOTION의 content_file_url
+- **application 서비스**: PPT/EXCEL의 file_url 키 추출·이동 처리, NOTION의 external_url
   원문 저장, PROMPT의 두 필드 null. StorageClient는 목킹.
 - **controller**: 유형별 생성/수정 성공(공통 응답 포맷) + 필드 불일치 400.
 - Build 기준: `product-service` 기준 `.\gradlew.bat clean build --no-daemon`.
@@ -153,7 +153,7 @@ String content, String fileUrl, String contentFileUrl)`):
 
 - `docs/api-spec/product.md` — 유형별 요청/응답 필드 계약
 - `docs/error-codes.md` — `PRODUCT_TYPE_FIELD_MISMATCH`
-- `docs/erd/schema.md` — Product 섹션에 `file_url`, `content_file_url` (배포 DB ALTER는 사용자 적용)
+- `docs/erd/schema.md` — Product 섹션에 `file_url`, `external_url` (배포 DB ALTER는 사용자 적용)
 - `docs/domain-glossary/product.md` — 유형별 필드 용어(필요 시)
 
 ## 12. 작업 순서 (product-service CLAUDE.md 규칙)

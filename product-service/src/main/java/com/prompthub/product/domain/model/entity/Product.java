@@ -79,8 +79,8 @@ public class Product {
 	@Column(name = "file_url", columnDefinition = "TEXT")
 	private String fileUrl;
 
-	@Column(name = "content_file_url", columnDefinition = "TEXT")
-	private String contentFileUrl;
+	@Column(name = "external_url", columnDefinition = "TEXT")
+	private String externalUrl;
 
 	@Column(name = "badge", length = 50)
 	private String badge;
@@ -127,10 +127,10 @@ public class Product {
 		List<String> imageUrls,
 		String content,
 		String fileUrl,
-		String contentFileUrl,
+		String externalUrl,
 		List<String> tags
 	) {
-		validateTypeFields(productType, content, fileUrl, contentFileUrl);
+		validateTypeFields(productType, content, fileUrl, externalUrl);
 		Product product = new Product();
 		product.id = id;
 		product.sellerId = sellerId;
@@ -144,7 +144,7 @@ public class Product {
 		product.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
 		product.content = content;
 		product.fileUrl = fileUrl;
-		product.contentFileUrl = contentFileUrl;
+		product.externalUrl = externalUrl;
 		product.tags = tags != null ? tags : new ArrayList<>();
 		product.majorVersion = 1;
 		product.patchVersion = 0;
@@ -168,12 +168,12 @@ public class Product {
 		List<String> imageUrls,
 		String content,
 		String fileUrl,
-		String contentFileUrl,
+		String externalUrl,
 		List<String> tags,
 		String changeReason,
 		boolean isMajor
 	) {
-		validateTypeFields(productType, content, fileUrl, contentFileUrl);
+		validateTypeFields(productType, content, fileUrl, externalUrl);
 		this.productType = productType;
 		this.name = name;
 		this.description = description;
@@ -184,7 +184,7 @@ public class Product {
 		this.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
 		this.content = content;
 		this.fileUrl = fileUrl;
-		this.contentFileUrl = contentFileUrl;
+		this.externalUrl = externalUrl;
 		this.tags = tags != null ? tags : new ArrayList<>();
 		this.changeReason = changeReason;
 		if (isMajor) {
@@ -249,11 +249,11 @@ public class Product {
 		List<String> imageUrls,
 		String content,
 		String fileUrl,
-		String contentFileUrl,
+		String externalUrl,
 		List<String> tags,
 		String changeReason
 	) {
-		validateTypeFields(productType, content, fileUrl, contentFileUrl);
+		validateTypeFields(productType, content, fileUrl, externalUrl);
 		Product next = new Product();
 		next.id = UUID.randomUUID();
 		next.parentId = this.familyRootId();
@@ -268,7 +268,7 @@ public class Product {
 		next.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
 		next.content = content;
 		next.fileUrl = fileUrl;
-		next.contentFileUrl = contentFileUrl;
+		next.externalUrl = externalUrl;
 		next.tags = tags != null ? tags : new ArrayList<>();
 		next.changeReason = changeReason;
 		next.badge = null; // 새 버전 row는 뱃지를 물려받지 않고 초기화한다(예: "신규" 뱃지가 계속 남는 걸 방지)
@@ -341,16 +341,16 @@ public class Product {
 	}
 
 	private static void validateTypeFields(
-		ProductType productType, String content, String fileUrl, String contentFileUrl
+		ProductType productType, String content, String fileUrl, String externalUrl
 	) {
 		boolean hasContent = content != null && !content.isBlank();
 		boolean hasFileUrl = fileUrl != null && !fileUrl.isBlank();
-		boolean hasContentFileUrl = contentFileUrl != null && !contentFileUrl.isBlank();
+		boolean hasExternalUrl = externalUrl != null && !externalUrl.isBlank();
 
 		boolean ok = switch (productType) {
-			case PROMPT -> hasContent && !hasFileUrl && !hasContentFileUrl;
-			case PPT, EXCEL -> hasFileUrl && !hasContent && !hasContentFileUrl;
-			case NOTION -> hasContentFileUrl && !hasContent && !hasFileUrl;
+			case PROMPT -> hasContent && !hasFileUrl && !hasExternalUrl;
+			case PPT, EXCEL -> hasFileUrl && !hasContent && !hasExternalUrl;
+			case NOTION -> hasExternalUrl && !hasContent && !hasFileUrl;
 		};
 		if (!ok) {
 			throw new ProductException(ProductErrorCode.PRODUCT_TYPE_FIELD_MISMATCH);

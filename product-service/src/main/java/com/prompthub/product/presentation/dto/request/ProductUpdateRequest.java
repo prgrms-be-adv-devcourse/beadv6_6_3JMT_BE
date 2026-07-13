@@ -13,7 +13,7 @@ public record ProductUpdateRequest(
 	@NotNull @Min(0) Integer amount,
 	String content,
 	String fileUrl,
-	String contentFileUrl,
+	String externalUrl,
 	String thumbnailUrl,
 	List<String> imageUrls,
 	List<String> tags,
