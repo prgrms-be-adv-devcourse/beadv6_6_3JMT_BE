@@ -7,6 +7,6 @@ import java.util.UUID;
 
 public interface RefreshTokenRepository {
     RefreshToken save(RefreshToken refreshToken);
-    Optional<RefreshToken> findByToken(String token);
+    Optional<RefreshToken> findByUserId(UUID userId);
     void deleteByUserId(UUID userId);
 }
