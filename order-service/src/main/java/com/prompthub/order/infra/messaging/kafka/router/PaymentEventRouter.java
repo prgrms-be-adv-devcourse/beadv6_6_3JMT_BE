@@ -6,11 +6,15 @@ import com.prompthub.order.application.service.event.payment.PaymentApprovedProc
 import com.prompthub.order.application.service.event.payment.PaymentCanceledProcessor;
 import com.prompthub.order.application.service.event.payment.PaymentEventProcessor;
 import com.prompthub.order.application.service.event.payment.PaymentFailedProcessor;
+import com.prompthub.order.application.service.event.payment.PaymentRefundCompletedProcessor;
+import com.prompthub.order.application.service.event.payment.PaymentRefundFailedProcessor;
 import com.prompthub.order.application.service.event.payment.PaymentRefundedProcessor;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentCanceledPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentEventType;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundCompletedPayload;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundFailedPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
 import com.prompthub.order.infra.messaging.kafka.support.EventPayloadMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +35,9 @@ public class PaymentEventRouter {
 		PaymentApprovedProcessor approvedProcessor,
 		PaymentRefundedProcessor refundedProcessor,
 		PaymentFailedProcessor failedProcessor,
-		PaymentCanceledProcessor canceledProcessor
+		PaymentCanceledProcessor canceledProcessor,
+		PaymentRefundCompletedProcessor refundCompletedProcessor,
+		PaymentRefundFailedProcessor refundFailedProcessor
 	) {
 		this.eventPayloadMapper = eventPayloadMapper;
 		this.routes = Map.of(
@@ -42,7 +48,11 @@ public class PaymentEventRouter {
 			PaymentEventType.PAYMENT_FAILED,
 			new PaymentRoute<>(PaymentFailedPayload.class, failedProcessor),
 			PaymentEventType.PAYMENT_CANCELED,
-			new PaymentRoute<>(PaymentCanceledPayload.class, canceledProcessor)
+			new PaymentRoute<>(PaymentCanceledPayload.class, canceledProcessor),
+			PaymentEventType.PAYMENT_REFUND_COMPLETED,
+			new PaymentRoute<>(PaymentRefundCompletedPayload.class, refundCompletedProcessor),
+			PaymentEventType.PAYMENT_REFUND_FAILED,
+			new PaymentRoute<>(PaymentRefundFailedPayload.class, refundFailedProcessor)
 		);
 	}
 
