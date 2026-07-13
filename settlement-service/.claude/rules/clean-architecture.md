@@ -64,8 +64,7 @@ com.prompthub.settlement
     │   ├── messaging               ← 메시징(Kafka) 어댑터. order-service 패키지 컨벤션과 동일하게 맞춘다
     │   │   └── kafka
     │   │       ├── config          ← Kafka Producer/Consumer 설정(KafkaConfig)
-    │   │       ├── consumer        ← 수신 어댑터(@KafkaListener → usecase 호출). 발행처별 하위 패키지(consumer/order 등)
-    │   │       │   └── order       ← order 이벤트 컨슈머(OrderEventConsumer·OrderEventType)
+    │   │       ├── consumer        ← 수신 어댑터(@KafkaListener → usecase 호출). 필요 시 발행처별 하위 패키지
     │   │       └── producer        ← 발행 어댑터(OutboxRelay 등, 도입 시). 메시지 envelope·페이로드 DTO 는 application/event
     │   └── client                  ← 타 서비스 동기 호출(gRPC) 어댑터. 호출 대상 서비스별 하위 패키지로 분리
     │       ├── product             ← Product 서비스 gRPC 호출

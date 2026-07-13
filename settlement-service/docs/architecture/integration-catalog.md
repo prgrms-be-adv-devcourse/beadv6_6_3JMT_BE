@@ -288,7 +288,7 @@ message SettleableLine {
 | 항목 | 현황 |
 |------|------|
 | order 원천 수급 | **gRPC pull 로 전환 — 정산측 구현 완료(#260).** `OrderSettlementQueryClient`·`OrderSettlementQueryPort`·`LoadSettlementSourceTasklet`(배치 첫 스텝) 커밋됨. Order 서버(`GetSettleableLines`)는 미구현 — Order 에 `paidAt` 추가 + 서버 신설 요청 필요(계약은 #260 이슈 코멘트) |
-| 기존 `OrderEventConsumer`(`order-events`) | **제거 예정, 현재는 `settlement.kafka.listener.order.enabled: false` 로 비활성 유지.** order gRPC 서버 가동 전까지 유일하게 계약이 있는 폴백이라 코드·DTO 를 남겨두고, 서버 가동 후 정리 |
+| 기존 `OrderEventConsumer`(`order-events`) | **#317에서 제거 완료.** 컨슈머·수신 DTO·usecase·consumer 설정이 삭제됐으며, Order gRPC 서버 구현 전에는 정산 원천 수급 경로가 없음 |
 | 판매자 이름(다건/단건) | 동기 조회 — **gRPC** `SellerQueryService.GetSellers`. **user-service `seller` 패키지에 서버 live**, 그러나 이를 호출하는 정산측 클라이언트는 아직 없음(요청 대기). 계좌는 추후 |
 | 등록 상품 수 / 판매건수 | 동기 조회 — **gRPC** `ProductQueryService.GetSellerStats`. **셀러 정산(user-service `sellersettlement`)의 `ProductStatsGrpcClient` 구현.** product 서버는 아직 `CountBySeller` — 서버 리네임(조율됨)·`sales_count`(#262) 확장 대기 |
 | gRPC 의존성 | 추가됨 (`grpc-stub`·`grpc-protobuf`·`protobuf` + `protobuf-gradle-plugin`), proto 는 루트 `grpc/<소유서버>/` 공유 |

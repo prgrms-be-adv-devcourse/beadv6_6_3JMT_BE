@@ -17,18 +17,8 @@ public class SettlementSourceRepositoryAdapter implements SettlementSourceReposi
     private final SettlementSourceLineJpaRepository jpaRepository;
 
     @Override
-    public void save(SettlementSourceLine line) {
-        jpaRepository.save(line);
-    }
-
-    @Override
     public void saveAll(List<SettlementSourceLine> lines) {
         jpaRepository.saveAll(lines);
-    }
-
-    @Override
-    public boolean existsByEventId(UUID eventId) {
-        return jpaRepository.existsByEventId(eventId);
     }
 
     @Override
