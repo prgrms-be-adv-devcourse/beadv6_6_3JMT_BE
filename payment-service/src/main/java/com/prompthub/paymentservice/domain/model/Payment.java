@@ -159,28 +159,13 @@ public class Payment {
         this.failedAt = failedAt;
     }
 
-    public void startRefunding() {
-        if (this.status != PaymentStatus.PAID) {
-            throw new IllegalStateException("PAID 상태에서만 REFUNDING으로 전환할 수 있습니다.");
+    public void applyRefund(OffsetDateTime refundedAt, boolean isFullyRefunded) {
+        if (this.status != PaymentStatus.PAID && this.status != PaymentStatus.PARTIAL_REFUNDED) {
+            throw new IllegalStateException("PAID/PARTIAL_REFUNDED 상태에서만 환불을 적용할 수 있습니다.");
         }
-        log.debug("Payment 상태 전이 — id={}, {} → REFUNDING", id, status);
-        this.status = PaymentStatus.REFUNDING;
-    }
-
-    public void completeRefund(OffsetDateTime refundedAt) {
-        if (this.status != PaymentStatus.REFUNDING) {
-            throw new IllegalStateException("REFUNDING 상태에서만 REFUNDED로 전환할 수 있습니다.");
-        }
-        log.debug("Payment 상태 전이 — id={}, {} → REFUNDED", id, status);
-        this.status = PaymentStatus.REFUNDED;
+        PaymentStatus previous = this.status;
+        this.status = isFullyRefunded ? PaymentStatus.ALL_REFUNDED : PaymentStatus.PARTIAL_REFUNDED;
         this.refundedAt = refundedAt;
-    }
-
-    public void restoreToRefundFailed() {
-        if (this.status != PaymentStatus.REFUNDING) {
-            throw new IllegalStateException("REFUNDING 상태에서만 PAID로 복원할 수 있습니다.");
-        }
-        log.debug("Payment 상태 전이 — id={}, {} → PAID (환불 실패 복원)", id, status);
-        this.status = PaymentStatus.PAID;
+        log.debug("Payment 상태 전이 — id={}, {} → {}", id, previous, this.status);
     }
 }
