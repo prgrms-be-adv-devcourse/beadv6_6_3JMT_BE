@@ -9,13 +9,16 @@ import com.prompthub.user.auth.domain.exception.OAuthVerificationFailedException
 import com.prompthub.user.auth.domain.exception.OrphanedAuthRecordException;
 import com.prompthub.user.auth.domain.exception.UnsupportedOAuthProviderException;
 import com.prompthub.user.auth.domain.model.Auth;
+import com.prompthub.user.auth.domain.model.AuthzSnapshot;
 import com.prompthub.user.auth.domain.model.OAuthProvider;
 import com.prompthub.user.auth.domain.model.RefreshToken;
 import com.prompthub.user.auth.domain.repository.AuthRepository;
+import com.prompthub.user.auth.domain.repository.AuthorizationCacheRepository;
 import com.prompthub.user.auth.domain.repository.RefreshTokenRepository;
 import com.prompthub.user.auth.infrastructure.jwt.JwtTokenProvider;
 import com.prompthub.user.user.domain.model.User;
 import com.prompthub.user.user.domain.model.UserRole;
+import com.prompthub.user.user.domain.model.UserStatus;
 import com.prompthub.user.user.domain.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,6 +55,9 @@ class OAuthApplicationServiceTest {
 
     @Mock
     private KakaoUserInfoClient kakaoUserInfoClient;
+
+    @Mock
+    private AuthorizationCacheRepository authorizationCacheRepository;
 
     @InjectMocks
     private AuthApplicationService authApplicationService;
@@ -154,6 +160,29 @@ class OAuthApplicationServiceTest {
 
         assertThat(result.tokenType()).isEqualTo("Bearer");
         assertThat(result.refreshToken()).isEqualTo("refresh-token");
+    }
+
+    @Test
+    void login_성공_시_authorize_캐시_적재() {
+        User existingUser = User.create("테스트유저", "test@kakao.com", null, UserRole.BUYER, true);
+        Auth existingAuth = Auth.create(existingUser.getUserId(), OAuthProvider.KAKAO, "kakao_123456");
+
+        given(kakaoUserInfoClient.fetchUserInfo(ACCESS_TOKEN)).willReturn(USER_INFO);
+        given(authRepository.findByProviderAndOauthId(OAuthProvider.KAKAO, "kakao_123456"))
+                .willReturn(Optional.of(existingAuth));
+        given(userRepository.findById(existingUser.getUserId()))
+                .willReturn(Optional.of(existingUser));
+        given(jwtTokenProvider.generateAccessToken(any(UUID.class), eq(0L)))
+                .willReturn(new JwtTokenProvider.TokenResult("access-token", ACCESS_EXPIRES_AT));
+        given(jwtTokenProvider.generateRefreshToken(any()))
+                .willReturn(new JwtTokenProvider.TokenResult("refresh-token", REFRESH_EXPIRES_AT));
+        given(refreshTokenRepository.save(any(RefreshToken.class))).willAnswer(inv -> inv.getArgument(0));
+
+        authApplicationService.oAuthLogin(COMMAND);
+
+        then(authorizationCacheRepository).should().save(
+                existingUser.getUserId(),
+                new AuthzSnapshot(UserStatus.ACTIVE, UserRole.BUYER));
     }
 
     @Test
