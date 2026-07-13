@@ -892,6 +892,29 @@
 
 ## Kafka 이벤트
 
+## 주문 상품 부분 환불 요청
+
+`POST /api/v1/orders/{orderId}/refunds`
+
+- 인증: Gateway가 전달한 `X-User-Id` 필요
+- 성공: `202 Accepted`
+- 조건: 요청한 모든 주문 상품이 해당 주문 소속이며 `PAID`, 미다운로드, 결제 금액이 0원보다 커야 한다.
+- `reason`은 선택값이며 앞뒤 공백 제거 후 최대 500자이다.
+- 접수 성공 시 상품 상태는 `REFUND_REQUESTED`, 요청 상태는 `REQUESTED`가 되며 `REFUND_REQUESTED` outbox 이벤트를 생성한다.
+
+```json
+{
+  "orderProductIds": ["UUID", "UUID"],
+  "reason": "고객 변심"
+}
+```
+
+응답의 `data`는 `refundId`, `orderId`, `orderProductIds`, `totalRefundAmount`, `status`, `requestedAt`을 포함한다.
+
+오류 코드는 `O001`, `O012`, `O016`, `O018`, `O019`, `A004`를 사용한다.
+
+---
+
 ### 공통 사항
 
 - Order Service Kafka consumer group은 `order-service`이다.
@@ -948,7 +971,7 @@
 - Consumer group: `order-service`
 - 처리 조건: 주문이 `PAID` 상태여야 한다.
 - 멱등 처리: 주문이 이미 `REFUNDED`이면 중복 이벤트로 보고 처리하지 않는다.
-- 현재 기준은 전체 환불이며 부분 환불은 별도 확장 대상이다.
+- 기존 `payment.refunded` 처리는 전체 환불 호환 경로로 유지한다. 다건 환불 결과는 `PAYMENT_REFUND_COMPLETED` 또는 `PAYMENT_REFUND_FAILED` 이벤트로 처리한다.
 - 후속 이벤트: `ORDER_REFUND` outbox 이벤트를 생성한다.
 
 ```json

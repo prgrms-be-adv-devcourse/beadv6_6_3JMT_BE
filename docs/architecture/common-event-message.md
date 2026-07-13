@@ -209,9 +209,8 @@ public enum PaymentEventType implements EventType {
 Producer는 도메인 enum을 사용해 이벤트 타입을 생성하되, `EventMessage`에는 문자열 값을 넣는다.
 
 ```java
-EventMessage<OrderPaidPayload> message = new EventMessage<>(
-        UUID.randomUUID(),
-        OrderEventType.ORDER_PAID.code(),
+EventMessage<OrderPaidPayload> message = EventMessage.create(
+        OrderEventType.ORDER_PAID,
         LocalDateTime.now(),
         "ORDER",
         orderId,
@@ -489,6 +488,15 @@ Integer eventVersion
 ---
 
 ## 17. 테스트 기준
+
+### 상품 단위 환불 이벤트 계약
+
+- Order → Payment: `REFUND_REQUESTED`
+- Payment → Order 성공: `PAYMENT_REFUND_COMPLETED`
+- Payment → Order 실패: `PAYMENT_REFUND_FAILED`
+- Order → 후속 소비자: `ORDER_REFUNDED`
+- 모든 소비 이벤트는 `eventId + consumerGroup` 기준으로 멱등 처리한다.
+- `ORDER_REFUNDED.payload.products`에는 한 요청에서 완료된 모든 주문 상품을 포함한다.
 
 ### EventMessage 테스트
 

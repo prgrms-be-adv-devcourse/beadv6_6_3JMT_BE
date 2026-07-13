@@ -85,6 +85,13 @@
 | 이름 | DTO 필드 | 반환 타입 | 설명 |
 |------|----------|-----------|------|
 | 콘텐츠 열람 가능 여부 | `isContentAccessible` | Boolean | 주문 상품 상태가 `PAID`이면 true |
-| 환불 가능 여부 | `isRefundable` | Boolean | 주문 상품 상태가 `PAID`이고 `downloaded`가 false이면 true |
+| 환불 가능 여부 | `isRefundable` | Boolean | 주문 상품 상태가 `PAID`, `downloaded=false`, 상품 금액이 0원보다 크면 true |
 | 다운로드된 상품 포함 여부 | `hasDownloadedProduct` | Boolean | 주문 내 다운로드 확정된 상품이 하나 이상 있으면 true |
-| 주문 목록 대표 결제 상태 | `paymentStatus` | Enum | 주문 상태를 `PaymentStatus.from(orderStatus)`로 변환한 값 |
+| 주문 목록 대표 결제 상태 | `paymentStatus` | `OrderStatus` | 주문 상태를 그대로 반환한 값 |
+
+## 상품 단위 환불 상태
+
+- 주문: 일부 상품만 환불 완료되면 `PARTIALLY_REFUNDED`, 모든 상품이 환불 완료되면 `REFUNDED`
+- 주문 상품: `REFUND_REQUESTED`, `REFUNDED`, `REFUND_FAILED`, `REFUND_TIMEOUT`
+- 환불 요청: `REQUESTED`, `COMPLETED`, `FAILED`, `TIMEOUT`
+- `order_refund`는 요청 전체 상태와 공통 사유·총액·재조정 일정을, `order_refund_product`는 대상 주문 상품과 금액 스냅샷을 보관한다.

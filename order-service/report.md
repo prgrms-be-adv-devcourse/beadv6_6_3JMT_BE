@@ -95,7 +95,7 @@
   - 주문 생성 멱등키 및 유니크 제약 조건 없음
   - 동시 요청 시 중복 장바구니 생성 또는 중복 PENDING 주문 다량 생성 위험 잔존
 * **개선 방안**:
-  1. `cart.buyer_id` 및 `cart_product(cart_id, product_id)` 테이블에 유니크 제약을 설정하는 마이그레이션(Flyway/Liquibase)을 추가합니다.
+  1. DB 스키마에 `cart.buyer_id` 및 `cart_product(cart_id, product_id)` 유니크 제약을 설정합니다.
   2. 주문 생성 시 클라이언트가 발행한 멱등키를 활용하여 동일 요청 시 1회만 생성되도록 처리합니다.
 
 ### 3.3 [P2] 트랜잭션 경계 문제 — 원격 호출이 트랜잭션 내부

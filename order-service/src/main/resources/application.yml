@@ -95,18 +95,21 @@ prompthub:
       url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
   grpc:
     product:
-      host: ${PRODUCT_GRPC_HOST:localhost}
-      port: ${PRODUCT_GRPC_PORT:9082}
       deadline-ms: ${PRODUCT_GRPC_DEADLINE_MS:1000}
     seller:
-      host: ${SELLER_GRPC_HOST:localhost}
-      port: ${SELLER_GRPC_PORT:9081}
       deadline-ms: ${SELLER_GRPC_DEADLINE_MS:2000}
+    payment-refund:
+      deadline-ms: ${PAYMENT_REFUND_GRPC_DEADLINE_MS:2000}
   outbox-relay:
     enabled: true
     fixed-delay-ms: 5000
     batch-size: 100
     max-retry-count: 3
+  refund-reconciliation:
+    enabled: ${REFUND_RECONCILIATION_ENABLED:false}
+    fixed-delay-ms: ${REFUND_RECONCILIATION_FIXED_DELAY_MS:5000}
+    batch-size: ${REFUND_RECONCILIATION_BATCH_SIZE:100}
+    lease-ms: ${REFUND_RECONCILIATION_LEASE_MS:30000}
   order:
     enabled: true
     payment-timeout-minutes: 20

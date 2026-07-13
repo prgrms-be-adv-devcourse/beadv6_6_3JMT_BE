@@ -68,6 +68,24 @@ sequenceDiagram
 
 ### 환불
 
+다건 상품 환불은 Order Service가 `order_refund`와 `order_refund_product`를 저장하고 outbox로 Payment Service에 전달한다. 65초 동안 결과 이벤트를 기다린 뒤 미확정이면 gRPC로 조회하고, 2분·5분·10분 간격 재조회 후에도 미확정이면 `TIMEOUT`과 운영 확인으로 전환한다.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant ORD as Order
+    participant K as Kafka
+    participant PAY as Payment
+
+    C->>ORD: POST 다건 주문상품 환불
+    ORD->>ORD: 환불 헤더·상세 저장, 모든 상품 REFUND_REQUESTED
+    ORD->>K: REFUND_REQUESTED
+    K->>PAY: 환불 처리 요청
+    PAY->>K: PAYMENT_REFUND_COMPLETED 또는 FAILED
+    K->>ORD: 결과 반영
+    ORD->>K: ORDER_REFUNDED
+```
+
 ```mermaid
 sequenceDiagram
     participant PAY as Payment
@@ -121,6 +139,6 @@ sequenceDiagram
 
 | 항목 | 내용 | 영향 |
 |---|---|---|
-| **`ORDER_REFUND` vs `ORDER_REFUNDED`** | order는 eventType `ORDER_REFUND`를 발행(`OutboxEventAppender.java:28`)하는데 settlement enum은 `ORDER_REFUNDED`만 인식(`OrderEventType.java:8`) → `UNKNOWN`으로 떨어져 **환불 정산이 기록되지 않는다** | 높음 — `docs/qa/order-payment-event-idempotency-check.md`에서도 지적됨 |
+| **전체/상품 환불 이벤트 병행** | 기존 전체 환불은 `ORDER_REFUND`, 신규 상품 단위 환불은 `ORDER_REFUNDED`를 발행한다. 소비자는 전환 기간 동안 두 계약을 구분해야 한다. | 중간 — 후속 서비스별 `ORDER_REFUNDED` 지원 필요 |
 | settlement 리스너 기본 OFF | `settlement.kafka.listener.order.enabled` 기본값 `false` | 배포 설정에서 활성화 필요 |
 | payment-service `.claude/docs/events.md`와의 차이 | 서비스 로컬 계약 문서와 이 문서가 다르면 **코드를 우선**하고 두 문서를 함께 갱신할 것 | - |

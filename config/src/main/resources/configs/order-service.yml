@@ -35,6 +35,15 @@ spring:
           product-service:
             connect-timeout: 2000
             read-timeout: 3000
+  grpc:
+    client:
+      channel:
+        product:
+          target: 'static://${PRODUCT_GRPC_HOST:product-service}:${PRODUCT_GRPC_SERVER_PORT}'
+        seller:
+          target: 'static://${SELLER_GRPC_HOST:user-service}:${USER_GRPC_SERVER_PORT}'
+        payment-refund:
+          target: 'static://${PAYMENT_REFUND_GRPC_HOST:payment-service}:${PAYMENT_REFUND_GRPC_PORT:9084}'
 
 grpc:
   server:
@@ -46,12 +55,10 @@ prompthub:
       url: http://product-service:8082
   grpc:
     product:
-      host: product-service
-      port: ${PRODUCT_GRPC_SERVER_PORT}
       deadline-ms: 1000
     seller:
-      host: user-service
-      port: ${USER_GRPC_SERVER_PORT}
+      deadline-ms: 2000
+    payment-refund:
       deadline-ms: 2000
   outbox-relay:
     enabled: true

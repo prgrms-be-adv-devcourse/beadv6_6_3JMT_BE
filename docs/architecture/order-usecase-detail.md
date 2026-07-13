@@ -302,7 +302,7 @@ sequenceDiagram
     Order->>Order: 페이지 조건 검증
     Order->>DB: 구매자 결제 내역 조회
     DB-->>Order: 결제 projection 페이지
-    Order->>Order: OrderStatus를 PaymentStatus로 변환
+    Order->>Order: projection의 OrderStatus를 응답에 매핑
     Order-->>Buyer: PageResponse<OrderPaymentListResponse>
 ```
 
