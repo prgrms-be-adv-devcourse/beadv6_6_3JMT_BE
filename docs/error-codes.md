@@ -38,6 +38,7 @@
 | `SELLER_NOT_ACTIVE` | P005 | 승인된 판매자만 상품을 등록할 수 있습니다. | 403 |
 | `PRODUCT_INVALID_STATUS` | P006 | 현재 상태에서 처리할 수 없는 상품입니다. | 409 |
 | `PRODUCT_TYPE_FIELD_MISMATCH` | P007 | 상품 유형에 맞지 않는 필드 구성입니다. | 400 |
+| `INVALID_UPLOAD_FILE_TYPE` | P008 | 업로드할 수 없는 파일 형식입니다. | 400 |
 
 ---
 

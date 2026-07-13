@@ -196,6 +196,60 @@
 
 ## 상품 (판매자)
 
+### POST /sellers/me/products/uploads — 업로드 URL 발급 (presigned PUT)
+
+- 인증: 필요
+- 필요 역할: SELLER
+- 이미지·산출물 파일 업로드는 백엔드를 경유하지 않는다. 백엔드는 presigned PUT URL만 발급하고,
+  프론트가 그 URL로 S3에 파일을 직접 PUT한 뒤, 반환된 `fileUrl`을 상품 생성/수정 요청의
+  `thumbnailUrl` / `imageUrls` / `fileUrl`에 넣어 보낸다.
+
+#### Request
+
+**Headers**
+
+| 헤더 | 설명 |
+|------|------|
+| X-User-Id | 판매자 ID (API Gateway 주입) |
+| X-User-Role | 사용자 역할 (API Gateway 주입) |
+
+**Body**
+
+```json
+{ "purpose": "file", "fileName": "sample.pptx", "productType": "PPT" }
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| purpose | string | Y | `thumbnail` \| `image` \| `file` |
+| fileName | string | Y | 원본 파일명(확장자 추출용) |
+| productType | string | 조건부 | `purpose=file`일 때 필수(`PPT` \| `EXCEL`) |
+
+- 확장자 검증(엄격): PPT→`pptx`/`ppt`, EXCEL→`xlsx`/`xls`, 이미지→`jpg`/`jpeg`/`png`/`gif`/`webp`.
+  맞지 않으면 400 `P008`. content-type은 발급 시 서명에 포함된다.
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "uploadUrl": "https://<presigned-put-url>",
+    "fileUrl": "https://<bucket>.s3.<region>.amazonaws.com/products/temp/file/<uuid>.pptx?..."
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| uploadUrl | string | 프론트가 파일을 직접 PUT할 대상(만료 있음) |
+| fileUrl | string | 업로드 후 상품 생성/수정 요청에 넣을 값(임시 경로). 생성/수정 시 상품 경로로 이동됨 |
+
+---
+
 ### POST /sellers/me/products — 상품 등록
 
 - UC: UC-PRODUCT-01
