@@ -5,7 +5,6 @@ import com.prompthub.order.application.dto.OrderForPaymentResult;
 import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductContent;
-import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
@@ -668,7 +667,7 @@ class OrderQueryServiceTest {
             OrderPaymentListResponse payment = response.getContent().getFirst();
             assertThat(payment.orderId()).isEqualTo(ORDER_ID);
             assertThat(payment.paymentId()).isEqualTo(PAYMENT_ID);
-            assertThat(payment.paymentStatus()).isEqualTo(PaymentStatus.PAID);
+            assertThat(payment.paymentStatus()).isEqualTo(OrderStatus.PAID);
             assertThat(payment.isRefundable()).isTrue();
 
             assertThat(payment.productType()).isEqualTo(PRODUCT_TYPE_PROMPT);

@@ -3,7 +3,6 @@ package com.prompthub.order.presentation;
 import com.prompthub.order.application.usecase.ConfirmDownloadUseCase;
 import com.prompthub.order.application.usecase.CreateOrderUseCase;
 import com.prompthub.order.application.usecase.OrderQueryUseCase;
-import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -798,7 +797,7 @@ class OrderControllerTest {
 				OrderPaymentListResponse payment = new OrderPaymentListResponse(
 					ORDER_ID,
 					PAYMENT_ID,
-					PaymentStatus.PAID,
+					OrderStatus.PAID,
 					true,
 					PRODUCT_TYPE_PROMPT,
 					PRODUCT_TITLE_1,

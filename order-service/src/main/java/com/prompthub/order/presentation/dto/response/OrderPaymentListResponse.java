@@ -1,6 +1,6 @@
 package com.prompthub.order.presentation.dto.response;
 
-import com.prompthub.order.domain.enums.PaymentStatus;
+import com.prompthub.order.domain.enums.OrderStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
@@ -12,8 +12,8 @@ public record OrderPaymentListResponse(
 	UUID orderId,
 	@Schema(description = "결제 ID", example = "3f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a9999")
 	UUID paymentId,
-	@Schema(description = "결제 상태. PENDING, PAID, FAILED, CANCELED, REFUNDED", example = "PAID")
-	PaymentStatus paymentStatus,
+	@Schema(description = "주문 기준 결제 상태. PENDING, PAID, FAILED, CANCELED, PARTIALLY_REFUNDED, REFUNDED", example = "PAID")
+	OrderStatus paymentStatus,
 	@Schema(description = "환불 가능 여부", example = "true")
 	boolean isRefundable,
 	@Schema(description = "상품 유형", example = "PROMPT")
