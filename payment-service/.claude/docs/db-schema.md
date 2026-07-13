@@ -74,7 +74,7 @@ payment-service가 소유하는 테이블 요약. 스키마는 **JPA 엔티티(`
 | `order_id` | UUID | ✅ | — | 주문 ID. **UNIQUE** |
 | `buyer_id` | UUID | ✅ | — | 주문자 ID (결제 본인 검증 기준) |
 | `total_amount` | INT | ✅ | — | 결제할 총액 |
-| `source` | VARCHAR(10) | ✅ | — | 확보 경로: `EVENT` / `GRPC` |
+| `source` | VARCHAR(10) | ✅ | — | 확보 경로: `EVENT` / `QUERY` |
 | `order_created_at` | TIMESTAMPTZ | ✅ | — | 주문 생성 일시 (KST 부여) |
 | `created_at` | TIMESTAMPTZ | ✅ | `NOW()` | 생성 일시 |
 | `updated_at` | TIMESTAMPTZ | ✅ | `NOW()` | 수정 일시 |
