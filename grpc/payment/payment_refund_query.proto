@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package prompthub.payment.refund.v1;
+
+option java_multiple_files = true;
+option java_package = "com.prompthub.grpc.payment.refund.v1";
+option java_outer_classname = "PaymentRefundQueryProto";
+
+service PaymentRefundQueryService {
+  rpc GetRefundStatus(GetRefundStatusRequest) returns (GetRefundStatusResponse);
+}
+
+message GetRefundStatusRequest {
+  string refund_request_id = 1;
+}
+
+enum RefundStatus {
+  REFUND_STATUS_UNSPECIFIED = 0;
+  REFUND_STATUS_PROCESSING = 1;
+  REFUND_STATUS_COMPLETED = 2;
+  REFUND_STATUS_FAILED = 3;
+  REFUND_STATUS_NOT_FOUND = 4;
+}
+
+message GetRefundStatusResponse {
+  RefundStatus status = 1;
+  string refunded_at = 2;
+  string failure_code = 3;
+  string failure_reason = 4;
+}
