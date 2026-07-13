@@ -6,8 +6,6 @@ spring:
     name: apigateway
   config:
     import: ${CONFIG_IMPORT:}
-  profiles:
-    default: local
   cloud:
     config:
       fail-fast: true

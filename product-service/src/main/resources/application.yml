@@ -6,8 +6,6 @@ spring:
       - ${CONFIG_IMPORT:}
       - optional:file:./.env[.properties]
       - optional:file:./product-service/.env[.properties]
-  profiles:
-    default: local
   cloud:
     config:
       fail-fast: true
