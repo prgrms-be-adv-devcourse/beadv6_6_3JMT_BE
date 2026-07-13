@@ -26,6 +26,7 @@
 | `AUTH_WITHDRAW_ORDER_IN_PROGRESS` | A010 | 진행 중인 주문이 있어 탈퇴할 수 없습니다. | 400 |
 | `AUTH_OAUTH_VERIFICATION_FAILED` | A011 | OAuth 인증에 실패했습니다. | 401 |
 | `AUTH_REFRESH_TOKEN_REUSE_DETECTED` | A012 | 리프레시 토큰 재사용이 감지되어 모든 세션이 무효화되었습니다. | 401 |
+| `AUTH_SESSION_INVALIDATED` | A013 | 세션이 무효화되었습니다. 다시 로그인해주세요. | 401 |
 
 ---
 

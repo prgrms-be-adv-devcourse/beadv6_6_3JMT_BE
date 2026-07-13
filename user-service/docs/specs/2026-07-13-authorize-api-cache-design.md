@@ -4,11 +4,30 @@
 
 ## 스코프
 
-- 이슈 #289의 1~4번 항목(authorize API, Redis 캐시, lazy loading, 무효화)만 구현한다.
-- 5번 항목(epoch 세션 검증, 결정 8-1)은 **제외**한다. #288(JWT epoch 클레임)이 아직 미구현이라
-  비교 대상 자체가 없음. #288 완료 후 별도 작업으로 추가한다.
+- 이슈 #289의 1~5번 항목(authorize API, Redis 캐시, lazy loading, 무효화, epoch 세션 검증)을 모두 구현한다.
 - ADR-0008 문서(`docs/adr/0008-user-service-forward-auth.md`)는 저장소 어디에도 없음(전 브랜치 확인함,
   세션 메모리에만 기록이 남아있던 것으로 보임). 결정 내용은 이슈 #289/#288 본문으로 대체 확인함.
+
+> **정정(추가 커밋)**: 최초 작성 시 "5번(epoch 세션 검증)은 #288 미구현이라 제외"라고 적었으나 이는
+> 낡은 근거였다 — epoch 클레임(#288, `ddee910d`/`12068648`/`327b8878`)이 이 브랜치 안에서 authorize API
+> 커밋(`705b5703`)보다 **먼저** 이미 끝나 있었다. 즉 "비교 대상이 없다"는 전제가 같은 브랜치 역사와
+> 맞지 않는 착오였음을 확인해 아래 "epoch 세션 검증" 절을 추가하고 5번을 스코프에 포함시켰다.
+
+## epoch 세션 검증 (결정 8-1, 추가 커밋)
+
+- `AuthorizeController`에 `epoch`(long, optional 파라미터로 받되 내부적으로는 필수 취급) 쿼리파라미터 추가.
+- `AuthorizeApplicationService.authorize(userId, epoch)`가 상태/역할 캐시 조회 **전에** epoch을 검증한다:
+  `RefreshTokenRepository.findByUserId(userId)`로 저장된 현재 RT의 epoch을 조회해 비교.
+  - `epoch == null` → 세션 무효
+  - 저장된 RT 없음(로그아웃 등) → 세션 무효
+  - epoch 불일치(RTR로 회전된 이전 세션) → 세션 무효
+  - 위 세 경우 모두 `SessionInvalidatedException`(신규, `AUTH_SESSION_INVALIDATED`/A013) → 401
+- `RefreshTokenRepository`는 #288에서 이미 만들어진 포트를 그대로 재사용(신규 포트 없음).
+  캐시(`RefreshTokenRepositoryAdapter`)의 `deleteByUserId`/`save`가 이미 즉시 무효화·재적재를 하므로
+  epoch 검증도 그 즉시성을 그대로 물려받는다.
+- 캐시(60초 TTL, `AuthorizationCacheRepository`)는 status/role 조회에만 쓰이고, epoch 검증에는 관여하지
+  않는다 — RT epoch 조회가 즉시성을 요구하는 별도 데이터 소스이기 때문에 캐시를 우회한 것이 아니라
+  원래 다른 저장소(`refresh_token` 테이블/그 캐시)를 보는 것이다.
 
 ## 통신 방식: REST 유지, gRPC 통일 안 함
 
