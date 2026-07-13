@@ -1,8 +1,8 @@
 package com.prompthub.user.sellersettlement.application.usecase;
 
-import com.prompthub.user.sellersettlement.application.event.SettlementCreatedPayload;
+import com.prompthub.user.sellersettlement.application.event.SettlementCreatedEvent;
 
 public interface SeedSellerSettlementUseCase {
 
-    void seed(SettlementCreatedPayload payload);
+    void seed(SettlementCreatedEvent event);
 }

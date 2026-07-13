@@ -2,7 +2,7 @@ package com.prompthub.user.sellersettlement.infrastructure.messaging.kafka.consu
 
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.user.global.exception.SettlementEventDeserializeException;
-import com.prompthub.user.sellersettlement.application.event.SettlementCreatedPayload;
+import com.prompthub.user.sellersettlement.application.event.SettlementCreatedEvent;
 import com.prompthub.user.sellersettlement.application.usecase.SeedSellerSettlementUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,8 +35,8 @@ public class SettlementEventConsumer {
 
         switch (eventType) {
             case SETTLEMENT_CREATED -> {
-                EventMessage<SettlementCreatedPayload> eventMessage =
-                        toEventMessage(root, SettlementCreatedPayload.class);
+                EventMessage<SettlementCreatedEvent> eventMessage =
+                        toEventMessage(root, SettlementCreatedEvent.class);
                 seedSellerSettlementUseCase.seed(eventMessage.payload());
             }
             case UNKNOWN -> log.warn("지원하지 않는 정산 이벤트 타입입니다. eventType={}", eventTypeStr);

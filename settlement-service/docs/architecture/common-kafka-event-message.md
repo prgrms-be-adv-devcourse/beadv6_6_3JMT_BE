@@ -204,13 +204,14 @@ Producer는 도메인 enum을 사용해 이벤트 타입을 생성하되, `Event
 Java 타입명과 관계없이 JSON 필드명은 `payload`를 유지한다.
 
 ```java
-EventMessage<OrderPaidPayload> message = new EventMessage<>(
+OrderPaidEvent event = OrderPaidEvent.from(order);
+EventMessage<OrderPaidEvent> message = new EventMessage<>(
         UUID.randomUUID(),
         OrderEventType.ORDER_PAID.code(),
         LocalDateTime.now(),
         "ORDER",
         orderId,
-        payload);
+        event);
 ```
 
 Producer는 Kafka 메시지 발행 시 `aggregateId`를 Kafka key로 사용한다.
