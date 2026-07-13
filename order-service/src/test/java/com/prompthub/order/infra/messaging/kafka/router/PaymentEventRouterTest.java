@@ -5,6 +5,8 @@ import com.prompthub.order.application.service.event.common.ConsumedEventContext
 import com.prompthub.order.application.service.event.payment.PaymentApprovedProcessor;
 import com.prompthub.order.application.service.event.payment.PaymentCanceledProcessor;
 import com.prompthub.order.application.service.event.payment.PaymentFailedProcessor;
+import com.prompthub.order.application.service.event.payment.PaymentRefundCompletedProcessor;
+import com.prompthub.order.application.service.event.payment.PaymentRefundFailedProcessor;
 import com.prompthub.order.application.service.event.payment.PaymentRefundedProcessor;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
 import com.prompthub.order.infra.messaging.kafka.support.EventPayloadMapper;
@@ -33,6 +35,8 @@ class PaymentEventRouterTest {
 	@Mock private PaymentRefundedProcessor refundedProcessor;
 	@Mock private PaymentFailedProcessor failedProcessor;
 	@Mock private PaymentCanceledProcessor canceledProcessor;
+	@Mock private PaymentRefundCompletedProcessor refundCompletedProcessor;
+	@Mock private PaymentRefundFailedProcessor refundFailedProcessor;
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
 	private PaymentEventRouter paymentEventRouter;
@@ -44,7 +48,9 @@ class PaymentEventRouterTest {
 			approvedProcessor,
 			refundedProcessor,
 			failedProcessor,
-			canceledProcessor
+			canceledProcessor,
+			refundCompletedProcessor,
+			refundFailedProcessor
 		);
 	}
 
@@ -94,5 +100,7 @@ class PaymentEventRouterTest {
 		verify(refundedProcessor, never()).process(any(), any());
 		verify(failedProcessor, never()).process(any(), any());
 		verify(canceledProcessor, never()).process(any(), any());
+		verify(refundCompletedProcessor, never()).process(any(), any());
+		verify(refundFailedProcessor, never()).process(any(), any());
 	}
 }
