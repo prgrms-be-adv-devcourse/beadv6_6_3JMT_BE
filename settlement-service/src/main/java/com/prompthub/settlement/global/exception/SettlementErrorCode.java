@@ -21,7 +21,8 @@ public enum SettlementErrorCode implements ErrorCode {
 	SETTLEMENT_SOURCE_LINE_ALREADY_SETTLED("S-009", "이미 정산에 포함된 소스 라인입니다.", HttpStatus.CONFLICT),
 	SETTLEMENT_EVENT_PUBLISH_FAILED("S-015", "정산 이벤트 발행에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 	SETTLEMENT_EVENT_DESERIALIZE_FAILED("S-016", "정산 이벤트 메시지 역직렬화에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
-	SETTLEMENT_SOURCE_QUERY_FAILED("S-017", "정산 대상 라인 조회에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
+	SETTLEMENT_SOURCE_QUERY_FAILED("S-017", "정산 대상 라인 조회에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+	OUTBOX_EVENT_SERIALIZE_FAILED("S-018", "정산 아웃박스 이벤트 직렬화에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
 
 	private final String code;
 	private final String message;
