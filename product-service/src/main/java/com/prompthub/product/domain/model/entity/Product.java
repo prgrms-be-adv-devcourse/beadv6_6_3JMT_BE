@@ -74,6 +74,12 @@ public class Product {
 	@Column(name = "content", columnDefinition = "TEXT")
 	private String content;
 
+	@Column(name = "file_url", columnDefinition = "TEXT")
+	private String fileUrl;
+
+	@Column(name = "content_file_url", columnDefinition = "TEXT")
+	private String contentFileUrl;
+
 	@Column(name = "badge", length = 50)
 	private String badge;
 
@@ -118,6 +124,8 @@ public class Product {
 		String thumbnailUrl,
 		List<String> imageUrls,
 		String content,
+		String fileUrl,
+		String contentFileUrl,
 		List<String> tags
 	) {
 		Product product = new Product();
@@ -132,6 +140,8 @@ public class Product {
 		product.thumbnailUrl = thumbnailUrl;
 		product.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
 		product.content = content;
+		product.fileUrl = fileUrl;
+		product.contentFileUrl = contentFileUrl;
 		product.tags = tags != null ? tags : new ArrayList<>();
 		product.majorVersion = 1;
 		product.patchVersion = 0;
@@ -154,6 +164,8 @@ public class Product {
 		String thumbnailUrl,
 		List<String> imageUrls,
 		String content,
+		String fileUrl,
+		String contentFileUrl,
 		List<String> tags,
 		String changeReason,
 		boolean isMajor
@@ -167,6 +179,8 @@ public class Product {
 		this.thumbnailUrl = thumbnailUrl;
 		this.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
 		this.content = content;
+		this.fileUrl = fileUrl;
+		this.contentFileUrl = contentFileUrl;
 		this.tags = tags != null ? tags : new ArrayList<>();
 		this.changeReason = changeReason;
 		if (isMajor) {
@@ -230,6 +244,8 @@ public class Product {
 		String thumbnailUrl,
 		List<String> imageUrls,
 		String content,
+		String fileUrl,
+		String contentFileUrl,
 		List<String> tags,
 		String changeReason
 	) {
@@ -246,6 +262,8 @@ public class Product {
 		next.thumbnailUrl = thumbnailUrl;
 		next.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
 		next.content = content;
+		next.fileUrl = fileUrl;
+		next.contentFileUrl = contentFileUrl;
 		next.tags = tags != null ? tags : new ArrayList<>();
 		next.changeReason = changeReason;
 		next.badge = null; // 새 버전 row는 뱃지를 물려받지 않고 초기화한다(예: "신규" 뱃지가 계속 남는 걸 방지)

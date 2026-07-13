@@ -27,6 +27,8 @@ class ProductTest {
 			null,
 			List.of(),
 			"content",
+			null,
+			null,
 			List.of("tag1", "tag2")
 		);
 
@@ -39,12 +41,12 @@ class ProductTest {
 		Product product = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
 			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", List.of()
+			null, List.of(), "content", null, null, List.of()
 		);
 
 		product.update(
 			ProductType.NOTION, "새 제목", "새 설명", "model2", AmountType.PAID, 2000,
-			null, List.of(), "content2", List.of(), "변경 사유", true
+			null, List.of(), null, null, "https://notion.so/x", List.of(), "변경 사유", true
 		);
 
 		assertThat(product.getProductType()).isEqualTo(ProductType.NOTION);
@@ -57,7 +59,7 @@ class ProductTest {
 		Product product = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
 			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", List.of()
+			null, List.of(), "content", null, null, List.of()
 		);
 
 		assertThat(product.familyRootId()).isEqualTo(product.getId());
@@ -69,7 +71,7 @@ class ProductTest {
 		Product onSale = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
 			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", List.of()
+			null, List.of(), "content", null, null, List.of()
 		);
 		ReflectionTestUtils.setField(onSale, "status", ProductStatus.ON_SALE);
 		ReflectionTestUtils.setField(onSale, "majorVersion", (short) 2);
@@ -77,7 +79,7 @@ class ProductTest {
 
 		Product next = onSale.nextVersion(
 			true, ProductType.NOTION, "새 제목", "새 설명", "model2", AmountType.PAID, 2000,
-			null, List.of(), "content2", List.of(), "메이저 변경"
+			null, List.of(), null, null, "https://notion.so/x", List.of(), "메이저 변경"
 		);
 
 		assertThat(next.getId()).isNotEqualTo(onSale.getId());
@@ -96,7 +98,7 @@ class ProductTest {
 		Product onSale = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
 			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", List.of()
+			null, List.of(), "content", null, null, List.of()
 		);
 		ReflectionTestUtils.setField(onSale, "status", ProductStatus.ON_SALE);
 		ReflectionTestUtils.setField(onSale, "majorVersion", (short) 2);
@@ -104,7 +106,7 @@ class ProductTest {
 
 		Product next = onSale.nextVersion(
 			false, ProductType.PROMPT, "제목", "설명", "model", AmountType.PAID, 1500,
-			null, List.of(), "content", List.of(), null
+			null, List.of(), "content", null, null, List.of(), null
 		);
 
 		assertThat(next.getMajorVersion()).isEqualTo((short) 2);
@@ -118,7 +120,7 @@ class ProductTest {
 		Product product = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
 			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", List.of()
+			null, List.of(), "content", null, null, List.of()
 		);
 		ReflectionTestUtils.setField(product, "status", ProductStatus.ON_SALE);
 
@@ -132,7 +134,7 @@ class ProductTest {
 		Product product = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
 			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", List.of()
+			null, List.of(), "content", null, null, List.of()
 		);
 
 		assertThatThrownBy(product::supersede).isInstanceOf(IllegalStateException.class);
@@ -143,7 +145,7 @@ class ProductTest {
 		Product product = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
 			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", List.of()
+			null, List.of(), "content", null, null, List.of()
 		);
 		ReflectionTestUtils.setField(product, "status", ProductStatus.SUPERSEDED);
 

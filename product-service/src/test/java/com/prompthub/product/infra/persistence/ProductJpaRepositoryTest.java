@@ -61,7 +61,7 @@ class ProductJpaRepositoryTest {
 		Product product = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
 			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", List.of()
+			null, List.of(), "content", null, null, List.of()
 		);
 		ReflectionTestUtils.setField(product, "parentId", parentId);
 		ReflectionTestUtils.setField(product, "status", status);
