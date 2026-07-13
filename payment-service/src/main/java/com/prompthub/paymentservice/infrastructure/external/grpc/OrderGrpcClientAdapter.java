@@ -49,6 +49,9 @@ public class OrderGrpcClientAdapter implements OrderGateway {
             }
             log.error("주문 정보 gRPC 조회 실패 — orderId={}, status={}", orderId, e.getStatus(), e);
             throw new BusinessException(PaymentErrorCode.ORDER_INFO_UNAVAILABLE);
+        } catch (DateTimeParseException e) {
+            log.error("주문 정보 gRPC 응답의 createdAt 파싱 실패 — orderId={}", orderId, e);
+            throw new BusinessException(PaymentErrorCode.ORDER_INFO_UNAVAILABLE);
         }
     }
 

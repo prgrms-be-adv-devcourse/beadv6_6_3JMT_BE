@@ -33,7 +33,7 @@ import java.util.UUID;
 @Tag(name = "찜", description = "찜 목록 관리")
 @SecurityRequirement(name = "Bearer")
 @RestController
-@RequestMapping("/api/v1/wishlists")
+@RequestMapping("/api/v2/wishlists")
 @RequiredArgsConstructor
 public class WishlistController {
 

@@ -5,8 +5,6 @@ spring:
     import:
       - ${CONFIG_IMPORT:}
       - optional:file:.env[.properties]
-  profiles:
-    default: local
   cloud:
     config:
       enabled: true

@@ -1,15 +1,22 @@
 syntax = "proto3";
 
-package settlement.product;
+package prompthub.product;
 
 option java_multiple_files = true;
 option java_package = "com.prompthub.product.grpc";
 option java_outer_classname = "ProductQueryProto";
 
+// product-service가 서버로서 제공하는 gRPC 계약을 하나의 서비스로 단일 관리한다.
+// 소유자(서버)=product. 호출자: settlement(GetSellerStats), order(스냅샷/콘텐츠), user(GetProductsByIds).
 service ProductQueryService {
   rpc GetSellerStats(GetSellerStatsRequest) returns (GetSellerStatsResponse);
+  rpc GetOrderSnapshots(GetOrderSnapshotsRequest) returns (GetOrderSnapshotsResponse);
+  rpc GetCartSnapshots(GetCartSnapshotsRequest) returns (GetCartSnapshotsResponse);
+  rpc GetProductContent(GetProductContentRequest) returns (GetProductContentResponse);
+  rpc GetProductsByIds(GetProductsByIdsRequest) returns (GetProductsByIdsResponse);
 }
 
+// --- 셀러 통계 (settlement 소비) ---
 message GetSellerStatsRequest {
   string seller_id = 1;
 }
@@ -18,4 +25,72 @@ message GetSellerStatsResponse {
   string seller_id = 1;
   int32 product_count = 2;
   int64 sales_count = 3;
+}
+
+// --- 주문 스냅샷 (order 소비) ---
+message GetOrderSnapshotsRequest {
+  repeated string product_ids = 1;
+}
+
+message GetOrderSnapshotsResponse {
+  repeated ProductOrderSnapshot products = 1;
+}
+
+message ProductOrderSnapshot {
+  string product_id = 1;
+  string seller_id = 2;
+  string title = 3;
+  string product_type = 4;
+  int32 amount = 5;
+  string model = 6;
+}
+
+// --- 장바구니 스냅샷 (order 소비) ---
+message GetCartSnapshotsRequest {
+  repeated string product_ids = 1;
+}
+
+message GetCartSnapshotsResponse {
+  repeated ProductCartSnapshotMessage products = 1;
+}
+
+message ProductCartSnapshotMessage {
+  string product_id = 1;
+  string seller_id = 2;
+  string seller_nickname = 3;
+  string title = 4;
+  string product_type = 5;
+  int32 amount = 6;
+  string thumbnail_url = 7;
+}
+
+// --- 상품 콘텐츠 (order 소비) ---
+message GetProductContentRequest {
+  string product_id = 1;
+}
+
+message GetProductContentResponse {
+  string product_id = 1;
+  string content = 2;
+}
+
+// --- 상품 배치 조회 (user 소비) ---
+message GetProductsByIdsRequest {
+  repeated string product_ids = 1;
+}
+
+message GetProductsByIdsResponse {
+  repeated Product products = 1;
+}
+
+message Product {
+  string product_id = 1;
+  string seller_id = 2;
+  string title = 3;
+  int64 price = 4;
+  string thumbnail_url = 5;
+  string model = 6;
+  int64 sales_count = 7;
+  double average_rating = 8;
+  string status = 9;
 }

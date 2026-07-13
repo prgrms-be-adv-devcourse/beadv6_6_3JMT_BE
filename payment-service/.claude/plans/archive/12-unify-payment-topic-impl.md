@@ -1,6 +1,6 @@
 # 구현 노트: 이벤트 발행 토픽 단일화
 
-> 계획 문서: `10-unify-payment-topic.md`
+> 계획 문서: `12-unify-payment-topic.md`
 > 구현 일자: 2026-07-07
 
 ## 커밋 이력

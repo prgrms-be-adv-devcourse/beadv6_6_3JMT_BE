@@ -28,7 +28,7 @@ import java.util.UUID;
 @Tag(name = "Seller", description = "판매자 등록 신청")
 @SecurityRequirement(name = "Bearer")
 @RestController
-@RequestMapping("/api/v1/seller")
+@RequestMapping("/api/v2/seller")
 @RequiredArgsConstructor
 public class SellerController {
 

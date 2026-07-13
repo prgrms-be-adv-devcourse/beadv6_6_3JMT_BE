@@ -15,11 +15,14 @@
   sourceSets { main { proto { srcDir "${rootProject.projectDir}/grpc/user" } } }
   ```
 
-- 여기로 옮긴 계약은 원래 모듈 `src/main/proto` 에서 삭제한다(이중 생성 충돌 방지). 단 서버가 담당 범위 밖이면
-  그 서버의 원본은 남는다(예: `product_query.proto` 서버 원본은 product-service 에 잔존).
+- 여기로 옮긴 계약은 원래 모듈 `src/main/proto` 에서 삭제한다(이중 생성 충돌 방지). 단 client 로만 소비하는
+  미러(예: product 가 user 를 호출하는 `seller_query.proto`)는 소비 모듈에 잔존할 수 있다.
+- **wire `package` 는 `prompthub.<도메인>`** (프로젝트 접두어 + 소유 도메인). 통합 계약은 여러 호출자가
+  공유하므로 특정 소비자명(`settlement` 등)을 쓰지 않는다. gRPC 호출 경로
+  (`/prompthub.<도메인>.<서비스>/<메서드>`)라, 바꾸면 서버·클라이언트가 함께 바뀌어야 통신된다.
 - **`java_package` 도 소유자(서버) 기준** — `com.prompthub.<서버모듈>.grpc[.<도메인>]`. 서버 모듈명과
   도메인이 같으면 도메인을 생략한다(`com.prompthub.order.grpc`), 다르면 뒤에 붙인다
-  (`com.prompthub.user.grpc.seller`). wire `package` 는 호출 경로라 그대로 둔다.
+  (`com.prompthub.user.grpc.seller`). wire `package` 와는 별개다.
 
 ## 현재 레이아웃
 
@@ -27,7 +30,7 @@
 grpc/
 ├── user/seller_query.proto      ← SellerQueryService.GetSellers        (소유: user)
 ├── order/order_query.proto      ← OrderQueryService.GetSettleableLines (소유: order, 서버 미구현)
-└── product/product_query.proto  ← ProductQueryService.GetSellerStats    (소유: product, 서버 원본 잔존)
+└── product/product_query.proto  ← ProductQueryService.Get* (셀러통계·스냅샷·콘텐츠·상품조회, 소유: product)
 ```
 
 전문 규칙과 정산 계약 현황은 `settlement-service/docs/architecture/grpc-contract-ownership.md` 를 본다.

@@ -26,6 +26,15 @@ tasks.named('test') {
     jvmArgs = ['-Dspring.profiles.active=test']
 }
 
+// 서버로서 제공하는 gRPC 계약은 루트 grpc/product 에서 단일 관리(소유자=product). grpc/README.md 참조.
+sourceSets {
+    main {
+        proto {
+            srcDir "${rootProject.projectDir}/grpc/product"
+        }
+    }
+}
+
 protobuf {
     protoc {
         artifact = "com.google.protobuf:protoc:${protobufVersion}"

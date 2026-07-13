@@ -51,7 +51,7 @@ class SellerControllerTest {
     void register_정상_신청_201_반환() throws Exception {
         given(sellerUseCase.register(any())).willReturn(pendingResult());
 
-        mockMvc.perform(post("/api/v1/seller/register")
+        mockMvc.perform(post("/api/v2/seller/register")
                         .header("X-User-Id", USER_ID.toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -71,7 +71,7 @@ class SellerControllerTest {
 
     @Test
     void register_categories_누락_400() throws Exception {
-        mockMvc.perform(post("/api/v1/seller/register")
+        mockMvc.perform(post("/api/v2/seller/register")
                         .header("X-User-Id", USER_ID.toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -84,7 +84,7 @@ class SellerControllerTest {
 
     @Test
     void register_categories_최대_3개_초과_400() throws Exception {
-        mockMvc.perform(post("/api/v1/seller/register")
+        mockMvc.perform(post("/api/v2/seller/register")
                         .header("X-User-Id", USER_ID.toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -98,7 +98,7 @@ class SellerControllerTest {
 
     @Test
     void register_agreedToTerms_false_400() throws Exception {
-        mockMvc.perform(post("/api/v1/seller/register")
+        mockMvc.perform(post("/api/v2/seller/register")
                         .header("X-User-Id", USER_ID.toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -112,7 +112,7 @@ class SellerControllerTest {
 
     @Test
     void register_XUserId_헤더_누락_403() throws Exception {
-        mockMvc.perform(post("/api/v1/seller/register")
+        mockMvc.perform(post("/api/v2/seller/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -127,7 +127,7 @@ class SellerControllerTest {
     void register_이미_신청된_판매자_409_A005() throws Exception {
         given(sellerUseCase.register(any())).willThrow(new SellerAlreadyAppliedException());
 
-        mockMvc.perform(post("/api/v1/seller/register")
+        mockMvc.perform(post("/api/v2/seller/register")
                         .header("X-User-Id", USER_ID.toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""

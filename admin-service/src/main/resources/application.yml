@@ -19,7 +19,7 @@ spring:
     open-in-view: false
 
 api:
-  init: /api/v1
+  init: /api/v2
 
 management:
   endpoints:

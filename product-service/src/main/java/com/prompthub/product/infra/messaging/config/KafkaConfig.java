@@ -18,6 +18,10 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
+import org.apache.kafka.common.TopicPartition;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.util.backoff.FixedBackOff;
 
 @EnableKafka
 @Configuration
@@ -63,12 +67,24 @@ public class KafkaConfig {
 
 	@Bean
 	public ConcurrentKafkaListenerContainerFactory<String, String> orderEventContainerFactory(
-		ConsumerFactory<String, String> orderEventConsumerFactory
+		ConsumerFactory<String, String> orderEventConsumerFactory,
+		DefaultErrorHandler orderEventErrorHandler
 	) {
 		ConcurrentKafkaListenerContainerFactory<String, String> factory =
 			new ConcurrentKafkaListenerContainerFactory<>();
 		factory.setConsumerFactory(orderEventConsumerFactory);
 		factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
+		factory.setCommonErrorHandler(orderEventErrorHandler);
 		return factory;
+	}
+
+	// 처리 실패 이벤트는 재시도 후 원본 토픽의 DLT(`order-events.DLT`)로 보낸다. (kafka-event.md §7)
+	@Bean
+	public DefaultErrorHandler orderEventErrorHandler(KafkaTemplate<String, Object> kafkaTemplate) {
+		DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+			kafkaTemplate,
+			(record, exception) -> new TopicPartition(record.topic() + ".DLT", record.partition())
+		);
+		return new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 2L));
 	}
 }

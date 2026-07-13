@@ -24,7 +24,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			p.model,
 			p.amount,
 			coalesce(avg(r.rating), 0.0),
-			p.salesCount,
+			cast(coalesce((select sum(m.salesCount) from Product m where coalesce(m.parentId, m.id) = coalesce(p.parentId, p.id) and m.deletedAt is null), 0) as integer),
 			p.sellerId,
 			p.description,
 			p.thumbnailUrl,
@@ -45,7 +45,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			case when :sort = 'rating' then coalesce(avg(r.rating), 0.0) end desc,
 			case when :sort = 'price-asc' then p.amount end asc,
 			case when :sort = 'price-desc' then p.amount end desc,
-			p.salesCount desc,
+			coalesce((select sum(m.salesCount) from Product m where coalesce(m.parentId, m.id) = coalesce(p.parentId, p.id) and m.deletedAt is null), 0) desc,
 			p.createdAt desc
 		""")
 	List<ProductListProjection> findPublicProducts(
@@ -103,6 +103,14 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 	}
 
 	@Query("""
+		select coalesce(sum(p.salesCount), 0)
+		from Product p
+		where coalesce(p.parentId, p.id) = :familyRootId
+			and p.deletedAt is null
+		""")
+	long sumSalesCountByFamilyRootId(@Param("familyRootId") UUID familyRootId);
+
+	@Query("""
 		select new com.prompthub.product.domain.model.projection.ProductListProjection(
 			p.id,
 			p.name,
@@ -110,7 +118,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			p.model,
 			p.amount,
 			coalesce(avg(r.rating), 0.0),
-			p.salesCount,
+			cast(coalesce((select sum(m.salesCount) from Product m where coalesce(m.parentId, m.id) = coalesce(p.parentId, p.id) and m.deletedAt is null), 0) as integer),
 			p.sellerId,
 			p.description,
 			p.thumbnailUrl,
@@ -125,7 +133,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			and p.productType = :productType
 		group by p.id, p.name, p.productType, p.model, p.amount, p.salesCount, p.sellerId,
 			p.description, p.thumbnailUrl, p.createdAt, p.updatedAt
-		order by p.salesCount desc, p.createdAt desc
+		order by coalesce((select sum(m.salesCount) from Product m where coalesce(m.parentId, m.id) = coalesce(p.parentId, p.id) and m.deletedAt is null), 0) desc, p.createdAt desc
 		""")
 	List<ProductListProjection> findRelatedProducts(
 		@Param("productId") UUID productId,
@@ -182,7 +190,21 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 		""")
 	List<Product> findBySellerId(@Param("sellerId") UUID sellerId);
 
-	long countBySellerIdAndDeletedAtIsNull(UUID sellerId);
+	@Query("""
+		select count(distinct coalesce(p.parentId, p.id))
+		from Product p
+		where p.sellerId = :sellerId
+			and p.deletedAt is null
+		""")
+	long countFamiliesBySellerId(@Param("sellerId") UUID sellerId);
+
+	@Query("""
+		select coalesce(sum(p.salesCount), 0)
+		from Product p
+		where p.sellerId = :sellerId
+			and p.deletedAt is null
+		""")
+	long sumSalesCountBySellerId(@Param("sellerId") UUID sellerId);
 
 	long countBySellerIdAndStatusAndDeletedAtIsNull(UUID sellerId, ProductStatus status);
 

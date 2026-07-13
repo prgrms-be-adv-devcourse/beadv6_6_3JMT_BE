@@ -17,7 +17,7 @@ public record SellerProductListItemResponse(
 	LocalDateTime createdAt,
 	LocalDateTime updatedAt
 ) {
-	public static SellerProductListItemResponse from(Product product) {
+	public static SellerProductListItemResponse from(Product product, int familySalesCount) {
 		return new SellerProductListItemResponse(
 			product.getId(),
 			product.getName(),
@@ -25,7 +25,7 @@ public record SellerProductListItemResponse(
 			product.getModel(),
 			product.getAmount(),
 			product.getStatus().name(),
-			product.getSalesCount(),
+			familySalesCount,
 			product.getThumbnailUrl(),
 			product.getRejectionReason(),
 			product.getCreatedAt(),

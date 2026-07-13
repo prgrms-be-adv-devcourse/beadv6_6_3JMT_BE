@@ -155,7 +155,7 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
         try {
             return recordOrderSnapshotUseCase.record(new RecordOrderSnapshotCommand(
                 info.orderId(), info.buyerId(), info.totalAmount(),
-                info.orderCreatedAt(), OrderSnapshotSource.GRPC
+                info.orderCreatedAt(), OrderSnapshotSource.QUERY
             ));
         } catch (DataIntegrityViolationException raced) {
             // 그 사이 ORDER_CREATED 이벤트가 스냅샷을 기록 — 재조회로 회복
