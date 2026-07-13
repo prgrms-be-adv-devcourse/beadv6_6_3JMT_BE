@@ -1,4 +1,7 @@
-package com.prompthub.order.application.service.event;
+package com.prompthub.order.application.service.event.payment;
+
+import com.prompthub.order.application.service.event.common.ConsumedEventContext;
+import com.prompthub.order.application.service.event.common.ProcessedEventService;
 
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
@@ -31,6 +34,10 @@ class PaymentCanceledProcessorTest {
         processedEventService = mock(ProcessedEventService.class);
         orderRepository = mock(OrderRepository.class);
         paymentCanceledProcessor = new PaymentCanceledProcessor(processedEventService, orderRepository);
+        lenient().when(processedEventService.executeOnce(any(), any())).thenAnswer(invocation -> {
+            invocation.<Runnable>getArgument(1).run();
+            return true;
+        });
     }
 
     @Test
@@ -41,15 +48,14 @@ class PaymentCanceledProcessorTest {
         PaymentCanceledPayload payload = new PaymentCanceledPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, LocalDateTime.now());
 
         Order order = OrderFixture.createPendingOrderWithProducts();
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
         when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
 
         // when
-        paymentCanceledProcessor.process(eventId, "PAYMENT_CANCELED", LocalDateTime.now(), payload);
+        paymentCanceledProcessor.process(new ConsumedEventContext(eventId, "PAYMENT_CANCELED", LocalDateTime.now()), payload);
 
         // then
         assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
-        verify(processedEventService).markProcessed(eq(eventId), eq("order-service"), eq("PAYMENT_CANCELED"), any());
+        verify(processedEventService).executeOnce(any(ConsumedEventContext.class), any(Runnable.class));
     }
 
     @Test
@@ -61,15 +67,14 @@ class PaymentCanceledProcessorTest {
 
         Order order = OrderFixture.createPendingOrderWithProducts();
         order.markCanceled(); // status CANCELED
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
         when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
 
         // when
-        paymentCanceledProcessor.process(eventId, "PAYMENT_CANCELED", LocalDateTime.now(), payload);
+        paymentCanceledProcessor.process(new ConsumedEventContext(eventId, "PAYMENT_CANCELED", LocalDateTime.now()), payload);
 
         // then
         assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
-        verify(processedEventService).markProcessed(eq(eventId), eq("order-service"), eq("PAYMENT_CANCELED"), any());
+        verify(processedEventService).executeOnce(any(ConsumedEventContext.class), any(Runnable.class));
     }
 
     @Test
@@ -80,14 +85,13 @@ class PaymentCanceledProcessorTest {
         PaymentCanceledPayload payload = new PaymentCanceledPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, LocalDateTime.now());
 
         Order order = OrderFixture.createPaidOrderWithProducts(); // status PAID
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
         when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
 
         // when
-        paymentCanceledProcessor.process(eventId, "PAYMENT_CANCELED", LocalDateTime.now(), payload);
+        paymentCanceledProcessor.process(new ConsumedEventContext(eventId, "PAYMENT_CANCELED", LocalDateTime.now()), payload);
 
         // then
-        verify(processedEventService).markProcessed(eq(eventId), eq("order-service"), eq("PAYMENT_CANCELED"), any());
+        verify(processedEventService).executeOnce(any(ConsumedEventContext.class), any(Runnable.class));
     }
 
     @Test
@@ -97,13 +101,12 @@ class PaymentCanceledProcessorTest {
         UUID orderId = OrderFixture.ORDER_ID;
         PaymentCanceledPayload payload = new PaymentCanceledPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, LocalDateTime.now());
 
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(true);
+        doReturn(false).when(processedEventService).executeOnce(any(), any());
 
         // when
-        paymentCanceledProcessor.process(eventId, "PAYMENT_CANCELED", LocalDateTime.now(), payload);
+        paymentCanceledProcessor.process(new ConsumedEventContext(eventId, "PAYMENT_CANCELED", LocalDateTime.now()), payload);
 
         // then
         verifyNoInteractions(orderRepository);
-        verify(processedEventService, never()).markProcessed(any(), any(), any(), any());
     }
 }

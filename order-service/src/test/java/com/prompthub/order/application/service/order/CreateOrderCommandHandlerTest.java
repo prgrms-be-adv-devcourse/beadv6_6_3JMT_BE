@@ -65,7 +65,7 @@ class CreateOrderCommandHandlerTest {
     private OrderPolicyService orderPolicyService;
 
     @Mock
-    private com.prompthub.order.application.service.event.OrderEventMessageFactory orderEventMessageFactory;
+    private com.prompthub.order.application.service.event.order.OrderEventMessageFactory orderEventMessageFactory;
 
     @Mock
     private com.prompthub.order.application.service.event.outbox.OutboxEventAppender outboxEventAppender;

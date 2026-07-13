@@ -4,7 +4,7 @@ import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.application.event.order.OrderCreatedEvent;
-import com.prompthub.order.application.service.event.OrderEventMessageFactory;
+import com.prompthub.order.application.service.event.order.OrderEventMessageFactory;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
 import com.prompthub.order.application.usecase.CreateOrderUseCase;
 import com.prompthub.order.domain.model.Cart;

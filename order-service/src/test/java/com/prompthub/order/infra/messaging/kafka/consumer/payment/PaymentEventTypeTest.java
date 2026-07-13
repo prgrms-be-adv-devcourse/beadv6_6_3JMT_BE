@@ -1,5 +1,6 @@
 package com.prompthub.order.infra.messaging.kafka.consumer.payment;
 
+import com.prompthub.order.infra.messaging.kafka.event.PaymentEventType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

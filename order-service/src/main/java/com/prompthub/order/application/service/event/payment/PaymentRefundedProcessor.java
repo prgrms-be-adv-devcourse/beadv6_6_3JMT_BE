@@ -1,7 +1,10 @@
-package com.prompthub.order.application.service.event;
+package com.prompthub.order.application.service.event.payment;
 
 import com.prompthub.common.event.EventMessage;
+import com.prompthub.order.application.service.event.common.ConsumedEventContext;
+import com.prompthub.order.application.service.event.common.ProcessedEventService;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
+import com.prompthub.order.application.service.event.order.OrderEventMessageFactory;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.repository.OrderRepository;
@@ -12,41 +15,28 @@ import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class PaymentRefundedProcessor {
-
-    private static final String CONSUMER_GROUP = "order-service";
+public class PaymentRefundedProcessor implements PaymentEventProcessor<PaymentRefundedPayload> {
 
     private final ProcessedEventService processedEventService;
     private final OrderRepository orderRepository;
     private final OrderEventMessageFactory orderEventMessageFactory;
     private final OutboxEventAppender outboxEventAppender;
 
-    @Transactional
-    public void process(
-            UUID eventId,
-            String eventType,
-            LocalDateTime occurredAt,
-            PaymentRefundedPayload payload
-    ) {
-        if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
-            return;
-        }
+    public void process(ConsumedEventContext context, PaymentRefundedPayload payload) {
+        processedEventService.executeOnce(context, () -> processEvent(context, payload));
+    }
 
+    private void processEvent(ConsumedEventContext context, PaymentRefundedPayload payload) {
         Order order = orderRepository.findByIdWithOrderProducts(payload.orderId())
                 .orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
         if (order.getOrderStatus() != OrderStatus.PAID) {
             log.warn("이미 처리된 환불이거나 금지된 상태 전이 시도입니다. 상태 변경 무시. eventId={}, eventType={}, orderId={}, currentStatus={}",
-                    eventId, eventType, payload.orderId(), order.getOrderStatus());
-            processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
+                    context.eventId(), context.eventType(), payload.orderId(), order.getOrderStatus());
             return;
         }
 
@@ -62,14 +52,7 @@ public class PaymentRefundedProcessor {
 
         outboxEventAppender.append(orderRefundMessage);
 
-        processedEventService.markProcessed(
-                eventId,
-                CONSUMER_GROUP,
-                eventType,
-                occurredAt
-        );
-
         log.info("결제 이벤트 처리 완료. eventId={}, eventType={}, orderId={}, targetStatus={}, consumerGroup={}",
-                eventId, eventType, payload.orderId(), OrderStatus.REFUNDED, CONSUMER_GROUP);
+                context.eventId(), context.eventType(), payload.orderId(), OrderStatus.REFUNDED, "order-service");
     }
 }

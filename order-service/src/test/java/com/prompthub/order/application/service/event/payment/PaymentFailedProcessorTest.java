@@ -1,4 +1,7 @@
-package com.prompthub.order.application.service.event;
+package com.prompthub.order.application.service.event.payment;
+
+import com.prompthub.order.application.service.event.common.ConsumedEventContext;
+import com.prompthub.order.application.service.event.common.ProcessedEventService;
 
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
@@ -31,6 +34,10 @@ class PaymentFailedProcessorTest {
         processedEventService = mock(ProcessedEventService.class);
         orderRepository = mock(OrderRepository.class);
         paymentFailedProcessor = new PaymentFailedProcessor(processedEventService, orderRepository);
+        lenient().when(processedEventService.executeOnce(any(), any())).thenAnswer(invocation -> {
+            invocation.<Runnable>getArgument(1).run();
+            return true;
+        });
     }
 
     @Test
@@ -41,15 +48,14 @@ class PaymentFailedProcessorTest {
         PaymentFailedPayload payload = new PaymentFailedPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, "Failed PG confirm", LocalDateTime.now());
 
         Order order = OrderFixture.createPendingOrderWithProducts();
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
         when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
 
         // when
-        paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload);
+        paymentFailedProcessor.process(new ConsumedEventContext(eventId, "PAYMENT_FAILED", LocalDateTime.now()), payload);
 
         // then
         assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.FAILED);
-        verify(processedEventService).markProcessed(eq(eventId), eq("order-service"), eq("PAYMENT_FAILED"), any());
+        verify(processedEventService).executeOnce(any(ConsumedEventContext.class), any(Runnable.class));
     }
 
     @Test
@@ -61,15 +67,14 @@ class PaymentFailedProcessorTest {
 
         Order order = OrderFixture.createPendingOrderWithProducts();
         order.markFailed(); // status FAILED
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
         when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
 
         // when
-        paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload);
+        paymentFailedProcessor.process(new ConsumedEventContext(eventId, "PAYMENT_FAILED", LocalDateTime.now()), payload);
 
         // then
         assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.FAILED);
-        verify(processedEventService).markProcessed(eq(eventId), eq("order-service"), eq("PAYMENT_FAILED"), any());
+        verify(processedEventService).executeOnce(any(ConsumedEventContext.class), any(Runnable.class));
     }
 
     @Test
@@ -80,14 +85,13 @@ class PaymentFailedProcessorTest {
         PaymentFailedPayload payload = new PaymentFailedPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, "Failed PG confirm", LocalDateTime.now());
 
         Order order = OrderFixture.createPaidOrderWithProducts(); // status PAID
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
         when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
 
         // when
-        paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload);
+        paymentFailedProcessor.process(new ConsumedEventContext(eventId, "PAYMENT_FAILED", LocalDateTime.now()), payload);
 
         // then
-        verify(processedEventService).markProcessed(eq(eventId), eq("order-service"), eq("PAYMENT_FAILED"), any());
+        verify(processedEventService).executeOnce(any(ConsumedEventContext.class), any(Runnable.class));
     }
 
     @Test
@@ -99,14 +103,13 @@ class PaymentFailedProcessorTest {
 
         Order order = OrderFixture.createPendingOrderWithProducts();
         order.markCanceled(); // status CANCELED
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
         when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
 
         // when
-        paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload);
+        paymentFailedProcessor.process(new ConsumedEventContext(eventId, "PAYMENT_FAILED", LocalDateTime.now()), payload);
 
         // then
-        verify(processedEventService).markProcessed(eq(eventId), eq("order-service"), eq("PAYMENT_FAILED"), any());
+        verify(processedEventService).executeOnce(any(ConsumedEventContext.class), any(Runnable.class));
     }
 
     @Test
@@ -120,14 +123,13 @@ class PaymentFailedProcessorTest {
         order.markCanceled(); // Hack to transition easily if refunded is complicated, let's use Reflection or direct transition
         org.springframework.test.util.ReflectionTestUtils.setField(order, "orderStatus", OrderStatus.REFUNDED);
 
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
         when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
 
         // when
-        paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload);
+        paymentFailedProcessor.process(new ConsumedEventContext(eventId, "PAYMENT_FAILED", LocalDateTime.now()), payload);
 
         // then
-        verify(processedEventService).markProcessed(eq(eventId), eq("order-service"), eq("PAYMENT_FAILED"), any());
+        verify(processedEventService).executeOnce(any(ConsumedEventContext.class), any(Runnable.class));
     }
 
     @Test
@@ -137,14 +139,13 @@ class PaymentFailedProcessorTest {
         UUID orderId = OrderFixture.ORDER_ID;
         PaymentFailedPayload payload = new PaymentFailedPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, "Failed PG confirm", LocalDateTime.now());
 
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(true);
+        doReturn(false).when(processedEventService).executeOnce(any(), any());
 
         // when
-        paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload);
+        paymentFailedProcessor.process(new ConsumedEventContext(eventId, "PAYMENT_FAILED", LocalDateTime.now()), payload);
 
         // then
         verifyNoInteractions(orderRepository);
-        verify(processedEventService, never()).markProcessed(any(), any(), any(), any());
     }
 
     @Test
@@ -154,14 +155,12 @@ class PaymentFailedProcessorTest {
         UUID orderId = UUID.randomUUID();
         PaymentFailedPayload payload = new PaymentFailedPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, "Failed PG confirm", LocalDateTime.now());
 
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
         when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload))
+        assertThatThrownBy(() -> paymentFailedProcessor.process(new ConsumedEventContext(eventId, "PAYMENT_FAILED", LocalDateTime.now()), payload))
                 .isInstanceOf(OrderException.class)
                 .hasFieldOrPropertyWithValue("errorCode", com.prompthub.order.global.exception.ErrorCode.ORDER_NOT_FOUND);
 
-        verify(processedEventService, never()).markProcessed(any(), any(), any(), any());
     }
 }

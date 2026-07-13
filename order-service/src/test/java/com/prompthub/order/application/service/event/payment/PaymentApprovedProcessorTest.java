@@ -1,7 +1,10 @@
-package com.prompthub.order.application.service.event;
+package com.prompthub.order.application.service.event.payment;
 
 import com.prompthub.common.event.EventMessage;
+import com.prompthub.order.application.service.event.common.ConsumedEventContext;
+import com.prompthub.order.application.service.event.common.ProcessedEventService;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
+import com.prompthub.order.application.service.event.order.OrderEventMessageFactory;
 import com.prompthub.order.application.service.order.OrderPolicyService;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
@@ -16,6 +19,7 @@ import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.infra.messaging.kafka.event.OrderPaidPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -35,6 +39,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
@@ -64,17 +70,24 @@ class PaymentApprovedProcessorTest {
     @InjectMocks
     private PaymentApprovedProcessor processor;
 
+    @BeforeEach
+    void executeEventAction() {
+        lenient().when(processedEventService.executeOnce(any(), any())).thenAnswer(invocation -> {
+            invocation.<Runnable>getArgument(1).run();
+            return true;
+        });
+    }
+
     @Test
     @DisplayName("승인 이벤트를 받으면 주문을 PAID로 변경하고 결제내역과 Outbox를 저장한다")
     void process_success() {
         Order order = createPendingOrderWithProducts();
         PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), TOTAL_AMOUNT);
         Cart cart = mock(Cart.class);
-        
+
         UUID eventId = UUID.randomUUID();
         String eventType = "PAYMENT_APPROVED";
 
-        given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
         given(orderRepository.findByIdWithOrderProducts(payload.orderId())).willReturn(Optional.of(order));
         given(cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId())).willReturn(Optional.of(cart));
 
@@ -84,7 +97,7 @@ class PaymentApprovedProcessorTest {
         given(orderEventMessageFactory.createOrderPaidMessage(eq(order.getId()), any(OrderPaidPayload.class)))
             .willReturn(orderPaidMessage);
 
-        processor.process(eventId, eventType, APPROVED_AT, payload);
+        processor.process(new ConsumedEventContext(eventId, eventType, APPROVED_AT), payload);
 
         assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
         assertThat(order.getPaidAt()).isEqualTo(APPROVED_AT);
@@ -97,7 +110,7 @@ class PaymentApprovedProcessorTest {
         assertThat(savedPayment.getApprovedAmount()).isEqualTo(TOTAL_AMOUNT);
 
         then(outboxEventAppender).should().append(orderPaidMessage);
-        then(processedEventService).should().markProcessed(eventId, "order-service", eventType, APPROVED_AT);
+        then(processedEventService).should().executeOnce(any(ConsumedEventContext.class), any(Runnable.class));
         then(cart).should().removeProductsByProductIds(productIds());
     }
 
@@ -107,9 +120,9 @@ class PaymentApprovedProcessorTest {
         PaymentApprovedPayload payload = createPaymentApprovedPayload(ORDER_ID, TOTAL_AMOUNT);
         UUID eventId = UUID.randomUUID();
 
-        given(processedEventService.isProcessed(eventId, "order-service")).willReturn(true);
+        doReturn(false).when(processedEventService).executeOnce(any(), any());
 
-        processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, payload);
+        processor.process(new ConsumedEventContext(eventId, "PAYMENT_APPROVED", APPROVED_AT), payload);
 
         then(orderRepository).should(never()).findByIdWithOrderProducts(any());
         then(orderPaymentRepository).should(never()).save(any());
@@ -122,10 +135,9 @@ class PaymentApprovedProcessorTest {
         PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), PRODUCT_AMOUNT_2);
         UUID eventId = UUID.randomUUID();
 
-        given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
         given(orderRepository.findByIdWithOrderProducts(payload.orderId())).willReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, payload))
+        assertThatThrownBy(() -> processor.process(new ConsumedEventContext(eventId, "PAYMENT_APPROVED", APPROVED_AT), payload))
             .isInstanceOf(OrderException.class)
             .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
     }
@@ -140,7 +152,6 @@ class PaymentApprovedProcessorTest {
         UUID eventId = UUID.randomUUID();
         String eventType = "PAYMENT_APPROVED";
 
-        given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
         given(orderRepository.findByIdWithOrderProducts(payload.orderId())).willReturn(Optional.of(order));
         given(cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId())).willReturn(Optional.of(cart));
 
@@ -150,7 +161,7 @@ class PaymentApprovedProcessorTest {
         given(orderEventMessageFactory.createOrderPaidMessage(eq(order.getId()), any(OrderPaidPayload.class)))
             .willReturn(orderPaidMessage);
 
-        processor.process(eventId, eventType, APPROVED_AT, payload);
+        processor.process(new ConsumedEventContext(eventId, eventType, APPROVED_AT), payload);
 
         assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
         assertThat(order.getPaidAt()).isEqualTo(APPROVED_AT);
@@ -163,7 +174,7 @@ class PaymentApprovedProcessorTest {
         assertThat(savedPayment.getApprovedAmount()).isEqualTo(TOTAL_AMOUNT);
 
         then(outboxEventAppender).should().append(orderPaidMessage);
-        then(processedEventService).should().markProcessed(eventId, "order-service", eventType, APPROVED_AT);
+        then(processedEventService).should().executeOnce(any(ConsumedEventContext.class), any(Runnable.class));
         then(cart).should().removeProductsByProductIds(productIds());
     }
 
@@ -175,12 +186,11 @@ class PaymentApprovedProcessorTest {
         PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), TOTAL_AMOUNT);
         UUID eventId = UUID.randomUUID();
 
-        given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
         given(orderRepository.findByIdWithOrderProducts(payload.orderId())).willReturn(Optional.of(order));
 
-        processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, payload);
+        processor.process(new ConsumedEventContext(eventId, "PAYMENT_APPROVED", APPROVED_AT), payload);
 
-        then(processedEventService).should().markProcessed(eventId, "order-service", "PAYMENT_APPROVED", APPROVED_AT);
+        then(processedEventService).should().executeOnce(any(ConsumedEventContext.class), any(Runnable.class));
         then(orderPaymentRepository).should(never()).save(any());
     }
 
@@ -192,12 +202,11 @@ class PaymentApprovedProcessorTest {
         PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), TOTAL_AMOUNT);
         UUID eventId = UUID.randomUUID();
 
-        given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
         given(orderRepository.findByIdWithOrderProducts(payload.orderId())).willReturn(Optional.of(order));
 
-        processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, payload);
+        processor.process(new ConsumedEventContext(eventId, "PAYMENT_APPROVED", APPROVED_AT), payload);
 
-        then(processedEventService).should().markProcessed(eventId, "order-service", "PAYMENT_APPROVED", APPROVED_AT);
+        then(processedEventService).should().executeOnce(any(ConsumedEventContext.class), any(Runnable.class));
         then(orderPaymentRepository).should(never()).save(any());
     }
 }

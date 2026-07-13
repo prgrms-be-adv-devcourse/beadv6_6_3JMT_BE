@@ -3,7 +3,7 @@ package com.prompthub.order.infra.messaging.kafka;
 import com.prompthub.order.application.event.product.ProductDeletedEvent;
 import com.prompthub.order.application.event.product.ProductPriceChangedEvent;
 import com.prompthub.order.application.event.product.ProductStoppedEvent;
-import com.prompthub.order.application.service.event.OrderProductEventService;
+import com.prompthub.order.application.service.event.order.OrderProductEventService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

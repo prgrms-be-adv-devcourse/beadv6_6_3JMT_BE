@@ -1,7 +1,10 @@
-package com.prompthub.order.application.service.event;
+package com.prompthub.order.application.service.event.payment;
 
 import com.prompthub.common.event.EventMessage;
+import com.prompthub.order.application.service.event.common.ConsumedEventContext;
+import com.prompthub.order.application.service.event.common.ProcessedEventService;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
+import com.prompthub.order.application.service.event.order.OrderEventMessageFactory;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -11,6 +14,7 @@ import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.infra.messaging.kafka.event.OrderRefundPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -28,6 +32,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.doReturn;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentRefundedProcessorTest {
@@ -47,6 +53,14 @@ class PaymentRefundedProcessorTest {
     @InjectMocks
     private PaymentRefundedProcessor processor;
 
+    @BeforeEach
+    void executeEventAction() {
+        lenient().when(processedEventService.executeOnce(any(), any())).thenAnswer(invocation -> {
+            invocation.<Runnable>getArgument(1).run();
+            return true;
+        });
+    }
+
     @Test
     @DisplayName("환불 이벤트를 받으면 주문을 REFUNDED로 변경하고 Outbox를 저장한다")
     void process_success() {
@@ -55,7 +69,6 @@ class PaymentRefundedProcessorTest {
         UUID eventId = UUID.randomUUID();
         String eventType = "PAYMENT_REFUNDED";
 
-        given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
         given(orderRepository.findByIdWithOrderProducts(payload.orderId())).willReturn(Optional.of(order));
 
         EventMessage<OrderRefundPayload> orderRefundMessage = new EventMessage<>(
@@ -64,7 +77,7 @@ class PaymentRefundedProcessorTest {
         given(orderEventMessageFactory.createOrderRefundMessage(eq(order.getId()), any(OrderRefundPayload.class)))
             .willReturn(orderRefundMessage);
 
-        processor.process(eventId, eventType, REFUNDED_AT, payload);
+        processor.process(new ConsumedEventContext(eventId, eventType, REFUNDED_AT), payload);
 
         assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.REFUNDED);
         assertThat(order.getRefundedAt()).isEqualTo(REFUNDED_AT);
@@ -73,7 +86,7 @@ class PaymentRefundedProcessorTest {
             .containsOnly(OrderStatus.REFUNDED);
 
         then(outboxEventAppender).should().append(orderRefundMessage);
-        then(processedEventService).should().markProcessed(eventId, "order-service", eventType, REFUNDED_AT);
+        then(processedEventService).should().executeOnce(any(ConsumedEventContext.class), any(Runnable.class));
     }
 
     @Test
@@ -82,9 +95,9 @@ class PaymentRefundedProcessorTest {
         PaymentRefundedPayload payload = createPaymentRefundedPayload(ORDER_ID);
         UUID eventId = UUID.randomUUID();
 
-        given(processedEventService.isProcessed(eventId, "order-service")).willReturn(true);
+        doReturn(false).when(processedEventService).executeOnce(any(), any());
 
-        processor.process(eventId, "PAYMENT_REFUNDED", REFUNDED_AT, payload);
+        processor.process(new ConsumedEventContext(eventId, "PAYMENT_REFUNDED", REFUNDED_AT), payload);
 
         then(orderRepository).should(never()).findByIdWithOrderProducts(any());
         then(outboxEventAppender).should(never()).append(any());
@@ -99,12 +112,11 @@ class PaymentRefundedProcessorTest {
         UUID eventId = UUID.randomUUID();
         String eventType = "PAYMENT_REFUNDED";
 
-        given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
         given(orderRepository.findByIdWithOrderProducts(payload.orderId())).willReturn(Optional.of(order));
 
-        processor.process(eventId, eventType, REFUNDED_AT, payload);
+        processor.process(new ConsumedEventContext(eventId, eventType, REFUNDED_AT), payload);
 
-        then(processedEventService).should().markProcessed(eventId, "order-service", eventType, REFUNDED_AT);
+        then(processedEventService).should().executeOnce(any(ConsumedEventContext.class), any(Runnable.class));
         then(outboxEventAppender).should(never()).append(any());
     }
 
@@ -115,12 +127,11 @@ class PaymentRefundedProcessorTest {
         PaymentRefundedPayload payload = createPaymentRefundedPayload(order.getId());
         UUID eventId = UUID.randomUUID();
 
-        given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
         given(orderRepository.findByIdWithOrderProducts(payload.orderId())).willReturn(Optional.of(order));
 
-        processor.process(eventId, "PAYMENT_REFUNDED", REFUNDED_AT, payload);
+        processor.process(new ConsumedEventContext(eventId, "PAYMENT_REFUNDED", REFUNDED_AT), payload);
 
-        then(processedEventService).should().markProcessed(eventId, "order-service", "PAYMENT_REFUNDED", REFUNDED_AT);
+        then(processedEventService).should().executeOnce(any(ConsumedEventContext.class), any(Runnable.class));
         then(outboxEventAppender).should(never()).append(any());
     }
 }

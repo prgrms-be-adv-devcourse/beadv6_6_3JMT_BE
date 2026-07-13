@@ -1,4 +1,4 @@
-package com.prompthub.order.application.service.event;
+package com.prompthub.order.application.service.event.order;
 
 import com.prompthub.order.application.event.product.ProductDeletedEvent;
 import com.prompthub.order.application.event.product.ProductPriceChangedEvent;

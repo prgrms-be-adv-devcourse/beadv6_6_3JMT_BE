@@ -1,10 +1,9 @@
 package com.prompthub.order.infra.messaging.kafka;
 
-import com.prompthub.common.event.EventMessage;
-import com.prompthub.order.application.service.event.PaymentApprovedEventHandler;
-import com.prompthub.order.application.service.event.PaymentRefundedEventHandler;
-import com.prompthub.order.application.service.event.PaymentFailedEventHandler;
-import com.prompthub.order.application.service.event.PaymentCanceledEventHandler;
+import com.prompthub.order.application.service.event.payment.PaymentApprovedProcessor;
+import com.prompthub.order.application.service.event.payment.PaymentCanceledProcessor;
+import com.prompthub.order.application.service.event.payment.PaymentFailedProcessor;
+import com.prompthub.order.application.service.event.payment.PaymentRefundedProcessor;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -23,9 +22,7 @@ import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 
 import java.time.Duration;
-import java.time.OffsetDateTime;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -54,29 +51,29 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
 
 	@MockitoBean
-	private PaymentApprovedEventHandler paymentApprovedEventHandler;
+	private PaymentApprovedProcessor paymentApprovedProcessor;
 
 	@MockitoBean
-	private PaymentRefundedEventHandler paymentRefundedEventHandler;
+	private PaymentRefundedProcessor paymentRefundedProcessor;
 
 	@MockitoBean
-	private PaymentFailedEventHandler paymentFailedEventHandler;
+	private PaymentFailedProcessor paymentFailedProcessor;
 
 	@MockitoBean
-	private PaymentCanceledEventHandler paymentCanceledEventHandler;
+	private PaymentCanceledProcessor paymentCanceledProcessor;
 
 	@BeforeEach
 	void clearMocks() {
 		clearInvocations(
-			paymentApprovedEventHandler,
-			paymentRefundedEventHandler,
-			paymentFailedEventHandler,
-			paymentCanceledEventHandler
+			paymentApprovedProcessor,
+			paymentRefundedProcessor,
+			paymentFailedProcessor,
+			paymentCanceledProcessor
 		);
 	}
 
 	@Test
-	@DisplayName("결제 승인 이벤트를 수신하면 PaymentApprovedEventHandler가 호출된다")
+	@DisplayName("결제 승인 이벤트를 수신하면 PaymentApprovedProcessor가 호출된다")
 	void consumePaymentApprovedEvent() {
 		// given
 		UUID paymentId = UUID.randomUUID();
@@ -86,9 +83,12 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 		Map<String, Object> payload = new HashMap<>();
 		payload.put("paymentId", paymentId.toString());
 		payload.put("orderId", orderId.toString());
-		payload.put("userId", buyerId.toString());
-		payload.put("amount", 30000);
-		payload.put("approvedAt", OffsetDateTime.now(ZoneOffset.ofHours(9)).toString());
+		payload.put("buyerId", buyerId.toString());
+		payload.put("pgTxId", "tx-approved");
+		payload.put("paymentMethod", "CARD");
+		payload.put("provider", "TOSS");
+		payload.put("approvedAmount", 30000);
+		payload.put("approvedAt", LocalDateTime.now().toString());
 
 		Map<String, Object> message = new HashMap<>();
 		message.put("eventId", UUID.randomUUID().toString());
@@ -103,12 +103,12 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 
 		// then
 		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> 
-			verify(paymentApprovedEventHandler).handle(any(EventMessage.class))
+			verify(paymentApprovedProcessor).process(any(), any())
 		);
 	}
 
 	@Test
-	@DisplayName("결제 환불 이벤트를 수신하면 PaymentRefundedEventHandler가 호출된다")
+	@DisplayName("결제 환불 이벤트를 수신하면 PaymentRefundedProcessor가 호출된다")
 	void consumePaymentRefundedEvent() {
 		// given
 		UUID paymentId = UUID.randomUUID();
@@ -118,9 +118,10 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 		Map<String, Object> payload = new HashMap<>();
 		payload.put("paymentId", paymentId.toString());
 		payload.put("orderId", orderId.toString());
-		payload.put("userId", buyerId.toString());
-		payload.put("amount", 30000);
-		payload.put("refundedAt", OffsetDateTime.now(ZoneOffset.ofHours(9)).toString());
+		payload.put("buyerId", buyerId.toString());
+		payload.put("pgTxId", "tx-refunded");
+		payload.put("refundedAmount", 30000);
+		payload.put("refundedAt", LocalDateTime.now().toString());
 
 		Map<String, Object> message = new HashMap<>();
 		message.put("eventId", UUID.randomUUID().toString());
@@ -135,7 +136,7 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 
 		// then
 		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
-			verify(paymentRefundedEventHandler).handle(any(EventMessage.class))
+			verify(paymentRefundedProcessor).process(any(), any())
 		);
 	}
 
@@ -166,8 +167,8 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 				""".formatted(UUID.randomUUID(), UUID.randomUUID())).get(5, TimeUnit.SECONDS);
 
 			await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
-				verify(paymentApprovedEventHandler, never()).handle(any(EventMessage.class));
-				verify(paymentRefundedEventHandler, never()).handle(any(EventMessage.class));
+				verify(paymentApprovedProcessor, never()).process(any(), any());
+				verify(paymentRefundedProcessor, never()).process(any(), any());
 			});
 			assertThat(dltConsumer.poll(Duration.ofSeconds(2)).isEmpty()).isTrue();
 		}
@@ -186,10 +187,10 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 				.get(5, TimeUnit.SECONDS);
 
 			await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
-				verify(paymentFailedEventHandler).handle(any(EventMessage.class));
-				verify(paymentCanceledEventHandler).handle(any(EventMessage.class));
-				verify(paymentApprovedEventHandler, never()).handle(any(EventMessage.class));
-				verify(paymentRefundedEventHandler, never()).handle(any(EventMessage.class));
+				verify(paymentFailedProcessor).process(any(), any());
+				verify(paymentCanceledProcessor).process(any(), any());
+				verify(paymentApprovedProcessor, never()).process(any(), any());
+				verify(paymentRefundedProcessor, never()).process(any(), any());
 			});
 			assertThat(dltConsumer.poll(Duration.ofSeconds(2)).isEmpty()).isTrue();
 		}

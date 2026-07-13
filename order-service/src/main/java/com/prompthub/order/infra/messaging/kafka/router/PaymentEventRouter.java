@@ -1,41 +1,70 @@
 package com.prompthub.order.infra.messaging.kafka.router;
 
 import com.prompthub.common.event.EventMessage;
-import com.prompthub.order.application.service.event.PaymentApprovedEventHandler;
-import com.prompthub.order.application.service.event.PaymentCanceledEventHandler;
-import com.prompthub.order.application.service.event.PaymentFailedEventHandler;
-import com.prompthub.order.application.service.event.PaymentRefundedEventHandler;
+import com.prompthub.order.application.service.event.common.ConsumedEventContext;
+import com.prompthub.order.application.service.event.payment.PaymentApprovedProcessor;
+import com.prompthub.order.application.service.event.payment.PaymentCanceledProcessor;
+import com.prompthub.order.application.service.event.payment.PaymentEventProcessor;
+import com.prompthub.order.application.service.event.payment.PaymentFailedProcessor;
+import com.prompthub.order.application.service.event.payment.PaymentRefundedProcessor;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentCanceledPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentEventType;
-import lombok.RequiredArgsConstructor;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
+import com.prompthub.order.infra.messaging.kafka.support.EventPayloadMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
+import java.util.Map;
+
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class PaymentEventRouter {
 
-    private final PaymentApprovedEventHandler approvedHandler;
-    private final PaymentRefundedEventHandler refundedHandler;
-    private final PaymentFailedEventHandler failedHandler;
-    private final PaymentCanceledEventHandler canceledHandler;
+	private final EventPayloadMapper eventPayloadMapper;
+	private final Map<PaymentEventType, PaymentRoute<?>> routes;
 
-    public void route(EventMessage<JsonNode> message) {
-        PaymentEventType eventType = PaymentEventType.from(message.eventType());
+	public PaymentEventRouter(
+		EventPayloadMapper eventPayloadMapper,
+		PaymentApprovedProcessor approvedProcessor,
+		PaymentRefundedProcessor refundedProcessor,
+		PaymentFailedProcessor failedProcessor,
+		PaymentCanceledProcessor canceledProcessor
+	) {
+		this.eventPayloadMapper = eventPayloadMapper;
+		this.routes = Map.of(
+			PaymentEventType.PAYMENT_APPROVED,
+			new PaymentRoute<>(PaymentApprovedPayload.class, approvedProcessor),
+			PaymentEventType.PAYMENT_REFUNDED,
+			new PaymentRoute<>(PaymentRefundedPayload.class, refundedProcessor),
+			PaymentEventType.PAYMENT_FAILED,
+			new PaymentRoute<>(PaymentFailedPayload.class, failedProcessor),
+			PaymentEventType.PAYMENT_CANCELED,
+			new PaymentRoute<>(PaymentCanceledPayload.class, canceledProcessor)
+		);
+	}
 
-        if (eventType == null) {
-            log.warn("Unsupported payment event. eventId={}, eventType={}",
-                    message.eventId(),
-                    message.eventType());
-            return;
-        }
+	public void route(EventMessage<JsonNode> message) {
+		PaymentEventType eventType = PaymentEventType.from(message.eventType());
+		if (eventType == null) {
+			log.warn("Unsupported payment event. eventId={}, eventType={}",
+				message.eventId(), message.eventType());
+			return;
+		}
 
-        switch (eventType) {
-            case PAYMENT_APPROVED -> approvedHandler.handle(message);
-            case PAYMENT_REFUNDED -> refundedHandler.handle(message);
-            case PAYMENT_FAILED -> failedHandler.handle(message);
-            case PAYMENT_CANCELED -> canceledHandler.handle(message);
-        }
-    }
+		dispatch(message, routes.get(eventType));
+	}
+
+	private <P> void dispatch(EventMessage<JsonNode> message, PaymentRoute<P> route) {
+		P payload = eventPayloadMapper.convert(message, route.payloadType());
+		route.processor().process(ConsumedEventContext.from(message), payload);
+	}
+
+	private record PaymentRoute<P>(
+		Class<P> payloadType,
+		PaymentEventProcessor<P> processor
+	) {
+	}
 }
