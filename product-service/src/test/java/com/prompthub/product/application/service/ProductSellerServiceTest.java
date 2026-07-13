@@ -226,6 +226,23 @@ class ProductSellerServiceTest {
 			assertThat(result.liveVersion()).isEqualTo("2.0");
 			assertThat(result.versions()).hasSize(2);
 		}
+
+		@Test
+		@DisplayName("판매자 상세는 fileUrl을 presigned로, contentFileUrl을 원문으로 반환한다")
+		void getMyProduct_exposesTypeFields() {
+			Product onSale = product(PRODUCT_ID, null, ProductStatus.ON_SALE, (short) 1, (short) 0);
+			ReflectionTestUtils.setField(onSale, "fileUrl", "products/1/file/a.pptx");
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(onSale));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(onSale));
+			given(storageClient.generatePresignedDownloadUrl("products/1/file/a.pptx"))
+				.willReturn("https://s3/presigned-file");
+
+			com.prompthub.product.presentation.dto.response.SellerProductDetailResponse result =
+				productSellerService.getMyProduct(SELLER_ID, PRODUCT_ID);
+
+			assertThat(result.fileUrl()).isEqualTo("https://s3/presigned-file");
+			assertThat(result.contentFileUrl()).isNull();
+		}
 	}
 
 	private ProductUpdateRequest request(String versionType) {
