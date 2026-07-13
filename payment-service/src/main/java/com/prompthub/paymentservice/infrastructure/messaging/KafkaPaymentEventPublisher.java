@@ -4,11 +4,9 @@ import com.prompthub.common.event.EventMessage;
 import com.prompthub.paymentservice.domain.event.PaymentApprovedEvent;
 import com.prompthub.paymentservice.domain.event.PaymentFailedEvent;
 import com.prompthub.paymentservice.domain.model.Payment;
-import com.prompthub.paymentservice.domain.model.Refund;
 import com.prompthub.paymentservice.infrastructure.messaging.config.PaymentTopic;
 import com.prompthub.paymentservice.infrastructure.messaging.dto.PaymentApprovedMessage;
 import com.prompthub.paymentservice.infrastructure.messaging.dto.PaymentFailedMessage;
-import com.prompthub.paymentservice.infrastructure.messaging.dto.PaymentRefundedMessage;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -101,36 +99,5 @@ public class KafkaPaymentEventPublisher {
 
     private LocalDateTime toKst(OffsetDateTime dateTime) {
         return dateTime != null ? dateTime.withOffsetSameInstant(KST).toLocalDateTime() : null;
-    }
-
-    // TransactionTemplate.execute() 완료 후 직접 호출 — Spring Boot 4.1 중첩 @TransactionalEventListener 제한 우회
-    public void publishRefunded(Payment payment, Refund refund) {
-        PaymentRefundedMessage payload = new PaymentRefundedMessage(
-            payment.getId(),
-            payment.getOrderId(),
-            payment.getUserId(),
-            refund.getRefundAmount(),
-            toKstString(payment.getRefundedAt())
-        );
-        EventMessage<PaymentRefundedMessage> message = new EventMessage<>(
-            UUID.randomUUID(),
-            PaymentEventType.PAYMENT_REFUNDED.code(),
-            toKst(payment.getRefundedAt()),
-            AGGREGATE_TYPE_ORDER,
-            payment.getOrderId(),
-            payload
-        );
-        kafkaTemplate.send(PaymentTopic.PAYMENT_EVENTS, payment.getOrderId().toString(), message)
-            .whenComplete((result, ex) -> {
-                if (ex != null) {
-                    log.error("환불 Kafka 메시지 발행 실패 — paymentId={}, cause={}",
-                        payment.getId(), ex.getMessage());
-                } else {
-                    log.info("환불 Kafka 메시지 발행 성공 — paymentId={}, partition={}, offset={}",
-                        payment.getId(),
-                        result.getRecordMetadata().partition(),
-                        result.getRecordMetadata().offset());
-                }
-            });
     }
 }

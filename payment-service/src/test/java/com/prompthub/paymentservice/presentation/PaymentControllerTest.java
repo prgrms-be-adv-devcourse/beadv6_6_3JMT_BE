@@ -4,7 +4,6 @@ import com.prompthub.exception.BusinessException;
 import com.prompthub.paymentservice.application.dto.result.PaymentResult;
 import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.usecase.ConfirmPaymentUseCase;
-import com.prompthub.paymentservice.application.usecase.RefundPaymentUseCase;
 import com.prompthub.paymentservice.presentation.dto.request.ConfirmPaymentRequest;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,7 +18,6 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import tools.jackson.databind.ObjectMapper;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -30,8 +28,6 @@ class PaymentControllerTest {
 
     @Mock
     ConfirmPaymentUseCase confirmPaymentUseCase;
-    @Mock
-    RefundPaymentUseCase refundPaymentUseCase;
 
     MockMvc mockMvc;
     ObjectMapper objectMapper = new ObjectMapper();
@@ -40,7 +36,7 @@ class PaymentControllerTest {
     void setUp() {
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
-        mockMvc = MockMvcBuilders.standaloneSetup(new PaymentController(confirmPaymentUseCase, refundPaymentUseCase))
+        mockMvc = MockMvcBuilders.standaloneSetup(new PaymentController(confirmPaymentUseCase))
             .setControllerAdvice(new PaymentExceptionHandler())
             .setValidator(validator)
             .build();
@@ -135,27 +131,5 @@ class PaymentControllerTest {
                 )))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("PAY007"));
-    }
-
-    @Test
-    void BUYER_역할_없으면_환불_403_PAY007() throws Exception {
-        mockMvc.perform(post("/api/v2/payments/{paymentId}/refund", UUID.randomUUID())
-                .header("X-User-Id", UUID.randomUUID().toString())
-                .header("X-User-Role", "ADMIN"))
-            .andExpect(status().isForbidden())
-            .andExpect(jsonPath("$.code").value("PAY007"));
-    }
-
-    @Test
-    void PAID_아닌_상태_환불_시_400_PAY004() throws Exception {
-        doThrow(new BusinessException(PaymentErrorCode.REFUND_NOT_ALLOWED))
-            .when(refundPaymentUseCase).refund(any());
-
-        mockMvc.perform(post("/api/v2/payments/{paymentId}/refund", UUID.randomUUID())
-                .header("X-User-Id", UUID.randomUUID().toString())
-                .header("X-User-Role", "BUYER"))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.success").value(false))
-            .andExpect(jsonPath("$.code").value("PAY004"));
     }
 }
