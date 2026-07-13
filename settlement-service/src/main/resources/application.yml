@@ -5,6 +5,9 @@ spring:
     import: ${CONFIG_IMPORT:}
   profiles:
     default: local
+  batch:
+    job:
+      enabled: false
   cloud:
     config:
       fail-fast: true

@@ -19,18 +19,22 @@ public class SettlementJobConfig {
 
 	@Bean
 	public Job settlementJob(
+		Step retryPendingOutboxStep,
 		Step loadSettlementSourceStep,
 		Step createSettlementBatchStep,
 		Step settlementStep,
 		Step completeSettlementBatchStep,
+		Step flushCurrentBatchOutboxStep,
 		SettlementBatchFailureListener settlementBatchFailureListener
 	) {
 		return new JobBuilder(SETTLEMENT_JOB_NAME, jobRepository)
 			.listener(settlementBatchFailureListener)
-			.start(loadSettlementSourceStep)
+			.start(retryPendingOutboxStep)
+			.next(loadSettlementSourceStep)
 			.next(createSettlementBatchStep)
 			.next(settlementStep)
 			.next(completeSettlementBatchStep)
+			.next(flushCurrentBatchOutboxStep)
 			.build();
 	}
 }
