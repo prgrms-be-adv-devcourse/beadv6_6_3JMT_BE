@@ -1,0 +1,6 @@
+interface:
+  display_name: "Create Settlement Branch"
+  short_description: "정산 서비스 이슈 기반 작업 브랜치를 규칙에 맞게 생성"
+  default_prompt: "Use $create-settlement-branch to create a branch for this settlement-service issue."
+policy:
+  allow_implicit_invocation: true

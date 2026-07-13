@@ -30,6 +30,9 @@ public class SettlementBatchFailureListener implements JobExecutionListener {
         }
 
         settlementBatchRepository.findById(UUID.fromString(batchId)).ifPresent(batch -> {
+            if (!batch.isProcessing()) {
+                return;
+            }
             batch.fail(resolveFailureReason(jobExecution));
             settlementBatchRepository.save(batch);
         });

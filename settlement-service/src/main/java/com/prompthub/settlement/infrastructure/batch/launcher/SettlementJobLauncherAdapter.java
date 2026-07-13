@@ -4,6 +4,7 @@ import com.prompthub.settlement.application.dto.RunSettlementJobCommand;
 import com.prompthub.settlement.application.dto.SettlementJobResult;
 import com.prompthub.settlement.application.port.SettlementJobLauncher;
 import com.prompthub.settlement.infrastructure.batch.config.SettlementBatchConfig;
+import com.prompthub.settlement.infrastructure.batch.config.SettlementJobConfig;
 import com.prompthub.settlement.domain.model.enums.TriggerType;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
 import com.prompthub.settlement.global.exception.SettlementException;
@@ -25,7 +26,7 @@ public class SettlementJobLauncherAdapter implements SettlementJobLauncher {
     public SettlementJobLauncherAdapter(
             JobOperator jobOperator,
             @Qualifier(SettlementBatchConfig.ASYNC_JOB_OPERATOR) JobOperator asyncJobOperator,
-            Job settlementJob) {
+            @Qualifier(SettlementJobConfig.SETTLEMENT_JOB_NAME) Job settlementJob) {
         this.jobOperator = jobOperator;
         this.asyncJobOperator = asyncJobOperator;
         this.settlementJob = settlementJob;
