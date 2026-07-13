@@ -1,4 +1,4 @@
-package com.prompthub.settlement.application.service;
+package com.prompthub.settlement.infrastructure.messaging.kafka.producer;
 
 import com.prompthub.settlement.application.event.SettlementCreatedPayload;
 import com.prompthub.settlement.application.port.SettlementEventPublisher;
