@@ -3,7 +3,7 @@ package com.prompthub.settlement.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
-import com.prompthub.settlement.domain.model.OutboxEvent;
+import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.infrastructure.persistence.SettlementJpaRepository;
@@ -71,13 +71,13 @@ class SettlementOutboxCommitIntegrationTest {
                 new CalculateSettlementCommand(batchId, sellerId, YearMonth.of(2026, 6)));
 
         // then
-        List<OutboxEvent> outboxEvents = outboxEventJpaRepository.findAll();
+        List<SettlementOutboxEvent> outboxEvents = outboxEventJpaRepository.findAll();
         assertThat(settlementJpaRepository.findById(settlement.getId())).isPresent();
         assertThat(sourceLineJpaRepository.findById(sourceLine.getId()).orElseThrow().getSettlementId())
                 .isEqualTo(settlement.getId());
         assertThat(outboxEvents).hasSize(1);
 
-        OutboxEvent outbox = outboxEvents.getFirst();
+        SettlementOutboxEvent outbox = outboxEvents.getFirst();
         JsonNode envelope = objectMapper.readTree(outbox.getPayload());
         assertThat(outbox.getSettlementBatchId()).isEqualTo(batchId);
         assertThat(outbox.getAggregateId()).isEqualTo(settlement.getId());

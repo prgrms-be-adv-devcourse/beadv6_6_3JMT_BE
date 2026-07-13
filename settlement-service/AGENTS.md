@@ -71,7 +71,7 @@
   2. 셀러 이동: `#233 (이슈)`, `#236 (이슈)`
   3. 기존 정산 기능 삭제: `#234 (이슈)`
 - 역할 기준은 `settlement`가 정산 로그, `seller_settlement`가 운영 데이터의 단일 진실 공급원이다.
-- Kafka 이벤트 규칙은 2026-07-09 팀 확정 사항이다. 공통 `EventMessage<T>`, `~Payload`, UPPER_SNAKE `eventType`, `{domain}-events` 토픽, `eventId + consumerGroup` 멱등키를 사용한다. 세부 규칙의 원본은 `settlement-service/.claude/rules/kafka-event.md`다.
+- Kafka 이벤트 규칙은 2026-07-09 팀 확정 사항이다. 공통 `EventMessage<T>`, `~Event`, UPPER_SNAKE `eventType`, `{domain}-events` 토픽, `eventId + consumerGroup` 멱등키를 사용한다. 세부 규칙의 원본은 `settlement-service/.claude/rules/kafka-event.md`다.
 - 위 담당 도메인의 main/test 패키지는 작업 요청에 따라 직접 수정할 수 있다. 그 밖의 user/admin 영역으로 범위를 넓혀야 하면 사용자에게 먼저 알린다.
 
 ## Codex skill 라우팅

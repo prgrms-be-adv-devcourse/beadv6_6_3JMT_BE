@@ -44,7 +44,7 @@ com.prompthub.settlement
     │   ├── usecase                 ← 인바운드 포트(인터페이스)
     │   ├── service                 ← 유스케이스 구현
     │   ├── port                    ← 아웃바운드 포트(비영속: 배치 실행·메시징 등)
-    │   ├── event                   ← 외부 이벤트 envelope·페이로드 DTO(타 서비스 메시지 계약). order-service 컨벤션과 동일
+    │   ├── event                   ← 외부 이벤트 envelope·이벤트 상세 DTO(타 서비스 메시지 계약). order-service 컨벤션과 동일
     │   └── dto                     ← Command / Result / Query(조회 조건)
     ├── domain
     │   ├── model                   ← 도메인 모델(= JPA 엔티티 겸용)
@@ -65,7 +65,7 @@ com.prompthub.settlement
     │   │   └── kafka
     │   │       ├── config          ← Kafka Producer/Consumer 설정(KafkaConfig)
     │   │       ├── consumer        ← 수신 어댑터(@KafkaListener → usecase 호출). 필요 시 발행처별 하위 패키지
-    │   │       └── producer        ← 발행 어댑터(OutboxRelay 등, 도입 시). 메시지 envelope·페이로드 DTO 는 application/event
+    │   │       └── producer        ← 발행 어댑터(OutboxRelay 등, 도입 시). 메시지 envelope·이벤트 상세 DTO 는 application/event
     │   └── client                  ← 타 서비스 동기 호출(gRPC) 어댑터. 호출 대상 서비스별 하위 패키지로 분리
     │       ├── product             ← Product 서비스 gRPC 호출
     │       │   ├── ProductQueryClient

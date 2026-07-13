@@ -220,7 +220,7 @@ message SettleableLine {
 배치가 정산을 계산·생성할 때, 셀러 정산(user-service `sellersettlement`) 운영행을 seed 하도록 발행한다.
 공통 래퍼 `EventMessage<T>` 로 감싸며(규칙은 `common-kafka-event-message.md`), 개별 envelope 를 새로 두지 않는다.
 
-정산 1건마다 `EventMessage<SettlementCreatedPayload>` 한 건을 만들고, `Settlement` 저장 및 해당
+정산 1건마다 `EventMessage<SettlementCreatedEvent>` 한 건을 만들고, `Settlement` 저장 및 해당
 `SettlementSourceLine.settlementId` 연결과 같은 트랜잭션에 완성된 JSON을 저장한다. Outbox PK와 envelope의
 `eventId`는 동일하며, Kafka key는 `settlementId`(=`aggregateId`)다. 재시도와 redrive도 저장 JSON을 그대로
 사용하므로 이벤트 식별자가 바뀌지 않는다.

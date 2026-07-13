@@ -19,7 +19,7 @@
 
 ```
                          settlement-events (Kafka)
-                         EventMessage<SettlementCreatedPayload>
+                         EventMessage<SettlementCreatedEvent>
                          eventType=SETTLEMENT_CREATED
   ┌───────────────────┐  ─────────────────────────────▶  ┌────────────────────────────┐
   │ settlement-service│  Transactional Outbox              │ user-service               │
@@ -64,10 +64,10 @@
 | 어댑터 | `infrastructure/messaging/kafka/producer/KafkaSettlementEventPublisher` (`SettlementEventPublisher` 포트 구현) |
 | 적재 | `Settlement`·SourceLine 연결과 같은 트랜잭션에서 `settlement_outbox_event`에 완성 JSON 저장 |
 | 토픽 | `settlement-events` (`settlement.kafka.producer.topic`) |
-| 래퍼 | `EventMessage<SettlementCreatedPayload>` |
+| 래퍼 | `EventMessage<SettlementCreatedEvent>` |
 | eventType | `SETTLEMENT_CREATED` |
 | aggregateType / key | `SETTLEMENT` / `settlementId` |
-| 페이로드 | `SettlementCreatedPayload` (settlementId·sellerId·periodStart·periodEnd·productCount·totalAmount·settlementTotalAmount·feeTotalAmount·refundAmount·calculatedAt) |
+| 이벤트 상세 | `SettlementCreatedEvent` (settlementId·sellerId·periodStart·periodEnd·productCount·totalAmount·settlementTotalAmount·feeTotalAmount·refundAmount·calculatedAt) |
 | 발행 시점 | Job 시작 `retryPendingOutboxStep`(이전 PENDING), Job 마지막 `flushCurrentBatchOutboxStep`(현재 배치 PENDING) |
 | 실패정책 | broker ack 동기 확인. 1~2회 `PENDING`, 3회 `FAILED`; `outboxRedriveJob(eventId)`로 지정 재처리 |
 | 멱등/전달 | Outbox PK = JSON `eventId`, 저장 원문 재발행(at-least-once). user는 `settlementId` 유니크로 중복 흡수 |
@@ -106,9 +106,9 @@
 | 컨슈머 | `sellersettlement/infrastructure/messaging/kafka/consumer/settlement/SettlementEventConsumer` |
 | 토픽 | `settlement-events` (`user.kafka.consumer.settlement.topic`) — 정산 본체 발행 토픽과 일치 |
 | 게이트 | `user.kafka.listener.settlement.enabled` — **기본값 false**(통합 검증 시 true) |
-| 래퍼 | 공통 `EventMessage<SettlementCreatedPayload>` (수동 `readTree` 역직렬화) |
-| 처리 | `eventType == SETTLEMENT_CREATED` → `SeedSellerSettlementUseCase.seed(payload)` → `seller_settlement` 시딩 |
-| 페이로드 | 자체 `SettlementCreatedPayload`(정산 본체 발행 DTO 와 필드 미러) |
+| 래퍼 | 공통 `EventMessage<SettlementCreatedEvent>` (수동 `readTree` 역직렬화) |
+| 처리 | `eventType == SETTLEMENT_CREATED` → `SeedSellerSettlementUseCase.seed(event)` → `seller_settlement` 시딩 |
+| 이벤트 상세 | 자체 `SettlementCreatedEvent`(정산 본체 발행 DTO 와 필드 미러) |
 
 **gRPC 클라이언트 — 구현됨(상대 서버 리네임 대기)**
 

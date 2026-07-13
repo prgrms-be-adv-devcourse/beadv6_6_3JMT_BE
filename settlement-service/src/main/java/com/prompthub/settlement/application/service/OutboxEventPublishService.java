@@ -1,7 +1,7 @@
 package com.prompthub.settlement.application.service;
 
 import com.prompthub.settlement.application.port.SettlementEventPublisher;
-import com.prompthub.settlement.domain.model.OutboxEvent;
+import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
 import com.prompthub.settlement.domain.repository.OutboxEventRepository;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
 import com.prompthub.settlement.global.exception.SettlementException;
@@ -30,7 +30,7 @@ public class OutboxEventPublishService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void publish(UUID eventId) {
-        OutboxEvent event = find(eventId);
+        SettlementOutboxEvent event = find(eventId);
         if (!event.isPending()) {
             return;
         }
@@ -39,12 +39,12 @@ public class OutboxEventPublishService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void redrive(UUID eventId) {
-        OutboxEvent event = find(eventId);
+        SettlementOutboxEvent event = find(eventId);
         event.requeueForRedrive();
         publishPending(event);
     }
 
-    private void publishPending(OutboxEvent event) {
+    private void publishPending(SettlementOutboxEvent event) {
         LocalDateTime attemptedAt = LocalDateTime.now();
         try {
             publisher.publish(event.getTopic(), event.getAggregateId(), event.getPayload());
@@ -54,7 +54,7 @@ public class OutboxEventPublishService {
         }
     }
 
-    private OutboxEvent find(UUID eventId) {
+    private SettlementOutboxEvent find(UUID eventId) {
         return repository.findById(eventId)
                 .orElseThrow(() -> new SettlementException(SettlementErrorCode.OUTBOX_EVENT_NOT_FOUND));
     }

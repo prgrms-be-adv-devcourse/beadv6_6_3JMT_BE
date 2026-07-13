@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
-import com.prompthub.settlement.application.event.SettlementCreatedPayload;
-import com.prompthub.settlement.domain.model.OutboxEvent;
+import com.prompthub.settlement.application.event.SettlementCreatedEvent;
+import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
 import com.prompthub.settlement.domain.repository.OutboxEventRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -39,15 +39,16 @@ class JsonOutboxEventAppenderTest {
     @DisplayName("정산 생성 이벤트는 완성된 EventMessage JSON과 동일한 eventId로 저장된다")
     void appendSettlementCreated_savesStableEnvelope() throws Exception {
         // given
-        SettlementCreatedPayload payload = payload();
+        SettlementCreatedEvent createdEvent = event();
 
         // when
-        appender.appendSettlementCreated(BATCH_ID, payload);
+        appender.appendSettlementCreated(BATCH_ID, createdEvent);
 
         // then
-        ArgumentCaptor<OutboxEvent> captor = ArgumentCaptor.forClass(OutboxEvent.class);
+        ArgumentCaptor<SettlementOutboxEvent> captor =
+                ArgumentCaptor.forClass(SettlementOutboxEvent.class);
         then(repository).should().save(captor.capture());
-        OutboxEvent event = captor.getValue();
+        SettlementOutboxEvent event = captor.getValue();
         JsonNode json = objectMapper.readTree(event.getPayload());
 
         assertThat(json.path("eventId").stringValue()).isEqualTo(event.getEventId().toString());
@@ -63,8 +64,8 @@ class JsonOutboxEventAppenderTest {
         assertThat(json.has("occurredAt")).isTrue();
     }
 
-    private SettlementCreatedPayload payload() {
-        return new SettlementCreatedPayload(
+    private SettlementCreatedEvent event() {
+        return new SettlementCreatedEvent(
                 SETTLEMENT_ID,
                 SELLER_ID,
                 LocalDate.of(2026, 6, 1),

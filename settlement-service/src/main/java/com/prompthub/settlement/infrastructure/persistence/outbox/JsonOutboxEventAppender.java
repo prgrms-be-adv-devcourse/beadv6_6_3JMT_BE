@@ -1,9 +1,9 @@
 package com.prompthub.settlement.infrastructure.persistence.outbox;
 
 import com.prompthub.common.event.EventMessage;
-import com.prompthub.settlement.application.event.SettlementCreatedPayload;
+import com.prompthub.settlement.application.event.SettlementCreatedEvent;
 import com.prompthub.settlement.application.port.OutboxEventAppender;
-import com.prompthub.settlement.domain.model.OutboxEvent;
+import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
 import com.prompthub.settlement.domain.repository.OutboxEventRepository;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
 import com.prompthub.settlement.global.exception.SettlementException;
@@ -34,22 +34,22 @@ public class JsonOutboxEventAppender implements OutboxEventAppender {
     }
 
     @Override
-    public void appendSettlementCreated(UUID settlementBatchId, SettlementCreatedPayload payload) {
+    public void appendSettlementCreated(UUID settlementBatchId, SettlementCreatedEvent event) {
         UUID eventId = UUID.randomUUID();
         LocalDateTime occurredAt = LocalDateTime.now();
-        EventMessage<SettlementCreatedPayload> message = new EventMessage<>(
+        EventMessage<SettlementCreatedEvent> message = new EventMessage<>(
                 eventId,
                 EVENT_TYPE,
                 occurredAt,
                 AGGREGATE_TYPE,
-                payload.settlementId(),
-                payload);
+                event.settlementId(),
+                event);
 
-        repository.save(OutboxEvent.create(
+        repository.save(SettlementOutboxEvent.create(
                 eventId,
                 settlementBatchId,
                 AGGREGATE_TYPE,
-                payload.settlementId(),
+                event.settlementId(),
                 EVENT_TYPE,
                 topic,
                 serialize(message),

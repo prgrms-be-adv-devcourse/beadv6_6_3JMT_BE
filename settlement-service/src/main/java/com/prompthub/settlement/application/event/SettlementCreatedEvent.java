@@ -6,7 +6,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public record SettlementCreatedPayload(
+public record SettlementCreatedEvent(
         UUID settlementId,
         UUID sellerId,
         LocalDate periodStart,
@@ -19,8 +19,8 @@ public record SettlementCreatedPayload(
         LocalDateTime calculatedAt
 ) {
 
-    public static SettlementCreatedPayload from(Settlement settlement) {
-        return new SettlementCreatedPayload(
+    public static SettlementCreatedEvent from(Settlement settlement) {
+        return new SettlementCreatedEvent(
                 settlement.getId(),
                 settlement.getSellerId(),
                 settlement.getPeriodStart(),

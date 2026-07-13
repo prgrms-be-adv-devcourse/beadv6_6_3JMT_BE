@@ -1,6 +1,6 @@
 package com.prompthub.settlement.domain.repository;
 
-import com.prompthub.settlement.domain.model.OutboxEvent;
+import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -8,9 +8,9 @@ import java.util.UUID;
 
 public interface OutboxEventRepository {
 
-    OutboxEvent save(OutboxEvent event);
+    SettlementOutboxEvent save(SettlementOutboxEvent event);
 
-    Optional<OutboxEvent> findById(UUID eventId);
+    Optional<SettlementOutboxEvent> findById(UUID eventId);
 
     List<OutboxCandidate> findPendingBefore(
             LocalDateTime attemptedBefore,

@@ -34,7 +34,7 @@ import lombok.NoArgsConstructor;
         })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class OutboxEvent extends BaseEntity {
+public class SettlementOutboxEvent extends BaseEntity {
 
     private static final int FAILURE_REASON_MAX_LENGTH = 1_000;
 
@@ -86,7 +86,7 @@ public class OutboxEvent extends BaseEntity {
     @Column(name = "version", nullable = false)
     private Long version;
 
-    private OutboxEvent(
+    private SettlementOutboxEvent(
             UUID eventId,
             UUID settlementBatchId,
             String aggregateType,
@@ -107,7 +107,7 @@ public class OutboxEvent extends BaseEntity {
         this.retryCount = 0;
     }
 
-    public static OutboxEvent create(
+    public static SettlementOutboxEvent create(
             UUID eventId,
             UUID settlementBatchId,
             String aggregateType,
@@ -116,7 +116,7 @@ public class OutboxEvent extends BaseEntity {
             String topic,
             String payload,
             LocalDateTime occurredAt) {
-        return new OutboxEvent(
+        return new SettlementOutboxEvent(
                 eventId,
                 settlementBatchId,
                 aggregateType,

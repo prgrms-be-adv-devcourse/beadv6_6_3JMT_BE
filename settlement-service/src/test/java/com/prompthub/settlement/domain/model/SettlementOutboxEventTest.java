@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class OutboxEventTest {
+class SettlementOutboxEventTest {
 
     private static final UUID EVENT_ID = UUID.fromString("10000000-0000-0000-0000-000000000001");
     private static final UUID BATCH_ID = UUID.fromString("20000000-0000-0000-0000-000000000001");
@@ -26,7 +26,7 @@ class OutboxEventTest {
     @DisplayName("아웃박스 이벤트를 생성하면 PENDING 상태와 발행 정보가 저장된다")
     void create_initializesPendingEvent() {
         // when
-        OutboxEvent event = pendingEvent();
+        SettlementOutboxEvent event = pendingEvent();
 
         // then
         assertThat(event.getEventId()).isEqualTo(EVENT_ID);
@@ -46,7 +46,7 @@ class OutboxEventTest {
     @DisplayName("아웃박스 테이블에는 상태·배치·aggregate 조회 인덱스가 선언된다")
     void table_declaresRelayIndexes() {
         // given
-        Table table = OutboxEvent.class.getAnnotation(Table.class);
+        Table table = SettlementOutboxEvent.class.getAnnotation(Table.class);
 
         // when
         Set<String> indexNames = Arrays.stream(table.indexes())
@@ -64,7 +64,7 @@ class OutboxEventTest {
     @DisplayName("PENDING 이벤트 발행에 성공하면 PUBLISHED 상태와 발행 시각이 기록된다")
     void markPublished_fromPending_recordsPublishedAt() {
         // given
-        OutboxEvent event = pendingEvent();
+        SettlementOutboxEvent event = pendingEvent();
         LocalDateTime publishedAt = OCCURRED_AT.plusMinutes(1);
 
         // when
@@ -81,7 +81,7 @@ class OutboxEventTest {
     @DisplayName("1회와 2회 발행 실패는 PENDING으로 유지하고 실패 정보를 누적한다")
     void recordPublishFailure_beforeLimit_remainsPending() {
         // given
-        OutboxEvent event = pendingEvent();
+        SettlementOutboxEvent event = pendingEvent();
 
         // when
         event.recordPublishFailure("broker down", OCCURRED_AT.plusMinutes(1), 3);
@@ -99,7 +99,7 @@ class OutboxEventTest {
     @DisplayName("3회 발행 실패하면 FAILED 상태와 실패 시각이 기록된다")
     void recordPublishFailure_reachesLimit_becomesFailed() {
         // given
-        OutboxEvent event = pendingEvent();
+        SettlementOutboxEvent event = pendingEvent();
 
         // when
         event.recordPublishFailure("first", OCCURRED_AT.plusMinutes(1), 3);
@@ -117,7 +117,7 @@ class OutboxEventTest {
     @DisplayName("발행 실패 사유는 컬럼 최대 길이인 1000자로 제한한다")
     void recordPublishFailure_longReason_truncatesReason() {
         // given
-        OutboxEvent event = pendingEvent();
+        SettlementOutboxEvent event = pendingEvent();
 
         // when
         event.recordPublishFailure("x".repeat(1_001), OCCURRED_AT.plusMinutes(1), 3);
@@ -130,7 +130,7 @@ class OutboxEventTest {
     @DisplayName("FAILED 이벤트를 재처리 대기열로 되돌리면 실패 정보가 초기화된다")
     void requeueForRedrive_fromFailed_resetsFailureState() {
         // given
-        OutboxEvent event = pendingEvent();
+        SettlementOutboxEvent event = pendingEvent();
         event.recordPublishFailure("first", OCCURRED_AT.plusMinutes(1), 1);
 
         // when
@@ -149,7 +149,7 @@ class OutboxEventTest {
     @DisplayName("FAILED 상태가 아닌 이벤트는 재처리 대기열로 되돌릴 수 없다")
     void requeueForRedrive_notFailed_throwsException() {
         // given
-        OutboxEvent event = pendingEvent();
+        SettlementOutboxEvent event = pendingEvent();
 
         // when & then
         assertThatThrownBy(event::requeueForRedrive)
@@ -160,7 +160,7 @@ class OutboxEventTest {
     @DisplayName("PENDING 상태가 아닌 이벤트는 발행 결과를 다시 기록할 수 없다")
     void recordResult_notPending_throwsException() {
         // given
-        OutboxEvent event = pendingEvent();
+        SettlementOutboxEvent event = pendingEvent();
         event.markPublished(OCCURRED_AT.plusMinutes(1));
 
         // when & then
@@ -170,8 +170,8 @@ class OutboxEventTest {
                 .isInstanceOf(OutboxEventInvalidStateException.class);
     }
 
-    private OutboxEvent pendingEvent() {
-        return OutboxEvent.create(
+    private SettlementOutboxEvent pendingEvent() {
+        return SettlementOutboxEvent.create(
                 EVENT_ID,
                 BATCH_ID,
                 "SETTLEMENT",
