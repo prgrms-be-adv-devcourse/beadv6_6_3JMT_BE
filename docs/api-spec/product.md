@@ -680,17 +680,21 @@ cart-snapshot 배열 반환
 
 ---
 
-### GET /internal/products/{productId}/content — 프롬프트 원문 조회
+### GET /internal/products/{productId}/content — 구매자 산출물 조회 (유형별)
 
 - 호출: order-service → product-service
 - 호출 시점: 구매 후 콘텐츠 다운로드
+- `content`는 상품 유형별 산출물을 담는다: **PROMPT**=본문 텍스트, **PPT·EXCEL**=파일
+  presigned 다운로드 URL, **NOTION**=외부 링크. 응답 구조(`{productId, content}`, gRPC
+  `GetProductContentResponse`)는 유형과 무관하게 동일하며, 소비자는 자신이 아는 productType에
+  따라 렌더링한다.
 
 #### Response
 
 ```json
 {
   "productId": "uuid",
-  "content": "프롬프트 원문"
+  "content": "프롬프트 원문 | 파일 presigned URL | 외부 링크"
 }
 ```
 
