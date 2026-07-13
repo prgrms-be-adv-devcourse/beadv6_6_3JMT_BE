@@ -32,7 +32,7 @@ public interface OrderPersistence extends JpaRepository<Order, UUID>, OrderPersi
     where o.buyerId = :buyerId
       and op.productId = :productId
       and o.orderStatus = com.prompthub.order.domain.enums.OrderStatus.PAID
-      and op.orderStatus = com.prompthub.order.domain.enums.OrderStatus.PAID
+      and op.orderStatus = com.prompthub.order.domain.enums.OrderProductStatus.PAID
 """)
 	boolean existsPaidOrderProductByBuyerIdAndProductId(
 		@Param("buyerId") UUID buyerId,

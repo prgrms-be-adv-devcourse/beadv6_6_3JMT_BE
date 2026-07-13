@@ -221,7 +221,7 @@ public class OrderQueryService implements OrderQueryUseCase {
 			orderProduct.getProductType(),
 			orderProduct.getProductModel(),
 			orderProduct.getProductAmount(),
-			orderProduct.getOrderStatus(),
+			orderProduct.getOrderProductStatus(),
 			orderProduct.isPaid(),
 			orderProduct.isRefundable(),
 			orderProduct.isDownloaded()

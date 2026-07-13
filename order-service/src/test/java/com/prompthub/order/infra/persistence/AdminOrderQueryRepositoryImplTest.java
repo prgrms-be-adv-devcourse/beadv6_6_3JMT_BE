@@ -4,6 +4,7 @@ import com.prompthub.order.application.dto.AdminOrderListProjection;
 import com.prompthub.order.application.dto.AdminDailyTransactionProjection;
 import com.prompthub.order.config.TestJpaConfig;
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderPayment;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -169,7 +170,7 @@ class AdminOrderQueryRepositoryImplTest {
 		ReflectionTestUtils.setField(order, "orderStatus", OrderStatus.CANCELED);
 		ReflectionTestUtils.setField(order, "canceledAt", canceledAt);
 		order.getOrderProducts().forEach(op -> {
-			ReflectionTestUtils.setField(op, "orderStatus", OrderStatus.CANCELED);
+			ReflectionTestUtils.setField(op, "orderStatus", OrderProductStatus.CANCELED);
 			ReflectionTestUtils.setField(op, "canceledAt", canceledAt);
 		});
 		entityManager.persist(order);

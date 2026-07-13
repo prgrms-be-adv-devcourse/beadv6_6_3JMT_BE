@@ -1,6 +1,7 @@
 package com.prompthub.order.domain.model;
 
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.infra.persistence.common.BaseEntity;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -146,6 +147,30 @@ public class Order extends BaseEntity {
 		this.orderStatus = OrderStatus.REFUNDED;
 		this.refundedAt = refundedAt;
 		this.orderProducts.forEach(orderProduct -> orderProduct.refund(refundedAt));
+	}
+
+	public void recalculateRefundStatus() {
+		long refundedCount = this.orderProducts.stream()
+			.filter(product -> product.getOrderProductStatus() == OrderProductStatus.REFUNDED)
+			.count();
+
+		if (refundedCount == 0) {
+			this.orderStatus = OrderStatus.PAID;
+			this.refundedAt = null;
+			return;
+		}
+
+		if (refundedCount < this.orderProducts.size()) {
+			this.orderStatus = OrderStatus.PARTIALLY_REFUNDED;
+			this.refundedAt = null;
+			return;
+		}
+
+		this.orderStatus = OrderStatus.REFUNDED;
+		this.refundedAt = this.orderProducts.stream()
+			.map(OrderProduct::getRefundedAt)
+			.max(LocalDateTime::compareTo)
+			.orElse(null);
 	}
 
 	public void expirePending(LocalDateTime canceledAt) {

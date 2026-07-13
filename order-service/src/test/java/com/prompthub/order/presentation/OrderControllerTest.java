@@ -5,6 +5,7 @@ import com.prompthub.order.application.usecase.CreateOrderUseCase;
 import com.prompthub.order.application.usecase.OrderQueryUseCase;
 import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.GlobalExceptionHandler;
 import com.prompthub.order.global.exception.OrderException;
@@ -290,7 +291,7 @@ class OrderControllerTest {
 					PRODUCT_TYPE_PROMPT,
 					"GPT-4",
 					PRODUCT_AMOUNT_1,
-					OrderStatus.PAID,
+					OrderProductStatus.PAID,
 					true,
 					true,
 					false
@@ -439,7 +440,7 @@ class OrderControllerTest {
 					PRODUCT_TYPE_PROMPT,
 					"GPT-4",
 					PRODUCT_AMOUNT_1,
-					OrderStatus.PENDING
+					OrderProductStatus.PENDING
 				);
 				OrderProductsResponse productResponse2 = new OrderProductsResponse(
 					orderProductId2,
@@ -449,7 +450,7 @@ class OrderControllerTest {
 					PRODUCT_TYPE_PROMPT,
 					"GPT-4",
 					PRODUCT_AMOUNT_2,
-					OrderStatus.PENDING
+					OrderProductStatus.PENDING
 				);
 
 				CreateOrderResponse response = new CreateOrderResponse(

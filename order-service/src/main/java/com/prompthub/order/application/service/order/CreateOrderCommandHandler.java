@@ -82,7 +82,7 @@ public class CreateOrderCommandHandler implements CreateOrderUseCase {
 				product.getProductType(),
 				product.getProductModel(),
 				product.getProductAmount(),
-				product.getOrderStatus()
+				product.getOrderProductStatus()
 			))
 			.toList();
 

@@ -2,6 +2,7 @@ package com.prompthub.order.domain.model;
 
 import com.prompthub.order.config.TestJpaConfig;
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.global.exception.OrderException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -82,7 +83,7 @@ class OrderTest {
 			assertThat(order.getPaidAt()).isNotNull();
 			assertThat(order.getUpdatedAt()).isNotNull();
 
-			assertThat(orderProduct.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderProductStatus.PAID);
 			assertThat(orderProduct.isPaid()).isTrue();
 		}
 
@@ -118,7 +119,7 @@ class OrderTest {
 			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.FAILED);
 			assertThat(order.getUpdatedAt()).isNotNull();
 
-			assertThat(orderProduct.getOrderStatus()).isEqualTo(OrderStatus.FAILED);
+			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderProductStatus.FAILED);
 		}
 
 		@Test
@@ -154,7 +155,7 @@ class OrderTest {
 			assertThat(order.getCanceledAt()).isNotNull();
 			assertThat(order.getUpdatedAt()).isNotNull();
 
-			assertThat(orderProduct.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderProductStatus.CANCELED);
 			assertThat(orderProduct.getCanceledAt()).isNotNull();
 		}
 
@@ -191,7 +192,7 @@ class OrderTest {
 			assertThat(order.getCanceledAt()).isNotNull();
 			assertThat(order.getUpdatedAt()).isNotNull();
 
-			assertThat(orderProduct.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderProductStatus.CANCELED);
 			assertThat(orderProduct.getCanceledAt()).isNotNull();
 		}
 
@@ -226,7 +227,7 @@ class OrderTest {
 			// then
 			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
 			assertThat(order.getCanceledAt()).isEqualTo(CANCELED_AT);
-			assertThat(orderProduct.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderProductStatus.CANCELED);
 			assertThat(orderProduct.getCanceledAt()).isEqualTo(CANCELED_AT);
 		}
 
@@ -272,6 +273,45 @@ class OrderTest {
 	class Refund {
 
 		@Test
+		@DisplayName("일부 상품만 환불 완료되면 주문은 부분 환불 상태가 된다")
+		void recalculateRefundStatus_someProductsRefunded_partiallyRefunded() {
+			Order order = createPendingOrder();
+			OrderProduct refundedProduct = createOrderProduct1();
+			OrderProduct paidProduct = createOrderProduct2();
+			order.addOrderProduct(refundedProduct);
+			order.addOrderProduct(paidProduct);
+			order.markPaid(PAID_AT);
+			refundedProduct.requestRefund();
+			refundedProduct.completeRefund(REFUNDED_AT);
+
+			order.recalculateRefundStatus();
+
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PARTIALLY_REFUNDED);
+			assertThat(order.getRefundedAt()).isNull();
+			assertThat(paidProduct.getOrderProductStatus()).isEqualTo(OrderProductStatus.PAID);
+		}
+
+		@Test
+		@DisplayName("모든 상품이 환불 완료되면 주문은 환불 완료 상태와 시각을 기록한다")
+		void recalculateRefundStatus_allProductsRefunded_refunded() {
+			Order order = createPendingOrder();
+			OrderProduct first = createOrderProduct1();
+			OrderProduct second = createOrderProduct2();
+			order.addOrderProduct(first);
+			order.addOrderProduct(second);
+			order.markPaid(PAID_AT);
+			first.requestRefund();
+			first.completeRefund(REFUNDED_AT.minusMinutes(1));
+			second.requestRefund();
+			second.completeRefund(REFUNDED_AT);
+
+			order.recalculateRefundStatus();
+
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.REFUNDED);
+			assertThat(order.getRefundedAt()).isEqualTo(REFUNDED_AT);
+		}
+
+		@Test
 		@DisplayName("PAID 상태의 주문은 REFUNDED 상태로 변경할 수 있다")
 		void refund_paidOrder_success() {
 			// given
@@ -288,7 +328,7 @@ class OrderTest {
 			assertThat(order.getRefundedAt()).isNotNull();
 			assertThat(order.getUpdatedAt()).isNotNull();
 
-			assertThat(orderProduct.getOrderStatus()).isEqualTo(OrderStatus.REFUNDED);
+			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderProductStatus.REFUNDED);
 			assertThat(orderProduct.getRefundedAt()).isNotNull();
 		}
 

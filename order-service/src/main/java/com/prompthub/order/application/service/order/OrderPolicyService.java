@@ -3,6 +3,7 @@ package com.prompthub.order.application.service.order;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -26,13 +27,17 @@ public class OrderPolicyService {
 	private static final int MAX_SIZE = 100;
 
 	public void validateCreateOrderRequest(CreateOrderRequest request) {
-		if (request.productIds() == null || request.productIds().isEmpty()) {
+		validateUniqueProductIds(request.productIds());
+	}
+
+	public void validateUniqueProductIds(List<UUID> productIds) {
+		if (productIds == null || productIds.isEmpty()) {
 			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
 		}
 
-		Set<UUID> uniqueProductIds = new HashSet<>(request.productIds());
+		Set<UUID> uniqueProductIds = new HashSet<>(productIds);
 
-		if (uniqueProductIds.size() != request.productIds().size()) {
+		if (uniqueProductIds.size() != productIds.size()) {
 			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
 		}
 	}
@@ -87,16 +92,17 @@ public class OrderPolicyService {
 
 	public boolean isRefundable(
 		OrderStatus orderStatus,
-		OrderStatus orderProductStatus,
+		OrderProductStatus orderProductStatus,
 		boolean downloaded
 	) {
-		return orderStatus == OrderStatus.PAID
-			&& orderProductStatus == OrderStatus.PAID
+		return (orderStatus == OrderStatus.PAID || orderStatus == OrderStatus.PARTIALLY_REFUNDED)
+			&& orderProductStatus == OrderProductStatus.PAID
 			&& !downloaded;
 	}
 
 	public boolean isRefundable(Order order) {
-		return order.isPaid() && order.getOrderProducts().stream().noneMatch(OrderProduct::isDownloaded);
+		return (order.getOrderStatus() == OrderStatus.PAID || order.getOrderStatus() == OrderStatus.PARTIALLY_REFUNDED)
+			&& order.getOrderProducts().stream().anyMatch(OrderProduct::isRefundable);
 	}
 
 	public void validateNoDownloadedProduct(Order order) {

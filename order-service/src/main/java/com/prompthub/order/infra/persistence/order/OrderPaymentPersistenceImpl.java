@@ -1,7 +1,8 @@
 package com.prompthub.order.infra.persistence.order;
 
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
-import com.querydsl.core.types.Projections;
+import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.model.OrderProduct;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
@@ -57,7 +58,9 @@ public class OrderPaymentPersistenceImpl implements OrderPaymentPersistenceCusto
 				title += " 외 " + (products.size() - 1) + "건";
 			}
 
-			boolean isRefundable = o.isPaid() && products.stream().noneMatch(com.prompthub.order.domain.model.OrderProduct::isDownloaded);
+            boolean isRefundable = (o.getOrderStatus() == OrderStatus.PAID
+                || o.getOrderStatus() == OrderStatus.PARTIALLY_REFUNDED)
+                && products.stream().anyMatch(OrderProduct::isRefundable);
 			String productType = products.isEmpty() ? "" : products.get(0).getProductType();
 
 			return new OrderPaymentListProjection(

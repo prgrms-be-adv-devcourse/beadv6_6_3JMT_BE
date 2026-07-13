@@ -14,6 +14,7 @@ public enum PaymentStatus {
 		return switch (orderStatus) {
 			case PENDING -> PENDING;
 			case PAID -> PAID;
+			case PARTIALLY_REFUNDED -> PAID;
 			case FAILED -> FAILED;
 			case CANCELED -> CANCELED;
 			case REFUNDED -> REFUNDED;

@@ -6,6 +6,7 @@ import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.domain.enums.PaymentStatus;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -333,7 +334,7 @@ class OrderQueryServiceTest {
             // given
             Order order = createPaidOrderWithProducts();
             OrderProduct orderProduct = order.getOrderProducts().getFirst();
-            ReflectionTestUtils.setField(orderProduct, "orderStatus", OrderStatus.REFUNDED);
+            ReflectionTestUtils.setField(orderProduct, "orderStatus", OrderProductStatus.REFUNDED);
 
             given(orderRepository.findByIdWithOrderProducts(order.getId()))
                 .willReturn(Optional.of(order));
@@ -431,8 +432,8 @@ class OrderQueryServiceTest {
             Order order = createPendingOrderWithProducts();
             OrderProduct paidProduct = order.getOrderProducts().getFirst();
             OrderProduct refundedProduct = order.getOrderProducts().get(1);
-            ReflectionTestUtils.setField(paidProduct, "orderStatus", OrderStatus.PAID);
-            ReflectionTestUtils.setField(refundedProduct, "orderStatus", OrderStatus.REFUNDED);
+            ReflectionTestUtils.setField(paidProduct, "orderStatus", OrderProductStatus.PAID);
+            ReflectionTestUtils.setField(refundedProduct, "orderStatus", OrderProductStatus.REFUNDED);
 
             given(orderRepository.findByIdWithOrderProducts(order.getId()))
                 .willReturn(Optional.of(order));
@@ -458,7 +459,7 @@ class OrderQueryServiceTest {
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderListProjection projection = orderListProjection(
                 OrderStatus.PAID,
-                OrderStatus.PAID,
+                OrderProductStatus.PAID,
                 false,
                 4.5
             );
@@ -576,7 +577,7 @@ class OrderQueryServiceTest {
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderListProjection projection = orderListProjection(
                 OrderStatus.PAID,
-                OrderStatus.PAID,
+                OrderProductStatus.PAID,
                 false,
                 null
             );
@@ -625,7 +626,7 @@ class OrderQueryServiceTest {
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderPaymentListProjection projection = orderPaymentListProjection(
                 OrderStatus.PAID,
-                OrderStatus.PAID,
+                OrderProductStatus.PAID,
                 PAID_AT,
                 false
             );
@@ -666,7 +667,7 @@ class OrderQueryServiceTest {
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderListProjection projection = orderListProjection(
                 OrderStatus.PAID,
-                OrderStatus.PAID,
+                OrderProductStatus.PAID,
                 true,
                 null
             );
@@ -689,7 +690,7 @@ class OrderQueryServiceTest {
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderListProjection projection = orderListProjection(
                 OrderStatus.CANCELED,
-                OrderStatus.CANCELED,
+                OrderProductStatus.CANCELED,
                 false,
                 null
             );
@@ -713,7 +714,7 @@ class OrderQueryServiceTest {
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderPaymentListProjection projection = orderPaymentListProjection(
                 OrderStatus.PAID,
-                OrderStatus.PAID,
+                OrderProductStatus.PAID,
                 null,
                 false
             );
