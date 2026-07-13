@@ -105,7 +105,7 @@ public class AuthApplicationService implements AuthUseCase {
     public TokenRefreshResult refresh(TokenRefreshCommand command) {
         UUID userId = jwtTokenProvider.parseRefreshToken(command.refreshToken());
 
-        RefreshToken stored = refreshTokenRepository.findByUserId(userId)
+        RefreshToken stored = refreshTokenRepository.findByUserIdForUpdate(userId)
                 .orElseThrow(InvalidRefreshTokenException::new);
 
         if (!stored.getToken().equals(command.refreshToken())) {

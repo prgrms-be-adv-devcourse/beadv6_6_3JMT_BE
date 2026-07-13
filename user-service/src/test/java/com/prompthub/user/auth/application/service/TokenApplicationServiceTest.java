@@ -64,7 +64,7 @@ class TokenApplicationServiceTest {
     void refresh_정상_새_AT와_새_RT_반환_RTR() {
         User user = User.create("테스트유저", "test@example.com", null, UserRole.BUYER, true);
         given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(USER_ID);
-        given(refreshTokenRepository.findByUserId(USER_ID)).willReturn(Optional.of(storedToken(0)));
+        given(refreshTokenRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(storedToken(0)));
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
         given(jwtTokenProvider.generateRefreshToken(USER_ID))
                 .willReturn(new JwtTokenProvider.TokenResult("new-refresh-token", Instant.now().plusSeconds(604800)));
@@ -84,7 +84,7 @@ class TokenApplicationServiceTest {
         User user = User.create("테스트유저", "test@example.com", null, UserRole.BUYER, true);
         RefreshToken stored = storedToken(3);
         given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(USER_ID);
-        given(refreshTokenRepository.findByUserId(USER_ID)).willReturn(Optional.of(stored));
+        given(refreshTokenRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(stored));
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
         given(jwtTokenProvider.generateRefreshToken(USER_ID))
                 .willReturn(new JwtTokenProvider.TokenResult("new-refresh-token", Instant.now().plusSeconds(604800)));
@@ -101,7 +101,7 @@ class TokenApplicationServiceTest {
     void refresh_제시된_RT가_저장된_RT와_다르면_재사용감지_전체세션무효화() {
         given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(USER_ID);
         RefreshToken rotatedAway = RefreshToken.create(USER_ID, "rotated-away-token", Instant.now().plusSeconds(604800));
-        given(refreshTokenRepository.findByUserId(USER_ID)).willReturn(Optional.of(rotatedAway));
+        given(refreshTokenRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(rotatedAway));
 
         assertThatThrownBy(() -> authApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN)))
                 .isInstanceOf(RefreshTokenReuseDetectedException.class);
@@ -133,7 +133,7 @@ class TokenApplicationServiceTest {
     @Test
     void refresh_DB에_없는_RT_InvalidRefreshTokenException() {
         given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(USER_ID);
-        given(refreshTokenRepository.findByUserId(USER_ID)).willReturn(Optional.empty());
+        given(refreshTokenRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> authApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN)))
                 .isInstanceOf(InvalidRefreshTokenException.class);
@@ -144,7 +144,7 @@ class TokenApplicationServiceTest {
     @Test
     void refresh_userId_존재하지_않으면_UserNotFoundException() {
         given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(USER_ID);
-        given(refreshTokenRepository.findByUserId(USER_ID)).willReturn(Optional.of(storedToken(0)));
+        given(refreshTokenRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(storedToken(0)));
         given(userRepository.findById(USER_ID)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> authApplicationService.refresh(new TokenRefreshCommand(REFRESH_TOKEN)))

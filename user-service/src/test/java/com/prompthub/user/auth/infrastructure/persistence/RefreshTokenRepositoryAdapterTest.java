@@ -96,6 +96,19 @@ class RefreshTokenRepositoryAdapterTest {
     }
 
     @Test
+    void findByUserIdForUpdate_캐시를_거치지_않고_JPA에서_직접_락_조회() {
+        RefreshToken stored = RefreshToken.create(USER_ID, "db-token", EXPIRES_AT);
+        given(refreshTokenJpaRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(stored));
+
+        Optional<RefreshToken> result = adapter().findByUserIdForUpdate(USER_ID);
+
+        assertThat(result).contains(stored);
+        then(refreshTokenJpaRepository).should().findByUserIdForUpdate(USER_ID);
+        then(redisTemplate).shouldHaveNoInteractions();
+        then(hashOperations).shouldHaveNoInteractions();
+    }
+
+    @Test
     void deleteByUserId_RDB와_Redis_모두_삭제() {
         adapter().deleteByUserId(USER_ID);
 

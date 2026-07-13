@@ -9,8 +9,8 @@ import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.Instant;
-import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,6 +25,10 @@ public class RefreshTokenRepositoryAdapter implements RefreshTokenRepository {
     private static final String FIELD_TOKEN = "token";
     private static final String FIELD_EPOCH = "epoch";
     private static final String FIELD_EXPIRES_AT = "expiresAt";
+    // RT의 실제 만료(최대 7일)까지 캐시를 살려두면, Redis 삭제 실패(evictCache) 시
+    // "무효화됐지만 캐시에는 살아있는" 세션이 그만큼 오래 남을 수 있다(Finding 2).
+    // RDB가 항상 source of truth이므로 캐시는 짧게 두고 미스는 RDB 폴백으로 흡수한다.
+    private static final Duration CACHE_TTL = Duration.ofMinutes(5);
 
     private final RefreshTokenJpaRepository refreshTokenJpaRepository;
     private final StringRedisTemplate redisTemplate;
@@ -46,6 +50,20 @@ public class RefreshTokenRepositoryAdapter implements RefreshTokenRepository {
         Optional<RefreshToken> found = refreshTokenJpaRepository.findByUserId(userId);
         found.ifPresent(this::cache);
         return found;
+    }
+
+    // 캐시를 거치지 않는다 — 재발급의 비교-후-회전(compare-and-rotate)은 동시 요청 간
+    // 직렬화가 필요한 보안 크리티컬 구간이다. findByUserId처럼 캐시를 먼저 확인하면
+    // 캐시 히트 시 JPA(및 그 위의 락)를 전혀 타지 않게 되어, 두 요청이 같은 캐시된
+    // 값을 동시에 읽고 각자 회전 조건을 통과해버린다 — 한쪽이 커밋한 회전을 다른
+    // 쪽이 덮어써도 예외 없이 조용히 사라지고, 뒤처진 클라이언트는 다음 재발급 때
+    // 재사용(탈취)으로 오탐되어 세션이 파괴된다(최종 리뷰 발견, Finding 1).
+    // 그래서 이 메서드는 RDB 행에 PESSIMISTIC_WRITE 락을 직접 걸어 동시 요청을
+    // 진짜로 직렬화한다. 캐시 재적재도 여기서 하지 않는다 — 회전 완료 후 호출되는
+    // save()가 이미 캐시를 갱신하므로 중복이다.
+    @Override
+    public Optional<RefreshToken> findByUserIdForUpdate(UUID userId) {
+        return refreshTokenJpaRepository.findByUserIdForUpdate(userId);
     }
 
     @Override
@@ -82,7 +100,7 @@ public class RefreshTokenRepositoryAdapter implements RefreshTokenRepository {
             hashOps.put(key, FIELD_TOKEN, refreshToken.getToken());
             hashOps.put(key, FIELD_EPOCH, String.valueOf(refreshToken.getEpoch()));
             hashOps.put(key, FIELD_EXPIRES_AT, String.valueOf(refreshToken.getExpiresAt().toEpochMilli()));
-            redisTemplate.expireAt(key, Date.from(refreshToken.getExpiresAt()));
+            redisTemplate.expire(key, CACHE_TTL);
         } catch (DataAccessException e) {
             log.warn("Redis 캐시 갱신 실패 — RDB만 반영됩니다. userId={}", refreshToken.getUserId(), e);
         }
@@ -92,7 +110,11 @@ public class RefreshTokenRepositoryAdapter implements RefreshTokenRepository {
         try {
             redisTemplate.delete(cacheKey(userId));
         } catch (DataAccessException e) {
-            log.warn("Redis 캐시 삭제 실패. userId={}", userId, e);
+            // RDB 삭제(세션 무효화)는 이미 끝났지만 캐시 삭제가 실패한 상태다.
+            // 특히 재사용 감지로 인한 강제 무효화 직후라면, 캐시가 살아있는 동안
+            // 이미 탈취된 RT가 "유효한 것처럼" 계속 통과할 수 있다 — 운영 경보가
+            // 필요한 보안 이슈이므로 warn이 아니라 error로 남긴다.
+            log.error("Redis 캐시 삭제 실패 — 세션 무효화가 캐시에는 반영되지 않았을 수 있음. userId={}", userId, e);
         }
     }
 
