@@ -41,6 +41,7 @@ description: Use when any service, module, or shared area in the current reposit
 
 - owner/repository와 현재 로그인 사용자
 - `gh label list`의 실제 라벨
+- 기본 reviewer 후보별 GitHub 계정 존재 여부와 해당 repository에서 review 요청이 가능한지 read-only GitHub API로 조회한 결과
 - 기존 PR이면 현재 base/head, 본문, Draft 여부, assignee, label, review request
 
 템플릿의 섹션, 순서, 체크리스트 문구가 기준이다. 스킬에 기억된 항목으로 대체하지 않는다.
@@ -73,7 +74,9 @@ description: Use when any service, module, or shared area in the current reposit
 - 상태: Ready for review. 사용자가 명시적으로 요청할 때만 Draft
 - assignee: `@me`
 - label: 브랜치 type을 우선하고 없으면 대표 commit type을 사용하되, 실제 존재하는 라벨만 선택
-- reviewer: `git-mesome`, `Jinpyo-An`, `oxix97`, `gfkmkl`에서 현재 로그인 사용자를 제외
+- reviewer: `git-mesome`, `Jinpyo-An`, `oxix97`, `gfkmkl`에서 현재 로그인 사용자를 제외하고, 계정이 존재하며 해당 repository에서 review 요청 가능한 것으로 확인된 후보만 사용
+
+reviewer 후보 검증은 승인 화면을 만들기 전에 실행한다. 계정 조회가 실패했거나 repository review 요청이 불가능한 후보는 `--reviewer`에서 제외하고 후보별 제외 이유를 승인 화면에 표시한다. 적격 reviewer가 한 명도 없으면 `--reviewer` 플래그를 생략한다.
 
 기존 PR 갱신에서는 현재 값과 제안 값을 함께 보여준다. 기존 메타데이터 삭제나 base 변경도 승인 대상이며 조용히 덮어쓰지 않는다.
 
@@ -83,7 +86,7 @@ description: Use when any service, module, or shared area in the current reposit
 
 - 작업: 새 PR 생성 또는 기존 `#<번호> (PR)` 갱신
 - base ← head와 base/head/merge-base SHA, 제목, Ready/Draft 상태
-- assignee, label, reviewer
+- assignee, label, reviewer와 제외된 reviewer 후보별 이유
 - 템플릿을 채운 실제 본문 전체
 - 실행할 push와 PR 생성·갱신 동작
 
