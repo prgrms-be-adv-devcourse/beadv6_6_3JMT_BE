@@ -3,7 +3,7 @@
 **Base:** `http://localhost:8081/api/v2`
 
 > 최종 프로젝트 전환으로 `api/v1` → `api/v2`로 변경됨(`docs/adr/config-management.md` §10).
-> 다른 도메인(user·seller·wishlist·admin)은 아직 `api/v1`이다 — auth만 우선 전환됨.
+> 다른 도메인(user·seller·wishlist·admin)도 `#305 (이슈)`에서 `api/v2`로 전환되어, 현재 user-service 공개 API는 전부 `api/v2`다.
 
 ## 공통 사항
 
@@ -223,6 +223,7 @@
   "success": true,
   "data": {
     "accessToken": "eyJhbGci...",
+    "refreshToken": "eyJhbGci...(새 RT)",
     "expiresAt": "2025-06-17T11:00:00Z"
   },
   "message": "success"
@@ -232,31 +233,12 @@
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | accessToken | string | 새로 발급된 JWT 액세스 토큰 |
+| refreshToken | string | 새로 발급된 JWT 리프레시 토큰(RTR — 재발급마다 회전) |
 | expiresAt | string | 액세스 토큰 만료일시 (ISO 8601) |
 
-> **TODO (RTR — Refresh Token Rotation)**
->
-> 현재 스펙은 AT만 재발급하고 RT는 재사용하는 구조다.
-> 기능 개발 완료 후 Redis 기반 RT 관리로 전환하면서 아래 방식으로 변경할 것.
->
-> - **RT도 함께 교체**: 재발급 요청마다 기존 RT를 폐기하고 새 RT를 발급해 응답에 포함
-> - **Redis 저장**: 발급된 RT를 `refresh:{userId}` 키로 Redis에 저장, TTL은 RT 만료 시간과 동일하게 설정
-> - **재사용 감지(Replay Detection)**: 이미 폐기된 RT로 재발급 시도가 들어오면 해당 유저의 모든 세션 강제 만료 처리 (탈취 시나리오 대응)
-> - **로그아웃**: DB 삭제 대신 Redis 키 삭제로 변경
->
-> 변경 시 응답 스펙에 `refreshToken` 필드 추가 필요:
->
-> ```json
-> {
->   "success": true,
->   "data": {
->     "accessToken": "eyJhbGci...",
->     "refreshToken": "eyJhbGci...(새 RT)",
->     "expiresAt": "2025-06-17T11:00:00Z"
->   },
->   "message": "success"
-> }
-> ```
+**RTR(Refresh Token Rotation)**: 재발급마다 기존 RT를 폐기하고 새 RT를 발급한다(ADR-0008 결정2).
+제시된 RT의 서명은 유효하지만 저장된 현재 RT와 다르면 재사용(탈취 시나리오)으로 판정해
+401(`AUTH_REFRESH_TOKEN_REUSE_DETECTED`, `A012`)을 반환하고 해당 유저의 세션을 전부 무효화한다.
 
 ---
 
