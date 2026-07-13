@@ -17,7 +17,9 @@
 
 - 여기로 옮긴 계약은 원래 모듈 `src/main/proto` 에서 삭제한다(이중 생성 충돌 방지). 단 서버가 담당 범위 밖이면
   그 서버의 원본은 남는다(예: `product_query.proto` 서버 원본은 product-service 에 잔존).
-- `java_package` 는 그대로 유지해 생성 클래스·import 를 안 바꾼다.
+- **`java_package` 도 소유자(서버) 기준** — `com.prompthub.<서버모듈>.grpc[.<도메인>]`. 서버 모듈명과
+  도메인이 같으면 도메인을 생략한다(`com.prompthub.order.grpc`), 다르면 뒤에 붙인다
+  (`com.prompthub.user.grpc.seller`). wire `package` 는 호출 경로라 그대로 둔다.
 
 ## 현재 레이아웃
 
