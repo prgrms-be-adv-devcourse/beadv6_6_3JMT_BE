@@ -1,9 +1,9 @@
 # Auth API
 
-**Base:** `http://localhost:8081/api/v1`
+**Base:** `http://localhost:8081/api/v2`
 
-> ⚠ `api/v1`은 세미 프로젝트 완성 스냅샷(`v1.0.0` 태그) 기준 경로다. 최종 프로젝트에서
-> `api/v2`로 전환 예정이며 별도 이슈로 진행한다(`docs/adr/config-management.md` §10).
+> 최종 프로젝트 전환으로 `api/v1` → `api/v2`로 변경됨(`docs/adr/config-management.md` §10).
+> 다른 도메인(user·seller·wishlist·admin)은 아직 `api/v1`이다 — auth만 우선 전환됨.
 
 ## 공통 사항
 
@@ -122,13 +122,17 @@
 - 필요 역할: 없음
 - 최초 로그인 시 자동 회원가입 처리
 - 현재 지원 provider: `kakao`
+- **서버 측 검증(ADR-0008 §결정4)**: 프런트는 카카오 access token만 전달한다. oauthId·email·
+  닉네임·프로필이미지는 user-service가 서버 측에서 카카오 API(`kapi.kakao.com/v2/user/me`)를
+  호출해 직접 획득하며, 클라이언트가 주장하는 신원 정보는 신뢰하지 않는다.
 
 #### Kakao OAuth 플로우
 
 ```
 버튼 클릭
-  → 프론트엔드에서 Kakao SDK로 사용자 정보 직접 조회
-  → 이 API 호출 (kakaoId, nickname 등 전달)
+  → 프론트엔드에서 Kakao SDK로 로그인 → access token 발급
+  → 이 API 호출 (access token 전달)
+  → user-service가 kapi.kakao.com/v2/user/me 호출로 신원 검증
   → 로그인/자동 회원가입 완료
 ```
 
@@ -144,19 +148,13 @@
 
 ```json
 {
-  "oauthId": "123456789",
-  "name": "카카오사용자",
-  "profileImage": "https://k.kakaocdn.net/...",
-  "email": "kakao@user.com"
+  "accessToken": "abcdEFGH1234..."
 }
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| oauthId | string | Y | OAuth 제공자의 고유 식별자 |
-| name | string | Y | 닉네임 |
-| profileImage | string | N | 프로필 이미지 URL (없으면 null) |
-| email | string | Y | 이메일 |
+| accessToken | string | Y | 카카오로부터 발급받은 access token |
 
 #### Response
 
