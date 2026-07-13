@@ -6,7 +6,6 @@ import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.usecase.OrderQueryUseCase;
-import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.OrderPaymentRepository;
@@ -228,7 +227,7 @@ public class OrderQueryService implements OrderQueryUseCase {
 		return new OrderPaymentListResponse(
 			projection.orderId(),
 			projection.paymentId(),
-			PaymentStatus.from(projection.orderStatus()),
+			projection.orderStatus(),
 			projection.isRefundable(),
 			projection.productType(),
 			projection.title(),
