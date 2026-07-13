@@ -3,10 +3,15 @@ package com.prompthub.paymentservice.infrastructure.messaging;
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.paymentservice.domain.event.PaymentApprovedEvent;
 import com.prompthub.paymentservice.domain.event.PaymentFailedEvent;
+import com.prompthub.paymentservice.domain.event.PaymentRefundedEvent;
+import com.prompthub.paymentservice.domain.event.PaymentRefundFailedEvent;
 import com.prompthub.paymentservice.domain.model.Payment;
+import com.prompthub.paymentservice.domain.model.Refund;
 import com.prompthub.paymentservice.infrastructure.messaging.config.PaymentTopic;
 import com.prompthub.paymentservice.infrastructure.messaging.dto.PaymentApprovedMessage;
 import com.prompthub.paymentservice.infrastructure.messaging.dto.PaymentFailedMessage;
+import com.prompthub.paymentservice.infrastructure.messaging.dto.PaymentRefundedMessage;
+import com.prompthub.paymentservice.infrastructure.messaging.dto.PaymentRefundFailedMessage;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -87,6 +92,76 @@ public class KafkaPaymentEventPublisher {
                 } else {
                     log.info("결제 실패 Kafka 메시지 발행 성공 — paymentId={}, partition={}, offset={}",
                         payment.getId(),
+                        result.getRecordMetadata().partition(),
+                        result.getRecordMetadata().offset());
+                }
+            });
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onPaymentRefunded(PaymentRefundedEvent event) {
+        Payment payment = event.payment();
+        Refund refund = event.refund();
+        PaymentRefundedMessage payload = new PaymentRefundedMessage(
+            payment.getId(),
+            payment.getOrderId(),
+            payment.getUserId(),
+            refund.getOrderProductId(),
+            refund.getRefundAmount(),
+            toKstString(payment.getRefundedAt())
+        );
+        EventMessage<PaymentRefundedMessage> message = new EventMessage<>(
+            UUID.randomUUID(),
+            PaymentEventType.PAYMENT_REFUNDED.code(),
+            toKst(payment.getRefundedAt()),
+            AGGREGATE_TYPE_ORDER,
+            payment.getOrderId(),
+            payload
+        );
+        kafkaTemplate.send(PaymentTopic.PAYMENT_EVENTS, payment.getOrderId().toString(), message)
+            .whenComplete((result, ex) -> {
+                if (ex != null) {
+                    log.error("환불 완료 Kafka 메시지 발행 실패 — paymentId={}, refundId={}, cause={}",
+                        payment.getId(), refund.getId(), ex.getMessage());
+                } else {
+                    log.info("환불 완료 Kafka 메시지 발행 성공 — paymentId={}, refundId={}, partition={}, offset={}",
+                        payment.getId(), refund.getId(),
+                        result.getRecordMetadata().partition(),
+                        result.getRecordMetadata().offset());
+                }
+            });
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onPaymentRefundFailed(PaymentRefundFailedEvent event) {
+        Payment payment = event.payment();
+        Refund refund = event.refund();
+        OffsetDateTime failedAt = OffsetDateTime.now();
+        PaymentRefundFailedMessage payload = new PaymentRefundFailedMessage(
+            payment.getId(),
+            payment.getOrderId(),
+            payment.getUserId(),
+            refund.getOrderProductId(),
+            refund.getRefundAmount(),
+            event.failureReason(),
+            toKstString(failedAt)
+        );
+        EventMessage<PaymentRefundFailedMessage> message = new EventMessage<>(
+            UUID.randomUUID(),
+            PaymentEventType.PAYMENT_REFUND_FAILED.code(),
+            toKst(failedAt),
+            AGGREGATE_TYPE_ORDER,
+            payment.getOrderId(),
+            payload
+        );
+        kafkaTemplate.send(PaymentTopic.PAYMENT_EVENTS, payment.getOrderId().toString(), message)
+            .whenComplete((result, ex) -> {
+                if (ex != null) {
+                    log.error("환불 실패 Kafka 메시지 발행 실패 — paymentId={}, refundId={}, cause={}",
+                        payment.getId(), refund.getId(), ex.getMessage());
+                } else {
+                    log.info("환불 실패 Kafka 메시지 발행 성공 — paymentId={}, refundId={}, partition={}, offset={}",
+                        payment.getId(), refund.getId(),
                         result.getRecordMetadata().partition(),
                         result.getRecordMetadata().offset());
                 }
