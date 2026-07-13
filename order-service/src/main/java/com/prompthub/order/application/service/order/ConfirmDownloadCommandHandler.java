@@ -4,6 +4,7 @@ import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.usecase.ConfirmDownloadUseCase;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
+import com.prompthub.order.domain.repository.OrderProductRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
@@ -20,6 +21,7 @@ import java.util.UUID;
 public class ConfirmDownloadCommandHandler implements ConfirmDownloadUseCase {
 
 	private final OrderRepository orderRepository;
+	private final OrderProductRepository orderProductRepository;
 	private final ProductClient productClient;
 
 	@Override
@@ -36,12 +38,17 @@ public class ConfirmDownloadCommandHandler implements ConfirmDownloadUseCase {
 			.findFirst()
 			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_PRODUCT_NOT_FOUND));
 
-		if (!order.isPaid() || !orderProduct.isPaid()) {
+		if (!orderProduct.isPaid()) {
 			throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
 		}
 
 		productClient.getProductContent(orderProduct.getProductId());
-		orderProduct.markDownloaded();
+		if (!orderProduct.isDownloaded()) {
+			if (!orderProductRepository.tryMarkDownloaded(orderProduct.getId())) {
+				throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
+			}
+			orderProduct.markDownloaded();
+		}
 
 		return new OrderProductDownloadResponse(
 			order.getId(),

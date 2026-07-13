@@ -349,6 +349,25 @@ class OrderQueryServiceTest {
 
             then(productClient).shouldHaveNoInteractions();
         }
+
+        @Test
+        @DisplayName("부분 환불 주문의 남은 결제 상품 콘텐츠는 조회할 수 있다")
+        void getOrderContent_partiallyRefundedOrderPaidProduct_success() {
+            Order order = createPaidOrderWithProducts();
+            OrderProduct refundedProduct = order.getOrderProducts().getFirst();
+            OrderProduct paidProduct = order.getOrderProducts().get(1);
+            ReflectionTestUtils.setField(refundedProduct, "orderStatus", OrderProductStatus.REFUNDED);
+            ReflectionTestUtils.setField(order, "orderStatus", OrderStatus.PARTIALLY_REFUNDED);
+            given(orderRepository.findByIdWithOrderProducts(order.getId())).willReturn(Optional.of(order));
+            given(productClient.getProductContent(paidProduct.getProductId()))
+                .willReturn(new ProductContent(paidProduct.getProductId(), PRODUCT_CONTENT));
+
+            OrderContentResponse response = orderQueryService.getOrderContent(
+                BUYER_ID, order.getId(), paidProduct.getId()
+            );
+
+            assertThat(response.content()).isEqualTo(PRODUCT_CONTENT);
+        }
     }
 
     @Nested

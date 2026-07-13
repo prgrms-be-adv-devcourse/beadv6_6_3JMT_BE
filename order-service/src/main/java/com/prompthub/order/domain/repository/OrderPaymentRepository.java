@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.UUID;
+import java.util.Optional;
 
 public interface OrderPaymentRepository {
 
@@ -14,6 +15,8 @@ public interface OrderPaymentRepository {
 	boolean existsByOrderId(UUID orderId);
 
 	boolean existsByPaymentId(UUID paymentId);
+
+	Optional<OrderPayment> findByOrderId(UUID orderId);
 
 	Page<OrderPaymentListProjection> searchOrderPayments(UUID buyerId, Pageable pageable);
 }

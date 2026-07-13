@@ -29,6 +29,12 @@ public class OrderAdapter implements OrderRepository {
 	}
 
 	@Override
+	public Optional<Order> findByIdWithOrderProductsForUpdate(UUID orderId) {
+		return orderPersistence.findByIdForUpdate(orderId)
+			.flatMap(ignored -> orderPersistence.findByIdWithOrderProducts(orderId));
+	}
+
+	@Override
 	public Optional<Order> findByOrderNumber(String orderNumber) {
 		return orderPersistence.findByOrderNumber(orderNumber);
 	}

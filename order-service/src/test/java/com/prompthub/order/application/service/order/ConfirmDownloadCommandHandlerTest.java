@@ -6,6 +6,7 @@ import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
+import com.prompthub.order.domain.repository.OrderProductRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
@@ -37,6 +38,9 @@ class ConfirmDownloadCommandHandlerTest {
     private OrderRepository orderRepository;
 
     @Mock
+    private OrderProductRepository orderProductRepository;
+
+    @Mock
     private ProductClient productClient;
 
     @InjectMocks
@@ -57,6 +61,7 @@ class ConfirmDownloadCommandHandlerTest {
                 .willReturn(Optional.of(order));
             given(productClient.getProductContent(orderProduct.getProductId()))
                 .willReturn(new ProductContent(orderProduct.getProductId(), "content"));
+            given(orderProductRepository.tryMarkDownloaded(orderProduct.getId())).willReturn(true);
 
             // when
             OrderProductDownloadResponse response = confirmDownloadCommandHandler.confirmDownload(BUYER_ID, order.getId(), orderProduct.getId());
@@ -171,6 +176,44 @@ class ConfirmDownloadCommandHandlerTest {
                 );
 
             then(productClient).should(never()).getProductContent(any());
+        }
+
+        @Test
+        @DisplayName("부분 환불 주문의 남은 결제 상품은 다운로드할 수 있다")
+        void confirmDownload_partiallyRefundedOrderPaidProduct_success() {
+            Order order = createPaidOrderWithProducts();
+            OrderProduct refundedProduct = order.getOrderProducts().getFirst();
+            OrderProduct paidProduct = order.getOrderProducts().get(1);
+            ReflectionTestUtils.setField(refundedProduct, "orderStatus", OrderProductStatus.REFUNDED);
+            ReflectionTestUtils.setField(order, "orderStatus", OrderStatus.PARTIALLY_REFUNDED);
+            given(orderRepository.findByIdWithOrderProducts(order.getId())).willReturn(Optional.of(order));
+            given(productClient.getProductContent(paidProduct.getProductId()))
+                .willReturn(new ProductContent(paidProduct.getProductId(), "content"));
+            given(orderProductRepository.tryMarkDownloaded(paidProduct.getId())).willReturn(true);
+
+            OrderProductDownloadResponse response = confirmDownloadCommandHandler.confirmDownload(
+                BUYER_ID, order.getId(), paidProduct.getId()
+            );
+
+            assertThat(response.downloaded()).isTrue();
+        }
+
+        @Test
+        @DisplayName("콘텐츠 조회 중 환불 상태가 선점되면 다운로드 확정에 실패한다")
+        void confirmDownload_refundWinsRace_throwsException() {
+            Order order = createPaidOrderWithProducts();
+            OrderProduct product = order.getOrderProducts().getFirst();
+            given(orderRepository.findByIdWithOrderProducts(order.getId())).willReturn(Optional.of(order));
+            given(productClient.getProductContent(product.getProductId()))
+                .willReturn(new ProductContent(product.getProductId(), "content"));
+            given(orderProductRepository.tryMarkDownloaded(product.getId())).willReturn(false);
+
+            assertThatThrownBy(() -> confirmDownloadCommandHandler.confirmDownload(
+                BUYER_ID, order.getId(), product.getId()
+            ))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
+                    .isEqualTo(ErrorCode.ORDER_CONTENT_ACCESS_DENIED));
         }
     }
 

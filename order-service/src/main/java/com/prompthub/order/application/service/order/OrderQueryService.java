@@ -96,10 +96,6 @@ public class OrderQueryService implements OrderQueryUseCase {
 			throw new OrderException(ErrorCode.FORBIDDEN);
 		}
 
-		if (!order.isPaid()) {
-			throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
-		}
-
 		OrderProduct orderProduct = order.getOrderProducts().stream()
 			.filter(product -> product.getId().equals(orderProductId))
 			.findFirst()
