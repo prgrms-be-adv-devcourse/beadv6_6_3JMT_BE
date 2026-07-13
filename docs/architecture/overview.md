@@ -50,11 +50,12 @@ flowchart LR
 
 | 경로 패턴 | 대상 |
 |---|---|
-| `/api/v1/sellers/me/settlements/**`, `/api/v1/admin/settlements/**` | `lb://SETTLEMENT-SERVICE` |
+| `/api/v2/admin/settlements/batch/**` | `lb://SETTLEMENT-SERVICE` |
+| `/api/v2/admin/settlements/**` | `lb://ADMIN-SERVICE` |
 | `/api/v1/orders(/**)`, `/api/v1/cart(/**)`, `/api/v1/admin/orders(/**)`, `/api/v1/internal/orders/**` | `lb://ORDER-SERVICE` |
 | `/api/v1/products(/**)`, `/api/v1/sellers/me/products(/**)`, `/api/v1/admin/products(/**)` | `lb://PRODUCT-SERVICE` |
 | `/api/v1/payments/**` | `lb://PAYMENT-SERVICE` |
-| `/api/v1/auth/**`, `/api/v1/users/**`, `/api/v1/seller(s)/**`, `/api/v1/wishlists/**`, `/api/v1/admin/**` | `lb://USER-SERVICE` |
+| `/api/v1/auth/**`, `/api/v2/users/**`, `/api/v2/seller(s)/**`, `/api/v2/wishlists/**`, `/api/v2/admin/**` | `lb://USER-SERVICE` |
 | `/{service}/v3/api-docs` | 각 서비스 Swagger 문서 프록시 (RewritePath) |
 
 `lb://`는 Eureka에 등록된 인스턴스를 조회해 로드밸런싱한다.

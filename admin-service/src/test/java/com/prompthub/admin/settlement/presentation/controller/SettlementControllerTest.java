@@ -43,7 +43,7 @@ class SettlementControllerTest {
 		when(settlementUseCase.getList(any()))
 			.thenReturn(new SettlementListResponse(List.of(), 0L, 0, 20));
 
-		mockMvc.perform(get("/api/v1/admin/settlements"))
+		mockMvc.perform(get("/api/v2/admin/settlements"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.success").value(true))
 			.andExpect(jsonPath("$.data.totalElements").value(0))
@@ -53,7 +53,7 @@ class SettlementControllerTest {
 
 	@Test
 	void 잘못된_상태값은_400_을_내려준다() throws Exception {
-		mockMvc.perform(get("/api/v1/admin/settlements").param("status", "NOPE"))
+		mockMvc.perform(get("/api/v2/admin/settlements").param("status", "NOPE"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("A-001"));
 	}
@@ -64,7 +64,7 @@ class SettlementControllerTest {
 			.thenReturn(new SettlementSummaryResponse(
 				List.of(new Card(SettlementDisplayStatus.WAITING.name(), BigDecimal.TEN, 4L))));
 
-		mockMvc.perform(get("/api/v1/admin/settlements/summary"))
+		mockMvc.perform(get("/api/v2/admin/settlements/summary"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.success").value(true))
 			.andExpect(jsonPath("$.data.cards").isArray())
@@ -84,7 +84,7 @@ class SettlementControllerTest {
 				null,
 				LocalDateTime.now()));
 
-		mockMvc.perform(patch("/api/v1/admin/settlements/{settlementId}/approve", settlementId)
+		mockMvc.perform(patch("/api/v2/admin/settlements/{settlementId}/approve", settlementId)
 				.header("X-User-Id", actorId.toString()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.displayStatus").value("APPROVED"));
@@ -98,7 +98,7 @@ class SettlementControllerTest {
 			.thenReturn(new SettlementResponse(
 				settlementId, UUID.randomUUID(), "CANCELLED", LocalDateTime.now()));
 
-		mockMvc.perform(patch("/api/v1/admin/settlements/{settlementId}/cancel", settlementId)
+		mockMvc.perform(patch("/api/v2/admin/settlements/{settlementId}/cancel", settlementId)
 				.header("X-User-Id", actorId.toString()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.displayStatus").value("CANCELLED"));
@@ -111,7 +111,7 @@ class SettlementControllerTest {
 		when(settlementUseCase.approve(settlementId))
 			.thenThrow(new AdminException(AdminErrorCode.SETTLEMENT_NOT_FOUND));
 
-		mockMvc.perform(patch("/api/v1/admin/settlements/{settlementId}/approve", settlementId)
+		mockMvc.perform(patch("/api/v2/admin/settlements/{settlementId}/approve", settlementId)
 				.header("X-User-Id", actorId.toString()))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.code").value("A-003"));
@@ -124,7 +124,7 @@ class SettlementControllerTest {
 		when(settlementUseCase.approve(settlementId))
 			.thenThrow(new SettlementInvalidStateException("approve", SettlementDisplayStatus.CANCELLED));
 
-		mockMvc.perform(patch("/api/v1/admin/settlements/{settlementId}/approve", settlementId)
+		mockMvc.perform(patch("/api/v2/admin/settlements/{settlementId}/approve", settlementId)
 				.header("X-User-Id", actorId.toString()))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("A-004"));
