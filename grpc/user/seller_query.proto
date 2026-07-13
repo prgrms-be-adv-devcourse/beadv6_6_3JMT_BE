@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package settlement.seller;
+
+option java_multiple_files = true;
+option java_package = "com.prompthub.user.grpc.seller";
+option java_outer_classname = "SellerQueryProto";
+
+service SellerQueryService {
+  rpc GetSellers(GetSellersRequest) returns (GetSellersResponse);
+}
+
+message GetSellersRequest {
+  repeated string seller_ids = 1;
+}
+
+message GetSellersResponse {
+  repeated SellerInfo sellers = 1;
+}
+
+message SellerInfo {
+  string seller_id = 1;
+  string seller_name = 2;
+  string profile_image_url = 3;
+  string status = 4;
+}

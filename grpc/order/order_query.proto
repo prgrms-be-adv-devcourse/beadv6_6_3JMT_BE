@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package settlement.order;
+
+option java_multiple_files = true;
+option java_package = "com.prompthub.order.grpc";
+option java_outer_classname = "OrderQueryProto";
+
+service OrderQueryService {
+  rpc GetSettleableLines(GetSettleableLinesRequest) returns (GetSettleableLinesResponse);
+}
+
+message GetSettleableLinesRequest {
+  string period = 1;
+}
+
+message GetSettleableLinesResponse {
+  repeated SettleableLine lines = 1;
+}
+
+message SettleableLine {
+  string line_type = 1;
+  string order_id = 2;
+  string order_product_id = 3;
+  string seller_id = 4;
+  int64 line_amount = 5;
+  string occurred_at = 6;
+}

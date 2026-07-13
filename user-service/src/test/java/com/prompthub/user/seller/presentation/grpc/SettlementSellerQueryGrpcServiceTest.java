@@ -1,8 +1,8 @@
 package com.prompthub.user.seller.presentation.grpc;
 
-import com.prompthub.settlement.grpc.seller.SellerBatchQueryRequest;
-import com.prompthub.settlement.grpc.seller.SellerBatchQueryResponse;
-import com.prompthub.settlement.grpc.seller.SellerInfo;
+import com.prompthub.user.grpc.seller.GetSellersRequest;
+import com.prompthub.user.grpc.seller.GetSellersResponse;
+import com.prompthub.user.grpc.seller.SellerInfo;
 import com.prompthub.user.seller.application.dto.SellerInfoResult;
 import com.prompthub.user.seller.application.usecase.SellerQueryUseCase;
 import io.grpc.stub.StreamObserver;
@@ -29,7 +29,7 @@ class SettlementSellerQueryGrpcServiceTest {
     private SellerQueryUseCase sellerQueryUseCase;
 
     @Mock
-    private StreamObserver<SellerBatchQueryResponse> responseObserver;
+    private StreamObserver<GetSellersResponse> responseObserver;
 
     @InjectMocks
     private SettlementSellerQueryGrpcService settlementSellerQueryGrpcService;
@@ -37,29 +37,29 @@ class SettlementSellerQueryGrpcServiceTest {
     @Test
     void findSellers_정상_요청_onNext와_onCompleted_호출() {
         String sellerId = UUID.randomUUID().toString();
-        SellerBatchQueryRequest request = SellerBatchQueryRequest.newBuilder()
+        GetSellersRequest request = GetSellersRequest.newBuilder()
                 .addSellerIds(sellerId)
                 .build();
         given(sellerQueryUseCase.findSellers(List.of(sellerId)))
                 .willReturn(List.of(new SellerInfoResult(sellerId, "판매자A", "", "ACTIVE")));
 
-        settlementSellerQueryGrpcService.findSellers(request, responseObserver);
+        settlementSellerQueryGrpcService.getSellers(request, responseObserver);
 
-        then(responseObserver).should().onNext(any(SellerBatchQueryResponse.class));
+        then(responseObserver).should().onNext(any(GetSellersResponse.class));
         then(responseObserver).should().onCompleted();
     }
 
     @Test
     void findSellers_응답_sellers에_올바른_필드_포함() {
         String sellerId = UUID.randomUUID().toString();
-        SellerBatchQueryRequest request = SellerBatchQueryRequest.newBuilder()
+        GetSellersRequest request = GetSellersRequest.newBuilder()
                 .addSellerIds(sellerId)
                 .build();
         given(sellerQueryUseCase.findSellers(List.of(sellerId)))
                 .willReturn(List.of(new SellerInfoResult(sellerId, "판매자A", "https://cdn.example.com/a.jpg", "ACTIVE")));
-        ArgumentCaptor<SellerBatchQueryResponse> captor = ArgumentCaptor.forClass(SellerBatchQueryResponse.class);
+        ArgumentCaptor<GetSellersResponse> captor = ArgumentCaptor.forClass(GetSellersResponse.class);
 
-        settlementSellerQueryGrpcService.findSellers(request, responseObserver);
+        settlementSellerQueryGrpcService.getSellers(request, responseObserver);
 
         then(responseObserver).should().onNext(captor.capture());
         SellerInfo seller = captor.getValue().getSellers(0);
@@ -71,11 +71,11 @@ class SettlementSellerQueryGrpcServiceTest {
 
     @Test
     void findSellers_빈_요청_빈_sellers_응답() {
-        SellerBatchQueryRequest request = SellerBatchQueryRequest.newBuilder().build();
+        GetSellersRequest request = GetSellersRequest.newBuilder().build();
         given(sellerQueryUseCase.findSellers(List.of())).willReturn(List.of());
-        ArgumentCaptor<SellerBatchQueryResponse> captor = ArgumentCaptor.forClass(SellerBatchQueryResponse.class);
+        ArgumentCaptor<GetSellersResponse> captor = ArgumentCaptor.forClass(GetSellersResponse.class);
 
-        settlementSellerQueryGrpcService.findSellers(request, responseObserver);
+        settlementSellerQueryGrpcService.getSellers(request, responseObserver);
 
         then(responseObserver).should().onNext(captor.capture());
         assertThat(captor.getValue().getSellersList()).isEmpty();
@@ -86,7 +86,7 @@ class SettlementSellerQueryGrpcServiceTest {
     void findSellers_복수_sellers_모두_응답에_포함() {
         String id1 = UUID.randomUUID().toString();
         String id2 = UUID.randomUUID().toString();
-        SellerBatchQueryRequest request = SellerBatchQueryRequest.newBuilder()
+        GetSellersRequest request = GetSellersRequest.newBuilder()
                 .addSellerIds(id1)
                 .addSellerIds(id2)
                 .build();
@@ -95,9 +95,9 @@ class SettlementSellerQueryGrpcServiceTest {
                         new SellerInfoResult(id1, "판매자A", "", "ACTIVE"),
                         new SellerInfoResult(id2, "판매자B", "", "ACTIVE")
                 ));
-        ArgumentCaptor<SellerBatchQueryResponse> captor = ArgumentCaptor.forClass(SellerBatchQueryResponse.class);
+        ArgumentCaptor<GetSellersResponse> captor = ArgumentCaptor.forClass(GetSellersResponse.class);
 
-        settlementSellerQueryGrpcService.findSellers(request, responseObserver);
+        settlementSellerQueryGrpcService.getSellers(request, responseObserver);
 
         then(responseObserver).should().onNext(captor.capture());
         assertThat(captor.getValue().getSellersList()).hasSize(2);
@@ -107,23 +107,23 @@ class SettlementSellerQueryGrpcServiceTest {
     void findSellers_UseCase에_seller_ids_그대로_전달() {
         String id1 = UUID.randomUUID().toString();
         String id2 = UUID.randomUUID().toString();
-        SellerBatchQueryRequest request = SellerBatchQueryRequest.newBuilder()
+        GetSellersRequest request = GetSellersRequest.newBuilder()
                 .addSellerIds(id1)
                 .addSellerIds(id2)
                 .build();
         given(sellerQueryUseCase.findSellers(List.of(id1, id2))).willReturn(List.of());
 
-        settlementSellerQueryGrpcService.findSellers(request, responseObserver);
+        settlementSellerQueryGrpcService.getSellers(request, responseObserver);
 
         then(sellerQueryUseCase).should().findSellers(List.of(id1, id2));
     }
 
     @Test
     void findSellers_onError_호출_안됨() {
-        SellerBatchQueryRequest request = SellerBatchQueryRequest.newBuilder().build();
+        GetSellersRequest request = GetSellersRequest.newBuilder().build();
         given(sellerQueryUseCase.findSellers(List.of())).willReturn(List.of());
 
-        settlementSellerQueryGrpcService.findSellers(request, responseObserver);
+        settlementSellerQueryGrpcService.getSellers(request, responseObserver);
 
         then(responseObserver).should(never()).onError(any());
     }

@@ -196,6 +196,25 @@ class OrderServiceTest {
         }
 
         @Test
+        @DisplayName("상품 콘텐츠 조회가 실패하면 다운로드 상태를 변경하지 않고 예외를 전파한다")
+        void confirmDownload_productContentFailureDoesNotMarkDownloaded() {
+            Order order = createPaidOrderWithProducts();
+            OrderProduct orderProduct = order.getOrderProducts().getFirst();
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+            given(productClient.getProductContent(orderProduct.getProductId()))
+                .willThrow(new com.prompthub.exception.BusinessException(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE));
+
+            assertThatThrownBy(() -> orderService.confirmDownload(BUYER_ID, order.getId(), orderProduct.getId()))
+                .isInstanceOf(com.prompthub.exception.BusinessException.class)
+                .satisfies(exception -> assertThat(
+                    ((com.prompthub.exception.BusinessException) exception).getErrorCode()
+                ).isEqualTo(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE));
+
+            assertThat(orderProduct.isDownloaded()).isFalse();
+        }
+
+        @Test
         @DisplayName("이미 다운로드된 주문상품도 정상 성공한다")
         void confirmDownload_alreadyDownloaded_success() {
             // given
@@ -311,6 +330,25 @@ class OrderServiceTest {
 
             then(orderRepository).should().findByIdWithOrderProducts(order.getId());
             then(productClient).should().getProductContent(orderProduct.getProductId());
+        }
+
+        @Test
+        @DisplayName("상품 콘텐츠 조회가 SYS002로 실패하면 다운로드 상태를 변경하지 않고 예외를 전파한다")
+        void getOrderContent_productServiceUnavailable_keepsDownloadState() {
+            Order order = createPaidOrderWithProducts();
+            OrderProduct orderProduct = order.getOrderProducts().getFirst();
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+            given(productClient.getProductContent(orderProduct.getProductId()))
+                .willThrow(new com.prompthub.exception.BusinessException(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE));
+
+            assertThatThrownBy(() -> orderService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId()))
+                .isInstanceOf(com.prompthub.exception.BusinessException.class)
+                .satisfies(exception -> assertThat(
+                    ((com.prompthub.exception.BusinessException) exception).getErrorCode()
+                ).isEqualTo(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE));
+
+            assertThat(orderProduct.isDownloaded()).isFalse();
         }
 
         @Test
@@ -608,7 +646,7 @@ class OrderServiceTest {
             assertThat(capturedPayload.totalAmount()).isEqualTo(TOTAL_AMOUNT);
             assertThat(capturedPayload.createdAt()).isNotNull();
 
-            then(outboxEventAppender).should().append(eq("order-events"), any());
+            then(outboxEventAppender).should().append(any());
             then(applicationEventPublisher).should().publishEvent(any(OrderCreatedEvent.class));
         }
 
@@ -676,7 +714,7 @@ class OrderServiceTest {
                     assertThat(orderProduct.getOrder()).isSameAs(savedOrder)
                 );
 
-            then(outboxEventAppender).should().append(eq("order-events"), any());
+            then(outboxEventAppender).should().append(any());
         }
 
         @Test

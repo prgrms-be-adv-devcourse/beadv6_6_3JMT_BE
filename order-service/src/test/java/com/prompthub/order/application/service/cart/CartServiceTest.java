@@ -104,6 +104,30 @@ class CartServiceTest {
 			assertThat(response.products().get(1).cartProductId()).isEqualTo(second.getId());
 			assertThat(response.products().get(1).productTitle()).isEqualTo(PRODUCT_TITLE_2);
 		}
+
+		@Test
+		@DisplayName("상품 서비스 조회가 SYS002로 실패하면 장바구니 상품을 변경하지 않고 예외를 전파한다")
+		void getCart_productServiceUnavailable_keepsCartProductsUnchanged() {
+			Cart cart = Cart.create(BUYER_ID);
+			CartProduct first = cart.addProduct(PRODUCT_ID_1);
+			CartProduct second = cart.addProduct(PRODUCT_ID_2);
+
+			given(cartRepository.findByBuyerIdWithCartProducts(BUYER_ID))
+				.willReturn(Optional.of(cart));
+			given(productClient.getCartSnapshots(List.of(PRODUCT_ID_1, PRODUCT_ID_2)))
+				.willThrow(new com.prompthub.exception.BusinessException(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE));
+
+			assertThatThrownBy(() -> cartService.getCart(BUYER_ID))
+				.isInstanceOf(com.prompthub.exception.BusinessException.class)
+				.satisfies(exception -> assertThat(
+					((com.prompthub.exception.BusinessException) exception).getErrorCode()
+				).isEqualTo(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE));
+
+			assertThat(cart.getCartProducts())
+				.extracting(CartProduct::getId)
+				.containsExactly(first.getId(), second.getId());
+			then(cartRepository).should(never()).save(any());
+		}
 	}
 
 	@Nested

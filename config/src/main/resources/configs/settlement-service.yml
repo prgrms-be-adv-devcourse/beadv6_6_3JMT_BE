@@ -29,11 +29,16 @@ grpc:
       address: user-service:${USER_GRPC_SERVER_PORT}
     product-service:
       address: product-service:${PRODUCT_GRPC_SERVER_PORT}
+    order-service:
+      address: 'static://order-service:${ORDER_GRPC_SERVER_PORT}'
+      negotiation-type: plaintext
 
 settlement:
   scheduler:
     cron: "0 0 4 1 * *"
   kafka:
+    producer:
+      topic: settlement-events
     listener:
       order:
         enabled: false

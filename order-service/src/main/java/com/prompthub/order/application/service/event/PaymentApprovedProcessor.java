@@ -29,7 +29,6 @@ import java.util.UUID;
 public class PaymentApprovedProcessor {
 
     private static final String CONSUMER_GROUP = "order-service";
-    private static final String ORDER_EVENTS_TOPIC = "order-events";
 
     private final ProcessedEventService processedEventService;
     private final OrderRepository orderRepository;
@@ -82,7 +81,7 @@ public class PaymentApprovedProcessor {
                         orderPaidPayload
                 );
 
-        outboxEventAppender.append(ORDER_EVENTS_TOPIC, orderPaidMessage);
+        outboxEventAppender.append(orderPaidMessage);
 
         processedEventService.markProcessed(
                 eventId,

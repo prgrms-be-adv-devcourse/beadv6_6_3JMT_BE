@@ -1,17 +1,9 @@
 package com.prompthub.settlement.domain.model;
 
-import com.prompthub.settlement.domain.exception.SettlementAlreadyCancelledException;
-import com.prompthub.settlement.domain.exception.SettlementAlreadyPaidException;
-import com.prompthub.settlement.domain.exception.SettlementInvalidStateException;
-import com.prompthub.settlement.domain.model.enums.PayoutStatus;
-import com.prompthub.settlement.domain.model.enums.SettlementDisplayStatus;
-import com.prompthub.settlement.domain.model.enums.SettlementStatus;
 import com.prompthub.settlement.global.common.BaseEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -71,31 +63,11 @@ public class Settlement extends BaseEntity {
 	@Column(name = "refund_amount", precision = 12, scale = 2)
 	private BigDecimal refundAmount;
 
-	@Enumerated(EnumType.STRING)
-	@Column(name = "settlement_status", nullable = false)
-	private SettlementStatus settlementStatus;
-
-	@Enumerated(EnumType.STRING)
-	@Column(name = "payout_status", nullable = false)
-	private PayoutStatus payoutStatus;
-
 	@Column(name = "failed_reason", length = 1000)
 	private String failedReason;
 
 	@Column(name = "calculated_at", nullable = false)
 	private LocalDateTime calculatedAt;
-
-	@Column(name = "confirmed_at")
-	private LocalDateTime confirmedAt;
-
-	@Column(name = "paid_at")
-	private LocalDateTime paidAt;
-
-	@Column(name = "canceled_at")
-	private LocalDateTime canceledAt;
-
-	@Column(name = "payout_reference", length = 100)
-	private String payoutReference;
 
 	@OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
 	@JoinColumn(name = "settlement_id", nullable = false)
@@ -121,84 +93,10 @@ public class Settlement extends BaseEntity {
 		this.feeTotalAmount = sum(details, SettlementDetail::getFeeAmount);
 		this.settlementTotalAmount = sum(details, SettlementDetail::getLineSettlementAmount);
 		this.refundAmount = BigDecimal.ZERO;
-		this.settlementStatus = SettlementStatus.PENDING_APPROVAL;
-		this.payoutStatus = PayoutStatus.NOT_READY;
 		this.calculatedAt = LocalDateTime.now();
 	}
 
 	private static BigDecimal sum(List<SettlementDetail> details, Function<SettlementDetail, BigDecimal> field) {
 		return details.stream().map(field).reduce(BigDecimal.ZERO, BigDecimal::add);
-	}
-
-	public void approve(LocalDateTime confirmedAt) {
-		if (this.settlementStatus != SettlementStatus.PENDING_APPROVAL) {
-			throw new SettlementInvalidStateException("approve", this.settlementStatus, this.payoutStatus);
-		}
-		this.settlementStatus = SettlementStatus.APPROVED;
-		this.payoutStatus = PayoutStatus.READY;
-		this.confirmedAt = confirmedAt;
-	}
-
-	public void hold() {
-		if (this.settlementStatus != SettlementStatus.PENDING_APPROVAL) {
-			throw new SettlementInvalidStateException("hold", this.settlementStatus, this.payoutStatus);
-		}
-		this.settlementStatus = SettlementStatus.SETTLEMENT_ON_HOLD;
-	}
-
-	public void releaseHold() {
-		if (this.settlementStatus != SettlementStatus.SETTLEMENT_ON_HOLD) {
-			throw new SettlementInvalidStateException("releaseHold", this.settlementStatus, this.payoutStatus);
-		}
-		this.settlementStatus = SettlementStatus.PENDING_APPROVAL;
-	}
-
-	public void payout(LocalDateTime paidAt) {
-		if (this.settlementStatus != SettlementStatus.APPROVED || this.payoutStatus != PayoutStatus.PAYOUT_REQUESTED) {
-			throw new SettlementInvalidStateException("payout", this.settlementStatus, this.payoutStatus);
-		}
-		this.payoutStatus = PayoutStatus.PAID;
-		this.paidAt = paidAt;
-	}
-
-	public void payoutHold() {
-		if (this.settlementStatus != SettlementStatus.APPROVED || this.payoutStatus != PayoutStatus.PAYOUT_REQUESTED) {
-			throw new SettlementInvalidStateException("payoutHold", this.settlementStatus, this.payoutStatus);
-		}
-		this.payoutStatus = PayoutStatus.PAYOUT_ON_HOLD;
-	}
-
-	public void releasePayoutHold() {
-		if (this.settlementStatus != SettlementStatus.APPROVED
-			|| this.payoutStatus != PayoutStatus.PAYOUT_ON_HOLD) {
-			throw new SettlementInvalidStateException("releasePayoutHold", this.settlementStatus, this.payoutStatus);
-		}
-		this.payoutStatus = PayoutStatus.PAYOUT_REQUESTED;
-	}
-
-	public void requestPayout() {
-		if (this.settlementStatus != SettlementStatus.APPROVED || this.payoutStatus != PayoutStatus.READY) {
-			throw new SettlementInvalidStateException("requestPayout", this.settlementStatus, this.payoutStatus);
-		}
-		this.payoutStatus = PayoutStatus.PAYOUT_REQUESTED;
-	}
-
-	public SettlementDisplayStatus displayStatus() {
-		return SettlementDisplayStatus.from(this.settlementStatus, this.payoutStatus);
-	}
-
-	public boolean canRequestPayout() {
-		return displayStatus() == SettlementDisplayStatus.APPROVED;
-	}
-
-	public void cancel(LocalDateTime canceledAt) {
-		if (this.payoutStatus == PayoutStatus.PAID) {
-			throw new SettlementAlreadyPaidException(this.id);
-		}
-		if (this.settlementStatus == SettlementStatus.CANCELLED) {
-			throw new SettlementAlreadyCancelledException(this.id);
-		}
-		this.settlementStatus = SettlementStatus.CANCELLED;
-		this.canceledAt = canceledAt;
 	}
 }

@@ -26,9 +26,14 @@ grpc:
     port: 0
 
 prompthub:
+
+  grpc:
+    product:
+      deadline-ms: 1000
   outbox-relay:
     enabled: false
     fixed-delay-ms: 5000
+    topic: order-events
     batch-size: 100
     max-retry-count: 3
   order:
@@ -41,3 +46,20 @@ eureka:
 logging:
   level:
     com.prompthub.order: debug
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      product-grpc-default:
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 700ms
+        slow-call-rate-threshold: 50
+        wait-duration-in-open-state: 100ms
+        permitted-number-of-calls-in-half-open-state: 3
+  bulkhead:
+    instances:
+      product-grpc-bulkhead:
+        max-concurrent-calls: 20
+        max-wait-duration: 0ms

@@ -27,3 +27,113 @@ spring:
         initial-interval: 1000
         max-interval: 2000
         multiplier: 1.1
+
+---
+
+server:
+  port: 8083
+
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/prompthub}
+    username: ${DB_USERNAME:chan}
+    password: ${DB_PASSWORD:123}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-only
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  sql:
+    init:
+      mode: always
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+    consumer:
+      group-id: order-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+        spring.json.trusted.packages: com.prompthub.order.*
+    listener:
+      ack-mode: manual
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  cloud:
+    config:
+      enabled: false
+    openfeign:
+      client:
+        config:
+          product-service:
+            connect-timeout: ${PRODUCT_SERVICE_CONNECT_TIMEOUT_MS:2000}
+            read-timeout: ${PRODUCT_SERVICE_READ_TIMEOUT_MS:3000}
+
+grpc:
+  server:
+    port: 9083
+
+eureka:
+  client:
+    enabled: false
+
+prompthub:
+  clients:
+    product-service:
+      url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+  grpc:
+    product:
+      host: ${PRODUCT_GRPC_HOST:localhost}
+      port: ${PRODUCT_GRPC_PORT:9082}
+      deadline-ms: ${PRODUCT_GRPC_DEADLINE_MS:1000}
+    seller:
+      host: ${SELLER_GRPC_HOST:localhost}
+      port: ${SELLER_GRPC_PORT:9081}
+      deadline-ms: ${SELLER_GRPC_DEADLINE_MS:2000}
+  outbox-relay:
+    enabled: true
+    fixed-delay-ms: 5000
+    batch-size: 100
+    max-retry-count: 3
+  order:
+    enabled: true
+    payment-timeout-minutes: 20
+    fixed-delay-ms: 5000
+    batch-size: 100
+    max-retry-count: 3
+
+logging:
+  level:
+    com.prompthub.order: debug
+    org.hibernate.SQL: debug
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      product-grpc-default:
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 700ms
+        slow-call-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+  bulkhead:
+    instances:
+      product-grpc-bulkhead:
+        max-concurrent-calls: 20
+        max-wait-duration: 0ms

@@ -72,7 +72,7 @@ class PaymentRefundedProcessorTest {
             .extracting(OrderProduct::getOrderStatus)
             .containsOnly(OrderStatus.REFUNDED);
 
-        then(outboxEventAppender).should().append("order-events", orderRefundMessage);
+        then(outboxEventAppender).should().append(orderRefundMessage);
         then(processedEventService).should().markProcessed(eventId, "order-service", eventType, REFUNDED_AT);
     }
 
@@ -87,7 +87,7 @@ class PaymentRefundedProcessorTest {
         processor.process(eventId, "PAYMENT_REFUNDED", REFUNDED_AT, payload);
 
         then(orderRepository).should(never()).findByIdWithOrderProducts(any());
-        then(outboxEventAppender).should(never()).append(any(), any());
+        then(outboxEventAppender).should(never()).append(any());
     }
 
     @Test
@@ -105,7 +105,7 @@ class PaymentRefundedProcessorTest {
         processor.process(eventId, eventType, REFUNDED_AT, payload);
 
         then(processedEventService).should().markProcessed(eventId, "order-service", eventType, REFUNDED_AT);
-        then(outboxEventAppender).should(never()).append(any(), any());
+        then(outboxEventAppender).should(never()).append(any());
     }
 
     @Test
@@ -121,6 +121,6 @@ class PaymentRefundedProcessorTest {
         processor.process(eventId, "PAYMENT_REFUNDED", REFUNDED_AT, payload);
 
         then(processedEventService).should().markProcessed(eventId, "order-service", "PAYMENT_REFUNDED", REFUNDED_AT);
-        then(outboxEventAppender).should(never()).append(any(), any());
+        then(outboxEventAppender).should(never()).append(any());
     }
 }

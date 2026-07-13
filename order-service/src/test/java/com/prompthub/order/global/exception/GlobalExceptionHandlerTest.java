@@ -53,6 +53,17 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("상품 서비스 장애는 SYS002와 HTTP 503 공통 응답을 반환한다")
+    void productServiceUnavailableReturnsSys002AndServiceUnavailable() throws Exception {
+        mockMvc.perform(get("/test/product-service-unavailable").header("X-Request-Id", "request-1"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data").isEmpty())
+                .andExpect(jsonPath("$.message").value("상품 서비스를 사용할 수 없습니다."))
+                .andExpect(jsonPath("$.code").value("SYS002"));
+    }
+
+    @Test
     @DisplayName("주문 상태 전이 도메인 예외는 O009 에러 코드를 반환한다")
     void invalidOrderStatusTransitionReturnsO009() throws Exception {
         mockMvc.perform(get("/test/domain/order-status").header("X-Request-Id", "request-1"))
@@ -113,6 +124,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/test/business")
         void business() {
             throw new BusinessException(ErrorCode.CART_EMPTY);
+        }
+
+        @GetMapping("/test/product-service-unavailable")
+        void productServiceUnavailable() {
+            throw new BusinessException(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE);
         }
 
         @GetMapping("/test/domain/order-status")

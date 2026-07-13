@@ -1,6 +1,7 @@
 package com.prompthub.settlement.application.service;
 
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
+import com.prompthub.settlement.application.event.SettlementCreatedPayload;
 import com.prompthub.settlement.application.usecase.CalculateSettlementUseCase;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementDetail;
@@ -11,6 +12,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,7 @@ public class SettlementCalculationApplicationService implements CalculateSettlem
 
     private final SettlementSourceRepository settlementSourceRepository;
     private final SettlementRepository settlementRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -43,11 +46,14 @@ public class SettlementCalculationApplicationService implements CalculateSettlem
         UUID settlementId = settlement.getId();
         lines.forEach(line -> line.markSettled(settlementId));
 
+        // 커밋 후 settlement.created 발행(AFTER_COMMIT 리스너 위임 — SettlementCreatedEventListener)
+        eventPublisher.publishEvent(SettlementCreatedPayload.from(settlement));
+
         return settlement;
     }
 
     private SettlementDetail toDetail(SettlementSourceLine line) {
-        return switch (line.getEventType()) {
+        return switch (line.getLineType()) {
             case PAID -> SettlementDetail.sale(
                     line.getOrderProductId(), line.getLineAmount(), DEFAULT_FEE_RATE, line.getOccurredAt());
             case REFUND -> SettlementDetail.refund(

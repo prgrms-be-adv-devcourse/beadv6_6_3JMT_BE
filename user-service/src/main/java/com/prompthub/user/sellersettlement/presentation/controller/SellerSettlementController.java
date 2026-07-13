@@ -7,6 +7,7 @@ import com.prompthub.user.sellersettlement.application.usecase.SellerSettlementU
 import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementListResponse;
 import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementStatusResponse;
+import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementSummaryResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -59,6 +60,23 @@ public class SellerSettlementController {
     ) {
         return ApiResult.success(sellerSettlementUseCase.getMySettlements(
                 new SellerSettlementListQuery(sellerId, status, period, page, size)));
+    }
+
+    @GetMapping("/summary")
+    @Operation(summary = "판매자 정산 요약 조회",
+            description = "본인의 누적 정산 요약(등록 프롬프트 수·판매건수·누적 거래액·지급 완료액)을 조회합니다. "
+                    + "등록 프롬프트 수·판매건수는 product 서비스에서 내부통신으로 조회합니다. SELLER 권한이 필요합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공",
+                    content = @Content(schema = @Schema(implementation = SellerSettlementSummaryResponse.class))),
+            @ApiResponse(responseCode = "403", description = "SELLER 권한 없음",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ApiResult<SellerSettlementSummaryResponse> getMySummary(
+            @Parameter(hidden = true)
+            @RequestHeader("X-User-Id") UUID sellerId
+    ) {
+        return ApiResult.success(sellerSettlementUseCase.getMySummary(sellerId));
     }
 
     @PatchMapping("/{settlementId}/payout-request")

@@ -1,8 +1,8 @@
 # 서비스 간 동기 호출 방식 — REST vs gRPC
 
-정산은 자기 데이터만으로 끝나지 않는다. 정산 목록을 내려줄 때 판매자명이 필요하고,
-정산 대상을 추릴 때 상품 정보가 필요하다. 이 데이터는 다른 서비스가 소유하므로,
-정산이 실행 중에 그 서비스를 동기로 호출해 당겨온다. 이때 무엇으로 호출하느냐 —
+정산 도메인은 자기 데이터만으로 끝나지 않는다. 정산 대상을 추릴 때 order 의 결제·환불 라인이
+필요하고, 판매자 정산 요약을 보여줄 때 상품 수·판매건수가 필요하다. 이 데이터는 다른 서비스가
+소유하므로, 실행 중에 그 서비스를 동기로 호출해 당겨온다. 이때 무엇으로 호출하느냐 —
 REST(HTTP/JSON)냐 gRPC냐 — 가 이 문서의 주제다.
 
 > 비동기 전송(Kafka)으로 데이터를 미리 받아둘지, 동기로 그때그때 당길지의 선택은
@@ -11,23 +11,28 @@ REST(HTTP/JSON)냐 gRPC냐 — 가 이 문서의 주제다.
 
 ## 지금 구조
 
-정산은 두 서비스를 gRPC 블로킹 스텁으로 호출한다.
+정산 도메인의 동기 호출은 모두 gRPC 블로킹 스텁이다. 셀러 정산이 user-service 로 이관되며
+(`seller-settlement-separation.md`) 정산 본체와 셀러 정산이 각기 다른 대상을 호출한다.
 
-- `SellerQueryClient` → User 서비스: 판매자 ID 목록으로 판매자명을 한 번에 조회.
-- `ProductQueryClient` → Product 서비스: 상품 정보 조회.
+- **settlement-service(정산 본체)** — `OrderSettlementQueryClient` → order 서비스:
+  배치 시점에 그 기간의 정산 라인(`GetSettleableLines`)을 bulk 로 당겨 `settlement_source_line` 에 적재.
+- **user-service `sellersettlement`(셀러 정산)** — `ProductStatsGrpcClient` → product 서비스:
+  셀러 등록 상품 수·판매건수(`GetSellerStats`)를 요약 조회 시 한 응답으로 조회.
 
 ```
-settlement-service ──gRPC(blocking)──▶ user-service     (판매자명)
-                   ──gRPC(blocking)──▶ product-service  (상품 정보)
+settlement-service    ─gRPC(blocking)─▶ order-service    (정산 원천 라인 pull, #260)
+user sellersettlement ─gRPC(blocking)─▶ product-service  (상품 수·판매건수)
 ```
 
-- 계약은 `src/main/proto`의 `.proto`에 둔다(`seller_query.proto`, `product_query.proto`).
-  스텁은 빌드 시 생성된다.
+- 계약은 루트 `grpc/<소유서버>/`에 두고 각 모듈이 build.gradle 의 proto `srcDir`로 참조한다
+  (`grpc/order/order_query.proto`, `grpc/product/product_query.proto`). 스텁은 빌드 시 생성된다.
 - 채널·스텁 빈은 호출 대상 서비스별 config에서 따로 만든다
-  (`SellerGrpcClientConfig`, `ProductGrpcClientConfig`). 주소는 yml로 주입한다
+  (`OrderGrpcClientConfig`, `ProductStatsGrpcClientConfig`). 주소는 yml로 주입한다
   (`grpc.client.<service>.address`).
-- 어댑터는 `application/port`의 포트(`SellerQueryPort` 등)를 구현한다. 안쪽 계층은
+- 어댑터는 `application/port`의 포트(`OrderSettlementQueryPort` 등)를 구현한다. 안쪽 계층은
   전송이 gRPC인지 모른다 — 포트 뒤에 가려져 있다.
+- 판매자명 조회(`GetSellers`) 서버는 user-service `seller` 패키지에 live 이나, 이를 부르는
+  정산측 클라이언트는 아직 없다. 실제 구현/대기 현황은 `../architecture/settlement-internal-comm-topology.md`.
 
 ## 무엇을 견주는가
 
@@ -58,8 +63,8 @@ settlement-service ──gRPC(blocking)──▶ user-service     (판매자명)
   드물고 grpcurl 같은 툴로 충분하다.
 - **계약을 코드로 강제하고 싶다.** `.proto` 한 벌이 양쪽의 단일 출처가 된다. 필드 타입이
   어긋나면 컴파일에서 걸리지, 런타임 JSON 파싱에서 터지지 않는다.
-- **ID 목록을 받아 한 번에 조회**하는 식의 배치성 호출이 많다. 판매자명 N건을 한 요청으로
-  당기는 `findSellerNames`가 이 모양이고, protobuf 바이너리가 JSON보다 가볍다.
+- **한 요청으로 여러 건을 당기는** 배치성 호출이다. period 하나로 그 기간의 결제·환불 라인을
+  `repeated` 로 받는 `GetSettleableLines` 가 이 모양이고, protobuf 바이너리가 JSON보다 가볍다.
 - **호출량이 늘 여지가 있다.** HTTP/2 멀티플렉싱과 바이너리 직렬화는 호출이 잦아질수록
   REST 대비 이득이 커진다.
 
@@ -71,12 +76,12 @@ gRPC를 직접 부를 일은 없다 — 그건 정산이 자기 응답을 만들
 
 대신 gRPC의 강점이 그대로 들어맞는다.
 
-- **계약이 팀 경계를 넘는다.** 판매자명·상품 정보의 모양을 User·Product 팀과 합의해야
+- **계약이 팀 경계를 넘는다.** 정산 라인·상품 통계의 모양을 order·product 팀과 합의해야
   하는데, `.proto`가 그 합의를 코드로 박아준다. 문서로만 합의하면 한쪽이 필드를 바꿔도
   조용히 어긋나지만, proto는 빌드에서 잡힌다.
-- **조회가 배치성이다.** 정산 목록의 판매자 ID를 모아 한 번에 당기는 패턴이라, 바이너리
+- **조회가 배치성이다.** period 하나로 그 기간의 정산 라인을 한 번에 당기는 패턴이라, 바이너리
   직렬화의 가벼움이 누적으로 이득이다.
-- **포트 뒤에 숨길 수 있다.** 전송이 무엇이든 `SellerQueryPort`는 그대로다. 나중에
+- **포트 뒤에 숨길 수 있다.** 전송이 무엇이든 `OrderSettlementQueryPort`는 그대로다. 나중에
   REST로 바꾸거나 Kafka 사본으로 갈아타도 안쪽 계층은 건드리지 않는다 — 바뀌는 건
   `infrastructure/client`의 어댑터뿐이다.
 
@@ -88,13 +93,14 @@ gRPC를 직접 부를 일은 없다 — 그건 정산이 자기 응답을 만들
 동기 호출은 상대 서비스가 떠 있어야 한다는 결합을 안고 간다. 이 결합이 정산 전체를
 무너뜨리지 않게, 호출의 성격에 따라 실패를 다르게 처리한다.
 
-- **부가 정보 조회 — 죽지 않고 비운다.** 판매자명은 정산 목록을 보기 좋게 하는
-  장식이지 정산 금액을 좌우하지 않는다. 그래서 `SellerQueryClient`는 gRPC가 실패하면
-  예외를 위로 던지지 않고 **빈 결과로 대체**한다(`StatusRuntimeException`을 잡아
-  `Map.of()` 반환, 로그만 남김). 판매자명이 비어 보일지언정 정산 조회 자체는 살아 있다.
-- **정산 정합성에 관여하는 조회 — 막아야 한다.** 만약 어떤 동기 조회가 정산 금액·대상에
-  직접 영향을 준다면, 같은 식으로 조용히 비우면 과소·과대 정산이 된다. 그런 호출은
-  실패를 삼키지 말고 멈춰야 한다. 부가 정보와 정합성 데이터는 실패 정책이 달라야 한다.
+- **부가 정보 조회 — 죽지 않고 비운다.** 셀러 상품 수·판매건수는 정산 요약을 보기 좋게 하는
+  참고 데이터지 정산 금액을 좌우하지 않는다. 그래서 `ProductStatsGrpcClient`는 gRPC가 실패하면
+  예외를 위로 던지지 않고 **0으로 폴백**한다(`StatusRuntimeException`을 잡아
+  `SellerProductStats.empty()` 반환, 로그만 남김). 그 값이 0으로 보일지언정 요약 조회 자체는 살아 있다.
+- **정산 정합성에 관여하는 조회 — 막는다.** order 정산 라인 조회(`OrderSettlementQueryClient`)는
+  정산 금액·대상에 직접 영향을 준다. 여기서 조용히 비우면 과소·과대 정산(조용한 0건 정산)이 된다.
+  그래서 이 호출은 실패를 삼키지 않고 `SettlementException(SETTLEMENT_SOURCE_QUERY_FAILED)`로
+  **배치를 멈춘다.** 부가 정보와 정합성 데이터는 실패 정책이 달라야 한다.
 
 > 한 줄 규칙: **장식용 조회는 실패해도 비우고 지나가고, 돈에 영향 주는 조회는 실패하면
 > 멈춘다.** 어느 쪽인지 호출마다 정해 둔다.
