@@ -234,9 +234,13 @@
 | model | string | Y | 대상 AI 모델 |
 | desc | string | Y | 상품 설명 |
 | amount | integer | Y | 가격 |
-| content | string | Y | 프롬프트 원문 |
+| content | string | 유형별 | 프롬프트 원문 (PROMPT 필수) |
+| fileUrl | string | 유형별 | 산출물 파일 URL (PPT/EXCEL 필수, 업로드 후 받은 URL) |
+| contentFileUrl | string | 유형별 | 외부 노션 링크 (NOTION 필수) |
 | thumbnailUrl | string | N | 썸네일 이미지 URL |
 | tags | string[] | N | 판매자 지정 태그 목록 |
+
+> **유형별 필수 필드**: PROMPT→`content`, PPT·EXCEL→`fileUrl`, NOTION→`contentFileUrl`. 각 유형은 해당 필드만 사용하며, 맞지 않는 필드가 채워지면 400 `P007`. 공개 상세 응답에는 `fileUrl`/`contentFileUrl`을 노출하지 않는다(구매 후 전달은 내부 API).
 
 #### Response
 
@@ -301,11 +305,15 @@
 | model | string | Y | 대상 AI 모델 |
 | desc | string | Y | 상품 설명 |
 | amount | integer | Y | 가격 |
-| content | string | Y | 프롬프트 원문 |
+| content | string | 유형별 | 프롬프트 원문 (PROMPT 필수) |
+| fileUrl | string | 유형별 | 산출물 파일 URL (PPT/EXCEL 필수, 업로드 후 받은 URL) |
+| contentFileUrl | string | 유형별 | 외부 노션 링크 (NOTION 필수) |
 | thumbnailUrl | string | N | 썸네일 이미지 URL |
 | tags | string[] | N | 판매자 지정 태그 목록 |
 | changeReason | string | N | 변경 사유 |
 | versionType | string | N | `MINOR`(기본) \| `MAJOR` |
+
+> **유형별 필수 필드**: PROMPT→`content`, PPT·EXCEL→`fileUrl`, NOTION→`contentFileUrl`. 각 유형은 해당 필드만 사용하며, 맞지 않는 필드가 채워지면 400 `P007`.
 
 #### Response
 
@@ -422,6 +430,8 @@
     "amount": 5000,
     "desc": "설명",
     "content": "프롬프트 원문",
+    "fileUrl": null,
+    "contentFileUrl": null,
     "status": "DRAFT",
     "version": "1.0",
     "thumbnailUrl": null,
@@ -443,6 +453,8 @@
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
+| fileUrl | string \| null | 산출물 파일 presigned 다운로드 URL (PPT/EXCEL). 없으면 null |
+| contentFileUrl | string \| null | 외부 노션 링크 (NOTION). 없으면 null |
 | liveVersion | string \| null | 현재 판매중(ON_SALE) 버전 표기(`major.patch`). 판매중 버전이 없으면 null |
 | versions | array | 이 상품의 버전 이력 목록 |
 | versions[].version | string | 버전 표기(`major.patch`) |

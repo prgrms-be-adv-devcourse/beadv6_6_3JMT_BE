@@ -105,6 +105,8 @@
 | thumbnail_url | TEXT | | NULL | 대표 이미지 URL. NULL이면 기본 이미지 |
 | image_urls | TEXT | | NULL | 추가 이미지 URL 목록 (쉼표 구분, 최대 5개) |
 | content | TEXT | | NULL | 프롬프트/템플릿 원문. **외부 응답 노출 금지** |
+| file_url | TEXT | | NULL | 유형별 산출물 파일 스토리지 키 (PPT/EXCEL). 판매자 상세만 presigned 노출 |
+| content_file_url | TEXT | | NULL | 외부 노션 링크 원문 (NOTION). 공개 응답 노출 금지 |
 | badge | VARCHAR(50) | | NULL | 상품 뱃지 (`신규` 등) |
 | status | VARCHAR(30) | ✓ | DRAFT | DRAFT / PENDING_REVIEW / ON_SALE / REJECTED / STOPPED / SUPERSEDED (CHECK constraint). SUPERSEDED = 버전업 승인 시 밀려난 이전 ON_SALE row |
 | rejection_reason | VARCHAR(1000) | | NULL | 검수 반려 사유. REJECTED 상태에서만 유효 |
