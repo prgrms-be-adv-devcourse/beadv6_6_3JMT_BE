@@ -6,6 +6,7 @@ public enum PaymentEventType implements EventType {
 
     PAYMENT_APPROVED,
     PAYMENT_REFUNDED,
+    PAYMENT_REFUND_FAILED,
     PAYMENT_FAILED;
 
     @Override
