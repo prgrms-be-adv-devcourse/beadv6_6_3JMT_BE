@@ -1,6 +1,6 @@
 # 구현 기록: 주문-결제 흐름 재설계 (payment-service)
 
-> 설계 스펙: `11-order-payment-flow-redesign.md`. 본 문서는 실제 구현 결과·커밋 단위·트러블슈팅·스펙 대비 편차를 기록한다.
+> 설계 스펙: `13-order-payment-flow-redesign.md`. 본 문서는 실제 구현 결과·커밋 단위·트러블슈팅·스펙 대비 편차를 기록한다.
 > 브랜치: `feat/#237-order-created-event-grpc-fallback` / 작성일: 2026-07-08
 
 ## 1. 커밋 단위 (의미 있는 단위로 분할)
