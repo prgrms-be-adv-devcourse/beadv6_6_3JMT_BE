@@ -1,10 +1,17 @@
 package com.prompthub.paymentservice;
 
+import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
+import com.prompthub.paymentservice.application.gateway.external.RefundResult;
 import com.prompthub.paymentservice.domain.model.OrderSnapshot;
 import com.prompthub.paymentservice.domain.model.OrderSnapshotSource;
+import com.prompthub.paymentservice.domain.model.Payment;
+import com.prompthub.paymentservice.domain.model.PaymentStatus;
 import com.prompthub.paymentservice.infrastructure.persistence.OrderSnapshotJpaRepository;
+import com.prompthub.paymentservice.infrastructure.persistence.PaymentJpaRepository;
+import com.prompthub.paymentservice.infrastructure.persistence.RefundJpaRepository;
 import com.prompthub.paymentservice.support.AbstractIntegrationTest;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -15,9 +22,14 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 class OrderEventConsumerIntegrationTest extends AbstractIntegrationTest {
 
@@ -26,9 +38,20 @@ class OrderEventConsumerIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     OrderSnapshotJpaRepository orderSnapshotJpaRepository;
 
+    @Autowired
+    PaymentJpaRepository paymentJpaRepository;
+
+    @Autowired
+    RefundJpaRepository refundJpaRepository;
+
+    @MockitoBean
+    PaymentGateway paymentGateway;
+
     @BeforeEach
     void clean() {
         orderSnapshotJpaRepository.deleteAll();
+        refundJpaRepository.deleteAll();
+        paymentJpaRepository.deleteAll();
     }
 
     @Test
@@ -87,6 +110,44 @@ class OrderEventConsumerIntegrationTest extends AbstractIntegrationTest {
                 assertThat(orderSnapshotJpaRepository.findByOrderId(laterOrderId)).isPresent());
 
         assertThat(orderSnapshotJpaRepository.findByOrderId(ignoredOrderId)).isEmpty();
+    }
+
+    @Test
+    void ORDER_REFUND_REQUESTED_수신_시_부분환불_처리() {
+        UUID orderId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID orderProductId = UUID.randomUUID();
+        OffsetDateTime refundedAt = OffsetDateTime.now();
+
+        Payment payment = Payment.create(orderId, userId, "pg-key-refund-1", "TOSS_PAYMENTS", "CARD", false, 10_000);
+        payment.markRequested(OffsetDateTime.now());
+        payment.approve(10_000, "카드", "{}", OffsetDateTime.now());
+        paymentJpaRepository.saveAndFlush(payment);
+
+        when(paymentGateway.refund(anyString(), any(), anyInt())).thenReturn(new RefundResult(refundedAt));
+
+        send(orderId.toString(), orderRefundRequestedJson(orderId, orderProductId, userId, 4_000));
+
+        await().atMost(Duration.ofSeconds(15))
+            .pollInterval(Duration.ofMillis(300))
+            .untilAsserted(() -> {
+                Payment updated = paymentJpaRepository.findById(payment.getId()).orElseThrow();
+                assertThat(updated.getStatus()).isEqualTo(PaymentStatus.PARTIAL_REFUNDED);
+            });
+
+        long refundCount = refundJpaRepository.findAll().stream()
+            .filter(r -> r.getPaymentId().equals(payment.getId()))
+            .count();
+        assertThat(refundCount).isEqualTo(1);
+    }
+
+    private String orderRefundRequestedJson(UUID orderId, UUID orderProductId, UUID buyerId, int refundAmount) {
+        return String.format(
+            "{\"eventId\":\"%s\",\"eventType\":\"ORDER_REFUND_REQUESTED\",\"occurredAt\":\"2026-07-13T10:00:00\","
+                + "\"aggregateType\":\"ORDER\",\"aggregateId\":\"%s\",\"payload\":{"
+                + "\"orderId\":\"%s\",\"orderProductId\":\"%s\",\"buyerId\":\"%s\","
+                + "\"refundAmount\":%d,\"requestedAt\":\"2026-07-13T10:00:00\"}}",
+            UUID.randomUUID(), orderId, orderId, orderProductId, buyerId, refundAmount);
     }
 
     // order-service 실제 발행 포맷(EventMessage<OrderCreatedPayload> 봉투)을 흉내낸다.
