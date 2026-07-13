@@ -8,7 +8,6 @@ import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -71,22 +70,6 @@ public class S3StorageAdapter implements StorageClient {
     }
 
     @Override
-    public String upload(String key, byte[] bytes, String contentType) {
-        try {
-            PutObjectRequest request = PutObjectRequest.builder()
-                .bucket(awsS3Properties.s3().bucket())
-                .key(key)
-                .contentType(contentType)
-                .build();
-            s3Client.putObject(request, RequestBody.fromBytes(bytes));
-            return buildObjectUrl(key);
-        } catch (Exception e) {
-            log.error("S3 upload failed key={}: {}", key, e.getMessage(), e);
-            throw new ProductException(ProductErrorCode.S3_PRESIGN_FAILED);
-        }
-    }
-
-    @Override
     public void copyObject(String sourceKey, String destKey) {
         try {
             s3Client.copyObject(CopyObjectRequest.builder()
@@ -113,8 +96,4 @@ public class S3StorageAdapter implements StorageClient {
         }
     }
 
-    private String buildObjectUrl(String key) {
-        return "https://" + awsS3Properties.s3().bucket()
-            + ".s3." + awsS3Properties.region() + ".amazonaws.com/" + key;
-    }
 }

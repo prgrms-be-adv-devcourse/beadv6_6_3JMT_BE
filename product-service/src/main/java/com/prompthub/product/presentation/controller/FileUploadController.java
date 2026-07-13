@@ -17,9 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v2/sellers/me/products")
@@ -82,22 +80,6 @@ public class FileUploadController {
             return contentType;
         }
         throw new ProductException(ProductErrorCode.INVALID_UPLOAD_FILE_TYPE);
-    }
-
-    @PostMapping(value = "/images", consumes = "multipart/form-data")
-    public ApiResult<Map<String, String>> uploadImage(
-        @RequestHeader("X-User-Id") UUID sellerId,
-        @RequestHeader("X-User-Role") String role,
-        @RequestParam("file") MultipartFile file,
-        @RequestParam(value = "productId", required = false) UUID productId,
-        @RequestParam(value = "purpose", defaultValue = "thumbnail") String purpose
-    ) throws Exception {
-        String ext = extractExtension(file.getOriginalFilename());
-        String contentType = CONTENT_TYPE_MAP.getOrDefault(ext, "image/jpeg");
-        String key = buildKey(productId, purpose, ext);
-        storageClient.upload(key, file.getBytes(), contentType);
-        String viewUrl = storageClient.generatePresignedDownloadUrl(key);
-        return ApiResult.success(Map.of("url", viewUrl));
     }
 
     @DeleteMapping("/images")
