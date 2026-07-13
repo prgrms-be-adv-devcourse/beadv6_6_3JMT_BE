@@ -49,7 +49,7 @@ public class ProductInternalService implements ProductInternalUseCase {
 					p.getThumbnailUrl(),
 					p.getProductType().name(),
 					p.getModel() != null ? p.getModel() : "",
-					p.getSalesCount(),
+					(int) productRepository.sumSalesCountByFamilyRootId(p.familyRootId()),
 					productRepository.getAverageRating(p.familyRootId()),
 					p.getStatus().name()
 				);
@@ -119,7 +119,10 @@ public class ProductInternalService implements ProductInternalUseCase {
 
 	@Override
 	public ProductCountResponse getProductCount(UUID sellerId) {
-		return new ProductCountResponse(sellerId, productRepository.countBySellerId(sellerId));
+		return new ProductCountResponse(
+			sellerId,
+			productRepository.countFamiliesBySellerId(sellerId),
+			productRepository.sumSalesCountBySellerId(sellerId));
 	}
 
 	private Map<UUID, Product> resolveFamilyRepresentatives(

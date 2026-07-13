@@ -46,6 +46,11 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	}
 
 	@Override
+	public long sumSalesCountByFamilyRootId(UUID familyRootId) {
+		return productJpaRepository.sumSalesCountByFamilyRootId(familyRootId);
+	}
+
+	@Override
 	public List<ProductListProjection> findRelatedProducts(UUID productId, ProductType productType, int limit) {
 		return productJpaRepository.findRelatedProducts(productId, productType, limit);
 	}
@@ -66,8 +71,13 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	}
 
 	@Override
-	public long countBySellerId(UUID sellerId) {
-		return productJpaRepository.countBySellerIdAndDeletedAtIsNull(sellerId);
+	public long countFamiliesBySellerId(UUID sellerId) {
+		return productJpaRepository.countFamiliesBySellerId(sellerId);
+	}
+
+	@Override
+	public long sumSalesCountBySellerId(UUID sellerId) {
+		return productJpaRepository.sumSalesCountBySellerId(sellerId);
 	}
 
 	@Override

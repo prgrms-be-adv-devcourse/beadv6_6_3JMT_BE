@@ -1,6 +1,7 @@
 package com.prompthub.product.application.service;
 
 import com.prompthub.product.domain.model.entity.Product;
+import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.repository.ProductRepository;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,8 +22,8 @@ import static org.mockito.BDDMockito.then;
 @ExtendWith(MockitoExtension.class)
 class ProductSalesCountServiceTest {
 
-	private static final UUID PRODUCT_ID_1 = UUID.fromString("11111111-1111-1111-1111-111111111111");
-	private static final UUID PRODUCT_ID_2 = UUID.fromString("22222222-2222-2222-2222-222222222222");
+	private static final UUID ROOT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
+	private static final UUID CHILD_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
 	@Mock
 	private ProductRepository productRepository;
@@ -35,31 +36,31 @@ class ProductSalesCountServiceTest {
 	class IncrementSalesCount {
 
 		@Test
-		@DisplayName("ORDER_PAID 이벤트로 상품 salesCount를 1 증가시킨다")
-		void incrementSalesCount_success() {
-			Product product = product(PRODUCT_ID_1, 5);
-			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID_1))).willReturn(List.of(product));
+		@DisplayName("단일 상품(자기 자신이 family)의 현재 ON_SALE에 1 증가한다")
+		void increment_singleProduct() {
+			Product onSale = product(ROOT_ID, null, ProductStatus.ON_SALE, 5);
+			given(productRepository.findAllByIdIn(List.of(ROOT_ID))).willReturn(List.of(onSale));
+			given(productRepository.findAllByFamilyRootIds(List.of(ROOT_ID))).willReturn(List.of(onSale));
 
-			productSalesCountService.incrementSalesCount(List.of(PRODUCT_ID_1));
+			productSalesCountService.incrementSalesCount(List.of(ROOT_ID));
 
-			assertThat(product.getSalesCount()).isEqualTo(6);
-			then(productRepository).should().save(product);
+			assertThat(onSale.getSalesCount()).isEqualTo(6);
+			then(productRepository).should().save(onSale);
 		}
 
 		@Test
-		@DisplayName("여러 상품의 salesCount를 각각 증가시킨다")
-		void incrementSalesCount_multipleProducts() {
-			Product product1 = product(PRODUCT_ID_1, 3);
-			Product product2 = product(PRODUCT_ID_2, 7);
-			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID_1, PRODUCT_ID_2)))
-				.willReturn(List.of(product1, product2));
+		@DisplayName("옛 버전 id로 와도 family의 현재 ON_SALE row에 증가한다")
+		void increment_versionChain_appliesToCurrentOnSale() {
+			Product old = product(ROOT_ID, null, ProductStatus.SUPERSEDED, 5);
+			Product current = product(CHILD_ID, ROOT_ID, ProductStatus.ON_SALE, 0);
+			given(productRepository.findAllByIdIn(List.of(ROOT_ID))).willReturn(List.of(old));
+			given(productRepository.findAllByFamilyRootIds(List.of(ROOT_ID))).willReturn(List.of(old, current));
 
-			productSalesCountService.incrementSalesCount(List.of(PRODUCT_ID_1, PRODUCT_ID_2));
+			productSalesCountService.incrementSalesCount(List.of(ROOT_ID));
 
-			assertThat(product1.getSalesCount()).isEqualTo(4);
-			assertThat(product2.getSalesCount()).isEqualTo(8);
-			then(productRepository).should().save(product1);
-			then(productRepository).should().save(product2);
+			assertThat(current.getSalesCount()).isEqualTo(1);
+			assertThat(old.getSalesCount()).isEqualTo(5);
+			then(productRepository).should().save(current);
 		}
 	}
 
@@ -68,34 +69,62 @@ class ProductSalesCountServiceTest {
 	class DecrementSalesCount {
 
 		@Test
-		@DisplayName("ORDER_REFUND 이벤트로 상품 salesCount를 1 감소시킨다")
-		void decrementSalesCount_success() {
-			Product product = product(PRODUCT_ID_1, 5);
-			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID_1))).willReturn(List.of(product));
+		@DisplayName("현재 ON_SALE에 판매수가 있으면 그 row를 1 감소한다")
+		void decrement_currentOnSaleHasCount() {
+			Product current = product(CHILD_ID, ROOT_ID, ProductStatus.ON_SALE, 3);
+			given(productRepository.findAllByIdIn(List.of(CHILD_ID))).willReturn(List.of(current));
+			given(productRepository.findAllByFamilyRootIds(List.of(ROOT_ID))).willReturn(List.of(current));
 
-			productSalesCountService.decrementSalesCount(List.of(PRODUCT_ID_1));
+			productSalesCountService.decrementSalesCount(List.of(CHILD_ID));
 
-			assertThat(product.getSalesCount()).isEqualTo(4);
-			then(productRepository).should().save(product);
+			assertThat(current.getSalesCount()).isEqualTo(2);
+			then(productRepository).should().save(current);
 		}
 
 		@Test
-		@DisplayName("salesCount가 0이면 감소시키지 않는다")
-		void decrementSalesCount_doesNotGoBelowZero() {
-			Product product = product(PRODUCT_ID_1, 0);
-			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID_1))).willReturn(List.of(product));
+		@DisplayName("현재 ON_SALE 판매수가 0이면 family 내 판매수>0 버전을 감소시켜 family 합이 정확히 줄어든다")
+		void decrement_floorEdge_reducesPositiveFamilyMember() {
+			Product old = product(ROOT_ID, null, ProductStatus.SUPERSEDED, 5);
+			Product current = product(CHILD_ID, ROOT_ID, ProductStatus.ON_SALE, 0);
+			given(productRepository.findAllByIdIn(List.of(CHILD_ID))).willReturn(List.of(current));
+			given(productRepository.findAllByFamilyRootIds(List.of(ROOT_ID))).willReturn(List.of(old, current));
 
-			productSalesCountService.decrementSalesCount(List.of(PRODUCT_ID_1));
+			productSalesCountService.decrementSalesCount(List.of(CHILD_ID));
 
-			assertThat(product.getSalesCount()).isEqualTo(0);
-			then(productRepository).should().save(product);
+			assertThat(old.getSalesCount()).isEqualTo(4);
+			assertThat(current.getSalesCount()).isEqualTo(0);
+			then(productRepository).should().save(old);
+		}
+
+		@Test
+		@DisplayName("판매수>0 버전이 여럿이면 가장 최신 버전에서 감소한다")
+		void decrement_multiplePositive_reducesLatestVersion() {
+			UUID v11Id = UUID.fromString("33333333-3333-3333-3333-333333333333");
+			Product v10 = product(ROOT_ID, null, ProductStatus.SUPERSEDED, 3);
+			ReflectionTestUtils.setField(v10, "patchVersion", (short) 0);
+			Product v11 = product(v11Id, ROOT_ID, ProductStatus.SUPERSEDED, 2);
+			ReflectionTestUtils.setField(v11, "patchVersion", (short) 1);
+			Product v12 = product(CHILD_ID, ROOT_ID, ProductStatus.ON_SALE, 0);
+			ReflectionTestUtils.setField(v12, "patchVersion", (short) 2);
+			given(productRepository.findAllByIdIn(List.of(CHILD_ID))).willReturn(List.of(v12));
+			given(productRepository.findAllByFamilyRootIds(List.of(ROOT_ID))).willReturn(List.of(v10, v11, v12));
+
+			productSalesCountService.decrementSalesCount(List.of(CHILD_ID));
+
+			assertThat(v11.getSalesCount()).isEqualTo(1);
+			assertThat(v10.getSalesCount()).isEqualTo(3);
+			then(productRepository).should().save(v11);
 		}
 	}
 
-	private Product product(UUID productId, int salesCount) {
+	private Product product(UUID id, UUID parentId, ProductStatus status, int salesCount) {
 		Product product = instantiate(Product.class);
-		ReflectionTestUtils.setField(product, "id", productId);
+		ReflectionTestUtils.setField(product, "id", id);
+		ReflectionTestUtils.setField(product, "parentId", parentId);
+		ReflectionTestUtils.setField(product, "status", status);
 		ReflectionTestUtils.setField(product, "salesCount", salesCount);
+		ReflectionTestUtils.setField(product, "majorVersion", (short) 1);
+		ReflectionTestUtils.setField(product, "patchVersion", (short) 0);
 		ReflectionTestUtils.setField(product, "updatedAt", LocalDateTime.now());
 		return product;
 	}

@@ -195,6 +195,27 @@ class ProductQueryServiceTest {
 		}
 
 		@Test
+		@DisplayName("상세 조회 시 salesCount를 family 전체 합산으로 반환한다")
+		void getProduct_salesCount_isFamilySum() {
+			UUID oldId = PRODUCT_ID;
+			UUID currentId = RELATED_PRODUCT_ID;
+			Product old = productFixture(oldId, null, ProductStatus.SUPERSEDED, (short) 1, (short) 0);
+			Product current = productFixture(currentId, oldId, ProductStatus.ON_SALE, (short) 2, (short) 0);
+
+			given(productRepository.findById(oldId)).willReturn(Optional.of(old));
+			given(productRepository.findAllByFamilyRootIds(List.of(oldId))).willReturn(List.of(old, current));
+			given(productRepository.getAverageRating(oldId)).willReturn(0.0);
+			given(productRepository.sumSalesCountByFamilyRootId(oldId)).willReturn(42L);
+			given(sellerClient.getSellerInfo(SELLER_ID))
+				.willReturn(new com.prompthub.product.application.client.SellerInfo(SELLER_ID, "판매자", null, "ACTIVE"));
+			given(productRepository.countOnSaleProductsBySellerId(SELLER_ID)).willReturn(1L);
+
+			ProductDetailResponse result = productQueryService.getProduct(oldId);
+
+			assertThat(result.salesCount()).isEqualTo(42);
+		}
+
+		@Test
 		@DisplayName("family에 ON_SALE row가 없으면 404를 던진다")
 		void getProduct_noOnSaleInFamily_throwsNotFound() {
 			Product rejected = productFixture(PRODUCT_ID, null, ProductStatus.REJECTED, (short) 1, (short) 0);

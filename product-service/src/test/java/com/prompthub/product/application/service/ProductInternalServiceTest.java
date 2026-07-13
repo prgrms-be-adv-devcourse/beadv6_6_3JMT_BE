@@ -43,6 +43,24 @@ class ProductInternalServiceTest {
 	private ProductInternalService productInternalService;
 
 	@Nested
+	@DisplayName("셀러 상품 수/판매수 조회")
+	class GetProductCount {
+
+		@Test
+		@DisplayName("product_count는 family 수, sales_count는 셀러 판매수 합으로 반환한다")
+		void getProductCount_returnsFamilyCountAndSalesSum() {
+			given(productRepository.countFamiliesBySellerId(SELLER_ID)).willReturn(3L);
+			given(productRepository.sumSalesCountBySellerId(SELLER_ID)).willReturn(1240L);
+
+			var response = productInternalService.getProductCount(SELLER_ID);
+
+			assertThat(response.sellerId()).isEqualTo(SELLER_ID);
+			assertThat(response.productCount()).isEqualTo(3L);
+			assertThat(response.salesCount()).isEqualTo(1240L);
+		}
+	}
+
+	@Nested
 	@DisplayName("장바구니 스냅샷 조회")
 	class GetCartSnapshots {
 

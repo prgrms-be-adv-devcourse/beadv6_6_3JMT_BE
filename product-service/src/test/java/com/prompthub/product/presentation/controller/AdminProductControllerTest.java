@@ -39,7 +39,7 @@ class AdminProductControllerTest {
 	}
 
 	@Nested
-	@DisplayName("GET /api/v1/admin/products")
+	@DisplayName("GET /api/v2/admin/products")
 	class GetPendingReviewProducts {
 
 		@Test
@@ -48,7 +48,7 @@ class AdminProductControllerTest {
 			given(productAdminUseCase.getPendingReviewProducts("BUYER"))
 				.willThrow(new ProductException(ProductErrorCode.PRODUCT_FORBIDDEN));
 
-			mockMvc.perform(get("/api/v1/admin/products").header("X-User-Role", "BUYER"))
+			mockMvc.perform(get("/api/v2/admin/products").header("X-User-Role", "BUYER"))
 				.andExpect(status().isForbidden())
 				.andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.code").value("P003"));
@@ -56,7 +56,7 @@ class AdminProductControllerTest {
 	}
 
 	@Nested
-	@DisplayName("PATCH /api/v1/admin/products/{productId}/approve")
+	@DisplayName("PATCH /api/v2/admin/products/{productId}/approve")
 	class ApproveProduct {
 
 		@Test
@@ -64,7 +64,7 @@ class AdminProductControllerTest {
 		void approveProduct_success() throws Exception {
 			UUID productId = UUID.randomUUID();
 
-			mockMvc.perform(patch("/api/v1/admin/products/{productId}/approve", productId)
+			mockMvc.perform(patch("/api/v2/admin/products/{productId}/approve", productId)
 					.header("X-User-Role", "ADMIN"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
@@ -74,7 +74,7 @@ class AdminProductControllerTest {
 	}
 
 	@Nested
-	@DisplayName("PATCH /api/v1/admin/products/{productId}/reject")
+	@DisplayName("PATCH /api/v2/admin/products/{productId}/reject")
 	class RejectProduct {
 
 		@Test
@@ -82,7 +82,7 @@ class AdminProductControllerTest {
 		void rejectProduct_success() throws Exception {
 			UUID productId = UUID.randomUUID();
 
-			mockMvc.perform(patch("/api/v1/admin/products/{productId}/reject", productId)
+			mockMvc.perform(patch("/api/v2/admin/products/{productId}/reject", productId)
 					.header("X-User-Role", "ADMIN")
 					.contentType(MediaType.APPLICATION_JSON)
 					.content("{\"reason\":\"콘텐츠 미흡\"}"))

@@ -21,13 +21,13 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/products")
+@RequestMapping("/api/v2/sellers/me")
 @RequiredArgsConstructor
 public class SellerProductController {
 
 	private final ProductSellerUseCase productSellerUseCase;
 
-	@PostMapping
+	@PostMapping("/products")
 	@ResponseStatus(HttpStatus.CREATED)
 	public ApiResult<ProductCreateResponse> createProduct(
 		@RequestHeader("X-User-Id") UUID sellerId,
@@ -37,7 +37,7 @@ public class SellerProductController {
 		return ApiResult.success(productSellerUseCase.createProduct(sellerId, request));
 	}
 
-	@PutMapping("/{productId}")
+	@PutMapping("/products/{productId}")
 	public ApiResult<Void> updateProduct(
 		@RequestHeader("X-User-Id") UUID sellerId,
 		@RequestHeader("X-User-Role") String role,
@@ -48,7 +48,7 @@ public class SellerProductController {
 		return ApiResult.success(null);
 	}
 
-	@PatchMapping("/{productId}/submit")
+	@PatchMapping("/products/{productId}/submit")
 	public ApiResult<Void> submitForReview(
 		@RequestHeader("X-User-Id") UUID sellerId,
 		@RequestHeader("X-User-Role") String role,
@@ -58,7 +58,7 @@ public class SellerProductController {
 		return ApiResult.success(null);
 	}
 
-	@DeleteMapping("/{productId}")
+	@DeleteMapping("/products/{productId}")
 	public ApiResult<Void> deleteProduct(
 		@RequestHeader("X-User-Id") UUID sellerId,
 		@RequestHeader("X-User-Role") String role,

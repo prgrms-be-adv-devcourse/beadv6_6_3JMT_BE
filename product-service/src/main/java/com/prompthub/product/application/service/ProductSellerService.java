@@ -168,11 +168,14 @@ public class ProductSellerService implements ProductSellerUseCase {
 		Map<UUID, List<Product>> byFamily = all.stream()
 			.collect(Collectors.groupingBy(Product::familyRootId));
 		return byFamily.entrySet().stream()
-			.map(entry -> ProductFamily.of(entry.getKey(), entry.getValue()))
-			.map(family -> family.currentForSeller()
-				.orElseThrow(() -> new IllegalStateException("family에 대표 row가 없습니다. familyRootId=" + family.familyRootId())))
-			.sorted(Comparator.comparing(Product::getUpdatedAt).reversed())
-			.map(SellerProductListItemResponse::from)
+			.map(entry -> {
+				ProductFamily family = ProductFamily.of(entry.getKey(), entry.getValue());
+				Product representative = family.currentForSeller()
+					.orElseThrow(() -> new IllegalStateException("family에 대표 row가 없습니다. familyRootId=" + entry.getKey()));
+				int familySalesCount = entry.getValue().stream().mapToInt(Product::getSalesCount).sum();
+				return SellerProductListItemResponse.from(representative, familySalesCount);
+			})
+			.sorted(Comparator.comparing(SellerProductListItemResponse::updatedAt).reversed())
 			.toList();
 	}
 
