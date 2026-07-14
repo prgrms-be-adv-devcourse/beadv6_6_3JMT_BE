@@ -92,59 +92,22 @@
 
 ---
 
-### POST /api/v1/payments/{paymentId}/refund — 환불 요청
+### 환불 — 이벤트 기반 (REST 없음)
 
-구매자가 결제 건에 대해 전체 환불을 요청합니다.
+환불은 REST 엔드포인트가 아니라 order-service가 발행하는 Kafka 이벤트로 트리거된다.
+OrderProduct 단위로만 존재하며, 주문 전체를 환불하려면 order-service가 상품 수만큼 이벤트를 여러 번 발행한다.
 
-**제약 조건**
-- 요청 주체: `BUYER` 역할 보유자만 가능 (BUYER 없는 관리 전용 계정 불가)
-- 환불 가능 상태: `PAID`만 가능
-- 전체 환불만 지원 (부분 환불은 세미 MVP 범위 외)
+**이벤트 계약**: `order-events` 토픽의 `ORDER_REFUND_REQUESTED` — 상세 스키마는 `events.md` 참조.
 
 **처리 흐름**
-1. `paymentId`로 Payment 조회 → 본인 결제 확인
-2. Payment 상태 `PAID` 검증 → 아니면 `400` 반환
-3. Payment 상태 `PAID` → `REFUNDING` 전환 + `202` 반환
-4. `@TransactionalEventListener(AFTER_COMMIT)`: PG사에 환불 요청 (`Idempotency-Key: refund-{paymentId}`)
-5. PG 환불 완료 → `REFUNDING` → `REFUNDED` 저장 → `payment.refunded` 발행
+1. `OrderEventConsumer`가 `ORDER_REFUND_REQUESTED` 수신
+2. `orderId`로 `PAID`/`PARTIAL_REFUNDED` 상태 Payment 조회(락)
+3. 누적 환불액이 `total_amount`를 넘으면 처리 중단(DLT)
+4. PG 환불 동기 호출(단일 트랜잭션 안에서 수행 — REFUNDING 같은 진행중 마커 없음)
+5. 성공: 누적액이 `total_amount`에 도달했으면 `ALL_REFUNDED`, 아니면 `PARTIAL_REFUNDED`로 전이 + `payment-events`에 `PAYMENT_REFUNDED` 발행
+6. 실패: `Refund.FAILED`만 기록, Payment 상태는 그대로 + `payment-events`에 `PAYMENT_REFUND_FAILED` 발행. 재시도 장치 없음(필요 시 order-service가 이벤트 재발행)
 
-> PG사 환불 실패 시 → `REFUNDING` → `PAID` 복원 (이벤트 발행 없음)
-
-**장애 복구 (Scheduled Retry)**
-- `@Scheduled` (10분 주기): `REFUNDING` 상태가 일정 시간 이상 지속된 건을 조회해 PG 환불 재요청
-- 재요청 시 `Idempotency-Key: refund-{paymentId}` 를 동일하게 사용해 이중 환불 방지 (토스페이먼츠 멱등키 유효 기간 15일)
-
-**이후 비동기 흐름**
-
-| 구독 서비스 | 처리 내용 |
-|---|---|
-| Order 서비스 | Order 상태 `REFUNDED` 전환 + `is_download = false` |
-
-#### Path Parameter
-
-| 파라미터 | 타입 | 설명 |
-|---|---|---|
-| `paymentId` | UUID | 환불할 Payment ID |
-
-#### Responses
-
-| 상태 코드 | 설명 | 에러 코드 |
-|---|---|---|
-| `202` | 환불 요청 접수 완료 | — |
-| `400` | 환불 불가 상태 | `PAY004` |
-| `401` | 토큰 만료 | `A003` |
-| `403` | BUYER 역할 없음 | `PAY007` |
-| `403` | 본인 결제 건이 아님 | `PAY006` |
-| `404` | 결제 건 없음 | `PAY005` |
-
-> **PG 환불 실패는 동기 응답으로 전달되지 않습니다.**
-> 202 반환 후 PG 호출이 이루어지므로, PG 실패 시 Payment 상태가 `REFUNDING → PAID`로 복원됩니다.
-> 클라이언트는 Payment 상태 조회 API를 폴링하여 `REFUNDING` / `REFUNDED` / `PAID`(실패 복원) 를 구분해야 합니다.
-
-**202 응답 예시**
-```json
-{ "success": true, "data": null, "message": "success" }
-```
+**금액 검증**: order-service가 보낸 `refundAmount`를 그대로 신뢰한다(payment-service는 상품별 가격 정보를 갖고 있지 않음). 누적 환불액이 결제 총액을 넘지 않는지만 확인한다.
 
 ---
 
@@ -156,6 +119,6 @@
 | `REQUESTED` | PG사에 결제 요청 전송 완료 |
 | `PAID` | PG사 결제 승인 완료 |
 | `FAILED` | PG사 결제 실패 |
-| `REFUNDING` | 환불 요청 접수, PG 환불 진행 중 |
-| `REFUNDED` | 환불 완료 |
+| `PARTIAL_REFUNDED` | 일부 OrderProduct 환불 완료, 잔여 환불 가능액 존재 |
+| `ALL_REFUNDED` | 누적 환불액이 결제 총액에 도달 |
 | `UNKNOWN` | PG 응답 불명확, 수동 확인 필요 |

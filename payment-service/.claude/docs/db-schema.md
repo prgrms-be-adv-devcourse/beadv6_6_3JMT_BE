@@ -15,8 +15,8 @@ payment-service가 소유하는 테이블 요약. 스키마는 **JPA 엔티티(`
 | `REQUESTED` | PG사에 결제 요청 전송 완료 |
 | `PAID` | PG사 결제 승인 완료 |
 | `FAILED` | PG사 결제 실패 |
-| `REFUNDING` | 환불 요청 접수, PG 환불 진행 중 |
-| `REFUNDED` | 환불 완료 |
+| `PARTIAL_REFUNDED` | 일부 OrderProduct 환불 완료, 잔여 환불 가능액 존재 |
+| `ALL_REFUNDED` | 누적 환불액이 결제 총액에 도달 |
 | `UNKNOWN` | PG 응답 불명확, 수동 확인 필요 |
 
 ### refund_status
@@ -87,12 +87,18 @@ payment-service가 소유하는 테이블 요약. 스키마는 **JPA 엔티티(`
 |---|---|---|---|---|
 | `id` | UUID | ✅ | — | PK |
 | `payment_id` | UUID | ✅ | — | FK → payment(id) |
-| `order_product_id` | UUID | — | NULL | 부분 환불 대상 OrderProduct ID. 전체 환불 시 NULL |
+| `order_product_id` | UUID | ✅ | — | 환불 대상 OrderProduct ID. 부분환불만 존재하므로 항상 필수 |
 | `user_id` | UUID | ✅ | — | 환불 요청 사용자 ID |
-| `refund_amount` | INT | ✅ | — | 환불 금액 (전체 환불 시 payment.total_amount와 동일) |
+| `refund_amount` | INT | ✅ | — | 이번 환불 건(해당 OrderProduct)의 금액 |
 | `reason` | TEXT | — | NULL | 환불 사유 |
 | `status` | refund_status | ✅ | `REQUESTED` | 환불 상태 |
 | `requested_at` | TIMESTAMPTZ | ✅ | `NOW()` | 환불 요청 접수 일시 |
 | `completed_at` | TIMESTAMPTZ | — | NULL | PG사 환불 처리 완료 일시 |
 | `created_at` | TIMESTAMPTZ | ✅ | `NOW()` | 생성 일시 |
 | `updated_at` | TIMESTAMPTZ | ✅ | `NOW()` | 수정 일시 |
+
+**인덱스** (`schema.sql`):
+
+| 인덱스 | 대상 | 목적 |
+|---|---|---|
+| `uk_refund_payment_order_product` | UNIQUE (`payment_id`, `order_product_id`) | 같은 결제의 같은 상품 중복 환불(이벤트 재전송 포함) 방지 |
