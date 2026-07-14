@@ -146,7 +146,7 @@ Expected: test PASS and one domain commit.
 - Test: `infrastructure/persistence/outbox/OutboxEventRepositoryAdapterTest.java`
 
 **Interfaces:**
-- Produces: `appendSettlementCreated(UUID, SettlementCreatedPayload)`
+- Produces: `appendSettlementCreated(UUID, SettlementCreatedEvent)`
 - Produces: `OutboxCandidate(UUID eventId, LocalDateTime occurredAt)` and keyset queries
 
 - [ ] **Step 1: Write failing appender/repository tests**
@@ -182,7 +182,7 @@ public interface OutboxEventRepository {
 }
 ```
 
-The appender creates one `EventMessage<SettlementCreatedPayload>`, serializes it once, and uses its values in `OutboxEvent`. Convert Jackson failure to `OUTBOX_EVENT_SERIALIZE_FAILED`.
+The appender creates one `EventMessage<SettlementCreatedEvent>`, serializes it once, and uses its values in `OutboxEvent`. Convert Jackson failure to `OUTBOX_EVENT_SERIALIZE_FAILED`.
 
 - [ ] **Step 4: Add PostgreSQL DDL**
 
@@ -235,7 +235,7 @@ Expected: failure because calculation still publishes a Spring event.
 ```java
 outboxEventAppender.appendSettlementCreated(
         command.settlementBatchId(),
-        SettlementCreatedPayload.from(settlement));
+        SettlementCreatedEvent.from(settlement));
 ```
 
 Keep it inside the existing transaction after settlement ID assignment and SourceLine marking. Delete the AFTER_COMMIT listener.

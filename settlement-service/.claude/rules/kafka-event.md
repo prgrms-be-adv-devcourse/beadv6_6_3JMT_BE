@@ -31,7 +31,7 @@ public record EventMessage<T>(
         LocalDateTime occurredAt,
         String aggregateType,  // 대상 도메인 UPPER (§3)
         UUID aggregateId,      // 대상 식별자 — Kafka key 로 사용
-        T payload              // 이벤트별 상세 (~Payload, §5)
+        T payload              // 이벤트별 상세 (~Event, §5)
 ) {}
 ```
 
@@ -62,11 +62,13 @@ public enum SettlementEventType implements EventType {
 }
 ```
 
-## 5. payload 규칙
+## 5. 이벤트 상세 DTO 규칙
 
-- payload DTO 는 **`~Payload`** 로 명명하고 `application/event` 에 둔다. (예: `SettlementCreatedPayload`)
-- 변환은 정적 팩토리(`from(...)`)에 둔다. (예: `SettlementCreatedPayload.from(settlement)`)
-- 소비측이 발행측 payload 를 미러링할 때 **필드명을 그대로 유지한다**(직렬화 계약).
+- `EventMessage<T>`의 `payload`에 담는 이벤트 상세 DTO는 **`~Event`** 로 명명하고
+  `application/event` 에 둔다. (예: `SettlementCreatedEvent`)
+- 변환은 정적 팩토리(`from(...)`)에 둔다. (예: `SettlementCreatedEvent.from(settlement)`)
+- `EventMessage`의 JSON 필드명은 **`payload`를 유지한다.** Java DTO 접미사만 `~Event`를 사용한다.
+- 소비측이 발행측 이벤트 상세 DTO를 미러링할 때 **필드명을 그대로 유지한다**(직렬화 계약).
 
 ## 6. Producer 규칙
 
@@ -90,7 +92,7 @@ public enum SettlementEventType implements EventType {
 
 ## 8. Outbox (도입 시)
 
-- Application Service 는 도메인 상태 변경과 OutboxEvent 저장을 **한 트랜잭션**으로 처리하고, 실제 Kafka
+- Application Service 는 도메인 상태 변경과 SettlementOutboxEvent 저장을 **한 트랜잭션**으로 처리하고, 실제 Kafka
   발행은 `OutboxRelay`(발행 어댑터, `infrastructure/messaging/kafka/producer`)가 담당한다.
 - Outbox 는 `aggregateType`·`aggregateId`·`eventType`·`topic`·`payload`(EventMessage JSON)·`occurredAt`·
   `status(PENDING)` 를 저장한다.

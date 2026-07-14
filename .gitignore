@@ -217,3 +217,4 @@ settlement-service/docs/superpowers/
 user-service/docs/superpowers/
 .superpowers/
 docs/adr
+/order-service/.superpowers/

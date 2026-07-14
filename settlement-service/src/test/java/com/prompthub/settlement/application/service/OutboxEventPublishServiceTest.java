@@ -8,7 +8,7 @@ import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 
 import com.prompthub.settlement.application.port.SettlementEventPublisher;
-import com.prompthub.settlement.domain.model.OutboxEvent;
+import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
 import com.prompthub.settlement.domain.model.enums.OutboxEventStatus;
 import com.prompthub.settlement.domain.repository.OutboxEventRepository;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
@@ -37,7 +37,7 @@ class OutboxEventPublishServiceTest {
     @DisplayName("PENDING 이벤트 발행 성공 시 저장된 원문을 보내고 PUBLISHED로 변경한다")
     void publish_pendingEvent_marksPublished() {
         // given
-        OutboxEvent event = pendingEvent();
+        SettlementOutboxEvent event = pendingEvent();
         given(repository.findById(event.getEventId())).willReturn(Optional.of(event));
 
         // when
@@ -54,7 +54,7 @@ class OutboxEventPublishServiceTest {
     @DisplayName("첫 발행 실패는 예외를 삼키고 PENDING 1회 실패로 기록한다")
     void publish_firstKafkaFailure_recordsPendingFailure() {
         // given
-        OutboxEvent event = pendingEvent();
+        SettlementOutboxEvent event = pendingEvent();
         given(repository.findById(event.getEventId())).willReturn(Optional.of(event));
         willThrow(new SettlementException(SettlementErrorCode.SETTLEMENT_EVENT_PUBLISH_FAILED))
                 .given(publisher)
@@ -74,7 +74,7 @@ class OutboxEventPublishServiceTest {
     @DisplayName("세 번째 발행 실패는 FAILED로 기록한다")
     void publish_thirdKafkaFailure_marksFailed() {
         // given
-        OutboxEvent event = pendingEvent();
+        SettlementOutboxEvent event = pendingEvent();
         event.recordPublishFailure("first", LocalDateTime.now().minusMinutes(2), 3);
         event.recordPublishFailure("second", LocalDateTime.now().minusMinutes(1), 3);
         given(repository.findById(event.getEventId())).willReturn(Optional.of(event));
@@ -95,7 +95,7 @@ class OutboxEventPublishServiceTest {
     @DisplayName("후보 조회 후 이미 처리된 이벤트는 중복 발행하지 않는다")
     void publish_alreadyPublished_skips() {
         // given
-        OutboxEvent event = pendingEvent();
+        SettlementOutboxEvent event = pendingEvent();
         event.markPublished(LocalDateTime.now());
         given(repository.findById(event.getEventId())).willReturn(Optional.of(event));
 
@@ -124,7 +124,7 @@ class OutboxEventPublishServiceTest {
     @DisplayName("FAILED 이벤트 redrive는 실패 정보를 초기화하고 동일 원문을 즉시 발행한다")
     void redrive_failedEvent_requeuesAndPublishes() {
         // given
-        OutboxEvent event = pendingEvent();
+        SettlementOutboxEvent event = pendingEvent();
         event.recordPublishFailure("terminal", LocalDateTime.now().minusMinutes(1), 1);
         given(repository.findById(event.getEventId())).willReturn(Optional.of(event));
 
@@ -139,9 +139,9 @@ class OutboxEventPublishServiceTest {
         assertThat(event.getLastFailureReason()).isNull();
     }
 
-    private OutboxEvent pendingEvent() {
+    private SettlementOutboxEvent pendingEvent() {
         UUID eventId = UUID.randomUUID();
-        return OutboxEvent.create(
+        return SettlementOutboxEvent.create(
                 eventId,
                 UUID.randomUUID(),
                 "SETTLEMENT",

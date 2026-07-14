@@ -9,7 +9,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
-import com.prompthub.settlement.application.event.SettlementCreatedPayload;
 import com.prompthub.settlement.application.port.OutboxEventAppender;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
@@ -134,7 +133,7 @@ class SettlementCalculationApplicationServiceTest {
         // when
         Settlement settlement = service.calculate(command);
 
-        // then : 저장된 정산 ID로 payload가 적재된다
+        // then : 저장된 정산 ID로 이벤트가 적재된다
         then(outboxEventAppender).should().appendSettlementCreated(
                 eq(command.settlementBatchId()),
                 org.mockito.ArgumentMatchers.argThat(

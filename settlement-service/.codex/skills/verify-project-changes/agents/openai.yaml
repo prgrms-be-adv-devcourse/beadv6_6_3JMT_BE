@@ -1,0 +1,4 @@
+interface:
+  display_name: "Verify Project Changes"
+  short_description: "전체 diff를 경로별 규칙과 일반 코드 리뷰로 검증"
+  default_prompt: "Use $verify-project-changes to review the complete branch and working-tree diff against all applicable project rules."

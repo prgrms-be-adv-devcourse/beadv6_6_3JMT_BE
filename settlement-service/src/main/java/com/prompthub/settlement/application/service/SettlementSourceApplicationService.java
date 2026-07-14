@@ -1,18 +1,11 @@
 package com.prompthub.settlement.application.service;
 
 import com.prompthub.settlement.application.dto.SettleableLine;
-import com.prompthub.settlement.application.event.OrderEventEnvelope;
-import com.prompthub.settlement.application.event.OrderPaidEvent;
-import com.prompthub.settlement.application.event.OrderPaidProduct;
-import com.prompthub.settlement.application.event.OrderRefundedEvent;
-import com.prompthub.settlement.application.event.OrderRefundedProduct;
 import com.prompthub.settlement.application.port.OrderSettlementQueryPort;
 import com.prompthub.settlement.application.usecase.LoadSettlementSourceUseCase;
-import com.prompthub.settlement.application.usecase.SettlementSourceUseCase;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.model.enums.SettlementSourceLineType;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
-import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.YearMonth;
 import java.util.HashSet;
@@ -29,50 +22,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SettlementSourceApplicationService implements SettlementSourceUseCase, LoadSettlementSourceUseCase {
+public class SettlementSourceApplicationService implements LoadSettlementSourceUseCase {
 
     private final SettlementSourceRepository settlementSourceRepository;
     private final OrderSettlementQueryPort orderSettlementQueryPort;
-
-    @Override
-    @Transactional
-    public void recordOrderPaid(OrderEventEnvelope<OrderPaidEvent> envelope) {
-        OrderPaidEvent event = envelope.payload();
-        for (OrderPaidProduct product : event.products()) {
-            UUID lineEventId = lineEventId(envelope.eventId(), product.orderProductId(), SettlementSourceLineType.PAID);
-            if (settlementSourceRepository.existsByEventId(lineEventId)) {
-                log.debug("이미 적재된 정산 소스 라인이라 건너뜁니다. eventId={}", lineEventId);
-                continue;
-            }
-            settlementSourceRepository.save(SettlementSourceLine.paid(
-                    lineEventId,
-                    event.orderId(),
-                    product.orderProductId(),
-                    product.sellerId(),
-                    BigDecimal.valueOf(product.productAmount()),
-                    envelope.occurredAt()));
-        }
-    }
-
-    @Override
-    @Transactional
-    public void recordOrderRefunded(OrderEventEnvelope<OrderRefundedEvent> envelope) {
-        OrderRefundedEvent event = envelope.payload();
-        for (OrderRefundedProduct product : event.products()) {
-            UUID lineEventId = lineEventId(envelope.eventId(), product.orderProductId(), SettlementSourceLineType.REFUND);
-            if (settlementSourceRepository.existsByEventId(lineEventId)) {
-                log.debug("이미 적재된 정산 소스 라인이라 건너뜁니다. eventId={}", lineEventId);
-                continue;
-            }
-            settlementSourceRepository.save(SettlementSourceLine.refunded(
-                    lineEventId,
-                    event.orderId(),
-                    product.orderProductId(),
-                    product.sellerId(),
-                    BigDecimal.valueOf(product.refundAmount()),
-                    envelope.occurredAt()));
-        }
-    }
 
     @Override
     @Transactional
@@ -84,7 +37,7 @@ public class SettlementSourceApplicationService implements SettlementSourceUseCa
         // 멱등키(orderProductId + lineType)로 파생 — 재-pull 시에도 같은 라인은 한 번만 적재된다.
         Map<UUID, SettleableLine> byEventId = new LinkedHashMap<>();
         for (SettleableLine line : lines) {
-            byEventId.put(pullLineEventId(line.orderProductId(), line.lineType()), line);
+            byEventId.put(lineEventId(line.orderProductId(), line.lineType()), line);
         }
         Set<UUID> existing = new HashSet<>(settlementSourceRepository.findExistingEventIds(byEventId.keySet()));
         List<SettlementSourceLine> toSave = byEventId.entrySet().stream()
@@ -105,12 +58,7 @@ public class SettlementSourceApplicationService implements SettlementSourceUseCa
         };
     }
 
-    private UUID lineEventId(UUID orderEventId, UUID orderProductId, SettlementSourceLineType lineType) {
-        String seed = orderEventId + "|" + orderProductId + "|" + lineType;
-        return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private UUID pullLineEventId(UUID orderProductId, SettlementSourceLineType lineType) {
+    private UUID lineEventId(UUID orderProductId, SettlementSourceLineType lineType) {
         String seed = orderProductId + "|" + lineType;
         return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
     }
