@@ -13,6 +13,75 @@
 - 관리자 API는 `X-User-Role: ADMIN`이 필요하다.
 - 응답 envelope는 `common-module`의 `ApiResult` 또는 `PageResponse` 형식을 따른다.
 
+## v2 다건 부분 환불
+
+아래 API는 v2 전환 대상이며, 기존 v1 API 경로를 대체하는 새로운 환불 API는 `POST /api/v2/orders/{orderId}/refund`이다.
+
+### POST /api/v2/orders/{orderId}/refund - 주문 상품 다건 부분 환불 요청
+
+- 인증: 필요
+- 필요 헤더: Gateway가 주입한 `X-User-Id`, `X-User-Role: BUYER`
+- 클라이언트는 환불 금액을 보내지 않는다. Order Service는 선택한 주문 상품의 금액 스냅샷 합계를 한 번만 환불 요청한다.
+- `order_product_ids`는 비어 있을 수 없다. 선택 상품은 모두 주문에 속하고, 결제와 구매자가 주문에 일치해야 하며, 요청은 전부 성공하거나 전부 거절된다.
+- 정상 접수는 `202 Accepted`를 반환한다. Payment Service의 최종 결과는 비동기로 반영된다.
+
+#### Path Parameters
+
+| 파라미터 | 타입 | 설명 |
+|---------|------|------|
+| orderId | UUID | 부분 환불할 주문 ID |
+
+#### Request
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|:----:|------|
+| payment_id | UUID | O | 주문에 연결된 결제 ID |
+| order_product_ids | UUID[] | O | 환불할 주문 상품 ID 목록. 비어 있을 수 없음 |
+
+```json
+{
+  "payment_id": "3f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a9999",
+  "order_product_ids": [
+    "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa",
+    "82d95cb0-1835-49bf-8f08-2e0f1c4e4bbb"
+  ]
+}
+```
+
+#### Response
+
+`202 Accepted`
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| refundRequestId | UUID | 비동기 환불 요청 ID |
+| orderId | UUID | 주문 ID |
+| paymentId | UUID | 결제 ID |
+| status | Enum | 접수 직후 `REQUESTED` |
+
+```json
+{
+  "success": true,
+  "data": {
+    "refundRequestId": "4f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a2222",
+    "orderId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
+    "paymentId": "3f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a9999",
+    "status": "REQUESTED"
+  },
+  "message": "success"
+}
+```
+
+#### Error
+
+| Status Code | 설명 |
+|-------------|------|
+| 400 | 요청 상품 목록이 비었거나 잘못된 요청 |
+| 401 | 인증 실패 |
+| 403 | 구매자 본인 주문이 아님 |
+| 404 | 주문, 결제 또는 주문 상품 없음 |
+| 409 | 환불 불가 상태, 중복 또는 진행 중인 환불 |
+
 ---
 
 ## 주문
