@@ -92,10 +92,14 @@
 | `ORDER_PAYMENT_STATUS_INVALID` | O013 | 결제 완료 처리할 수 없는 주문 상태입니다. | 400 |
 | `ORDER_PAYMENT_AMOUNT_MISMATCH` | O014 | 주문 금액과 결제 승인 금액이 일치하지 않습니다. | 400 |
 | `ORDER_EXPIRED` | O015 | 만료된 주문입니다. | 409 |
-| `ORDER_REFUND_NOT_ALLOWED` | O016 | 환불할 수 없는 주문 상품입니다. | 409 |
-| `ORDER_REFUND_REQUEST_CONFLICT` | O018 | 환불 요청이 현재 상태와 충돌합니다. | 409 |
-| `ORDER_PAYMENT_NOT_FOUND` | O019 | 주문 결제 정보를 찾을 수 없습니다. | 404 |
-| `ORDER_REFUND_EVENT_MISMATCH` | O020 | 환불 결과 이벤트 정보가 요청과 일치하지 않습니다. | 409 |
+| `ORDER_PAYMENT_NOT_FOUND` | O016 | 주문 결제 정보를 찾을 수 없습니다. | 404 |
+| `ORDER_REFUND_RELATION_MISMATCH` | O017 | 결제, 주문 또는 주문상품 관계가 일치하지 않습니다. | 409 |
+| `ORDER_PRODUCT_REFUND_NOT_ALLOWED` | O018 | 환불할 수 없는 주문상품입니다. | 409 |
+| `ORDER_PRODUCT_ALREADY_DOWNLOADED` | O019 | 다운로드한 상품은 환불할 수 없습니다. | 409 |
+| `ORDER_REFUND_IN_PROGRESS` | O020 | 이미 환불 처리 중인 주문상품이 포함되어 있습니다. | 409 |
+| `ORDER_REFUND_RETRY_NOT_ALLOWED` | O021 | 재시도할 수 없는 환불 요청입니다. | 409 |
+| `ORDER_REFUND_RESULT_UNKNOWN` | O022 | 환불 결과를 확인 중인 주문상품이 포함되어 있습니다. | 409 |
+| `ORDER_REFUND_EVENT_MISMATCH` | O023 | 환불 결과 이벤트가 요청과 일치하지 않습니다. | 500 |
 | `ORDER_CONTENT_ACCESS_DENIED` | E001 | 구매 콘텐츠를 열람할 수 없습니다. | 403 |
 | `ORDER_REVIEW_ACCESS_DENIED` | E002 | 구매한 상품에만 리뷰를 작성할 수 있습니다. | 403 |
 

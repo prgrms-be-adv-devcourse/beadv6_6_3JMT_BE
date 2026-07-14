@@ -92,6 +92,6 @@
 ## 상품 단위 환불 상태
 
 - 주문: 일부 상품만 환불 완료되면 `PARTIALLY_REFUNDED`, 모든 상품이 환불 완료되면 `REFUNDED`
-- 주문 상품: `REFUND_REQUESTED`, `REFUNDED`, `REFUND_FAILED`, `REFUND_TIMEOUT`
-- 환불 요청: `REQUESTED`, `COMPLETED`, `FAILED`, `TIMEOUT`
+- 주문 상품: 환불 요청 중에는 `REFUND_REQUESTED`, 완료 시 `REFUNDED`, 명시적 실패 시 기존 `PAID`로 복원
+- 환불 요청: `REQUESTED`, `PROCESSING`, `COMPLETED`, `FAILED`, `UNKNOWN`
 - `order_refund`는 요청 전체 상태와 공통 사유·총액·재조정 일정을, `order_refund_product`는 대상 주문 상품과 금액 스냅샷을 보관한다.

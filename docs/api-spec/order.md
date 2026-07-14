@@ -23,7 +23,7 @@
 - 필요 헤더: Gateway가 주입한 `X-User-Id`, `X-User-Role: BUYER`
 - 클라이언트는 환불 금액을 보내지 않는다. Order Service는 선택한 주문 상품의 금액 스냅샷 합계를 한 번만 환불 요청한다.
 - `order_product_ids`는 비어 있을 수 없다. 선택 상품은 모두 주문에 속하고, 결제와 구매자가 주문에 일치해야 하며, 요청은 전부 성공하거나 전부 거절된다.
-- 정상 접수는 `202 Accepted`를 반환한다. Payment Service의 최종 결과는 비동기로 반영된다.
+- 신규 또는 진행 중 요청은 `202 Accepted`, 동일 상품 조합의 완료된 요청은 `200 OK`를 반환한다. Payment Service의 최종 결과는 비동기로 반영된다.
 
 #### Path Parameters
 
@@ -57,7 +57,10 @@
 | refundRequestId | UUID | 비동기 환불 요청 ID |
 | orderId | UUID | 주문 ID |
 | paymentId | UUID | 결제 ID |
-| status | Enum | 접수 직후 `REQUESTED` |
+| orderProductIds | UUID[] | 환불 대상 주문 상품 ID 목록 |
+| totalRefundAmount | Integer | 주문 상품 금액 스냅샷 합계 |
+| status | Enum | `REQUESTED`, `PROCESSING`, `COMPLETED`, `FAILED`, `UNKNOWN` |
+| requestedAt | DateTime | 환불 요청 시각 |
 
 ```json
 {
@@ -66,7 +69,13 @@
     "refundRequestId": "4f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a2222",
     "orderId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
     "paymentId": "3f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a9999",
-    "status": "REQUESTED"
+    "orderProductIds": [
+      "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa",
+      "82d95cb0-1835-49bf-8f08-2e0f1c4e4bbb"
+    ],
+    "totalRefundAmount": 19000,
+    "status": "REQUESTED",
+    "requestedAt": "2026-07-14T10:00:00"
   },
   "message": "success"
 }
@@ -76,11 +85,12 @@
 
 | Status Code | 설명 |
 |-------------|------|
-| 400 | 요청 상품 목록이 비었거나 잘못된 요청 |
-| 401 | 인증 실패 |
-| 403 | 구매자 본인 주문이 아님 |
-| 404 | 주문, 결제 또는 주문 상품 없음 |
-| 409 | 환불 불가 상태, 중복 또는 진행 중인 환불 |
+| 400 | V001 요청 상품 목록이 비었거나 중복된 요청 |
+| 401 | A003 인증 실패 |
+| 403 | A004 구매자 본인 주문이 아님 |
+| 404 | O001 주문 없음, O012 주문 상품 없음, O016 결제 없음 |
+| 409 | O017 관계 불일치, O018 환불 불가, O019 다운로드 완료, O020 진행 중, O021 재시도 불가, O022 결과 확인 중 |
+| 500 | O023 Payment 결과와 저장된 요청 불일치 |
 
 ---
 
@@ -892,29 +902,6 @@
 
 ## Kafka 이벤트
 
-## 주문 상품 부분 환불 요청
-
-`POST /api/v1/orders/{orderId}/refunds`
-
-- 인증: Gateway가 전달한 `X-User-Id` 필요
-- 성공: `202 Accepted`
-- 조건: 요청한 모든 주문 상품이 해당 주문 소속이며 `PAID`, 미다운로드, 결제 금액이 0원보다 커야 한다.
-- `reason`은 선택값이며 앞뒤 공백 제거 후 최대 500자이다.
-- 접수 성공 시 상품 상태는 `REFUND_REQUESTED`, 요청 상태는 `REQUESTED`가 되며 `REFUND_REQUESTED` outbox 이벤트를 생성한다.
-
-```json
-{
-  "orderProductIds": ["UUID", "UUID"],
-  "reason": "고객 변심"
-}
-```
-
-응답의 `data`는 `refundId`, `orderId`, `orderProductIds`, `totalRefundAmount`, `status`, `requestedAt`을 포함한다.
-
-오류 코드는 `O001`, `O012`, `O016`, `O018`, `O019`, `A004`를 사용한다.
-
----
-
 ### 공통 사항
 
 - Order Service Kafka consumer group은 `order-service`이다.
@@ -971,7 +958,7 @@
 - Consumer group: `order-service`
 - 처리 조건: 주문이 `PAID` 상태여야 한다.
 - 멱등 처리: 주문이 이미 `REFUNDED`이면 중복 이벤트로 보고 처리하지 않는다.
-- 기존 `payment.refunded` 처리는 전체 환불 호환 경로로 유지한다. 다건 환불 결과는 `PAYMENT_REFUND_COMPLETED` 또는 `PAYMENT_REFUND_FAILED` 이벤트로 처리한다.
+- 기존 `payment.refunded` 처리는 전체 환불 호환 경로로 유지한다. 다건 환불 결과는 `PAYMENT_PARTIAL_REFUNDED` 또는 `PAYMENT_PARTIAL_REFUND_FAILED` 이벤트로 처리한다.
 - 후속 이벤트: `ORDER_REFUND` outbox 이벤트를 생성한다.
 
 ```json
