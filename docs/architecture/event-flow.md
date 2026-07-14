@@ -68,7 +68,7 @@ sequenceDiagram
 
 ### 환불
 
-다건 상품 환불은 Order Service가 `order_refund`와 `order_refund_product`를 저장하고 outbox로 Payment Service에 전달한다. 65초 동안 결과 이벤트를 기다린 뒤 미확정이면 gRPC로 조회하고, 2분·5분·10분 간격 재조회 후에도 미확정이면 `TIMEOUT`과 운영 확인으로 전환한다.
+다건 상품 환불은 Order Service가 `order_refund` 1건과 `order_refund_product` N건을 저장하고 동일 트랜잭션의 outbox로 Payment Service에 전달한다. 최초 조회는 요청 후 2분이며, 미확정이면 요청 시각 기준 5분·10분·20분에 재조회한다. 계속 미확정이면 `UNKNOWN`으로 전환해 30분·1시간·3시간 후 재조회하고, 마지막에도 확정되지 않으면 `manual_review_required=true`로 전환한다.
 
 ```mermaid
 sequenceDiagram
@@ -81,10 +81,14 @@ sequenceDiagram
     ORD->>ORD: 환불 헤더·상세 저장, 모든 상품 REFUND_REQUESTED
     ORD->>K: REFUND_REQUESTED
     K->>PAY: 환불 처리 요청
-    PAY->>K: PAYMENT_REFUND_COMPLETED 또는 FAILED
+    PAY->>K: PAYMENT_PARTIAL_REFUNDED 또는 PAYMENT_PARTIAL_REFUND_FAILED
     K->>ORD: 결과 반영
     ORD->>K: ORDER_REFUNDED
 ```
+
+`REFUND_REQUESTED` payload는 `refundRequestId`, `paymentId`, `orderId`, `buyerId`, `totalRefundAmount`, 상품별 `orderProductId/refundAmount`, `requestedAt`을 포함한다. 성공 이벤트는 공통 식별자와 `refundedAt`, 실패 이벤트는 `failureCode`, `failureReason`, `retryable`, `failedAt`을 포함한다. 성공 시 `ORDER_REFUNDED`에는 해당 batch에서 완료된 상품만 포함한다.
+
+재조정 worker는 PostgreSQL의 `FOR UPDATE SKIP LOCKED`로 짧게 선점하고 `next_check_at`을 1분 lease로 이동한 뒤 트랜잭션을 종료한다. Payment gRPC 호출은 선점 트랜잭션 밖에서 수행하며, 결과 반영 시 환불 요청을 다시 잠근다. 다른 인스턴스가 이미 terminal 상태를 적용했다면 아무 작업도 하지 않는다.
 
 ```mermaid
 sequenceDiagram

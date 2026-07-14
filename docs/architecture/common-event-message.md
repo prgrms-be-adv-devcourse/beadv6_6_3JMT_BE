@@ -492,8 +492,8 @@ Integer eventVersion
 ### 상품 단위 환불 이벤트 계약
 
 - Order → Payment: `REFUND_REQUESTED`
-- Payment → Order 성공: `PAYMENT_REFUND_COMPLETED`
-- Payment → Order 실패: `PAYMENT_REFUND_FAILED`
+- Payment → Order 성공: `PAYMENT_PARTIAL_REFUNDED`
+- Payment → Order 실패: `PAYMENT_PARTIAL_REFUND_FAILED`
 - Order → 후속 소비자: `ORDER_REFUNDED`
 - 모든 소비 이벤트는 `eventId + consumerGroup` 기준으로 멱등 처리한다.
 - `ORDER_REFUNDED.payload.products`에는 한 요청에서 완료된 모든 주문 상품을 포함한다.

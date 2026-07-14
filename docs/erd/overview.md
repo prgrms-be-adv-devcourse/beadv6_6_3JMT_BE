@@ -119,6 +119,28 @@ erDiagram
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }
+    order_refund {
+        UUID id PK
+        BIGINT version
+        UUID order_id
+        UUID payment_id
+        UUID buyer_id
+        INT total_refund_amount
+        VARCHAR status
+        BOOLEAN retryable
+        INT reconciliation_attempt
+        TIMESTAMPTZ next_check_at
+        BOOLEAN manual_review_required
+        TIMESTAMPTZ requested_at
+        TIMESTAMPTZ completed_at
+        TIMESTAMPTZ failed_at
+    }
+    order_refund_product {
+        UUID id PK
+        UUID order_refund_id FK
+        UUID order_product_id
+        INT refund_amount
+    }
 
     %% ───────────────────────────────
     %% Payment Service
@@ -218,6 +240,9 @@ erDiagram
 
     order ||--o{ order_product : "order_id"
     order ||--o| payment : "order_id"
+    order ||--o{ order_refund : "order_id"
+    order_refund ||--|{ order_refund_product : "order_refund_id"
+    order_product ||--o{ order_refund_product : "order_product_id"
 
     payment ||--o{ refund : "payment_id"
     order_product ||--o{ refund : "order_product_id"

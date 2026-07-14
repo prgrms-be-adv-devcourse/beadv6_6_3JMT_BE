@@ -1,8 +1,6 @@
 # 스키마 레퍼런스
 
-`init-script/postgres/schema.sql` 기준. 실제 DDL이 기준이며 이 문서는 열람용 미러다.
-
-@docs/api-spec 문서가 완성된 이후에 협의 후 변경! 해당 문서는 변경하면 안됩니다.
+Order Service 다건 부분 환불 범위의 runtime DDL은 `spring.jpa.hibernate.ddl-auto=update`로 적용한다. 이 문서는 엔티티와 배포 스키마의 검토용 미러다.
 
 ---
 
@@ -16,8 +14,9 @@
 | `auth_provider_type` | KAKAO / NAVER / GOOGLE |
 | `product_status_type` | DRAFT / PENDING_REVIEW / ON_SALE / REJECTED / STOPPED / SUPERSEDED |
 | `amount_type_enum` | FREE / PAID |
-| `order_status_type` | PENDING / PAID / FAILED / CANCELED / REFUNDED |
-| `order_product_status_type` | PENDING / PAID / FAILED / CANCELED / REFUNDED |
+| `order_status_type` | PENDING / PAID / FAILED / CANCELED / PARTIALLY_REFUNDED / REFUNDED |
+| `order_product_status_type` | PENDING / PAID / REFUND_REQUESTED / FAILED / CANCELED / REFUNDED |
+| `order_refund_status_type` | REQUESTED / PROCESSING / COMPLETED / FAILED / UNKNOWN |
 | `payment_status_type` | READY / REQUESTED / PAID / FAILED / REFUNDING / REFUNDED / UNKNOWN |
 | `refund_status_type` | REQUESTED / COMPLETED / FAILED |
 | `settlement_status_type` | PROCESSING / COMPLETED / FAILED / CANCELLED |
@@ -182,11 +181,11 @@
 | order_number | VARCHAR(30) | ✓ | | 사용자 노출 주문 번호. UNIQUE |
 | total_order_amount | INT | ✓ | 0 | 총 주문 금액 |
 | total_product_count | INT | ✓ | 0 | 총 상품 수 |
-| order_status | order_status_type | ✓ | PENDING | PENDING / PAID / FAILED / CANCELED / REFUNDED |
+| order_status | order_status_type | ✓ | PENDING | PENDING / PAID / FAILED / CANCELED / PARTIALLY_REFUNDED / REFUNDED |
 | created_at | TIMESTAMPTZ | ✓ | | 불변 |
 | paid_at | TIMESTAMPTZ | | NULL | |
 | canceled_at | TIMESTAMPTZ | | NULL | |
-| refunded_at | TIMESTAMPTZ | | NULL | 부분환불용 확장 예정 |
+| refunded_at | TIMESTAMPTZ | | NULL | 모든 주문상품 환불 완료 시각 |
 | updated_at | TIMESTAMPTZ | ✓ | | |
 
 ---
@@ -202,12 +201,52 @@
 | product_title_snapshot | VARCHAR(200) | ✓ | | 구매 당시 상품명 스냅샷 |
 | product_type_snapshot | VARCHAR(30) | ✓ | | 구매 당시 상품 유형 스냅샷 |
 | product_amount_snapshot | INT | ✓ | | 구매 당시 가격 스냅샷 |
-| order_product_status | order_product_status_type | ✓ | | PENDING / PAID / FAILED / CANCELED / REFUNDED |
+| order_product_status | order_product_status_type | ✓ | | PENDING / PAID / REFUND_REQUESTED / FAILED / CANCELED / REFUNDED |
 | downloaded | BOOLEAN | ✓ | FALSE | 다운로드 여부 |
 | created_at | TIMESTAMPTZ | ✓ | | 불변 |
 | canceled_at | TIMESTAMPTZ | | NULL | 부분 취소 확장용 |
 | refunded_at | TIMESTAMPTZ | | NULL | 부분 환불 확장용 |
 | updated_at | TIMESTAMPTZ | ✓ | | |
+
+---
+
+### order_refund
+
+| 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
+|------|------|:--------:|--------|------|
+| id | UUID | ✓ | | PK, Payment PG 멱등성 키인 refundRequestId |
+| version | BIGINT | ✓ | 0 | optimistic version |
+| order_id | UUID | ✓ | | 주문 ID |
+| payment_id | UUID | ✓ | | 결제 ID |
+| buyer_id | UUID | ✓ | | 구매자 ID |
+| total_refund_amount | INT | ✓ | | 대상 상품 금액 스냅샷 합계 |
+| status | VARCHAR(20) | ✓ | REQUESTED | REQUESTED / PROCESSING / COMPLETED / FAILED / UNKNOWN |
+| requested_at | TIMESTAMP | ✓ | | 요청 시각 |
+| completed_at | TIMESTAMP | | NULL | 완료 시각 |
+| failure_code | VARCHAR(100) | | NULL | 실패 코드 |
+| failure_reason | TEXT | | NULL | 실패 사유 |
+| retryable | BOOLEAN | ✓ | FALSE | 명시적 실패 재시도 가능 여부 |
+| failed_at | TIMESTAMP | | NULL | 실패 시각 |
+| next_check_at | TIMESTAMP | | NULL | 다음 조회 시각 또는 worker lease 만료 시각 |
+| reconciliation_attempt | INT | ✓ | 0 | 재조정 시도 단계 |
+| manual_review_required | BOOLEAN | ✓ | FALSE | 수동 검토 필요 여부 |
+| created_at | TIMESTAMP | | | 생성 시각 |
+| updated_at | TIMESTAMP | | | 수정 시각 |
+
+인덱스는 `payment_id`, `order_id`, `(status, next_check_at)`, `manual_review_required`에 둔다.
+
+### order_refund_product
+
+| 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
+|------|------|:--------:|--------|------|
+| id | UUID | ✓ | | PK |
+| order_refund_id | UUID | ✓ | | FK → order_refund.id |
+| order_product_id | UUID | ✓ | | 환불 대상 주문상품 ID |
+| refund_amount | INT | ✓ | | 주문상품 금액 스냅샷 |
+| created_at | TIMESTAMP | | | 생성 시각 |
+| updated_at | TIMESTAMP | | | 수정 시각 |
+
+`order_refund : order_refund_product = 1:N`이며 `(order_refund_id, order_product_id)`는 유일하다. `order_product_id`에는 조회 인덱스를 둔다.
 
 ---
 
