@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.prompthub.exception.response.ErrorResponse;
 import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.user.user.application.usecase.UserUseCase;
 import com.prompthub.user.user.presentation.dto.request.UpdateProfileRequest;
@@ -18,6 +19,8 @@ import com.prompthub.user.user.presentation.dto.response.UpdateProfileResponse;
 import com.prompthub.user.user.presentation.dto.response.UserProfileResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -56,7 +59,8 @@ public class UserController {
 
     @Operation(summary = "회원 탈퇴", description = "계정을 WITHDRAWN으로 전환하고 세션을 즉시 폐기(RT 삭제, authorize 캐시 무효화). 역할: BUYER / SELLER")
     @ApiResponse(responseCode = "204", description = "탈퇴 성공")
-    @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음 (A001)")
+    @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음 (A001)",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @DeleteMapping("/me")
     public ResponseEntity<Void> deleteMe(
             @Parameter(hidden = true) @RequestHeader("X-User-Id") UUID userId

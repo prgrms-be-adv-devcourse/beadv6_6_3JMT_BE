@@ -11,7 +11,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class SessionRevocationService implements SessionRevocationUseCase {
+public class SessionRevocationApplicationService implements SessionRevocationUseCase {
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final AuthorizationCacheRepository authorizationCacheRepository;

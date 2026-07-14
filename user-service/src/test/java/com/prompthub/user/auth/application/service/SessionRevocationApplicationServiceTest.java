@@ -13,7 +13,7 @@ import java.util.UUID;
 import static org.mockito.BDDMockito.then;
 
 @ExtendWith(MockitoExtension.class)
-class SessionRevocationServiceTest {
+class SessionRevocationApplicationServiceTest {
 
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
@@ -22,7 +22,7 @@ class SessionRevocationServiceTest {
     private AuthorizationCacheRepository authorizationCacheRepository;
 
     @InjectMocks
-    private SessionRevocationService sessionRevocationService;
+    private SessionRevocationApplicationService sessionRevocationService;
 
     @Test
     void revoke_유저의_모든_RT_삭제() {

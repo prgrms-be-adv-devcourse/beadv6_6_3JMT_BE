@@ -1,7 +1,6 @@
 package com.prompthub.user.user.presentation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.prompthub.user.global.config.SecurityConfig;
 import com.prompthub.user.user.application.dto.UpdateProfileResult;
 import com.prompthub.user.user.application.usecase.UserUseCase;
 import com.prompthub.user.user.domain.exception.EmailAlreadyUsedException;
@@ -11,10 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
@@ -134,7 +131,7 @@ class UserControllerTest {
 
     @Test
     void deleteMe_탈퇴_성공_204() throws Exception {
-        mockMvc.perform(delete("/api/v1/users/me")
+        mockMvc.perform(delete("/api/v2/users/me")
                         .header("X-User-Id", USER_ID.toString()))
                 .andExpect(status().isNoContent());
 
@@ -143,7 +140,7 @@ class UserControllerTest {
 
     @Test
     void deleteMe_XUserId_헤더_누락_403() throws Exception {
-        mockMvc.perform(delete("/api/v1/users/me"))
+        mockMvc.perform(delete("/api/v2/users/me"))
                 .andExpect(status().isForbidden());
     }
 
@@ -152,7 +149,7 @@ class UserControllerTest {
         willThrow(new UserNotFoundException())
                 .given(userUseCase).withdraw(USER_ID);
 
-        mockMvc.perform(delete("/api/v1/users/me")
+        mockMvc.perform(delete("/api/v2/users/me")
                         .header("X-User-Id", USER_ID.toString()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("A001"));
