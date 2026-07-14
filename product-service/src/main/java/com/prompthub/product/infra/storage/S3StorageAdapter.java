@@ -24,7 +24,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 @RequiredArgsConstructor
 public class S3StorageAdapter implements StorageClient {
 
-    private static final Duration PRESIGNED_GET_EXPIRATION = Duration.ofHours(1);
+    private static final Duration PRESIGNED_GET_EXPIRATION = Duration.ofMinutes(30);
     private static final Duration PRESIGNED_PUT_EXPIRATION = Duration.ofMinutes(10);
 
     private final S3Client s3Client;
