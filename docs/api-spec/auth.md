@@ -1,9 +1,9 @@
 # Auth API
 
-**Base:** `http://localhost:8081/api/v1`
+**Base:** `http://localhost:8081/api/v2`
 
-> ⚠ `api/v1`은 세미 프로젝트 완성 스냅샷(`v1.0.0` 태그) 기준 경로다. 최종 프로젝트에서
-> `api/v2`로 전환 예정이며 별도 이슈로 진행한다(`docs/adr/config-management.md` §10).
+> 최종 프로젝트 전환으로 `api/v1` → `api/v2`로 변경됨(`docs/adr/config-management.md` §10).
+> 다른 도메인(user·seller·wishlist·admin)도 `#305 (이슈)`에서 `api/v2`로 전환되어, 현재 user-service 공개 API는 전부 `api/v2`다.
 
 ## 공통 사항
 
@@ -122,13 +122,17 @@
 - 필요 역할: 없음
 - 최초 로그인 시 자동 회원가입 처리
 - 현재 지원 provider: `kakao`
+- **서버 측 검증(ADR-0008 §결정4)**: 프런트는 카카오 access token만 전달한다. oauthId·email·
+  닉네임·프로필이미지는 user-service가 서버 측에서 카카오 API(`kapi.kakao.com/v2/user/me`)를
+  호출해 직접 획득하며, 클라이언트가 주장하는 신원 정보는 신뢰하지 않는다.
 
 #### Kakao OAuth 플로우
 
 ```
 버튼 클릭
-  → 프론트엔드에서 Kakao SDK로 사용자 정보 직접 조회
-  → 이 API 호출 (kakaoId, nickname 등 전달)
+  → 프론트엔드에서 Kakao SDK로 로그인 → access token 발급
+  → 이 API 호출 (access token 전달)
+  → user-service가 kapi.kakao.com/v2/user/me 호출로 신원 검증
   → 로그인/자동 회원가입 완료
 ```
 
@@ -144,19 +148,13 @@
 
 ```json
 {
-  "oauthId": "123456789",
-  "name": "카카오사용자",
-  "profileImage": "https://k.kakaocdn.net/...",
-  "email": "kakao@user.com"
+  "accessToken": "abcdEFGH1234..."
 }
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| oauthId | string | Y | OAuth 제공자의 고유 식별자 |
-| name | string | Y | 닉네임 |
-| profileImage | string | N | 프로필 이미지 URL (없으면 null) |
-| email | string | Y | 이메일 |
+| accessToken | string | Y | 카카오로부터 발급받은 access token |
 
 #### Response
 
@@ -225,6 +223,7 @@
   "success": true,
   "data": {
     "accessToken": "eyJhbGci...",
+    "refreshToken": "eyJhbGci...(새 RT)",
     "expiresAt": "2025-06-17T11:00:00Z"
   },
   "message": "success"
@@ -234,31 +233,12 @@
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | accessToken | string | 새로 발급된 JWT 액세스 토큰 |
+| refreshToken | string | 새로 발급된 JWT 리프레시 토큰(RTR — 재발급마다 회전) |
 | expiresAt | string | 액세스 토큰 만료일시 (ISO 8601) |
 
-> **TODO (RTR — Refresh Token Rotation)**
->
-> 현재 스펙은 AT만 재발급하고 RT는 재사용하는 구조다.
-> 기능 개발 완료 후 Redis 기반 RT 관리로 전환하면서 아래 방식으로 변경할 것.
->
-> - **RT도 함께 교체**: 재발급 요청마다 기존 RT를 폐기하고 새 RT를 발급해 응답에 포함
-> - **Redis 저장**: 발급된 RT를 `refresh:{userId}` 키로 Redis에 저장, TTL은 RT 만료 시간과 동일하게 설정
-> - **재사용 감지(Replay Detection)**: 이미 폐기된 RT로 재발급 시도가 들어오면 해당 유저의 모든 세션 강제 만료 처리 (탈취 시나리오 대응)
-> - **로그아웃**: DB 삭제 대신 Redis 키 삭제로 변경
->
-> 변경 시 응답 스펙에 `refreshToken` 필드 추가 필요:
->
-> ```json
-> {
->   "success": true,
->   "data": {
->     "accessToken": "eyJhbGci...",
->     "refreshToken": "eyJhbGci...(새 RT)",
->     "expiresAt": "2025-06-17T11:00:00Z"
->   },
->   "message": "success"
-> }
-> ```
+**RTR(Refresh Token Rotation)**: 재발급마다 기존 RT를 폐기하고 새 RT를 발급한다(ADR-0008 결정2).
+제시된 RT의 서명은 유효하지만 저장된 현재 RT와 다르면 재사용(탈취 시나리오)으로 판정해
+401(`AUTH_REFRESH_TOKEN_REUSE_DETECTED`, `A012`)을 반환하고 해당 유저의 세션을 전부 무효화한다.
 
 ---
 

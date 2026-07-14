@@ -22,8 +22,8 @@ spring:
       group-id: test-group
 
 jwt:
-  access-token-expire-seconds: 3600
-  refresh-token-expire-seconds: 2592000
+  access-token-expire-seconds: 900
+  refresh-token-expire-seconds: 604800
 
 eureka:
   client:

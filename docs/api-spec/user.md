@@ -2,8 +2,8 @@
 
 **Base:** `http://localhost:8081/api/v2`
 
-> 인증 API는 `/api/v1/auth`를 유지한다. 그 외 user-service 공개 API는 `#305 (이슈)`에서
-> `/api/v2`로 전환했다.
+> user-service 공개 API는 `#305 (이슈)`에서 `/api/v2`로 전환했다. 인증 API도 별도 전환을 거쳐
+> 현재 `/api/v2/auth`이며, 전체 도메인이 `api/v2`로 통일된 상태다.
 
 ## 공통 사항
 

@@ -24,6 +24,8 @@
 | `AUTH_SELLER_APPLICATION_NOT_FOUND` | A008 | 판매자 등록 신청 내역이 없습니다. | 404 |
 | `UNSUPPORTED_OAUTH_PROVIDER` | A009 | 지원하지 않는 OAuth 공급자입니다. | 400 |
 | `AUTH_WITHDRAW_ORDER_IN_PROGRESS` | A010 | 진행 중인 주문이 있어 탈퇴할 수 없습니다. | 400 |
+| `AUTH_OAUTH_VERIFICATION_FAILED` | A011 | OAuth 인증에 실패했습니다. | 401 |
+| `AUTH_REFRESH_TOKEN_REUSE_DETECTED` | A012 | 리프레시 토큰 재사용이 감지되어 모든 세션이 무효화되었습니다. | 401 |
 
 ---
 

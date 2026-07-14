@@ -35,7 +35,7 @@ class ApiVersionMappingTest {
 
     private static Stream<Arguments> controllerMappings() {
         return Stream.of(
-                arguments("인증", AuthController.class, "/api/v1/auth"),
+                arguments("인증", AuthController.class, "/api/v2/auth"),
                 arguments("사용자", UserController.class, "/api/v2/users"),
                 arguments("판매자", SellerController.class, "/api/v2/seller"),
                 arguments("판매자 정산", SellerSettlementController.class, "/api/v2/sellers/me/settlements"),
