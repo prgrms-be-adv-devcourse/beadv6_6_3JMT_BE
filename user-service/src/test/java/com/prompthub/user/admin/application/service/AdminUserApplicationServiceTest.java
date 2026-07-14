@@ -6,6 +6,7 @@ import com.prompthub.user.admin.application.dto.AdminUserPageResult;
 import com.prompthub.user.admin.application.dto.AdminUserStatusResult;
 import com.prompthub.user.admin.application.dto.AdminUserSummaryResult;
 import com.prompthub.user.admin.application.dto.ChangeUserStatusCommand;
+import com.prompthub.user.auth.application.usecase.SessionRevocationUseCase;
 import com.prompthub.user.auth.domain.repository.AuthorizationCacheRepository;
 import com.prompthub.user.user.domain.model.User;
 import com.prompthub.user.user.domain.model.UserRole;
@@ -24,9 +25,11 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class AdminUserApplicationServiceTest {
@@ -36,6 +39,9 @@ class AdminUserApplicationServiceTest {
 
     @Mock
     private AuthorizationCacheRepository authorizationCacheRepository;
+
+    @Mock
+    private SessionRevocationUseCase sessionRevocationUseCase;
 
     @InjectMocks
     private AdminUserApplicationService adminUserApplicationService;
@@ -200,6 +206,7 @@ class AdminUserApplicationServiceTest {
 
         then(user).should().block();
         assertThat(result.status()).isEqualTo(UserStatus.BLOCKED);
+        then(sessionRevocationUseCase).should(never()).revoke(any());
     }
 
     @Test
@@ -217,6 +224,7 @@ class AdminUserApplicationServiceTest {
 
         then(user).should().activate();
         assertThat(result.status()).isEqualTo(UserStatus.ACTIVE);
+        then(sessionRevocationUseCase).should(never()).revoke(any());
     }
 
     @Test
@@ -233,6 +241,7 @@ class AdminUserApplicationServiceTest {
                 new ChangeUserStatusCommand(userId, UserStatus.WITHDRAWN));
 
         then(user).should().withdraw();
+        then(sessionRevocationUseCase).should().revoke(userId);
     }
 
     @Test

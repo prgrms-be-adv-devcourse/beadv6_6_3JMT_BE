@@ -2,6 +2,8 @@ package com.prompthub.user.user.presentation.controller;
 
 import java.util.UUID;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -50,5 +52,16 @@ public class UserController {
             @RequestBody UpdateProfileRequest request
     ) {
         return ApiResult.success(UpdateProfileResponse.from(userUseCase.updateProfile(request.toCommand(userId))));
+    }
+
+    @Operation(summary = "회원 탈퇴", description = "계정을 WITHDRAWN으로 전환하고 세션을 즉시 폐기(RT 삭제, authorize 캐시 무효화). 역할: BUYER / SELLER")
+    @ApiResponse(responseCode = "204", description = "탈퇴 성공")
+    @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음 (A001)")
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMe(
+            @Parameter(hidden = true) @RequestHeader("X-User-Id") UUID userId
+    ) {
+        userUseCase.withdraw(userId);
+        return ResponseEntity.noContent().build();
     }
 }

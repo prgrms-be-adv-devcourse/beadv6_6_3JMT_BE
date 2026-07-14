@@ -21,6 +21,9 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -125,6 +128,32 @@ class UserControllerTest {
                         .content("""
                                 { "name": "새이름" }
                                 """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("A001"));
+    }
+
+    @Test
+    void deleteMe_탈퇴_성공_204() throws Exception {
+        mockMvc.perform(delete("/api/v1/users/me")
+                        .header("X-User-Id", USER_ID.toString()))
+                .andExpect(status().isNoContent());
+
+        then(userUseCase).should().withdraw(USER_ID);
+    }
+
+    @Test
+    void deleteMe_XUserId_헤더_누락_403() throws Exception {
+        mockMvc.perform(delete("/api/v1/users/me"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteMe_존재하지_않는_유저_404_A001() throws Exception {
+        willThrow(new UserNotFoundException())
+                .given(userUseCase).withdraw(USER_ID);
+
+        mockMvc.perform(delete("/api/v1/users/me")
+                        .header("X-User-Id", USER_ID.toString()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("A001"));
     }
