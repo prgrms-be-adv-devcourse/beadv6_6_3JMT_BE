@@ -4,7 +4,7 @@ import com.prompthub.order.grpc.GetOrderRequest;
 import com.prompthub.order.grpc.GetOrderResponse;
 import com.prompthub.order.grpc.OrderQueryServiceGrpc;
 import com.prompthub.order.application.dto.OrderForPaymentResult;
-import com.prompthub.order.application.service.order.OrderService;
+import com.prompthub.order.application.usecase.OrderQueryUseCase;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import io.grpc.Status;
@@ -20,7 +20,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OrderQueryGrpcServer extends OrderQueryServiceGrpc.OrderQueryServiceImplBase {
 
-    private final OrderService orderService;
+    private final OrderQueryUseCase orderQueryUseCase;
 
     @Override
     public void getOrder(
@@ -29,7 +29,7 @@ public class OrderQueryGrpcServer extends OrderQueryServiceGrpc.OrderQueryServic
     ) {
         try {
             UUID orderId = parseOrderId(request.getOrderId());
-            OrderForPaymentResult result = orderService.getOrderForPayment(orderId);
+            OrderForPaymentResult result = orderQueryUseCase.getOrderForPayment(orderId);
 
             responseObserver.onNext(toResponse(result));
             responseObserver.onCompleted();

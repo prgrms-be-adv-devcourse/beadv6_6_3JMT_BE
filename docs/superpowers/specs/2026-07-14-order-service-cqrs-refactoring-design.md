@@ -78,16 +78,15 @@ application/service/order/
 - 주문 소유권과 주문상품 포함 여부 검증
 - 결제 완료 상품인지 검증
 - Product Service 콘텐츠 접근 가능 여부 확인
-- `tryMarkDownloaded`를 통한 다운로드 상태의 원자적 확정
+- 주문상품 다운로드 상태 확정
 - 다운로드 및 환불 가능 여부 응답 반환
 
 의존성:
 
 - `OrderRepository`
-- `OrderProductRepository`
 - `ProductClient`
 
-기존 경쟁 조건 처리와 예외 동작을 유지하며 쓰기 트랜잭션에서 실행한다.
+기존 다운로드 상태 변경과 예외 동작을 유지하며 쓰기 트랜잭션에서 실행한다.
 
 ### OrderQueryService
 
@@ -95,6 +94,7 @@ application/service/order/
 
 포함 메서드:
 
+- `getOrderForPayment`
 - `getOrderDetail`
 - `getOrderContent`
 - `validatePaymentReady`
@@ -127,12 +127,14 @@ OrderController
 
 각 엔드포인트의 경로, 요청 DTO, 응답 DTO와 HTTP 상태는 변경하지 않는다. Controller는 기존 메서드를 알맞은 UseCase로 위임하는 역할만 수행한다.
 
+`OrderQueryGrpcServer`도 구체 `OrderService` 대신 `OrderQueryUseCase`를 주입받고, 결제 서비스용 `getOrderForPayment` 조회를 같은 Query 경계로 위임한다. 기존 gRPC 서비스명, 메서드명과 메시지 계약은 유지한다.
+
 ## 오류 및 동시성 처리
 
 - 기존 `OrderException`과 `ErrorCode`를 그대로 사용한다.
 - 주문 소유권, 결제 상태, 만료, 금액 불일치 검증 순서를 유지한다.
 - 다운로드 확정 전에 Product Service 콘텐츠 접근 여부를 확인한다.
-- 다운로드/환불 경쟁 조건은 기존 `OrderProductRepository.tryMarkDownloaded` 결과로 판단한다.
+- 다운로드 확정은 기존 도메인 메서드 `OrderProduct.markDownloaded` 동작을 유지한다.
 - 주문 생성의 저장, 장바구니 변경, Outbox 추가는 하나의 트랜잭션에 유지한다.
 
 ## 테스트 전략
@@ -140,13 +142,14 @@ OrderController
 기존 `OrderServiceTest`를 책임별로 분리한다.
 
 - `CreateOrderCommandHandlerTest`: 주문 생성 및 검증, 장바구니 제거, Outbox·이벤트 발행
-- `ConfirmDownloadCommandHandlerTest`: 권한·상태 검증, 콘텐츠 조회 실패, 중복 확정, 환불 경쟁 조건
-- `OrderQueryServiceTest`: 주문 상세·콘텐츠·목록·결제 내역·결제 준비 검증
+- `ConfirmDownloadCommandHandlerTest`: 권한·상태 검증, 콘텐츠 조회 실패와 다운로드 상태 변경
+- `OrderQueryServiceTest`: gRPC 결제용 주문 조회, 주문 상세·콘텐츠·목록·결제 내역·결제 준비 검증
 
 추가 변경:
 
 - `OrderControllerTest`는 세 UseCase mock을 주입하도록 수정한다.
 - `OrderWebConfigTest`는 변경된 Controller 생성자 의존성을 반영한다.
+- `OrderQueryGrpcServerTest`는 구체 서비스 대신 `OrderQueryUseCase` mock을 사용한다.
 - `OrderCreationResilienceIntegrationTest`는 `CreateOrderCommandHandler`를 대상으로 유지한다.
 - 전체 `:order-service:test`를 실행해 기존 동작이 보존되는지 검증한다.
 

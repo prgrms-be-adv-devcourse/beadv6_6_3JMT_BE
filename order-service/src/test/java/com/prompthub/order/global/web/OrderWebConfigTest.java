@@ -1,8 +1,10 @@
 package com.prompthub.order.global.web;
 
-import com.prompthub.order.application.service.order.OrderService;
 import com.prompthub.order.application.usecase.AdminOrderUseCase;
 import com.prompthub.order.application.usecase.CartUseCase;
+import com.prompthub.order.application.usecase.ConfirmDownloadUseCase;
+import com.prompthub.order.application.usecase.CreateOrderUseCase;
+import com.prompthub.order.application.usecase.OrderQueryUseCase;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.presentation.dto.response.CartResponse;
 import org.junit.jupiter.api.DisplayName;
@@ -41,7 +43,13 @@ class OrderWebConfigTest {
 	private AdminOrderUseCase adminOrderUseCase;
 
 	@MockitoBean
-	private OrderService orderService;
+	private CreateOrderUseCase createOrderUseCase;
+
+	@MockitoBean
+	private ConfirmDownloadUseCase confirmDownloadUseCase;
+
+	@MockitoBean
+	private OrderQueryUseCase orderQueryUseCase;
 
 	@MockitoBean
 	private CartUseCase cartUseCase;
@@ -91,7 +99,7 @@ class OrderWebConfigTest {
 			.andExpect(jsonPath("$.success").value(false))
 			.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
 
-		then(orderService).shouldHaveNoInteractions();
+		then(orderQueryUseCase).shouldHaveNoInteractions();
 	}
 
 	@Test

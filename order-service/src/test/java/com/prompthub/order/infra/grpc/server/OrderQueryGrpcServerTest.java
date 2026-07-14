@@ -4,7 +4,7 @@ import com.prompthub.order.grpc.GetOrderRequest;
 import com.prompthub.order.grpc.GetOrderResponse;
 import com.prompthub.order.grpc.OrderQueryServiceGrpc;
 import com.prompthub.order.application.dto.OrderForPaymentResult;
-import com.prompthub.order.application.service.order.OrderService;
+import com.prompthub.order.application.usecase.OrderQueryUseCase;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import io.grpc.ManagedChannel;
@@ -30,19 +30,19 @@ import static org.mockito.Mockito.never;
 
 class OrderQueryGrpcServerTest {
 
-    private OrderService orderService;
+    private OrderQueryUseCase orderQueryUseCase;
     private Server server;
     private ManagedChannel channel;
     private OrderQueryServiceGrpc.OrderQueryServiceBlockingStub blockingStub;
 
     @BeforeEach
     void setUp() throws IOException {
-        orderService = Mockito.mock(OrderService.class);
+        orderQueryUseCase = Mockito.mock(OrderQueryUseCase.class);
         String serverName = InProcessServerBuilder.generateName();
 
         server = InProcessServerBuilder.forName(serverName)
                 .directExecutor()
-                .addService(new OrderQueryGrpcServer(orderService))
+                .addService(new OrderQueryGrpcServer(orderQueryUseCase))
                 .build()
                 .start();
 
@@ -69,7 +69,7 @@ class OrderQueryGrpcServerTest {
         UUID orderId = UUID.randomUUID();
         UUID buyerId = UUID.randomUUID();
         LocalDateTime createdAt = LocalDateTime.of(2026, 7, 13, 12, 30);
-        given(orderService.getOrderForPayment(orderId))
+        given(orderQueryUseCase.getOrderForPayment(orderId))
                 .willReturn(new OrderForPaymentResult(orderId, buyerId, 15000, createdAt));
 
         GetOrderResponse response = blockingStub.getOrder(request(orderId.toString()));
@@ -78,14 +78,14 @@ class OrderQueryGrpcServerTest {
         assertThat(response.getBuyerId()).isEqualTo(buyerId.toString());
         assertThat(response.getTotalAmount()).isEqualTo(15000);
         assertThat(response.getCreatedAt()).isEqualTo(createdAt.toString());
-        then(orderService).should().getOrderForPayment(orderId);
+        then(orderQueryUseCase).should().getOrderForPayment(orderId);
     }
 
     @Test
     void getOrder_missingCreatedAt_returnsEmptyString() {
         UUID orderId = UUID.randomUUID();
         UUID buyerId = UUID.randomUUID();
-        given(orderService.getOrderForPayment(orderId))
+        given(orderQueryUseCase.getOrderForPayment(orderId))
                 .willReturn(new OrderForPaymentResult(orderId, buyerId, 15000, null));
 
         GetOrderResponse response = blockingStub.getOrder(request(orderId.toString()));
@@ -96,7 +96,7 @@ class OrderQueryGrpcServerTest {
     @Test
     void getOrder_missingOrder_returnsNotFound() {
         UUID orderId = UUID.randomUUID();
-        given(orderService.getOrderForPayment(orderId))
+        given(orderQueryUseCase.getOrderForPayment(orderId))
                 .willThrow(new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
         assertStatusCode(request(orderId.toString()), Status.Code.NOT_FOUND);
@@ -106,13 +106,13 @@ class OrderQueryGrpcServerTest {
     void getOrder_invalidUuid_returnsInvalidArgument() {
         assertStatusCode(request("invalid-uuid-string"), Status.Code.INVALID_ARGUMENT);
 
-        then(orderService).should(never()).getOrderForPayment(Mockito.any());
+        then(orderQueryUseCase).should(never()).getOrderForPayment(Mockito.any());
     }
 
     @Test
     void getOrder_unexpectedFailure_returnsInternal() {
         UUID orderId = UUID.randomUUID();
-        given(orderService.getOrderForPayment(orderId))
+        given(orderQueryUseCase.getOrderForPayment(orderId))
                 .willThrow(new IllegalArgumentException("database credentials must stay private"));
 
         assertThatThrownBy(() -> blockingStub.getOrder(request(orderId.toString())))

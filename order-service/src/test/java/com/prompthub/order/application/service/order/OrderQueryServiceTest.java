@@ -5,43 +5,32 @@ import com.prompthub.order.application.dto.OrderForPaymentResult;
 import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductContent;
-import com.prompthub.order.application.dto.ProductOrderSnapshot;
-import com.prompthub.order.application.event.order.OrderCreatedEvent;
 import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
-import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.domain.repository.OrderPaymentRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
-import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
-import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
-import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import com.prompthub.order.infra.messaging.kafka.event.OrderCreatedPayload;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Sort;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -50,20 +39,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import com.prompthub.common.event.EventMessage;
-
 import static com.prompthub.order.fixture.OrderFixture.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
-class OrderServiceTest {
+class OrderQueryServiceTest {
 
     @Mock
     private OrderRepository orderRepository;
@@ -72,31 +55,16 @@ class OrderServiceTest {
     private OrderPaymentRepository orderPaymentRepository;
 
     @Mock
-    private CartRepository cartRepository;
-
-    @Mock
-    private OrderNumberGenerator orderNumberGenerator;
-
-    @Mock
     private ProductClient productClient;
-
-    @Mock
-    private ApplicationEventPublisher applicationEventPublisher;
 
     @Spy
     private OrderPolicyService orderPolicyService;
 
     @Mock
-    private com.prompthub.order.application.service.event.OrderEventMessageFactory orderEventMessageFactory;
-
-    @Mock
-    private com.prompthub.order.application.service.event.outbox.OutboxEventAppender outboxEventAppender;
-
-    @Mock
     private OrderExpirationPolicy expirationPolicy;
 
     @InjectMocks
-    private OrderService orderService;
+    private OrderQueryService orderQueryService;
 
     @Nested
     @DisplayName("결제용 주문 조회")
@@ -109,7 +77,7 @@ class OrderServiceTest {
             given(orderRepository.findByIdWithOrderProducts(order.getId()))
                 .willReturn(Optional.of(order));
 
-            OrderForPaymentResult result = orderService.getOrderForPayment(order.getId());
+            OrderForPaymentResult result = orderQueryService.getOrderForPayment(order.getId());
 
             assertThat(result.orderId()).isEqualTo(order.getId());
             assertThat(result.buyerId()).isEqualTo(order.getBuyerId());
@@ -124,7 +92,7 @@ class OrderServiceTest {
             given(orderRepository.findByIdWithOrderProducts(orderId))
                 .willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> orderService.getOrderForPayment(orderId))
+            assertThatThrownBy(() -> orderQueryService.getOrderForPayment(orderId))
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode())
@@ -146,7 +114,7 @@ class OrderServiceTest {
                 .willReturn(Optional.of(order));
             given(expirationPolicy.paymentTimeoutMinutes()).willReturn(20);
 
-            OrderPaymentValidationResponse response = orderService.validatePaymentReady(
+            OrderPaymentValidationResponse response = orderQueryService.validatePaymentReady(
                 BUYER_ID,
                 order.getId(),
                 TOTAL_AMOUNT,
@@ -168,7 +136,7 @@ class OrderServiceTest {
                 .willReturn(Optional.of(order));
             given(expirationPolicy.paymentTimeoutMinutes()).willReturn(20);
 
-            assertThatThrownBy(() -> orderService.validatePaymentReady(
+            assertThatThrownBy(() -> orderQueryService.validatePaymentReady(
                 BUYER_ID,
                 order.getId(),
                 TOTAL_AMOUNT,
@@ -188,7 +156,7 @@ class OrderServiceTest {
                 .willReturn(Optional.of(order));
             given(expirationPolicy.paymentTimeoutMinutes()).willReturn(20);
 
-            assertThatThrownBy(() -> orderService.validatePaymentReady(
+            assertThatThrownBy(() -> orderQueryService.validatePaymentReady(
                 BUYER_ID,
                 order.getId(),
                 PRODUCT_AMOUNT_1,
@@ -198,138 +166,6 @@ class OrderServiceTest {
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH)
                 );
-        }
-    }
-
-    @Nested
-    @DisplayName("주문상품 다운로드 확정")
-    class ConfirmDownload {
-
-        @Test
-        @DisplayName("결제 완료된 본인 주문상품이면 다운로드 처리하고 환불 불가로 응답한다")
-        void confirmDownload_paidOwnerOrderProduct_success() {
-            // given
-            Order order = createPaidOrderWithProducts();
-            OrderProduct orderProduct = order.getOrderProducts().getFirst();
-
-            given(orderRepository.findByIdWithOrderProducts(order.getId()))
-                .willReturn(Optional.of(order));
-            given(productClient.getProductContent(orderProduct.getProductId()))
-                .willReturn(new ProductContent(orderProduct.getProductId(), "content"));
-
-            // when
-            OrderProductDownloadResponse response = orderService.confirmDownload(BUYER_ID, order.getId(), orderProduct.getId());
-
-            // then
-            assertThat(response.orderId()).isEqualTo(order.getId());
-            assertThat(response.orderProductId()).isEqualTo(orderProduct.getId());
-            assertThat(response.downloaded()).isTrue();
-            assertThat(response.isRefundable()).isFalse();
-            assertThat(orderProduct.isDownloaded()).isTrue();
-
-            then(orderRepository).should().findByIdWithOrderProducts(order.getId());
-            then(productClient).should().getProductContent(orderProduct.getProductId());
-        }
-
-        @Test
-        @DisplayName("상품 콘텐츠 조회가 실패하면 다운로드 상태를 변경하지 않고 예외를 전파한다")
-        void confirmDownload_productContentFailureDoesNotMarkDownloaded() {
-            Order order = createPaidOrderWithProducts();
-            OrderProduct orderProduct = order.getOrderProducts().getFirst();
-            given(orderRepository.findByIdWithOrderProducts(order.getId()))
-                .willReturn(Optional.of(order));
-            given(productClient.getProductContent(orderProduct.getProductId()))
-                .willThrow(new com.prompthub.exception.BusinessException(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE));
-
-            assertThatThrownBy(() -> orderService.confirmDownload(BUYER_ID, order.getId(), orderProduct.getId()))
-                .isInstanceOf(com.prompthub.exception.BusinessException.class)
-                .satisfies(exception -> assertThat(
-                    ((com.prompthub.exception.BusinessException) exception).getErrorCode()
-                ).isEqualTo(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE));
-
-            assertThat(orderProduct.isDownloaded()).isFalse();
-        }
-
-        @Test
-        @DisplayName("이미 다운로드된 주문상품도 정상 성공한다")
-        void confirmDownload_alreadyDownloaded_success() {
-            // given
-            Order order = createPaidOrderWithProducts();
-            OrderProduct orderProduct = order.getOrderProducts().getFirst();
-            orderProduct.markDownloaded();
-
-            given(orderRepository.findByIdWithOrderProducts(order.getId()))
-                .willReturn(Optional.of(order));
-            given(productClient.getProductContent(orderProduct.getProductId()))
-                .willReturn(new ProductContent(orderProduct.getProductId(), "content"));
-
-            // when
-            OrderProductDownloadResponse response = orderService.confirmDownload(BUYER_ID, order.getId(), orderProduct.getId());
-
-            // then
-            assertThat(response.downloaded()).isTrue();
-            assertThat(response.isRefundable()).isFalse();
-            assertThat(orderProduct.isDownloaded()).isTrue();
-        }
-
-        @Test
-        @DisplayName("주문 소유자가 아니면 다운로드 확정에 실패한다")
-        void confirmDownload_notOwner_throwsException() {
-            // given
-            Order order = createPaidOrderWithProducts();
-            UUID otherBuyerId = UUID.fromString("00000000-0000-0000-0000-000000000777");
-
-            given(orderRepository.findByIdWithOrderProducts(order.getId()))
-                .willReturn(Optional.of(order));
-
-            // when & then
-            assertThatThrownBy(() -> orderService.confirmDownload(otherBuyerId, order.getId(), order.getOrderProducts().getFirst().getId()))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN)
-                );
-
-            then(productClient).should(never()).getProductContent(any());
-        }
-
-        @Test
-        @DisplayName("PAID 상태가 아닌 주문은 다운로드 처리할 수 없다")
-        void confirmDownload_notPaidOrder_throwsException() {
-            // given
-            Order order = createPendingOrderWithProducts();
-
-            given(orderRepository.findByIdWithOrderProducts(order.getId()))
-                .willReturn(Optional.of(order));
-
-            // when & then
-            assertThatThrownBy(() -> orderService.confirmDownload(BUYER_ID, order.getId(), order.getOrderProducts().getFirst().getId()))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.ORDER_CONTENT_ACCESS_DENIED)
-                );
-
-            then(productClient).should(never()).getProductContent(any());
-        }
-
-        @Test
-        @DisplayName("PAID 상태가 아닌 주문상품은 다운로드 처리할 수 없다")
-        void confirmDownload_notPaidOrderProduct_throwsException() {
-            // given
-            Order order = createPaidOrderWithProducts();
-            OrderProduct orderProduct = order.getOrderProducts().getFirst();
-            ReflectionTestUtils.setField(orderProduct, "orderStatus", OrderStatus.REFUNDED);
-
-            given(orderRepository.findByIdWithOrderProducts(order.getId()))
-                .willReturn(Optional.of(order));
-
-            // when & then
-            assertThatThrownBy(() -> orderService.confirmDownload(BUYER_ID, order.getId(), orderProduct.getId()))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.ORDER_CONTENT_ACCESS_DENIED)
-                );
-
-            then(productClient).should(never()).getProductContent(any());
         }
     }
 
@@ -352,7 +188,7 @@ class OrderServiceTest {
                 .willReturn(new ProductContent(orderProduct.getProductId(), PRODUCT_CONTENT));
 
             // when
-            OrderContentResponse response = orderService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId());
+            OrderContentResponse response = orderQueryService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId());
 
             // then
             assertThat(response.orderId()).isEqualTo(order.getId());
@@ -378,7 +214,7 @@ class OrderServiceTest {
             given(productClient.getProductContent(orderProduct.getProductId()))
                 .willThrow(new com.prompthub.exception.BusinessException(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE));
 
-            assertThatThrownBy(() -> orderService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId()))
+            assertThatThrownBy(() -> orderQueryService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId()))
                 .isInstanceOf(com.prompthub.exception.BusinessException.class)
                 .satisfies(exception -> assertThat(
                     ((com.prompthub.exception.BusinessException) exception).getErrorCode()
@@ -401,7 +237,7 @@ class OrderServiceTest {
                 .willReturn(new ProductContent(orderProduct.getProductId(), PRODUCT_CONTENT));
 
             // when
-            OrderContentResponse response = orderService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId());
+            OrderContentResponse response = orderQueryService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId());
 
             // then
             assertThat(response.downloaded()).isTrue();
@@ -419,7 +255,7 @@ class OrderServiceTest {
                 .willReturn(Optional.empty());
 
             // when & then
-            assertThatThrownBy(() -> orderService.getOrderContent(BUYER_ID, ORDER_ID, ORDER_PRODUCT_ID))
+            assertThatThrownBy(() -> orderQueryService.getOrderContent(BUYER_ID, ORDER_ID, ORDER_PRODUCT_ID))
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode())
@@ -440,7 +276,7 @@ class OrderServiceTest {
                 .willReturn(Optional.of(order));
 
             // when & then
-            assertThatThrownBy(() -> orderService.getOrderContent(otherBuyerId, order.getId(), order.getOrderProducts().getFirst().getId()))
+            assertThatThrownBy(() -> orderQueryService.getOrderContent(otherBuyerId, order.getId(), order.getOrderProducts().getFirst().getId()))
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode())
@@ -460,7 +296,7 @@ class OrderServiceTest {
                 .willReturn(Optional.of(order));
 
             // when & then
-            assertThatThrownBy(() -> orderService.getOrderContent(BUYER_ID, order.getId(), order.getOrderProducts().getFirst().getId()))
+            assertThatThrownBy(() -> orderQueryService.getOrderContent(BUYER_ID, order.getId(), order.getOrderProducts().getFirst().getId()))
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode())
@@ -481,7 +317,7 @@ class OrderServiceTest {
                 .willReturn(Optional.of(order));
 
             // when & then
-            assertThatThrownBy(() -> orderService.getOrderContent(BUYER_ID, order.getId(), otherOrderProductId))
+            assertThatThrownBy(() -> orderQueryService.getOrderContent(BUYER_ID, order.getId(), otherOrderProductId))
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode())
@@ -503,7 +339,7 @@ class OrderServiceTest {
                 .willReturn(Optional.of(order));
 
             // when & then
-            assertThatThrownBy(() -> orderService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId()))
+            assertThatThrownBy(() -> orderQueryService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId()))
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode())
@@ -530,7 +366,7 @@ class OrderServiceTest {
                 .willReturn(Optional.of(order));
 
             // when
-            OrderDetailResponse response = orderService.getOrderDetail(BUYER_ID, order.getId());
+            OrderDetailResponse response = orderQueryService.getOrderDetail(BUYER_ID, order.getId());
 
             // then
             assertThat(response.orderId()).isEqualTo(order.getId());
@@ -561,7 +397,7 @@ class OrderServiceTest {
                 .willReturn(Optional.empty());
 
             // when & then
-            assertThatThrownBy(() -> orderService.getOrderDetail(BUYER_ID, ORDER_ID))
+            assertThatThrownBy(() -> orderQueryService.getOrderDetail(BUYER_ID, ORDER_ID))
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode())
@@ -580,7 +416,7 @@ class OrderServiceTest {
                 .willReturn(Optional.of(order));
 
             // when & then
-            assertThatThrownBy(() -> orderService.getOrderDetail(otherBuyerId, order.getId()))
+            assertThatThrownBy(() -> orderQueryService.getOrderDetail(otherBuyerId, order.getId()))
                 .isInstanceOf(OrderException.class)
                 .satisfies(exception ->
                     assertThat(((OrderException) exception).getErrorCode())
@@ -602,276 +438,12 @@ class OrderServiceTest {
                 .willReturn(Optional.of(order));
 
             // when
-            OrderDetailResponse response = orderService.getOrderDetail(BUYER_ID, order.getId());
+            OrderDetailResponse response = orderQueryService.getOrderDetail(BUYER_ID, order.getId());
 
             // then
             assertThat(response.products())
                 .extracting(product -> product.isContentAccessible())
                 .containsExactly(true, false);
-        }
-    }
-
-    @Nested
-    @DisplayName("주문 생성")
-    class CreateOrder {
-
-        @Test
-        @DisplayName("상품 ID 목록이 유효하면 주문을 생성한다")
-        void createOrder_validProductIds_success() {
-            // given
-            CreateOrderRequest request = createOrderRequest();
-            List<ProductOrderSnapshot> productSnapshots = createProductSnapshots();
-            Cart cart = Cart.create(BUYER_ID);
-            cart.addProduct(PRODUCT_ID_1);
-            cart.addProduct(PRODUCT_ID_2);
-
-            given(productClient.getOrderSnapshots(request.productIds()))
-                .willReturn(productSnapshots);
-
-            given(orderNumberGenerator.generate())
-                .willReturn(ORDER_NUMBER);
-
-            given(orderRepository.save(any(Order.class)))
-                .willAnswer(invocation -> {
-                    Order order = invocation.getArgument(0);
-                    ReflectionTestUtils.setField(order, "createdAt", LocalDateTime.now());
-                    return order;
-                });
-            given(cartRepository.findByBuyerIdWithCartProducts(BUYER_ID))
-                .willReturn(Optional.of(cart));
-
-            given(orderEventMessageFactory.createOrderCreatedMessage(any(), any()))
-                .willReturn(new EventMessage<>(UUID.randomUUID(), "ORDER_CREATED", LocalDateTime.now(), "ORDER", UUID.randomUUID(), null));
-
-            // when
-            CreateOrderResponse response = orderService.createOrder(BUYER_ID, request);
-
-            // then
-            assertThat(response.orderId()).isNotNull();
-            assertThat(response.orderNumber()).isEqualTo(ORDER_NUMBER);
-            assertThat(response.buyerId()).isEqualTo(BUYER_ID);
-            assertThat(response.orderStatus()).isEqualTo(OrderStatus.PENDING);
-            assertThat(response.totalAmount()).isEqualTo(TOTAL_AMOUNT);
-            assertThat(response.products()).hasSize(TOTAL_ITEM_COUNT);
-            assertThat(response.createdAt()).isNotNull();
-            assertThat(response.canceledAt()).isNull();
-
-            assertThat(response.products())
-                .extracting(OrderProductsResponse::productId)
-                .containsExactly(PRODUCT_ID_1, PRODUCT_ID_2);
-
-            assertThat(response.products())
-                .extracting(OrderProductsResponse::productAmountSnapshot)
-                .containsExactly(PRODUCT_AMOUNT_1, PRODUCT_AMOUNT_2);
-
-            assertThat(response.products())
-                .extracting(OrderProductsResponse::orderStatus)
-                .containsOnly(OrderStatus.PENDING);
-
-            then(productClient).should().getOrderSnapshots(request.productIds());
-            then(orderNumberGenerator).should().generate();
-            then(orderRepository).should().save(any(Order.class));
-            assertThat(cart.getCartProducts()).isEmpty();
-            then(cartRepository).should().save(cart);
-            
-            ArgumentCaptor<OrderCreatedPayload> payloadCaptor = ArgumentCaptor.forClass(OrderCreatedPayload.class);
-            then(orderEventMessageFactory).should().createOrderCreatedMessage(any(), payloadCaptor.capture());
-            OrderCreatedPayload capturedPayload = payloadCaptor.getValue();
-            assertThat(capturedPayload.orderId()).isNotNull();
-            assertThat(capturedPayload.buyerId()).isEqualTo(BUYER_ID);
-            assertThat(capturedPayload.totalAmount()).isEqualTo(TOTAL_AMOUNT);
-            assertThat(capturedPayload.createdAt()).isNotNull();
-
-            then(outboxEventAppender).should().append(any());
-            then(applicationEventPublisher).should().publishEvent(any(OrderCreatedEvent.class));
-        }
-
-        @Test
-        @DisplayName("주문 생성 시 Order와 OrderProduct가 올바르게 생성되어 저장된다")
-        void createOrder_captureSavedOrder_success() {
-            // given
-            CreateOrderRequest request = createOrderRequest();
-            List<ProductOrderSnapshot> productSnapshots = createProductSnapshots();
-
-            given(productClient.getOrderSnapshots(request.productIds()))
-                .willReturn(productSnapshots);
-
-            given(orderNumberGenerator.generate())
-                .willReturn(ORDER_NUMBER);
-
-            given(orderRepository.save(any(Order.class)))
-                .willAnswer(invocation -> {
-                    Order order = invocation.getArgument(0);
-                    ReflectionTestUtils.setField(order, "createdAt", LocalDateTime.now());
-                    return order;
-                });
-            given(cartRepository.findByBuyerIdWithCartProducts(BUYER_ID))
-                .willReturn(Optional.empty());
-
-            given(orderEventMessageFactory.createOrderCreatedMessage(any(), any()))
-                .willReturn(new EventMessage<>(UUID.randomUUID(), "ORDER_CREATED", LocalDateTime.now(), "ORDER", UUID.randomUUID(), null));
-
-            ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
-
-            // when
-            orderService.createOrder(BUYER_ID, request);
-
-            // then
-            then(orderRepository).should().save(orderCaptor.capture());
-
-            Order savedOrder = orderCaptor.getValue();
-
-            assertThat(savedOrder.getId()).isNotNull();
-            assertThat(savedOrder.getBuyerId()).isEqualTo(BUYER_ID);
-            assertThat(savedOrder.getOrderNumber()).isEqualTo(ORDER_NUMBER);
-            assertThat(savedOrder.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
-            assertThat(savedOrder.getTotalOrderAmount()).isEqualTo(TOTAL_AMOUNT);
-            assertThat(savedOrder.getTotalProductCount()).isEqualTo(TOTAL_ITEM_COUNT);
-            assertThat(savedOrder.getOrderProducts()).hasSize(TOTAL_ITEM_COUNT);
-
-            assertThat(savedOrder.getOrderProducts())
-                .extracting(OrderProduct::getProductId)
-                .containsExactly(PRODUCT_ID_1, PRODUCT_ID_2);
-
-            assertThat(savedOrder.getOrderProducts())
-                .extracting(OrderProduct::getSellerId)
-                .containsExactly(SELLER_ID_1, SELLER_ID_2);
-
-            assertThat(savedOrder.getOrderProducts())
-                .extracting(OrderProduct::getProductAmount)
-                .containsExactly(PRODUCT_AMOUNT_1, PRODUCT_AMOUNT_2);
-
-            assertThat(savedOrder.getOrderProducts())
-                .extracting(OrderProduct::getOrderStatus)
-                .containsOnly(OrderStatus.PENDING);
-
-            assertThat(savedOrder.getOrderProducts())
-                .allSatisfy(orderProduct ->
-                    assertThat(orderProduct.getOrder()).isSameAs(savedOrder)
-                );
-
-            then(outboxEventAppender).should().append(any());
-        }
-
-        @Test
-        @DisplayName("상품 ID 목록이 null이면 주문 생성에 실패한다")
-        void createOrder_nullProductIds_throwsException() {
-            // given
-            CreateOrderRequest request = createOrderRequestWithNullProductIds();
-
-            // when & then
-            assertThatThrownBy(() -> orderService.createOrder(BUYER_ID, request))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                );
-
-            then(productClient).should(never()).getOrderSnapshots(anyList());
-            then(orderNumberGenerator).should(never()).generate();
-            then(orderRepository).should(never()).save(any(Order.class));
-        }
-
-        @Test
-        @DisplayName("상품 ID 목록이 비어 있으면 주문 생성에 실패한다")
-        void createOrder_emptyProductIds_throwsException() {
-            // given
-            CreateOrderRequest request = createOrderRequestWithEmptyProductIds();
-
-            // when & then
-            assertThatThrownBy(() -> orderService.createOrder(BUYER_ID, request))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                );
-
-            then(productClient).should(never()).getOrderSnapshots(anyList());
-            then(orderNumberGenerator).should(never()).generate();
-            then(orderRepository).should(never()).save(any(Order.class));
-        }
-
-        @Test
-        @DisplayName("중복된 상품 ID가 있으면 주문 생성에 실패한다")
-        void createOrder_duplicatedProductIds_throwsException() {
-            // given
-            CreateOrderRequest request = createOrderRequestWithDuplicatedProductIds();
-
-            // when & then
-            assertThatThrownBy(() -> orderService.createOrder(BUYER_ID, request))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                );
-
-            then(productClient).should(never()).getOrderSnapshots(anyList());
-            then(orderNumberGenerator).should(never()).generate();
-            then(orderRepository).should(never()).save(any(Order.class));
-        }
-
-        @Test
-        @DisplayName("상품 스냅샷 응답이 null이면 주문 생성에 실패한다")
-        void createOrder_nullProductSnapshots_throwsException() {
-            // given
-            CreateOrderRequest request = createOrderRequest();
-
-            given(productClient.getOrderSnapshots(request.productIds()))
-                .willReturn(null);
-
-            // when & then
-            assertThatThrownBy(() -> orderService.createOrder(BUYER_ID, request))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                );
-
-            then(productClient).should().getOrderSnapshots(request.productIds());
-            then(orderNumberGenerator).should(never()).generate();
-            then(orderRepository).should(never()).save(any(Order.class));
-        }
-
-        @Test
-        @DisplayName("요청 상품 수와 조회된 상품 수가 다르면 주문 생성에 실패한다")
-        void createOrder_productSnapshotSizeMismatch_throwsException() {
-            // given
-            CreateOrderRequest request = createOrderRequest();
-
-            List<ProductOrderSnapshot> snapshots = createSingleProductSnapshot();
-
-            given(productClient.getOrderSnapshots(request.productIds()))
-                .willReturn(snapshots);
-
-            // when & then
-            assertThatThrownBy(() -> orderService.createOrder(BUYER_ID, request))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                );
-
-            then(productClient).should().getOrderSnapshots(request.productIds());
-            then(orderNumberGenerator).should(never()).generate();
-            then(orderRepository).should(never()).save(any(Order.class));
-        }
-
-        @Test
-        @DisplayName("조회되지 않은 상품 ID가 있으면 주문 생성에 실패한다")
-        void createOrder_missingProductSnapshot_throwsException() {
-            // given
-            CreateOrderRequest request = createOrderRequest();
-
-            List<ProductOrderSnapshot> snapshots = createProductSnapshotsWithUnknownProduct();
-
-            given(productClient.getOrderSnapshots(request.productIds()))
-                .willReturn(snapshots);
-
-            // when & then
-            assertThatThrownBy(() -> orderService.createOrder(BUYER_ID, request))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
-                );
-
-            then(productClient).should().getOrderSnapshots(request.productIds());
-            then(orderNumberGenerator).should(never()).generate();
-            then(orderRepository).should(never()).save(any(Order.class));
         }
     }
 
@@ -901,7 +473,7 @@ class OrderServiceTest {
             )).willReturn(new PageImpl<>(List.of(projection), pageable, 1));
 
             // when
-            Page<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
+            Page<OrderListResponse> response = orderQueryService.getOrders(BUYER_ID, request);
 
             // then
             assertThat(response.getContent()).hasSize(1);
@@ -949,7 +521,7 @@ class OrderServiceTest {
             )).willReturn(new PageImpl<>(List.of(), pageable, 0));
 
             // when
-            orderService.getOrders(BUYER_ID, request);
+            orderQueryService.getOrders(BUYER_ID, request);
 
             // then
             then(orderRepository).should().searchOrderproducts(
@@ -985,7 +557,7 @@ class OrderServiceTest {
             )).willReturn(new PageImpl<>(List.of(), pageable, 0));
 
             // when
-            orderService.getOrders(BUYER_ID, request);
+            orderQueryService.getOrders(BUYER_ID, request);
 
             // then
             then(orderRepository).should().searchOrderproducts(
@@ -1014,7 +586,7 @@ class OrderServiceTest {
                 .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
 
             // when
-            Page<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
+            Page<OrderListResponse> response = orderQueryService.getOrders(BUYER_ID, request);
 
             // then
             assertThat(response.getContent().getFirst().rating()).isNull();
@@ -1032,7 +604,7 @@ class OrderServiceTest {
                 .willReturn(new PageImpl<>(List.of(), pageable, 0));
 
             // when
-            Page<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
+            Page<OrderListResponse> response = orderQueryService.getOrders(BUYER_ID, request);
 
             // then
             assertThat(response.getContent()).isEmpty();
@@ -1065,7 +637,7 @@ class OrderServiceTest {
                 .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
 
             // when
-            Page<OrderPaymentListResponse> response = orderService.getOrderPayments(BUYER_ID, request);
+            Page<OrderPaymentListResponse> response = orderQueryService.getOrderPayments(BUYER_ID, request);
 
             // then
             assertThat(response.getNumber()).isZero();
@@ -1104,7 +676,7 @@ class OrderServiceTest {
                 .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
 
             // when
-            Page<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
+            Page<OrderListResponse> response = orderQueryService.getOrders(BUYER_ID, request);
 
             // then
             assertThat(response.getContent().getFirst().isRefundable()).isFalse();
@@ -1127,7 +699,7 @@ class OrderServiceTest {
                 .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
 
             // when
-            Page<OrderListResponse> response = orderService.getOrders(BUYER_ID, request);
+            Page<OrderListResponse> response = orderQueryService.getOrders(BUYER_ID, request);
 
             // then
             assertThat(response.getContent().getFirst().isRefundable()).isFalse();
@@ -1153,7 +725,7 @@ class OrderServiceTest {
                 .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
 
             // when
-            Page<OrderPaymentListResponse> response = orderService.getOrderPayments(BUYER_ID, request);
+            Page<OrderPaymentListResponse> response = orderQueryService.getOrderPayments(BUYER_ID, request);
 
             // then
             assertThat(response.getContent().getFirst().paidAt()).isEqualTo(APPROVED_AT);
