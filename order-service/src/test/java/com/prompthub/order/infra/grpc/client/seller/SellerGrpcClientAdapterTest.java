@@ -1,9 +1,9 @@
 package com.prompthub.order.infra.grpc.client.seller;
 
-import com.prompthub.order.grpc.seller.SellerBatchQueryRequest;
-import com.prompthub.order.grpc.seller.SellerBatchQueryResponse;
-import com.prompthub.order.grpc.seller.SellerInfo;
-import com.prompthub.order.grpc.seller.SellerQueryServiceGrpc;
+import com.prompthub.user.grpc.seller.GetSellersRequest;
+import com.prompthub.user.grpc.seller.GetSellersResponse;
+import com.prompthub.user.grpc.seller.SellerInfo;
+import com.prompthub.user.grpc.seller.SellerQueryServiceGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.MethodDescriptor;
 import io.grpc.Status;
@@ -55,13 +55,13 @@ class SellerGrpcClientAdapterTest {
 		SellerGrpcClientAdapter adapter = adapterWith(new SellerQueryServiceGrpc.SellerQueryServiceImplBase() {
 			@Override
 			public void getSellers(
-				SellerBatchQueryRequest request,
-				StreamObserver<SellerBatchQueryResponse> responseObserver
+				GetSellersRequest request,
+				StreamObserver<GetSellersResponse> responseObserver
 			) {
 				assertThat(request.getSellerIdsList()).containsExactly(
 					SELLER_ID_1.toString(), SELLER_ID_2.toString()
 				);
-				responseObserver.onNext(SellerBatchQueryResponse.newBuilder()
+				responseObserver.onNext(GetSellersResponse.newBuilder()
 					.addSellers(SellerInfo.newBuilder()
 						.setSellerId(SELLER_ID_1.toString())
 						.setSellerName("판매자A")
@@ -98,8 +98,8 @@ class SellerGrpcClientAdapterTest {
 		SellerGrpcClientAdapter adapter = adapterWith(new SellerQueryServiceGrpc.SellerQueryServiceImplBase() {
 			@Override
 			public void getSellers(
-				SellerBatchQueryRequest request,
-				StreamObserver<SellerBatchQueryResponse> responseObserver
+				GetSellersRequest request,
+				StreamObserver<GetSellersResponse> responseObserver
 			) {
 				responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
 			}
@@ -116,10 +116,10 @@ class SellerGrpcClientAdapterTest {
 		SellerGrpcClientAdapter adapter = adapterWith(new SellerQueryServiceGrpc.SellerQueryServiceImplBase() {
 			@Override
 			public void getSellers(
-				SellerBatchQueryRequest request,
-				StreamObserver<SellerBatchQueryResponse> responseObserver
+				GetSellersRequest request,
+				StreamObserver<GetSellersResponse> responseObserver
 			) {
-				responseObserver.onNext(SellerBatchQueryResponse.newBuilder()
+				responseObserver.onNext(GetSellersResponse.newBuilder()
 					.addSellers(SellerInfo.newBuilder()
 						.setSellerId(SELLER_ID_1.toString())
 						.setSellerName("판매자A")

@@ -31,6 +31,7 @@ class SettlementBatchTest {
         assertThat(batch.getBatchNo()).isEqualTo("B-001");
         assertThat(batch.getTriggerType()).isEqualTo(TriggerType.SCHEDULED);
         assertThat(batch.getExecutedAt()).isNull();
+        assertThat(batch.isProcessing()).isTrue();
     }
 
     @Test
@@ -45,6 +46,7 @@ class SettlementBatchTest {
         // then
         assertThat(batch.getStatus()).isEqualTo(SettlementBatchStatus.COMPLETED);
         assertThat(batch.getExecutedAt()).isNotNull();
+        assertThat(batch.isProcessing()).isFalse();
     }
 
     @Test

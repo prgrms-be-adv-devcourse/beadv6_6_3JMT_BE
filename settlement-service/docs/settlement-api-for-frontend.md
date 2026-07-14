@@ -19,8 +19,8 @@
 | 항목 | 값 |
 | --- | --- |
 | Base URL (로컬) | `http://localhost:8080` |
-| API prefix | `/api/v1` |
-| 전체 prefix 예시 | `http://localhost:8080/api/v1/admin/settlements/batch` |
+| API prefix | `/api/v2` |
+| 전체 prefix 예시 | `http://localhost:8080/api/v2/admin/settlements/batch` |
 | 응답 형식 | JSON |
 | Swagger UI | `http://localhost:8080/swagger-ui.html` |
 
@@ -45,7 +45,7 @@
 
 ## 1. 엔드포인트 — 정산 배치잡 (관리자)
 
-`/api/v1/admin/settlements/batch` · `X-User-Role: ADMIN` 필요.
+`/api/v2/admin/settlements/batch` · `X-User-Role: ADMIN` 필요.
 
 | 메서드 | 경로 | 설명 | 응답 |
 | --- | --- | --- | --- |
@@ -146,7 +146,7 @@ interface ErrorResponse {
 
 ## 3. 프론트 연동 체크리스트
 
-- [ ] base URL을 환경변수로 분리 (`VITE_API_BASE_URL` 등), prefix `/api/v1` 포함 여부 결정
+- [ ] base URL을 환경변수로 분리 (`VITE_API_BASE_URL` 등), prefix `/api/v2` 포함 여부 결정
 - [ ] 게이트웨이 경유 여부 확정 — 직접 호출이면 `X-User-Id`/`X-User-Role: ADMIN` 헤더를 프론트가 넣어야 함
 - [ ] 배치 실행은 비동기(202) → `jobExecutionId`로 상태 폴링 로직 필요
 - [ ] 폴링 종료 조건은 `status`가 `COMPLETED`/`FAILED`

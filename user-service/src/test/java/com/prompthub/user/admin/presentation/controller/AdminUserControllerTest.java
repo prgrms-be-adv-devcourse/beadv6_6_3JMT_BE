@@ -58,7 +58,7 @@ class AdminUserControllerTest {
 	void listUsers_정상_조회_200() throws Exception {
 		given(adminUserUseCase.listUsers(any())).willReturn(emptyResult(1, 20));
 
-		mockMvc.perform(get("/api/v1/admin/users"))
+		mockMvc.perform(get("/api/v2/admin/users"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.success").value(true));
 	}
@@ -67,7 +67,7 @@ class AdminUserControllerTest {
 	void listUsers_기본_파라미터_page1_size20() throws Exception {
 		given(adminUserUseCase.listUsers(any())).willReturn(emptyResult(1, 20));
 
-		mockMvc.perform(get("/api/v1/admin/users"))
+		mockMvc.perform(get("/api/v2/admin/users"))
 			.andExpect(status().isOk());
 
 		var captor = ArgumentCaptor.forClass(com.prompthub.user.admin.application.dto.AdminUserListQuery.class);
@@ -83,7 +83,7 @@ class AdminUserControllerTest {
 	void listUsers_status_active_ACTIVE로_전달() throws Exception {
 		given(adminUserUseCase.listUsers(any())).willReturn(emptyResult(1, 20));
 
-		mockMvc.perform(get("/api/v1/admin/users").param("status", "active"))
+		mockMvc.perform(get("/api/v2/admin/users").param("status", "active"))
 			.andExpect(status().isOk());
 
 		var captor = ArgumentCaptor.forClass(com.prompthub.user.admin.application.dto.AdminUserListQuery.class);
@@ -95,7 +95,7 @@ class AdminUserControllerTest {
 	void listUsers_status_suspended_BLOCKED으로_전달() throws Exception {
 		given(adminUserUseCase.listUsers(any())).willReturn(emptyResult(1, 20));
 
-		mockMvc.perform(get("/api/v1/admin/users").param("status", "suspended"))
+		mockMvc.perform(get("/api/v2/admin/users").param("status", "suspended"))
 			.andExpect(status().isOk());
 
 		var captor = ArgumentCaptor.forClass(com.prompthub.user.admin.application.dto.AdminUserListQuery.class);
@@ -107,7 +107,7 @@ class AdminUserControllerTest {
 	void listUsers_status_withdrawn_WITHDRAWN으로_전달() throws Exception {
 		given(adminUserUseCase.listUsers(any())).willReturn(emptyResult(1, 20));
 
-		mockMvc.perform(get("/api/v1/admin/users").param("status", "withdrawn"))
+		mockMvc.perform(get("/api/v2/admin/users").param("status", "withdrawn"))
 			.andExpect(status().isOk());
 
 		var captor = ArgumentCaptor.forClass(com.prompthub.user.admin.application.dto.AdminUserListQuery.class);
@@ -119,7 +119,7 @@ class AdminUserControllerTest {
 	void listUsers_status_ALL_null로_전달() throws Exception {
 		given(adminUserUseCase.listUsers(any())).willReturn(emptyResult(1, 20));
 
-		mockMvc.perform(get("/api/v1/admin/users").param("status", "ALL"))
+		mockMvc.perform(get("/api/v2/admin/users").param("status", "ALL"))
 			.andExpect(status().isOk());
 
 		var captor = ArgumentCaptor.forClass(com.prompthub.user.admin.application.dto.AdminUserListQuery.class);
@@ -131,7 +131,7 @@ class AdminUserControllerTest {
 	void listUsers_role_buyer_BUYER로_전달() throws Exception {
 		given(adminUserUseCase.listUsers(any())).willReturn(emptyResult(1, 20));
 
-		mockMvc.perform(get("/api/v1/admin/users").param("role", "buyer"))
+		mockMvc.perform(get("/api/v2/admin/users").param("role", "buyer"))
 			.andExpect(status().isOk());
 
 		var captor = ArgumentCaptor.forClass(com.prompthub.user.admin.application.dto.AdminUserListQuery.class);
@@ -143,7 +143,7 @@ class AdminUserControllerTest {
 	void listUsers_role_seller_SELLER로_전달() throws Exception {
 		given(adminUserUseCase.listUsers(any())).willReturn(emptyResult(1, 20));
 
-		mockMvc.perform(get("/api/v1/admin/users").param("role", "seller"))
+		mockMvc.perform(get("/api/v2/admin/users").param("role", "seller"))
 			.andExpect(status().isOk());
 
 		var captor = ArgumentCaptor.forClass(com.prompthub.user.admin.application.dto.AdminUserListQuery.class);
@@ -153,14 +153,14 @@ class AdminUserControllerTest {
 
 	@Test
 	void listUsers_유효하지_않은_status_400() throws Exception {
-		mockMvc.perform(get("/api/v1/admin/users").param("status", "INVALID"))
+		mockMvc.perform(get("/api/v2/admin/users").param("status", "INVALID"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("V001"));
 	}
 
 	@Test
 	void listUsers_유효하지_않은_role_400() throws Exception {
-		mockMvc.perform(get("/api/v1/admin/users").param("role", "INVALID"))
+		mockMvc.perform(get("/api/v2/admin/users").param("role", "INVALID"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("V001"));
 	}
@@ -171,7 +171,7 @@ class AdminUserControllerTest {
 		given(adminUserUseCase.listUsers(any()))
 			.willReturn(new AdminUserPageResult(List.of(item), 1, 20, 1L, false));
 
-		mockMvc.perform(get("/api/v1/admin/users"))
+		mockMvc.perform(get("/api/v2/admin/users"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data[0].role").value("buyer"));
 	}
@@ -182,7 +182,7 @@ class AdminUserControllerTest {
 		given(adminUserUseCase.listUsers(any()))
 			.willReturn(new AdminUserPageResult(List.of(item), 1, 20, 1L, false));
 
-		mockMvc.perform(get("/api/v1/admin/users"))
+		mockMvc.perform(get("/api/v2/admin/users"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data[0].status").value("active"));
 	}
@@ -193,7 +193,7 @@ class AdminUserControllerTest {
 		given(adminUserUseCase.listUsers(any()))
 			.willReturn(new AdminUserPageResult(List.of(item), 1, 20, 1L, false));
 
-		mockMvc.perform(get("/api/v1/admin/users"))
+		mockMvc.perform(get("/api/v2/admin/users"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data[0].status").value("suspended"));
 	}
@@ -206,7 +206,7 @@ class AdminUserControllerTest {
 		given(adminUserUseCase.listUsers(any()))
 			.willReturn(new AdminUserPageResult(List.of(item), 1, 20, 1L, false));
 
-		mockMvc.perform(get("/api/v1/admin/users"))
+		mockMvc.perform(get("/api/v2/admin/users"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data[0].id").value(userId.toString()))
 			.andExpect(jsonPath("$.data[0].name").value("홍길동"))
@@ -220,7 +220,7 @@ class AdminUserControllerTest {
 		given(adminUserUseCase.listUsers(any()))
 			.willReturn(new AdminUserPageResult(List.of(), 1, 20, 15L, false));
 
-		mockMvc.perform(get("/api/v1/admin/users"))
+		mockMvc.perform(get("/api/v2/admin/users"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.meta.page").value(1))
 			.andExpect(jsonPath("$.meta.size").value(20))
@@ -235,7 +235,7 @@ class AdminUserControllerTest {
 		given(adminUserUseCase.changeUserStatus(any()))
 			.willReturn(new AdminUserStatusResult(userId, UserStatus.BLOCKED, now));
 
-		mockMvc.perform(patch("/api/v1/admin/users/{userId}/status", userId)
+		mockMvc.perform(patch("/api/v2/admin/users/{userId}/status", userId)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"status\":\"suspended\"}"))
 			.andExpect(status().isOk())
@@ -257,7 +257,7 @@ class AdminUserControllerTest {
 			Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")) // authorities
 		);
 
-		mockMvc.perform(patch("/api/v1/admin/users/{userId}/status", userId)
+		mockMvc.perform(patch("/api/v2/admin/users/{userId}/status", userId)
 				.principal(mockAdminPrincipal) // 👈 2. 요청에 가짜 인증 정보를 강제로 주입합니다.
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"status\":\"active\"}"))
@@ -278,7 +278,7 @@ class AdminUserControllerTest {
 			Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")) // authorities
 		);
 
-		mockMvc.perform(patch("/api/v1/admin/users/{userId}/status", userId)
+		mockMvc.perform(patch("/api/v2/admin/users/{userId}/status", userId)
 				.header("Authorization", "Bearer mock_token_value")
 				.principal(mockAdminPrincipal)
 				.contentType(MediaType.APPLICATION_JSON)
@@ -291,7 +291,7 @@ class AdminUserControllerTest {
 	void changeUserStatus_유효하지않은_status_400() throws Exception {
 		UUID userId = UUID.randomUUID();
 
-		mockMvc.perform(patch("/api/v1/admin/users/{userId}/status", userId)
+		mockMvc.perform(patch("/api/v2/admin/users/{userId}/status", userId)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"status\":\"INVALID\"}"))
 			.andExpect(status().isBadRequest())
@@ -302,7 +302,7 @@ class AdminUserControllerTest {
 	void changeUserStatus_status_빈값_400() throws Exception {
 		UUID userId = UUID.randomUUID();
 
-		mockMvc.perform(patch("/api/v1/admin/users/{userId}/status", userId)
+		mockMvc.perform(patch("/api/v2/admin/users/{userId}/status", userId)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"status\":\"\"}"))
 			.andExpect(status().isBadRequest());
@@ -314,7 +314,7 @@ class AdminUserControllerTest {
 		given(adminUserUseCase.changeUserStatus(any()))
 			.willReturn(new AdminUserStatusResult(userId, UserStatus.BLOCKED, LocalDateTime.now()));
 
-		mockMvc.perform(patch("/api/v1/admin/users/{userId}/status", userId)
+		mockMvc.perform(patch("/api/v2/admin/users/{userId}/status", userId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("{\"status\":\"suspended\"}"));
 

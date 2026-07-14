@@ -22,8 +22,8 @@
                          EventMessage<SettlementCreatedPayload>
                          eventType=SETTLEMENT_CREATED
   ┌───────────────────┐  ─────────────────────────────▶  ┌────────────────────────────┐
-  │ settlement-service│                                    │ user-service               │
-  │  (정산 본체)       │                                    │  sellersettlement (셀러 정산)│
+  │ settlement-service│  Transactional Outbox              │ user-service               │
+  │  (정산 본체)       │  배치 Step flush (#301)             │  sellersettlement (셀러 정산)│
   └───────┬───────────┘                                    └───────────┬────────────────┘
           │ gRPC GetSettleableLines (#260)                             │ gRPC GetSellerStats
           │  → order-service (서버 미구현·요청대기)                      │  → product-service (서버 리네임 대기)
@@ -45,7 +45,7 @@
 
 | 도메인 | Kafka 발행 | Kafka 구독 | gRPC 서버 | gRPC 클라이언트 |
 |---|---|---|---|---|
-| **settlement-service** | ✅ 구현 — `settlement-events` / `SETTLEMENT_CREATED` | ⚠️ 비활성(기본 OFF) — `order-events`, pull로 대체 중 | ❌ 없음 | ⚠️ order만 구현·상대 서버 대기 |
+| **settlement-service** | ✅ Outbox 구현(#301) — `settlement-events` / `SETTLEMENT_CREATED` | ⚠️ 비활성(기본 OFF) — `order-events`, pull로 대체 중 | ❌ 없음 | ⚠️ order만 구현·상대 서버 대기 |
 | **user `sellersettlement`** | ❌ 없음 | ✅ 구현(기본 OFF) — `settlement-events` | ❌ 없음(셀러조회 서버는 `seller` 패키지) | ⚠️ product `GetSellerStats`(서버 리네임 대기) |
 | **admin `settlement`** | ❌ 없음 | ❌ 없음 | ❌ 없음 | ❌ 없음 — DB 직접 접근 |
 
@@ -62,13 +62,15 @@
 | 항목 | 값 |
 |---|---|
 | 어댑터 | `infrastructure/messaging/kafka/producer/KafkaSettlementEventPublisher` (`SettlementEventPublisher` 포트 구현) |
+| 적재 | `Settlement`·SourceLine 연결과 같은 트랜잭션에서 `settlement_outbox_event`에 완성 JSON 저장 |
 | 토픽 | `settlement-events` (`settlement.kafka.producer.topic`) |
 | 래퍼 | `EventMessage<SettlementCreatedPayload>` |
-| eventType | `SETTLEMENT_CREATED` (`SettlementEventType.SETTLEMENT_CREATED.code()`) |
+| eventType | `SETTLEMENT_CREATED` |
 | aggregateType / key | `SETTLEMENT` / `settlementId` |
 | 페이로드 | `SettlementCreatedPayload` (settlementId·sellerId·periodStart·periodEnd·productCount·totalAmount·settlementTotalAmount·feeTotalAmount·refundAmount·calculatedAt) |
-| 발행 시점 | 정산 생성(계산) 트랜잭션 커밋 후(AFTER_COMMIT) |
-| 실패정책 | 비동기 전송 실패는 로깅만(at-most-once). 동기 직렬화/설정 실패만 `SettlementException` |
+| 발행 시점 | Job 시작 `retryPendingOutboxStep`(이전 PENDING), Job 마지막 `flushCurrentBatchOutboxStep`(현재 배치 PENDING) |
+| 실패정책 | broker ack 동기 확인. 1~2회 `PENDING`, 3회 `FAILED`; `outboxRedriveJob(eventId)`로 지정 재처리 |
+| 멱등/전달 | Outbox PK = JSON `eventId`, 저장 원문 재발행(at-least-once). user는 `settlementId` 유니크로 중복 흡수 |
 
 **구독 (Kafka) — 비활성(기본 OFF), gRPC pull로 대체 중**
 

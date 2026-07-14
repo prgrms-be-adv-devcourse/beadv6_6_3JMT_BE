@@ -90,8 +90,12 @@ public class SettlementBatch extends BaseEntity {
 		this.executedAt = LocalDateTime.now();
 	}
 
+	public boolean isProcessing() {
+		return this.status == SettlementBatchStatus.PROCESSING;
+	}
+
 	private void verifyProcessing() {
-		if (this.status != SettlementBatchStatus.PROCESSING) {
+		if (!isProcessing()) {
 			throw new SettlementBatchInvalidStateException(this.status);
 		}
 	}

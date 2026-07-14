@@ -1,8 +1,8 @@
 package com.prompthub.settlement.application.port;
 
-import com.prompthub.settlement.application.event.SettlementCreatedPayload;
+import java.util.UUID;
 
 public interface SettlementEventPublisher {
 
-    void publishSettlementCreated(SettlementCreatedPayload payload);
+    void publish(String topic, UUID aggregateId, String payload);
 }

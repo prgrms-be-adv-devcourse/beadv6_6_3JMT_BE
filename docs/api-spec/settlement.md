@@ -1,9 +1,8 @@
 # Settlement Service API
 
-**Base:** `http://localhost:8080/api/v1`
+**Base:** `http://localhost:8080/api/v2`
 
-> ⚠ `api/v1`은 세미 프로젝트 완성 스냅샷(`v1.0.0` 태그) 기준 경로다. 최종 프로젝트에서
-> `api/v2`로 전환 예정이며 별도 이슈로 진행한다(`docs/adr/config-management.md` §10).
+> 정산 공개 API는 `#305 (이슈)`에서 `/api/v2`로 전환했다. 기존 `/api/v1` 경로는 제공하지 않는다.
 
 ## 공통 사항
 
@@ -50,7 +49,7 @@
 #### Request Example
 
 ```
-GET /api/v1/sellers/me/settlements?status=WAITING&period=2026-06&page=0&size=10
+GET /api/v2/sellers/me/settlements?status=WAITING&period=2026-06&page=0&size=10
 Authorization: Bearer {accessToken}
 ```
 
@@ -180,7 +179,7 @@ Authorization: Bearer {accessToken}
 #### Request Example
 
 ```
-PATCH /api/v1/sellers/me/settlements/b1e2c3d4-1111-2222-3333-444455556666/payout-request
+PATCH /api/v2/sellers/me/settlements/b1e2c3d4-1111-2222-3333-444455556666/payout-request
 Authorization: Bearer {accessToken}
 ```
 
@@ -238,7 +237,7 @@ Authorization: Bearer {accessToken}
 #### Request Example
 
 ```
-GET /api/v1/admin/settlements?status=WAITING&page=0&size=20
+GET /api/v2/admin/settlements?status=WAITING&page=0&size=20
 Authorization: Bearer {accessToken}
 ```
 
@@ -698,7 +697,7 @@ Authorization: Bearer {accessToken}
 #### Request Example
 
 ```
-GET /api/v1/admin/settlements/batch/1024
+GET /api/v2/admin/settlements/batch/1024
 X-User-Id: 88aaaaaa-1111-2222-3333-444455556666
 X-User-Role: ADMIN
 ```

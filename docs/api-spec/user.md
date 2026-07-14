@@ -1,9 +1,9 @@
 # User Service API
 
-**Base:** `http://localhost:8081/api/v1`
+**Base:** `http://localhost:8081/api/v2`
 
-> ⚠ `api/v1`은 세미 프로젝트 완성 스냅샷(`v1.0.0` 태그) 기준 경로다. 최종 프로젝트에서
-> `api/v2`로 전환 예정이며 별도 이슈로 진행한다(`docs/adr/config-management.md` §10).
+> user-service 공개 API는 `#305 (이슈)`에서 `/api/v2`로 전환했다. 인증 API도 별도 전환을 거쳐
+> 현재 `/api/v2/auth`이며, 전체 도메인이 `api/v2`로 통일된 상태다.
 
 ## 공통 사항
 
