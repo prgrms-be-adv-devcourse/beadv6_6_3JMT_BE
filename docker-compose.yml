@@ -302,11 +302,11 @@ services:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
       # admin-service는 정산 DB에 직접 커넥션한다(POSTGRES_* 대신 자체 DB_* 플레이스홀더 사용)
-      DB_HOST: postgres                                                    # DB 호스트
-      DB_PORT: "5432"                                                      # DB 포트
-      DB_NAME: ${POSTGRES_DB}                                              # DB 이름
-      DB_USERNAME: ${POSTGRES_USER}                                        # DB 계정
-      DB_PASSWORD: ${POSTGRES_PASSWORD}                                    # DB 비밀번호
+      POSTGRES_HOST: postgres                                              # DB 호스트
+      POSTGRES_PORT: "5432"                                                # DB 포트
+      POSTGRES_DB: ${POSTGRES_DB}                                          # DB 이름
+      POSTGRES_USER: ${POSTGRES_USER}                                      # DB 계정
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}                              # DB 비밀번호
     depends_on:
       postgres:
         condition: service_started
