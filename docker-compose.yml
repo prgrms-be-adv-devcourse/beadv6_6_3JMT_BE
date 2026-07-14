@@ -39,6 +39,15 @@ services:
     restart: always
     networks: [prompthub]
 
+  redis:
+    image: redis:7.4-alpine
+    container_name: prompthub-redis
+    command: ["redis-server", "--appendonly", "yes"]     # AOF 영속화 (ADR-0008 §결정3)
+    volumes:
+      - redis-data:/data
+    restart: always
+    networks: [prompthub]
+
   # ----- Spring Cloud 코어(앱보다 먼저) -----
   discovery:
     image: ghcr.io/prgrms-be-adv-devcourse/prompthub-discovery:latest
@@ -109,6 +118,8 @@ services:
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}                                    # JWT 검증 키(공개)
       USER_GRPC_SERVER_PORT: "9081"                                        # user gRPC 서버 포트
       PRODUCT_GRPC_SERVER_PORT: "9082"                                     # product gRPC 서버 포트
+      REDIS_HOST: redis                                                    # Redis 호스트(RT 캐시 — ADR-0008 §결정3)
+      REDIS_PORT: "6379"                                                   # Redis 포트
     depends_on:
       postgres:
         condition: service_started
@@ -118,6 +129,8 @@ services:
         condition: service_healthy
       config:
         condition: service_healthy
+      redis:
+        condition: service_started
     restart: always
     networks: [prompthub]
 
@@ -342,6 +355,7 @@ services:
 
 volumes:
   pg-data:
+  redis-data:
 
 networks:
   prompthub:

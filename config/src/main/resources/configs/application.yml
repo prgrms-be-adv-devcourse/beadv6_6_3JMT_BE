@@ -11,3 +11,17 @@ management:
     web:
       exposure:
         include: health, info, gateway
+
+gateway:
+  api-versions:
+    settlement-service: [ v1, v2 ]
+    admin-service: [ v1, v2 ]
+    order-service: [ v1, v2 ]
+    product-service: [ v1, v2 ]
+    payment-service: [ v1, v2 ]
+    user-service: [ v1, v2 ]
+  # 경로별 최소 role. /admin/**은 코드 기본값(RoutePolicyResolver)이라 여기 안 적어도 ADMIN으로
+  # 강제되지만, 명시적으로 남겨도 무해하다. 버전 세그먼트는 실제 요청 경로(/api/{version}/...)에
+  # 맞춰 Ant `*`로 흡수한다.
+  route-policies:
+    /api/*/sellers/me/**: SELLER

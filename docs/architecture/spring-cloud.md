@@ -173,7 +173,7 @@ sequenceDiagram
 
     C->>SEC: GET /api/v1/users/me\nAuthorization: Bearer {token}
 
-    alt 공개 경로 (/api/v1/auth/**, GET /api/v1/products/**, /actuator/** 등)
+    alt 공개 경로 (/api/v2/auth/**, GET /api/v1/products/**, /actuator/** 등)
         SEC-->>SVC: 인증 없이 통과 (X-User-* 헤더 없음)
     else 보호된 경로
         SEC->>SEC: JWT 서명·만료 검증 (RSA 공개키)
