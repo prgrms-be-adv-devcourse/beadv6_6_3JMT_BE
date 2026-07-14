@@ -8,6 +8,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-grpc-client'
     // 생성된 스텁이 io.grpc.protobuf.ProtoUtils를 직접 참조 — client starter에는 전이되지 않아 명시 필요
     implementation 'io.grpc:grpc-protobuf'
+    // gRPC 서버 (Spring Boot 4.1 네이티브 — order-service향 환불 조회 응답용)
+    implementation 'org.springframework.boot:spring-boot-starter-grpc-server'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
@@ -15,6 +17,16 @@ dependencies {
     testImplementation 'org.testcontainers:testcontainers-postgresql'
     testImplementation 'org.testcontainers:testcontainers-kafka'
     testImplementation 'io.grpc:grpc-inprocess'
+}
+
+// 루트 공유 gRPC 계약을 이 모듈 proto 소스에 더한다.
+// grpc/payment: 소유 payment(이 모듈이 서버). settlement-service/docs/architecture/grpc-contract-ownership.md 참고.
+sourceSets {
+    main {
+        proto {
+            srcDir "${rootProject.projectDir}/grpc/payment"
+        }
+    }
 }
 
 protobuf {
