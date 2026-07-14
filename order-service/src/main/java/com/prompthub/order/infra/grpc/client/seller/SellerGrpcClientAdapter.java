@@ -1,10 +1,10 @@
 package com.prompthub.order.infra.grpc.client.seller;
 
 import com.prompthub.order.application.client.SellerClient;
-import com.prompthub.order.grpc.seller.SellerBatchQueryRequest;
-import com.prompthub.order.grpc.seller.SellerBatchQueryResponse;
-import com.prompthub.order.grpc.seller.SellerInfo;
-import com.prompthub.order.grpc.seller.SellerQueryServiceGrpc;
+import com.prompthub.user.grpc.seller.GetSellersRequest;
+import com.prompthub.user.grpc.seller.GetSellersResponse;
+import com.prompthub.user.grpc.seller.SellerInfo;
+import com.prompthub.user.grpc.seller.SellerQueryServiceGrpc;
 import io.grpc.StatusRuntimeException;
 import java.util.List;
 import java.util.Map;
@@ -38,12 +38,12 @@ public class SellerGrpcClientAdapter implements SellerClient {
 			return Map.of();
 		}
 
-		SellerBatchQueryRequest request = SellerBatchQueryRequest.newBuilder()
+		GetSellersRequest request = GetSellersRequest.newBuilder()
 			.addAllSellerIds(sellerIds.stream().map(UUID::toString).toList())
 			.build();
 
 		try {
-			SellerBatchQueryResponse response = withDeadline().getSellers(request);
+			GetSellersResponse response = withDeadline().getSellers(request);
 			return response.getSellersList().stream()
 				.filter(seller -> !seller.getSellerName().isEmpty())
 				.collect(Collectors.toMap(

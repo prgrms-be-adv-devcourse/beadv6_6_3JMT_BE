@@ -1,6 +1,8 @@
 package com.prompthub.order.presentation;
 
-import com.prompthub.order.application.usecase.OrderUseCase;
+import com.prompthub.order.application.usecase.ConfirmDownloadUseCase;
+import com.prompthub.order.application.usecase.CreateOrderUseCase;
+import com.prompthub.order.application.usecase.OrderQueryUseCase;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.request.OrderPaymentValidationRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
@@ -45,7 +47,9 @@ import static com.prompthub.order.global.web.AuthHeaders.USER_ID;
 @SecurityRequirement(name = "gatewayHeaders")
 public class OrderController {
 
-	private final OrderUseCase orderUseCase;
+	private final CreateOrderUseCase createOrderUseCase;
+	private final ConfirmDownloadUseCase confirmDownloadUseCase;
+	private final OrderQueryUseCase orderQueryUseCase;
 
 	@PostMapping
 	@Operation(summary = "주문 생성", description = "인증된 구매자가 선택한 상품 목록으로 주문을 생성합니다.")
@@ -60,7 +64,7 @@ public class OrderController {
 		@RequestHeader(USER_ID) UUID buyerId,
 		@Valid @RequestBody CreateOrderRequest request
 	) {
-		return ApiResult.success(orderUseCase.createOrder(buyerId, request));
+		return ApiResult.success(createOrderUseCase.createOrder(buyerId, request));
 	}
 
 	@GetMapping("/{orderId}")
@@ -77,7 +81,7 @@ public class OrderController {
 		@Parameter(description = "주문 ID", example = "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111")
 		@PathVariable UUID orderId
 	) {
-		return ApiResult.success(orderUseCase.getOrderDetail(buyerId, orderId));
+		return ApiResult.success(orderQueryUseCase.getOrderDetail(buyerId, orderId));
 	}
 
 	@Operation(summary = "결제 승인 전 유효성 검사", description = "PG 승인 요청 전에 주문 소유자, 상태, 만료 시간, 결제 금액을 검증합니다.")
@@ -97,7 +101,7 @@ public class OrderController {
 		@PathVariable UUID orderId,
 		@RequestBody @Valid OrderPaymentValidationRequest request
 	) {
-		return ApiResult.success(orderUseCase.validatePaymentReady(
+		return ApiResult.success(orderQueryUseCase.validatePaymentReady(
 			buyerId,
 			orderId,
 			request.amount(),
@@ -121,7 +125,7 @@ public class OrderController {
 		@Parameter(description = "주문 상품 ID", example = "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa")
 		@PathVariable UUID orderProductId
 	) {
-		return ApiResult.success(orderUseCase.getOrderContent(buyerId, orderId, orderProductId));
+		return ApiResult.success(orderQueryUseCase.getOrderContent(buyerId, orderId, orderProductId));
 	}
 
 	@GetMapping
@@ -137,7 +141,7 @@ public class OrderController {
 		@ModelAttribute PageRequestParams request
 	) {
 		PageRequestParams resolvedRequest = request.resolve();
-		Page<OrderListResponse> orders = orderUseCase.getOrders(buyerId, resolvedRequest);
+		Page<OrderListResponse> orders = orderQueryUseCase.getOrders(buyerId, resolvedRequest);
 
 		return PageResponse.success(
 			orders.getContent(),
@@ -161,7 +165,7 @@ public class OrderController {
 		@ModelAttribute PageRequestParams request
 	) {
 		PageRequestParams resolvedRequest = request.resolve();
-		Page<OrderPaymentListResponse> orderPayments = orderUseCase.getOrderPayments(buyerId, resolvedRequest);
+		Page<OrderPaymentListResponse> orderPayments = orderQueryUseCase.getOrderPayments(buyerId, resolvedRequest);
 
 		return PageResponse.success(
 			orderPayments.getContent(),
@@ -188,6 +192,6 @@ public class OrderController {
 		@Parameter(description = "주문 상품 ID", example = "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa")
 		@PathVariable UUID orderProductId
 	) {
-		return ApiResult.success(orderUseCase.confirmDownload(buyerId, orderId, orderProductId));
+		return ApiResult.success(confirmDownloadUseCase.confirmDownload(buyerId, orderId, orderProductId));
 	}
 }

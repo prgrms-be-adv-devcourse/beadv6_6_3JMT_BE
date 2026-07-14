@@ -1,9 +1,9 @@
 package com.prompthub.paymentservice.infrastructure.external.grpc;
 
 import com.prompthub.exception.BusinessException;
-import com.prompthub.grpc.order.v1.GetOrderPaymentInfoRequest;
-import com.prompthub.grpc.order.v1.GetOrderPaymentInfoResponse;
-import com.prompthub.grpc.order.v1.OrderPaymentServiceGrpc;
+import com.prompthub.order.grpc.GetOrderRequest;
+import com.prompthub.order.grpc.GetOrderResponse;
+import com.prompthub.order.grpc.OrderQueryServiceGrpc;
 import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.gateway.external.OrderPaymentInfo;
 import io.grpc.ManagedChannel;
@@ -36,7 +36,7 @@ class OrderGrpcClientAdapterTest {
         }
     }
 
-    private OrderGrpcClientAdapter adapterWith(OrderPaymentServiceGrpc.OrderPaymentServiceImplBase serviceImpl) throws Exception {
+    private OrderGrpcClientAdapter adapterWith(OrderQueryServiceGrpc.OrderQueryServiceImplBase serviceImpl) throws Exception {
         String serverName = UUID.randomUUID().toString();
         server = InProcessServerBuilder.forName(serverName)
             .directExecutor()
@@ -46,7 +46,7 @@ class OrderGrpcClientAdapterTest {
         channel = InProcessChannelBuilder.forName(serverName)
             .directExecutor()
             .build();
-        return new OrderGrpcClientAdapter(OrderPaymentServiceGrpc.newBlockingStub(channel));
+        return new OrderGrpcClientAdapter(OrderQueryServiceGrpc.newBlockingStub(channel));
     }
 
     @Test
@@ -55,11 +55,11 @@ class OrderGrpcClientAdapterTest {
         UUID buyerId = UUID.randomUUID();
         OffsetDateTime createdAt = OffsetDateTime.of(2026, 7, 9, 10, 0, 0, 0, ZoneOffset.UTC);
 
-        OrderGrpcClientAdapter adapter = adapterWith(new OrderPaymentServiceGrpc.OrderPaymentServiceImplBase() {
+        OrderGrpcClientAdapter adapter = adapterWith(new OrderQueryServiceGrpc.OrderQueryServiceImplBase() {
             @Override
-            public void getOrderForPayment(GetOrderPaymentInfoRequest request,
-                    StreamObserver<GetOrderPaymentInfoResponse> responseObserver) {
-                responseObserver.onNext(GetOrderPaymentInfoResponse.newBuilder()
+            public void getOrder(GetOrderRequest request,
+                    StreamObserver<GetOrderResponse> responseObserver) {
+                responseObserver.onNext(GetOrderResponse.newBuilder()
                     .setOrderId(orderId.toString())
                     .setBuyerId(buyerId.toString())
                     .setTotalAmount(10_000)
@@ -82,11 +82,11 @@ class OrderGrpcClientAdapterTest {
         UUID orderId = UUID.randomUUID();
         UUID buyerId = UUID.randomUUID();
 
-        OrderGrpcClientAdapter adapter = adapterWith(new OrderPaymentServiceGrpc.OrderPaymentServiceImplBase() {
+        OrderGrpcClientAdapter adapter = adapterWith(new OrderQueryServiceGrpc.OrderQueryServiceImplBase() {
             @Override
-            public void getOrderForPayment(GetOrderPaymentInfoRequest request,
-                    StreamObserver<GetOrderPaymentInfoResponse> responseObserver) {
-                responseObserver.onNext(GetOrderPaymentInfoResponse.newBuilder()
+            public void getOrder(GetOrderRequest request,
+                    StreamObserver<GetOrderResponse> responseObserver) {
+                responseObserver.onNext(GetOrderResponse.newBuilder()
                     .setOrderId(orderId.toString())
                     .setBuyerId(buyerId.toString())
                     .setTotalAmount(5_000)
@@ -105,10 +105,10 @@ class OrderGrpcClientAdapterTest {
     void 주문_없음_응답_시_ORDER_NOT_FOUND_예외() throws Exception {
         UUID orderId = UUID.randomUUID();
 
-        OrderGrpcClientAdapter adapter = adapterWith(new OrderPaymentServiceGrpc.OrderPaymentServiceImplBase() {
+        OrderGrpcClientAdapter adapter = adapterWith(new OrderQueryServiceGrpc.OrderQueryServiceImplBase() {
             @Override
-            public void getOrderForPayment(GetOrderPaymentInfoRequest request,
-                    StreamObserver<GetOrderPaymentInfoResponse> responseObserver) {
+            public void getOrder(GetOrderRequest request,
+                    StreamObserver<GetOrderResponse> responseObserver) {
                 responseObserver.onError(Status.NOT_FOUND.withDescription("주문 없음").asRuntimeException());
             }
         });
@@ -123,10 +123,10 @@ class OrderGrpcClientAdapterTest {
     void 그외_gRPC_오류_시_ORDER_INFO_UNAVAILABLE_예외() throws Exception {
         UUID orderId = UUID.randomUUID();
 
-        OrderGrpcClientAdapter adapter = adapterWith(new OrderPaymentServiceGrpc.OrderPaymentServiceImplBase() {
+        OrderGrpcClientAdapter adapter = adapterWith(new OrderQueryServiceGrpc.OrderQueryServiceImplBase() {
             @Override
-            public void getOrderForPayment(GetOrderPaymentInfoRequest request,
-                    StreamObserver<GetOrderPaymentInfoResponse> responseObserver) {
+            public void getOrder(GetOrderRequest request,
+                    StreamObserver<GetOrderResponse> responseObserver) {
                 responseObserver.onError(Status.UNAVAILABLE.withDescription("주문 서비스 다운").asRuntimeException());
             }
         });
