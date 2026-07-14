@@ -8,8 +8,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
-import java.util.UUID;
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -30,6 +30,11 @@ public class OrderPaymentAdapter implements OrderPaymentRepository {
 	@Override
 	public boolean existsByPaymentId(UUID paymentId) {
 		return orderPaymentPersistence.existsByPaymentId(paymentId);
+	}
+
+	@Override
+	public Optional<OrderPayment> findByOrderIdAndPaymentId(UUID orderId, UUID paymentId) {
+		return orderPaymentPersistence.findByOrderIdAndPaymentId(orderId, paymentId);
 	}
 
 	@Override

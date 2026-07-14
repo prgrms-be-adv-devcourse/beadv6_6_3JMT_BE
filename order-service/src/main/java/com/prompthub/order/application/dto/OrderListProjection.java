@@ -1,7 +1,6 @@
 package com.prompthub.order.application.dto;
 
 import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.domain.enums.OrderProductStatus;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -11,7 +10,7 @@ public record OrderListProjection(
 	UUID orderProductId,
 	UUID productId,
 	OrderStatus orderStatus,
-	OrderProductStatus orderProductStatus,
+	OrderStatus orderProductStatus,
 	boolean downloaded,
 	String productType,
 	String title,

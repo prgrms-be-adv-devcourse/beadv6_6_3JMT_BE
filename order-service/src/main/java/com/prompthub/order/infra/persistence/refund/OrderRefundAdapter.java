@@ -5,35 +5,34 @@ import com.prompthub.order.domain.repository.OrderRefundRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.LocalDateTime;
 
 @Component
 @RequiredArgsConstructor
 public class OrderRefundAdapter implements OrderRefundRepository {
 
-	private final OrderRefundPersistence persistence;
+    private final OrderRefundPersistence orderRefundPersistence;
 
-	@Override
-	public OrderRefund save(OrderRefund refund) {
-		return persistence.save(refund);
-	}
+    @Override
+    public OrderRefund save(OrderRefund refund) {
+        return orderRefundPersistence.save(refund);
+    }
 
-	@Override
-	public Optional<OrderRefund> findById(UUID refundId) {
-		return persistence.findByIdWithProducts(refundId);
-	}
+    @Override
+    public Optional<OrderRefund> findByIdForUpdate(UUID refundRequestId) {
+        return orderRefundPersistence.findByIdForUpdate(refundRequestId);
+    }
 
-	@Override
-	public Optional<OrderRefund> findByIdForUpdate(UUID refundId) {
-		return persistence.findByIdForUpdate(refundId)
-			.flatMap(ignored -> persistence.findByIdWithProducts(refundId));
-	}
+    @Override
+    public List<OrderRefund> findDueRefunds(LocalDateTime now, int batchSize) {
+        return orderRefundPersistence.findDueRefunds(now, batchSize);
+    }
 
-	@Override
-	public List<OrderRefund> findDueRefunds(LocalDateTime now, int batchSize) {
-		return persistence.findDueRefunds(now, batchSize);
-	}
+    @Override
+    public List<OrderRefund> findAllByOrderIdWithProducts(UUID orderId) {
+        return orderRefundPersistence.findAllByOrderIdWithProducts(orderId);
+    }
 }

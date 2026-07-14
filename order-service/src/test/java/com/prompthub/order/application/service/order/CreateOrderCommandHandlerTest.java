@@ -3,7 +3,6 @@ package com.prompthub.order.application.service.order;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.application.event.order.OrderCreatedEvent;
-import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
@@ -129,7 +128,7 @@ class CreateOrderCommandHandlerTest {
 
             assertThat(response.products())
                 .extracting(OrderProductsResponse::orderStatus)
-                .containsOnly(OrderProductStatus.PENDING);
+				.containsOnly(OrderStatus.PENDING);
 
             then(productClient).should().getOrderSnapshots(request.productIds());
             then(orderNumberGenerator).should().generate();
@@ -206,7 +205,7 @@ class CreateOrderCommandHandlerTest {
 
             assertThat(savedOrder.getOrderProducts())
                 .extracting(OrderProduct::getOrderProductStatus)
-                .containsOnly(OrderProductStatus.PENDING);
+                .containsOnly(OrderStatus.PENDING);
 
             assertThat(savedOrder.getOrderProducts())
                 .allSatisfy(orderProduct ->

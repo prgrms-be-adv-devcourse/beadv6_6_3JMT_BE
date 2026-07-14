@@ -7,38 +7,40 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.LocalDateTime;
 
 public interface OrderRefundPersistence extends JpaRepository<OrderRefund, UUID> {
 
-	@Query("""
-		select distinct r
-		from OrderRefund r
-		left join fetch r.refundProducts rp
-		left join fetch rp.orderProduct
-		where r.id = :refundId
-		""")
-	Optional<OrderRefund> findByIdWithProducts(@Param("refundId") UUID refundId);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select refund from OrderRefund refund where refund.id = :refundRequestId")
+    Optional<OrderRefund> findByIdForUpdate(
+        @Param("refundRequestId") UUID refundRequestId
+    );
 
-	@Lock(LockModeType.PESSIMISTIC_WRITE)
-	@Query("select r from OrderRefund r where r.id = :refundId")
-	Optional<OrderRefund> findByIdForUpdate(@Param("refundId") UUID refundId);
+    @Query(value = """
+        select *
+        from order_refund
+        where status in ('REQUESTED', 'PROCESSING', 'UNKNOWN')
+          and next_check_at <= :now
+          and manual_review_required = false
+        order by next_check_at, id
+        limit :batchSize
+        for update skip locked
+        """, nativeQuery = true)
+    List<OrderRefund> findDueRefunds(
+        @Param("now") LocalDateTime now,
+        @Param("batchSize") int batchSize
+    );
 
-	@Query(value = """
-		select *
-		from order_refund
-		where status = 'REQUESTED'
-		  and next_check_at <= :now
-		  and manual_review_required = false
-		order by next_check_at asc
-		limit :batchSize
-		for update skip locked
-		""", nativeQuery = true)
-	List<OrderRefund> findDueRefunds(
-		@Param("now") LocalDateTime now,
-		@Param("batchSize") int batchSize
-	);
+    @Query("""
+        select distinct refund
+        from OrderRefund refund
+        left join fetch refund.products
+        where refund.orderId = :orderId
+        order by refund.requestedAt desc, refund.id desc
+        """)
+    List<OrderRefund> findAllByOrderIdWithProducts(@Param("orderId") UUID orderId);
 }

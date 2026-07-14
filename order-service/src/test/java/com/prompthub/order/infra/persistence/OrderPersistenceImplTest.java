@@ -19,14 +19,18 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_AMOUNT_1;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_ID_1;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_ID_2;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TITLE_1;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TYPE_PROMPT;
 import static com.prompthub.order.fixture.OrderFixture.SELLER_ID_1;
+import static com.prompthub.order.fixture.OrderFixture.createPaidOrderWithProducts;
+import static com.prompthub.order.fixture.OrderFixture.REFUNDED_AT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
@@ -62,6 +66,25 @@ class OrderPersistenceImplTest {
 		assertThat(result.getContent())
 			.extracting(OrderListProjection::orderId)
 			.containsExactly(newOrder.getId(), oldOrder.getId());
+	}
+
+	@Test
+	@DisplayName("부분 환불 주문에서도 PAID 상품만 구매한 상품으로 판정한다")
+	void existsPaidOrderProduct_partiallyRefundedOrder_includesOnlyPaidProduct() {
+		Order order = createPaidOrderWithProducts();
+		OrderProduct refundedProduct = order.getOrderProducts().getFirst();
+		order.requestRefundProducts(Set.of(refundedProduct.getId()));
+		order.completeRefundProducts(Set.of(refundedProduct.getId()), REFUNDED_AT);
+
+		entityManager.persist(order);
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(orderPersistence.existsPaidOrderProductByBuyerIdAndProductId(BUYER_ID, PRODUCT_ID_2))
+			.isTrue();
+		assertThat(orderPersistence.existsPaidOrderProductByBuyerIdAndProductId(BUYER_ID, PRODUCT_ID_1))
+			.isFalse();
+		assertThat(refundedProduct.getOrderProductStatus()).isEqualTo(OrderStatus.REFUNDED);
 	}
 
 	private Order createPaidOrder(String orderNumber, LocalDateTime createdAt) {

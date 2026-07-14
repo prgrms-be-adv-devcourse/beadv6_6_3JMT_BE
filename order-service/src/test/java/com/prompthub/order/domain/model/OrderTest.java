@@ -2,14 +2,17 @@ package com.prompthub.order.domain.model;
 
 import com.prompthub.order.config.TestJpaConfig;
 import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.global.exception.OrderException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
 
+import java.util.Set;
+import java.util.UUID;
+
 import static com.prompthub.order.fixture.OrderFixture.*;
+import static com.prompthub.order.global.exception.ErrorCode.ORDER_REFUND_RELATION_MISMATCH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -83,7 +86,7 @@ class OrderTest {
 			assertThat(order.getPaidAt()).isNotNull();
 			assertThat(order.getUpdatedAt()).isNotNull();
 
-			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderProductStatus.PAID);
+			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderStatus.PAID);
 			assertThat(orderProduct.isPaid()).isTrue();
 		}
 
@@ -119,7 +122,7 @@ class OrderTest {
 			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.FAILED);
 			assertThat(order.getUpdatedAt()).isNotNull();
 
-			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderProductStatus.FAILED);
+			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderStatus.FAILED);
 		}
 
 		@Test
@@ -155,7 +158,7 @@ class OrderTest {
 			assertThat(order.getCanceledAt()).isNotNull();
 			assertThat(order.getUpdatedAt()).isNotNull();
 
-			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderProductStatus.CANCELED);
+			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderStatus.CANCELED);
 			assertThat(orderProduct.getCanceledAt()).isNotNull();
 		}
 
@@ -192,7 +195,7 @@ class OrderTest {
 			assertThat(order.getCanceledAt()).isNotNull();
 			assertThat(order.getUpdatedAt()).isNotNull();
 
-			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderProductStatus.CANCELED);
+			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderStatus.CANCELED);
 			assertThat(orderProduct.getCanceledAt()).isNotNull();
 		}
 
@@ -227,7 +230,7 @@ class OrderTest {
 			// then
 			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
 			assertThat(order.getCanceledAt()).isEqualTo(CANCELED_AT);
-			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderProductStatus.CANCELED);
+			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderStatus.CANCELED);
 			assertThat(orderProduct.getCanceledAt()).isEqualTo(CANCELED_AT);
 		}
 
@@ -273,42 +276,202 @@ class OrderTest {
 	class Refund {
 
 		@Test
-		@DisplayName("일부 상품만 환불 완료되면 주문은 부분 환불 상태가 된다")
-		void recalculateRefundStatus_someProductsRefunded_partiallyRefunded() {
-			Order order = createPendingOrder();
-			OrderProduct refundedProduct = createOrderProduct1();
-			OrderProduct paidProduct = createOrderProduct2();
-			order.addOrderProduct(refundedProduct);
-			order.addOrderProduct(paidProduct);
-			order.markPaid(PAID_AT);
-			refundedProduct.requestRefund();
-			refundedProduct.completeRefund(REFUNDED_AT);
+		@DisplayName("주문상품 일부 환불 완료 후 PARTIALLY_REFUNDED, 전부 완료 후 REFUNDED가 된다")
+		void completeRefundProducts_inBatches_recalculatesOrderStatus() {
+			// given
+			Order order = createPaidOrderWithProducts();
+			OrderProduct first = order.getOrderProducts().get(0);
+			OrderProduct second = order.getOrderProducts().get(1);
 
-			order.recalculateRefundStatus();
+			// when
+			order.requestRefundProducts(Set.of(first.getId()));
+			order.completeRefundProducts(Set.of(first.getId()), REFUNDED_AT);
 
+			// then
 			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PARTIALLY_REFUNDED);
 			assertThat(order.getRefundedAt()).isNull();
-			assertThat(paidProduct.getOrderProductStatus()).isEqualTo(OrderProductStatus.PAID);
+			assertThat(first.getOrderProductStatus()).isEqualTo(OrderStatus.REFUNDED);
+			assertThat(second.getOrderProductStatus()).isEqualTo(OrderStatus.PAID);
+
+			// when
+			order.requestRefundProducts(Set.of(second.getId()));
+			order.completeRefundProducts(Set.of(second.getId()), REFUNDED_AT.plusMinutes(1));
+
+			// then
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.REFUNDED);
+			assertThat(order.getRefundedAt()).isEqualTo(REFUNDED_AT.plusMinutes(1));
 		}
 
 		@Test
-		@DisplayName("모든 상품이 환불 완료되면 주문은 환불 완료 상태와 시각을 기록한다")
-		void recalculateRefundStatus_allProductsRefunded_refunded() {
-			Order order = createPendingOrder();
-			OrderProduct first = createOrderProduct1();
-			OrderProduct second = createOrderProduct2();
-			order.addOrderProduct(first);
-			order.addOrderProduct(second);
-			order.markPaid(PAID_AT);
-			first.requestRefund();
-			first.completeRefund(REFUNDED_AT.minusMinutes(1));
-			second.requestRefund();
-			second.completeRefund(REFUNDED_AT);
+		@DisplayName("환불 요청만 된 주문상품은 주문 환불 상태 재계산에서 완료로 세지 않는다")
+		void restoreRefundProducts_requestedProduct_doesNotCountAsCompleted() {
+			// given
+			Order order = createPaidOrderWithProducts();
+			OrderProduct first = order.getOrderProducts().get(0);
+			OrderProduct second = order.getOrderProducts().get(1);
+			order.requestRefundProducts(Set.of(first.getId()));
+			order.completeRefundProducts(Set.of(first.getId()), REFUNDED_AT);
+			order.requestRefundProducts(Set.of(second.getId()));
 
-			order.recalculateRefundStatus();
+			// when
+			order.restoreRefundProducts(Set.of(second.getId()));
 
-			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.REFUNDED);
-			assertThat(order.getRefundedAt()).isEqualTo(REFUNDED_AT);
+			// then
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PARTIALLY_REFUNDED);
+			assertThat(order.getRefundedAt()).isNull();
+			assertThat(second.getOrderProductStatus()).isEqualTo(OrderStatus.PAID);
+		}
+
+		@Test
+		@DisplayName("요청한 주문상품 ID가 주문과 일치하지 않으면 O017 예외가 발생한다")
+		void requestRefundProducts_unknownProduct_throwsRelationMismatch() {
+			// given
+			Order order = createPaidOrderWithProducts();
+			UUID unknownId = UUID.fromString("00000000-0000-0000-0000-000000000699");
+
+			// when & then
+			assertThatThrownBy(() -> order.requestRefundProducts(Set.of(unknownId)))
+				.isInstanceOf(OrderException.class)
+				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
+					.isEqualTo(ORDER_REFUND_RELATION_MISMATCH));
+		}
+
+		@Test
+		@DisplayName("빈 주문상품 ID 집합은 모든 배치 환불 경로에서 O017 예외가 발생한다")
+		void refundProducts_emptyIds_throwsRelationMismatch() {
+			// given
+			Order order = createPaidOrderWithProducts();
+
+			// when & then
+			assertThatThrownBy(() -> order.requestRefundProducts(Set.of()))
+				.isInstanceOf(OrderException.class)
+				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
+					.isEqualTo(ORDER_REFUND_RELATION_MISMATCH));
+			assertThatThrownBy(() -> order.completeRefundProducts(Set.of(), null))
+				.isInstanceOf(OrderException.class)
+				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
+					.isEqualTo(ORDER_REFUND_RELATION_MISMATCH));
+			assertThatThrownBy(() -> order.restoreRefundProducts(Set.of()))
+				.isInstanceOf(OrderException.class)
+				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
+					.isEqualTo(ORDER_REFUND_RELATION_MISMATCH));
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+			assertThat(order.getOrderProducts())
+				.allMatch(product -> product.getOrderProductStatus() == OrderStatus.PAID);
+		}
+
+		@Test
+		@DisplayName("배치 환불 요청에 잘못된 상품이 있으면 앞 상품도 변경하지 않는다")
+		void requestRefundProducts_laterProductInvalid_keepsAllProducts() {
+			// given
+			Order order = createPaidOrderWithProducts();
+			OrderProduct first = order.getOrderProducts().get(0);
+			OrderProduct second = order.getOrderProducts().get(1);
+			second.markDownloaded();
+
+			// when & then
+			assertThatThrownBy(() -> order.requestRefundProducts(Set.of(first.getId(), second.getId())))
+				.isInstanceOf(OrderException.class);
+			assertThat(first.getOrderProductStatus()).isEqualTo(OrderStatus.PAID);
+			assertThat(second.getOrderProductStatus()).isEqualTo(OrderStatus.PAID);
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+		}
+
+		@Test
+		@DisplayName("배치 환불 완료에 잘못된 상품이 있으면 앞 상품도 변경하지 않는다")
+		void completeRefundProducts_laterProductInvalid_keepsAllProducts() {
+			// given
+			Order order = createPaidOrderWithProducts();
+			OrderProduct first = order.getOrderProducts().get(0);
+			OrderProduct second = order.getOrderProducts().get(1);
+			order.requestRefundProducts(Set.of(first.getId(), second.getId()));
+			second.restorePaidAfterRefundFailure();
+
+			// when & then
+			assertThatThrownBy(() -> order.completeRefundProducts(
+				Set.of(first.getId(), second.getId()), REFUNDED_AT
+			)).isInstanceOf(OrderException.class);
+			assertThat(first.getOrderProductStatus()).isEqualTo(OrderStatus.REFUND_REQUESTED);
+			assertThat(second.getOrderProductStatus()).isEqualTo(OrderStatus.PAID);
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+		}
+
+		@Test
+		@DisplayName("배치 환불 실패 복구에 잘못된 상품이 있으면 앞 상품도 변경하지 않는다")
+		void restoreRefundProducts_laterProductInvalid_keepsAllProducts() {
+			// given
+			Order order = createPaidOrderWithProducts();
+			OrderProduct first = order.getOrderProducts().get(0);
+			OrderProduct second = order.getOrderProducts().get(1);
+			order.requestRefundProducts(Set.of(first.getId(), second.getId()));
+			order.completeRefundProducts(Set.of(second.getId()), REFUNDED_AT);
+
+			// when & then
+			assertThatThrownBy(() -> order.restoreRefundProducts(Set.of(first.getId(), second.getId())))
+				.isInstanceOf(OrderException.class);
+			assertThat(first.getOrderProductStatus()).isEqualTo(OrderStatus.REFUND_REQUESTED);
+			assertThat(second.getOrderProductStatus()).isEqualTo(OrderStatus.REFUNDED);
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PARTIALLY_REFUNDED);
+		}
+
+		@Test
+		@DisplayName("배치 환불 완료 시각이 null이면 어떤 상품이나 주문도 변경하지 않는다")
+		void completeRefundProducts_nullRefundedAt_keepsAllState() {
+			// given
+			Order order = createPaidOrderWithProducts();
+			OrderProduct first = order.getOrderProducts().get(0);
+			OrderProduct second = order.getOrderProducts().get(1);
+			order.requestRefundProducts(Set.of(first.getId(), second.getId()));
+
+			// when & then
+			assertThatThrownBy(() -> order.completeRefundProducts(Set.of(first.getId(), second.getId()), null))
+				.isInstanceOf(OrderException.class)
+				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
+					.isEqualTo(com.prompthub.order.global.exception.ErrorCode.INVALID_INPUT_VALUE));
+			assertThat(first.getOrderProductStatus()).isEqualTo(OrderStatus.REFUND_REQUESTED);
+			assertThat(second.getOrderProductStatus()).isEqualTo(OrderStatus.REFUND_REQUESTED);
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+			assertThat(order.getRefundedAt()).isNull();
+		}
+
+		@Test
+		@DisplayName("레거시 환불 완료 시각이 null이면 주문과 상품을 변경하지 않는다")
+		void refund_nullRefundedAt_keepsAllState() {
+			// given
+			Order order = createPaidOrderWithProducts();
+
+			// when & then
+			assertThatThrownBy(() -> order.refund(null))
+				.isInstanceOf(OrderException.class)
+				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
+					.isEqualTo(com.prompthub.order.global.exception.ErrorCode.INVALID_INPUT_VALUE));
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+			assertThat(order.getRefundedAt()).isNull();
+			assertThat(order.getOrderProducts())
+				.allMatch(product -> product.getOrderProductStatus() == OrderStatus.PAID);
+		}
+
+		@Test
+		@DisplayName("부분 환불 주문은 레거시 전체 환불을 시작하지 않는다")
+		void refund_partiallyRefundedOrder_keepsAllState() {
+			// given
+			Order order = createPaidOrderWithProducts();
+			OrderProduct first = order.getOrderProducts().get(0);
+			OrderProduct second = order.getOrderProducts().get(1);
+			order.requestRefundProducts(Set.of(first.getId()));
+			order.completeRefundProducts(Set.of(first.getId()), REFUNDED_AT);
+
+			// when & then
+			assertThatThrownBy(() -> order.refund(REFUNDED_AT.plusMinutes(1)))
+				.isInstanceOf(OrderException.class)
+				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
+					.isEqualTo(com.prompthub.order.global.exception.ErrorCode.INVALID_ORDER_STATUS_TRANSITION));
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PARTIALLY_REFUNDED);
+			assertThat(order.getRefundedAt()).isNull();
+			assertThat(first.getOrderProductStatus()).isEqualTo(OrderStatus.REFUNDED);
+			assertThat(first.getRefundedAt()).isEqualTo(REFUNDED_AT);
+			assertThat(second.getOrderProductStatus()).isEqualTo(OrderStatus.PAID);
+			assertThat(second.getRefundedAt()).isNull();
 		}
 
 		@Test
@@ -328,7 +491,7 @@ class OrderTest {
 			assertThat(order.getRefundedAt()).isNotNull();
 			assertThat(order.getUpdatedAt()).isNotNull();
 
-			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderProductStatus.REFUNDED);
+			assertThat(orderProduct.getOrderProductStatus()).isEqualTo(OrderStatus.REFUNDED);
 			assertThat(orderProduct.getRefundedAt()).isNotNull();
 		}
 

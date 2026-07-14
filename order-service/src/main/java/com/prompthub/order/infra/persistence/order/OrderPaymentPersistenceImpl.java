@@ -58,9 +58,9 @@ public class OrderPaymentPersistenceImpl implements OrderPaymentPersistenceCusto
 				title += " 외 " + (products.size() - 1) + "건";
 			}
 
-            boolean isRefundable = (o.getOrderStatus() == OrderStatus.PAID
-                || o.getOrderStatus() == OrderStatus.PARTIALLY_REFUNDED)
-                && products.stream().anyMatch(OrderProduct::isRefundable);
+			boolean isRefundable = (o.getOrderStatus() == OrderStatus.PAID
+				|| o.getOrderStatus() == OrderStatus.PARTIALLY_REFUNDED)
+				&& products.stream().anyMatch(OrderProduct::isRefundable);
 			String productType = products.isEmpty() ? "" : products.get(0).getProductType();
 
 			return new OrderPaymentListProjection(

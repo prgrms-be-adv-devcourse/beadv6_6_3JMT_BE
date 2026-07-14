@@ -100,7 +100,7 @@ public class OrderQueryService implements OrderQueryUseCase {
 			.findFirst()
 			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED));
 
-		if (!orderProduct.isPaid()) {
+		if (!orderProduct.canAccessContent()) {
 			throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
 		}
 

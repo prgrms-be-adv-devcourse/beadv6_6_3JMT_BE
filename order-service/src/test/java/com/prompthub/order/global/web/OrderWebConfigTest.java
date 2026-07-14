@@ -4,6 +4,7 @@ import com.prompthub.order.application.usecase.AdminOrderUseCase;
 import com.prompthub.order.application.usecase.CartUseCase;
 import com.prompthub.order.application.usecase.ConfirmDownloadUseCase;
 import com.prompthub.order.application.usecase.CreateOrderUseCase;
+import com.prompthub.order.application.usecase.CreateOrderRefundUseCase;
 import com.prompthub.order.application.usecase.OrderQueryUseCase;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.presentation.dto.response.CartResponse;
@@ -44,6 +45,9 @@ class OrderWebConfigTest {
 
 	@MockitoBean
 	private CreateOrderUseCase createOrderUseCase;
+
+	@MockitoBean
+	private CreateOrderRefundUseCase createOrderRefundUseCase;
 
 	@MockitoBean
 	private ConfirmDownloadUseCase confirmDownloadUseCase;
@@ -100,6 +104,20 @@ class OrderWebConfigTest {
 			.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
 
 		then(orderQueryUseCase).shouldHaveNoInteractions();
+	}
+
+	@Test
+	@DisplayName("v2 주문 API 호출 시 구매자 인증 헤더가 없으면 401을 반환한다")
+	void orderV2ApiMissingBuyerHeadersUnauthorized() throws Exception {
+		mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(
+				"/api/v2/orders/{orderId}/refund", UUID.randomUUID())
+				.contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+				.content("{}"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.success").value(false))
+			.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
+
+		then(createOrderRefundUseCase).shouldHaveNoInteractions();
 	}
 
 	@Test

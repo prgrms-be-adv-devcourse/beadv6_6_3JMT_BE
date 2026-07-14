@@ -94,6 +94,20 @@ class AdminOrderServiceTest {
 		}
 
 		@Test
+		@DisplayName("부분 환불 주문 상태를 관리자 조회 조건으로 전달한다")
+		void getAdminOrders_partiallyRefundedStatus_success() {
+			AdminOrderSearchCondition condition = new AdminOrderSearchCondition("PARTIALLY_REFUNDED", 1, 20);
+			given(adminOrderQueryService.searchAdminOrders(any(), any()))
+				.willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+			adminOrderService.getAdminOrders(condition.resolve());
+
+			ArgumentCaptor<AdminOrderSearchCondition> conditionCaptor = ArgumentCaptor.forClass(AdminOrderSearchCondition.class);
+			then(adminOrderQueryService).should().searchAdminOrders(conditionCaptor.capture(), any());
+			assertThat(conditionCaptor.getValue().resolvedOrderStatus()).isEqualTo(OrderStatus.PARTIALLY_REFUNDED);
+		}
+
+		@Test
 		@DisplayName("판매자 조회 결과가 없으면 알 수 없음으로 응답한다")
 		void getAdminOrders_missingSellerNickname_usesUnknownFallback() {
 			AdminOrderSearchCondition condition = new AdminOrderSearchCondition("ALL", 1, 20);

@@ -3,7 +3,6 @@ package com.prompthub.order.application.service.order;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
@@ -15,7 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.UUID;
+import java.util.Set;
 
 import static com.prompthub.order.fixture.OrderFixture.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,35 +25,31 @@ class OrderPolicyServiceTest {
 	private final OrderPolicyService orderPolicyService = new OrderPolicyService();
 
 	@Nested
-	@DisplayName("고유 상품 ID 목록 검증")
+	@DisplayName("환불 상품 ID 검증")
 	class ValidateUniqueProductIds {
 
 		@Test
-		void validProductIds_success() {
-			orderPolicyService.validateUniqueProductIds(List.of(PRODUCT_ID_1, PRODUCT_ID_2));
+		void validIds_returnsImmutableSet() {
+			Set<java.util.UUID> result = orderPolicyService.validateUniqueProductIds(List.of(PRODUCT_ID_1, PRODUCT_ID_2));
+
+			assertThat(result).containsExactlyInAnyOrder(PRODUCT_ID_1, PRODUCT_ID_2);
+			assertThatThrownBy(() -> result.add(UNKNOWN_PRODUCT_ID))
+				.isInstanceOf(UnsupportedOperationException.class);
 		}
 
 		@Test
-		void nullProductIds_throwsException() {
-			assertThatThrownBy(() -> orderPolicyService.validateUniqueProductIds(null))
-				.isInstanceOf(OrderException.class)
-				.hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+		void nullEmptyNullElementAndDuplicate_throwInvalidInput() {
+			assertInvalidProductIds(null);
+			assertInvalidProductIds(List.of());
+			assertInvalidProductIds(java.util.Arrays.asList(PRODUCT_ID_1, null));
+			assertInvalidProductIds(List.of(PRODUCT_ID_1, PRODUCT_ID_1));
 		}
 
-		@Test
-		void emptyProductIds_throwsException() {
-			assertThatThrownBy(() -> orderPolicyService.validateUniqueProductIds(List.of()))
+		private void assertInvalidProductIds(List<java.util.UUID> productIds) {
+			assertThatThrownBy(() -> orderPolicyService.validateUniqueProductIds(productIds))
 				.isInstanceOf(OrderException.class)
-				.hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-		}
-
-		@Test
-		void duplicatedProductIds_throwsException() {
-			UUID duplicated = UUID.randomUUID();
-
-			assertThatThrownBy(() -> orderPolicyService.validateUniqueProductIds(List.of(duplicated, duplicated)))
-				.isInstanceOf(OrderException.class)
-				.hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
+					.isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
 		}
 	}
 
@@ -207,29 +202,19 @@ class OrderPolicyServiceTest {
 		@Test
 		@DisplayName("주문과 주문 상품이 PAID이고 다운로드하지 않았으면 환불 가능하다")
 		void isRefundable_paidAndNotDownloaded_returnsTrue() {
-			assertThat(orderPolicyService.isRefundable(OrderStatus.PAID, OrderProductStatus.PAID, false)).isTrue();
+			assertThat(orderPolicyService.isRefundable(OrderStatus.PAID, OrderStatus.PAID, false)).isTrue();
 		}
 
 		@Test
 		@DisplayName("다운로드한 상품은 환불 가능하지 않다")
 		void isRefundable_downloaded_returnsFalse() {
-			assertThat(orderPolicyService.isRefundable(OrderStatus.PAID, OrderProductStatus.PAID, true)).isFalse();
+			assertThat(orderPolicyService.isRefundable(OrderStatus.PAID, OrderStatus.PAID, true)).isFalse();
 		}
 
 		@Test
 		@DisplayName("PAID가 아닌 주문은 환불 가능하지 않다")
 		void isRefundable_notPaidOrder_returnsFalse() {
-			assertThat(orderPolicyService.isRefundable(OrderStatus.CANCELED, OrderProductStatus.PAID, false)).isFalse();
-		}
-
-		@Test
-		@DisplayName("부분 환불 주문의 남은 PAID 상품은 환불 가능하다")
-		void isRefundable_partiallyRefundedOrderPaidProduct_returnsTrue() {
-			assertThat(orderPolicyService.isRefundable(
-				OrderStatus.PARTIALLY_REFUNDED,
-				OrderProductStatus.PAID,
-				false
-			)).isTrue();
+			assertThat(orderPolicyService.isRefundable(OrderStatus.CANCELED, OrderStatus.PAID, false)).isFalse();
 		}
 	}
 

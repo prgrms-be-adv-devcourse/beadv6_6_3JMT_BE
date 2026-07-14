@@ -6,7 +6,7 @@ import com.prompthub.order.infra.messaging.kafka.event.OrderEventType;
 import com.prompthub.order.infra.messaging.kafka.event.OrderPaidPayload;
 import com.prompthub.order.infra.messaging.kafka.event.OrderRefundPayload;
 import com.prompthub.order.infra.messaging.kafka.event.RefundRequestedPayload;
-import com.prompthub.order.infra.messaging.kafka.event.OrderProductRefundedPayload;
+import com.prompthub.order.domain.model.OrderRefund;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -17,6 +17,16 @@ public class OrderEventMessageFactory {
 	private static final String ORDER_AGGREGATE_TYPE = "ORDER";
 	private static final String REFUND_REQUEST_AGGREGATE_TYPE = "REFUND_REQUEST";
 
+	public EventMessage<RefundRequestedPayload> createRefundRequestedMessage(OrderRefund refund) {
+		return EventMessage.create(
+			OrderEventType.REFUND_REQUESTED,
+			refund.getRequestedAt(),
+			"ORDER_REFUND",
+			refund.getId(),
+			RefundRequestedPayload.from(refund)
+		);
+	}
+
     public EventMessage<RefundRequestedPayload> createRefundRequestedMessage(
             UUID refundRequestId,
             RefundRequestedPayload payload
@@ -26,19 +36,6 @@ public class OrderEventMessageFactory {
                 payload.requestedAt(),
                 REFUND_REQUEST_AGGREGATE_TYPE,
                 refundRequestId,
-                payload
-        );
-    }
-
-    public EventMessage<OrderProductRefundedPayload> createOrderProductRefundedMessage(
-            UUID orderId,
-            OrderProductRefundedPayload payload
-    ) {
-        return EventMessage.create(
-                OrderEventType.ORDER_REFUNDED,
-                payload.refundedAt(),
-                ORDER_AGGREGATE_TYPE,
-                orderId,
                 payload
         );
     }

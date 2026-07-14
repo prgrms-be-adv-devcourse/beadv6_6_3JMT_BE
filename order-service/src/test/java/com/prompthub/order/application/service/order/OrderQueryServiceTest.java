@@ -5,7 +5,6 @@ import com.prompthub.order.application.dto.OrderForPaymentResult;
 import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductContent;
-import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -37,6 +36,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.*;
@@ -333,7 +333,7 @@ class OrderQueryServiceTest {
             // given
             Order order = createPaidOrderWithProducts();
             OrderProduct orderProduct = order.getOrderProducts().getFirst();
-            ReflectionTestUtils.setField(orderProduct, "orderStatus", OrderProductStatus.REFUNDED);
+            ReflectionTestUtils.setField(orderProduct, "orderProductStatus", OrderStatus.REFUNDED);
 
             given(orderRepository.findByIdWithOrderProducts(order.getId()))
                 .willReturn(Optional.of(order));
@@ -349,24 +349,51 @@ class OrderQueryServiceTest {
             then(productClient).shouldHaveNoInteractions();
         }
 
-        @Test
-        @DisplayName("부분 환불 주문의 남은 결제 상품 콘텐츠는 조회할 수 있다")
-        void getOrderContent_partiallyRefundedOrderPaidProduct_success() {
-            Order order = createPaidOrderWithProducts();
-            OrderProduct refundedProduct = order.getOrderProducts().getFirst();
-            OrderProduct paidProduct = order.getOrderProducts().get(1);
-            ReflectionTestUtils.setField(refundedProduct, "orderStatus", OrderProductStatus.REFUNDED);
-            ReflectionTestUtils.setField(order, "orderStatus", OrderStatus.PARTIALLY_REFUNDED);
-            given(orderRepository.findByIdWithOrderProducts(order.getId())).willReturn(Optional.of(order));
-            given(productClient.getProductContent(paidProduct.getProductId()))
-                .willReturn(new ProductContent(paidProduct.getProductId(), PRODUCT_CONTENT));
+		@Test
+		@DisplayName("부분 환불 주문에서도 PAID 주문상품 콘텐츠는 열람할 수 있다")
+		void getOrderContent_partiallyRefundedOrderPaidProduct_success() {
+			// given
+			Order order = createPaidOrderWithProducts();
+			OrderProduct refundedProduct = order.getOrderProducts().get(0);
+			OrderProduct paidProduct = order.getOrderProducts().get(1);
+			order.requestRefundProducts(Set.of(refundedProduct.getId()));
+			order.completeRefundProducts(Set.of(refundedProduct.getId()), REFUNDED_AT);
 
-            OrderContentResponse response = orderQueryService.getOrderContent(
-                BUYER_ID, order.getId(), paidProduct.getId()
-            );
+			given(orderRepository.findByIdWithOrderProducts(order.getId()))
+				.willReturn(Optional.of(order));
+			given(productClient.getProductContent(paidProduct.getProductId()))
+				.willReturn(new ProductContent(paidProduct.getProductId(), PRODUCT_CONTENT));
 
-            assertThat(response.content()).isEqualTo(PRODUCT_CONTENT);
-        }
+			// when
+			OrderContentResponse response = orderQueryService.getOrderContent(
+				BUYER_ID, order.getId(), paidProduct.getId()
+			);
+
+			// then
+			assertThat(response.content()).isEqualTo(PRODUCT_CONTENT);
+		}
+
+		@Test
+		@DisplayName("환불 요청 중인 주문상품 콘텐츠는 잠긴다")
+		void getOrderContent_refundRequestedProduct_throwsException() {
+			// given
+			Order order = createPaidOrderWithProducts();
+			OrderProduct orderProduct = order.getOrderProducts().getFirst();
+			order.requestRefundProducts(Set.of(orderProduct.getId()));
+
+			given(orderRepository.findByIdWithOrderProducts(order.getId()))
+				.willReturn(Optional.of(order));
+
+			// when & then
+			assertThatThrownBy(() -> orderQueryService.getOrderContent(
+				BUYER_ID, order.getId(), orderProduct.getId()
+			))
+				.isInstanceOf(OrderException.class)
+				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
+					.isEqualTo(ErrorCode.ORDER_CONTENT_ACCESS_DENIED));
+
+			then(productClient).shouldHaveNoInteractions();
+		}
     }
 
     @Nested
@@ -445,13 +472,13 @@ class OrderQueryServiceTest {
 
         @Test
         @DisplayName("결제 완료 주문상품만 콘텐츠 열람 가능하다")
-        void getOrderDetail_contentAccessibleByOrderProductStatus_success() {
+        void getOrderDetail_contentAccessibleByOrderStatus_success() {
             // given
             Order order = createPendingOrderWithProducts();
             OrderProduct paidProduct = order.getOrderProducts().getFirst();
             OrderProduct refundedProduct = order.getOrderProducts().get(1);
-            ReflectionTestUtils.setField(paidProduct, "orderStatus", OrderProductStatus.PAID);
-            ReflectionTestUtils.setField(refundedProduct, "orderStatus", OrderProductStatus.REFUNDED);
+            ReflectionTestUtils.setField(paidProduct, "orderProductStatus", OrderStatus.PAID);
+            ReflectionTestUtils.setField(refundedProduct, "orderProductStatus", OrderStatus.REFUNDED);
 
             given(orderRepository.findByIdWithOrderProducts(order.getId()))
                 .willReturn(Optional.of(order));
@@ -464,6 +491,35 @@ class OrderQueryServiceTest {
                 .extracting(product -> product.isContentAccessible())
                 .containsExactly(true, false);
         }
+
+		@Test
+		@DisplayName("부분 환불 주문은 환불 상품 접근과 재환불을 막고 남은 상품은 접근과 환불이 가능하다")
+		void getOrderDetail_partiallyRefunded_exposesPerProductAccessAndRefundability() {
+			Order order = createPaidOrderWithProducts();
+			OrderProduct refundedProduct = order.getOrderProducts().get(0);
+			OrderProduct paidProduct = order.getOrderProducts().get(1);
+			order.requestRefundProducts(Set.of(refundedProduct.getId()));
+			order.completeRefundProducts(Set.of(refundedProduct.getId()), REFUNDED_AT);
+			given(orderRepository.findByIdWithOrderProducts(order.getId())).willReturn(Optional.of(order));
+
+			OrderDetailResponse response = orderQueryService.getOrderDetail(BUYER_ID, order.getId());
+
+			assertThat(response.orderStatus()).isEqualTo(OrderStatus.PARTIALLY_REFUNDED);
+			assertThat(response.products())
+				.filteredOn(product -> product.orderProductId().equals(refundedProduct.getId()))
+				.singleElement()
+				.satisfies(product -> {
+					assertThat(product.isContentAccessible()).isFalse();
+					assertThat(product.isRefundable()).isFalse();
+				});
+			assertThat(response.products())
+				.filteredOn(product -> product.orderProductId().equals(paidProduct.getId()))
+				.singleElement()
+				.satisfies(product -> {
+					assertThat(product.isContentAccessible()).isTrue();
+					assertThat(product.isRefundable()).isTrue();
+				});
+		}
     }
 
     @Nested
@@ -477,7 +533,7 @@ class OrderQueryServiceTest {
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderListProjection projection = orderListProjection(
                 OrderStatus.PAID,
-                OrderProductStatus.PAID,
+                OrderStatus.PAID,
                 false,
                 4.5
             );
@@ -595,7 +651,7 @@ class OrderQueryServiceTest {
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderListProjection projection = orderListProjection(
                 OrderStatus.PAID,
-                OrderProductStatus.PAID,
+                OrderStatus.PAID,
                 false,
                 null
             );
@@ -609,6 +665,42 @@ class OrderQueryServiceTest {
 
             // then
             assertThat(response.getContent().getFirst().rating()).isNull();
+        }
+
+        @Test
+        @DisplayName("부분 환불 주문은 PAID 상품만 환불 가능하다")
+        void getMyOrders_partiallyRefundedOrder_onlyPaidProductRefundable() {
+            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
+            PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+            OrderListProjection refundedProduct = orderListProjection(
+                OrderStatus.PARTIALLY_REFUNDED,
+                OrderStatus.REFUNDED,
+                false,
+                null
+            );
+            OrderListProjection paidProduct = new OrderListProjection(
+                ORDER_ID,
+                UUID.fromString("00000000-0000-0000-0000-000000000602"),
+                PRODUCT_ID_2,
+                OrderStatus.PARTIALLY_REFUNDED,
+                OrderStatus.PAID,
+                false,
+                PRODUCT_TYPE_PROMPT,
+                PRODUCT_TITLE_2,
+                PRODUCT_MODEL,
+                null,
+                PAID_AT,
+                CREATED_AT
+            );
+
+            given(orderRepository.searchOrderproducts(BUYER_ID, null, null, null, pageable))
+                .willReturn(new PageImpl<>(List.of(refundedProduct, paidProduct), pageable, 2));
+
+            Page<OrderListResponse> response = orderQueryService.getOrders(BUYER_ID, request);
+
+            assertThat(response.getContent())
+                .extracting(OrderListResponse::isRefundable)
+                .containsExactly(false, true);
         }
 
 
@@ -638,13 +730,34 @@ class OrderQueryServiceTest {
     class GetMyOrderPayments {
 
         @Test
+        @DisplayName("부분 환불 결제 내역은 PARTIALLY_REFUNDED 상태와 남은 상품 환불 가능 여부를 반환한다")
+        void getMyOrderPayments_partiallyRefunded_success() {
+            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
+            PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Order.desc("approvedAt")));
+            OrderPaymentListProjection projection = orderPaymentListProjection(
+                OrderStatus.PARTIALLY_REFUNDED,
+                OrderStatus.PAID,
+                PAID_AT,
+                false
+            );
+            given(orderPaymentRepository.searchOrderPayments(BUYER_ID, pageable))
+                .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
+
+            OrderPaymentListResponse response = orderQueryService.getOrderPayments(BUYER_ID, request)
+                .getContent().getFirst();
+
+            assertThat(response.paymentStatus()).isEqualTo(OrderStatus.PARTIALLY_REFUNDED);
+            assertThat(response.isRefundable()).isTrue();
+        }
+
+        @Test
         @DisplayName("page와 size가 전달되면 구매자 결제 내역을 반환한다")
         void getMyOrderPayments_defaultPage_success() {
             // given
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderPaymentListProjection projection = orderPaymentListProjection(
                 OrderStatus.PAID,
-                OrderProductStatus.PAID,
+                OrderStatus.PAID,
                 PAID_AT,
                 false
             );
@@ -685,7 +798,7 @@ class OrderQueryServiceTest {
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderListProjection projection = orderListProjection(
                 OrderStatus.PAID,
-                OrderProductStatus.PAID,
+                OrderStatus.PAID,
                 true,
                 null
             );
@@ -708,7 +821,7 @@ class OrderQueryServiceTest {
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderListProjection projection = orderListProjection(
                 OrderStatus.CANCELED,
-                OrderProductStatus.CANCELED,
+                OrderStatus.CANCELED,
                 false,
                 null
             );
@@ -732,7 +845,7 @@ class OrderQueryServiceTest {
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderPaymentListProjection projection = orderPaymentListProjection(
                 OrderStatus.PAID,
-                OrderProductStatus.PAID,
+                OrderStatus.PAID,
                 null,
                 false
             );

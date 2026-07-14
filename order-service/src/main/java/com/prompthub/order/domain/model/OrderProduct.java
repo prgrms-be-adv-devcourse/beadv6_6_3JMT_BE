@@ -1,6 +1,6 @@
 package com.prompthub.order.domain.model;
 
-import com.prompthub.order.domain.enums.OrderProductStatus;
+import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.global.exception.ErrorCode;
 import jakarta.persistence.Column;
@@ -54,7 +54,7 @@ public class OrderProduct {
 
     @Enumerated(STRING)
     @Column(name = "order_product_status", length = 20, nullable = false)
-    private OrderProductStatus orderStatus;
+    private OrderStatus orderProductStatus;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -79,7 +79,7 @@ public class OrderProduct {
             String productType,
             String productModel,
             int productAmount,
-            OrderProductStatus orderStatus,
+            OrderStatus orderProductStatus,
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
             boolean downloaded
@@ -91,7 +91,7 @@ public class OrderProduct {
         this.productType = productType;
         this.productModel = productModel;
         this.productAmount = productAmount;
-        this.orderStatus = orderStatus;
+        this.orderProductStatus = orderProductStatus;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.downloaded = downloaded;
@@ -115,7 +115,7 @@ public class OrderProduct {
                 productType,
                 productModel,
                 productAmount,
-                OrderProductStatus.PENDING,
+                OrderStatus.PENDING,
                 now,
                 now,
                 false
@@ -127,16 +127,16 @@ public class OrderProduct {
     }
 
     public void markPaid() {
-        validateTransition(OrderProductStatus.PAID);
+        validateTransition(OrderStatus.PAID);
 
-        this.orderStatus = OrderProductStatus.PAID;
+        this.orderProductStatus = OrderStatus.PAID;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void markFailed() {
-        validateTransition(OrderProductStatus.FAILED);
+        validateTransition(OrderStatus.FAILED);
 
-        this.orderStatus = OrderProductStatus.FAILED;
+        this.orderProductStatus = OrderStatus.FAILED;
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -145,31 +145,31 @@ public class OrderProduct {
     }
 
     public void cancel(LocalDateTime canceledAt) {
-        if (this.orderStatus != OrderProductStatus.PAID) {
+        if (this.orderProductStatus != OrderStatus.PAID) {
             throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
         }
 
-        this.orderStatus = OrderProductStatus.CANCELED;
+        this.orderProductStatus = OrderStatus.CANCELED;
         this.canceledAt = canceledAt;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void expirePending(LocalDateTime canceledAt) {
-        if (this.orderStatus != OrderProductStatus.PENDING) {
+        if (this.orderProductStatus != OrderStatus.PENDING) {
             return;
         }
 
-        this.orderStatus = OrderProductStatus.CANCELED;
+        this.orderProductStatus = OrderStatus.CANCELED;
         this.canceledAt = canceledAt;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void markCanceled(LocalDateTime canceledAt) {
-        if (this.orderStatus != OrderProductStatus.PENDING) {
+        if (this.orderProductStatus != OrderStatus.PENDING) {
             throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
         }
 
-        this.orderStatus = OrderProductStatus.CANCELED;
+        this.orderProductStatus = OrderStatus.CANCELED;
         this.canceledAt = canceledAt;
         this.updatedAt = LocalDateTime.now();
     }
@@ -180,13 +180,58 @@ public class OrderProduct {
     }
 
     public void refund(LocalDateTime refundedAt) {
-        if (this.orderStatus != OrderProductStatus.PAID) {
+        if (this.orderProductStatus != OrderStatus.PAID) {
             throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
         }
+        validateRefundedAt(refundedAt);
 
-        this.orderStatus = OrderProductStatus.REFUNDED;
+        this.orderProductStatus = OrderStatus.REFUNDED;
         this.refundedAt = refundedAt;
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public void requestRefund() {
+        validateRefundRequest();
+        orderProductStatus = OrderStatus.REFUND_REQUESTED;
+        updatedAt = LocalDateTime.now();
+    }
+
+    void validateRefundRequest() {
+        if (orderProductStatus != OrderStatus.PAID || downloaded || productAmount <= 0) {
+            throw new OrderException(downloaded
+                    ? ErrorCode.ORDER_PRODUCT_ALREADY_DOWNLOADED
+                    : ErrorCode.ORDER_PRODUCT_REFUND_NOT_ALLOWED);
+        }
+    }
+
+    public void completeRefund(LocalDateTime refundedAt) {
+        validateCompleteRefund(refundedAt);
+        orderProductStatus = OrderStatus.REFUNDED;
+        this.refundedAt = refundedAt;
+        updatedAt = LocalDateTime.now();
+    }
+
+    void validateCompleteRefund(LocalDateTime refundedAt) {
+        if (orderProductStatus != OrderStatus.REFUND_REQUESTED) {
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+        }
+        validateRefundedAt(refundedAt);
+    }
+
+    public void restorePaidAfterRefundFailure() {
+        validateRestorePaidAfterRefundFailure();
+        orderProductStatus = OrderStatus.PAID;
+        updatedAt = LocalDateTime.now();
+    }
+
+    void validateRestorePaidAfterRefundFailure() {
+        if (orderProductStatus != OrderStatus.REFUND_REQUESTED) {
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+        }
+    }
+
+    public boolean canAccessContent() {
+        return orderProductStatus == OrderStatus.PAID;
     }
 
     public void markDownloaded() {
@@ -199,47 +244,22 @@ public class OrderProduct {
     }
 
     public boolean isPaid() {
-        return this.orderStatus == OrderProductStatus.PAID;
+        return this.orderProductStatus == OrderStatus.PAID;
     }
 
     public boolean isRefundable() {
-        return this.orderStatus == OrderProductStatus.PAID && !this.downloaded && this.productAmount > 0;
+        return this.orderProductStatus == OrderStatus.PAID && !this.downloaded;
     }
 
-    public OrderProductStatus getOrderProductStatus() {
-        return this.orderStatus;
-    }
-
-    public void requestRefund() {
-        if (!isRefundable()) {
+    private void validateTransition(OrderStatus target) {
+        if (!this.orderProductStatus.canOrderProductTransitionTo(target)) {
             throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
         }
-
-        transitionTo(OrderProductStatus.REFUND_REQUESTED);
     }
 
-    public void completeRefund(LocalDateTime refundedAt) {
-        transitionTo(OrderProductStatus.REFUNDED);
-        this.refundedAt = refundedAt;
-    }
-
-    public void failRefund() {
-        transitionTo(OrderProductStatus.REFUND_FAILED);
-    }
-
-    public void markRefundTimeout() {
-        transitionTo(OrderProductStatus.REFUND_TIMEOUT);
-    }
-
-    private void transitionTo(OrderProductStatus target) {
-        validateTransition(target);
-        this.orderStatus = target;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    private void validateTransition(OrderProductStatus target) {
-        if (!this.orderStatus.canTransitionTo(target)) {
-            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+    private void validateRefundedAt(LocalDateTime refundedAt) {
+        if (refundedAt == null) {
+            throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }
 }

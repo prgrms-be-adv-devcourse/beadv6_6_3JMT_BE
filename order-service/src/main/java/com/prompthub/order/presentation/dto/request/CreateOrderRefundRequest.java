@@ -1,23 +1,24 @@
 package com.prompthub.order.presentation.dto.request;
 
-import io.swagger.v3.oas.annotations.media.Schema;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
 import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 import java.util.UUID;
 
 public record CreateOrderRefundRequest(
-	@NotEmpty
-	@Schema(description = "환불할 주문 상품 ID 목록")
-	List<UUID> orderProductIds,
-	@Size(max = 500)
-	@Schema(description = "요청 전체의 공통 환불 사유", nullable = true)
-	String reason
+    @JsonProperty("payment_id") @NotNull UUID paymentId,
+    @JsonProperty("order_product_ids")
+    @NotEmpty List<@NotNull UUID> orderProductIds
 ) {
-	public CreateOrderRefundRequest {
-		if (orderProductIds != null) {
-			orderProductIds = List.copyOf(orderProductIds);
-		}
-	}
+    public CreateOrderRefundRequest {
+        orderProductIds = orderProductIds == null ? null : List.copyOf(orderProductIds);
+    }
+
+    @JsonAnySetter
+    public void rejectUnknownProperty(String name, Object value) {
+        throw new IllegalArgumentException("Unknown property: " + name);
+    }
 }

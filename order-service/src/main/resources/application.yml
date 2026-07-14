@@ -98,18 +98,16 @@ prompthub:
       deadline-ms: ${PRODUCT_GRPC_DEADLINE_MS:1000}
     seller:
       deadline-ms: ${SELLER_GRPC_DEADLINE_MS:2000}
-    payment-refund:
-      deadline-ms: ${PAYMENT_REFUND_GRPC_DEADLINE_MS:2000}
   outbox-relay:
     enabled: true
     fixed-delay-ms: 5000
     batch-size: 100
     max-retry-count: 3
   refund-reconciliation:
-    enabled: ${REFUND_RECONCILIATION_ENABLED:false}
-    fixed-delay-ms: ${REFUND_RECONCILIATION_FIXED_DELAY_MS:5000}
-    batch-size: ${REFUND_RECONCILIATION_BATCH_SIZE:100}
-    lease-ms: ${REFUND_RECONCILIATION_LEASE_MS:30000}
+    enabled: ${REFUND_RECONCILIATION_ENABLED:true}
+    fixed-delay: ${REFUND_RECONCILIATION_FIXED_DELAY:30s}
+    batch-size: ${REFUND_RECONCILIATION_BATCH_SIZE:50}
+    lease-duration: ${REFUND_RECONCILIATION_LEASE_DURATION:1m}
   order:
     enabled: true
     payment-timeout-minutes: 20
@@ -133,8 +131,19 @@ resilience4j:
         slow-call-rate-threshold: 50
         wait-duration-in-open-state: 30s
         permitted-number-of-calls-in-half-open-state: 3
+      payment-refund-grpc-default:
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 800ms
+        slow-call-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
   bulkhead:
     instances:
       product-grpc-bulkhead:
         max-concurrent-calls: 20
+        max-wait-duration: 0ms
+      payment-refund-grpc-bulkhead:
+        max-concurrent-calls: 10
         max-wait-duration: 0ms

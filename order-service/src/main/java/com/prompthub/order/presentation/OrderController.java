@@ -3,9 +3,7 @@ package com.prompthub.order.presentation;
 import com.prompthub.order.application.usecase.ConfirmDownloadUseCase;
 import com.prompthub.order.application.usecase.CreateOrderUseCase;
 import com.prompthub.order.application.usecase.OrderQueryUseCase;
-import com.prompthub.order.application.usecase.OrderRefundUseCase;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
-import com.prompthub.order.presentation.dto.request.CreateOrderRefundRequest;
 import com.prompthub.order.presentation.dto.request.OrderPaymentValidationRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
@@ -15,7 +13,6 @@ import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
-import com.prompthub.order.presentation.dto.response.OrderRefundResponse;
 import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.presentation.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,7 +25,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -37,7 +33,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
@@ -55,26 +50,6 @@ public class OrderController {
 	private final CreateOrderUseCase createOrderUseCase;
 	private final ConfirmDownloadUseCase confirmDownloadUseCase;
 	private final OrderQueryUseCase orderQueryUseCase;
-	private final OrderRefundUseCase orderRefundUseCase;
-
-	@PostMapping("/{orderId}/refunds")
-	@ResponseStatus(HttpStatus.ACCEPTED)
-	@Operation(summary = "주문 상품 다건 환불 요청", description = "구매자 본인의 미다운로드 유료 주문 상품들을 한 번에 환불 접수합니다.")
-	@ApiResponses({
-		@ApiResponse(responseCode = "202", description = "환불 요청 접수 또는 기존 요청 반환"),
-		@ApiResponse(responseCode = "400", description = "V001 환불 사유 검증 실패"),
-		@ApiResponse(responseCode = "403", description = "O008 주문 접근 불가"),
-		@ApiResponse(responseCode = "404", description = "O001 주문 없음, O012 주문 상품 없음, O019 주문 결제 없음"),
-		@ApiResponse(responseCode = "409", description = "O016 환불 불가, O018 요청 충돌")
-	})
-	public ApiResult<OrderRefundResponse> requestProductRefund(
-		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
-		@RequestHeader(USER_ID) UUID buyerId,
-		@PathVariable UUID orderId,
-		@Valid @RequestBody CreateOrderRefundRequest request
-	) {
-		return ApiResult.success(orderRefundUseCase.requestRefund(buyerId, orderId, request));
-	}
 
 	@PostMapping
 	@Operation(summary = "주문 생성", description = "인증된 구매자가 선택한 상품 목록으로 주문을 생성합니다.")

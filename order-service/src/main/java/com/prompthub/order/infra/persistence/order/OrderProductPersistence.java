@@ -16,7 +16,7 @@ public interface OrderProductPersistence extends JpaRepository<OrderProduct, UUI
 		set p.downloaded = true,
 		    p.updatedAt = current_timestamp
 		where p.id = :orderProductId
-		  and p.orderStatus = com.prompthub.order.domain.enums.OrderProductStatus.PAID
+		  and p.orderProductStatus = com.prompthub.order.domain.enums.OrderStatus.PAID
 		  and p.downloaded = false
 		""")
 	int tryMarkDownloaded(@Param("orderProductId") UUID orderProductId);

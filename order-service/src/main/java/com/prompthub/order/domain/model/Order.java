@@ -1,7 +1,6 @@
 package com.prompthub.order.domain.model;
 
 import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.infra.persistence.common.BaseEntity;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -12,6 +11,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static com.prompthub.order.domain.enums.OrderStatus.PENDING;
@@ -142,35 +142,74 @@ public class Order extends BaseEntity {
 	}
 
 	public void refund(LocalDateTime refundedAt) {
-		validateTransition(OrderStatus.REFUNDED);
+		if (this.orderStatus != OrderStatus.PAID) {
+			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+		}
+		validateRefundedAt(refundedAt);
 
 		this.orderStatus = OrderStatus.REFUNDED;
 		this.refundedAt = refundedAt;
 		this.orderProducts.forEach(orderProduct -> orderProduct.refund(refundedAt));
 	}
 
-	public void recalculateRefundStatus() {
+	public List<OrderProduct> requestRefundProducts(Set<UUID> orderProductIds) {
+		if (this.orderStatus != OrderStatus.PAID
+			&& this.orderStatus != OrderStatus.PARTIALLY_REFUNDED) {
+			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+		}
+
+		List<OrderProduct> products = requireProducts(orderProductIds);
+		products.forEach(OrderProduct::validateRefundRequest);
+		products.forEach(OrderProduct::requestRefund);
+		return products;
+	}
+
+	public void completeRefundProducts(Set<UUID> orderProductIds, LocalDateTime refundedAt) {
+		List<OrderProduct> products = requireProducts(orderProductIds);
+		validateRefundedAt(refundedAt);
+		products.forEach(orderProduct -> orderProduct.validateCompleteRefund(refundedAt));
+		products.forEach(orderProduct -> orderProduct.completeRefund(refundedAt));
+		recalculateRefundStatus(refundedAt);
+	}
+
+	public void restoreRefundProducts(Set<UUID> orderProductIds) {
+		List<OrderProduct> products = requireProducts(orderProductIds);
+		products.forEach(OrderProduct::validateRestorePaidAfterRefundFailure);
+		products.forEach(OrderProduct::restorePaidAfterRefundFailure);
+		recalculateRefundStatus(null);
+	}
+
+	private List<OrderProduct> requireProducts(Set<UUID> orderProductIds) {
+		if (orderProductIds == null || orderProductIds.isEmpty()) {
+			throw new OrderException(ErrorCode.ORDER_REFUND_RELATION_MISMATCH);
+		}
+
+		List<OrderProduct> products = this.orderProducts.stream()
+			.filter(orderProduct -> orderProductIds.contains(orderProduct.getId()))
+			.toList();
+
+		if (products.size() != orderProductIds.size()) {
+			throw new OrderException(ErrorCode.ORDER_REFUND_RELATION_MISMATCH);
+		}
+
+		return products;
+	}
+
+	private void recalculateRefundStatus(LocalDateTime refundedAt) {
 		long refundedCount = this.orderProducts.stream()
-			.filter(product -> product.getOrderProductStatus() == OrderProductStatus.REFUNDED)
+			.filter(orderProduct -> orderProduct.getOrderProductStatus() == OrderStatus.REFUNDED)
 			.count();
 
-		if (refundedCount == 0) {
-			this.orderStatus = OrderStatus.PAID;
-			this.refundedAt = null;
-			return;
-		}
-
-		if (refundedCount < this.orderProducts.size()) {
+		if (refundedCount == this.orderProducts.size()) {
+			this.orderStatus = OrderStatus.REFUNDED;
+			this.refundedAt = refundedAt;
+		} else if (refundedCount > 0) {
 			this.orderStatus = OrderStatus.PARTIALLY_REFUNDED;
 			this.refundedAt = null;
-			return;
+		} else {
+			this.orderStatus = OrderStatus.PAID;
+			this.refundedAt = null;
 		}
-
-		this.orderStatus = OrderStatus.REFUNDED;
-		this.refundedAt = this.orderProducts.stream()
-			.map(OrderProduct::getRefundedAt)
-			.max(LocalDateTime::compareTo)
-			.orElse(null);
 	}
 
 	public void expirePending(LocalDateTime canceledAt) {
@@ -198,6 +237,12 @@ public class Order extends BaseEntity {
 	private void validateTransition(OrderStatus target) {
 		if (!this.orderStatus.canTransitionTo(target)) {
 			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+		}
+	}
+
+	private void validateRefundedAt(LocalDateTime refundedAt) {
+		if (refundedAt == null) {
+			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
 		}
 	}
 }

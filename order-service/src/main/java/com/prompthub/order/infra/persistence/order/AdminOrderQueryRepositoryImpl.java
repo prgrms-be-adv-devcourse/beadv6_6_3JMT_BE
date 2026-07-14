@@ -136,12 +136,13 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
 			canceledDate,
 			approvedAmountSum
 		);
-		DateExpression<java.sql.Date> refundedDate = toDate(order.refundedAt);
+		DateExpression<java.sql.Date> refundedDate = toDate(orderProduct.refundedAt);
+		NumberExpression<Integer> refundedAmountSum = orderProduct.productAmount.sum();
 		subtractDailyAmounts(
 			dailyTransactions,
-			fetchRefundedDailySummaries(startInclusive, endExclusive, refundedDate, approvedAmountSum),
+			fetchRefundedDailySummaries(startInclusive, endExclusive, refundedDate, refundedAmountSum),
 			refundedDate,
-			approvedAmountSum
+			refundedAmountSum
 		);
 
 		return dailyTransactions.entrySet().stream()
@@ -196,16 +197,15 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
 		LocalDateTime startInclusive,
 		LocalDateTime endExclusive,
 		DateExpression<java.sql.Date> refundedDate,
-		NumberExpression<Integer> approvedAmountSum
+		NumberExpression<Integer> refundedAmountSum
 	) {
 		return queryFactory
-			.select(refundedDate, approvedAmountSum)
-			.from(orderPayment)
-			.join(order).on(order.id.eq(orderPayment.orderId))
+			.select(refundedDate, refundedAmountSum)
+			.from(orderProduct)
 			.where(
-				order.orderStatus.eq(OrderStatus.REFUNDED),
-				dateTimeGoe(order.refundedAt, startInclusive),
-				dateTimeLt(order.refundedAt, endExclusive)
+				orderProduct.orderProductStatus.eq(OrderStatus.REFUNDED),
+				dateTimeGoe(orderProduct.refundedAt, startInclusive),
+				dateTimeLt(orderProduct.refundedAt, endExclusive)
 			)
 			.groupBy(refundedDate)
 			.fetch();
@@ -250,13 +250,12 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
 
 	private long sumRefundedAmount(LocalDateTime startInclusive, LocalDateTime endExclusive) {
 		Integer amount = queryFactory
-			.select(orderPayment.approvedAmount.sum())
-			.from(orderPayment)
-			.join(order).on(order.id.eq(orderPayment.orderId))
+			.select(orderProduct.productAmount.sum())
+			.from(orderProduct)
 			.where(
-				order.orderStatus.eq(OrderStatus.REFUNDED),
-				dateTimeGoe(order.refundedAt, startInclusive),
-				dateTimeLt(order.refundedAt, endExclusive)
+				orderProduct.orderProductStatus.eq(OrderStatus.REFUNDED),
+				dateTimeGoe(orderProduct.refundedAt, startInclusive),
+				dateTimeLt(orderProduct.refundedAt, endExclusive)
 			)
 			.fetchOne();
 		return amount == null ? 0L : amount;

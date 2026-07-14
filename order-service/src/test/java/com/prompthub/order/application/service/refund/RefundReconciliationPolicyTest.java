@@ -1,41 +1,53 @@
 package com.prompthub.order.application.service.refund;
 
-import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderRefund;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
+import java.util.List;
 
-import static com.prompthub.order.fixture.OrderFixture.createPaidOrderWithProducts;
-import static com.prompthub.order.fixture.OrderRefundFixture.createRequestedRefund;
+import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
+import static com.prompthub.order.fixture.OrderFixture.ORDER_ID;
+import static com.prompthub.order.fixture.OrderFixture.PAYMENT_ID;
+import static com.prompthub.order.fixture.OrderRefundFixture.ORDER_PRODUCT_ID_1;
+import static com.prompthub.order.fixture.OrderRefundFixture.REQUESTED_AT;
+import static com.prompthub.order.fixture.OrderRefundFixture.paidProduct;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RefundReconciliationPolicyTest {
 
-	private static final LocalDateTime REQUESTED_AT = LocalDateTime.of(2026, 7, 13, 12, 0);
 	private final RefundReconciliationPolicy policy = new RefundReconciliationPolicy();
 
 	@Test
-	void decide_unresolvedAttempts_usesTwoFiveTenMinuteIntervalsThenTimeout() {
+	void decide_followsApprovedSchedule() {
 		OrderRefund refund = refund();
-		LocalDateTime firstCheck = REQUESTED_AT.plusSeconds(65);
+		LocalDateTime checkedAt = REQUESTED_AT.plusMinutes(2);
 
-		assertThat(policy.decide(refund, firstCheck).nextCheckAt()).isEqualTo(firstCheck.plusMinutes(2));
-		refund.recordReconciliationAttempt(firstCheck.plusMinutes(2));
-		LocalDateTime secondCheck = firstCheck.plusMinutes(2);
-		assertThat(policy.decide(refund, secondCheck).nextCheckAt()).isEqualTo(secondCheck.plusMinutes(5));
-		refund.recordReconciliationAttempt(secondCheck.plusMinutes(5));
-		LocalDateTime thirdCheck = secondCheck.plusMinutes(5);
-		assertThat(policy.decide(refund, thirdCheck).nextCheckAt()).isEqualTo(thirdCheck.plusMinutes(10));
-		refund.recordReconciliationAttempt(thirdCheck.plusMinutes(10));
+		assertDecision(refund, checkedAt, RefundReconciliationPolicy.Action.RESCHEDULE, 1, REQUESTED_AT.plusMinutes(5));
+		refund.scheduleNext(1, REQUESTED_AT.plusMinutes(5));
+		assertDecision(refund, checkedAt, RefundReconciliationPolicy.Action.RESCHEDULE, 2, REQUESTED_AT.plusMinutes(10));
+		refund.scheduleNext(2, REQUESTED_AT.plusMinutes(10));
+		assertDecision(refund, checkedAt, RefundReconciliationPolicy.Action.RESCHEDULE, 3, REQUESTED_AT.plusMinutes(20));
+		refund.scheduleNext(3, REQUESTED_AT.plusMinutes(20));
+		assertDecision(refund, checkedAt, RefundReconciliationPolicy.Action.MARK_UNKNOWN, 4, checkedAt.plusMinutes(30));
+		refund.scheduleNext(4, checkedAt.plusMinutes(30));
+		assertDecision(refund, checkedAt, RefundReconciliationPolicy.Action.RESCHEDULE, 5, checkedAt.plusHours(1));
+		refund.scheduleNext(5, checkedAt.plusHours(1));
+		assertDecision(refund, checkedAt, RefundReconciliationPolicy.Action.RESCHEDULE, 6, checkedAt.plusHours(3));
+		refund.scheduleNext(6, checkedAt.plusHours(3));
+		assertDecision(refund, checkedAt, RefundReconciliationPolicy.Action.MANUAL_REVIEW, 6, null);
+	}
 
-		assertThat(policy.decide(refund, thirdCheck.plusMinutes(10)).action())
-			.isEqualTo(RefundReconciliationPolicy.Action.TIMEOUT);
+	private void assertDecision(OrderRefund refund, LocalDateTime checkedAt,
+		RefundReconciliationPolicy.Action action, int attempt, LocalDateTime nextCheckAt) {
+		RefundReconciliationPolicy.Decision decision = policy.decide(refund, checkedAt);
+		assertThat(decision.action()).isEqualTo(action);
+		assertThat(decision.attempt()).isEqualTo(attempt);
+		assertThat(decision.nextCheckAt()).isEqualTo(nextCheckAt);
 	}
 
 	private OrderRefund refund() {
-		Order order = createPaidOrderWithProducts();
-		return createRequestedRefund(order, UUID.randomUUID(), REQUESTED_AT);
+		return OrderRefund.request(ORDER_ID, PAYMENT_ID, BUYER_ID,
+			List.of(paidProduct(ORDER_PRODUCT_ID_1, 10_000)), REQUESTED_AT);
 	}
 }

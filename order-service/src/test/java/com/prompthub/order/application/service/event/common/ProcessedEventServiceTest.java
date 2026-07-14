@@ -24,7 +24,7 @@ class ProcessedEventServiceTest {
 
 	private static final ConsumedEventContext CONTEXT = new ConsumedEventContext(
 		UUID.fromString("00000000-0000-0000-0000-000000000301"),
-		"PAYMENT_REFUND_COMPLETED",
+		"PAYMENT_PARTIAL_REFUNDED",
 		LocalDateTime.of(2026, 7, 13, 12, 0)
 	);
 

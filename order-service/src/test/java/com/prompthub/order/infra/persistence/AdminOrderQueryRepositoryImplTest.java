@@ -4,7 +4,6 @@ import com.prompthub.order.application.dto.AdminOrderListProjection;
 import com.prompthub.order.application.dto.AdminDailyTransactionProjection;
 import com.prompthub.order.config.TestJpaConfig;
 import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderPayment;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -25,6 +24,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
@@ -120,6 +120,34 @@ class AdminOrderQueryRepositoryImplTest {
 	}
 
 	@Test
+	@DisplayName("부분 환불 주문은 환불된 주문상품 금액만 실제 거래액에서 차감한다")
+	void sumMonthlyTransactionAmount_subtractsOnlyRefundedProductAmount() {
+		LocalDateTime start = LocalDateTime.of(2026, 6, 1, 0, 0);
+		LocalDateTime endExclusive = LocalDateTime.of(2026, 7, 1, 0, 0);
+		Order order = createOrder("ORD-20260624-0010", OrderStatus.PAID, LocalDateTime.of(2026, 6, 15, 10, 0));
+		OrderProduct refundedProduct = OrderProduct.create(
+			PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, PRODUCT_TYPE_PROMPT, "GPT-4", PRODUCT_AMOUNT_1
+		);
+		order.addOrderProduct(refundedProduct);
+		order.addOrderProduct(OrderProduct.create(
+			PRODUCT_ID_2, SELLER_ID_2, PRODUCT_TITLE_2, PRODUCT_TYPE_PROMPT, "Claude-3", PRODUCT_AMOUNT_2
+		));
+		order.markPaid(LocalDateTime.of(2026, 6, 15, 10, 1));
+		entityManager.persist(order);
+		entityManager.flush();
+		persistPayment(order, UUID.fromString("00000000-0000-0000-0000-000000000417"),
+			PRODUCT_AMOUNT_1 + PRODUCT_AMOUNT_2, LocalDateTime.of(2026, 6, 15, 10, 1));
+		order.requestRefundProducts(Set.of(refundedProduct.getId()));
+		order.completeRefundProducts(Set.of(refundedProduct.getId()), LocalDateTime.of(2026, 6, 16, 10, 0));
+		entityManager.flush();
+		entityManager.clear();
+
+		long actualAmount = adminOrderQueryRepository.sumMonthlyTransactionAmount(start, endExclusive);
+
+		assertThat(actualAmount).isEqualTo(PRODUCT_AMOUNT_2);
+	}
+
+	@Test
 	@DisplayName("최근 거래 추이는 일자별 승인 건수와 실제 거래액을 조회한다")
 	void findDailyTransactions_success() {
 		LocalDate day = LocalDate.of(2026, 6, 24);
@@ -166,11 +194,45 @@ class AdminOrderQueryRepositoryImplTest {
 		assertThat(result.get(1).transactionAmount()).isEqualTo(-PRODUCT_AMOUNT_2);
 	}
 
+	@Test
+	@DisplayName("최근 거래 추이는 부분 환불일에 환불된 주문상품 금액만 차감한다")
+	void findDailyTransactions_subtractsRefundedProductAmountByRefundedDate() {
+		LocalDate approvedDay = LocalDate.of(2026, 6, 23);
+		LocalDate refundedDay = LocalDate.of(2026, 6, 24);
+		Order order = createOrder("ORD-20260624-0011", OrderStatus.PAID, approvedDay.atTime(11, 0));
+		OrderProduct refundedProduct = OrderProduct.create(
+			PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, PRODUCT_TYPE_PROMPT, "GPT-4", PRODUCT_AMOUNT_1
+		);
+		order.addOrderProduct(refundedProduct);
+		order.addOrderProduct(OrderProduct.create(
+			PRODUCT_ID_2, SELLER_ID_2, PRODUCT_TITLE_2, PRODUCT_TYPE_PROMPT, "Claude-3", PRODUCT_AMOUNT_2
+		));
+		order.markPaid(approvedDay.atTime(11, 1));
+		entityManager.persist(order);
+		entityManager.flush();
+		persistPayment(order, UUID.fromString("00000000-0000-0000-0000-000000000418"),
+			PRODUCT_AMOUNT_1 + PRODUCT_AMOUNT_2, approvedDay.atTime(11, 1));
+		order.requestRefundProducts(Set.of(refundedProduct.getId()));
+		order.completeRefundProducts(Set.of(refundedProduct.getId()), refundedDay.atTime(12, 0));
+		entityManager.flush();
+		entityManager.clear();
+
+		List<AdminDailyTransactionProjection> result = adminOrderQueryRepository.findDailyTransactions(
+			approvedDay.atStartOfDay(),
+			refundedDay.plusDays(1).atStartOfDay()
+		);
+
+		assertThat(result).extracting(AdminDailyTransactionProjection::date)
+			.containsExactly(approvedDay, refundedDay);
+		assertThat(result.getFirst().transactionAmount()).isEqualTo(PRODUCT_AMOUNT_1 + PRODUCT_AMOUNT_2);
+		assertThat(result.getLast().transactionAmount()).isEqualTo(-PRODUCT_AMOUNT_1);
+	}
+
 	private void cancelOrderForTest(Order order, LocalDateTime canceledAt) {
 		ReflectionTestUtils.setField(order, "orderStatus", OrderStatus.CANCELED);
 		ReflectionTestUtils.setField(order, "canceledAt", canceledAt);
 		order.getOrderProducts().forEach(op -> {
-			ReflectionTestUtils.setField(op, "orderStatus", OrderProductStatus.CANCELED);
+			ReflectionTestUtils.setField(op, "orderProductStatus", OrderStatus.CANCELED);
 			ReflectionTestUtils.setField(op, "canceledAt", canceledAt);
 		});
 		entityManager.persist(order);

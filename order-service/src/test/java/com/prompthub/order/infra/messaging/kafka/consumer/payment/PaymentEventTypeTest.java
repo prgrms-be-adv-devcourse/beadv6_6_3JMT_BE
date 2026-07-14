@@ -16,8 +16,8 @@ class PaymentEventTypeTest {
 	void from_returns_enum_when_supported() {
 		assertThat(PaymentEventType.from("PAYMENT_APPROVED")).isEqualTo(PaymentEventType.PAYMENT_APPROVED);
 		assertThat(PaymentEventType.from("PAYMENT_REFUNDED")).isEqualTo(PaymentEventType.PAYMENT_REFUNDED);
-		assertThat(PaymentEventType.from("PAYMENT_REFUND_COMPLETED")).isEqualTo(PaymentEventType.PAYMENT_REFUND_COMPLETED);
-		assertThat(PaymentEventType.from("PAYMENT_REFUND_FAILED")).isEqualTo(PaymentEventType.PAYMENT_REFUND_FAILED);
+		assertThat(PaymentEventType.from("PAYMENT_PARTIAL_REFUNDED")).isEqualTo(PaymentEventType.PAYMENT_PARTIAL_REFUNDED);
+		assertThat(PaymentEventType.from("PAYMENT_PARTIAL_REFUND_FAILED")).isEqualTo(PaymentEventType.PAYMENT_PARTIAL_REFUND_FAILED);
 	}
 
 	@Test

@@ -6,7 +6,6 @@ import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
 import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
@@ -241,7 +240,7 @@ public final class OrderFixture {
 
 	public static OrderListProjection orderListProjection(
 		OrderStatus orderStatus,
-		OrderProductStatus orderProductStatus,
+		OrderStatus orderProductStatus,
 		boolean downloaded,
 		Double rating
 	) {
@@ -263,11 +262,13 @@ public final class OrderFixture {
 
 	public static OrderPaymentListProjection orderPaymentListProjection(
 		OrderStatus orderStatus,
-		OrderProductStatus orderProductStatus,
+		OrderStatus orderProductStatus,
 		LocalDateTime paidAt,
 		boolean downloaded
 	) {
-		boolean isRefundable = orderStatus == OrderStatus.PAID && orderProductStatus == OrderProductStatus.PAID && !downloaded;
+		boolean isRefundable = (orderStatus == OrderStatus.PAID || orderStatus == OrderStatus.PARTIALLY_REFUNDED)
+			&& orderProductStatus == OrderStatus.PAID
+			&& !downloaded;
 		return new OrderPaymentListProjection(
 			ORDER_ID,
 			PAYMENT_ID,

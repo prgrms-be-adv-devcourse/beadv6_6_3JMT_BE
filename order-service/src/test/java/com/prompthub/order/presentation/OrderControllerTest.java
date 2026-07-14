@@ -3,9 +3,6 @@ package com.prompthub.order.presentation;
 import com.prompthub.order.application.usecase.ConfirmDownloadUseCase;
 import com.prompthub.order.application.usecase.CreateOrderUseCase;
 import com.prompthub.order.application.usecase.OrderQueryUseCase;
-import com.prompthub.order.application.usecase.OrderRefundUseCase;
-import com.prompthub.order.domain.enums.OrderProductStatus;
-import com.prompthub.order.domain.enums.OrderRefundStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.GlobalExceptionHandler;
@@ -24,7 +21,6 @@ import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
-import com.prompthub.order.presentation.dto.response.OrderRefundResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -76,9 +72,6 @@ class OrderControllerTest {
 	@Mock
 	private OrderQueryUseCase orderQueryUseCase;
 
-	@Mock
-	private OrderRefundUseCase orderRefundUseCase;
-
 	@BeforeEach
 	void setUp() {
 		LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
@@ -87,63 +80,12 @@ class OrderControllerTest {
 		mockMvc = MockMvcBuilders.standaloneSetup(new OrderController(
 			createOrderUseCase,
 			confirmDownloadUseCase,
-			orderQueryUseCase,
-			orderRefundUseCase
+			orderQueryUseCase
 		))
 			.setControllerAdvice(new GlobalExceptionHandler())
 			.addInterceptors(new OrderServiceAuthInterceptor())
 			.setValidator(validator)
 			.build();
-	}
-
-	@Nested
-	@DisplayName("다건 상품 환불 요청 (POST /api/v1/orders/{orderId}/refunds)")
-	class RequestProductRefund {
-
-		@Test
-		@DisplayName("환불 요청을 접수하면 202와 요청 식별자를 반환한다")
-		void requestRefund_validRequest_accepted() throws Exception {
-			UUID refundId = UUID.randomUUID();
-			LocalDateTime requestedAt = LocalDateTime.of(2026, 7, 11, 12, 0);
-			when(orderRefundUseCase.requestRefund(
-				eq(BUYER_ID),
-				eq(ORDER_ID),
-				ArgumentMatchers.any()
-			)).thenReturn(new OrderRefundResponse(
-				refundId,
-				ORDER_ID,
-				List.of(ORDER_PRODUCT_ID),
-				PRODUCT_AMOUNT_1,
-				OrderRefundStatus.REQUESTED,
-				requestedAt
-			));
-
-			mockMvc.perform(post("/api/v1/orders/{orderId}/refunds", ORDER_ID)
-					.header(AuthHeaders.USER_ID, BUYER_ID)
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
-					.contentType(MediaType.APPLICATION_JSON)
-					.content("{\"orderProductIds\":[\"" + ORDER_PRODUCT_ID + "\"],\"reason\":\"고객 변심\"}"))
-				.andExpect(status().isAccepted())
-				.andExpect(jsonPath("$.success").value(true))
-				.andExpect(jsonPath("$.data.refundId").value(refundId.toString()))
-				.andExpect(jsonPath("$.data.status").value("REQUESTED"));
-		}
-
-		@Test
-		@DisplayName("정규화된 환불 사유가 500자를 초과하면 400을 반환한다")
-		void requestRefund_reasonTooLong_badRequest() throws Exception {
-			mockMvc.perform(post("/api/v1/orders/{orderId}/refunds", ORDER_ID)
-					.header(AuthHeaders.USER_ID, BUYER_ID)
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
-					.contentType(MediaType.APPLICATION_JSON)
-					.content(objectMapper.writeValueAsString(java.util.Map.of(
-						"orderProductIds", List.of(ORDER_PRODUCT_ID),
-						"reason", "가".repeat(501)
-					))))
-				.andExpect(status().isBadRequest());
-
-			verifyNoInteractions(orderRefundUseCase);
-		}
 	}
 
 
@@ -347,7 +289,7 @@ class OrderControllerTest {
 					PRODUCT_TYPE_PROMPT,
 					"GPT-4",
 					PRODUCT_AMOUNT_1,
-					OrderProductStatus.PAID,
+					OrderStatus.PAID,
 					true,
 					true,
 					false
@@ -496,7 +438,7 @@ class OrderControllerTest {
 					PRODUCT_TYPE_PROMPT,
 					"GPT-4",
 					PRODUCT_AMOUNT_1,
-					OrderProductStatus.PENDING
+					OrderStatus.PENDING
 				);
 				OrderProductsResponse productResponse2 = new OrderProductsResponse(
 					orderProductId2,
@@ -506,7 +448,7 @@ class OrderControllerTest {
 					PRODUCT_TYPE_PROMPT,
 					"GPT-4",
 					PRODUCT_AMOUNT_2,
-					OrderProductStatus.PENDING
+					OrderStatus.PENDING
 				);
 
 				CreateOrderResponse response = new CreateOrderResponse(

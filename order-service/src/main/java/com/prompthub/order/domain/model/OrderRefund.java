@@ -9,193 +9,254 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import lombok.AccessLevel;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
-@Entity
-@Table(name = "order_refund")
+import static lombok.AccessLevel.PROTECTED;
+
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class OrderRefund {
+@Entity
+@Table(name = "order_refund", indexes = {
+    @Index(name = "idx_order_refund_payment", columnList = "payment_id"),
+    @Index(name = "idx_order_refund_order", columnList = "order_id"),
+    @Index(name = "idx_order_refund_status_next_check", columnList = "status, next_check_at"),
+    @Index(name = "idx_order_refund_manual_review", columnList = "manual_review_required")
+})
+@NoArgsConstructor(access = PROTECTED)
+public class OrderRefund extends BaseEntity {
 
-	private static final int MAX_REASON_LENGTH = 500;
+    @Id
+    @Column(name = "id", columnDefinition = "uuid", nullable = false)
+    private UUID id;
 
-	@Id
-	@Column(name = "id", columnDefinition = "uuid")
-	private UUID id;
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "order_id", nullable = false)
-	private Order order;
+    @Column(name = "order_id", columnDefinition = "uuid", nullable = false)
+    private UUID orderId;
 
-	@Column(name = "payment_id", columnDefinition = "uuid", nullable = false)
-	private UUID paymentId;
+    @Column(name = "payment_id", columnDefinition = "uuid", nullable = false)
+    private UUID paymentId;
 
-	@Column(name = "buyer_id", columnDefinition = "uuid", nullable = false)
-	private UUID buyerId;
+    @Column(name = "buyer_id", columnDefinition = "uuid", nullable = false)
+    private UUID buyerId;
 
-	@Column(name = "total_refund_amount", nullable = false)
-	private int totalRefundAmount;
+    @Column(name = "total_refund_amount", nullable = false)
+    private int totalRefundAmount;
 
-	@Column(name = "reason", length = MAX_REASON_LENGTH)
-	private String reason;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 20, nullable = false)
+    private OrderRefundStatus status;
 
-	@Enumerated(EnumType.STRING)
-	@Column(name = "status", length = 20, nullable = false)
-	private OrderRefundStatus status;
+    @Column(name = "requested_at", nullable = false)
+    private LocalDateTime requestedAt;
 
-	@Column(name = "failure_code", length = 100)
-	private String failureCode;
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
 
-	@Column(name = "failure_reason", length = 1000)
-	private String failureReason;
+    @Column(name = "failure_code", length = 100)
+    private String failureCode;
 
-	@Column(name = "reconciliation_attempt", nullable = false)
-	private int reconciliationAttempt;
+    @Column(name = "failure_reason", columnDefinition = "text")
+    private String failureReason;
 
-	@Column(name = "next_check_at")
-	private LocalDateTime nextCheckAt;
+    @Column(name = "retryable", nullable = false)
+    private boolean retryable;
 
-	@Column(name = "manual_review_required", nullable = false)
-	private boolean manualReviewRequired;
+    @Column(name = "failed_at")
+    private LocalDateTime failedAt;
 
-	@Column(name = "requested_at", nullable = false)
-	private LocalDateTime requestedAt;
+    @Column(name = "next_check_at")
+    private LocalDateTime nextCheckAt;
 
-	@Column(name = "completed_at")
-	private LocalDateTime completedAt;
+    @Column(name = "reconciliation_attempt", nullable = false)
+    private int reconciliationAttempt;
 
-	@Column(name = "failed_at")
-	private LocalDateTime failedAt;
+    @Column(name = "manual_review_required", nullable = false)
+    private boolean manualReviewRequired;
 
-	@Column(name = "timeout_at")
-	private LocalDateTime timeoutAt;
+    @OneToMany(mappedBy = "orderRefund", cascade = CascadeType.ALL, orphanRemoval = true)
+    private final List<OrderRefundProduct> products = new ArrayList<>();
 
-	@OneToMany(mappedBy = "orderRefund", cascade = CascadeType.ALL, orphanRemoval = true)
-	private final List<OrderRefundProduct> refundProducts = new ArrayList<>();
+    private OrderRefund(
+        UUID id,
+        UUID orderId,
+        UUID paymentId,
+        UUID buyerId,
+        int totalRefundAmount,
+        LocalDateTime requestedAt
+    ) {
+        this.id = id;
+        this.orderId = orderId;
+        this.paymentId = paymentId;
+        this.buyerId = buyerId;
+        this.totalRefundAmount = totalRefundAmount;
+        this.status = OrderRefundStatus.REQUESTED;
+        this.requestedAt = requestedAt;
+        this.nextCheckAt = requestedAt.plusMinutes(2);
+    }
 
-	private OrderRefund(
-		UUID id,
-		Order order,
-		UUID paymentId,
-		UUID buyerId,
-		String reason,
-		LocalDateTime requestedAt
-	) {
-		this.id = id;
-		this.order = order;
-		this.paymentId = paymentId;
-		this.buyerId = buyerId;
-		this.reason = normalizeReason(reason);
-		this.status = OrderRefundStatus.REQUESTED;
-		this.requestedAt = requestedAt;
-		this.nextCheckAt = requestedAt.plusSeconds(65);
-	}
+    public static OrderRefund request(
+        UUID orderId,
+        UUID paymentId,
+        UUID buyerId,
+        List<OrderProduct> products,
+        LocalDateTime requestedAt
+    ) {
+        Objects.requireNonNull(orderId, "orderId must not be null");
+        Objects.requireNonNull(paymentId, "paymentId must not be null");
+        Objects.requireNonNull(buyerId, "buyerId must not be null");
+        Objects.requireNonNull(products, "products must not be null");
+        Objects.requireNonNull(requestedAt, "requestedAt must not be null");
+        if (products.isEmpty()) {
+            throw new IllegalArgumentException("products must not be empty");
+        }
 
-	public static OrderRefund create(
-		UUID id,
-		Order order,
-		UUID paymentId,
-		UUID buyerId,
-		String reason,
-		LocalDateTime requestedAt
-	) {
-		return new OrderRefund(id, order, paymentId, buyerId, reason, requestedAt);
-	}
+        Set<UUID> uniqueProductIds = new HashSet<>();
+        int totalRefundAmount = 0;
+        for (OrderProduct product : products) {
+            Objects.requireNonNull(product, "product must not be null");
+            UUID productId = product.getId();
+            if (productId == null) {
+                throw new IllegalArgumentException("order product id must not be null");
+            }
+            if (!uniqueProductIds.add(productId)) {
+                throw new IllegalArgumentException("duplicate order product id: " + productId);
+            }
+            int productAmount = product.getProductAmount();
+            if (productAmount <= 0) {
+                throw new IllegalArgumentException("refund amount must be positive");
+            }
+            totalRefundAmount = Math.addExact(totalRefundAmount, productAmount);
+        }
 
-	public void addProduct(OrderProduct orderProduct) {
-		if (refundProducts.stream().anyMatch(item -> item.getOrderProduct().getId().equals(orderProduct.getId()))) {
-			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
-		}
-		OrderRefundProduct refundProduct = OrderRefundProduct.create(this, orderProduct);
-		refundProducts.add(refundProduct);
-		totalRefundAmount += refundProduct.getRefundAmount();
-	}
+        OrderRefund refund = new OrderRefund(
+            UUID.randomUUID(), orderId, paymentId, buyerId, totalRefundAmount, requestedAt
+        );
+        products.stream()
+            .map(product -> OrderRefundProduct.from(refund, product))
+            .forEach(refund.products::add);
+        return refund;
+    }
 
-	public void complete(LocalDateTime completedAt) {
-		validateResolvable();
-		refundProducts.forEach(item -> item.getOrderProduct().completeRefund(completedAt));
-		status = OrderRefundStatus.COMPLETED;
-		this.completedAt = completedAt;
-		nextCheckAt = null;
-		manualReviewRequired = false;
-	}
+    public List<OrderRefundProduct> getProducts() {
+        return List.copyOf(products);
+    }
 
-	public void fail(String failureCode, String failureReason, LocalDateTime failedAt) {
-		validateResolvable();
-		refundProducts.forEach(item -> item.getOrderProduct().failRefund());
-		status = OrderRefundStatus.FAILED;
-		this.failureCode = failureCode;
-		this.failureReason = failureReason;
-		this.failedAt = failedAt;
-		nextCheckAt = null;
-		manualReviewRequired = false;
-	}
+    public Set<UUID> productIds() {
+        return products.stream()
+            .map(OrderRefundProduct::getOrderProductId)
+            .collect(Collectors.toUnmodifiableSet());
+    }
 
-	public void timeout(LocalDateTime timeoutAt) {
-		if (status != OrderRefundStatus.REQUESTED) {
-			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
-		}
-		refundProducts.forEach(item -> item.getOrderProduct().markRefundTimeout());
-		status = OrderRefundStatus.TIMEOUT;
-		this.timeoutAt = timeoutAt;
-		manualReviewRequired = true;
-		nextCheckAt = null;
-	}
+    public boolean hasExactProducts(UUID paymentId, Set<UUID> productIds) {
+        return this.paymentId.equals(paymentId) && productIds().equals(productIds);
+    }
 
-	public void claimUntil(LocalDateTime leaseUntil) {
-		if (status != OrderRefundStatus.REQUESTED) {
-			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
-		}
-		nextCheckAt = leaseUntil;
-	}
+    public boolean overlaps(Set<UUID> productIds) {
+        return productIds.stream().anyMatch(productIds()::contains);
+    }
 
-	public void recordReconciliationAttempt(LocalDateTime nextCheckAt) {
-		if (status != OrderRefundStatus.REQUESTED) {
-			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
-		}
-		reconciliationAttempt++;
-		this.nextCheckAt = nextCheckAt;
-	}
+    public void markProcessing(LocalDateTime nextCheckAt) {
+        requireNonTerminal();
+        Objects.requireNonNull(nextCheckAt, "nextCheckAt must not be null");
+        this.status = OrderRefundStatus.PROCESSING;
+        this.nextCheckAt = nextCheckAt;
+    }
 
-	public UUID getOrderId() {
-		return order.getId();
-	}
+    public void complete(LocalDateTime completedAt) {
+        if (status == OrderRefundStatus.COMPLETED) {
+            if (Objects.equals(this.completedAt, completedAt)) {
+                return;
+            }
+            throw new IllegalStateException("completed refund result conflicts with stored result");
+        }
+        requireNonTerminal();
+        Objects.requireNonNull(completedAt, "completedAt must not be null");
+        this.status = OrderRefundStatus.COMPLETED;
+        this.completedAt = completedAt;
+        this.nextCheckAt = null;
+    }
 
-	public void validateResult(UUID paymentId, UUID orderId, int totalRefundAmount) {
-		if (!this.paymentId.equals(paymentId)
-			|| !getOrderId().equals(orderId)
-			|| this.totalRefundAmount != totalRefundAmount) {
-			throw new OrderException(ErrorCode.ORDER_REFUND_EVENT_MISMATCH);
-		}
-	}
+    public void fail(
+        String code,
+        String reason,
+        boolean retryable,
+        LocalDateTime failedAt
+    ) {
+        if (status == OrderRefundStatus.FAILED) {
+            if (Objects.equals(this.failureCode, code)
+                && Objects.equals(this.failureReason, reason)
+                && this.retryable == retryable
+                && Objects.equals(this.failedAt, failedAt)) {
+                return;
+            }
+            throw new IllegalStateException("failed refund result conflicts with stored result");
+        }
+        requireNonTerminal();
+        Objects.requireNonNull(failedAt, "failedAt must not be null");
+        this.status = OrderRefundStatus.FAILED;
+        this.failureCode = code;
+        this.failureReason = reason;
+        this.retryable = retryable;
+        this.failedAt = failedAt;
+        this.nextCheckAt = null;
+    }
 
-	private void validateResolvable() {
-		if (status != OrderRefundStatus.REQUESTED && status != OrderRefundStatus.TIMEOUT) {
-			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
-		}
-	}
+    public void markUnknown(LocalDateTime nextCheckAt) {
+        requireNonTerminal();
+        Objects.requireNonNull(nextCheckAt, "nextCheckAt must not be null");
+        this.status = OrderRefundStatus.UNKNOWN;
+        this.nextCheckAt = nextCheckAt;
+    }
 
-	private static String normalizeReason(String reason) {
-		if (reason == null || reason.trim().isEmpty()) {
-			return null;
-		}
-		String normalized = reason.trim();
-		if (normalized.length() > MAX_REASON_LENGTH) {
-			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
-		}
-		return normalized;
-	}
+    public void leaseUntil(LocalDateTime leaseUntil) {
+        requireNonTerminal();
+        this.nextCheckAt = Objects.requireNonNull(leaseUntil, "leaseUntil must not be null");
+    }
+
+    public void scheduleNext(int attempt, LocalDateTime nextCheckAt) {
+        requireNonTerminal();
+        if (attempt < 0) {
+            throw new IllegalArgumentException("attempt must not be negative");
+        }
+        Objects.requireNonNull(nextCheckAt, "nextCheckAt must not be null");
+        this.reconciliationAttempt = attempt;
+        this.nextCheckAt = nextCheckAt;
+    }
+
+    public void requireManualReview() {
+        requireNonTerminal();
+        this.manualReviewRequired = true;
+        this.nextCheckAt = null;
+    }
+
+    public void requireMatches(UUID paymentId, UUID orderId, int totalRefundAmount) {
+        if (!this.paymentId.equals(paymentId)
+            || !this.orderId.equals(orderId)
+            || this.totalRefundAmount != totalRefundAmount) {
+            throw new OrderException(ErrorCode.ORDER_REFUND_EVENT_MISMATCH);
+        }
+    }
+
+    private void requireNonTerminal() {
+        if (status == OrderRefundStatus.COMPLETED || status == OrderRefundStatus.FAILED) {
+            throw new IllegalStateException("terminal refund cannot be overwritten");
+        }
+    }
 }

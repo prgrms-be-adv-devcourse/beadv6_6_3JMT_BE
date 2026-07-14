@@ -11,12 +11,10 @@ import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
 @Service
-@Transactional
 @RequiredArgsConstructor
 public class ConfirmDownloadCommandHandler implements ConfirmDownloadUseCase {
 
@@ -38,7 +36,7 @@ public class ConfirmDownloadCommandHandler implements ConfirmDownloadUseCase {
 			.findFirst()
 			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_PRODUCT_NOT_FOUND));
 
-		if (!orderProduct.isPaid()) {
+		if (!orderProduct.canAccessContent()) {
 			throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
 		}
 

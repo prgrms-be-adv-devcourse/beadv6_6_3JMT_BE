@@ -20,6 +20,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.UUID;
+import java.util.Set;
 
 import static com.prompthub.order.fixture.OrderFixture.APPROVED_AT;
 import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
@@ -200,5 +201,35 @@ class OrderPaymentPersistenceImplTest {
 		);
 		assertThat(projection.amount()).isEqualTo(TOTAL_AMOUNT);
 		assertThat(projection.isRefundable()).isTrue();
+	}
+
+	@Test
+	@DisplayName("부분 환불 결제는 다운로드하지 않은 PAID 상품이 남으면 환불 가능하다")
+	void searchOrderPayments_partiallyRefundedWithPaidProduct_refundable() {
+		Order order = Order.create(BUYER_ID, ORDER_NUMBER, TOTAL_AMOUNT, TOTAL_ITEM_COUNT);
+		OrderProduct refundedProduct = OrderProduct.create(
+			PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, PRODUCT_TYPE_PROMPT, "GPT-4", PRODUCT_AMOUNT_1
+		);
+		OrderProduct paidProduct = OrderProduct.create(
+			PRODUCT_ID_2, SELLER_ID_2, PRODUCT_TITLE_2, PRODUCT_TYPE_PROMPT, "GPT-4", PRODUCT_AMOUNT_2
+		);
+		order.addOrderProduct(refundedProduct);
+		order.addOrderProduct(paidProduct);
+		order.markPaid(APPROVED_AT);
+		entityManager.persist(order);
+		entityManager.flush();
+		order.requestRefundProducts(Set.of(refundedProduct.getId()));
+		order.completeRefundProducts(Set.of(refundedProduct.getId()), APPROVED_AT.plusDays(1));
+		entityManager.persist(OrderPayment.create(order.getId(), PAYMENT_ID, BUYER_ID, TOTAL_AMOUNT, APPROVED_AT));
+		entityManager.flush();
+		entityManager.clear();
+
+		Page<OrderPaymentListProjection> result = orderPaymentPersistence.searchOrderPayments(
+			BUYER_ID,
+			PageRequest.of(0, 20, Sort.by(Sort.Order.desc("approvedAt")))
+		);
+
+		assertThat(result.getContent().getFirst().orderStatus()).isEqualTo(OrderStatus.PARTIALLY_REFUNDED);
+		assertThat(result.getContent().getFirst().isRefundable()).isTrue();
 	}
 }

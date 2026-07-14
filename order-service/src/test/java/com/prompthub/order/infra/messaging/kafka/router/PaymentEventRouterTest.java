@@ -5,10 +5,11 @@ import com.prompthub.order.application.service.event.common.ConsumedEventContext
 import com.prompthub.order.application.service.event.payment.PaymentApprovedProcessor;
 import com.prompthub.order.application.service.event.payment.PaymentCanceledProcessor;
 import com.prompthub.order.application.service.event.payment.PaymentFailedProcessor;
-import com.prompthub.order.application.service.event.payment.PaymentRefundCompletedProcessor;
-import com.prompthub.order.application.service.event.payment.PaymentRefundFailedProcessor;
+import com.prompthub.order.application.service.event.payment.PaymentPartialRefundedProcessor;
+import com.prompthub.order.application.service.event.payment.PaymentPartialRefundFailedProcessor;
 import com.prompthub.order.application.service.event.payment.PaymentRefundedProcessor;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentPartialRefundedPayload;
 import com.prompthub.order.infra.messaging.kafka.support.EventPayloadMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,8 +36,8 @@ class PaymentEventRouterTest {
 	@Mock private PaymentRefundedProcessor refundedProcessor;
 	@Mock private PaymentFailedProcessor failedProcessor;
 	@Mock private PaymentCanceledProcessor canceledProcessor;
-	@Mock private PaymentRefundCompletedProcessor refundCompletedProcessor;
-	@Mock private PaymentRefundFailedProcessor refundFailedProcessor;
+	@Mock private PaymentPartialRefundedProcessor partialRefundedProcessor;
+	@Mock private PaymentPartialRefundFailedProcessor partialRefundFailedProcessor;
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
 	private PaymentEventRouter paymentEventRouter;
@@ -49,9 +50,39 @@ class PaymentEventRouterTest {
 			refundedProcessor,
 			failedProcessor,
 			canceledProcessor,
-			refundCompletedProcessor,
-			refundFailedProcessor
+			partialRefundedProcessor,
+			partialRefundFailedProcessor
 		);
+	}
+
+	@Test
+	@DisplayName("PAYMENT_PARTIAL_REFUNDED 이벤트를 다건 환불 성공 Processor로 위임한다")
+	void route_partialRefunded_delegatesToProcessor() throws Exception {
+		UUID eventId = UUID.randomUUID();
+		UUID refundRequestId = UUID.randomUUID();
+		UUID orderId = UUID.randomUUID();
+		UUID paymentId = UUID.randomUUID();
+		LocalDateTime occurredAt = LocalDateTime.of(2026, 7, 14, 12, 0);
+		JsonNode payload = objectMapper.readTree("""
+			{
+			  "refundRequestId": "%s",
+			  "paymentId": "%s",
+			  "orderId": "%s",
+			  "totalRefundAmount": 19000,
+			  "refundedAt": "2026-07-14T12:00:00"
+			}
+			""".formatted(refundRequestId, paymentId, orderId));
+		EventMessage<JsonNode> message = new EventMessage<>(
+			eventId, "PAYMENT_PARTIAL_REFUNDED", occurredAt, "PAYMENT_REFUND", refundRequestId, payload
+		);
+
+		paymentEventRouter.route(message);
+
+		ArgumentCaptor<PaymentPartialRefundedPayload> payloadCaptor =
+			ArgumentCaptor.forClass(PaymentPartialRefundedPayload.class);
+		verify(partialRefundedProcessor).process(any(), payloadCaptor.capture());
+		assertThat(payloadCaptor.getValue().refundRequestId()).isEqualTo(refundRequestId);
+		assertThat(payloadCaptor.getValue().totalRefundAmount()).isEqualTo(19_000);
 	}
 
 	@Test
@@ -100,7 +131,7 @@ class PaymentEventRouterTest {
 		verify(refundedProcessor, never()).process(any(), any());
 		verify(failedProcessor, never()).process(any(), any());
 		verify(canceledProcessor, never()).process(any(), any());
-		verify(refundCompletedProcessor, never()).process(any(), any());
-		verify(refundFailedProcessor, never()).process(any(), any());
+		verify(partialRefundedProcessor, never()).process(any(), any());
+		verify(partialRefundFailedProcessor, never()).process(any(), any());
 	}
 }

@@ -40,6 +40,11 @@ prompthub:
     topic: order-events
     batch-size: 100
     max-retry-count: 3
+  refund-reconciliation:
+    enabled: false
+    fixed-delay: 30s
+    batch-size: 50
+    lease-duration: 1m
   order:
     enabled: false
 
