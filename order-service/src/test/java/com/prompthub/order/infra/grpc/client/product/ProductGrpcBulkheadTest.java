@@ -1,14 +1,14 @@
 package com.prompthub.order.infra.grpc.client.product;
 
 import com.prompthub.exception.BusinessException;
-import com.prompthub.grpc.product.v1.GetCartSnapshotsRequest;
-import com.prompthub.grpc.product.v1.GetCartSnapshotsResponse;
-import com.prompthub.grpc.product.v1.GetOrderSnapshotsRequest;
-import com.prompthub.grpc.product.v1.GetOrderSnapshotsResponse;
-import com.prompthub.grpc.product.v1.GetProductContentRequest;
-import com.prompthub.grpc.product.v1.GetProductContentResponse;
-import com.prompthub.grpc.product.v1.ProductCartSnapshotMessage;
-import com.prompthub.grpc.product.v1.ProductInternalServiceGrpc;
+import com.prompthub.product.grpc.GetCartSnapshotsRequest;
+import com.prompthub.product.grpc.GetCartSnapshotsResponse;
+import com.prompthub.product.grpc.GetOrderSnapshotsRequest;
+import com.prompthub.product.grpc.GetOrderSnapshotsResponse;
+import com.prompthub.product.grpc.GetProductContentRequest;
+import com.prompthub.product.grpc.GetProductContentResponse;
+import com.prompthub.product.grpc.ProductCartSnapshotMessage;
+import com.prompthub.product.grpc.ProductQueryServiceGrpc;
 import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.global.exception.ErrorCode;
 import io.github.resilience4j.bulkhead.Bulkhead;
@@ -149,17 +149,17 @@ class ProductGrpcBulkheadTest {
 	}
 
 	private ProductGrpcClientAdapter adapterWith(
-		ProductInternalServiceGrpc.ProductInternalServiceImplBase service,
+		ProductQueryServiceGrpc.ProductQueryServiceImplBase service,
 		int deadlineMs,
 		ProductGrpcResilience resilience
 	) throws IOException {
 		String serverName = InProcessServerBuilder.generateName();
 		server = InProcessServerBuilder.forName(serverName).directExecutor().addService(service).build().start();
 		channel = InProcessChannelBuilder.forName(serverName).directExecutor().build();
-		return new ProductGrpcClientAdapter(ProductInternalServiceGrpc.newBlockingStub(channel), deadlineMs, resilience);
+		return new ProductGrpcClientAdapter(ProductQueryServiceGrpc.newBlockingStub(channel), deadlineMs, resilience);
 	}
 
-	private ProductInternalServiceGrpc.ProductInternalServiceImplBase blockingService(
+	private ProductQueryServiceGrpc.ProductQueryServiceImplBase blockingService(
 		CountDownLatch entered,
 		CountDownLatch release,
 		AtomicInteger orderCalls,
@@ -167,12 +167,12 @@ class ProductGrpcBulkheadTest {
 		AtomicInteger contentCalls,
 		Outcome outcome
 	) {
-		return new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
+		return new ProductQueryServiceGrpc.ProductQueryServiceImplBase() {
 			@Override
 			public void getOrderSnapshots(GetOrderSnapshotsRequest request, StreamObserver<GetOrderSnapshotsResponse> observer) {
 				orderCalls.incrementAndGet();
 				complete(entered, release, outcome, observer, GetOrderSnapshotsResponse.newBuilder()
-					.addProducts(com.prompthub.grpc.product.v1.ProductOrderSnapshot.newBuilder()
+					.addProducts(com.prompthub.product.grpc.ProductOrderSnapshot.newBuilder()
 						.setProductId(PRODUCT_ID.toString()).setSellerId(SELLER_ID.toString()).setTitle("product")
 						.setProductType("PROMPT").setAmount(1000).setModel("GPT-4")).build());
 			}

@@ -32,8 +32,7 @@ public record VersionedServiceRoute(String id, String uri, List<String> pathSuff
             List.of(
                 "/orders", "/orders/**",
                 "/cart", "/cart/**",
-                "/admin/orders", "/admin/orders/**",
-                "/internal/orders/**"
+                "/admin/orders", "/admin/orders/**"
             ),
             2
         ),

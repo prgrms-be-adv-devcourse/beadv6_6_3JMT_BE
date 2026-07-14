@@ -1,11 +1,11 @@
 package com.prompthub.order.infra.grpc.client.product;
 
 import com.prompthub.exception.BusinessException;
-import com.prompthub.grpc.product.v1.GetCartSnapshotsRequest;
-import com.prompthub.grpc.product.v1.GetOrderSnapshotsRequest;
-import com.prompthub.grpc.product.v1.GetProductContentRequest;
-import com.prompthub.grpc.product.v1.ProductCartSnapshotMessage;
-import com.prompthub.grpc.product.v1.ProductInternalServiceGrpc;
+import com.prompthub.product.grpc.GetCartSnapshotsRequest;
+import com.prompthub.product.grpc.GetOrderSnapshotsRequest;
+import com.prompthub.product.grpc.GetProductContentRequest;
+import com.prompthub.product.grpc.ProductCartSnapshotMessage;
+import com.prompthub.product.grpc.ProductQueryServiceGrpc;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductCartSnapshot;
 import com.prompthub.order.application.dto.ProductContent;
@@ -36,12 +36,12 @@ public class ProductGrpcClientAdapter implements ProductClient {
 	private static final String PRODUCT_ORDER_GRPC = "productOrderGrpc";
 	private static final String PRODUCT_QUERY_GRPC = "productQueryGrpc";
 
-	private final ProductInternalServiceGrpc.ProductInternalServiceBlockingStub stub;
+	private final ProductQueryServiceGrpc.ProductQueryServiceBlockingStub stub;
 	private final int deadlineMs;
 	private final ProductGrpcResilience resilience;
 
 	public ProductGrpcClientAdapter(
-		ProductInternalServiceGrpc.ProductInternalServiceBlockingStub stub,
+		ProductQueryServiceGrpc.ProductQueryServiceBlockingStub stub,
 		@Value("${prompthub.grpc.product.deadline-ms:1000}") int deadlineMs,
 		ProductGrpcResilience resilience
 	) {
@@ -122,7 +122,7 @@ public class ProductGrpcClientAdapter implements ProductClient {
 		}
 	}
 
-	private ProductInternalServiceGrpc.ProductInternalServiceBlockingStub withDeadline() {
+	private ProductQueryServiceGrpc.ProductQueryServiceBlockingStub withDeadline() {
 		return stub.withDeadlineAfter(deadlineMs, TimeUnit.MILLISECONDS);
 	}
 
@@ -132,7 +132,7 @@ public class ProductGrpcClientAdapter implements ProductClient {
 			.toList();
 	}
 
-	private ProductOrderSnapshot toOrderSnapshot(com.prompthub.grpc.product.v1.ProductOrderSnapshot response) {
+	private ProductOrderSnapshot toOrderSnapshot(com.prompthub.product.grpc.ProductOrderSnapshot response) {
 		return new ProductOrderSnapshot(
 			UUID.fromString(response.getProductId()),
 			UUID.fromString(response.getSellerId()),

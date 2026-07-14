@@ -17,3 +17,6 @@ spring:
 eureka:
   client:
     enabled: false
+
+api:
+  init: /api/v2

@@ -27,7 +27,7 @@ import java.util.UUID;
 
 @Tag(name = "인증", description = "OAuth 소셜 로그인, 토큰 재발급, 로그아웃")
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/api/v2/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
@@ -35,6 +35,8 @@ public class AuthController {
 
     @Operation(summary = "OAuth 소셜 로그인", description = "최초 로그인 시 자동 회원가입 처리. 현재 지원 provider: kakao")
     @ApiResponse(responseCode = "200", description = "로그인 성공")
+    @ApiResponse(responseCode = "400", description = "지원하지 않는 OAuth 공급자 (A009)")
+    @ApiResponse(responseCode = "401", description = "카카오 인증에 실패함 (A011)")
     @PostMapping("/oauth/{provider}")
     public ApiResult<OAuthLoginResponse> oAuthLogin(
             @Parameter(description = "OAuth 제공자", example = "kakao") @PathVariable String provider,
@@ -45,9 +47,9 @@ public class AuthController {
         return ApiResult.success(OAuthLoginResponse.from(result));
     }
 
-    @Operation(summary = "토큰 재발급", description = "Refresh Token으로 새 Access Token을 발급")
+    @Operation(summary = "토큰 재발급", description = "Refresh Token으로 새 Access Token과 새 Refresh Token을 발급(RTR)")
     @ApiResponse(responseCode = "200", description = "재발급 성공")
-    @ApiResponse(responseCode = "401", description = "리프레시 토큰이 유효하지 않거나 만료됨 (A003, A006)")
+    @ApiResponse(responseCode = "401", description = "리프레시 토큰이 유효하지 않거나 만료되었거나 재사용이 감지됨 (A003, A006, A012)")
     @PostMapping("/token/refresh")
     public ApiResult<TokenRefreshResponse> refreshToken(
             @Valid @RequestBody TokenRefreshRequest request

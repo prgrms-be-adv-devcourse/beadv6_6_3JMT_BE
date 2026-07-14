@@ -19,6 +19,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-kafka'
     testImplementation 'org.springframework.kafka:spring-kafka-test'
 
+    // Redis (RT 조회 캐시 — ADR-0008 결정3 / authorize 캐시 — 결정6, #289)
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'com.h2database:h2'
 }

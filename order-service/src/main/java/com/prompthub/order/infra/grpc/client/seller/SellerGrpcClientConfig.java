@@ -1,6 +1,6 @@
 package com.prompthub.order.infra.grpc.client.seller;
 
-import com.prompthub.order.grpc.seller.SellerQueryServiceGrpc;
+import com.prompthub.user.grpc.seller.SellerQueryServiceGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import org.springframework.beans.factory.annotation.Value;
