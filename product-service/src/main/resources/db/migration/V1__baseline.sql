@@ -2,7 +2,6 @@
 -- PostgreSQL database dump
 --
 
-\restrict cR7haU4HbgTIQwNKAl98L7eYOqzXBcFa5YjluLv09HrUgTi4QK8yLO5Y6gfJbRF
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -1459,5 +1458,4 @@ ALTER DEFAULT PRIVILEGES FOR ROLE prompthub IN SCHEMA user_service GRANT ALL ON 
 -- PostgreSQL database dump complete
 --
 
-\unrestrict cR7haU4HbgTIQwNKAl98L7eYOqzXBcFa5YjluLv09HrUgTi4QK8yLO5Y6gfJbRF
 
