@@ -8,5 +8,6 @@ public record PaymentRefundedMessage(
     UUID userId,
     UUID orderProductId,
     int amount,
+    String paymentStatus,
     String refundedAt
 ) {}

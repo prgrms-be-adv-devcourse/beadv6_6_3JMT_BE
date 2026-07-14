@@ -8,6 +8,7 @@ public record PaymentRefundFailedMessage(
     UUID userId,
     UUID orderProductId,
     int refundAmount,
+    String paymentStatus,
     String failureReason,
     String failedAt
 ) {}

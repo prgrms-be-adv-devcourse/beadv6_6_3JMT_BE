@@ -108,6 +108,7 @@ public class KafkaPaymentEventPublisher {
             payment.getUserId(),
             refund.getOrderProductId(),
             refund.getRefundAmount(),
+            payment.getStatus().name(),
             toKstString(payment.getRefundedAt())
         );
         EventMessage<PaymentRefundedMessage> message = new EventMessage<>(
@@ -143,6 +144,7 @@ public class KafkaPaymentEventPublisher {
             payment.getUserId(),
             refund.getOrderProductId(),
             refund.getRefundAmount(),
+            payment.getStatus().name(),
             event.failureReason(),
             toKstString(failedAt)
         );
