@@ -12,7 +12,7 @@
 | `user-service` | 8081 | 9081 (서버) | 회원·인증(JWT 발급)·판매자·찜 |
 | `product-service` | 8082 | 9082 (서버) | 상품·카테고리·리뷰 |
 | `order-service` | 8083 | 9083 (서버, **예정** — 결제정보 폴백용 `OrderInternalService`) | 주문·장바구니·Outbox Relay |
-| `payment-service` | 8084 | - (order 9083 **클라이언트**) | 결제 (Toss Payments 연동), `order-events` 구독 |
+| `payment-service` | 8084 | 9084 (서버, order-service향 환불 조회) / order 9083 **클라이언트** | 결제 (Toss Payments 연동), `order-events` 구독 |
 | `settlement-service` | 8085 | - | 정산 (Spring Batch) |
 | `common-module` | - | - | 공용 라이브러리 (`BusinessException`, `ErrorCode`, 공통 응답 래퍼). 루트 `settings.gradle`에 `include 'common-module'`로 서브프로젝트 포함 |
 
@@ -71,6 +71,7 @@ flowchart LR
 | settlement → user | 9081 | 판매자 정보 배치 조회 | `settlement-service/.../infrastructure/client/seller/config/SellerGrpcClientConfig.java` |
 | settlement → product | 9082 | 상품 정보 배치 조회 | `settlement-service/.../infrastructure/client/product/config/ProductGrpcClientConfig.java` |
 | payment → order | 9083 | 주문 결제정보 폴백 조회(스냅샷 미확보 시) | `payment-service/.../infrastructure/external/grpc/OrderGrpcClientConfig.java` (**order 측 서버 예정**) |
+| order → payment | 9084 | 환불 이벤트 폴백 조회(Kafka 유실 시) | `payment-service/.../infrastructure/grpc/PaymentQueryGrpcService.java` |
 
 ### 3) 내부 동기 통신 (HTTP)
 
