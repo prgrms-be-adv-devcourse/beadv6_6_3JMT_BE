@@ -1,5 +1,6 @@
 package com.prompthub.user.user.application.service;
 
+import com.prompthub.user.auth.application.usecase.SessionRevocationUseCase;
 import com.prompthub.user.seller.domain.model.SellerRegisterStatus;
 import com.prompthub.user.seller.domain.repository.SellerRegisterRepository;
 import com.prompthub.user.user.application.dto.UpdateProfileCommand;
@@ -23,6 +24,7 @@ public class UserApplicationService implements UserUseCase {
 
     private final UserRepository userRepository;
     private final SellerRegisterRepository sellerRegisterRepository;
+    private final SessionRevocationUseCase sessionRevocationUseCase;
 
     @Override
     public UserResult getMyProfile(UUID userId) {
@@ -59,5 +61,15 @@ public class UserApplicationService implements UserUseCase {
         }
 
         return new UpdateProfileResult(user.getUserId(), updatedName, updatedEmail);
+    }
+
+    @Override
+    @Transactional
+    public void withdraw(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
+
+        user.withdraw();
+        sessionRevocationUseCase.revoke(userId);
     }
 }

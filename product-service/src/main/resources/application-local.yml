@@ -16,7 +16,7 @@ spring:
       max-request-size: 10MB
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:create-only}
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     open-in-view: false
     properties:
       hibernate:

@@ -9,4 +9,5 @@ import java.util.UUID;
 public interface UserUseCase {
     UserResult getMyProfile(UUID userId);
     UpdateProfileResult updateProfile(UpdateProfileCommand command);
+    void withdraw(UUID userId);
 }

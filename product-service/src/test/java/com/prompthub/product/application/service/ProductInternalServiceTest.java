@@ -2,12 +2,14 @@ package com.prompthub.product.application.service;
 
 import com.prompthub.product.application.client.SellerClient;
 import com.prompthub.product.application.client.SellerInfo;
+import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.domain.repository.ReviewRepository;
 import com.prompthub.product.presentation.dto.response.ProductCartSnapshotResponse;
+import com.prompthub.product.presentation.dto.response.ProductContentResponse;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -38,6 +40,9 @@ class ProductInternalServiceTest {
 
 	@Mock
 	private SellerClient sellerClient;
+
+	@Mock
+	private StorageClient storageClient;
 
 	@InjectMocks
 	private ProductInternalService productInternalService;
@@ -163,6 +168,62 @@ class ProductInternalServiceTest {
 				org.mockito.ArgumentCaptor.forClass(com.prompthub.product.domain.model.entity.Review.class);
 			then(reviewRepository).should().save(captor.capture());
 			assertThat(captor.getValue().getProduct()).isEqualTo(root);
+		}
+	}
+
+	@Nested
+	@DisplayName("구매자 산출물 조회 (유형별)")
+	class GetProductContent {
+
+		@Test
+		@DisplayName("PROMPT는 content 본문을 반환한다")
+		void getProductContent_prompt() {
+			Product product = onSaleWithType(ProductType.PROMPT);
+			ReflectionTestUtils.setField(product, "content", "프롬프트 본문");
+			mockResolve(product);
+
+			ProductContentResponse response = productInternalService.getProductContent(PRODUCT_ID);
+
+			assertThat(response.content()).isEqualTo("프롬프트 본문");
+			then(storageClient).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("PPT는 file_url을 presigned 다운로드 URL로 변환해 반환한다")
+		void getProductContent_ppt() {
+			Product product = onSaleWithType(ProductType.PPT);
+			ReflectionTestUtils.setField(product, "fileUrl", "products/1/file/a.pptx");
+			mockResolve(product);
+			given(storageClient.generatePresignedDownloadUrl("products/1/file/a.pptx"))
+				.willReturn("https://s3/presigned-file");
+
+			ProductContentResponse response = productInternalService.getProductContent(PRODUCT_ID);
+
+			assertThat(response.content()).isEqualTo("https://s3/presigned-file");
+		}
+
+		@Test
+		@DisplayName("NOTION은 external_url 원문을 반환한다")
+		void getProductContent_notion() {
+			Product product = onSaleWithType(ProductType.NOTION);
+			ReflectionTestUtils.setField(product, "externalUrl", "https://notion.so/t");
+			mockResolve(product);
+
+			ProductContentResponse response = productInternalService.getProductContent(PRODUCT_ID);
+
+			assertThat(response.content()).isEqualTo("https://notion.so/t");
+			then(storageClient).shouldHaveNoInteractions();
+		}
+
+		private Product onSaleWithType(ProductType type) {
+			Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
+			ReflectionTestUtils.setField(product, "productType", type);
+			return product;
+		}
+
+		private void mockResolve(Product product) {
+			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
 		}
 	}
 
