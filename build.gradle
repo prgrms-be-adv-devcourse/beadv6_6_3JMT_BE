@@ -91,24 +91,37 @@ configure([
     }
 
     dependencies {
+        // ── 프로젝트 공통 모듈 ──────────────────────────────────────────────────
         implementation project(':common-module')
 
+        // ── 코드 생성 (Lombok) ──────────────────────────────────────────────────
         compileOnly 'org.projectlombok:lombok'
         annotationProcessor 'org.projectlombok:lombok'
         testCompileOnly 'org.projectlombok:lombok'
         testAnnotationProcessor 'org.projectlombok:lombok'
-//        // 👈 테스트 환경용 인메모리 데이터베이스 추가
-//        testRuntimeOnly 'com.h2database:h2'
 
+        // ── Spring Boot: 웹, 데이터 액세스 ──────────────────────────────────────
         implementation 'org.springframework.boot:spring-boot-starter-web'
         implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
         testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
         testImplementation 'org.springframework.boot:spring-boot-webmvc-test'
-        runtimeOnly    'org.postgresql:postgresql'
-        testRuntimeOnly 'com.h2database:h2'
+
+        // ── 데이터베이스 ──────────────────────────────────────────────────────
+        runtimeOnly    'org.postgresql:postgresql'                              // 운영: PostgreSQL
+        testRuntimeOnly 'com.h2database:h2'                                     // 테스트: H2 인메모리 DB
+
+        // ── 검증 ──────────────────────────────────────────────────────────────
         implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+        // ── 스키마 버전 관리 (ADR-0003) ────────────────────────────────────────
+        implementation 'org.flywaydb:flyway-core'
+        runtimeOnly 'org.flywaydb:flyway-database-postgresql'
+
+        // ── Spring Cloud (서비스 디스커버리, 설정 관리) ──────────────────────────
         implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
         implementation 'org.springframework.cloud:spring-cloud-starter-config'
+
+        // ── 복원력 (Retry, AOP) ────────────────────────────────────────────────
         implementation 'org.springframework.retry:spring-retry'
         implementation 'org.springframework:spring-aspects'
 

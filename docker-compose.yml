@@ -14,6 +14,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}              # 기본 DB 이름
     volumes:
       - pg-data:/var/lib/postgresql            # 데이터 영속 볼륨(postgres 18+ 권장 마운트 경로)
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d  # 초기화 스크립트(ADR-0002)
     restart: always
     networks: [prompthub]
     ports: ["127.0.0.1:5432:5432"]            # SSH 터널 DB 접속용 loopback 노출(외부 차단)
