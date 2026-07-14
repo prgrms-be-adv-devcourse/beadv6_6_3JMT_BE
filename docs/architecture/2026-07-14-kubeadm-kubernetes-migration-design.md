@@ -239,13 +239,15 @@ Kafka controller quorum voter는 StatefulSet의 안정적인 DNS인 `kafka-0.kaf
 | User | Deployment | 1 | 8081 | 18081 | 9081 |
 | Product | Deployment | 1 | 8082 | 18082 | 9082 |
 | Order | Deployment | 1 | 8083 | 18083 | 9083 |
-| Payment | Deployment | 1 | 8084 | 18084 | 없음 |
-| Settlement | Deployment | 1 | 8085 | 18085 | 9085 |
+| Payment | Deployment | 1 | 8084 | 18084 | 9084 |
+| Settlement | Deployment | 1 | 8085 | 18085 | 없음 |
 | Admin | Deployment | 1 | 8086 | 18086 | 없음 |
 | Spring AI | Deployment | 1 | 8087 | 18087 | 없음 |
 | API Gateway | Deployment | 1 | 8000 | 8000 | 없음 |
 
 현재 Config Server는 비즈니스 HTTP port를 18081~18086으로 설정하지만 일부 직접 호출은 `product-service:8082`처럼 808x를 사용한다. 첫 Kubernetes 전환에서는 Service의 `port`를 808x, `targetPort`를 1808x로 매핑해 두 계약을 동시에 만족한다. 이후 포트 통일은 별도 리팩터링으로 다룬다.
+
+Payment는 실제 gRPC 서버 구현을 가지므로 9084를 노출한다. 적용 전 Config Server의 Payment 설정에 `spring.grpc.server.port=9084` 계약을 반영한다. Settlement의 기존 9085 설정과 Compose 포트 매핑은 현재 서버 구현이 없는 레거시 설정이므로 Kubernetes Service에는 노출하지 않는다.
 
 Spring AI 모듈은 현재 저장소에 없으므로 구현 시 다음 계약으로 추가하거나 외부 저장소 이미지를 이 계약에 맞춘다.
 
@@ -459,7 +461,7 @@ k8s/
 - Config endpoint가 서비스별 설정을 반환한다.
 - User, Product, Order, Payment, Settlement, Admin, API Gateway와 Spring AI가 Eureka에 등록된다.
 - API Gateway NodePort를 통한 회원가입, 로그인과 상품 조회 스모크 테스트가 성공한다.
-- HTTP 직접 호출과 User·Product·Order·Settlement gRPC 통신이 성공한다.
+- HTTP 직접 호출과 User·Product·Order·Payment gRPC 통신이 성공한다.
 - 서비스 Pod를 삭제하면 자동 재생성되고 다시 Eureka에 등록된다.
 
 ### 19.4 배포·복구

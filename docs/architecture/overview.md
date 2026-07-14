@@ -1,6 +1,6 @@
 # 시스템 아키텍처 개요
 
-3JMT 프롬프트 마켓 백엔드 모노레포의 MSA 전체 구조. **2026-07-06 기준 실제 코드·설정에서 도출**했으며, 각 사실의 근거 파일을 병기한다. Spring Cloud 컴포넌트 상세 동작은 `spring-cloud.md`, 서비스 간 Kafka 이벤트 상세는 `event-flow.md` 참조.
+3JMT 프롬프트 마켓 백엔드 모노레포의 MSA 전체 구조. **2026-07-06 기준 실제 코드·설정에서 도출**했으며, 각 사실의 근거 파일을 병기한다. Spring Cloud 컴포넌트 상세 동작은 `spring-cloud.md`, 서비스 간 Kafka 이벤트 상세는 `event-flow.md`, 목표 Kubernetes 배포 구성은 [`kubernetes.md`](./kubernetes.md) 참조.
 
 ## 서비스 목록
 
