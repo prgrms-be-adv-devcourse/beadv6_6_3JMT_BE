@@ -31,7 +31,6 @@ public class SellerProductController {
 	@ResponseStatus(HttpStatus.CREATED)
 	public ApiResult<ProductCreateResponse> createProduct(
 		@RequestHeader("X-User-Id") UUID sellerId,
-		@RequestHeader("X-User-Role") String role,
 		@Valid @RequestBody ProductCreateRequest request
 	) {
 		return ApiResult.success(productSellerUseCase.createProduct(sellerId, request));
@@ -40,7 +39,6 @@ public class SellerProductController {
 	@PutMapping("/products/{productId}")
 	public ApiResult<Void> updateProduct(
 		@RequestHeader("X-User-Id") UUID sellerId,
-		@RequestHeader("X-User-Role") String role,
 		@PathVariable UUID productId,
 		@Valid @RequestBody ProductUpdateRequest request
 	) {
@@ -51,7 +49,6 @@ public class SellerProductController {
 	@PatchMapping("/products/{productId}/submit")
 	public ApiResult<Void> submitForReview(
 		@RequestHeader("X-User-Id") UUID sellerId,
-		@RequestHeader("X-User-Role") String role,
 		@PathVariable UUID productId
 	) {
 		productSellerUseCase.submitForReview(sellerId, productId);
@@ -61,10 +58,9 @@ public class SellerProductController {
 	@DeleteMapping("/products/{productId}")
 	public ApiResult<Void> deleteProduct(
 		@RequestHeader("X-User-Id") UUID sellerId,
-		@RequestHeader("X-User-Role") String role,
 		@PathVariable UUID productId
 	) {
-		productSellerUseCase.deleteProduct(sellerId, role, productId);
+		productSellerUseCase.deleteProduct(sellerId, productId);
 		return ApiResult.success(null);
 	}
 }

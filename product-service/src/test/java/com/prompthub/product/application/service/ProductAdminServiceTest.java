@@ -26,7 +26,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 @ExtendWith(MockitoExtension.class)
 class ProductAdminServiceTest {
 
-	private static final String ADMIN_ROLE = "ADMIN";
 	private static final UUID SELLER_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
 	private static final UUID FAMILY_ROOT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
 
@@ -48,7 +47,7 @@ class ProductAdminServiceTest {
 			given(productRepository.findById(pending.getId())).willReturn(Optional.of(pending));
 			given(productRepository.findAllByFamilyRootIds(List.of(FAMILY_ROOT_ID))).willReturn(List.of(onSale, pending));
 
-			productAdminService.approveProduct(ADMIN_ROLE, pending.getId());
+			productAdminService.approveProduct(pending.getId());
 
 			assertThat(onSale.getStatus()).isEqualTo(ProductStatus.SUPERSEDED);
 			assertThat(pending.getStatus()).isEqualTo(ProductStatus.ON_SALE);
@@ -63,7 +62,7 @@ class ProductAdminServiceTest {
 			given(productRepository.findById(pending.getId())).willReturn(Optional.of(pending));
 			given(productRepository.findAllByFamilyRootIds(List.of(FAMILY_ROOT_ID))).willReturn(List.of(pending));
 
-			productAdminService.approveProduct(ADMIN_ROLE, pending.getId());
+			productAdminService.approveProduct(pending.getId());
 
 			assertThat(pending.getStatus()).isEqualTo(ProductStatus.ON_SALE);
 			then(productRepository).should(org.mockito.Mockito.times(1)).save(pending);
@@ -75,7 +74,7 @@ class ProductAdminServiceTest {
 			Product onSale = product(FAMILY_ROOT_ID, null, ProductStatus.ON_SALE, (short) 1, (short) 0);
 			given(productRepository.findById(FAMILY_ROOT_ID)).willReturn(Optional.of(onSale));
 
-			assertThatThrownBy(() -> productAdminService.approveProduct(ADMIN_ROLE, FAMILY_ROOT_ID))
+			assertThatThrownBy(() -> productAdminService.approveProduct(FAMILY_ROOT_ID))
 				.isInstanceOf(ProductException.class);
 		}
 	}
@@ -91,7 +90,7 @@ class ProductAdminServiceTest {
 			Product pending = product(UUID.randomUUID(), FAMILY_ROOT_ID, ProductStatus.PENDING_REVIEW, (short) 3, (short) 0);
 			given(productRepository.findById(pending.getId())).willReturn(Optional.of(pending));
 
-			productAdminService.rejectProduct(ADMIN_ROLE, pending.getId(), "콘텐츠 미흡");
+			productAdminService.rejectProduct(pending.getId(), "콘텐츠 미흡");
 
 			assertThat(pending.getStatus()).isEqualTo(ProductStatus.REJECTED);
 			assertThat(pending.getRejectionReason()).isEqualTo("콘텐츠 미흡");
@@ -112,7 +111,7 @@ class ProductAdminServiceTest {
 			given(productRepository.findById(onSale.getId())).willReturn(Optional.of(onSale));
 			given(productRepository.findAllByFamilyRootIds(List.of(FAMILY_ROOT_ID))).willReturn(List.of(superseded, onSale));
 
-			productAdminService.revertProductToPendingReview(ADMIN_ROLE, onSale.getId());
+			productAdminService.revertProductToPendingReview(onSale.getId());
 
 			assertThat(onSale.getStatus()).isEqualTo(ProductStatus.PENDING_REVIEW);
 			assertThat(superseded.getStatus()).isEqualTo(ProductStatus.ON_SALE);
@@ -125,7 +124,7 @@ class ProductAdminServiceTest {
 			given(productRepository.findById(FAMILY_ROOT_ID)).willReturn(Optional.of(onSale));
 			given(productRepository.findAllByFamilyRootIds(List.of(FAMILY_ROOT_ID))).willReturn(List.of(onSale));
 
-			productAdminService.revertProductToPendingReview(ADMIN_ROLE, FAMILY_ROOT_ID);
+			productAdminService.revertProductToPendingReview(FAMILY_ROOT_ID);
 
 			assertThat(onSale.getStatus()).isEqualTo(ProductStatus.PENDING_REVIEW);
 		}
@@ -136,7 +135,7 @@ class ProductAdminServiceTest {
 			Product rejected = product(FAMILY_ROOT_ID, null, ProductStatus.REJECTED, (short) 1, (short) 0);
 			given(productRepository.findById(FAMILY_ROOT_ID)).willReturn(Optional.of(rejected));
 
-			productAdminService.revertProductToPendingReview(ADMIN_ROLE, FAMILY_ROOT_ID);
+			productAdminService.revertProductToPendingReview(FAMILY_ROOT_ID);
 
 			assertThat(rejected.getStatus()).isEqualTo(ProductStatus.PENDING_REVIEW);
 			then(productRepository).should(org.mockito.Mockito.never()).findAllByFamilyRootIds(org.mockito.ArgumentMatchers.anyList());

@@ -14,7 +14,7 @@ public interface ProductSellerUseCase {
 
 	void updateProduct(UUID sellerId, UUID productId, ProductUpdateRequest request);
 
-	void deleteProduct(UUID sellerId, String role, UUID productId);
+	void deleteProduct(UUID sellerId, UUID productId);
 
 	List<SellerProductListItemResponse> getMyProducts(UUID sellerId);
 

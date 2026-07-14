@@ -8,7 +8,6 @@ import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
 import com.prompthub.product.presentation.dto.response.AdminProductListItemResponse;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -24,16 +23,14 @@ public class ProductAdminService implements ProductAdminUseCase {
 
 	@Override
 	@Transactional(readOnly = true)
-	public List<AdminProductListItemResponse> getPendingReviewProducts(String role) {
-		validateAdmin(role);
+	public List<AdminProductListItemResponse> getPendingReviewProducts() {
 		return productRepository.findAllAdminProducts().stream()
 			.map(AdminProductListItemResponse::from)
 			.toList();
 	}
 
 	@Override
-	public void approveProduct(String role, UUID productId) {
-		validateAdmin(role);
+	public void approveProduct(UUID productId) {
 		Product target = getProductInPendingReview(productId);
 		UUID familyRootId = target.familyRootId();
 		ProductFamily family = ProductFamily.of(familyRootId, productRepository.findAllByFamilyRootIds(List.of(familyRootId)));
@@ -46,16 +43,14 @@ public class ProductAdminService implements ProductAdminUseCase {
 	}
 
 	@Override
-	public void rejectProduct(String role, UUID productId, String reason) {
-		validateAdmin(role);
+	public void rejectProduct(UUID productId, String reason) {
 		Product product = getProductInPendingReview(productId);
 		product.reject(reason);
 		productRepository.save(product);
 	}
 
 	@Override
-	public void revertProductToPendingReview(String role, UUID productId) {
-		validateAdmin(role);
+	public void revertProductToPendingReview(UUID productId) {
 		Product target = productRepository.findById(productId)
 			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
 		if (target.getStatus() != ProductStatus.ON_SALE && target.getStatus() != ProductStatus.REJECTED) {
@@ -73,12 +68,6 @@ public class ProductAdminService implements ProductAdminUseCase {
 
 		target.revertToPendingReview();
 		productRepository.save(target);
-	}
-
-	private void validateAdmin(String role) {
-		if (Arrays.stream(role.split(",")).noneMatch("ADMIN"::equals)) {
-			throw new ProductException(ProductErrorCode.PRODUCT_FORBIDDEN);
-		}
 	}
 
 	private Product getProductInPendingReview(UUID productId) {

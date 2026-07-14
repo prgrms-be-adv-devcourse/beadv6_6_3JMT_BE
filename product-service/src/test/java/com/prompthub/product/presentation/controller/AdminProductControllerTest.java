@@ -1,9 +1,8 @@
 package com.prompthub.product.presentation.controller;
 
 import com.prompthub.product.application.usecase.ProductAdminUseCase;
-import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.ProductExceptionHandler;
-import com.prompthub.product.exception.enums.ProductErrorCode;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -43,15 +42,13 @@ class AdminProductControllerTest {
 	class GetPendingReviewProducts {
 
 		@Test
-		@DisplayName("ADMIN이 아니면 검수 대기 목록 조회를 거부한다")
-		void getPendingReviewProducts_forbiddenForNonAdmin() throws Exception {
-			given(productAdminUseCase.getPendingReviewProducts("BUYER"))
-				.willThrow(new ProductException(ProductErrorCode.PRODUCT_FORBIDDEN));
+		@DisplayName("검수 대기 목록을 조회한다 (역할 검사는 gateway 소관)")
+		void getPendingReviewProducts_success() throws Exception {
+			given(productAdminUseCase.getPendingReviewProducts()).willReturn(List.of());
 
-			mockMvc.perform(get("/api/v2/admin/products").header("X-User-Role", "BUYER"))
-				.andExpect(status().isForbidden())
-				.andExpect(jsonPath("$.success").value(false))
-				.andExpect(jsonPath("$.code").value("P003"));
+			mockMvc.perform(get("/api/v2/admin/products"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true));
 		}
 	}
 
@@ -64,12 +61,11 @@ class AdminProductControllerTest {
 		void approveProduct_success() throws Exception {
 			UUID productId = UUID.randomUUID();
 
-			mockMvc.perform(patch("/api/v2/admin/products/{productId}/approve", productId)
-					.header("X-User-Role", "ADMIN"))
+			mockMvc.perform(patch("/api/v2/admin/products/{productId}/approve", productId))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
-			then(productAdminUseCase).should().approveProduct("ADMIN", productId);
+			then(productAdminUseCase).should().approveProduct(productId);
 		}
 	}
 
@@ -83,13 +79,12 @@ class AdminProductControllerTest {
 			UUID productId = UUID.randomUUID();
 
 			mockMvc.perform(patch("/api/v2/admin/products/{productId}/reject", productId)
-					.header("X-User-Role", "ADMIN")
 					.contentType(MediaType.APPLICATION_JSON)
 					.content("{\"reason\":\"콘텐츠 미흡\"}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
-			then(productAdminUseCase).should().rejectProduct("ADMIN", productId, "콘텐츠 미흡");
+			then(productAdminUseCase).should().rejectProduct(productId, "콘텐츠 미흡");
 		}
 	}
 }

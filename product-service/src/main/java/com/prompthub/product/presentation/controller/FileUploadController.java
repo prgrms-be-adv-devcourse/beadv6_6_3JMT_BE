@@ -35,7 +35,6 @@ public class FileUploadController {
     @PostMapping(value = "/images", consumes = "multipart/form-data")
     public ApiResult<Map<String, String>> uploadImage(
         @RequestHeader("X-User-Id") UUID sellerId,
-        @RequestHeader("X-User-Role") String role,
         @RequestParam("file") MultipartFile file,
         @RequestParam(value = "productId", required = false) UUID productId,
         @RequestParam(value = "purpose", defaultValue = "thumbnail") String purpose
@@ -51,7 +50,6 @@ public class FileUploadController {
     @DeleteMapping("/images")
     public ApiResult<Void> deleteTempImages(
         @RequestHeader("X-User-Id") UUID sellerId,
-        @RequestHeader("X-User-Role") String role,
         @RequestBody List<String> presignedUrls
     ) {
         presignedUrls.stream()
