@@ -98,7 +98,6 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-User-Id", userId.toString());
-        headers.set("X-User-Role", "BUYER");
         Map<String, Object> body = Map.of(
             "paymentKey", "toss-integration-key",
             "orderId", orderId.toString()
@@ -164,7 +163,6 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-User-Id", userId.toString());
-        headers.set("X-User-Role", "BUYER");
         Map<String, Object> body = Map.of(
             "paymentKey", "toss-failed-key",
             "orderId", orderId.toString()
