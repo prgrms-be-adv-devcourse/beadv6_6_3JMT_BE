@@ -31,7 +31,7 @@
 
 ## 엔드포인트
 
-### POST /api/v1/payments/confirm — 결제 승인 요청
+### POST /api/v2/payments/confirm — 결제 승인 요청
 
 프론트엔드가 토스페이먼츠 SDK로 결제창을 호출한 후, 백엔드에 최종 승인을 요청합니다.
 
