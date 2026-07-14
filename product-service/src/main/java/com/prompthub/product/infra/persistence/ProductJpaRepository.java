@@ -39,7 +39,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			and (:keyword = ''
 				or lower(p.name) like concat('%', :keyword, '%')
 				or lower(p.description) like concat('%', :keyword, '%'))
-		group by p.id, p.name, p.productType, p.model, p.amount, p.salesCount, p.sellerId,
+		group by p.id, p.parentId, p.name, p.productType, p.model, p.amount, p.salesCount, p.sellerId,
 			p.description, p.thumbnailUrl, p.createdAt, p.updatedAt
 		order by
 			case when :sort = 'rating' then coalesce(avg(r.rating), 0.0) end desc,
@@ -131,7 +131,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			and p.deletedAt is null
 			and p.id <> :productId
 			and p.productType = :productType
-		group by p.id, p.name, p.productType, p.model, p.amount, p.salesCount, p.sellerId,
+		group by p.id, p.parentId, p.name, p.productType, p.model, p.amount, p.salesCount, p.sellerId,
 			p.description, p.thumbnailUrl, p.createdAt, p.updatedAt
 		order by coalesce((select sum(m.salesCount) from Product m where coalesce(m.parentId, m.id) = coalesce(p.parentId, p.id) and m.deletedAt is null), 0) desc, p.createdAt desc
 		""")
