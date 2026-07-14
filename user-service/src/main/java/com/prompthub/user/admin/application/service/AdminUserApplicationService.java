@@ -8,6 +8,8 @@ import com.prompthub.user.admin.application.dto.AdminUserStatusResult;
 import com.prompthub.user.admin.application.dto.AdminUserSummaryResult;
 import com.prompthub.user.admin.application.dto.ChangeUserStatusCommand;
 import com.prompthub.user.admin.application.usecase.AdminUserUseCase;
+import com.prompthub.user.auth.application.usecase.SessionRevocationUseCase;
+import com.prompthub.user.auth.domain.repository.AuthorizationCacheRepository;
 import com.prompthub.user.global.exception.UserErrorCode;
 import com.prompthub.user.user.domain.model.User;
 import com.prompthub.user.user.domain.model.UserStatus;
@@ -26,6 +28,8 @@ import java.util.List;
 public class AdminUserApplicationService implements AdminUserUseCase {
 
     private final UserRepository userRepository;
+    private final AuthorizationCacheRepository authorizationCacheRepository;
+    private final SessionRevocationUseCase sessionRevocationUseCase;
 
     @Override
     public AdminUserPageResult listUsers(AdminUserListQuery query) {
@@ -54,6 +58,11 @@ public class AdminUserApplicationService implements AdminUserUseCase {
         applyStatus(user, command.status());
 
         userRepository.save(user);
+        if (command.status() == UserStatus.WITHDRAWN) {
+            sessionRevocationUseCase.revoke(user.getUserId());
+        } else {
+            authorizationCacheRepository.evict(user.getUserId());
+        }
         return AdminUserStatusResult.from(user);
     }
 

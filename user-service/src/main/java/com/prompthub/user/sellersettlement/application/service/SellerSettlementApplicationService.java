@@ -3,7 +3,7 @@ package com.prompthub.user.sellersettlement.application.service;
 import com.prompthub.user.sellersettlement.application.client.ProductStatsClient;
 import com.prompthub.user.sellersettlement.application.dto.SellerProductStats;
 import com.prompthub.user.sellersettlement.application.dto.SellerSettlementListQuery;
-import com.prompthub.user.sellersettlement.application.event.SettlementCreatedPayload;
+import com.prompthub.user.sellersettlement.application.event.SettlementCreatedEvent;
 import com.prompthub.user.sellersettlement.application.usecase.SeedSellerSettlementUseCase;
 import com.prompthub.user.sellersettlement.application.usecase.SellerSettlementUseCase;
 import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementAccessDeniedException;
@@ -28,15 +28,15 @@ public class SellerSettlementApplicationService implements SeedSellerSettlementU
 
     @Override
     @Transactional
-    public void seed(SettlementCreatedPayload payload) {
-        if (sellerSettlementRepository.existsBySettlementId(payload.settlementId())) {
+    public void seed(SettlementCreatedEvent event) {
+        if (sellerSettlementRepository.existsBySettlementId(event.settlementId())) {
             return;
         }
         SellerSettlement settlement = SellerSettlement.seed(
-                payload.settlementId(), payload.sellerId(),
-                payload.periodStart(), payload.periodEnd(), payload.productCount(),
-                payload.totalAmount(), payload.settlementTotalAmount(),
-                payload.feeTotalAmount(), payload.refundAmount(), payload.calculatedAt());
+                event.settlementId(), event.sellerId(),
+                event.periodStart(), event.periodEnd(), event.productCount(),
+                event.totalAmount(), event.settlementTotalAmount(),
+                event.feeTotalAmount(), event.refundAmount(), event.calculatedAt());
         sellerSettlementRepository.save(settlement);
     }
 

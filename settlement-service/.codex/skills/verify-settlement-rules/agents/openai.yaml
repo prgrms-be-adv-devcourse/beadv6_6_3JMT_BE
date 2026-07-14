@@ -1,6 +1,0 @@
-interface:
-  display_name: "Verify Settlement Rules"
-  short_description: "정산 변경을 아키텍처·도메인·API·보안 규칙으로 검증"
-  default_prompt: "Use $verify-settlement-rules to review this diff against settlement-service rules."
-policy:
-  allow_implicit_invocation: true

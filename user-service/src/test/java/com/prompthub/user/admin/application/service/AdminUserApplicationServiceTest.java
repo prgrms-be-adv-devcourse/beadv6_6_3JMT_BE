@@ -6,6 +6,8 @@ import com.prompthub.user.admin.application.dto.AdminUserPageResult;
 import com.prompthub.user.admin.application.dto.AdminUserStatusResult;
 import com.prompthub.user.admin.application.dto.AdminUserSummaryResult;
 import com.prompthub.user.admin.application.dto.ChangeUserStatusCommand;
+import com.prompthub.user.auth.application.usecase.SessionRevocationUseCase;
+import com.prompthub.user.auth.domain.repository.AuthorizationCacheRepository;
 import com.prompthub.user.user.domain.model.User;
 import com.prompthub.user.user.domain.model.UserRole;
 import com.prompthub.user.user.domain.model.UserStatus;
@@ -23,15 +25,23 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class AdminUserApplicationServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private AuthorizationCacheRepository authorizationCacheRepository;
+
+    @Mock
+    private SessionRevocationUseCase sessionRevocationUseCase;
 
     @InjectMocks
     private AdminUserApplicationService adminUserApplicationService;
@@ -196,6 +206,7 @@ class AdminUserApplicationServiceTest {
 
         then(user).should().block();
         assertThat(result.status()).isEqualTo(UserStatus.BLOCKED);
+        then(sessionRevocationUseCase).should(never()).revoke(any());
     }
 
     @Test
@@ -213,6 +224,7 @@ class AdminUserApplicationServiceTest {
 
         then(user).should().activate();
         assertThat(result.status()).isEqualTo(UserStatus.ACTIVE);
+        then(sessionRevocationUseCase).should(never()).revoke(any());
     }
 
     @Test
@@ -229,5 +241,22 @@ class AdminUserApplicationServiceTest {
                 new ChangeUserStatusCommand(userId, UserStatus.WITHDRAWN));
 
         then(user).should().withdraw();
+        then(sessionRevocationUseCase).should().revoke(userId);
+    }
+
+    @Test
+    void changeUserStatus_성공_시_authorize_캐시_무효화() {
+        UUID userId = UUID.randomUUID();
+        User user = mock(User.class);
+        given(user.getUserId()).willReturn(userId);
+        given(user.getStatus()).willReturn(UserStatus.BLOCKED);
+        given(user.getUpdatedAt()).willReturn(LocalDateTime.now());
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(userRepository.save(user)).willReturn(user);
+
+        adminUserApplicationService.changeUserStatus(
+                new ChangeUserStatusCommand(userId, UserStatus.BLOCKED));
+
+        then(authorizationCacheRepository).should().evict(userId);
     }
 }

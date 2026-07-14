@@ -2,8 +2,8 @@
 
 **Base:** `http://localhost:8081/api/v2`
 
-> 인증 API는 `/api/v1/auth`를 유지한다. 그 외 user-service 공개 API는 `#305 (이슈)`에서
-> `/api/v2`로 전환했다.
+> user-service 공개 API는 `#305 (이슈)`에서 `/api/v2`로 전환했다. 인증 API도 별도 전환을 거쳐
+> 현재 `/api/v2/auth`이며, 전체 도메인이 `api/v2`로 통일된 상태다.
 
 ## 공통 사항
 
@@ -128,24 +128,21 @@
 
 - 인증: 필요
 - 필요 역할: BUYER / SELLER
+- 참고: ADR-0008 §결정 8 (세션 폐기)
 
 처리 순서
 
-1. 진행 중인 주문 있으면 → 400 반환
-2. 없으면 → deleted_at 채워서 Soft Delete
-3. RT 삭제
+1. `user.status` → `WITHDRAWN` (soft delete. `deleted_at` 컬럼은 없음 — `status` enum으로 관리)
+2. 세션 즉시 폐기 — 호출자(본인 탈퇴 / admin 강제 탈퇴) 무관하게 동일 경로로 처리
+   1. `refresh_token` 테이블에서 해당 유저의 모든 RT 삭제
+   2. `user:authz:{userId}` authorize 캐시 무효화 (Redis 캐시, `#289`)
+
+> **범위 제외**: 진행 중인 주문이 있는지 확인하는 체크(`AUTH_WITHDRAW_ORDER_IN_PROGRESS`, A010)는 order-service
+> 조회 연동이 필요해 별도 이슈로 분리한다. 현재 DELETE /users/me는 주문 상태와 무관하게 항상 탈퇴를 허용한다.
 
 #### Response
 
-**200 OK**
-
-```json
-{
-  "success": true,
-  "data": null,
-  "message": "success"
-}
-```
+**204 No Content** — 응답 바디 없음
 
 ---
 

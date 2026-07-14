@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.persistence.outbox;
 
-import com.prompthub.settlement.domain.model.OutboxEvent;
+import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
 import com.prompthub.settlement.domain.model.enums.OutboxEventStatus;
 import com.prompthub.settlement.domain.repository.OutboxEventRepository;
 import java.time.LocalDateTime;
@@ -18,12 +18,12 @@ public class OutboxEventRepositoryAdapter implements OutboxEventRepository {
     private final OutboxEventJpaRepository jpaRepository;
 
     @Override
-    public OutboxEvent save(OutboxEvent event) {
+    public SettlementOutboxEvent save(SettlementOutboxEvent event) {
         return jpaRepository.save(event);
     }
 
     @Override
-    public Optional<OutboxEvent> findById(UUID eventId) {
+    public Optional<SettlementOutboxEvent> findById(UUID eventId) {
         return jpaRepository.findById(eventId);
     }
 
@@ -33,7 +33,7 @@ public class OutboxEventRepositoryAdapter implements OutboxEventRepository {
             LocalDateTime cursorOccurredAt,
             UUID cursorEventId,
             int limit) {
-        List<OutboxEvent> events = cursorOccurredAt == null
+        List<SettlementOutboxEvent> events = cursorOccurredAt == null
                 ? jpaRepository.findPendingBefore(
                         OutboxEventStatus.PENDING,
                         attemptedBefore,
@@ -53,7 +53,7 @@ public class OutboxEventRepositoryAdapter implements OutboxEventRepository {
             LocalDateTime cursorOccurredAt,
             UUID cursorEventId,
             int limit) {
-        List<OutboxEvent> events = cursorOccurredAt == null
+        List<SettlementOutboxEvent> events = cursorOccurredAt == null
                 ? jpaRepository.findPendingByBatchId(
                         settlementBatchId,
                         OutboxEventStatus.PENDING,
@@ -67,7 +67,7 @@ public class OutboxEventRepositoryAdapter implements OutboxEventRepository {
         return toCandidates(events);
     }
 
-    private List<OutboxCandidate> toCandidates(List<OutboxEvent> events) {
+    private List<OutboxCandidate> toCandidates(List<SettlementOutboxEvent> events) {
         return events.stream()
                 .map(event -> new OutboxCandidate(event.getEventId(), event.getOccurredAt()))
                 .toList();

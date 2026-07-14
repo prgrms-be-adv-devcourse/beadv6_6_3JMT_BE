@@ -33,4 +33,5 @@ dependencies {
 
     // 테스트용 의존성 (WebMvcTest 같은 서블릿 라이브러리는 절대 안 들어옴)
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.projectreactor:reactor-test'
 }

@@ -20,10 +20,12 @@ dependencies {
 }
 
 // 루트 공유 gRPC 계약을 이 모듈 proto 소스에 더한다.
-// grpc/payment: 소유 payment(이 모듈이 서버). settlement-service/docs/architecture/grpc-contract-ownership.md 참고.
+// grpc/order: order-service 소유(클라이언트로 소비). grpc/payment: 소유 payment(이 모듈이 서버).
+// settlement-service/docs/architecture/grpc-contract-ownership.md 참고.
 sourceSets {
     main {
         proto {
+            srcDir '../grpc/order'
             srcDir "${rootProject.projectDir}/grpc/payment"
         }
     }

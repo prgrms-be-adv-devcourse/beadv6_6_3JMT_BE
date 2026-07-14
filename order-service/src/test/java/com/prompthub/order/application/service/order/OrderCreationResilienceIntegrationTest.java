@@ -34,7 +34,7 @@ class OrderCreationResilienceIntegrationTest {
 	private static final UUID PRODUCT_ID = UUID.fromString("00000000-0000-0000-0000-000000000902");
 
 	@Autowired
-	private OrderService orderService;
+	private CreateOrderCommandHandler createOrderCommandHandler;
 
 	@Autowired
 	private CartService cartService;
@@ -102,7 +102,7 @@ class OrderCreationResilienceIntegrationTest {
 			10_000
 		)));
 
-		orderService.createOrder(BUYER_ID, new CreateOrderRequest(List.of(PRODUCT_ID)));
+		createOrderCommandHandler.createOrder(BUYER_ID, new CreateOrderRequest(List.of(PRODUCT_ID)));
 
 		assertThat(orderPersistence.count()).isEqualTo(1);
 		assertThat(cartPersistence.findByBuyerIdWithCartProducts(BUYER_ID))
@@ -115,7 +115,10 @@ class OrderCreationResilienceIntegrationTest {
 		cartPersistence.saveAndFlush(cart);
 		given(productClient.getOrderSnapshots(anyList())).willThrow(productFailure);
 
-		assertThatThrownBy(() -> orderService.createOrder(BUYER_ID, new CreateOrderRequest(List.of(PRODUCT_ID))))
+		assertThatThrownBy(() -> createOrderCommandHandler.createOrder(
+			BUYER_ID,
+			new CreateOrderRequest(List.of(PRODUCT_ID))
+		))
 			.isInstanceOf(BusinessException.class)
 			.satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
 				.isEqualTo(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE));

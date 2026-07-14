@@ -14,6 +14,10 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
     consumer:
@@ -24,8 +28,8 @@ spring:
 jwt:
   private-key: ${JWT_PRIVATE_KEY}
   public-key: ${JWT_PUBLIC_KEY}
-  access-token-expire-seconds: 3600
-  refresh-token-expire-seconds: 2592000
+  access-token-expire-seconds: 900
+  refresh-token-expire-seconds: 604800
 
 grpc:
   server:

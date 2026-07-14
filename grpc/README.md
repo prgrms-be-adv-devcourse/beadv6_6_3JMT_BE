@@ -28,10 +28,14 @@
 
 ```
 grpc/
-├── user/seller_query.proto      ← SellerQueryService.GetSellers        (소유: user)
-├── order/order_query.proto      ← OrderQueryService.GetSettleableLines (소유: order, 서버 미구현)
-├── product/product_query.proto  ← ProductQueryService.Get* (셀러통계·스냅샷·콘텐츠·상품조회, 소유: product)
-└── payment/payment_query.proto  ← PaymentQueryService.GetRefund        (소유: payment)
+├── user/seller_query.proto        ← SellerQueryService.GetSellers        (소유: user)
+├── order/order_payment.proto      ← OrderPaymentService.GetOrderForPayment (소유: order)
+├── order/order_query.proto        ← OrderQueryService.GetSettleableLines (소유: order, 서버 미구현)
+├── product/product_query.proto    ← ProductQueryService.Get* (셀러통계·스냅샷·콘텐츠·상품조회, 소유: product)
+└── payment/payment_query.proto    ← PaymentQueryService.GetRefund        (소유: payment)
 ```
+
+`order/order_payment.proto` 는 기존 클라이언트와의 wire 호환성을 위해 레거시 package
+`payment.order` 와 Java package `com.prompthub.grpc.order.v1` 을 그대로 유지한다.
 
 전문 규칙과 정산 계약 현황은 `settlement-service/docs/architecture/grpc-contract-ownership.md` 를 본다.

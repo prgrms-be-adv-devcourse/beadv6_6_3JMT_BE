@@ -196,6 +196,60 @@
 
 ## 상품 (판매자)
 
+### POST /sellers/me/products/uploads — 업로드 URL 발급 (presigned PUT)
+
+- 인증: 필요
+- 필요 역할: SELLER
+- 이미지·산출물 파일 업로드는 백엔드를 경유하지 않는다. 백엔드는 presigned PUT URL만 발급하고,
+  프론트가 그 URL로 S3에 파일을 직접 PUT한 뒤, 반환된 `fileUrl`을 상품 생성/수정 요청의
+  `thumbnailUrl` / `imageUrls` / `fileUrl`에 넣어 보낸다.
+
+#### Request
+
+**Headers**
+
+| 헤더 | 설명 |
+|------|------|
+| X-User-Id | 판매자 ID (API Gateway 주입) |
+| X-User-Role | 사용자 역할 (API Gateway 주입) |
+
+**Body**
+
+```json
+{ "purpose": "file", "fileName": "sample.pptx", "productType": "PPT" }
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| purpose | string | Y | `thumbnail` \| `image` \| `file` |
+| fileName | string | Y | 원본 파일명(확장자 추출용) |
+| productType | string | 조건부 | `purpose=file`일 때 필수(`PPT` \| `EXCEL`) |
+
+- 확장자 검증(엄격): PPT→`pptx`/`ppt`, EXCEL→`xlsx`/`xls`, 이미지→`jpg`/`jpeg`/`png`/`gif`/`webp`.
+  맞지 않으면 400 `P008`. content-type은 발급 시 서명에 포함된다.
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "uploadUrl": "https://<presigned-put-url>",
+    "fileUrl": "https://<bucket>.s3.<region>.amazonaws.com/products/temp/file/<uuid>.pptx?..."
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| uploadUrl | string | 프론트가 파일을 직접 PUT할 대상(만료 있음) |
+| fileUrl | string | 업로드 후 상품 생성/수정 요청에 넣을 값(임시 경로). 생성/수정 시 상품 경로로 이동됨 |
+
+---
+
 ### POST /sellers/me/products — 상품 등록
 
 - UC: UC-PRODUCT-01
@@ -234,9 +288,13 @@
 | model | string | Y | 대상 AI 모델 |
 | desc | string | Y | 상품 설명 |
 | amount | integer | Y | 가격 |
-| content | string | Y | 프롬프트 원문 |
+| content | string | 유형별 | 프롬프트 원문 (PROMPT 필수) |
+| fileUrl | string | 유형별 | 산출물 파일 URL (PPT/EXCEL 필수, 업로드 후 받은 URL) |
+| externalUrl | string | 유형별 | 외부 노션 링크 (NOTION 필수) |
 | thumbnailUrl | string | N | 썸네일 이미지 URL |
 | tags | string[] | N | 판매자 지정 태그 목록 |
+
+> **유형별 필수 필드**: PROMPT→`content`, PPT·EXCEL→`fileUrl`, NOTION→`externalUrl`. 각 유형은 해당 필드만 사용하며, 맞지 않는 필드가 채워지면 400 `P007`. 공개 상세 응답에는 `fileUrl`/`externalUrl`을 노출하지 않는다(구매 후 전달은 내부 API).
 
 #### Response
 
@@ -301,11 +359,15 @@
 | model | string | Y | 대상 AI 모델 |
 | desc | string | Y | 상품 설명 |
 | amount | integer | Y | 가격 |
-| content | string | Y | 프롬프트 원문 |
+| content | string | 유형별 | 프롬프트 원문 (PROMPT 필수) |
+| fileUrl | string | 유형별 | 산출물 파일 URL (PPT/EXCEL 필수, 업로드 후 받은 URL) |
+| externalUrl | string | 유형별 | 외부 노션 링크 (NOTION 필수) |
 | thumbnailUrl | string | N | 썸네일 이미지 URL |
 | tags | string[] | N | 판매자 지정 태그 목록 |
 | changeReason | string | N | 변경 사유 |
 | versionType | string | N | `MINOR`(기본) \| `MAJOR` |
+
+> **유형별 필수 필드**: PROMPT→`content`, PPT·EXCEL→`fileUrl`, NOTION→`externalUrl`. 각 유형은 해당 필드만 사용하며, 맞지 않는 필드가 채워지면 400 `P007`.
 
 #### Response
 
@@ -422,6 +484,8 @@
     "amount": 5000,
     "desc": "설명",
     "content": "프롬프트 원문",
+    "fileUrl": null,
+    "externalUrl": null,
     "status": "DRAFT",
     "version": "1.0",
     "thumbnailUrl": null,
@@ -443,6 +507,8 @@
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
+| fileUrl | string \| null | 산출물 파일 presigned 다운로드 URL (PPT/EXCEL). 없으면 null |
+| externalUrl | string \| null | 외부 노션 링크 (NOTION). 없으면 null |
 | liveVersion | string \| null | 현재 판매중(ON_SALE) 버전 표기(`major.patch`). 판매중 버전이 없으면 null |
 | versions | array | 이 상품의 버전 이력 목록 |
 | versions[].version | string | 버전 표기(`major.patch`) |
@@ -614,17 +680,21 @@ cart-snapshot 배열 반환
 
 ---
 
-### GET /internal/products/{productId}/content — 프롬프트 원문 조회
+### GET /internal/products/{productId}/content — 구매자 산출물 조회 (유형별)
 
 - 호출: order-service → product-service
 - 호출 시점: 구매 후 콘텐츠 다운로드
+- `content`는 상품 유형별 산출물을 담는다: **PROMPT**=본문 텍스트, **PPT·EXCEL**=파일
+  presigned 다운로드 URL, **NOTION**=외부 링크. 응답 구조(`{productId, content}`, gRPC
+  `GetProductContentResponse`)는 유형과 무관하게 동일하며, 소비자는 자신이 아는 productType에
+  따라 렌더링한다.
 
 #### Response
 
 ```json
 {
   "productId": "uuid",
-  "content": "프롬프트 원문"
+  "content": "프롬프트 원문 | 파일 presigned URL | 외부 링크"
 }
 ```
 

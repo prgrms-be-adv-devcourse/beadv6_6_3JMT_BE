@@ -55,7 +55,7 @@ flowchart LR
 | `/api/v1/orders(/**)`, `/api/v1/cart(/**)`, `/api/v1/admin/orders(/**)`, `/api/v1/internal/orders/**` | `lb://ORDER-SERVICE` |
 | `/api/v1/products(/**)`, `/api/v1/sellers/me/products(/**)`, `/api/v1/admin/products(/**)` | `lb://PRODUCT-SERVICE` |
 | `/api/v1/payments/**` | `lb://PAYMENT-SERVICE` |
-| `/api/v1/auth/**`, `/api/v2/users/**`, `/api/v2/seller(s)/**`, `/api/v2/wishlists/**`, `/api/v2/admin/**` | `lb://USER-SERVICE` |
+| `/api/v2/auth/**`, `/api/v2/users/**`, `/api/v2/seller(s)/**`, `/api/v2/wishlists/**`, `/api/v2/admin/**` | `lb://USER-SERVICE` |
 | `/{service}/v3/api-docs` | 각 서비스 Swagger 문서 프록시 (RewritePath) |
 
 `lb://`는 Eureka에 등록된 인스턴스를 조회해 로드밸런싱한다.
@@ -106,7 +106,7 @@ postgres(5432) + kafka(9092)
 
 1. **JWT 발급**: user-service가 로그인 시 RS256 개인키로 발급 (`user-service` `application.yml`의 `jwt.private-key`, access 1시간 / refresh 30일).
 2. **JWT 검증**: apigateway가 OAuth2 Resource Server(`ReactiveJwtDecoder`)로 공개키 검증. `apigateway/.../config/SecurityConfig.java`, `JwtConfig.java`
-3. **인증 제외 경로** (`SecurityConfig.WHITE_LIST`): `/api/v1/auth/signup`, `/api/v1/auth/login`, `/api/v1/auth/oauth/**`, `/api/v1/auth/token/refresh`, `/actuator/**`, Swagger 경로. 추가로 `GET /api/v1/products(/**)`는 비로그인 허용.
+3. **인증 제외 경로** (`WhitelistPathResolver`, `gateway.api-versions` 설정 기반 동적 생성): user-service는 `[v1, v2]` 병행 활성이라 `/api/v1/auth/signup`·`/api/v2/auth/signup`, `/api/v1/auth/login`·`/api/v2/auth/login`, `/api/v1/auth/oauth/**`·`/api/v2/auth/oauth/**`, `/api/v1/auth/token/refresh`·`/api/v2/auth/token/refresh`가 모두 화이트리스트에 오르지만, 실제로 서빙되는 건 auth 컨트롤러가 매핑된 v2뿐이다(v1 auth 경로는 화이트리스트 통과 후 다운스트림에서 404). `/actuator/**`, Swagger 경로도 제외 대상. 추가로 `GET /api/v1/products(/**)`는 비로그인 허용.
 4. **헤더 주입** (`apigateway/.../filter/UserHeaderFilter.java`):
    - JWT `sub` → `X-User-Id`, `roles` claim → `X-User-Role`(콤마 조인, `BUYER`/`SELLER`/`ADMIN`)
    - `status` claim이 `ACTIVE`가 아니면 **403 즉시 반환**

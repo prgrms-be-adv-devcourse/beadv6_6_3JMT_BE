@@ -14,6 +14,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}              # 기본 DB 이름
     volumes:
       - pg-data:/var/lib/postgresql            # 데이터 영속 볼륨(postgres 18+ 권장 마운트 경로)
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d  # 초기화 스크립트(ADR-0002)
     restart: always
     networks: [prompthub]
     ports: ["127.0.0.1:5432:5432"]            # SSH 터널 DB 접속용 loopback 노출(외부 차단)
@@ -36,6 +37,15 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0                            # 리밸런스 지연(ms)
       KAFKA_NUM_PARTITIONS: 1                                              # 기본 파티션 수
       CLUSTER_ID: 5L6g3nShT-eMCtK--X86sw                                   # KRaft 클러스터 ID
+    restart: always
+    networks: [prompthub]
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: prompthub-redis
+    command: ["redis-server", "--appendonly", "yes"]     # AOF 영속화 (ADR-0008 §결정3)
+    volumes:
+      - redis-data:/data
     restart: always
     networks: [prompthub]
 
@@ -109,6 +119,8 @@ services:
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}                                    # JWT 검증 키(공개)
       USER_GRPC_SERVER_PORT: "9081"                                        # user gRPC 서버 포트
       PRODUCT_GRPC_SERVER_PORT: "9082"                                     # product gRPC 서버 포트
+      REDIS_HOST: redis                                                    # Redis 호스트(RT 캐시 — ADR-0008 §결정3)
+      REDIS_PORT: "6379"                                                   # Redis 포트
     depends_on:
       postgres:
         condition: service_started
@@ -118,6 +130,8 @@ services:
         condition: service_healthy
       config:
         condition: service_healthy
+      redis:
+        condition: service_started
     restart: always
     networks: [prompthub]
 
@@ -289,11 +303,11 @@ services:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
       # admin-service는 정산 DB에 직접 커넥션한다(POSTGRES_* 대신 자체 DB_* 플레이스홀더 사용)
-      DB_HOST: postgres                                                    # DB 호스트
-      DB_PORT: "5432"                                                      # DB 포트
-      DB_NAME: ${POSTGRES_DB}                                              # DB 이름
-      DB_USERNAME: ${POSTGRES_USER}                                        # DB 계정
-      DB_PASSWORD: ${POSTGRES_PASSWORD}                                    # DB 비밀번호
+      POSTGRES_HOST: postgres                                              # DB 호스트
+      POSTGRES_PORT: "5432"                                                # DB 포트
+      POSTGRES_DB: ${POSTGRES_DB}                                          # DB 이름
+      POSTGRES_USER: ${POSTGRES_USER}                                      # DB 계정
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}                              # DB 비밀번호
     depends_on:
       postgres:
         condition: service_started
@@ -342,6 +356,7 @@ services:
 
 volumes:
   pg-data:
+  redis-data:
 
 networks:
   prompthub:

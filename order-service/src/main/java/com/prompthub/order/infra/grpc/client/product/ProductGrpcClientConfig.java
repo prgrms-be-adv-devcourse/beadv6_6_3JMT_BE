@@ -1,6 +1,6 @@
 package com.prompthub.order.infra.grpc.client.product;
 
-import com.prompthub.grpc.product.v1.ProductInternalServiceGrpc;
+import com.prompthub.product.grpc.ProductQueryServiceGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,9 +23,9 @@ public class ProductGrpcClientConfig {
 	}
 
 	@Bean
-	public ProductInternalServiceGrpc.ProductInternalServiceBlockingStub productInternalServiceBlockingStub(
+	public ProductQueryServiceGrpc.ProductQueryServiceBlockingStub productQueryServiceBlockingStub(
 		ManagedChannel productManagedChannel
 	) {
-		return ProductInternalServiceGrpc.newBlockingStub(productManagedChannel);
+		return ProductQueryServiceGrpc.newBlockingStub(productManagedChannel);
 	}
 }

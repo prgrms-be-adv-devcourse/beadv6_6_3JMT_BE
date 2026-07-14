@@ -54,6 +54,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 		UUID productId = UUID.randomUUID();
 		String thumbnailKey = moveToProductPath(extractKey(request.thumbnailUrl()), productId);
 		List<String> imageKeys = moveToProductPaths(extractKeys(request.imageUrls()), productId);
+		String fileKey = moveToProductPath(extractKey(request.fileUrl()), productId);
 
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
 		Product product = Product.create(
@@ -68,6 +69,8 @@ public class ProductSellerService implements ProductSellerUseCase {
 			thumbnailKey,
 			imageKeys,
 			request.content(),
+			fileKey,
+			request.externalUrl(),
 			request.tags()
 		);
 
@@ -95,6 +98,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 		boolean isMajor = "MAJOR".equalsIgnoreCase(request.versionType());
 		String newThumbnailKey = moveToProductPath(extractKey(request.thumbnailUrl()), productId);
 		List<String> newImageKeys = moveToProductPaths(extractKeys(request.imageUrls()), productId);
+		String newFileKey = moveToProductPath(extractKey(request.fileUrl()), productId);
 
 		UUID familyRootId = anchor.familyRootId();
 		ProductFamily family = ProductFamily.of(familyRootId, productRepository.findAllByFamilyRootIds(List.of(familyRootId)));
@@ -104,7 +108,8 @@ public class ProductSellerService implements ProductSellerUseCase {
 			previousPrice = anchor.getAmount();
 			anchor.update(
 				productType, request.title(), request.desc(), request.model(), amountType, request.amount(),
-				newThumbnailKey, newImageKeys, request.content(), request.tags(), request.changeReason(), isMajor
+				newThumbnailKey, newImageKeys, request.content(), newFileKey, request.externalUrl(),
+				request.tags(), request.changeReason(), isMajor
 			);
 			productRepository.save(anchor);
 		} else {
@@ -118,13 +123,15 @@ public class ProductSellerService implements ProductSellerUseCase {
 				}
 				Product next = onSale.nextVersion(
 					true, productType, request.title(), request.desc(), request.model(), amountType, request.amount(),
-					newThumbnailKey, newImageKeys, request.content(), request.tags(), request.changeReason()
+					newThumbnailKey, newImageKeys, request.content(), newFileKey, request.externalUrl(),
+					request.tags(), request.changeReason()
 				);
 				productRepository.save(next);
 			} else {
 				Product next = onSale.nextVersion(
 					false, productType, request.title(), request.desc(), request.model(), amountType, request.amount(),
-					newThumbnailKey, newImageKeys, request.content(), request.tags(), request.changeReason()
+					newThumbnailKey, newImageKeys, request.content(), newFileKey, request.externalUrl(),
+					request.tags(), request.changeReason()
 				);
 				onSale.supersede();
 				productRepository.save(onSale);

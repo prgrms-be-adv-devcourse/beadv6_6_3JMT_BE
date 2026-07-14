@@ -27,6 +27,9 @@ public class RefreshToken {
     @Column(name = "token", nullable = false, columnDefinition = "text")
     private String token;
 
+    @Column(name = "epoch", nullable = false)
+    private long epoch;
+
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
@@ -35,7 +38,24 @@ public class RefreshToken {
         refreshToken.refreshTokenId = UUID.randomUUID();
         refreshToken.userId = userId;
         refreshToken.token = token;
+        refreshToken.epoch = 0;
         refreshToken.expiresAt = expiresAt;
         return refreshToken;
+    }
+
+    public static RefreshToken reconstruct(UUID refreshTokenId, UUID userId, String token, long epoch, Instant expiresAt) {
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.refreshTokenId = refreshTokenId;
+        refreshToken.userId = userId;
+        refreshToken.token = token;
+        refreshToken.epoch = epoch;
+        refreshToken.expiresAt = expiresAt;
+        return refreshToken;
+    }
+
+    public void rotate(String newToken, Instant newExpiresAt) {
+        this.token = newToken;
+        this.epoch += 1;
+        this.expiresAt = newExpiresAt;
     }
 }

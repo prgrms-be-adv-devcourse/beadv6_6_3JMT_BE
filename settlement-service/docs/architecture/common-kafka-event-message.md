@@ -200,14 +200,18 @@ public enum PaymentEventType implements EventType {
 
 Producer는 도메인 enum을 사용해 이벤트 타입을 생성하되, `EventMessage`에는 문자열 값을 넣는다.
 
+`EventMessage<T>`의 `payload`에 담는 이벤트 상세 DTO는 `~Event`로 명명한다.
+Java 타입명과 관계없이 JSON 필드명은 `payload`를 유지한다.
+
 ```java
-EventMessage<OrderPaidPayload> message = new EventMessage<>(
+OrderPaidEvent event = OrderPaidEvent.from(order);
+EventMessage<OrderPaidEvent> message = new EventMessage<>(
         UUID.randomUUID(),
         OrderEventType.ORDER_PAID.code(),
         LocalDateTime.now(),
         "ORDER",
         orderId,
-        payload);
+        event);
 ```
 
 Producer는 Kafka 메시지 발행 시 `aggregateId`를 Kafka key로 사용한다.
@@ -351,12 +355,12 @@ eventId 확인 없이 OutboxEvent를 저장하는 코드
 
 ---
 
-## 13. OutboxEvent 매핑 규칙
+## 13. 서비스별 Outbox 엔티티 매핑 규칙
 
 Application Service는 KafkaTemplate을 직접 호출하지 않는다.
-도메인 상태 변경과 OutboxEvent 저장을 같은 트랜잭션으로 처리하고, 실제 Kafka 발행은 OutboxRelay가 담당한다.
+도메인 상태 변경과 서비스별 Outbox 엔티티 저장을 같은 트랜잭션으로 처리하고, 실제 Kafka 발행은 OutboxRelay가 담당한다. 예를 들어 정산 서비스는 `SettlementOutboxEvent`를 사용한다.
 
-OutboxEvent 저장 기준:
+서비스별 Outbox 엔티티 저장 기준:
 
 | Outbox 필드 | EventMessage 필드 |
 | --- | --- |
@@ -495,11 +499,11 @@ Integer eventVersion
 ### Outbox 테스트
 
 ```text
-[ ] OutboxEvent 저장 시 aggregateType이 정상 저장된다.
-[ ] OutboxEvent 저장 시 aggregateId가 정상 저장된다.
-[ ] OutboxEvent 저장 시 eventType이 정상 저장된다.
-[ ] OutboxEvent 저장 시 topic이 하이픈 기반 토픽명으로 저장된다.
-[ ] OutboxEvent 저장 시 payload가 JSON 문자열로 직렬화된다.
+[ ] 서비스별 Outbox 엔티티 저장 시 aggregateType이 정상 저장된다.
+[ ] 서비스별 Outbox 엔티티 저장 시 aggregateId가 정상 저장된다.
+[ ] 서비스별 Outbox 엔티티 저장 시 eventType이 정상 저장된다.
+[ ] 서비스별 Outbox 엔티티 저장 시 topic이 하이픈 기반 토픽명으로 저장된다.
+[ ] 서비스별 Outbox 엔티티 저장 시 payload가 JSON 문자열로 직렬화된다.
 [ ] OutboxRelay 발행 성공 시 상태가 PUBLISHED로 변경된다.
 [ ] OutboxRelay 발행 실패 시 retryCount가 증가한다.
 [ ] 최대 재시도 횟수 초과 시 상태가 FAILED로 변경된다.

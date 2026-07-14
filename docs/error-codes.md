@@ -24,6 +24,9 @@
 | `AUTH_SELLER_APPLICATION_NOT_FOUND` | A008 | 판매자 등록 신청 내역이 없습니다. | 404 |
 | `UNSUPPORTED_OAUTH_PROVIDER` | A009 | 지원하지 않는 OAuth 공급자입니다. | 400 |
 | `AUTH_WITHDRAW_ORDER_IN_PROGRESS` | A010 | 진행 중인 주문이 있어 탈퇴할 수 없습니다. | 400 |
+| `AUTH_OAUTH_VERIFICATION_FAILED` | A011 | OAuth 인증에 실패했습니다. | 401 |
+| `AUTH_REFRESH_TOKEN_REUSE_DETECTED` | A012 | 리프레시 토큰 재사용이 감지되어 모든 세션이 무효화되었습니다. | 401 |
+| `AUTH_SESSION_INVALIDATED` | A013 | 세션이 무효화되었습니다. 다시 로그인해주세요. | 401 |
 
 ---
 
@@ -34,8 +37,11 @@
 | `PRODUCT_NOT_FOUND` | P001 | 상품이 존재하지 않습니다. | 404 |
 | `PRODUCT_NOT_ON_SALE` | P002 | 판매 중인 상품이 아닙니다. | 400 |
 | `PRODUCT_FORBIDDEN` | P003 | 본인의 상품만 수정/삭제할 수 있습니다. | 403 |
+| `INVALID_PRODUCT_TYPE` | P004 | 올바르지 않은 상품 유형입니다. | 400 |
 | `SELLER_NOT_ACTIVE` | P005 | 승인된 판매자만 상품을 등록할 수 있습니다. | 403 |
 | `PRODUCT_INVALID_STATUS` | P006 | 현재 상태에서 처리할 수 없는 상품입니다. | 409 |
+| `PRODUCT_TYPE_FIELD_MISMATCH` | P007 | 상품 유형에 맞지 않는 필드 구성입니다. | 400 |
+| `INVALID_UPLOAD_FILE_TYPE` | P008 | 업로드할 수 없는 파일 형식입니다. | 400 |
 
 ---
 
