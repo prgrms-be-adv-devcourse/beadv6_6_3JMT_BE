@@ -122,6 +122,58 @@ class ProductSellerServiceTest {
 	}
 
 	@Nested
+	@DisplayName("상품 생성 - 유형별 필드")
+	class CreateProduct {
+
+		@Test
+		@DisplayName("NOTION 생성 시 external_url을 외부 링크 원문 그대로 저장한다")
+		void createProduct_notion_savesExternalUrlRaw() {
+			given(sellerClient.getSellerInfo(SELLER_ID))
+				.willReturn(new com.prompthub.product.application.client.SellerInfo(
+					SELLER_ID, "판매자", null, "ACTIVE"));
+			given(productRepository.save(org.mockito.ArgumentMatchers.any(Product.class)))
+				.willAnswer(inv -> inv.getArgument(0));
+
+			productSellerService.createProduct(SELLER_ID,
+				new com.prompthub.product.presentation.dto.request.ProductCreateRequest(
+					"노션 상품", "NOTION", "model", "설명", 1000,
+					null, null, "https://notion.so/my-template", null, List.of(), List.of()
+				));
+
+			ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+			then(productRepository).should().save(captor.capture());
+			assertThat(captor.getValue().getExternalUrl()).isEqualTo("https://notion.so/my-template");
+			assertThat(captor.getValue().getFileUrl()).isNull();
+			then(storageClient).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("PPT 생성 시 file_url 임시 키를 상품 경로로 이동해 키로 저장한다")
+		void createProduct_ppt_movesFileKey() {
+			given(sellerClient.getSellerInfo(SELLER_ID))
+				.willReturn(new com.prompthub.product.application.client.SellerInfo(
+					SELLER_ID, "판매자", null, "ACTIVE"));
+			given(productRepository.save(org.mockito.ArgumentMatchers.any(Product.class)))
+				.willAnswer(inv -> inv.getArgument(0));
+
+			productSellerService.createProduct(SELLER_ID,
+				new com.prompthub.product.presentation.dto.request.ProductCreateRequest(
+					"PPT 상품", "PPT", "model", "설명", 1000,
+					null, "products/temp/file/abc.pptx", null, null, List.of(), List.of()
+				));
+
+			ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+			then(productRepository).should().save(captor.capture());
+			assertThat(captor.getValue().getFileUrl()).startsWith("products/");
+			assertThat(captor.getValue().getFileUrl()).endsWith("/file/abc.pptx");
+			assertThat(captor.getValue().getExternalUrl()).isNull();
+			then(storageClient).should().copyObject(
+				org.mockito.ArgumentMatchers.eq("products/temp/file/abc.pptx"),
+				org.mockito.ArgumentMatchers.anyString());
+		}
+	}
+
+	@Nested
 	@DisplayName("내 상품 목록 조회")
 	class GetMyProducts {
 
@@ -174,12 +226,29 @@ class ProductSellerServiceTest {
 			assertThat(result.liveVersion()).isEqualTo("2.0");
 			assertThat(result.versions()).hasSize(2);
 		}
+
+		@Test
+		@DisplayName("판매자 상세는 fileUrl을 presigned로, externalUrl을 원문으로 반환한다")
+		void getMyProduct_exposesTypeFields() {
+			Product onSale = product(PRODUCT_ID, null, ProductStatus.ON_SALE, (short) 1, (short) 0);
+			ReflectionTestUtils.setField(onSale, "fileUrl", "products/1/file/a.pptx");
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(onSale));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(onSale));
+			given(storageClient.generatePresignedDownloadUrl("products/1/file/a.pptx"))
+				.willReturn("https://s3/presigned-file");
+
+			com.prompthub.product.presentation.dto.response.SellerProductDetailResponse result =
+				productSellerService.getMyProduct(SELLER_ID, PRODUCT_ID);
+
+			assertThat(result.fileUrl()).isEqualTo("https://s3/presigned-file");
+			assertThat(result.externalUrl()).isNull();
+		}
 	}
 
 	private ProductUpdateRequest request(String versionType) {
 		return new ProductUpdateRequest(
 			"새 제목", "PROMPT", "model2", "새 설명", 2000, "content2",
-			null, List.of(), List.of(), "변경 사유", versionType
+			null, null, null, List.of(), List.of(), "변경 사유", versionType
 		);
 	}
 
@@ -187,7 +256,7 @@ class ProductSellerServiceTest {
 		Product product = Product.create(
 			id, SELLER_ID, ProductType.PROMPT,
 			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", List.of()
+			null, List.of(), "content", null, null, List.of()
 		);
 		ReflectionTestUtils.setField(product, "parentId", parentId);
 		ReflectionTestUtils.setField(product, "status", status);

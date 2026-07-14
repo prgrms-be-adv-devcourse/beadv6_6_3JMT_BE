@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
+import com.prompthub.product.exception.ProductException;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,8 @@ class ProductTest {
 			null,
 			List.of(),
 			"content",
+			null,
+			null,
 			List.of("tag1", "tag2")
 		);
 
@@ -39,12 +42,12 @@ class ProductTest {
 		Product product = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
 			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", List.of()
+			null, List.of(), "content", null, null, List.of()
 		);
 
 		product.update(
 			ProductType.NOTION, "새 제목", "새 설명", "model2", AmountType.PAID, 2000,
-			null, List.of(), "content2", List.of(), "변경 사유", true
+			null, List.of(), null, null, "https://notion.so/x", List.of(), "변경 사유", true
 		);
 
 		assertThat(product.getProductType()).isEqualTo(ProductType.NOTION);
@@ -57,7 +60,7 @@ class ProductTest {
 		Product product = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
 			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", List.of()
+			null, List.of(), "content", null, null, List.of()
 		);
 
 		assertThat(product.familyRootId()).isEqualTo(product.getId());
@@ -69,7 +72,7 @@ class ProductTest {
 		Product onSale = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
 			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", List.of()
+			null, List.of(), "content", null, null, List.of()
 		);
 		ReflectionTestUtils.setField(onSale, "status", ProductStatus.ON_SALE);
 		ReflectionTestUtils.setField(onSale, "majorVersion", (short) 2);
@@ -77,7 +80,7 @@ class ProductTest {
 
 		Product next = onSale.nextVersion(
 			true, ProductType.NOTION, "새 제목", "새 설명", "model2", AmountType.PAID, 2000,
-			null, List.of(), "content2", List.of(), "메이저 변경"
+			null, List.of(), null, null, "https://notion.so/x", List.of(), "메이저 변경"
 		);
 
 		assertThat(next.getId()).isNotEqualTo(onSale.getId());
@@ -96,7 +99,7 @@ class ProductTest {
 		Product onSale = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
 			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", List.of()
+			null, List.of(), "content", null, null, List.of()
 		);
 		ReflectionTestUtils.setField(onSale, "status", ProductStatus.ON_SALE);
 		ReflectionTestUtils.setField(onSale, "majorVersion", (short) 2);
@@ -104,7 +107,7 @@ class ProductTest {
 
 		Product next = onSale.nextVersion(
 			false, ProductType.PROMPT, "제목", "설명", "model", AmountType.PAID, 1500,
-			null, List.of(), "content", List.of(), null
+			null, List.of(), "content", null, null, List.of(), null
 		);
 
 		assertThat(next.getMajorVersion()).isEqualTo((short) 2);
@@ -118,7 +121,7 @@ class ProductTest {
 		Product product = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
 			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", List.of()
+			null, List.of(), "content", null, null, List.of()
 		);
 		ReflectionTestUtils.setField(product, "status", ProductStatus.ON_SALE);
 
@@ -132,7 +135,7 @@ class ProductTest {
 		Product product = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
 			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", List.of()
+			null, List.of(), "content", null, null, List.of()
 		);
 
 		assertThatThrownBy(product::supersede).isInstanceOf(IllegalStateException.class);
@@ -143,12 +146,50 @@ class ProductTest {
 		Product product = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
 			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", List.of()
+			null, List.of(), "content", null, null, List.of()
 		);
 		ReflectionTestUtils.setField(product, "status", ProductStatus.SUPERSEDED);
 
 		product.restoreFromSuperseded();
 
 		assertThat(product.getStatus()).isEqualTo(ProductStatus.ON_SALE);
+	}
+
+	@Test
+	void create_prompt_withFileUrl_throws() {
+		assertThatThrownBy(() -> Product.create(
+			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
+			"제목", "설명", "model", AmountType.PAID, 1000,
+			null, List.of(), "content", "products/x.pptx", null, List.of()
+		)).isInstanceOf(ProductException.class);
+	}
+
+	@Test
+	void create_ppt_withoutFileUrl_throws() {
+		assertThatThrownBy(() -> Product.create(
+			UUID.randomUUID(), UUID.randomUUID(), ProductType.PPT,
+			"제목", "설명", "model", AmountType.PAID, 1000,
+			null, List.of(), null, null, null, List.of()
+		)).isInstanceOf(ProductException.class);
+	}
+
+	@Test
+	void create_notion_withExternalUrl_succeeds() {
+		Product product = Product.create(
+			UUID.randomUUID(), UUID.randomUUID(), ProductType.NOTION,
+			"제목", "설명", "model", AmountType.PAID, 1000,
+			null, List.of(), null, null, "https://notion.so/t", List.of()
+		);
+		assertThat(product.getExternalUrl()).isEqualTo("https://notion.so/t");
+	}
+
+	@Test
+	void create_ppt_withFileUrl_succeeds() {
+		Product product = Product.create(
+			UUID.randomUUID(), UUID.randomUUID(), ProductType.PPT,
+			"제목", "설명", "model", AmountType.PAID, 1000,
+			null, List.of(), null, "products/1/file/a.pptx", null, List.of()
+		);
+		assertThat(product.getFileUrl()).isEqualTo("products/1/file/a.pptx");
 	}
 }

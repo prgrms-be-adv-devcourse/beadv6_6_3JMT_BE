@@ -2,8 +2,14 @@ package com.prompthub.product.presentation.controller;
 
 import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.product.application.client.StorageClient;
+import com.prompthub.product.exception.ProductException;
+import com.prompthub.product.exception.enums.ProductErrorCode;
+import com.prompthub.product.presentation.dto.request.UploadUrlRequest;
+import com.prompthub.product.presentation.dto.response.UploadUrlResponse;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -11,9 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v2/sellers/me/products")
@@ -30,21 +34,51 @@ public class FileUploadController {
         "webp", "image/webp"
     );
 
+    private static final Map<String, String> DOC_CONTENT_TYPE = Map.of(
+        "pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "ppt", "application/vnd.ms-powerpoint",
+        "xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "xls", "application/vnd.ms-excel"
+    );
+
     private final StorageClient storageClient;
 
-    @PostMapping(value = "/images", consumes = "multipart/form-data")
-    public ApiResult<Map<String, String>> uploadImage(
+    @PostMapping("/uploads")
+    public ApiResult<UploadUrlResponse> createUploadUrl(
         @RequestHeader("X-User-Id") UUID sellerId,
-        @RequestParam("file") MultipartFile file,
-        @RequestParam(value = "productId", required = false) UUID productId,
-        @RequestParam(value = "purpose", defaultValue = "thumbnail") String purpose
-    ) throws Exception {
-        String ext = extractExtension(file.getOriginalFilename());
-        String contentType = CONTENT_TYPE_MAP.getOrDefault(ext, "image/jpeg");
-        String key = buildKey(productId, purpose, ext);
-        storageClient.upload(key, file.getBytes(), contentType);
-        String viewUrl = storageClient.generatePresignedDownloadUrl(key);
-        return ApiResult.success(Map.of("url", viewUrl));
+        @Valid @RequestBody UploadUrlRequest request
+    ) {
+        String ext = extractExtension(request.fileName());
+        String contentType = resolveContentType(request.purpose(), request.productType(), ext);
+        String key = buildKey(null, request.purpose(), ext);
+        String uploadUrl = storageClient.generatePresignedUploadUrl(key, contentType);
+        String fileUrl = storageClient.generatePresignedDownloadUrl(key);
+        return ApiResult.success(new UploadUrlResponse(uploadUrl, fileUrl));
+    }
+
+    private String resolveContentType(String purpose, String productType, String ext) {
+        if ("file".equals(purpose)) {
+            Set<String> allowed;
+            if ("PPT".equals(productType)) {
+                allowed = Set.of("pptx", "ppt");
+            } else if ("EXCEL".equals(productType)) {
+                allowed = Set.of("xlsx", "xls");
+            } else {
+                throw new ProductException(ProductErrorCode.INVALID_UPLOAD_FILE_TYPE);
+            }
+            if (!allowed.contains(ext)) {
+                throw new ProductException(ProductErrorCode.INVALID_UPLOAD_FILE_TYPE);
+            }
+            return DOC_CONTENT_TYPE.get(ext);
+        }
+        if ("thumbnail".equals(purpose) || "image".equals(purpose)) {
+            String contentType = CONTENT_TYPE_MAP.get(ext);
+            if (contentType == null) {
+                throw new ProductException(ProductErrorCode.INVALID_UPLOAD_FILE_TYPE);
+            }
+            return contentType;
+        }
+        throw new ProductException(ProductErrorCode.INVALID_UPLOAD_FILE_TYPE);
     }
 
     @DeleteMapping("/images")
