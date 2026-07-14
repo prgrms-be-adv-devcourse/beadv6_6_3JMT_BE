@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package prompthub.payment;
+
+option java_multiple_files = true;
+option java_package = "com.prompthub.payment.grpc";
+option java_outer_classname = "PaymentQueryProto";
+
+service PaymentQueryService {
+  rpc GetRefund(GetRefundRequest) returns (GetRefundResponse);
+}
+
+message GetRefundRequest {
+  string payment_id = 1;
+  string order_product_id = 2;
+}
+
+message GetRefundResponse {
+  string payment_id = 1;
+  string order_id = 2;
+  string user_id = 3;
+  string order_product_id = 4;
+  int32 amount = 5;
+  string payment_status = 6;   // Payment.status (예: PARTIAL_REFUNDED, ALL_REFUNDED)
+  string refund_status = 7;    // RefundStatus (COMPLETED, FAILED, REQUESTED)
+  string refunded_at = 8;      // ISO 8601, refund_status=COMPLETED일 때만 값 존재
+}

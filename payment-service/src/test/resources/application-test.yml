@@ -1,7 +1,13 @@
 spring:
   config:
     import: ""
+  flyway:
+    enabled: false
+  sql:
+    init:
+      mode: always
   jpa:
+    defer-datasource-initialization: true
     open-in-view: false
     show-sql: false
     properties:

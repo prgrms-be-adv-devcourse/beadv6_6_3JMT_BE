@@ -1,5 +1,6 @@
 package com.prompthub.paymentservice.infrastructure.messaging.config;
 
+import com.prompthub.paymentservice.domain.exception.InvalidRefundStateException;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -9,6 +10,7 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.ConsumerFactory;
@@ -77,6 +79,13 @@ public class KafkaConfig {
             kafkaTemplate,
             (record, exception) -> new TopicPartition(record.topic() + ".DLT", record.partition())
         );
-        return new DefaultErrorHandler(recoverer, new FixedBackOff(RETRY_INTERVAL_MS, MAX_RETRY_ATTEMPTS));
+        DefaultErrorHandler errorHandler =
+            new DefaultErrorHandler(recoverer, new FixedBackOff(RETRY_INTERVAL_MS, MAX_RETRY_ATTEMPTS));
+        // 재시도해도 결과가 달라지지 않는 영구 실패 — 즉시 DLT로 보낸다.
+        // InvalidRefundStateException: 누적 환불액 초과(재시도 무의미).
+        // DataIntegrityViolationException: 중복 환불 이벤트(유니크 인덱스 위반). 이 서비스는 PG 환불 호출을
+        // DB 저장보다 먼저 실행하므로, 재시도가 일어나면 이미 성공한 PG 호출이 새 refundId로 반복 실행된다.
+        errorHandler.addNotRetryableExceptions(InvalidRefundStateException.class, DataIntegrityViolationException.class);
+        return errorHandler;
     }
 }
