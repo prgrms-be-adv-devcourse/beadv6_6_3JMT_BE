@@ -114,7 +114,9 @@ configure([
         implementation 'org.springframework.boot:spring-boot-starter-validation'
 
         // ── 스키마 버전 관리 (ADR-0003) ────────────────────────────────────────
-        implementation 'org.flywaydb:flyway-core'
+        // Spring Boot 4는 autoconfigure가 모듈화되어 flyway-core만으로는 자동설정이
+        // 트리거되지 않는다. spring-boot-starter-flyway가 FlywayAutoConfiguration을 제공한다.
+        implementation 'org.springframework.boot:spring-boot-starter-flyway'
         runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 
         // ── Spring Cloud (서비스 디스커버리, 설정 관리) ──────────────────────────
