@@ -1,9 +1,12 @@
 package com.prompthub.paymentservice.infrastructure.messaging.consumer;
 
+import com.prompthub.paymentservice.application.dto.command.ProcessRefundCommand;
 import com.prompthub.paymentservice.application.dto.command.RecordOrderSnapshotCommand;
+import com.prompthub.paymentservice.application.usecase.ProcessRefundUseCase;
 import com.prompthub.paymentservice.application.usecase.RecordOrderSnapshotUseCase;
 import com.prompthub.paymentservice.domain.model.OrderSnapshotSource;
 import com.prompthub.paymentservice.infrastructure.messaging.dto.OrderCreatedMessage;
+import com.prompthub.paymentservice.infrastructure.messaging.dto.OrderRefundRequestedMessage;
 import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +18,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * order-events 구독. 공통 이벤트 규칙(EventMessage&lt;T&gt; 봉투)의 최상위 eventType으로 필터링한다.
- * ORDER_CREATED만 처리하고, 다른 eventType(ORDER_PAID/ORDER_REFUND 등)은 무시한다.
+ * ORDER_CREATED / ORDER_REFUND_REQUESTED만 처리하고, 그 외 eventType(ORDER_PAID 등)은 무시한다.
  */
 @Slf4j
 @Component
@@ -25,12 +28,14 @@ public class OrderEventConsumer {
     private static final String TOPIC_ORDER_EVENTS = "order-events";
     private static final String GROUP_ID = "payment-service-order-events";
     private static final String EVENT_TYPE_ORDER_CREATED = "ORDER_CREATED";
+    private static final String EVENT_TYPE_ORDER_REFUND_REQUESTED = "ORDER_REFUND_REQUESTED";
 
-    // createdAt(LocalDateTime, 존 없음)에 부여할 존 — payment의 KST 표기 관례와 일치
+    // createdAt/requestedAt(LocalDateTime, 존 없음)에 부여할 존 — payment의 KST 표기 관례와 일치
     private static final ZoneOffset KST = ZoneOffset.ofHours(9);
 
     private final ObjectMapper objectMapper;
     private final RecordOrderSnapshotUseCase recordOrderSnapshotUseCase;
+    private final ProcessRefundUseCase processRefundUseCase;
 
     @KafkaListener(
         topics = TOPIC_ORDER_EVENTS,
@@ -41,25 +46,15 @@ public class OrderEventConsumer {
         try {
             JsonNode root = objectMapper.readTree(message);
             String eventType = root.path("eventType").stringValue(null);
-
-            if (!EVENT_TYPE_ORDER_CREATED.equals(eventType)) {
-                log.debug("처리 대상이 아닌 order-events 메시지 무시 — eventType={}", eventType);
-                acknowledgment.acknowledge();
-                return;
-            }
-
             JsonNode payload = root.path("payload");
-            OrderCreatedMessage created = objectMapper.treeToValue(payload, OrderCreatedMessage.class);
-            validate(created);
 
-            recordOrderSnapshotUseCase.record(new RecordOrderSnapshotCommand(
-                created.orderId(),
-                created.buyerId(),
-                created.totalAmount(),
-                created.createdAt().atOffset(KST),
-                OrderSnapshotSource.EVENT
-            ));
-            log.info("주문 스냅샷 저장 — orderId={}", created.orderId());
+            if (EVENT_TYPE_ORDER_CREATED.equals(eventType)) {
+                handleOrderCreated(payload);
+            } else if (EVENT_TYPE_ORDER_REFUND_REQUESTED.equals(eventType)) {
+                handleOrderRefundRequested(payload);
+            } else {
+                log.debug("처리 대상이 아닌 order-events 메시지 무시 — eventType={}", eventType);
+            }
             acknowledgment.acknowledge();
         } catch (Exception e) {
             log.error("order-events 메시지 처리 실패: {}", e.getMessage(), e);
@@ -67,9 +62,44 @@ public class OrderEventConsumer {
         }
     }
 
+    private void handleOrderCreated(JsonNode payload) {
+        OrderCreatedMessage created = objectMapper.treeToValue(payload, OrderCreatedMessage.class);
+        validate(created);
+
+        recordOrderSnapshotUseCase.record(new RecordOrderSnapshotCommand(
+            created.orderId(),
+            created.buyerId(),
+            created.totalAmount(),
+            created.createdAt().atOffset(KST),
+            OrderSnapshotSource.EVENT
+        ));
+        log.info("주문 스냅샷 저장 — orderId={}", created.orderId());
+    }
+
+    private void handleOrderRefundRequested(JsonNode payload) {
+        OrderRefundRequestedMessage requested = objectMapper.treeToValue(payload, OrderRefundRequestedMessage.class);
+        validateRefund(requested);
+
+        processRefundUseCase.process(new ProcessRefundCommand(
+            requested.orderId(),
+            requested.orderProductId(),
+            requested.buyerId(),
+            requested.refundAmount(),
+            requested.requestedAt().atOffset(KST)
+        ));
+        log.info("부분환불 처리 완료 — orderId={}, orderProductId={}", requested.orderId(), requested.orderProductId());
+    }
+
     private void validate(OrderCreatedMessage message) {
         if (message.orderId() == null || message.buyerId() == null || message.createdAt() == null) {
             throw new IllegalArgumentException("ORDER_CREATED 필수 필드 누락: " + message);
+        }
+    }
+
+    private void validateRefund(OrderRefundRequestedMessage message) {
+        if (message.orderId() == null || message.orderProductId() == null
+            || message.buyerId() == null || message.requestedAt() == null) {
+            throw new IllegalArgumentException("ORDER_REFUND_REQUESTED 필수 필드 누락: " + message);
         }
     }
 }

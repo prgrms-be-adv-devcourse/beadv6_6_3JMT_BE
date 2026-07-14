@@ -38,6 +38,8 @@ spring:
         spring.json.trusted.packages: "com.prompthub.paymentservice.*"
 
   grpc:
+    server:
+      port: ${PAYMENT_GRPC_PORT:9084}
     client:
       channel:
         order:

@@ -3,9 +3,7 @@ package com.prompthub.paymentservice.infrastructure.persistence;
 import com.prompthub.paymentservice.domain.repository.PaymentRepository;
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;
-import java.time.OffsetDateTime;
 import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +41,7 @@ public class PaymentRepositoryAdapter implements PaymentRepository {
     }
 
     @Override
-    public List<Payment> findByStatusAndUpdatedAtBefore(PaymentStatus status, OffsetDateTime threshold) {
-        return jpaRepository.findByStatusAndUpdatedAtBefore(status, threshold);
+    public Optional<Payment> findByOrderIdAndStatusInForUpdate(UUID orderId, Collection<PaymentStatus> statuses) {
+        return jpaRepository.findByOrderIdAndStatusInForUpdate(orderId, statuses);
     }
 }

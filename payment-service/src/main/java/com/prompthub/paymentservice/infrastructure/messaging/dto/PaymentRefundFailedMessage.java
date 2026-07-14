@@ -2,12 +2,13 @@ package com.prompthub.paymentservice.infrastructure.messaging.dto;
 
 import java.util.UUID;
 
-public record PaymentRefundedMessage(
+public record PaymentRefundFailedMessage(
     UUID paymentId,
     UUID orderId,
     UUID userId,
     UUID orderProductId,
-    int amount,
+    int refundAmount,
     String paymentStatus,
-    String refundedAt
+    String failureReason,
+    String failedAt
 ) {}

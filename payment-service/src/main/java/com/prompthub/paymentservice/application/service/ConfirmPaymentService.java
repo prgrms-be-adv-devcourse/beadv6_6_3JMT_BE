@@ -39,7 +39,7 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
 
     // 진행·완료 상태가 이미 있으면 재결제 차단. REQUESTED·FAILED·READY는 비차단(재결제 허용).
     private static final Set<PaymentStatus> BLOCKING_STATUSES = Set.of(
-        PaymentStatus.PAID, PaymentStatus.REFUNDING, PaymentStatus.REFUNDED, PaymentStatus.UNKNOWN
+        PaymentStatus.PAID, PaymentStatus.PARTIAL_REFUNDED, PaymentStatus.ALL_REFUNDED, PaymentStatus.UNKNOWN
     );
 
     private final PaymentRepository paymentRepository;

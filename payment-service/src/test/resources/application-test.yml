@@ -1,7 +1,11 @@
 spring:
   config:
     import: ""
+  sql:
+    init:
+      mode: always
   jpa:
+    defer-datasource-initialization: true
     open-in-view: false
     show-sql: false
     properties:
