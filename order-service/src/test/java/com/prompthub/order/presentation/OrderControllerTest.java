@@ -1,6 +1,8 @@
 package com.prompthub.order.presentation;
 
-import com.prompthub.order.application.usecase.OrderUseCase;
+import com.prompthub.order.application.usecase.ConfirmDownloadUseCase;
+import com.prompthub.order.application.usecase.CreateOrderUseCase;
+import com.prompthub.order.application.usecase.OrderQueryUseCase;
 import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -63,14 +65,24 @@ class OrderControllerTest {
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@Mock
-	private OrderUseCase orderUseCase;
+	private CreateOrderUseCase createOrderUseCase;
+
+	@Mock
+	private ConfirmDownloadUseCase confirmDownloadUseCase;
+
+	@Mock
+	private OrderQueryUseCase orderQueryUseCase;
 
 	@BeforeEach
 	void setUp() {
 		LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
 		validator.afterPropertiesSet();
 
-		mockMvc = MockMvcBuilders.standaloneSetup(new OrderController(orderUseCase))
+		mockMvc = MockMvcBuilders.standaloneSetup(new OrderController(
+			createOrderUseCase,
+			confirmDownloadUseCase,
+			orderQueryUseCase
+		))
 			.setControllerAdvice(new GlobalExceptionHandler())
 			.addInterceptors(new OrderServiceAuthInterceptor())
 			.setValidator(validator)
@@ -95,7 +107,7 @@ class OrderControllerTest {
 				CREATED_AT.plusMinutes(20)
 			);
 
-			when(orderUseCase.validatePaymentReady(eq(BUYER_ID), eq(ORDER_ID), eq(TOTAL_AMOUNT), ArgumentMatchers.any(LocalDateTime.class)))
+			when(orderQueryUseCase.validatePaymentReady(eq(BUYER_ID), eq(ORDER_ID), eq(TOTAL_AMOUNT), ArgumentMatchers.any(LocalDateTime.class)))
 				.thenReturn(response);
 
 			mockMvc.perform(post("/api/v1/orders/{orderId}/payment-ready", ORDER_ID)
@@ -114,7 +126,7 @@ class OrderControllerTest {
 		@DisplayName("만료된 주문이면 O015를 반환한다")
 		void validatePaymentReady_expiredOrder_conflict() throws Exception {
 			OrderPaymentValidationRequest request = new OrderPaymentValidationRequest(TOTAL_AMOUNT);
-			when(orderUseCase.validatePaymentReady(eq(BUYER_ID), eq(ORDER_ID), eq(TOTAL_AMOUNT), ArgumentMatchers.any(LocalDateTime.class)))
+			when(orderQueryUseCase.validatePaymentReady(eq(BUYER_ID), eq(ORDER_ID), eq(TOTAL_AMOUNT), ArgumentMatchers.any(LocalDateTime.class)))
 				.thenThrow(new OrderException(ErrorCode.ORDER_EXPIRED));
 
 			mockMvc.perform(post("/api/v1/orders/{orderId}/payment-ready", ORDER_ID)
@@ -143,7 +155,7 @@ class OrderControllerTest {
 				false
 			);
 
-			when(orderUseCase.confirmDownload(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID)))
+			when(confirmDownloadUseCase.confirmDownload(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID)))
 				.thenReturn(response);
 
 			// when & then
@@ -160,7 +172,7 @@ class OrderControllerTest {
 				.andExpect(jsonPath("$.data.isRefundable").value(false))
 				.andExpect(jsonPath("$.data.isRefund").doesNotExist());
 
-			verify(orderUseCase).confirmDownload(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID));
+			verify(confirmDownloadUseCase).confirmDownload(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID));
 		}
 	}
 
@@ -187,7 +199,7 @@ class OrderControllerTest {
 					content
 				);
 
-				when(orderUseCase.getOrderContent(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID)))
+				when(orderQueryUseCase.getOrderContent(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID)))
 					.thenReturn(response);
 
 				// when & then
@@ -206,7 +218,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data.productTitle").value(PRODUCT_TITLE_1))
 					.andExpect(jsonPath("$.data.content").value(content));
 
-				verify(orderUseCase).getOrderContent(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID));
+				verify(orderQueryUseCase).getOrderContent(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID));
 			}
 		}
 
@@ -223,7 +235,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
 
-				verifyNoInteractions(orderUseCase);
+				verifyNoInteractions(orderQueryUseCase);
 			}
 
 			@Test
@@ -237,14 +249,14 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
 
-				verifyNoInteractions(orderUseCase);
+				verifyNoInteractions(orderQueryUseCase);
 			}
 
 			@Test
 			@DisplayName("구매 콘텐츠를 열람할 수 없으면 403 Forbidden과 E001을 반환한다")
 			void getOrderContent_accessDenied_forbidden() throws Exception {
 				// given
-				when(orderUseCase.getOrderContent(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID)))
+				when(orderQueryUseCase.getOrderContent(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID)))
 					.thenThrow(new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED));
 
 				// when & then
@@ -298,7 +310,7 @@ class OrderControllerTest {
 					false
 				);
 
-				when(orderUseCase.getOrderDetail(eq(BUYER_ID), eq(ORDER_ID)))
+				when(orderQueryUseCase.getOrderDetail(eq(BUYER_ID), eq(ORDER_ID)))
 					.thenReturn(response);
 
 				// when & then
@@ -333,7 +345,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data.products[0].downloaded").value(false))
 					.andExpect(jsonPath("$.data.products[0].download").doesNotExist());
 
-				verify(orderUseCase).getOrderDetail(eq(BUYER_ID), eq(ORDER_ID));
+				verify(orderQueryUseCase).getOrderDetail(eq(BUYER_ID), eq(ORDER_ID));
 			}
 		}
 
@@ -350,7 +362,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
 
-				verifyNoInteractions(orderUseCase);
+				verifyNoInteractions(orderQueryUseCase);
 			}
 
 			@Test
@@ -364,14 +376,14 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
 
-				verifyNoInteractions(orderUseCase);
+				verifyNoInteractions(orderQueryUseCase);
 			}
 
 			@Test
 			@DisplayName("주문이 없으면 404 Not Found와 O001을 반환한다")
 			void getOrderDetail_orderNotFound_notFound() throws Exception {
 				// given
-				when(orderUseCase.getOrderDetail(eq(BUYER_ID), eq(ORDER_ID)))
+				when(orderQueryUseCase.getOrderDetail(eq(BUYER_ID), eq(ORDER_ID)))
 					.thenThrow(new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
 				// when & then
@@ -387,7 +399,7 @@ class OrderControllerTest {
 			@DisplayName("본인 주문이 아니면 403 Forbidden과 A004를 반환한다")
 			void getOrderDetail_notOwner_forbidden() throws Exception {
 				// given
-				when(orderUseCase.getOrderDetail(eq(BUYER_ID), eq(ORDER_ID)))
+				when(orderQueryUseCase.getOrderDetail(eq(BUYER_ID), eq(ORDER_ID)))
 					.thenThrow(new OrderException(ErrorCode.FORBIDDEN));
 
 				// when & then
@@ -451,7 +463,7 @@ class OrderControllerTest {
 					null
 				);
 
-				when(orderUseCase.createOrder(eq(BUYER_ID), eq(request)))
+				when(createOrderUseCase.createOrder(eq(BUYER_ID), eq(request)))
 					.thenReturn(response);
 
 				// when & then
@@ -485,7 +497,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data.products[1].productAmountSnapshot").value(PRODUCT_AMOUNT_2))
 					.andExpect(jsonPath("$.data.products[1].orderStatus").value("PENDING"));
 
-				verify(orderUseCase).createOrder(eq(BUYER_ID), eq(request));
+				verify(createOrderUseCase).createOrder(eq(BUYER_ID), eq(request));
 			}
 
 			@Test
@@ -504,7 +516,7 @@ class OrderControllerTest {
 					null
 				);
 
-				when(orderUseCase.createOrder(eq(BUYER_ID), eq(request)))
+				when(createOrderUseCase.createOrder(eq(BUYER_ID), eq(request)))
 					.thenReturn(response);
 
 				mockMvc.perform(post("/api/v1/orders")
@@ -516,7 +528,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.success").value(true))
 					.andExpect(jsonPath("$.data.orderId").value(orderId.toString()));
 
-				verify(orderUseCase).createOrder(eq(BUYER_ID), eq(request));
+				verify(createOrderUseCase).createOrder(eq(BUYER_ID), eq(request));
 			}
 		}
 
@@ -552,7 +564,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
 
-				verifyNoInteractions(orderUseCase);
+				verifyNoInteractions(createOrderUseCase);
 			}
 
 			@Test
@@ -569,7 +581,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
 
-				verifyNoInteractions(orderUseCase);
+				verifyNoInteractions(createOrderUseCase);
 			}
 
 			@Test
@@ -650,7 +662,7 @@ class OrderControllerTest {
 					LocalDate.of(2026, 6, 30)
 				);
 
-				when(orderUseCase.getOrders(eq(BUYER_ID), eq(request)))
+				when(orderQueryUseCase.getOrders(eq(BUYER_ID), eq(request)))
 					.thenReturn(response);
 
 				// when & then
@@ -683,7 +695,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.meta.total").value(1))
 					.andExpect(jsonPath("$.meta.hasNext").value(false));
 
-				verify(orderUseCase).getOrders(eq(BUYER_ID), eq(request));
+				verify(orderQueryUseCase).getOrders(eq(BUYER_ID), eq(request));
 			}
 
 			@Test
@@ -706,7 +718,7 @@ class OrderControllerTest {
 				Page<OrderListResponse> response = new PageImpl<>(List.of(order), PageRequest.of(0, 20), 1);
 				PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
 
-				when(orderUseCase.getOrders(eq(BUYER_ID), eq(request)))
+				when(orderQueryUseCase.getOrders(eq(BUYER_ID), eq(request)))
 					.thenReturn(response);
 
 				// when & then
@@ -734,7 +746,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
 
-				verifyNoInteractions(orderUseCase);
+				verifyNoInteractions(orderQueryUseCase);
 			}
 
 			@Test
@@ -749,7 +761,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
 
-				verifyNoInteractions(orderUseCase);
+				verifyNoInteractions(orderQueryUseCase);
 			}
 
 			@Test
@@ -765,7 +777,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
 
-				verifyNoInteractions(orderUseCase);
+				verifyNoInteractions(orderQueryUseCase);
 			}
 		}
 	}
@@ -795,7 +807,7 @@ class OrderControllerTest {
 				Page<OrderPaymentListResponse> response = new PageImpl<>(List.of(payment), PageRequest.of(0, 20), 1);
 				PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
 
-				when(orderUseCase.getOrderPayments(eq(BUYER_ID), eq(request)))
+				when(orderQueryUseCase.getOrderPayments(eq(BUYER_ID), eq(request)))
 					.thenReturn(response);
 
 				// when & then
@@ -821,7 +833,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.meta.total").value(1))
 					.andExpect(jsonPath("$.meta.hasNext").value(false));
 
-				verify(orderUseCase).getOrderPayments(eq(BUYER_ID), eq(request));
+				verify(orderQueryUseCase).getOrderPayments(eq(BUYER_ID), eq(request));
 			}
 		}
 
@@ -838,7 +850,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
 
-				verifyNoInteractions(orderUseCase);
+				verifyNoInteractions(orderQueryUseCase);
 			}
 
 			@Test
@@ -853,7 +865,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
 
-				verifyNoInteractions(orderUseCase);
+				verifyNoInteractions(orderQueryUseCase);
 			}
 		}
 	}

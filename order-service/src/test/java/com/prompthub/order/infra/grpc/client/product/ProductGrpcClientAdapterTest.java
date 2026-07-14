@@ -4,14 +4,14 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.prompthub.exception.BusinessException;
-import com.prompthub.grpc.product.v1.GetCartSnapshotsRequest;
-import com.prompthub.grpc.product.v1.GetCartSnapshotsResponse;
-import com.prompthub.grpc.product.v1.GetOrderSnapshotsRequest;
-import com.prompthub.grpc.product.v1.GetOrderSnapshotsResponse;
-import com.prompthub.grpc.product.v1.GetProductContentRequest;
-import com.prompthub.grpc.product.v1.GetProductContentResponse;
-import com.prompthub.grpc.product.v1.ProductCartSnapshotMessage;
-import com.prompthub.grpc.product.v1.ProductInternalServiceGrpc;
+import com.prompthub.product.grpc.GetCartSnapshotsRequest;
+import com.prompthub.product.grpc.GetCartSnapshotsResponse;
+import com.prompthub.product.grpc.GetOrderSnapshotsRequest;
+import com.prompthub.product.grpc.GetOrderSnapshotsResponse;
+import com.prompthub.product.grpc.GetProductContentRequest;
+import com.prompthub.product.grpc.GetProductContentResponse;
+import com.prompthub.product.grpc.ProductCartSnapshotMessage;
+import com.prompthub.product.grpc.ProductQueryServiceGrpc;
 import com.prompthub.order.application.dto.ProductCartSnapshot;
 import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
@@ -73,7 +73,7 @@ class ProductGrpcClientAdapterTest {
 
 	@Test
 	void mapsOrderSnapshotsResponse() throws IOException {
-		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
+		ProductGrpcClientAdapter adapter = adapterWith(new ProductQueryServiceGrpc.ProductQueryServiceImplBase() {
 			@Override
 			public void getOrderSnapshots(
 				GetOrderSnapshotsRequest request,
@@ -101,7 +101,7 @@ class ProductGrpcClientAdapterTest {
 
 	@Test
 	void mapsCartSnapshotResponse() throws IOException {
-		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
+		ProductGrpcClientAdapter adapter = adapterWith(new ProductQueryServiceGrpc.ProductQueryServiceImplBase() {
 			public void getCartSnapshots(
 				GetCartSnapshotsRequest request,
 				StreamObserver<GetCartSnapshotsResponse> responseObserver
@@ -124,7 +124,7 @@ class ProductGrpcClientAdapterTest {
 
 	@Test
 	void mapsCartSnapshotsResponse() throws IOException {
-		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
+		ProductGrpcClientAdapter adapter = adapterWith(new ProductQueryServiceGrpc.ProductQueryServiceImplBase() {
 			@Override
 			public void getCartSnapshots(
 				GetCartSnapshotsRequest request,
@@ -147,7 +147,7 @@ class ProductGrpcClientAdapterTest {
 
 	@Test
 	void mapsProductContentResponse() throws IOException {
-		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
+		ProductGrpcClientAdapter adapter = adapterWith(new ProductQueryServiceGrpc.ProductQueryServiceImplBase() {
 			@Override
 			public void getProductContent(
 				GetProductContentRequest request,
@@ -171,7 +171,7 @@ class ProductGrpcClientAdapterTest {
 
 	@Test
 	void mapsGrpcFailureToBusinessException() throws IOException {
-		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
+		ProductGrpcClientAdapter adapter = adapterWith(new ProductQueryServiceGrpc.ProductQueryServiceImplBase() {
 			public void getCartSnapshots(
 				GetCartSnapshotsRequest request,
 				StreamObserver<GetCartSnapshotsResponse> responseObserver
@@ -190,7 +190,7 @@ class ProductGrpcClientAdapterTest {
 	void mapsAllSystemGrpcStatusesToProductServiceUnavailableAndRecordsFailures() throws IOException {
 		AtomicReference<Status> status = new AtomicReference<>(Status.UNAVAILABLE);
 		ProductGrpcResilience resilience = resilience(20, 10, 20);
-		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
+		ProductGrpcClientAdapter adapter = adapterWith(new ProductQueryServiceGrpc.ProductQueryServiceImplBase() {
 			@Override
 			public void getProductContent(
 				GetProductContentRequest request,
@@ -220,7 +220,7 @@ class ProductGrpcClientAdapterTest {
 	@Test
 	void mapsNotFoundToProductNotFoundWithoutRecordingCircuitBreakerFailure() throws IOException {
 		ProductGrpcResilience resilience = resilience(20, 2, 2);
-		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
+		ProductGrpcClientAdapter adapter = adapterWith(new ProductQueryServiceGrpc.ProductQueryServiceImplBase() {
 			@Override
 			public void getProductContent(
 				GetProductContentRequest request,
@@ -241,7 +241,7 @@ class ProductGrpcClientAdapterTest {
 	void mapsAllExcludedGrpcStatusesToTheirDomainErrors() throws IOException {
 		AtomicReference<Status> status = new AtomicReference<>(Status.NOT_FOUND);
 		ProductGrpcResilience resilience = resilience(20, 10, 20);
-		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
+		ProductGrpcClientAdapter adapter = adapterWith(new ProductQueryServiceGrpc.ProductQueryServiceImplBase() {
 			@Override
 			public void getProductContent(
 				GetProductContentRequest request,
@@ -266,7 +266,7 @@ class ProductGrpcClientAdapterTest {
 		setRequestId("request-circuit-open");
 		AtomicInteger calls = new AtomicInteger();
 		ProductGrpcResilience resilience = resilience(20, 2, 2);
-		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
+		ProductGrpcClientAdapter adapter = adapterWith(new ProductQueryServiceGrpc.ProductQueryServiceImplBase() {
 			@Override
 			public void getProductContent(
 				GetProductContentRequest request,
@@ -294,7 +294,7 @@ class ProductGrpcClientAdapterTest {
 	void keepsOrderCircuitBreakerClosedWhenQueryCircuitBreakerOpens() throws IOException {
 		AtomicInteger orderCalls = new AtomicInteger();
 		ProductGrpcResilience resilience = resilience(20, 2, 2);
-		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
+		ProductGrpcClientAdapter adapter = adapterWith(new ProductQueryServiceGrpc.ProductQueryServiceImplBase() {
 			@Override
 			public void getProductContent(
 				GetProductContentRequest request,
@@ -329,7 +329,7 @@ class ProductGrpcClientAdapterTest {
 	void keepsQueryCircuitBreakerClosedWhenOrderCircuitBreakerOpens() throws IOException {
 		AtomicInteger cartCalls = new AtomicInteger();
 		ProductGrpcResilience resilience = resilience(20, 2, 2);
-		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
+		ProductGrpcClientAdapter adapter = adapterWith(new ProductQueryServiceGrpc.ProductQueryServiceImplBase() {
 			@Override
 			public void getOrderSnapshots(
 				GetOrderSnapshotsRequest request,
@@ -365,7 +365,7 @@ class ProductGrpcClientAdapterTest {
 		CountDownLatch entered = new CountDownLatch(20);
 		CountDownLatch release = new CountDownLatch(1);
 		ProductGrpcResilience resilience = resilience(20, 10, 20);
-		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
+		ProductGrpcClientAdapter adapter = adapterWith(new ProductQueryServiceGrpc.ProductQueryServiceImplBase() {
 			@Override
 			public void getProductContent(
 				GetProductContentRequest request,
@@ -417,7 +417,7 @@ class ProductGrpcClientAdapterTest {
 		AtomicInteger cartCalls = new AtomicInteger();
 		AtomicInteger contentCalls = new AtomicInteger();
 		ProductGrpcResilience resilience = resilience(20, 10, 20);
-		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
+		ProductGrpcClientAdapter adapter = adapterWith(new ProductQueryServiceGrpc.ProductQueryServiceImplBase() {
 			@Override
 			public void getOrderSnapshots(GetOrderSnapshotsRequest request, StreamObserver<GetOrderSnapshotsResponse> observer) {
 				orderCalls.incrementAndGet();
@@ -460,7 +460,7 @@ class ProductGrpcClientAdapterTest {
 	void mapsDeadlineExceededToBusinessException() throws IOException {
 		ListAppender<ILoggingEvent> appender = startLogCapture();
 		setRequestId("request-deadline");
-		ProductGrpcClientAdapter adapter = adapterWith(new ProductInternalServiceGrpc.ProductInternalServiceImplBase() {
+		ProductGrpcClientAdapter adapter = adapterWith(new ProductQueryServiceGrpc.ProductQueryServiceImplBase() {
 			@Override
 			public void getCartSnapshots(
 				GetCartSnapshotsRequest request,
@@ -487,18 +487,18 @@ class ProductGrpcClientAdapterTest {
 		}
 	}
 
-	private ProductGrpcClientAdapter adapterWith(ProductInternalServiceGrpc.ProductInternalServiceImplBase service)
+	private ProductGrpcClientAdapter adapterWith(ProductQueryServiceGrpc.ProductQueryServiceImplBase service)
 		throws IOException {
 		return adapterWith(service, 2000);
 	}
 
-	private ProductGrpcClientAdapter adapterWith(ProductInternalServiceGrpc.ProductInternalServiceImplBase service, int deadlineMs)
+	private ProductGrpcClientAdapter adapterWith(ProductQueryServiceGrpc.ProductQueryServiceImplBase service, int deadlineMs)
 		throws IOException {
 		return adapterWith(service, deadlineMs, resilience(20, 10, 20));
 	}
 
 	private ProductGrpcClientAdapter adapterWith(
-		ProductInternalServiceGrpc.ProductInternalServiceImplBase service,
+		ProductQueryServiceGrpc.ProductQueryServiceImplBase service,
 		int deadlineMs,
 		ProductGrpcResilience resilience
 	) throws IOException {
@@ -511,7 +511,7 @@ class ProductGrpcClientAdapterTest {
 		channel = InProcessChannelBuilder.forName(serverName)
 			.directExecutor()
 			.build();
-		return new ProductGrpcClientAdapter(ProductInternalServiceGrpc.newBlockingStub(channel), deadlineMs, resilience);
+		return new ProductGrpcClientAdapter(ProductQueryServiceGrpc.newBlockingStub(channel), deadlineMs, resilience);
 	}
 
 	private ProductGrpcResilience resilience(int maxConcurrentCalls, int minimumNumberOfCalls, int slidingWindowSize) {
@@ -593,8 +593,8 @@ class ProductGrpcClientAdapterTest {
 			});
 	}
 
-	private com.prompthub.grpc.product.v1.ProductOrderSnapshot orderSnapshot(UUID productId) {
-		return com.prompthub.grpc.product.v1.ProductOrderSnapshot.newBuilder()
+	private com.prompthub.product.grpc.ProductOrderSnapshot orderSnapshot(UUID productId) {
+		return com.prompthub.product.grpc.ProductOrderSnapshot.newBuilder()
 			.setProductId(productId.toString())
 			.setSellerId(SELLER_ID.toString())
 			.setTitle("테스트 상품")
