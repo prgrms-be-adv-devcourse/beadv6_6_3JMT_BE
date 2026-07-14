@@ -30,4 +30,9 @@ public class RefundRepositoryAdapter implements RefundRepository {
     public List<Refund> findByPaymentIdAndStatus(UUID paymentId, RefundStatus status) {
         return jpaRepository.findByPaymentIdAndStatus(paymentId, status);
     }
+
+    @Override
+    public Optional<Refund> findByPaymentIdAndOrderProductId(UUID paymentId, UUID orderProductId) {
+        return jpaRepository.findByPaymentIdAndOrderProductId(paymentId, orderProductId);
+    }
 }

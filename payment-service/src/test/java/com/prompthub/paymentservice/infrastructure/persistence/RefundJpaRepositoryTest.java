@@ -67,4 +67,25 @@ class RefundJpaRepositoryTest extends AbstractJpaTest {
         assertThat(found).hasSize(1);
         assertThat(found.get(0).getRefundAmount()).isEqualTo(3_000);
     }
+
+    @Test
+    void findByPaymentIdAndOrderProductId_정상_조회() {
+        UUID paymentId = UUID.randomUUID();
+        UUID orderProductId = UUID.randomUUID();
+        Refund refund = Refund.create(paymentId, UUID.randomUUID(), 4_000, null, orderProductId);
+        refundJpaRepository.saveAndFlush(refund);
+
+        java.util.Optional<Refund> found = refundJpaRepository.findByPaymentIdAndOrderProductId(paymentId, orderProductId);
+
+        assertThat(found).isPresent();
+        assertThat(found.get().getRefundAmount()).isEqualTo(4_000);
+    }
+
+    @Test
+    void findByPaymentIdAndOrderProductId_없으면_empty() {
+        java.util.Optional<Refund> found = refundJpaRepository
+            .findByPaymentIdAndOrderProductId(UUID.randomUUID(), UUID.randomUUID());
+
+        assertThat(found).isEmpty();
+    }
 }
