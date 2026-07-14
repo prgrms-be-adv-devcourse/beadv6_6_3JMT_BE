@@ -1,4 +1,6 @@
 spring:
+  flyway:
+    enabled: false
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
