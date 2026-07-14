@@ -6,6 +6,7 @@ import com.prompthub.user.admin.application.dto.AdminUserPageResult;
 import com.prompthub.user.admin.application.dto.AdminUserStatusResult;
 import com.prompthub.user.admin.application.dto.AdminUserSummaryResult;
 import com.prompthub.user.admin.application.dto.ChangeUserStatusCommand;
+import com.prompthub.user.auth.domain.repository.AuthorizationCacheRepository;
 import com.prompthub.user.user.domain.model.User;
 import com.prompthub.user.user.domain.model.UserRole;
 import com.prompthub.user.user.domain.model.UserStatus;
@@ -32,6 +33,9 @@ class AdminUserApplicationServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private AuthorizationCacheRepository authorizationCacheRepository;
 
     @InjectMocks
     private AdminUserApplicationService adminUserApplicationService;
@@ -229,5 +233,21 @@ class AdminUserApplicationServiceTest {
                 new ChangeUserStatusCommand(userId, UserStatus.WITHDRAWN));
 
         then(user).should().withdraw();
+    }
+
+    @Test
+    void changeUserStatus_성공_시_authorize_캐시_무효화() {
+        UUID userId = UUID.randomUUID();
+        User user = mock(User.class);
+        given(user.getUserId()).willReturn(userId);
+        given(user.getStatus()).willReturn(UserStatus.BLOCKED);
+        given(user.getUpdatedAt()).willReturn(LocalDateTime.now());
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(userRepository.save(user)).willReturn(user);
+
+        adminUserApplicationService.changeUserStatus(
+                new ChangeUserStatusCommand(userId, UserStatus.BLOCKED));
+
+        then(authorizationCacheRepository).should().evict(userId);
     }
 }

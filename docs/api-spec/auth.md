@@ -270,3 +270,51 @@
   "message": "success"
 }
 ```
+
+---
+
+## 내부 API (Internal)
+
+> gateway forward-auth 전용. 서비스 외부에 노출하지 않음. 공개 API와 달리 `ApiResult` 래핑 없이 순수 JSON을 반환.
+
+### GET /internal/authorize/{userId} — 인가 정보 조회
+
+- 인증: 없음(gateway 내부망에서만 호출)
+- 호출처: apigateway forward-auth 필터(#290)
+- user-service 내부 Redis에 60초 TTL로 캐시(`user:authz:{userId}`). Redis 장애 시 DB 직접 조회로 폴백.
+- 로그인 시 캐시에 적재, 상태·역할 변경 시 즉시 무효화.
+- **epoch 세션 검증(ADR-0008 결정 8-1)**: AT의 `epoch` 클레임을 쿼리파라미터로 전달한다. 저장된
+  "현재 RT epoch"(`refresh_token` 테이블, RTR마다 회전)과 비교해 값이 없거나 다르면 로그아웃/재로그인으로
+  무효화된 이전 세션으로 판정해 401을 fail-closed로 반환한다.
+
+#### Path Parameters
+
+| 파라미터 | 타입 | 설명 |
+|---------|------|------|
+| userId | UUID | 조회할 사용자 ID |
+
+#### Query Parameters
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| epoch | long | Y | AT의 `epoch` 클레임 값. 없거나 저장된 현재 epoch과 다르면 401 |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "status": "ACTIVE",
+  "role": "BUYER"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| status | string | 계정 상태 (`ACTIVE` / `BLOCKED` / `WITHDRAWN`) |
+| role | string | 대표 역할 (`BUYER` / `SELLER` / `ADMIN`, 여러 역할 보유 시 ADMIN > SELLER > BUYER 우선순위) |
+
+**401 Unauthorized** — epoch 없음/불일치, 세션 무효 (`AUTH_SESSION_INVALIDATED`, A013)
+
+**404 Not Found** — 사용자 없음 (`AUTH_NOT_FOUND`, A001)
