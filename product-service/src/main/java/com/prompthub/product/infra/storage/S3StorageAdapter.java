@@ -8,7 +8,6 @@ import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -17,13 +16,16 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class S3StorageAdapter implements StorageClient {
 
-    private static final Duration PRESIGNED_GET_EXPIRATION = Duration.ofHours(1);
+    private static final Duration PRESIGNED_GET_EXPIRATION = Duration.ofMinutes(30);
+    private static final Duration PRESIGNED_PUT_EXPIRATION = Duration.ofMinutes(10);
 
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
@@ -48,17 +50,21 @@ public class S3StorageAdapter implements StorageClient {
     }
 
     @Override
-    public String upload(String key, byte[] bytes, String contentType) {
+    public String generatePresignedUploadUrl(String key, String contentType) {
         try {
-            PutObjectRequest request = PutObjectRequest.builder()
+            PutObjectRequest objectRequest = PutObjectRequest.builder()
                 .bucket(awsS3Properties.s3().bucket())
                 .key(key)
                 .contentType(contentType)
                 .build();
-            s3Client.putObject(request, RequestBody.fromBytes(bytes));
-            return buildObjectUrl(key);
+            PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
+                .signatureDuration(PRESIGNED_PUT_EXPIRATION)
+                .putObjectRequest(objectRequest)
+                .build();
+            PresignedPutObjectRequest presigned = s3Presigner.presignPutObject(presignRequest);
+            return presigned.url().toString();
         } catch (Exception e) {
-            log.error("S3 upload failed key={}: {}", key, e.getMessage(), e);
+            log.error("S3 presign upload failed key={}: {}", key, e.getMessage(), e);
             throw new ProductException(ProductErrorCode.S3_PRESIGN_FAILED);
         }
     }
@@ -90,8 +96,4 @@ public class S3StorageAdapter implements StorageClient {
         }
     }
 
-    private String buildObjectUrl(String key) {
-        return "https://" + awsS3Properties.s3().bucket()
-            + ".s3." + awsS3Properties.region() + ".amazonaws.com/" + key;
-    }
 }

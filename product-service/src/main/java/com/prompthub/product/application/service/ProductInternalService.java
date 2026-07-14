@@ -1,6 +1,7 @@
 package com.prompthub.product.application.service;
 
 import com.prompthub.product.application.client.SellerClient;
+import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.application.usecase.ProductInternalUseCase;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.ProductFamily;
@@ -33,6 +34,7 @@ public class ProductInternalService implements ProductInternalUseCase {
 	private final ProductRepository productRepository;
 	private final ReviewRepository reviewRepository;
 	private final SellerClient sellerClient;
+	private final StorageClient storageClient;
 
 	@Override
 	public List<ProductsByIdsResponse> getProductsByIds(List<UUID> productIds) {
@@ -100,7 +102,22 @@ public class ProductInternalService implements ProductInternalUseCase {
 		if (product == null) {
 			throw new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND);
 		}
-		return ProductContentResponse.from(productId, product);
+		return new ProductContentResponse(productId, resolveDeliverable(product));
+	}
+
+	private String resolveDeliverable(Product product) {
+		return switch (product.getProductType()) {
+			case PROMPT -> product.getContent();
+			case PPT, EXCEL -> presignIfPresent(product.getFileUrl());
+			case NOTION -> product.getExternalUrl();
+		};
+	}
+
+	private String presignIfPresent(String key) {
+		if (key == null || key.isBlank()) {
+			return null;
+		}
+		return storageClient.generatePresignedDownloadUrl(key);
 	}
 
 	@Override
