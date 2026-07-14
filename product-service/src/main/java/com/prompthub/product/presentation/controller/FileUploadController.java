@@ -46,7 +46,6 @@ public class FileUploadController {
     @PostMapping("/uploads")
     public ApiResult<UploadUrlResponse> createUploadUrl(
         @RequestHeader("X-User-Id") UUID sellerId,
-        @RequestHeader("X-User-Role") String role,
         @Valid @RequestBody UploadUrlRequest request
     ) {
         String ext = extractExtension(request.fileName());
@@ -85,7 +84,6 @@ public class FileUploadController {
     @DeleteMapping("/images")
     public ApiResult<Void> deleteTempImages(
         @RequestHeader("X-User-Id") UUID sellerId,
-        @RequestHeader("X-User-Role") String role,
         @RequestBody List<String> presignedUrls
     ) {
         presignedUrls.stream()

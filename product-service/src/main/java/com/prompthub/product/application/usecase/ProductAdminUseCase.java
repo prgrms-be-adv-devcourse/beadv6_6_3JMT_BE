@@ -6,11 +6,11 @@ import java.util.UUID;
 
 public interface ProductAdminUseCase {
 
-	List<AdminProductListItemResponse> getPendingReviewProducts(String role);
+	List<AdminProductListItemResponse> getPendingReviewProducts();
 
-	void approveProduct(String role, UUID productId);
+	void approveProduct(UUID productId);
 
-	void rejectProduct(String role, UUID productId, String reason);
+	void rejectProduct(UUID productId, String reason);
 
-	void revertProductToPendingReview(String role, UUID productId);
+	void revertProductToPendingReview(UUID productId);
 }

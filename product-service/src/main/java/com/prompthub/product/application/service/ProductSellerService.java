@@ -18,7 +18,6 @@ import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
 import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductListItemResponse;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -145,11 +144,11 @@ public class ProductSellerService implements ProductSellerUseCase {
 	}
 
 	@Override
-	public void deleteProduct(UUID sellerId, String role, UUID productId) {
+	public void deleteProduct(UUID sellerId, UUID productId) {
 		Product product = productRepository.findById(productId)
 			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
 
-		if (Arrays.stream(role.split(",")).noneMatch("ADMIN"::equals) && !product.isOwnedBy(sellerId)) {
+		if (!product.isOwnedBy(sellerId)) {
 			throw new ProductException(ProductErrorCode.PRODUCT_FORBIDDEN);
 		}
 

@@ -22,8 +22,7 @@ public class SellerDashboardController {
 
 	@GetMapping("/products")
 	public ApiResult<List<SellerProductListItemResponse>> getMyProducts(
-		@RequestHeader("X-User-Id") UUID sellerId,
-		@RequestHeader("X-User-Role") String role
+		@RequestHeader("X-User-Id") UUID sellerId
 	) {
 		return ApiResult.success(productSellerUseCase.getMyProducts(sellerId));
 	}
@@ -31,7 +30,6 @@ public class SellerDashboardController {
 	@GetMapping("/products/{productId}")
 	public ApiResult<SellerProductDetailResponse> getMyProduct(
 		@RequestHeader("X-User-Id") UUID sellerId,
-		@RequestHeader("X-User-Role") String role,
 		@PathVariable UUID productId
 	) {
 		return ApiResult.success(productSellerUseCase.getMyProduct(sellerId, productId));
