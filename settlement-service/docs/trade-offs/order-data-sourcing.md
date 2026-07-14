@@ -15,12 +15,13 @@
 3. **gRPC pull(현재 결정)** — 배포를 k8s 로 옮기며 배치를 CronJob 으로 분리하기로 하면서, 상시
    컨슈머를 없애고 **배치 시점에 order 를 gRPC 로 당겨오는** 방식으로 되돌린다. 이 문서가 정하는 방향이다.
 
-## 지금 구조(전환 대상)
+## 현재 구조
 
 - `SettlementSourceRepository` 가 정산이 주문 데이터를 가져오는 유일한 통로다. (이 포트는 유지된다.)
 - 원천은 정산이 소유하는 로컬 테이블 `settlement_source_line` 에 쌓는다. (이 테이블도 유지된다.)
-- 지금은 이 테이블을 **Kafka 컨슈머(`OrderEventConsumer`)가 실시간으로 채운다.** 이 채우는 경로를
-  gRPC pull 로 교체하는 것이 이번 전환의 골자다. **`settlement_source_line` 과 배치 계산부는 그대로다.**
+- 배치 첫 스텝이 **gRPC pull**로 기간의 결제·환불 라인을 조회해 이 테이블을 채운다.
+- Kafka 컨슈머(`OrderEventConsumer`)와 수신 DTO·consumer 설정은 #317에서 제거했다.
+  **`settlement_source_line`과 배치 계산부는 그대로다.**
 
 ## 왜 pull 로 되돌리나
 
@@ -163,19 +164,17 @@ message SettleableLine {
   P 안이면 환불 라인으로 각각 내려온다.
 - 멱등키 `event_id` 는 order 가 주지 않는다. 정산이 `(order_product_id + line_type)` 로 로컬 파생한다.
 
-### 코드에서 바뀌는 것 (구현 결과 — #260)
+### 코드에서 바뀐 것 (구현 결과 — #260, #317)
 
 - **신규:** `infrastructure/client/order/`(`OrderSettlementQueryClient` + `config/OrderGrpcClientConfig`),
   `application/port/OrderSettlementQueryPort`, `application/dto/SettleableLine`,
   `application/usecase/LoadSettlementSourceUseCase`, `grpc/order/order_query.proto`(루트 공유),
   배치 첫 스텝 `LoadSettlementSourceTasklet`(`loadSettlementSourceStep`).
-- **변경:** `SettlementSourceApplicationService` — 이벤트 핸들러(`recordOrderPaid`/`recordOrderRefunded`)는
-  **남겨두고**, `LoadSettlementSourceUseCase.load(period)` 를 추가로 구현(gRPC pull → bulk 적재). 멱등키
-  seed 는 pull 경로용으로 `orderProductId | eventType`(`pullLineEventId`)을 새로 둔다.
-  `SettlementSourceRepository` 에 `saveAll`·`findExistingEventIds` 추가.
-- **유지(제거는 order 서버 가동 후):** `infrastructure/messaging/kafka/consumer/order/*`
-  (`OrderEventConsumer`·`OrderEventType`), order 이벤트 DTO 는 남겨두고 `settlement.kafka.listener.order.enabled: false`
-  로 비활성. order gRPC 서버가 아직 없어 유일하게 계약이 있는 폴백이라, 서버 가동 후 정리한다.
+- **변경:** `SettlementSourceApplicationService` — `LoadSettlementSourceUseCase.load(period)`만 구현해
+  gRPC pull 결과를 bulk 적재한다. 멱등키 seed는 `orderProductId | lineType`으로 파생한다.
+  `SettlementSourceRepository`의 `saveAll`·`findExistingEventIds`를 사용한다.
+- **제거(#317):** `infrastructure/messaging/kafka/consumer/order/*`, order 이벤트 수신 DTO·usecase,
+  Kafka consumer·listener·DLT 설정. order gRPC 서버는 아직 없어 구현 전까지 원천 수급 경로가 없다.
 - **그대로:** `settlement_source_line`(`SettlementSourceLine`), `SettlementSourceRepository` 조회 계약,
   `findSettleableLines`, 계산 유스케이스, 배치 뒷단계 전부.
 

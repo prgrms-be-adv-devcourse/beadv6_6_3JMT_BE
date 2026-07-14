@@ -71,25 +71,25 @@
   2. 셀러 이동: `#233 (이슈)`, `#236 (이슈)`
   3. 기존 정산 기능 삭제: `#234 (이슈)`
 - 역할 기준은 `settlement`가 정산 로그, `seller_settlement`가 운영 데이터의 단일 진실 공급원이다.
-- Kafka 이벤트 규칙은 2026-07-09 팀 확정 사항이다. 공통 `EventMessage<T>`, `~Payload`, UPPER_SNAKE `eventType`, `{domain}-events` 토픽, `eventId + consumerGroup` 멱등키를 사용한다. 세부 규칙의 원본은 `settlement-service/.claude/rules/kafka-event.md`다.
+- Kafka 이벤트 규칙은 2026-07-09 팀 확정 사항이다. 공통 `EventMessage<T>`, `~Event`, UPPER_SNAKE `eventType`, `{domain}-events` 토픽, `eventId + consumerGroup` 멱등키를 사용한다. 세부 규칙의 원본은 `settlement-service/.claude/rules/kafka-event.md`다.
 - 위 담당 도메인의 main/test 패키지는 작업 요청에 따라 직접 수정할 수 있다. 그 밖의 user/admin 영역으로 범위를 넓혀야 하면 사용자에게 먼저 알린다.
 
 ## Codex skill 라우팅
 
-Codex 전용 워크플로는 `settlement-service/.codex/skills/`에 있다. 다음 문맥이면 해당 `SKILL.md`를 완전히 읽고 따른다.
+Codex 전용 워크플로는 `settlement-service/.codex/skills/`에 있다. 범용 스킬도 이 모듈 하위에 보관하므로 `settlement-service` 외부나 저장소 루트 문맥에서는 자동 discovery를 보장하지 않는다. 그 문맥에서 사용할 때는 해당 `SKILL.md` 경로나 스킬 이름을 명시해 호출한다. 다음 문맥이면 해당 `SKILL.md`를 완전히 읽고 따른다.
 
 - 정산 계산, 상태 전이, 중복, 권한, 예외, 금액 규칙 구현 또는 버그 수정:
   `settlement-service/.codex/skills/test-settlement-first/SKILL.md`
-- 정산 변경의 규칙·컨벤션 검증 또는 코드 리뷰:
-  `settlement-service/.codex/skills/verify-settlement-rules/SKILL.md`
+- 현재 브랜치나 작업 트리의 전체 변경 검증, PR 전 검증 또는 일반 코드 리뷰:
+  `settlement-service/.codex/skills/verify-project-changes/SKILL.md`
 - 정산 변경 커밋:
   `settlement-service/.codex/skills/commit-settlement-changes/SKILL.md`
 - 정산 작업 브랜치 생성:
   `settlement-service/.codex/skills/create-settlement-branch/SKILL.md`
-- 정산 GitHub 이슈 생성:
-  `settlement-service/.codex/skills/create-settlement-issue/SKILL.md`
-- 정산 Pull Request 생성:
-  `settlement-service/.codex/skills/create-settlement-pr/SKILL.md`
+- 일반 GitHub 이슈 생성:
+  `settlement-service/.codex/skills/create-project-issue/SKILL.md`
+- 일반 Pull Request 생성 또는 갱신:
+  `settlement-service/.codex/skills/create-project-pr/SKILL.md`
 
 ## 제외 대상
 

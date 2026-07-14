@@ -19,7 +19,7 @@
 
 ```
                          settlement-events (Kafka)
-                         EventMessage<SettlementCreatedPayload>
+                         EventMessage<SettlementCreatedEvent>
                          eventType=SETTLEMENT_CREATED
   ┌───────────────────┐  ─────────────────────────────▶  ┌────────────────────────────┐
   │ settlement-service│  Transactional Outbox              │ user-service               │
@@ -45,7 +45,7 @@
 
 | 도메인 | Kafka 발행 | Kafka 구독 | gRPC 서버 | gRPC 클라이언트 |
 |---|---|---|---|---|
-| **settlement-service** | ✅ Outbox 구현(#301) — `settlement-events` / `SETTLEMENT_CREATED` | ⚠️ 비활성(기본 OFF) — `order-events`, pull로 대체 중 | ❌ 없음 | ⚠️ order만 구현·상대 서버 대기 |
+| **settlement-service** | ✅ Outbox 구현(#301) — `settlement-events` / `SETTLEMENT_CREATED` | ❌ 없음 — `order-events` 수신 제거(#317) | ❌ 없음 | ⚠️ order만 구현·상대 서버 대기 |
 | **user `sellersettlement`** | ❌ 없음 | ✅ 구현(기본 OFF) — `settlement-events` | ❌ 없음(셀러조회 서버는 `seller` 패키지) | ⚠️ product `GetSellerStats`(서버 리네임 대기) |
 | **admin `settlement`** | ❌ 없음 | ❌ 없음 | ❌ 없음 | ❌ 없음 — DB 직접 접근 |
 
@@ -64,24 +64,18 @@
 | 어댑터 | `infrastructure/messaging/kafka/producer/KafkaSettlementEventPublisher` (`SettlementEventPublisher` 포트 구현) |
 | 적재 | `Settlement`·SourceLine 연결과 같은 트랜잭션에서 `settlement_outbox_event`에 완성 JSON 저장 |
 | 토픽 | `settlement-events` (`settlement.kafka.producer.topic`) |
-| 래퍼 | `EventMessage<SettlementCreatedPayload>` |
+| 래퍼 | `EventMessage<SettlementCreatedEvent>` |
 | eventType | `SETTLEMENT_CREATED` |
 | aggregateType / key | `SETTLEMENT` / `settlementId` |
-| 페이로드 | `SettlementCreatedPayload` (settlementId·sellerId·periodStart·periodEnd·productCount·totalAmount·settlementTotalAmount·feeTotalAmount·refundAmount·calculatedAt) |
+| 이벤트 상세 | `SettlementCreatedEvent` (settlementId·sellerId·periodStart·periodEnd·productCount·totalAmount·settlementTotalAmount·feeTotalAmount·refundAmount·calculatedAt) |
 | 발행 시점 | Job 시작 `retryPendingOutboxStep`(이전 PENDING), Job 마지막 `flushCurrentBatchOutboxStep`(현재 배치 PENDING) |
 | 실패정책 | broker ack 동기 확인. 1~2회 `PENDING`, 3회 `FAILED`; `outboxRedriveJob(eventId)`로 지정 재처리 |
 | 멱등/전달 | Outbox PK = JSON `eventId`, 저장 원문 재발행(at-least-once). user는 `settlementId` 유니크로 중복 흡수 |
 
-**구독 (Kafka) — 비활성(기본 OFF), gRPC pull로 대체 중**
+**구독 (Kafka) — 없음**
 
-| 항목 | 값 |
-|---|---|
-| 컨슈머 | `infrastructure/messaging/kafka/consumer/order/OrderEventConsumer` |
-| 토픽 | `order-events` (`ORDER_PAID` / `ORDER_REFUNDED`) |
-| 게이트 | `settlement.kafka.listener.order.enabled` — **기본값 false** |
-| 래퍼 | 공통 `EventMessage` 가 아니라 자체 `OrderEventEnvelope`(order 발행 포맷) |
-| 처리 | `SettlementSourceUseCase.recordOrderPaid / recordOrderRefunded` → `settlement_source_line` 적재 |
-| 상태 | #260 에서 **gRPC pull 로 대체**. order 서버 가동 전까지 유일한 폴백이라 코드·DTO 는 남겨두고 비활성 |
+`order-events`의 `ORDER_PAID`·`ORDER_REFUNDED` 수신 경로는 gRPC pull로 대체됐고 #317에서 컨슈머,
+수신 DTO, usecase, consumer 설정을 제거했다. settlement-service의 Kafka는 정산 결과 발행에만 사용한다.
 
 **gRPC 클라이언트 — order pull 구현됨(상대 서버 대기)**
 
@@ -112,9 +106,9 @@
 | 컨슈머 | `sellersettlement/infrastructure/messaging/kafka/consumer/settlement/SettlementEventConsumer` |
 | 토픽 | `settlement-events` (`user.kafka.consumer.settlement.topic`) — 정산 본체 발행 토픽과 일치 |
 | 게이트 | `user.kafka.listener.settlement.enabled` — **기본값 false**(통합 검증 시 true) |
-| 래퍼 | 공통 `EventMessage<SettlementCreatedPayload>` (수동 `readTree` 역직렬화) |
-| 처리 | `eventType == SETTLEMENT_CREATED` → `SeedSellerSettlementUseCase.seed(payload)` → `seller_settlement` 시딩 |
-| 페이로드 | 자체 `SettlementCreatedPayload`(정산 본체 발행 DTO 와 필드 미러) |
+| 래퍼 | 공통 `EventMessage<SettlementCreatedEvent>` (수동 `readTree` 역직렬화) |
+| 처리 | `eventType == SETTLEMENT_CREATED` → `SeedSellerSettlementUseCase.seed(event)` → `seller_settlement` 시딩 |
+| 이벤트 상세 | 자체 `SettlementCreatedEvent`(정산 본체 발행 DTO 와 필드 미러) |
 
 **gRPC 클라이언트 — 구현됨(상대 서버 리네임 대기)**
 
@@ -148,6 +142,7 @@
 1. **settlement → order `GetSettleableLines`** (#260)
    - settlement 클라이언트·포트·배치 스텝 완비. **order-service 에 `OrderQueryService` 서버가 없어 요청 대기.**
    - order 팀 필요 작업: `order_product.paidAt` 추가 + `GetSettleableLines` gRPC 서버 신설(계약: #260 이슈 코멘트).
+   - Kafka 폴백은 #317에서 제거되어 서버 구현 전에는 정산 원천 수급 경로가 없다.
 
 2. **user `sellersettlement` → product `GetSellerStats`**
    - 계약·클라이언트를 `GetSellerStats` 로 리네임했다(규칙 정합). **product 서버는 아직 `CountBySeller` 라, product 팀이 서버를 `GetSellerStats` 로 바꾸기 전까지 wire 불일치(UNIMPLEMENTED) — 서버 리네임 대기(조율됨).**

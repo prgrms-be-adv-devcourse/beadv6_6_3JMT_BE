@@ -5,12 +5,8 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 
-import com.prompthub.common.event.EventMessage;
-import com.prompthub.user.sellersettlement.application.event.SettlementCreatedPayload;
+import com.prompthub.user.sellersettlement.application.event.SettlementCreatedEvent;
 import com.prompthub.user.sellersettlement.application.usecase.SeedSellerSettlementUseCase;
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.kafka.support.Acknowledgment;
@@ -22,15 +18,27 @@ class SettlementEventConsumerTest {
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     private String eventMessageJson(String eventType, UUID settlementId) {
-        SettlementCreatedPayload payload = new SettlementCreatedPayload(
-                settlementId, UUID.randomUUID(),
-                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30),
-                1, new BigDecimal("100.00"), new BigDecimal("85.00"),
-                new BigDecimal("15.00"), BigDecimal.ZERO, LocalDateTime.of(2026, 7, 1, 4, 0));
-        EventMessage<SettlementCreatedPayload> message = new EventMessage<>(
-                UUID.randomUUID(), eventType, LocalDateTime.of(2026, 7, 1, 4, 0),
-                "SETTLEMENT", settlementId, payload);
-        return objectMapper.writeValueAsString(message);
+        return """
+                {
+                  "eventId": "%s",
+                  "eventType": "%s",
+                  "occurredAt": "2026-07-01T04:00:00",
+                  "aggregateType": "SETTLEMENT",
+                  "aggregateId": "%s",
+                  "payload": {
+                    "settlementId": "%s",
+                    "sellerId": "00000000-0000-0000-0000-000000000001",
+                    "periodStart": "2026-06-01",
+                    "periodEnd": "2026-06-30",
+                    "productCount": 1,
+                    "totalAmount": 100.00,
+                    "settlementTotalAmount": 85.00,
+                    "feeTotalAmount": 15.00,
+                    "refundAmount": 0,
+                    "calculatedAt": "2026-07-01T04:00:00"
+                  }
+                }
+                """.formatted(UUID.randomUUID(), eventType, settlementId, settlementId);
     }
 
     @Test
@@ -42,7 +50,7 @@ class SettlementEventConsumerTest {
 
         consumer.consume(eventMessageJson("SETTLEMENT_CREATED", settlementId), ack);
 
-        then(useCase).should().seed(any(SettlementCreatedPayload.class));
+        then(useCase).should().seed(any(SettlementCreatedEvent.class));
         then(ack).should().acknowledge();
     }
 

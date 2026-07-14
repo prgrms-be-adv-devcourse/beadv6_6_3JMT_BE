@@ -5,7 +5,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
-import com.prompthub.user.sellersettlement.application.event.SettlementCreatedPayload;
+import com.prompthub.user.sellersettlement.application.event.SettlementCreatedEvent;
 import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
 import java.math.BigDecimal;
@@ -27,8 +27,8 @@ class SellerSettlementSeedServiceTest {
     @InjectMocks
     private SellerSettlementApplicationService service;
 
-    private SettlementCreatedPayload message(UUID settlementId) {
-        return new SettlementCreatedPayload(
+    private SettlementCreatedEvent event(UUID settlementId) {
+        return new SettlementCreatedEvent(
                 settlementId, UUID.randomUUID(),
                 LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30),
                 1, new BigDecimal("100.00"), new BigDecimal("85.00"),
@@ -40,7 +40,7 @@ class SellerSettlementSeedServiceTest {
         UUID settlementId = UUID.randomUUID();
         given(sellerSettlementRepository.existsBySettlementId(settlementId)).willReturn(false);
 
-        service.seed(message(settlementId));
+        service.seed(event(settlementId));
 
         then(sellerSettlementRepository).should().save(any(SellerSettlement.class));
     }
@@ -50,7 +50,7 @@ class SellerSettlementSeedServiceTest {
         UUID settlementId = UUID.randomUUID();
         given(sellerSettlementRepository.existsBySettlementId(settlementId)).willReturn(true);
 
-        service.seed(message(settlementId));
+        service.seed(event(settlementId));
 
         then(sellerSettlementRepository).should(never()).save(any());
     }

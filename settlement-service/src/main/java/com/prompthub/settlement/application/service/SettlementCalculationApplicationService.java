@@ -1,7 +1,7 @@
 package com.prompthub.settlement.application.service;
 
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
-import com.prompthub.settlement.application.event.SettlementCreatedPayload;
+import com.prompthub.settlement.application.event.SettlementCreatedEvent;
 import com.prompthub.settlement.application.port.OutboxEventAppender;
 import com.prompthub.settlement.application.usecase.CalculateSettlementUseCase;
 import com.prompthub.settlement.domain.model.Settlement;
@@ -48,7 +48,7 @@ public class SettlementCalculationApplicationService implements CalculateSettlem
 
         outboxEventAppender.appendSettlementCreated(
                 command.settlementBatchId(),
-                SettlementCreatedPayload.from(settlement));
+                SettlementCreatedEvent.from(settlement));
 
         return settlement;
     }

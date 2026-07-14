@@ -32,8 +32,6 @@ public interface SettlementSourceLineJpaRepository extends JpaRepository<Settlem
                                                    @Param("start") LocalDateTime start,
                                                    @Param("end") LocalDateTime end);
 
-    boolean existsByEventId(UUID eventId);
-
     @Query("select l.eventId from SettlementSourceLine l where l.eventId in :eventIds")
     List<UUID> findExistingEventIds(@Param("eventIds") Collection<UUID> eventIds);
 

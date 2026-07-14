@@ -8,11 +8,7 @@ import java.util.UUID;
 
 public interface SettlementSourceRepository {
 
-    void save(SettlementSourceLine line);
-
     void saveAll(List<SettlementSourceLine> lines);
-
-    boolean existsByEventId(UUID eventId);
 
     List<UUID> findExistingEventIds(Collection<UUID> eventIds);
 
