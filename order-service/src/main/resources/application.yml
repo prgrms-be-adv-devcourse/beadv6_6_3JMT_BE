@@ -113,6 +113,8 @@ prompthub:
     fixed-delay-ms: 5000
     batch-size: 100
     max-retry-count: 3
+    refund-reconciliation:
+      initial-delay-minutes: ${ORDER_REFUND_RECONCILIATION_INITIAL_DELAY_MINUTES:10}
 
 logging:
   level:
