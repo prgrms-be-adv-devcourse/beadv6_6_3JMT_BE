@@ -3,7 +3,7 @@ on:
   push:
     branches: [develop]
   pull_request:
-    types: [closed]
+    types: [opened, synchronize, reopened, closed]
   workflow_dispatch:
 
 jobs:
@@ -39,6 +39,65 @@ jobs:
             gh pr create --base develop --head "$branch" \
               --title "chore: update codeflow card" \
               --body "자동 생성된 리포 상태 카드(.github/codeflow-card.svg) 갱신. develop에 직접 push할 수 없어(브랜치 보호 규칙) 전용 PR로 발행됨."
+
+  # 리뷰어가 머지 전에 참고할 수 있도록, 열려 있는 PR에도 영수증을 올린다.
+  # codeflow/card 액션 자체는 receipts 기능을 merged PR에만 게시하도록 하드코딩해놔서
+  # (index.js의 isMergedPR 체크), 여기서는 액션이 로컬에 남긴 state 파일만 읽어
+  # 같은 sticky marker로 직접 코멘트를 올린다. 머지되면 아래 receipt 잡이 같은
+  # marker를 찾아 "공식" 영수증으로 덮어쓴다.
+  review-receipt:
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: braedonsaunders/codeflow/card@v1
+        with:
+          style: compact
+          show-grade: true
+          show-score: true
+          accent: blue
+          receipts: false
+      - name: 리뷰 시점 영수증 코멘트
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const state = JSON.parse(fs.readFileSync(".github/codeflow-card.json", "utf8"));
+            const runs = state.runs;
+            const curr = runs[runs.length - 1];
+            const prev = runs.length > 1 ? runs[runs.length - 2] : null;
+            const d = (a, b) => (a == null || b == null) ? null : a - b;
+            const sign = n => n == null ? "—" : (n > 0 ? "+" : "") + n;
+            const lines = [];
+            lines.push("<!-- codeflow-card:receipt -->");
+            lines.push("```");
+            lines.push("--- CODEFLOW RECEIPT (review) ---");
+            lines.push("PR #" + curr.pr);
+            lines.push("--------------------------");
+            const dLoc = d(curr.loc, prev && prev.loc);
+            lines.push("LOC".padEnd(14) + (dLoc != null ? sign(dLoc) : String(curr.loc)));
+            const dFns = d(curr.functions, prev && prev.functions);
+            lines.push("functions".padEnd(14) + (dFns != null ? sign(dFns) : String(curr.functions)));
+            if (curr.grade) {
+              lines.push("health".padEnd(14) + (prev && prev.grade && prev.grade !== curr.grade ? prev.grade + " → " + curr.grade : curr.grade));
+            }
+            lines.push("--------------------------");
+            lines.push("   merge 전 리뷰 참고용 (develop 대비 diff)");
+            lines.push("```");
+            fs.writeFileSync("/tmp/receipt-body.md", lines.join("\n"));
+          '
+          BODY="$(cat /tmp/receipt-body.md)"
+          MARKER='<!-- codeflow-card:receipt -->'
+          PR="${{ github.event.pull_request.number }}"
+          EXISTING=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --paginate --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | head -1)
+          if [ -n "$EXISTING" ]; then
+            gh api "repos/${{ github.repository }}/issues/comments/$EXISTING" -X PATCH -f body="$BODY"
+          else
+            gh api "repos/${{ github.repository }}/issues/$PR/comments" -X POST -f body="$BODY"
+          fi
 
   receipt:
     if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
