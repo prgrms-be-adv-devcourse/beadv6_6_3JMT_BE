@@ -24,6 +24,7 @@ jobs:
           show-score: true
           accent: blue
           receipts: false
+          commit-message: "chore: update codeflow card"
       - name: 카드 변경사항을 전용 PR로 발행
         env:
           GH_TOKEN: ${{ github.token }}
