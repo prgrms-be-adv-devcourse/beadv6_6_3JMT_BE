@@ -40,6 +40,8 @@ prompthub:
     max-retry-count: 3
   order:
     enabled: false
+    refund-reconciliation:
+      initial-delay-minutes: 10
 
 eureka:
   client:
