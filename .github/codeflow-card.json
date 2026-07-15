@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "runs": [
+    {
+      "at": "2026-07-15T05:05:12.279Z",
+      "sha": "7b87bab931debef9d6df2b3f578144f58ca84e0f",
+      "pr": null,
+      "actor": "git-mesome",
+      "files": 1043,
+      "functions": 1126,
+      "loc": 85903,
+      "languages": 14,
+      "topLanguages": [
+        {
+          "ext": "java",
+          "pct": 54,
+          "lines": 46670
+        },
+        {
+          "ext": "md",
+          "pct": 41,
+          "lines": 35171
+        },
+        {
+          "ext": "yml",
+          "pct": 2,
+          "lines": 1526
+        },
+        {
+          "ext": "sql",
+          "pct": 1,
+          "lines": 855
+        },
+        {
+          "ext": "gradle",
+          "pct": 1,
+          "lines": 554
+        }
+      ],
+      "dead": 4,
+      "deadPct": 0.4,
+      "circular": 1,
+      "godObjects": 1,
+      "avgCoupling": 1.5,
+      "securityIssues": 16,
+      "patterns": 8,
+      "duplicates": 21,
+      "layerViolations": 172,
+      "connections": 1598,
+      "avgFnLines": 12.8,
+      "longestFn": 16,
+      "testFiles": 185,
+      "testRatio": 17.7,
+      "topFolders": [
+        {
+          "name": "user-service",
+          "count": 229
+        },
+        {
+          "name": "order-service",
+          "count": 212
+        },
+        {
+          "name": "settlement-service",
+          "count": 173
+        },
+        {
+          "name": "payment-service",
+          "count": 139
+        },
+        {
+          "name": "product-service",
+          "count": 138
+        }
+      ],
+      "folders": 5,
+      "grade": "C",
+      "score": 72,
+      "topBlast": {
+        "path": "user-service/src/main/java/com/prompthub/user/auth/domain/model/OAuthProvider.java",
+        "direct": 59,
+        "transitive": 209,
+        "total": 268
+      },
+      "fragility": [
+        {
+          "path": "user-service/src/main/java/com/prompthub/user/auth/domain/model/OAuthProvider.java",
+          "direct": 59,
+          "transitive": 209,
+          "total": 268
+        },
+        {
+          "path": "user-service/src/main/java/com/prompthub/user/wishlist/application/service/WishlistApplicationService.java",
+          "direct": 26,
+          "transitive": 182,
+          "total": 208
+        },
+        {
+          "path": "user-service/src/main/java/com/prompthub/user/wishlist/infrastructure/persistence/WishlistRepositoryAdapter.java",
+          "direct": 15,
+          "transitive": 191,
+          "total": 206
+        }
+      ]
+    }
+  ]
+}
