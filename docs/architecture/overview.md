@@ -71,7 +71,7 @@ flowchart LR
 | settlement → user | 9081 | 판매자 정보 배치 조회 | `settlement-service/.../infrastructure/client/seller/config/SellerGrpcClientConfig.java` |
 | settlement → product | 9082 | 상품 정보 배치 조회 | `settlement-service/.../infrastructure/client/product/config/ProductGrpcClientConfig.java` |
 | payment → order | 9083 | 주문 결제정보 폴백 조회(스냅샷 미확보 시) | `payment-service/.../infrastructure/external/grpc/OrderGrpcClientConfig.java` (**order 측 서버 예정**) |
-| order → payment | 9084 | 환불 이벤트 폴백 조회(Kafka 유실 시) | `payment-service/.../infrastructure/grpc/PaymentQueryGrpcService.java` |
+| order → payment | 9084 | 환불/결제 승인·실패 이벤트 폴백 조회(Kafka 유실 시) | `payment-service/.../infrastructure/grpc/PaymentQueryGrpcService.java` |
 
 ### 3) 내부 동기 통신 (HTTP)
 
