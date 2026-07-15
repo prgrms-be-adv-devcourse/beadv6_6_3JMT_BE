@@ -111,5 +111,5 @@ postgres(5432) + kafka(9092)
    - JWT `sub` → `X-User-Id`, `roles` claim → `X-User-Role`(콤마 조인, `BUYER`/`SELLER`/`ADMIN`)
    - `status` claim이 `ACTIVE`가 아니면 **403 즉시 반환**
    - 다운스트림 전달 전 `Authorization` 헤더는 제거
-5. **다운스트림 소비**: 각 서비스 Controller가 `@RequestHeader("X-User-Id")` 등으로 수신. 역할 검증 방식은 서비스별 규칙을 따른다(payment는 Controller 진입부 직접 검증).
+5. **다운스트림 소비**: 각 서비스 Controller가 `@RequestHeader("X-User-Id")` 등으로 수신. 역할 검증 방식은 서비스별 규칙을 따른다(payment는 역할 검증을 하지 않고 `X-User-Id` 기반 본인 확인만 수행, product도 동일 방향으로 전환).
 6. 헤더 이름(`X-User-Id`, `X-User-Role`)은 **서비스 간 계약이므로 임의 변경 금지** (apigateway CLAUDE.md).
