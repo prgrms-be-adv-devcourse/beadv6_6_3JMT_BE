@@ -5,6 +5,7 @@ import com.prompthub.order.application.usecase.CartUseCase;
 import com.prompthub.order.application.usecase.ConfirmDownloadUseCase;
 import com.prompthub.order.application.usecase.CreateOrderUseCase;
 import com.prompthub.order.application.usecase.OrderQueryUseCase;
+import com.prompthub.order.application.usecase.OrderRefundUseCase;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.presentation.dto.response.CartResponse;
 import org.junit.jupiter.api.DisplayName;
@@ -26,6 +27,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -50,6 +52,9 @@ class OrderWebConfigTest {
 
 	@MockitoBean
 	private OrderQueryUseCase orderQueryUseCase;
+
+	@MockitoBean
+	private OrderRefundUseCase orderRefundUseCase;
 
 	@MockitoBean
 	private CartUseCase cartUseCase;
@@ -100,6 +105,19 @@ class OrderWebConfigTest {
 			.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
 
 		then(orderQueryUseCase).shouldHaveNoInteractions();
+	}
+
+	@Test
+	@DisplayName("v2 환불 API에도 구매자 인증 Interceptor를 적용한다")
+	void refundApiMissingBuyerHeadersUnauthorized() throws Exception {
+		mockMvc.perform(post("/api/v2/orders/{orderId}/refund", UUID.randomUUID())
+				.contentType("application/json")
+				.content("{}"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.success").value(false))
+			.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
+
+		then(orderRefundUseCase).shouldHaveNoInteractions();
 	}
 
 	@Test
