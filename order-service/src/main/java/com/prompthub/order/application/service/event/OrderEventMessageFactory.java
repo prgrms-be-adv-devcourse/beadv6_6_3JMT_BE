@@ -1,6 +1,7 @@
 package com.prompthub.order.application.service.event;
 
 import com.prompthub.common.event.EventMessage;
+import com.prompthub.order.application.event.refund.OrderRefundRequestedPayload;
 import com.prompthub.order.infra.messaging.kafka.event.OrderCreatedPayload;
 import com.prompthub.order.infra.messaging.kafka.event.OrderEventType;
 import com.prompthub.order.infra.messaging.kafka.event.OrderPaidPayload;
@@ -48,6 +49,20 @@ public class OrderEventMessageFactory {
         return new EventMessage<>(
                 UUID.randomUUID(),
                 OrderEventType.ORDER_REFUND.code(),
+                LocalDateTime.now(),
+                "ORDER",
+                orderId,
+                payload
+        );
+    }
+
+    public EventMessage<OrderRefundRequestedPayload> createOrderRefundRequestedMessage(
+            UUID orderId,
+            OrderRefundRequestedPayload payload
+    ) {
+        return new EventMessage<>(
+                UUID.randomUUID(),
+                OrderEventType.ORDER_REFUND_REQUESTED.code(),
                 LocalDateTime.now(),
                 "ORDER",
                 orderId,
