@@ -16,7 +16,7 @@ public record PageRequestParams(
 	Integer page,
 	@Schema(description = "페이지 크기. 1 이상 100 이하이며 생략 시 20", example = "20", defaultValue = "20")
 	Integer size,
-	@Schema(description = "주문 상태 필터. 허용 값: PENDING, PAID, FAILED, CANCELED, REFUNDED", example = "PAID")
+	@Schema(description = "주문 상태 필터. 허용 값: PENDING, PAID, FAILED, CANCELED, REFUND_REQUESTED, PARTIAL_REFUNDED, REFUNDED", example = "PAID")
 	OrderStatus status,
 	@Schema(description = "조회 시작일. yyyy-MM-dd 형식", example = "2026-06-01")
 	@DateTimeFormat(iso = DATE)

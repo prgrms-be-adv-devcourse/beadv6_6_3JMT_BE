@@ -21,7 +21,7 @@ public record OrderProductsResponse(
 	String productModelSnapshot,
 	@Schema(description = "주문 시점 상품 금액 스냅샷. 원 단위 정수", example = "15000")
 	int productAmountSnapshot,
-	@Schema(description = "주문 상품 상태. PENDING, PAID, FAILED, CANCELED, REFUNDED", example = "PENDING")
+	@Schema(description = "주문 상품 상태. PENDING, PAID, FAILED, CANCELED, REFUND_REQUESTED, REFUNDED", example = "PENDING")
 	OrderStatus orderStatus
 ) {
 }
