@@ -37,7 +37,7 @@ protobuf {
 }
 
 // 루트 공유 gRPC 계약(소유: order 서버)을 이 모듈 proto 소스에 더한다.
-// order 서버 미구현이라 현재는 정산 클라이언트가 유일본. docs/architecture/grpc-contract-ownership.md 참고.
+// order 서버 미구현이라 현재는 정산 클라이언트가 유일본. docs/grpc-contract-ownership.md 참고.
 sourceSets {
     main {
         proto {
