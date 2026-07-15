@@ -11,6 +11,10 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+    properties:
+      hibernate:
+        hbm2ddl:
+          create_namespaces: true   # @Table(schema=...) 대응 — H2가 product_service 스키마 먼저 생성
     open-in-view: false
   kafka:
     bootstrap-servers: localhost:9092
