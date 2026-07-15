@@ -44,4 +44,9 @@ public class PaymentRepositoryAdapter implements PaymentRepository {
     public Optional<Payment> findByOrderIdAndStatusInForUpdate(UUID orderId, Collection<PaymentStatus> statuses) {
         return jpaRepository.findByOrderIdAndStatusInForUpdate(orderId, statuses);
     }
+
+    @Override
+    public Optional<Payment> findLatestByOrderId(UUID orderId) {
+        return jpaRepository.findTopByOrderIdOrderByCreatedAtDesc(orderId);
+    }
 }

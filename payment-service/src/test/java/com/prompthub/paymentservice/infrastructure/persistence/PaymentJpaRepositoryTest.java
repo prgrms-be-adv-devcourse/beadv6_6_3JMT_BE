@@ -76,4 +76,33 @@ class PaymentJpaRepositoryTest extends AbstractJpaTest {
 
         assertThat(found).isEmpty();
     }
+
+    @Test
+    void findLatestByOrderId_여러건_중_최신_반환() {
+        UUID orderId = UUID.randomUUID();
+
+        Payment failed = Payment.create(
+            orderId, UUID.randomUUID(), "pg-key-failed", "TOSS_PAYMENTS", "CARD", false, 10_000);
+        failed.markRequested(OffsetDateTime.now());
+        failed.fail("INVALID_CARD", "카드 오류", "{}", "{}", OffsetDateTime.now());
+        paymentJpaRepository.saveAndFlush(failed);
+
+        Payment paid = Payment.create(
+            orderId, UUID.randomUUID(), "pg-key-paid", "TOSS_PAYMENTS", "CARD", false, 10_000);
+        paid.markRequested(OffsetDateTime.now());
+        paid.approve(10_000, "카드", "{}", OffsetDateTime.now());
+        paymentJpaRepository.saveAndFlush(paid);
+
+        Optional<Payment> found = paymentJpaRepository.findTopByOrderIdOrderByCreatedAtDesc(orderId);
+
+        assertThat(found).isPresent();
+        assertThat(found.get().getId()).isEqualTo(paid.getId());
+    }
+
+    @Test
+    void findLatestByOrderId_없으면_empty() {
+        Optional<Payment> found = paymentJpaRepository.findTopByOrderIdOrderByCreatedAtDesc(UUID.randomUUID());
+
+        assertThat(found).isEmpty();
+    }
 }
