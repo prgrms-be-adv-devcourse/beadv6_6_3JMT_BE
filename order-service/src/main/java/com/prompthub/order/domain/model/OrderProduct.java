@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -29,6 +30,10 @@ public class OrderProduct {
     @Id
     @Column(name = "id", columnDefinition = "uuid")
     private UUID id;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
 
     @ManyToOne(fetch = LAZY)
     @JoinColumn(name = "order_id", nullable = false)
@@ -182,6 +187,28 @@ public class OrderProduct {
     public void refund(LocalDateTime refundedAt) {
         if (this.orderStatus != OrderStatus.PAID) {
             throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+        }
+
+        this.orderStatus = OrderStatus.REFUNDED;
+        this.refundedAt = refundedAt;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void requestRefund() {
+        if (this.orderStatus != OrderStatus.PAID) {
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+        }
+
+        this.orderStatus = OrderStatus.REFUND_REQUESTED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void completeRefund(LocalDateTime refundedAt) {
+        if (this.orderStatus != OrderStatus.REFUND_REQUESTED) {
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+        }
+        if (refundedAt == null) {
+            throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
         this.orderStatus = OrderStatus.REFUNDED;

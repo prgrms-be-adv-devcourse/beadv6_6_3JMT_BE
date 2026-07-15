@@ -38,6 +38,7 @@ class OrderTest {
 			assertThat(order.getCanceledAt()).isNull();
 			assertThat(order.getRefundedAt()).isNull();
 			assertThat(order.getOrderProducts()).isEmpty();
+			assertThat(order.getVersion()).isZero();
 		}
 	}
 
@@ -58,6 +59,111 @@ class OrderTest {
 			// then
 			assertThat(order.getOrderProducts()).containsExactly(orderProduct);
 			assertThat(orderProduct.getOrder()).isSameAs(order);
+		}
+	}
+
+	@Nested
+	@DisplayName("주문상품 단건 부분 환불")
+	class PartialRefund {
+
+		@Test
+		@DisplayName("PAID 주문에서 선택한 상품만 REFUND_REQUESTED로 변경한다")
+		void requestRefund_paidOrder_changesOnlySelectedProduct() {
+			Order order = createPaidOrderWithProducts();
+			OrderProduct selected = order.getOrderProducts().getFirst();
+			OrderProduct unselected = order.getOrderProducts().getLast();
+
+			order.requestRefund(selected.getId());
+
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.REFUND_REQUESTED);
+			assertThat(selected.getOrderStatus()).isEqualTo(OrderStatus.REFUND_REQUESTED);
+			assertThat(unselected.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+		}
+
+		@Test
+		@DisplayName("선택 상품 환불 완료 후 PAID 상품이 남으면 PARTIAL_REFUNDED가 된다")
+		void completeRefund_paidProductRemains_marksPartialRefunded() {
+			Order order = createPaidOrderWithProducts();
+			OrderProduct selected = order.getOrderProducts().getFirst();
+			order.requestRefund(selected.getId());
+
+			order.completeRefund(selected.getId(), REFUNDED_AT);
+
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PARTIAL_REFUNDED);
+			assertThat(order.getRefundedAt()).isNull();
+			assertThat(selected.getOrderStatus()).isEqualTo(OrderStatus.REFUNDED);
+		}
+
+		@Test
+		@DisplayName("PARTIAL_REFUNDED 주문의 남은 PAID 상품을 순차 요청할 수 있다")
+		void requestRefund_partialRefundedOrder_success() {
+			Order order = createPaidOrderWithProducts();
+			OrderProduct first = order.getOrderProducts().getFirst();
+			OrderProduct second = order.getOrderProducts().getLast();
+			order.requestRefund(first.getId());
+			order.completeRefund(first.getId(), REFUNDED_AT);
+
+			order.requestRefund(second.getId());
+
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.REFUND_REQUESTED);
+			assertThat(first.getOrderStatus()).isEqualTo(OrderStatus.REFUNDED);
+			assertThat(second.getOrderStatus()).isEqualTo(OrderStatus.REFUND_REQUESTED);
+		}
+
+		@Test
+		@DisplayName("모든 주문상품의 환불이 완료되면 주문이 REFUNDED가 된다")
+		void completeRefund_noPaidProductRemains_marksRefunded() {
+			Order order = createPaidOrderWithProducts();
+			OrderProduct first = order.getOrderProducts().getFirst();
+			OrderProduct second = order.getOrderProducts().getLast();
+			order.requestRefund(first.getId());
+			order.completeRefund(first.getId(), REFUNDED_AT.minusMinutes(1));
+			order.requestRefund(second.getId());
+
+			order.completeRefund(second.getId(), REFUNDED_AT);
+
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.REFUNDED);
+			assertThat(order.getRefundedAt()).isEqualTo(REFUNDED_AT);
+			assertThat(order.getOrderProducts())
+				.extracting(OrderProduct::getOrderStatus)
+				.containsOnly(OrderStatus.REFUNDED);
+		}
+
+		@Test
+		@DisplayName("주문에 속하지 않은 상품을 요청하면 주문과 상품 상태를 변경하지 않는다")
+		void requestRefund_unknownOrderProduct_throwsWithoutChanges() {
+			Order order = createPaidOrderWithProducts();
+
+			assertThatThrownBy(() -> order.requestRefund(UNKNOWN_PRODUCT_ID))
+				.isInstanceOf(OrderException.class);
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+			assertThat(order.getOrderProducts())
+				.extracting(OrderProduct::getOrderStatus)
+				.containsOnly(OrderStatus.PAID);
+		}
+
+		@Test
+		@DisplayName("PAID 또는 PARTIAL_REFUNDED가 아닌 주문은 부분 환불을 요청할 수 없다")
+		void requestRefund_invalidOrderStatus_throwsWithoutChanges() {
+			Order order = createPendingOrderWithProducts();
+			OrderProduct selected = order.getOrderProducts().getFirst();
+
+			assertThatThrownBy(() -> order.requestRefund(selected.getId()))
+				.isInstanceOf(OrderException.class);
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
+			assertThat(selected.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
+		}
+
+		@Test
+		@DisplayName("REFUND_REQUESTED가 아닌 주문은 부분 환불을 완료할 수 없다")
+		void completeRefund_invalidOrderStatus_throwsWithoutChanges() {
+			Order order = createPaidOrderWithProducts();
+			OrderProduct selected = order.getOrderProducts().getFirst();
+
+			assertThatThrownBy(() -> order.completeRefund(selected.getId(), REFUNDED_AT))
+				.isInstanceOf(OrderException.class);
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+			assertThat(selected.getOrderStatus()).isEqualTo(OrderStatus.PAID);
 		}
 	}
 
@@ -301,6 +407,19 @@ class OrderTest {
 			// when & then
 			assertThatThrownBy(order::refund)
 				.isInstanceOf(OrderException.class);
+		}
+
+		@Test
+		@DisplayName("부분 환불 요청 중인 주문은 기존 전체 환불로 일부 상품만 변경되지 않는다")
+		void refund_refundRequestedOrder_throwsWithoutProductChanges() {
+			Order order = createPaidOrderWithProducts();
+			OrderProduct requested = order.getOrderProducts().getLast();
+			order.requestRefund(requested.getId());
+
+			assertThatThrownBy(order::refund)
+				.isInstanceOf(OrderException.class);
+			assertThat(order.getOrderProducts().getFirst().getOrderStatus()).isEqualTo(OrderStatus.PAID);
+			assertThat(requested.getOrderStatus()).isEqualTo(OrderStatus.REFUND_REQUESTED);
 		}
 	}
 

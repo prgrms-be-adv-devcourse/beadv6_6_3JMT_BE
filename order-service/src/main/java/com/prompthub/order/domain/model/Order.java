@@ -28,6 +28,10 @@ public class Order extends BaseEntity {
 	@Column(name = "id", columnDefinition = "uuid")
 	private UUID id;
 
+	@Version
+	@Column(name = "version", nullable = false)
+	private long version;
+
 	@Column(name = "buyer_id", columnDefinition = "uuid", nullable = false)
 	private UUID buyerId;
 
@@ -141,11 +145,44 @@ public class Order extends BaseEntity {
 	}
 
 	public void refund(LocalDateTime refundedAt) {
-		validateTransition(OrderStatus.REFUNDED);
+		if (this.orderStatus != OrderStatus.PAID) {
+			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+		}
 
 		this.orderStatus = OrderStatus.REFUNDED;
 		this.refundedAt = refundedAt;
 		this.orderProducts.forEach(orderProduct -> orderProduct.refund(refundedAt));
+	}
+
+	public void requestRefund(UUID orderProductId) {
+		if (this.orderStatus != OrderStatus.PAID
+			&& this.orderStatus != OrderStatus.PARTIAL_REFUNDED) {
+			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+		}
+
+		OrderProduct orderProduct = findOrderProduct(orderProductId);
+		orderProduct.requestRefund();
+		this.orderStatus = OrderStatus.REFUND_REQUESTED;
+	}
+
+	public void completeRefund(UUID orderProductId, LocalDateTime refundedAt) {
+		if (this.orderStatus != OrderStatus.REFUND_REQUESTED) {
+			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+		}
+
+		OrderProduct orderProduct = findOrderProduct(orderProductId);
+		orderProduct.completeRefund(refundedAt);
+
+		boolean allProductsRefunded = this.orderProducts.stream()
+			.allMatch(product -> product.getOrderStatus() == OrderStatus.REFUNDED);
+		if (allProductsRefunded) {
+			this.orderStatus = OrderStatus.REFUNDED;
+			this.refundedAt = refundedAt;
+			return;
+		}
+
+		this.orderStatus = OrderStatus.PARTIAL_REFUNDED;
+		this.refundedAt = null;
 	}
 
 	public void expirePending(LocalDateTime canceledAt) {
@@ -168,6 +205,13 @@ public class Order extends BaseEntity {
 
 	public boolean isPaid() {
 		return this.orderStatus == OrderStatus.PAID;
+	}
+
+	private OrderProduct findOrderProduct(UUID orderProductId) {
+		return this.orderProducts.stream()
+			.filter(orderProduct -> orderProduct.getId().equals(orderProductId))
+			.findFirst()
+			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_PRODUCT_NOT_FOUND));
 	}
 
 	private void validateTransition(OrderStatus target) {

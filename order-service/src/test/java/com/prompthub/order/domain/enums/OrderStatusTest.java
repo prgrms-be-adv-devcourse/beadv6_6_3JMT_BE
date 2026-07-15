@@ -20,7 +20,8 @@ class OrderStatusTest {
     }
 
     @Test
-    void canTransitionTo_fromPaid_shouldReturnTrueForRefunded() {
+    void canTransitionTo_fromPaid_shouldReturnTrueForRefundRequestedAndRefunded() {
+        assertThat(OrderStatus.PAID.canTransitionTo(OrderStatus.REFUND_REQUESTED)).isTrue();
         assertThat(OrderStatus.PAID.canTransitionTo(OrderStatus.REFUNDED)).isTrue();
     }
 
@@ -35,6 +36,35 @@ class OrderStatusTest {
     @Test
     void canTransitionTo_fromFailed_shouldReturnTrueForPaid() {
         assertThat(OrderStatus.FAILED.canTransitionTo(OrderStatus.PAID)).isTrue();
+    }
+
+    @Test
+    void canTransitionTo_fromRefundRequested_shouldReturnTrueForPartialRefundedAndRefunded() {
+        assertThat(OrderStatus.REFUND_REQUESTED.canTransitionTo(OrderStatus.PARTIAL_REFUNDED)).isTrue();
+        assertThat(OrderStatus.REFUND_REQUESTED.canTransitionTo(OrderStatus.REFUNDED)).isTrue();
+    }
+
+    @Test
+    void canTransitionTo_fromRefundRequested_shouldReturnFalseForOtherTargets() {
+        for (OrderStatus target : OrderStatus.values()) {
+            if (target != OrderStatus.PARTIAL_REFUNDED && target != OrderStatus.REFUNDED) {
+                assertThat(OrderStatus.REFUND_REQUESTED.canTransitionTo(target)).isFalse();
+            }
+        }
+    }
+
+    @Test
+    void canTransitionTo_fromPartialRefunded_shouldReturnTrueForRefundRequested() {
+        assertThat(OrderStatus.PARTIAL_REFUNDED.canTransitionTo(OrderStatus.REFUND_REQUESTED)).isTrue();
+    }
+
+    @Test
+    void canTransitionTo_fromPartialRefunded_shouldReturnFalseForOtherTargets() {
+        for (OrderStatus target : OrderStatus.values()) {
+            if (target != OrderStatus.REFUND_REQUESTED) {
+                assertThat(OrderStatus.PARTIAL_REFUNDED.canTransitionTo(target)).isFalse();
+            }
+        }
     }
 
     @Test

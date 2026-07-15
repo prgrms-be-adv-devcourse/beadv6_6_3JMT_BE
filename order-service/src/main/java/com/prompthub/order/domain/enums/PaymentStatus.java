@@ -13,7 +13,7 @@ public enum PaymentStatus {
 	public static PaymentStatus from(OrderStatus orderStatus) {
 		return switch (orderStatus) {
 			case PENDING -> PENDING;
-			case PAID -> PAID;
+			case PAID, REFUND_REQUESTED, PARTIAL_REFUNDED -> PAID;
 			case FAILED -> FAILED;
 			case CANCELED -> CANCELED;
 			case REFUNDED -> REFUNDED;
