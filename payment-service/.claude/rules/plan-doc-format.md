@@ -25,3 +25,9 @@ payment-service `.claude/plans/` 문서 작성 형식 규칙. 새 계획 문서 
 ```
 
 고정: 제목, 한 줄 요약, `---` 1개(첫 섹션 앞). 본문 섹션 이름·개수는 작업에 맞게 자유 — 억지로 통일하지 않는다.
+
+## 태스크 목록 문서 (writing-plans 산출물)
+
+파일명 규칙은 [superpowers-workflow.md](superpowers-workflow.md) 참조.
+
+각 Task는 **하나의 커밋 단위**다 — Task의 마지막 Step은 항상 `Step: Commit`이며, Task 내부를 여러 커밋으로 쪼개지 않는다.
