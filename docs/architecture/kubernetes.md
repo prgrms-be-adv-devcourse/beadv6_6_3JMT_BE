@@ -1,13 +1,14 @@
 # Kubernetes 아키텍처 명세
 
-> 상태: 승인된 목표 아키텍처, 매니페스트 구현 전
+> 상태: 승인된 목표 아키텍처, 상태 저장 인프라 구현·검증 완료
 > 관련 이슈: [#340](https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/issues/340)
-> 전환 설계: [kubeadm 기반 Kubernetes 배포 전환 설계](./2026-07-14-kubeadm-kubernetes-migration-design.md)
-> 최종 갱신: 2026-07-14
+> 최종 갱신: 2026-07-15
 
 ## 1. 문서 목적
 
-이 문서는 PromptHub 백엔드를 Kubernetes에 배포할 때 따라야 하는 목표 아키텍처와 매니페스트 구성 규칙을 정의한다. 날짜가 붙은 전환 설계 문서는 선택 이유와 구현 순서를 설명하고, 이 문서는 실제 Kubernetes 리소스가 따라야 하는 지속적인 기준을 제공한다.
+이 문서는 PromptHub 백엔드를 Kubernetes에 배포할 때 따라야 하는 목표 아키텍처와 매니페스트 구성 규칙을 정의한다. Kubernetes 전환의 선택 배경, 범위, 리소스 계약과 변경 기준은 이 문서를 유일한 아키텍처 원본으로 사용한다.
+
+`k8s/README.md`는 이 명세를 반복하지 않고 매니페스트 렌더링, 적용, 검증과 복구 명령만 제공한다. 아키텍처 값이 바뀌면 이 문서와 실제 매니페스트를 함께 변경하며 README에 별도 명세를 만들지 않는다.
 
 이 문서에서 다루는 범위는 다음과 같다.
 
@@ -22,18 +23,67 @@
 
 애플리케이션의 Java 패키지 구조, 도메인 설계, 로그·메트릭 스택은 이 문서의 범위가 아니다.
 
-## 2. 상태와 기준 우선순위
+## 2. 결정 배경과 전환 범위
 
-이 문서는 목표 상태 명세다. 현재 저장소에는 아직 `k8s/` 디렉터리와 Kubernetes 매니페스트가 없다. 구현할 매니페스트는 이 문서의 구조와 계약을 따라야 한다.
+### 2.1 선택 배경과 목표
+
+현재 단일 EC2의 Docker Compose에서 실행하는 PromptHub 백엔드를 두 대의 EC2에 직접 설치한 Kubernetes 클러스터로 옮긴다. EKS 같은 관리형 Kubernetes를 사용하지 않고 Ubuntu에 containerd, kubeadm, kubelet, kubectl과 Flannel을 직접 설치한다.
+
+이번 전환은 단순한 실행 환경 교체뿐 아니라 클러스터 부트스트랩, Pod 네트워크, 스케줄링, StatefulSet, PV/PVC, Secret, probe와 배포·복구 절차를 직접 학습하는 것을 목표로 한다. 첫 배포와 검증은 SSH와 `kubectl`로 수행하고, 절차가 재현 가능해진 뒤 GitHub Actions CD를 Kubernetes 방식으로 전환한다.
+
+### 2.2 제외 범위
+
+- 기존 PostgreSQL·Redis·Kafka 데이터 이전
+- 다중 Control Plane, 다중 Worker와 자동 장애 조치
+- EKS, AWS Load Balancer Controller와 EBS CSI 동적 프로비저닝
+- Ingress Controller, 도메인과 TLS 인증서 자동화
+- Elasticsearch, Logstash, Filebeat, Kibana, Prometheus와 Grafana
+- Flannel이 제공하지 않는 Kubernetes NetworkPolicy
+- HPA, VPA와 PodDisruptionBudget
+- 첫 단계에서의 서비스별 PostgreSQL 계정 전환
+
+로그와 메트릭 관측 스택은 크레딧이 남는 별도 서버에 구성하며 이 클러스터 전환과 독립적으로 다룬다.
+
+### 2.3 전환 원칙
+
+Kubernetes 전환과 애플리케이션 구조 변경을 동시에 진행하지 않는다.
+
+- Eureka 기반 서비스 등록과 `lb://SERVICE-NAME` 라우팅을 유지한다.
+- Spring Cloud Config native backend와 이미지에 포함된 `config/src/main/resources/configs/`를 유지한다.
+- PostgreSQL 초기화 스크립트와 서비스별 Flyway baseline을 유지한다.
+- 서비스별 Gradle 빌드와 Dockerfile을 유지한다.
+- Compose 컨테이너 이름 대신 Kubernetes Service DNS를 사용한다.
+- `latest` 대신 기존 워크플로가 생성하는 짧은 Git SHA 태그를 사용한다.
+
+### 2.4 현재 구현 상태
+
+2026-07-15 기준으로 단일 Control Plane과 단일 Worker가 `Ready`이며 Flannel을 통한 노드 간 Pod 통신을 검증했다. PostgreSQL, Redis와 Kafka는 StatefulSet과 Local PV/PVC로 배포했고 Pod 재생성 후 데이터가 유지되는 것도 확인했다.
+
+Discovery, Config, 비즈니스 서비스, Spring AI, API Gateway와 Kubernetes CD 전환은 후속 배포 단계다. 기존 Docker Compose 트래픽은 외부 진입점 전환을 승인하기 전까지 유지한다.
+
+### 2.5 기준 우선순위
+
+이 문서는 목표 상태 명세이며 `k8s/` 매니페스트는 이 계약을 구현한다.
 
 서로 다른 문서나 설정이 충돌하면 다음 순서로 판단한다.
 
 1. 실제 애플리케이션 코드가 제공하거나 소비하는 프로토콜 계약
 2. 이 문서의 Kubernetes 리소스·배치 계약
-3. 날짜가 붙은 전환 설계의 의사결정과 초기 추정값
-4. 기존 `docker-compose.yml`의 호스트 포트와 기동 계약
+3. `k8s/` 매니페스트의 현재 구현
+4. 기존 `docker-compose.yml`의 레거시 호스트 포트와 기동 계약
 
 충돌을 발견하면 매니페스트에서 임의로 우회하지 않는다. 코드·Config Server·이 문서를 함께 정렬하고 변경 근거를 이슈에 남긴다.
+
+### 2.6 전환 단계
+
+전환은 하나의 이슈로 추적하되 독립적으로 검증할 수 있는 네 단계로 나눈다.
+
+1. 클러스터 부트스트랩: EC2 사전 점검, containerd, kubeadm, Flannel, 노드 join과 네트워크 검증
+2. 상태 저장 인프라: Local PV/PVC, PostgreSQL init/Flyway, Redis, Kafka와 재생성 검증
+3. 플랫폼·애플리케이션: Secret, Discovery, Config, 비즈니스 서비스, Spring AI, Gateway와 HTTP/gRPC 검증
+4. 배포 전환: SHA 이미지 rollout, rollback, Config 변경 절차와 GitHub Actions CD 교체
+
+각 단계는 앞 단계의 검증 결과를 입력으로 사용한다. 클러스터가 `Ready`가 아니면 인프라를 배포하지 않고, 인프라가 준비되지 않으면 플랫폼과 애플리케이션 배포로 넘어가지 않는다.
 
 ## 3. 설계 원칙과 경계
 
@@ -49,6 +99,16 @@
 - 매니페스트는 Kustomize base와 `learning` overlay로 관리한다.
 - 로그와 메트릭 수집 시스템은 별도 서버에 두며 이 클러스터에 배치하지 않는다.
 - 이 구성은 학습 환경이다. 노드 장애 고가용성이나 데이터 자동 복구를 제공하지 않는다.
+
+### 3.1 채택한 절충점
+
+- kubeadm 직접 설치를 선택해 학습 범위를 넓히는 대신 관리형 Control Plane의 안정성을 포기한다.
+- Flannel을 선택해 설치와 네트워크 이해를 단순화하는 대신 NetworkPolicy를 포기한다.
+- Control Plane에 PostgreSQL과 Redis를 제한 배치해 두 서버 자원을 활용하는 대신 Medium 장애 범위를 키운다.
+- Local PV를 선택해 CSI 복잡도를 피하는 대신 노드 간 이동과 자동 복구를 포기한다.
+- Eureka와 Config를 유지해 애플리케이션 변경을 줄이는 대신 Kubernetes native service discovery와 ConfigMap으로 즉시 전환하지 않는다.
+- NodePort를 선택해 외부 진입을 단순화하는 대신 표준 80/443, 도메인과 TLS를 후속 단계로 미룬다.
+- 초기 resource requests/limits는 보수적으로 지정하되 실제 부하와 장애 기록을 기준으로 재조정한다.
 
 ## 4. 물리 토폴로지
 
@@ -108,9 +168,9 @@ flowchart TB
 
 | 항목 | 기준 |
 |---|---|
-| OS | Ubuntu Server 24.04 LTS |
+| OS | Ubuntu Server 26.04 LTS |
 | Kubernetes | v1.36.2 |
-| containerd | v2.3.1, CRI v1, systemd cgroup |
+| containerd | v2.2.5, CRI v1, systemd cgroup |
 | Flannel | v0.28.4, VXLAN |
 | Flannel CNI plugin | v1.9.1 |
 | Pod CIDR | `10.244.0.0/16` |
@@ -632,14 +692,13 @@ Spring JVM과 Kafka heap은 컨테이너 memory limit보다 작게 명시한다.
 
 ## 21. 구현 문서 경계
 
-이 문서는 최종 리소스 계약을 설명하며 SSH 설치 명령이나 단계별 `kubectl` 명령을 담지 않는다.
+이 문서는 Kubernetes 선택 배경, 전환 범위와 최종 리소스 계약을 설명하는 유일한 아키텍처 원본이다. SSH 설치 명령이나 단계별 `kubectl` 명령은 담지 않는다.
 
-- 의사결정과 전환 범위: `2026-07-14-kubeadm-kubernetes-migration-design.md`
 - 클러스터 직접 설치 절차: `docs/guides/kubeadm-cluster-bootstrap.md`에서 작성
-- 실제 매니페스트 사용법: `k8s/README.md`에서 작성
+- 실제 매니페스트 사용법: [`k8s/README.md`](../../k8s/README.md)
 - 서비스 간 이벤트 흐름: `event-flow.md`
 - Spring Cloud 동작: `spring-cloud.md`
 - StatefulSet network identity: [Kubernetes StatefulSets](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/)
 - Service와 headless Service: [Kubernetes Service](https://kubernetes.io/docs/concepts/services-networking/service/)
 
-명세와 매니페스트가 다르면 매니페스트만 조용히 수정하지 않는다. 구현 변경과 함께 이 문서를 갱신해 목표 상태와 실제 상태를 일치시킨다.
+`k8s/README.md`에는 버전, 토폴로지, 포트, 리소스 이름, 배치나 용량을 별도 명세로 복사하지 않는다. 명세와 매니페스트가 다르면 매니페스트만 조용히 수정하지 않고 구현 변경과 함께 이 문서를 갱신해 목표 상태와 실제 상태를 일치시킨다.

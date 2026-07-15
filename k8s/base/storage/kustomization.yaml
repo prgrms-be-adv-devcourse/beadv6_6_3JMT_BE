@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: prompthub
+resources:
+  - storage-class.yaml
+  - postgres-pv.yaml
+  - postgres-pvc.yaml
+  - redis-pv.yaml
+  - redis-pvc.yaml
+  - kafka-pv.yaml
+  - kafka-pvc.yaml

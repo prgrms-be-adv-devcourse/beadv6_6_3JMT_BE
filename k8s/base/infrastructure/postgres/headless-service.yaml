@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: infrastructure
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: postgres
+  ports:
+    - name: postgres
+      protocol: TCP
+      port: 5432
+      targetPort: postgres
