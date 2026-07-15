@@ -96,16 +96,12 @@ public class OrderQueryService implements OrderQueryUseCase {
 			throw new OrderException(ErrorCode.FORBIDDEN);
 		}
 
-		if (!order.isPaid()) {
-			throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
-		}
-
 		OrderProduct orderProduct = order.getOrderProducts().stream()
 			.filter(product -> product.getId().equals(orderProductId))
 			.findFirst()
 			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED));
 
-		if (!orderProduct.isPaid()) {
+		if (!orderProduct.isContentAccessible()) {
 			throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
 		}
 
@@ -222,7 +218,7 @@ public class OrderQueryService implements OrderQueryUseCase {
 			orderProduct.getProductModel(),
 			orderProduct.getProductAmount(),
 			orderProduct.getOrderStatus(),
-			orderProduct.isPaid(),
+			orderProduct.isContentAccessible(),
 			orderProduct.isRefundable(),
 			orderProduct.isDownloaded()
 		);

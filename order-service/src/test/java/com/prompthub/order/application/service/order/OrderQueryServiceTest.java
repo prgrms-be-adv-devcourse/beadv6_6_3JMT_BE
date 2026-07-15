@@ -205,6 +205,54 @@ class OrderQueryServiceTest {
         }
 
         @Test
+        @DisplayName("같은 주문의 다른 상품이 환불 요청 중이어도 PAID 상품 콘텐츠를 열람할 수 있다")
+        void getOrderContent_otherProductRefundRequested_success() {
+            Order order = createPaidOrderWithProducts();
+            OrderProduct refundTarget = order.getOrderProducts().getFirst();
+            OrderProduct contentTarget = order.getOrderProducts().getLast();
+            order.requestRefund(refundTarget.getId());
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+            given(productClient.getProductContent(contentTarget.getProductId()))
+                .willReturn(new ProductContent(contentTarget.getProductId(), PRODUCT_CONTENT));
+
+            OrderContentResponse response = orderQueryService.getOrderContent(
+                BUYER_ID,
+                order.getId(),
+                contentTarget.getId()
+            );
+
+            assertThat(response.orderProductId()).isEqualTo(contentTarget.getId());
+            assertThat(response.content()).isEqualTo(PRODUCT_CONTENT);
+            then(productClient).should().getProductContent(contentTarget.getProductId());
+        }
+
+        @Test
+        @DisplayName("환불 요청 중인 주문상품 콘텐츠는 열람할 수 없다")
+        void getOrderContent_refundRequestedOrderProduct_throwsException() {
+            Order order = createPaidOrderWithProducts();
+            OrderProduct orderProduct = order.getOrderProducts().getFirst();
+            order.requestRefund(orderProduct.getId());
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            assertThatThrownBy(() -> orderQueryService.getOrderContent(
+                BUYER_ID,
+                order.getId(),
+                orderProduct.getId()
+            ))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ORDER_CONTENT_ACCESS_DENIED)
+                );
+
+            then(productClient).shouldHaveNoInteractions();
+        }
+
+        @Test
         @DisplayName("상품 콘텐츠 조회가 SYS002로 실패하면 다운로드 상태를 변경하지 않고 예외를 전파한다")
         void getOrderContent_productServiceUnavailable_keepsDownloadState() {
             Order order = createPaidOrderWithProducts();

@@ -1,6 +1,7 @@
 package com.prompthub.order.domain.model;
 
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -284,6 +285,36 @@ class OrderProductTest {
 
 			// then
 			assertThat(orderProduct.isDownloaded()).isTrue();
+		}
+
+		@Test
+		@DisplayName("환불 요청 중인 주문상품은 다운로드 처리할 수 없다")
+		void markDownloaded_refundRequested_throwsException() {
+			OrderProduct orderProduct = createOrderProduct1();
+			orderProduct.markPaid();
+			orderProduct.requestRefund();
+
+			assertThatThrownBy(orderProduct::markDownloaded)
+				.isInstanceOf(OrderException.class)
+				.satisfies(exception ->
+					assertThat(((OrderException) exception).getErrorCode())
+						.isEqualTo(ErrorCode.ORDER_CONTENT_ACCESS_DENIED)
+				);
+			assertThat(orderProduct.isDownloaded()).isFalse();
+		}
+
+		@Test
+		@DisplayName("콘텐츠 접근은 주문상품이 PAID일 때만 가능하다")
+		void isContentAccessible_onlyPaidProduct_returnsTrue() {
+			OrderProduct orderProduct = createOrderProduct1();
+
+			assertThat(orderProduct.isContentAccessible()).isFalse();
+
+			orderProduct.markPaid();
+			assertThat(orderProduct.isContentAccessible()).isTrue();
+
+			orderProduct.requestRefund();
+			assertThat(orderProduct.isContentAccessible()).isFalse();
 		}
 
 		@Test

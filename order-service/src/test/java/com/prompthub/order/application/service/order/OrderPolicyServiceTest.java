@@ -176,6 +176,26 @@ class OrderPolicyServiceTest {
 		}
 
 		@Test
+		@DisplayName("일부 환불 완료 주문의 남은 PAID 상품은 환불 가능하다")
+		void isRefundable_partialRefundedOrderPaidProduct_returnsTrue() {
+			assertThat(orderPolicyService.isRefundable(
+				OrderStatus.PARTIAL_REFUNDED,
+				OrderStatus.PAID,
+				false
+			)).isTrue();
+		}
+
+		@Test
+		@DisplayName("환불 요청 진행 중인 주문의 다른 PAID 상품은 추가 환불할 수 없다")
+		void isRefundable_refundRequestedOrder_returnsFalse() {
+			assertThat(orderPolicyService.isRefundable(
+				OrderStatus.REFUND_REQUESTED,
+				OrderStatus.PAID,
+				false
+			)).isFalse();
+		}
+
+		@Test
 		@DisplayName("다운로드한 상품은 환불 가능하지 않다")
 		void isRefundable_downloaded_returnsFalse() {
 			assertThat(orderPolicyService.isRefundable(OrderStatus.PAID, OrderStatus.PAID, true)).isFalse();
