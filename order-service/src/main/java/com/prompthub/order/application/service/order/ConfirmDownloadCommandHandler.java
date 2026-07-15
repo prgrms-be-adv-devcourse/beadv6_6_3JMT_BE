@@ -36,7 +36,7 @@ public class ConfirmDownloadCommandHandler implements ConfirmDownloadUseCase {
 			.findFirst()
 			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_PRODUCT_NOT_FOUND));
 
-		if (!order.isPaid() || !orderProduct.isPaid()) {
+		if (!orderProduct.isContentAccessible()) {
 			throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
 		}
 

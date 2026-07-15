@@ -217,6 +217,10 @@ public class OrderProduct {
     }
 
     public void markDownloaded() {
+        if (!isContentAccessible()) {
+            throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
+        }
+
         if (this.downloaded) {
             return;
         }
@@ -226,6 +230,10 @@ public class OrderProduct {
     }
 
     public boolean isPaid() {
+        return this.orderStatus == OrderStatus.PAID;
+    }
+
+    public boolean isContentAccessible() {
         return this.orderStatus == OrderStatus.PAID;
     }
 
