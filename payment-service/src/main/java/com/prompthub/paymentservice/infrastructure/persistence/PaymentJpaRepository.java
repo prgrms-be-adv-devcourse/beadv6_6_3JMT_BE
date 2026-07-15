@@ -22,4 +22,6 @@ public interface PaymentJpaRepository extends JpaRepository<Payment, UUID> {
     @Query("SELECT p FROM Payment p WHERE p.orderId = :orderId AND p.status IN :statuses")
     Optional<Payment> findByOrderIdAndStatusInForUpdate(
         @Param("orderId") UUID orderId, @Param("statuses") Collection<PaymentStatus> statuses);
+
+    Optional<Payment> findTopByOrderIdOrderByCreatedAtDesc(UUID orderId);
 }

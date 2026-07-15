@@ -195,6 +195,8 @@ PG 결제 승인 실패(confirm TX3) 시 발행. orderId 중심 최소 필드.
 
 구독자(order-service) 반응: PENDING → FAILED (재결제 시 FAILED → PAID 복귀 허용 필요).
 
+> **Kafka 유실 시 폴백**: order-service가 `PAYMENT_APPROVED`/`PAYMENT_FAILED`를 못 받았을 경우, `PaymentQueryService.GetPayment` gRPC(`grpc/payment/payment_query.proto`, 포트 9084)로 폴백 조회할 수 있다. 조회 키는 `orderId`(동일 orderId에 재결제로 여러 건이 있으면 최신 1건 반환).
+
 ---
 
 ## 구독 Payload 스키마
