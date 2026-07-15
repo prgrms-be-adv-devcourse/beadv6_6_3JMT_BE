@@ -90,7 +90,7 @@ public class OrderPolicyService {
 		OrderStatus orderProductStatus,
 		boolean downloaded
 	) {
-		return orderStatus == OrderStatus.PAID
+		return (orderStatus == OrderStatus.PAID || orderStatus == OrderStatus.PARTIAL_REFUNDED)
 			&& orderProductStatus == OrderStatus.PAID
 			&& !downloaded;
 	}

@@ -72,6 +72,30 @@ class ConfirmDownloadCommandHandlerTest {
         }
 
         @Test
+        @DisplayName("같은 주문의 다른 상품이 환불 요청 중이어도 PAID 상품은 다운로드할 수 있다")
+        void confirmDownload_otherProductRefundRequested_success() {
+            Order order = createPaidOrderWithProducts();
+            OrderProduct refundTarget = order.getOrderProducts().getFirst();
+            OrderProduct downloadTarget = order.getOrderProducts().getLast();
+            order.requestRefund(refundTarget.getId());
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+            given(productClient.getProductContent(downloadTarget.getProductId()))
+                .willReturn(new ProductContent(downloadTarget.getProductId(), "content"));
+
+            OrderProductDownloadResponse response = confirmDownloadCommandHandler.confirmDownload(
+                BUYER_ID,
+                order.getId(),
+                downloadTarget.getId()
+            );
+
+            assertThat(response.downloaded()).isTrue();
+            assertThat(downloadTarget.isDownloaded()).isTrue();
+            assertThat(refundTarget.getOrderStatus()).isEqualTo(OrderStatus.REFUND_REQUESTED);
+        }
+
+        @Test
         @DisplayName("상품 콘텐츠 조회가 실패하면 다운로드 상태를 변경하지 않고 예외를 전파한다")
         void confirmDownload_productContentFailureDoesNotMarkDownloaded() {
             Order order = createPaidOrderWithProducts();
@@ -170,6 +194,30 @@ class ConfirmDownloadCommandHandlerTest {
                 );
 
             then(productClient).should(never()).getProductContent(any());
+        }
+
+        @Test
+        @DisplayName("환불 요청 중인 주문상품은 다운로드 처리할 수 없다")
+        void confirmDownload_refundRequestedOrderProduct_throwsException() {
+            Order order = createPaidOrderWithProducts();
+            OrderProduct orderProduct = order.getOrderProducts().getFirst();
+            order.requestRefund(orderProduct.getId());
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            assertThatThrownBy(() -> confirmDownloadCommandHandler.confirmDownload(
+                BUYER_ID,
+                order.getId(),
+                orderProduct.getId()
+            ))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ORDER_CONTENT_ACCESS_DENIED)
+                );
+
+            then(productClient).shouldHaveNoInteractions();
         }
     }
 
