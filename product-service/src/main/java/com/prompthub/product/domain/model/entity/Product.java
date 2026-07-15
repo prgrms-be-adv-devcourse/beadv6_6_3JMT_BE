@@ -23,7 +23,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "product")
+@Table(name = "product", schema = "product_service")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Product {
 
