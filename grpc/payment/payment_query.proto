@@ -8,6 +8,7 @@ option java_outer_classname = "PaymentQueryProto";
 
 service PaymentQueryService {
   rpc GetRefund(GetRefundRequest) returns (GetRefundResponse);
+  rpc GetPayment(GetPaymentRequest) returns (GetPaymentResponse);
 }
 
 message GetRefundRequest {
@@ -24,4 +25,18 @@ message GetRefundResponse {
   string payment_status = 6;   // Payment.status (예: PARTIAL_REFUNDED, ALL_REFUNDED)
   string refund_status = 7;    // RefundStatus (COMPLETED, FAILED, REQUESTED)
   string refunded_at = 8;      // ISO 8601, refund_status=COMPLETED일 때만 값 존재
+}
+
+message GetPaymentRequest {
+  string order_id = 1;
+}
+
+message GetPaymentResponse {
+  string payment_id = 1;
+  string order_id = 2;
+  string user_id = 3;
+  string status = 4;       // Payment.status (PAID, FAILED, PARTIAL_REFUNDED 등)
+  int32 amount = 5;        // approvedAmount 기준. PAID 아니면 0(미사용 필드)
+  string approved_at = 6;  // ISO 8601, PAID일 때만 값 존재
+  string failed_at = 7;    // ISO 8601, FAILED일 때만 값 존재
 }
