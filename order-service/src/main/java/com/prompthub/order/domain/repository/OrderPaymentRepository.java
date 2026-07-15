@@ -5,6 +5,7 @@ import com.prompthub.order.domain.model.OrderPayment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.Optional;
 import java.util.UUID;
 
 public interface OrderPaymentRepository {
@@ -14,6 +15,8 @@ public interface OrderPaymentRepository {
 	boolean existsByOrderId(UUID orderId);
 
 	boolean existsByPaymentId(UUID paymentId);
+
+	Optional<OrderPayment> findByPaymentId(UUID paymentId);
 
 	Page<OrderPaymentListProjection> searchOrderPayments(UUID buyerId, Pageable pageable);
 }
