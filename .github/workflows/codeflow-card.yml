@@ -1,16 +1,49 @@
 name: CodeFlow Card
 on:
   push:
-    branches: [main, develop]
+    branches: [develop]
   pull_request:
     types: [closed]
   workflow_dispatch:
 
 jobs:
-  card:
+  update-card:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - id: before
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: braedonsaunders/codeflow/card@v1
+        with:
+          style: compact
+          show-grade: true
+          show-score: true
+          accent: blue
+          receipts: false
+          commit-message: "chore: update codeflow card"
+      - name: 카드 변경사항을 전용 PR로 발행
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(git rev-parse HEAD)" = "${{ steps.before.outputs.sha }}" ]; then
+            echo "카드 변경 없음"
+            exit 0
+          fi
+          branch="chore/update-codeflow-card"
+          git push origin "HEAD:refs/heads/$branch" -f
+          gh pr view "$branch" --json number >/dev/null 2>&1 || \
+            gh pr create --base develop --head "$branch" \
+              --title "chore: update codeflow card" \
+              --body "자동 생성된 리포 상태 카드(.github/codeflow-card.svg) 갱신. develop에 직접 push할 수 없어(브랜치 보호 규칙) 전용 PR로 발행됨."
+
+  receipt:
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
