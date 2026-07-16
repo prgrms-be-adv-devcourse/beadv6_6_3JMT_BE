@@ -6,8 +6,7 @@ public enum PaymentEventType {
 
 	PAYMENT_APPROVED,
 	PAYMENT_REFUNDED,
-	PAYMENT_FAILED,
-	PAYMENT_CANCELED;
+	PAYMENT_FAILED;
 
 	PaymentEventType() {
 	}

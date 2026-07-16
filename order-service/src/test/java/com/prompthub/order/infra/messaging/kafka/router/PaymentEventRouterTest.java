@@ -2,7 +2,6 @@ package com.prompthub.order.infra.messaging.kafka.router;
 
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.application.service.event.PaymentApprovedEventHandler;
-import com.prompthub.order.application.service.event.PaymentCanceledEventHandler;
 import com.prompthub.order.application.service.event.PaymentFailedEventHandler;
 import com.prompthub.order.application.service.event.PaymentRefundedEventHandler;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,8 +29,6 @@ class PaymentEventRouterTest {
     private PaymentRefundedEventHandler refundedHandler;
     @Mock
     private PaymentFailedEventHandler failedHandler;
-    @Mock
-    private PaymentCanceledEventHandler canceledHandler;
 
     @InjectMocks
     private PaymentEventRouter paymentEventRouter;
@@ -56,7 +53,6 @@ class PaymentEventRouterTest {
         verify(failedHandler).handle(message);
         verify(approvedHandler, never()).handle(any());
         verify(refundedHandler, never()).handle(any());
-        verify(canceledHandler, never()).handle(any());
     }
 
     @Test
@@ -71,7 +67,6 @@ class PaymentEventRouterTest {
         verify(failedHandler).handle(message);
         verify(approvedHandler, never()).handle(any());
         verify(refundedHandler, never()).handle(any());
-        verify(canceledHandler, never()).handle(any());
     }
 
     @Test
@@ -86,6 +81,24 @@ class PaymentEventRouterTest {
         verify(failedHandler, never()).handle(any());
         verify(approvedHandler, never()).handle(any());
         verify(refundedHandler, never()).handle(any());
-        verify(canceledHandler, never()).handle(any());
     }
+
+	@Test
+	@DisplayName("PAYMENT_CANCELED 이벤트는 지원하지 않는다")
+	void route_paymentCanceled_isUnsupported() {
+		EventMessage<JsonNode> message = new EventMessage<>(
+			UUID.randomUUID(),
+			"PAYMENT_CANCELED",
+			LocalDateTime.now(),
+			"PAYMENT",
+			UUID.randomUUID(),
+			dummyPayload
+		);
+
+		paymentEventRouter.route(message);
+
+		verify(approvedHandler, never()).handle(any());
+		verify(refundedHandler, never()).handle(any());
+		verify(failedHandler, never()).handle(any());
+	}
 }
