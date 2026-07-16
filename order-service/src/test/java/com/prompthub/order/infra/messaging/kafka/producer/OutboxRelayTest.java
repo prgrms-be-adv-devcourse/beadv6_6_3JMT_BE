@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class OutboxRelayTest {
@@ -36,6 +37,36 @@ class OutboxRelayTest {
 
 	@Mock
 	private KafkaTemplate<String, String> kafkaTemplate;
+
+	@Test
+	@DisplayName("주문 묶음 Outbox 한 건은 aggregateId를 key로 ORDER_CREATED를 한 번 발행한다")
+	void orderGroupEventUsesAggregateIdAndSendsOnce() throws Exception {
+		UUID orderGroupId = UUID.fromString("00000000-0000-0000-0000-000000000900");
+		String payload = """
+			{"eventType":"ORDER_CREATED","aggregateType":"ORDER_GROUP","aggregateId":"%s","payload":{"orders":[{}, {}, {}]}}
+			""".formatted(orderGroupId);
+		OutboxEvent event = OutboxEvent.create(
+			orderGroupId,
+			orderGroupId,
+			"ORDER_CREATED",
+			payload,
+			APPROVED_AT
+		);
+		OutboxRelay relay = new OutboxRelay(
+			outboxEventRepository,
+			kafkaTemplate,
+			new OutboxRelayProperties(true, 5_000L, 100, 3, ORDER_EVENTS_TOPIC)
+		);
+		given(outboxEventRepository.findPendingEvents(100)).willReturn(List.of(event));
+		given(kafkaTemplate.send(ORDER_EVENTS_TOPIC, orderGroupId.toString(), payload))
+			.willReturn(CompletableFuture.completedFuture(null));
+
+		relay.publishPendingEvents();
+
+		then(kafkaTemplate).should(times(1))
+			.send(ORDER_EVENTS_TOPIC, orderGroupId.toString(), payload);
+		assertThat(event.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED);
+	}
 
 	@Test
 	@DisplayName("PENDING Outbox 이벤트를 Kafka로 발행하고 성공 시 PUBLISHED 상태로 변경한다")

@@ -18,6 +18,6 @@ public class WebConfig implements WebMvcConfigurer {
 			.addPathPatterns("/api/v1/admin/**");
 
 		registry.addInterceptor(orderServiceAuthInterceptor)
-			.addPathPatterns("/api/v1/orders/**", "/api/v1/cart/**");
+			.addPathPatterns("/api/v1/orders/**", "/api/v1/cart/**", "/api/v2/orders/**");
 	}
 }
