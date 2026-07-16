@@ -5,6 +5,7 @@ import com.prompthub.order.application.usecase.CreateOrderUseCase;
 import com.prompthub.order.application.usecase.OrderQueryUseCase;
 import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.GlobalExceptionHandler;
 import com.prompthub.order.global.exception.OrderException;
@@ -290,7 +291,7 @@ class OrderControllerTest {
 					PRODUCT_TYPE_PROMPT,
 					"GPT-4",
 					PRODUCT_AMOUNT_1,
-					OrderStatus.PAID,
+					OrderProductStatus.PAID,
 					true,
 					true,
 					false
@@ -323,7 +324,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data.orderId").value(ORDER_ID.toString()))
 					.andExpect(jsonPath("$.data.orderNumber").value(ORDER_NUMBER))
 					.andExpect(jsonPath("$.data.buyerId").value(BUYER_ID.toString()))
-					.andExpect(jsonPath("$.data.orderStatus").value("PAID"))
+					.andExpect(jsonPath("$.data.orderStatus").value("COMPLETED"))
 					.andExpect(jsonPath("$.data.totalAmount").value(TOTAL_AMOUNT))
 					.andExpect(jsonPath("$.data.totalProductCount").value(TOTAL_ITEM_COUNT))
 					.andExpect(jsonPath("$.data.paidAt").value("2026-06-20T12:00:00"))
@@ -439,7 +440,7 @@ class OrderControllerTest {
 					PRODUCT_TYPE_PROMPT,
 					"GPT-4",
 					PRODUCT_AMOUNT_1,
-					OrderStatus.PENDING
+					OrderProductStatus.PENDING
 				);
 				OrderProductsResponse productResponse2 = new OrderProductsResponse(
 					orderProductId2,
@@ -449,7 +450,7 @@ class OrderControllerTest {
 					PRODUCT_TYPE_PROMPT,
 					"GPT-4",
 					PRODUCT_AMOUNT_2,
-					OrderStatus.PENDING
+					OrderProductStatus.PENDING
 				);
 
 				CreateOrderResponse response = new CreateOrderResponse(
@@ -478,7 +479,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data.orderId").value(orderId.toString()))
 					.andExpect(jsonPath("$.data.orderNumber").value(ORDER_NUMBER))
 					.andExpect(jsonPath("$.data.buyerId").value(BUYER_ID.toString()))
-					.andExpect(jsonPath("$.data.orderStatus").value("PENDING"))
+					.andExpect(jsonPath("$.data.orderStatus").value("CREATED"))
 					.andExpect(jsonPath("$.data.totalAmount").value(TOTAL_AMOUNT))
 					.andExpect(jsonPath("$.data.products[0].orderProductId").value(orderProductId1.toString()))
 					.andExpect(jsonPath("$.data.products[0].productId").value(PRODUCT_ID_1.toString()))
@@ -680,7 +681,7 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data[0].orderId").value(ORDER_ID.toString()))
 					.andExpect(jsonPath("$.data[0].orderProductId").value(ORDER_PRODUCT_ID.toString()))
 					.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID_1.toString()))
-					.andExpect(jsonPath("$.data[0].orderStatus").value("PAID"))
+					.andExpect(jsonPath("$.data[0].orderStatus").value("COMPLETED"))
 					.andExpect(jsonPath("$.data[0].isRefundable").value(true))
 					.andExpect(jsonPath("$.data[0].isRefund").doesNotExist())
 					.andExpect(jsonPath("$.data[0].productType").value(PRODUCT_TYPE_PROMPT))

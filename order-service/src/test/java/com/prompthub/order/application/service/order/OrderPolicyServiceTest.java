@@ -3,6 +3,7 @@ package com.prompthub.order.application.service.order;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
@@ -172,19 +173,19 @@ class OrderPolicyServiceTest {
 		@Test
 		@DisplayName("주문과 주문 상품이 PAID이고 다운로드하지 않았으면 환불 가능하다")
 		void isRefundable_paidAndNotDownloaded_returnsTrue() {
-			assertThat(orderPolicyService.isRefundable(OrderStatus.PAID, OrderStatus.PAID, false)).isTrue();
+			assertThat(orderPolicyService.isRefundable(OrderStatus.COMPLETED, OrderProductStatus.PAID, false)).isTrue();
 		}
 
 		@Test
 		@DisplayName("다운로드한 상품은 환불 가능하지 않다")
 		void isRefundable_downloaded_returnsFalse() {
-			assertThat(orderPolicyService.isRefundable(OrderStatus.PAID, OrderStatus.PAID, true)).isFalse();
+			assertThat(orderPolicyService.isRefundable(OrderStatus.COMPLETED, OrderProductStatus.PAID, true)).isFalse();
 		}
 
 		@Test
 		@DisplayName("PAID가 아닌 주문은 환불 가능하지 않다")
 		void isRefundable_notPaidOrder_returnsFalse() {
-			assertThat(orderPolicyService.isRefundable(OrderStatus.CANCELED, OrderStatus.PAID, false)).isFalse();
+			assertThat(orderPolicyService.isRefundable(OrderStatus.FAILED, OrderProductStatus.PAID, false)).isFalse();
 		}
 	}
 
@@ -231,7 +232,7 @@ class OrderPolicyServiceTest {
 		@DisplayName("주문 상태가 PENDING이 아니면 결제 승인 상태 예외가 발생한다")
 		void validatePaymentApproval_notPending_throwsException() {
 			Order order = createPendingOrderWithProducts();
-			order.updateOrderStatus(OrderStatus.CANCELED);
+			order.markCompleted(APPROVED_AT);
 			PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), TOTAL_AMOUNT);
 
 			assertThatThrownBy(() -> orderPolicyService.validatePaymentApproval(order, payload))

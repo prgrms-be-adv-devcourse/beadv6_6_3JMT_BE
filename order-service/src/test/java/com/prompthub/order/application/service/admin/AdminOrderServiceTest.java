@@ -80,8 +80,8 @@ class AdminOrderServiceTest {
 
 		@Test
 		@DisplayName("특정 주문 상태는 해당 상태로 조회한다")
-		void getAdminOrders_paidStatus_success() {
-			AdminOrderSearchCondition condition = new AdminOrderSearchCondition("PAID", 1, 20);
+		void getAdminOrders_completedStatus_success() {
+			AdminOrderSearchCondition condition = new AdminOrderSearchCondition("COMPLETED", 1, 20);
 			given(adminOrderQueryService.searchAdminOrders(any(), any()))
 				.willReturn(new PageImpl<>(List.of(adminOrderProjection(SELLER_ID_1)), PageRequest.of(0, 20), 1));
 			given(sellerClient.getSellerNicknames(any())).willReturn(Map.of());
@@ -90,7 +90,7 @@ class AdminOrderServiceTest {
 
 			ArgumentCaptor<AdminOrderSearchCondition> conditionCaptor = ArgumentCaptor.forClass(AdminOrderSearchCondition.class);
 			then(adminOrderQueryService).should().searchAdminOrders(conditionCaptor.capture(), any());
-			assertThat(conditionCaptor.getValue().resolvedOrderStatus()).isEqualTo(OrderStatus.PAID);
+			assertThat(conditionCaptor.getValue().resolvedOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
 		}
 
 		@Test

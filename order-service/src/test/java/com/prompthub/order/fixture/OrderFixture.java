@@ -5,6 +5,7 @@ import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -151,9 +152,9 @@ public final class OrderFixture {
 	public static Order createPendingOrder() {
 		Order order = Order.create(
 			BUYER_ID,
+			SELLER_ID_1,
 			ORDER_NUMBER,
-			TOTAL_AMOUNT,
-			TOTAL_ITEM_COUNT
+			TOTAL_AMOUNT
 		);
 		ReflectionTestUtils.setField(order, "createdAt", CREATED_AT);
 		ReflectionTestUtils.setField(order, "updatedAt", CREATED_AT);
@@ -177,7 +178,7 @@ public final class OrderFixture {
 
 	public static Order createCanceledOrderWithProducts() {
 		Order order = createPendingOrderWithProducts();
-		order.updateOrderStatus(OrderStatus.CANCELED);
+		order.updateOrderStatus(OrderStatus.FAILED);
 		return order;
 	}
 
@@ -240,7 +241,7 @@ public final class OrderFixture {
 
 	public static OrderListProjection orderListProjection(
 		OrderStatus orderStatus,
-		OrderStatus orderProductStatus,
+		OrderProductStatus orderProductStatus,
 		boolean downloaded,
 		Double rating
 	) {
@@ -262,11 +263,13 @@ public final class OrderFixture {
 
 	public static OrderPaymentListProjection orderPaymentListProjection(
 		OrderStatus orderStatus,
-		OrderStatus orderProductStatus,
+		OrderProductStatus orderProductStatus,
 		LocalDateTime paidAt,
 		boolean downloaded
 	) {
-		boolean isRefundable = orderStatus == OrderStatus.PAID && orderProductStatus == OrderStatus.PAID && !downloaded;
+		boolean isRefundable = (orderStatus == OrderStatus.COMPLETED || orderStatus == OrderStatus.PARTIAL_REFUNDED)
+			&& orderProductStatus == OrderProductStatus.PAID
+			&& !downloaded;
 		return new OrderPaymentListProjection(
 			ORDER_ID,
 			PAYMENT_ID,

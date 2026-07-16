@@ -1,10 +1,19 @@
 package com.prompthub.order.domain.model;
 
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.infra.persistence.common.BaseEntity;
-import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.global.exception.ErrorCode;
-import jakarta.persistence.*;
+import com.prompthub.order.global.exception.OrderException;
+import com.prompthub.order.infra.persistence.common.BaseEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -13,166 +22,211 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static com.prompthub.order.domain.enums.OrderStatus.PENDING;
 import static jakarta.persistence.CascadeType.ALL;
-import static jakarta.persistence.EnumType.STRING;
 import static lombok.AccessLevel.PROTECTED;
 
 @Getter
 @Entity
-@Table(name = "\"order\"")
+@Table(
+    name = "\"order\"",
+    indexes = {
+        @Index(name = "idx_order_buyer_created_at", columnList = "buyer_id, created_at DESC"),
+        @Index(name = "idx_order_seller_created_at", columnList = "seller_id, created_at DESC"),
+        @Index(name = "idx_order_status_created_at", columnList = "order_status, created_at DESC"),
+        @Index(name = "idx_order_completed_at", columnList = "completed_at"),
+        @Index(name = "idx_order_refunded_at", columnList = "refunded_at")
+    }
+)
 @NoArgsConstructor(access = PROTECTED)
 public class Order extends BaseEntity {
 
-	@Id
-	@Column(name = "id", columnDefinition = "uuid")
-	private UUID id;
+    @Id
+    @Column(name = "id", columnDefinition = "uuid")
+    private UUID id;
 
-	@Column(name = "buyer_id", columnDefinition = "uuid", nullable = false)
-	private UUID buyerId;
+    @Column(name = "buyer_id", columnDefinition = "uuid", nullable = false)
+    private UUID buyerId;
 
-	@Column(name = "order_number", length = 30, nullable = false, unique = true)
-	private String orderNumber;
+    @Column(name = "seller_id", columnDefinition = "uuid", nullable = false)
+    private UUID sellerId;
 
-	@Column(name = "total_order_amount", nullable = false)
-	private int totalOrderAmount;
+    @Column(name = "order_number", length = 30, nullable = false, unique = true)
+    private String orderNumber;
 
-	@Column(name = "total_product_count", nullable = false)
-	private int totalProductCount;
+    @Column(name = "total_order_amount", nullable = false)
+    private int totalOrderAmount;
 
-	@Enumerated(STRING)
-	@Column(name = "order_status", length = 20, nullable = false)
-	private OrderStatus orderStatus;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "order_status", length = 20, nullable = false)
+    private OrderStatus orderStatus;
 
-	@Column(name = "paid_at")
-	private LocalDateTime paidAt;
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
 
-	@Column(name = "canceled_at")
-	private LocalDateTime canceledAt;
+    @Column(name = "refunded_at")
+    private LocalDateTime refundedAt;
 
-	@Column(name = "refunded_at")
-	private LocalDateTime refundedAt;
+    @Transient
+    private LocalDateTime legacyCanceledAt;
 
-	@OneToMany(mappedBy = "order", cascade = ALL, orphanRemoval = true)
-	private final List<OrderProduct> orderProducts = new ArrayList<>();
+    @OneToMany(mappedBy = "order", cascade = ALL, orphanRemoval = true)
+    private final List<OrderProduct> orderProducts = new ArrayList<>();
 
-	private Order(
-		UUID id,
-		UUID buyerId,
-		String orderNumber,
-		int totalOrderAmount,
-		int totalProductCount,
-		OrderStatus orderStatus
-	) {
-		this.id = id;
-		this.buyerId = buyerId;
-		this.orderNumber = orderNumber;
-		this.totalOrderAmount = totalOrderAmount;
-		this.totalProductCount = totalProductCount;
-		this.orderStatus = orderStatus;
-	}
+    private Order(
+        UUID id,
+        UUID buyerId,
+        UUID sellerId,
+        String orderNumber,
+        int totalOrderAmount,
+        OrderStatus orderStatus
+    ) {
+        this.id = id;
+        this.buyerId = buyerId;
+        this.sellerId = sellerId;
+        this.orderNumber = orderNumber;
+        this.totalOrderAmount = totalOrderAmount;
+        this.orderStatus = orderStatus;
+    }
 
-	public static Order create(
-		UUID buyerId,
-		String orderNumber,
-		int totalOrderAmount,
-		int totalItemCount
-	) {
-		return new Order(
-			UUID.randomUUID(),
-			buyerId,
-			orderNumber,
-			totalOrderAmount,
-			totalItemCount,
-			PENDING
-		);
-	}
+    public static Order create(
+        UUID buyerId,
+        UUID sellerId,
+        String orderNumber,
+        int totalOrderAmount
+    ) {
+        return new Order(
+            UUID.randomUUID(),
+            buyerId,
+            sellerId,
+            orderNumber,
+            totalOrderAmount,
+            OrderStatus.CREATED
+        );
+    }
 
-	public void updateOrderStatus(OrderStatus status) {
-		this.orderStatus = status;
-	}
+    public void updateOrderStatus(OrderStatus status) {
+        this.orderStatus = status;
+    }
 
-	public void addOrderProduct(OrderProduct orderProduct) {
-		this.orderProducts.add(orderProduct);
-		orderProduct.assignOrder(this);
-	}
+    public void addOrderProduct(OrderProduct orderProduct) {
+        this.orderProducts.add(orderProduct);
+        orderProduct.assignOrder(this);
+    }
 
-	public void markPaid() {
-		markPaid(LocalDateTime.now());
-	}
+    public void markCompleted() {
+        markCompleted(LocalDateTime.now());
+    }
 
-	public void markPaid(LocalDateTime paidAt) {
-		validateTransition(OrderStatus.PAID);
+    public void markCompleted(LocalDateTime completedAt) {
+        validateTransition(OrderStatus.COMPLETED);
 
-		this.orderStatus = OrderStatus.PAID;
-		this.paidAt = paidAt;
-		this.orderProducts.forEach(OrderProduct::markPaid);
-	}
+        this.orderStatus = OrderStatus.COMPLETED;
+        this.completedAt = completedAt;
+        this.orderProducts.forEach(OrderProduct::markPaid);
+    }
 
-	public void markFailed() {
-		validateTransition(OrderStatus.FAILED);
+    public void markPaid() {
+        markCompleted();
+    }
 
-		this.orderStatus = OrderStatus.FAILED;
-		this.orderProducts.forEach(OrderProduct::markFailed);
-	}
+    public void markPaid(LocalDateTime completedAt) {
+        markCompleted(completedAt);
+    }
 
-	public void cancel() {
-		cancel(LocalDateTime.now());
-	}
+    public void markFailed() {
+        validateTransition(OrderStatus.FAILED);
 
-	public void cancel(LocalDateTime canceledAt) {
-		markCanceled(canceledAt);
-	}
+        this.orderStatus = OrderStatus.FAILED;
+        this.orderProducts.forEach(OrderProduct::markFailed);
+    }
 
-	public void markCanceled() {
-		markCanceled(LocalDateTime.now());
-	}
+    public void cancel() {
+        markCanceled(LocalDateTime.now());
+    }
 
-	public void markCanceled(LocalDateTime canceledAt) {
-		validateTransition(OrderStatus.CANCELED);
+    public void cancel(LocalDateTime canceledAt) {
+        markCanceled(canceledAt);
+    }
 
-		this.orderStatus = OrderStatus.CANCELED;
-		this.canceledAt = canceledAt;
-		this.orderProducts.forEach(orderProduct -> orderProduct.markCanceled(canceledAt));
-	}
+    public void markCanceled() {
+        markCanceled(LocalDateTime.now());
+    }
 
-	public void refund() {
-		refund(LocalDateTime.now());
-	}
+    public void markCanceled(LocalDateTime canceledAt) {
+        markFailed();
+        this.legacyCanceledAt = canceledAt;
+    }
 
-	public void refund(LocalDateTime refundedAt) {
-		validateTransition(OrderStatus.REFUNDED);
+    public void refund() {
+        refund(LocalDateTime.now());
+    }
 
-		this.orderStatus = OrderStatus.REFUNDED;
-		this.refundedAt = refundedAt;
-		this.orderProducts.forEach(orderProduct -> orderProduct.refund(refundedAt));
-	}
+    public void refund(LocalDateTime refundedAt) {
+        this.orderProducts.stream()
+            .filter(OrderProduct::isPaid)
+            .forEach(orderProduct -> orderProduct.refund(refundedAt));
+        recalculateRefundStatus(refundedAt);
+    }
 
-	public void expirePending(LocalDateTime canceledAt) {
-		if (this.orderStatus != PENDING) {
-			return;
-		}
+    public void recalculateRefundStatus(LocalDateTime refundedAt) {
+        long refundedCount = this.orderProducts.stream()
+            .filter(product -> product.getOrderStatus() == OrderProductStatus.REFUNDED)
+            .count();
 
-		this.orderStatus = OrderStatus.CANCELED;
-		this.canceledAt = canceledAt;
-		this.orderProducts.forEach(orderProduct -> orderProduct.expirePending(canceledAt));
-	}
+        if (refundedCount == 0) {
+            return;
+        }
 
-	public boolean isExpired(LocalDateTime now, int expireAfterMinutes) {
-		return !getCreatedAt().plusMinutes(expireAfterMinutes).isAfter(now);
-	}
+        OrderStatus target = refundedCount == this.orderProducts.size()
+            ? OrderStatus.ALL_REFUNDED
+            : OrderStatus.PARTIAL_REFUNDED;
+        if (this.orderStatus == target) {
+            return;
+        }
+        validateTransition(target);
+        this.orderStatus = target;
 
-	public boolean isPending() {
-		return this.orderStatus == PENDING;
-	}
+        if (target == OrderStatus.ALL_REFUNDED) {
+            this.refundedAt = refundedAt;
+        }
+    }
 
-	public boolean isPaid() {
-		return this.orderStatus == OrderStatus.PAID;
-	}
+    public void expirePending(LocalDateTime expiredAt) {
+        if (this.orderStatus != OrderStatus.CREATED) {
+            return;
+        }
 
-	private void validateTransition(OrderStatus target) {
-		if (!this.orderStatus.canTransitionTo(target)) {
-			throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
-		}
-	}
+        markFailed();
+        this.legacyCanceledAt = expiredAt;
+    }
+
+    public boolean isExpired(LocalDateTime now, int expireAfterMinutes) {
+        return !getCreatedAt().plusMinutes(expireAfterMinutes).isAfter(now);
+    }
+
+    public boolean isPending() {
+        return this.orderStatus == OrderStatus.CREATED;
+    }
+
+    public boolean isPaid() {
+        return this.orderStatus == OrderStatus.COMPLETED;
+    }
+
+    public int getTotalProductCount() {
+        return this.orderProducts.size();
+    }
+
+    public LocalDateTime getPaidAt() {
+        return this.completedAt;
+    }
+
+    public LocalDateTime getCanceledAt() {
+        return this.legacyCanceledAt;
+    }
+
+    private void validateTransition(OrderStatus target) {
+        if (!this.orderStatus.canTransitionTo(target)) {
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+        }
+    }
 }

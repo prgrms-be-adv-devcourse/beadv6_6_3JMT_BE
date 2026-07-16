@@ -49,7 +49,7 @@ public class CreateOrderCommandHandler implements CreateOrderUseCase {
 		int totalCount = products.size();
 
 		String orderNumber = orderNumberGenerator.generate();
-		Order order = Order.create(buyerId, orderNumber, totalAmount, totalCount);
+		Order order = Order.create(buyerId, products.getFirst().sellerId(), orderNumber, totalAmount);
 		products.stream()
 			.map(product -> OrderProduct.create(
 				product.productId(),

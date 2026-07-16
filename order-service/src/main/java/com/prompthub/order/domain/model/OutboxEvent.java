@@ -27,8 +27,8 @@ import static lombok.AccessLevel.PROTECTED;
             columnList = "status, occurred_at"
         ),
         @Index(
-            name = "idx_order_outbox_event_order_id",
-            columnList = "order_id"
+            name = "idx_order_outbox_event_aggregate_id",
+            columnList = "aggregate_id"
         )
     }
 )
@@ -39,8 +39,8 @@ public class OutboxEvent {
     @Column(name = "event_id", columnDefinition = "uuid")
     private UUID eventId;
 
-    @Column(name = "order_id", columnDefinition = "uuid", nullable = false)
-    private UUID orderId;
+    @Column(name = "aggregate_id", columnDefinition = "uuid", nullable = false)
+    private UUID aggregateId;
 
     @Column(name = "event_type", length = 100, nullable = false)
     private String eventType;
@@ -63,7 +63,7 @@ public class OutboxEvent {
 
     private OutboxEvent(
         UUID eventId,
-        UUID orderId,
+        UUID aggregateId,
         String eventType,
         String payload,
         OutboxEventStatus status,
@@ -72,7 +72,7 @@ public class OutboxEvent {
         LocalDateTime publishedAt
     ) {
         this.eventId = eventId;
-        this.orderId = orderId;
+        this.aggregateId = aggregateId;
         this.eventType = eventType;
         this.payload = payload;
         this.status = status;
@@ -82,22 +82,22 @@ public class OutboxEvent {
     }
 
     public static OutboxEvent orderCreated(
-        UUID orderId,
+        UUID aggregateId,
         String payload,
         LocalDateTime occurredAt
     ) {
-        return orderCreated(UUID.randomUUID(), orderId, payload, occurredAt);
+        return orderCreated(UUID.randomUUID(), aggregateId, payload, occurredAt);
     }
 
     public static OutboxEvent orderCreated(
         UUID eventId,
-        UUID orderId,
+        UUID aggregateId,
         String payload,
         LocalDateTime occurredAt
     ) {
         return create(
             eventId,
-            orderId,
+            aggregateId,
             OrderEventType.ORDER_CREATED.code(),
             payload,
             occurredAt
@@ -105,22 +105,22 @@ public class OutboxEvent {
     }
 
     public static OutboxEvent orderPaid(
-        UUID orderId,
+        UUID aggregateId,
         String payload,
         LocalDateTime occurredAt
     ) {
-        return orderPaid(UUID.randomUUID(), orderId, payload, occurredAt);
+        return orderPaid(UUID.randomUUID(), aggregateId, payload, occurredAt);
     }
 
     public static OutboxEvent orderPaid(
         UUID eventId,
-        UUID orderId,
+        UUID aggregateId,
         String payload,
         LocalDateTime occurredAt
     ) {
         return create(
             eventId,
-            orderId,
+            aggregateId,
             OrderEventType.ORDER_PAID.code(),
             payload,
             occurredAt
@@ -128,22 +128,22 @@ public class OutboxEvent {
     }
 
     public static OutboxEvent orderRefund(
-        UUID orderId,
+        UUID aggregateId,
         String payload,
         LocalDateTime occurredAt
     ) {
-        return orderRefund(UUID.randomUUID(), orderId, payload, occurredAt);
+        return orderRefund(UUID.randomUUID(), aggregateId, payload, occurredAt);
     }
 
     public static OutboxEvent orderRefund(
         UUID eventId,
-        UUID orderId,
+        UUID aggregateId,
         String payload,
         LocalDateTime occurredAt
     ) {
         return create(
             eventId,
-            orderId,
+            aggregateId,
             OrderEventType.ORDER_REFUND.code(),
             payload,
             occurredAt
@@ -152,14 +152,14 @@ public class OutboxEvent {
 
     public static OutboxEvent create(
         UUID eventId,
-        UUID orderId,
+        UUID aggregateId,
         String eventType,
         String payload,
         LocalDateTime occurredAt
     ) {
         return new OutboxEvent(
             eventId,
-            orderId,
+            aggregateId,
             eventType,
             payload,
             OutboxEventStatus.PENDING,

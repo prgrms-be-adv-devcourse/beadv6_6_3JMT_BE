@@ -41,11 +41,11 @@ public class OrderPersistenceImpl implements OrderPersistenceCustom {
                 order.orderStatus,
                 orderProduct.orderStatus,
                 orderProduct.downloaded,
-                orderProduct.productType,
+                Expressions.nullExpression(String.class),
                 orderProduct.productTitle,
-                orderProduct.productModel,
+                Expressions.nullExpression(String.class),
                 Expressions.nullExpression(Double.class),
-                order.paidAt,
+                order.completedAt,
                 order.createdAt
             ))
             .from(order)
