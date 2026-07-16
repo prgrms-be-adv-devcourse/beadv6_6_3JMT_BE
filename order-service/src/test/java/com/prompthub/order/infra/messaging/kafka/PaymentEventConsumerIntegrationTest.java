@@ -2,8 +2,10 @@ package com.prompthub.order.infra.messaging.kafka;
 
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.application.service.event.PaymentApprovedEventHandler;
-import com.prompthub.order.application.service.event.PaymentRefundedEventHandler;
 import com.prompthub.order.application.service.event.PaymentFailedEventHandler;
+import com.prompthub.order.application.service.event.PaymentRefundedEventHandler;
+import com.prompthub.order.global.exception.ErrorCode;
+import com.prompthub.order.global.exception.OrderException;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -27,6 +29,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -34,8 +37,10 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
@@ -62,8 +67,8 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	private PaymentFailedEventHandler paymentFailedEventHandler;
 
 	@BeforeEach
-	void clearMocks() {
-		clearInvocations(
+	void resetMocks() {
+		reset(
 			paymentApprovedEventHandler,
 			paymentRefundedEventHandler,
 			paymentFailedEventHandler
@@ -75,26 +80,38 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	void consumePaymentApprovedEvent() {
 		// given
 		UUID paymentId = UUID.randomUUID();
-		UUID orderId = UUID.randomUUID();
 		UUID buyerId = UUID.randomUUID();
+		UUID firstOrderId = UUID.randomUUID();
+		UUID secondOrderId = UUID.randomUUID();
+		UUID firstOrderProductId = UUID.randomUUID();
+		UUID secondOrderProductId = UUID.randomUUID();
 
 		Map<String, Object> payload = new HashMap<>();
 		payload.put("paymentId", paymentId.toString());
-		payload.put("orderId", orderId.toString());
-		payload.put("userId", buyerId.toString());
-		payload.put("amount", 30000);
+		payload.put("buyerId", buyerId.toString());
+		payload.put("totalAmount", 30000);
+		payload.put("orders", List.of(
+			Map.of(
+				"orderId", firstOrderId.toString(),
+				"orderProductIds", List.of(firstOrderProductId.toString())
+			),
+			Map.of(
+				"orderId", secondOrderId.toString(),
+				"orderProductIds", List.of(secondOrderProductId.toString())
+			)
+		));
 		payload.put("approvedAt", OffsetDateTime.now(ZoneOffset.ofHours(9)).toString());
 
 		Map<String, Object> message = new HashMap<>();
 		message.put("eventId", UUID.randomUUID().toString());
 		message.put("eventType", "PAYMENT_APPROVED");
 		message.put("occurredAt", LocalDateTime.now().toString());
-		message.put("aggregateType", "ORDER");
-		message.put("aggregateId", orderId.toString());
+		message.put("aggregateType", "PAYMENT");
+		message.put("aggregateId", paymentId.toString());
 		message.put("payload", payload);
 
 		// when
-		kafkaTemplate.send(PAYMENT_EVENTS_TOPIC, orderId.toString(), message);
+		kafkaTemplate.send(PAYMENT_EVENTS_TOPIC, paymentId.toString(), message);
 
 		// then
 		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> 
@@ -171,10 +188,18 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	@Test
 	@DisplayName("PAYMENT_FAILED는 정상 소비하고 DLT로 보내지 않는다")
 	void consumePaymentFailed_thenAckWithoutDlt() throws Exception {
+		UUID paymentId = UUID.randomUUID();
+		UUID firstOrderId = UUID.randomUUID();
+		UUID secondOrderId = UUID.randomUUID();
+
 		try (Consumer<String, String> dltConsumer = stringConsumer()) {
 			embeddedKafkaBroker.consumeFromAnEmbeddedTopic(dltConsumer, true, PAYMENT_EVENTS_DLT_TOPIC);
 			rawStringKafkaTemplate()
-				.send(PAYMENT_EVENTS_TOPIC, UUID.randomUUID().toString(), ignoredEvent("PAYMENT_FAILED"))
+				.send(
+					PAYMENT_EVENTS_TOPIC,
+					paymentId.toString(),
+					paymentFailedEvent(paymentId, firstOrderId, secondOrderId)
+				)
 				.get(5, TimeUnit.SECONDS);
 
 			await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
@@ -183,6 +208,48 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 				verify(paymentRefundedEventHandler, never()).handle(any(EventMessage.class));
 			});
 			assertThat(dltConsumer.poll(Duration.ofSeconds(2)).isEmpty()).isTrue();
+		}
+	}
+
+	@Test
+	@DisplayName("핸들러 예외는 3회 재시도 후 payment-events.DLT로 이동한다")
+	void consumePaymentApproved_whenHandlerFails_thenRetryAndSendToDlt() throws Exception {
+		UUID paymentId = UUID.randomUUID();
+		UUID buyerId = UUID.randomUUID();
+		UUID firstOrderId = UUID.randomUUID();
+		UUID secondOrderId = UUID.randomUUID();
+		UUID firstOrderProductId = UUID.randomUUID();
+		UUID secondOrderProductId = UUID.randomUUID();
+		willThrow(new OrderException(ErrorCode.INVALID_INPUT_VALUE))
+			.given(paymentApprovedEventHandler)
+			.handle(any(EventMessage.class));
+
+		try (Consumer<String, String> dltConsumer = stringConsumer()) {
+			embeddedKafkaBroker.consumeFromAnEmbeddedTopic(dltConsumer, true, PAYMENT_EVENTS_DLT_TOPIC);
+			rawStringKafkaTemplate()
+				.send(
+					PAYMENT_EVENTS_TOPIC,
+					paymentId.toString(),
+					paymentApprovedEvent(
+						paymentId,
+						buyerId,
+						firstOrderId,
+						firstOrderProductId,
+						secondOrderId,
+						secondOrderProductId
+					)
+				)
+				.get(5, TimeUnit.SECONDS);
+
+			ConsumerRecord<String, String> dltRecord = KafkaTestUtils.getSingleRecord(
+				dltConsumer,
+				PAYMENT_EVENTS_DLT_TOPIC,
+				Duration.ofSeconds(15)
+			);
+
+			verify(paymentApprovedEventHandler, times(4)).handle(any(EventMessage.class));
+			assertThat(dltRecord.key()).isEqualTo(paymentId.toString());
+			assertThat(dltRecord.value()).contains("PAYMENT_APPROVED", paymentId.toString());
 		}
 	}
 
@@ -257,6 +324,76 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 			}
 			""".formatted(UUID.randomUUID(), eventType, UUID.randomUUID());
 	}
+
+	private String paymentApprovedEvent(
+		UUID paymentId,
+		UUID buyerId,
+		UUID firstOrderId,
+		UUID firstOrderProductId,
+		UUID secondOrderId,
+		UUID secondOrderProductId
+	) {
+		return """
+			{
+			  "eventId": "%s",
+			  "eventType": "PAYMENT_APPROVED",
+			  "occurredAt": "2026-06-19T12:00:00",
+			  "aggregateType": "PAYMENT",
+			  "aggregateId": "%s",
+			  "payload": {
+			    "paymentId": "%s",
+			    "buyerId": "%s",
+			    "totalAmount": 30000,
+			    "orders": [
+			      {
+			        "orderId": "%s",
+			        "orderProductIds": ["%s"]
+			      },
+			      {
+			        "orderId": "%s",
+			        "orderProductIds": ["%s"]
+			      }
+			    ],
+			    "approvedAt": "2026-06-19T12:00:00"
+			  }
+			}
+			""".formatted(
+			UUID.randomUUID(),
+			paymentId,
+			paymentId,
+			buyerId,
+			firstOrderId,
+			firstOrderProductId,
+			secondOrderId,
+			secondOrderProductId
+		);
+	}
+
+	private String paymentFailedEvent(UUID paymentId, UUID firstOrderId, UUID secondOrderId) {
+		return """
+			{
+			  "eventId": "%s",
+			  "eventType": "PAYMENT_FAILED",
+			  "occurredAt": "2026-06-19T12:00:00",
+			  "aggregateType": "PAYMENT",
+			  "aggregateId": "%s",
+			  "payload": {
+			    "paymentId": "%s",
+			    "orderIds": ["%s", "%s"],
+			    "failureCode": "PAYMENT_REJECTED",
+			    "failureReason": "결제가 승인되지 않았습니다",
+			    "failedAt": "2026-06-19T12:00:00"
+			  }
+			}
+			""".formatted(
+			UUID.randomUUID(),
+			paymentId,
+			paymentId,
+			firstOrderId,
+			secondOrderId
+		);
+	}
+
 	private KafkaTemplate<String, String> rawStringKafkaTemplate() {
 		Map<String, Object> properties = KafkaTestUtils.producerProps(embeddedKafkaBroker);
 		properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
