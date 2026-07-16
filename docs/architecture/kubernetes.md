@@ -583,7 +583,7 @@ ghcr.io/prgrms-be-adv-devcourse/prompthub-<module-name>:<short-git-sha>
 | `base/gateway` | API Gateway Deployment와 ClusterIP Service |
 | `overlays/ec2-kubeadm` | 전체 base, 환경 patch와 Gateway Ingress |
 
-Kustomize의 파일 나열 순서는 readiness를 보장하지 않는다. 최초 설치는 16절의 배포 파동대로 그룹별 적용과 대기를 수행하고, 전체 overlay 적용은 초기 인프라와 Ingress Controller가 준비된 뒤 반복 배포에 사용한다.
+Kustomize의 파일 나열 순서는 readiness를 보장하지 않는다. 최초 설치는 16절의 배포 파동대로 그룹별 적용과 대기를 수행한다. 전체 overlay는 렌더링·dry-run과 승인된 선언 변경에 사용하고, 일반 코드 push의 자동 CD는 상태 저장 리소스나 Ingress를 다시 적용하지 않은 채 변경된 Deployment 이미지만 교체한다.
 
 ## 14. 리소스 이름과 label
 
@@ -742,9 +742,56 @@ Spring JVM과 Kafka heap은 컨테이너 memory limit보다 작게 명시한다.
 
 배포용 YAML을 직접 복사해 환경별 파일을 만들지 않는다. 공통 변경은 base에, 현재 EC2 kubeadm 환경에만 필요한 값은 overlay patch에 둔다.
 
-## 20. 검증 계약
+## 20. GitHub Actions CD 계약
 
-### 20.1 정적 검증
+Kubernetes CD는 `.github/workflows/cd-selfhosted-kubernetes.yml` 하나에서 수동 인프라 배포와 자동 애플리케이션 배포를 분리한다. 기존 `.github/workflows/cd-selfhosted-compose.yml`은 승인된 cutover 전까지 유지하지만, Kubernetes 자동 배포를 활성화하기 전에 GitHub Actions에서 비활성화한다. 두 CD가 같은 `develop` push에 동시에 실행되어 Docker와 Kubernetes 애플리케이션을 함께 갱신하는 상태를 허용하지 않는다.
+
+### 20.1 실행 경계
+
+| 실행 방식 | 조건 | 대상 |
+|---|---|---|
+| 수동 `workflow_dispatch`의 `infrastructure` | 운영자가 확인 문자열 `DEPLOY`를 입력하고 실행 | Namespace, StorageClass, PV/PVC, PostgreSQL, Redis, Kafka |
+| 수동 `workflow_dispatch`의 `ingress` | 운영자가 `DEPLOY`를 입력하고 Docker Gateway가 Large의 80을 반납한 뒤 실행 | F5 NGINX Ingress Controller, Gateway Ingress |
+| 자동 `push` | `develop` push이고 저장소 변수 `K8S_AUTO_DEPLOY_ENABLED=true` | Config, Discovery, 비즈니스 서비스 6개, API Gateway의 변경된 이미지 |
+
+수동 배포는 SSH에서 명령을 하나씩 실행한다는 뜻이 아니다. 운영자가 GitHub Actions의 `Run workflow`로 위험도가 높은 대상을 승인하면 self-hosted runner가 정해진 `kubectl` 명령과 rollout 검증을 실행한다. 일반 코드 push는 상태 저장 인프라와 Ingress Controller를 수정하지 않는다.
+
+### 20.2 자동 애플리케이션 배포
+
+자동 배포는 다음 계약을 따른다.
+
+1. 변경된 모듈만 감지한다. 공통 빌드 파일이나 `common-module`이 바뀌면 모든 애플리케이션 이미지를 대상으로 한다.
+2. 기존 `reusable-docker-build.yml`을 사용해 GHCR에 불변 커밋 SHA 태그를 push한다. `latest`는 Kubernetes rollout 입력으로 사용하지 않는다.
+3. self-hosted runner는 대상 클러스터 context와 `prompthub` Namespace의 `postgres-secret`, `runtime-secret`, `jwt-secret`, `payment-secret`, `product-secret`, `ghcr-pull-secret`을 확인한다.
+4. 최초 애플리케이션 배포에 필요한 플랫폼·서비스·Gateway 선언을 적용한 뒤 변경된 Deployment의 이미지만 교체한다.
+5. 각 Deployment에 `kubectl rollout status`를 실행한다. 실패하면 이번 실행에서 이미지를 바꾼 Deployment만 `kubectl rollout undo`로 직전 ReplicaSet에 복구한다.
+6. Config 이미지가 바뀌면 Config rollout 성공 후 `user-service`, `product-service`, `order-service`, `payment-service`, `settlement-service`, `admin-service`, `apigateway`를 순차 재시작한다.
+
+`revisionHistoryLimit: 1`은 현재 ReplicaSet 외에 직전 1개를 남기므로 한 단계 rollback을 지원한다. 자동 CD는 전체 `ec2-kubeadm` overlay를 매번 다시 적용해 상태 저장 리소스나 Ingress를 함께 변경하지 않는다.
+
+### 20.3 수동 인프라와 Ingress 배포
+
+`infrastructure` 실행은 `k8s/base/namespace.yaml`, `k8s/base/storage`, `k8s/base/infrastructure` 순서로 적용하고 PostgreSQL, Redis, Kafka StatefulSet의 rollout을 기다린다. 실제 Secret 파일 생성, EC2 hostPath 디렉터리 생성과 소유권 변경은 GitHub Actions가 수행하지 않으며 실행 전에 운영자가 준비한다.
+
+`ingress` 실행은 다음 조건을 모두 만족하지 않으면 실패한다.
+
+- Large의 80 listener를 기존 Docker Gateway가 사용하지 않는다.
+- `apigateway` Deployment와 Service가 존재하고 rollout이 완료됐다.
+- Ingress backend가 `apigateway:8000`을 가리킨다.
+
+조건을 통과하면 `k8s/addons/nginx-ingress`와 `k8s/overlays/ec2-kubeadm/gateway-ingress.yaml`만 적용하고 Controller DaemonSet의 rollout을 확인한다. 워크플로가 Docker 컨테이너를 자동 중지하거나 삭제하지 않는다.
+
+### 20.4 Runner와 credential
+
+- 배포 job은 기존 `[self-hosted, linux, deploy]` runner를 사용한다.
+- runner에는 `kubectl`, `jq`와 클러스터 접근용 `/home/ubuntu/.kube/config`가 미리 준비되어 있어야 하며 배포 job은 이를 `KUBECONFIG`로 사용한다.
+- 실제 애플리케이션 Secret과 kubeconfig를 저장소에 커밋하지 않는다.
+- Private GHCR pull은 클러스터의 `ghcr-pull-secret`이 담당한다. GitHub Actions의 `GITHUB_TOKEN`은 이미지 build·push에만 사용한다.
+- `K8S_AUTO_DEPLOY_ENABLED`의 기본 상태는 비활성으로 간주한다. cutover 승인, 기존 Compose CD 비활성화와 Docker 애플리케이션 중지 후에만 `true`로 바꾼다.
+
+## 21. 검증 계약
+
+### 21.1 정적 검증
 
 - 모든 패키지가 `kubectl kustomize`로 독립 렌더링된다.
 - `kubectl apply --dry-run=client`가 성공한다.
@@ -756,7 +803,7 @@ Spring JVM과 Kafka heap은 컨테이너 memory limit보다 작게 명시한다.
 - Deployment·Service selector와 Pod label이 일치한다.
 - 모든 Local PV에 올바른 nodeAffinity가 있다.
 
-### 20.2 클러스터 검증
+### 21.2 클러스터 검증
 
 - Medium과 Large가 `Ready`다.
 - CoreDNS와 Flannel Pod가 정상이다.
@@ -770,7 +817,7 @@ Spring JVM과 Kafka heap은 컨테이너 memory limit보다 작게 명시한다.
 - `apigateway`와 다른 프로젝트 Service에 NodePort 또는 LoadBalancer type이 없다.
 - 잘못된 SHA 이미지 적용 후 직전 SHA로 복구할 수 있다.
 
-## 21. 구현 문서 경계
+## 22. 구현 문서 경계
 
 이 문서는 Kubernetes 선택 배경, 전환 범위와 최종 리소스 계약을 설명하는 유일한 아키텍처 원본이다. SSH 설치 명령이나 단계별 `kubectl` 명령은 담지 않는다.
 
