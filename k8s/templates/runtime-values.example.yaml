@@ -1,0 +1,78 @@
+# 예시 전용 파일이다. 아래 값으로 실제 클러스터에 적용하지 않는다.
+# Config Server placeholder, 애플리케이션 bootstrap, SDK와 image pull에 실제 소비처가 있는 key만 둔다.
+# 실제 파일은 Medium의 /home/ubuntu/prompthub-secrets/secret.yaml에 mode 600으로 둔다.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: prompthub
+type: Opaque
+stringData:
+  POSTGRES_DB: example_database
+  POSTGRES_USER: example_admin
+  POSTGRES_PASSWORD: example-postgres-password
+  USER_SERVICE_PASSWORD: example-user-role-password
+  PRODUCT_SERVICE_PASSWORD: example-product-role-password
+  ORDER_SERVICE_PASSWORD: example-order-role-password
+  PAYMENT_SERVICE_PASSWORD: example-payment-role-password
+  SETTLEMENT_SERVICE_PASSWORD: example-settlement-role-password
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: runtime-secret
+  namespace: prompthub
+type: Opaque
+stringData:
+  SPRING_CONFIG_IMPORT: configserver:http://config:8888
+  EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  USER_GRPC_SERVER_PORT: "9081"
+  PRODUCT_GRPC_SERVER_PORT: "9082"
+  ORDER_GRPC_SERVER_PORT: "9083"
+  PAYMENT_GRPC_SERVER_PORT: "9084"
+  CORS_ALLOWED_ORIGINS: https://example.invalid,http://localhost:3000
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jwt-secret
+  namespace: prompthub
+type: Opaque
+stringData:
+  JWT_PRIVATE_KEY: example-private-key
+  JWT_PUBLIC_KEY: example-public-key
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: payment-secret
+  namespace: prompthub
+type: Opaque
+stringData:
+  TOSS_SECRET_KEY: example-toss-secret
+  TOSS_TEST_MODE: "true"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: product-secret
+  namespace: prompthub
+type: Opaque
+stringData:
+  AWS_REGION: ap-northeast-2
+  AWS_S3_BUCKET: example-bucket
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ghcr-pull-secret
+  namespace: prompthub
+type: kubernetes.io/dockerconfigjson
+stringData:
+  .dockerconfigjson: >-
+    {"auths":{"ghcr.io":{"username":"example-user","password":"example-read-packages-token","auth":"example-base64-auth"}}}

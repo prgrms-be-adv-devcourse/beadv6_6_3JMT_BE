@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: redis-local-pv
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: infrastructure
+    app.kubernetes.io/managed-by: kustomize
+    prompthub.io/volume: redis
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
+  local:
+    path: /var/lib/prompthub/redis
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: prompthub.io/node-pool
+              operator: In
+              values:
+                - control-stateful

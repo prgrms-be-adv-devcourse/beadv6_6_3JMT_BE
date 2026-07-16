@@ -1,8 +1,9 @@
 name: CD - Parallel Self-hosted Compose
 
 on:
-  push:
-    branches: ["develop"]
+  # Kubernetes 전환 준비 중에는 develop push로 Compose CD를 자동 실행하지 않는다.
+  # push:
+  #   branches: ["develop"]
   workflow_dispatch:
     inputs:
       rebuild_all:
