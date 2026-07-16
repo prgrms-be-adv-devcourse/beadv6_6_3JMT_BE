@@ -126,16 +126,6 @@ spec:
                 secretKeyRef:
                   name: product-secret
                   key: AWS_S3_BUCKET
-            - name: AWS_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: product-secret
-                  key: AWS_ACCESS_KEY_ID
-            - name: AWS_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: product-secret
-                  key: AWS_SECRET_ACCESS_KEY
             - name: MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED
               value: "true"
             - name: JAVA_TOOL_OPTIONS

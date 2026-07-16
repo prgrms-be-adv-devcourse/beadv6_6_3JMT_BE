@@ -37,6 +37,7 @@ jobs:
     outputs:
       deploy: ${{ steps.plan.outputs.deploy }}
       build_matrix: ${{ steps.plan.outputs.build_matrix }}
+      application_manifests_changed: ${{ steps.plan.outputs.application_manifests_changed }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -66,6 +67,11 @@ jobs:
               - config/**
             discovery:
               - discovery/**
+            application_manifests:
+              - k8s/base/platform/**
+              - k8s/base/services/**
+              - k8s/base/gateway/**
+              - k8s/overlays/ec2-kubeadm/applications/**
             all_applications:
               - common-module/**
               - Dockerfile
@@ -77,10 +83,6 @@ jobs:
               - settings.gradle
               - settings.gradle.kts
               - gradle/**
-              - k8s/base/platform/**
-              - k8s/base/services/**
-              - k8s/base/gateway/**
-              - k8s/overlays/ec2-kubeadm/**
               - .github/workflows/cd-selfhosted-kubernetes.yml
               - .github/workflows/reusable-docker-build.yml
 
@@ -90,7 +92,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ "${{ steps.changed.outputs.all_applications_any_changed }}" = "true" ]; then
+          application_manifests_changed="${{ steps.changed.outputs.application_manifests_any_changed }}"
+
+          if [ "${{ steps.changed.outputs.all_applications_any_changed }}" = "true" ] ||
+            [ "$application_manifests_changed" = "true" ]; then
             services_json='["config","discovery","user-service","product-service","order-service","payment-service","settlement-service","admin-service","apigateway"]'
           else
             services=()
@@ -119,7 +124,9 @@ jobs:
 
           echo "build_matrix=$services_json" >> "$GITHUB_OUTPUT"
           echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
+          echo "application_manifests_changed=$application_manifests_changed" >> "$GITHUB_OUTPUT"
           echo "배포 대상: $services_json"
+          echo "애플리케이션 매니페스트 변경: $application_manifests_changed"
 
   parallel-build-and-push:
     name: Build -> ${{ matrix.service }}
@@ -183,6 +190,7 @@ jobs:
           done
 
       - name: 최초 애플리케이션 리소스 준비
+        if: needs.planning.outputs.application_manifests_changed != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -226,15 +234,18 @@ jobs:
             kubectl rollout status deployment/"$deployment" -n "$NAMESPACE" --timeout=10m
           done
 
-      - name: 변경 이미지 배포와 실패 시 rollback
+      - name: 애플리케이션 리소스와 이미지 배포, 실패 시 rollback
         shell: bash
         env:
           BUILD_MATRIX: ${{ needs.planning.outputs.build_matrix }}
+          APPLICATION_MANIFESTS_CHANGED: ${{ needs.planning.outputs.application_manifests_changed }}
         run: |
           set -Eeuo pipefail
 
           owner_lc="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
           short_sha="${GITHUB_SHA::7}"
+          runtime_overlay=""
+          manifest_snapshot_dir=""
           deployment_order=(
             config
             discovery
@@ -256,7 +267,19 @@ jobs:
             apigateway
           )
           updated_deployments=()
+          created_deployments=()
           config_updated="false"
+
+          cleanup_runtime_overlay() {
+            if [ -n "$runtime_overlay" ]; then
+              rm -rf "$runtime_overlay"
+            fi
+            if [ -n "$manifest_snapshot_dir" ]; then
+              rm -rf "$manifest_snapshot_dir"
+            fi
+          }
+
+          trap cleanup_runtime_overlay EXIT
 
           was_updated() {
             local candidate="$1"
@@ -271,25 +294,91 @@ jobs:
             return 1
           }
 
-          rollback_images() {
+          was_created() {
+            local candidate="$1"
+            local deployment
+
+            for deployment in "${created_deployments[@]}"; do
+              if [ "$deployment" = "$candidate" ]; then
+                return 0
+              fi
+            done
+
+            return 1
+          }
+
+          snapshot_manifest_deployments() {
+            local deployment
+
+            manifest_snapshot_dir="${RUNNER_TEMP}/prompthub-k8s-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            mkdir -p "$manifest_snapshot_dir"
+
+            for deployment in "${deployment_order[@]}"; do
+              if kubectl get deployment "$deployment" -n "$NAMESPACE" -o json 2>/dev/null |
+                jq -cS '.spec.template' > "$manifest_snapshot_dir/$deployment.template.json"; then
+                continue
+              fi
+
+              rm -f "$manifest_snapshot_dir/$deployment.template.json"
+              : > "$manifest_snapshot_dir/$deployment.missing"
+            done
+          }
+
+          track_manifest_deployment_changes() {
+            local deployment
+            local current_template
+            local previous_template
+
+            if [ -z "$manifest_snapshot_dir" ]; then
+              return
+            fi
+
+            for deployment in "${deployment_order[@]}"; do
+              if [ -f "$manifest_snapshot_dir/$deployment.missing" ]; then
+                if kubectl get deployment "$deployment" -n "$NAMESPACE" >/dev/null 2>&1 &&
+                  ! was_created "$deployment"; then
+                  created_deployments+=("$deployment")
+                fi
+                continue
+              fi
+
+              if ! current_template="$(kubectl get deployment "$deployment" -n "$NAMESPACE" -o json |
+                jq -cS '.spec.template')"; then
+                continue
+              fi
+
+              previous_template="$(< "$manifest_snapshot_dir/$deployment.template.json")"
+              if [ "$current_template" != "$previous_template" ] && ! was_updated "$deployment"; then
+                updated_deployments+=("$deployment")
+              fi
+            done
+          }
+
+          rollback_deployments() {
             local exit_code="$?"
             local index
             local deployment
 
             trap - ERR
             set +e
-            echo "배포 실패: 이번 실행에서 변경한 이미지를 rollback 합니다."
+            track_manifest_deployment_changes
+            echo "배포 실패: 이번 실행에서 변경한 이미지 또는 Pod template을 rollback 합니다."
 
             for ((index=${#updated_deployments[@]} - 1; index >= 0; index--)); do
               deployment="${updated_deployments[$index]}"
               kubectl rollout undo deployment/"$deployment" -n "$NAMESPACE"
             done
 
+            for ((index=${#created_deployments[@]} - 1; index >= 0; index--)); do
+              deployment="${created_deployments[$index]}"
+              kubectl delete deployment/"$deployment" -n "$NAMESPACE" --ignore-not-found
+            done
+
             for deployment in "${updated_deployments[@]}"; do
               kubectl rollout status deployment/"$deployment" -n "$NAMESPACE" --timeout=10m
             done
 
-            if [ "$config_updated" = "true" ]; then
+            if [ "$config_updated" = "true" ] && [ "$APPLICATION_MANIFESTS_CHANGED" != "true" ]; then
               echo "Config rollback 값을 다시 읽도록 소비 서비스를 재시작합니다."
               for deployment in "${config_consumers[@]}"; do
                 kubectl rollout restart deployment/"$deployment" -n "$NAMESPACE"
@@ -300,7 +389,60 @@ jobs:
             exit "$exit_code"
           }
 
-          trap rollback_images ERR
+          trap rollback_deployments ERR
+
+          if [ "$APPLICATION_MANIFESTS_CHANGED" = "true" ]; then
+            runtime_overlay="k8s/overlays/ec2-kubeadm/.runtime-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            mkdir -p "$runtime_overlay"
+
+            cat > "$runtime_overlay/kustomization.yaml" <<EOF
+          apiVersion: kustomize.config.k8s.io/v1beta1
+          kind: Kustomization
+          resources:
+            - ../applications
+          images:
+            - name: ghcr.io/prgrms-be-adv-devcourse/prompthub-config
+              newName: ghcr.io/$owner_lc/prompthub-config
+              newTag: $short_sha
+            - name: ghcr.io/prgrms-be-adv-devcourse/prompthub-discovery
+              newName: ghcr.io/$owner_lc/prompthub-discovery
+              newTag: $short_sha
+            - name: ghcr.io/prgrms-be-adv-devcourse/prompthub-user-service
+              newName: ghcr.io/$owner_lc/prompthub-user-service
+              newTag: $short_sha
+            - name: ghcr.io/prgrms-be-adv-devcourse/prompthub-product-service
+              newName: ghcr.io/$owner_lc/prompthub-product-service
+              newTag: $short_sha
+            - name: ghcr.io/prgrms-be-adv-devcourse/prompthub-order-service
+              newName: ghcr.io/$owner_lc/prompthub-order-service
+              newTag: $short_sha
+            - name: ghcr.io/prgrms-be-adv-devcourse/prompthub-payment-service
+              newName: ghcr.io/$owner_lc/prompthub-payment-service
+              newTag: $short_sha
+            - name: ghcr.io/prgrms-be-adv-devcourse/prompthub-settlement-service
+              newName: ghcr.io/$owner_lc/prompthub-settlement-service
+              newTag: $short_sha
+            - name: ghcr.io/prgrms-be-adv-devcourse/prompthub-admin-service
+              newName: ghcr.io/$owner_lc/prompthub-admin-service
+              newTag: $short_sha
+            - name: ghcr.io/prgrms-be-adv-devcourse/prompthub-apigateway
+              newName: ghcr.io/$owner_lc/prompthub-apigateway
+              newTag: $short_sha
+          EOF
+
+            kubectl kustomize "$runtime_overlay" >/dev/null
+            kubectl apply --server-side --dry-run=server -k "$runtime_overlay"
+
+            snapshot_manifest_deployments
+            kubectl apply -k "$runtime_overlay"
+            track_manifest_deployment_changes
+
+            for deployment in "${deployment_order[@]}"; do
+              kubectl rollout status deployment/"$deployment" -n "$NAMESPACE" --timeout=10m
+            done
+
+            config_updated="true"
+          fi
 
           for service in "${deployment_order[@]}"; do
             if ! jq -e --arg service "$service" 'index($service) != null' <<< "$BUILD_MATRIX" >/dev/null; then
@@ -326,7 +468,7 @@ jobs:
             fi
           done
 
-          if [ "$config_updated" = "true" ]; then
+          if [ "$config_updated" = "true" ] && [ "$APPLICATION_MANIFESTS_CHANGED" != "true" ]; then
             echo "새 Config 값을 읽도록 이미지가 바뀌지 않은 소비 서비스를 재시작합니다."
             for deployment in "${config_consumers[@]}"; do
               if was_updated "$deployment"; then

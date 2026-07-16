@@ -18,6 +18,7 @@ kubectl kustomize k8s/base/platform
 kubectl kustomize k8s/base/services
 kubectl kustomize k8s/base/gateway
 kubectl kustomize k8s/base
+kubectl kustomize k8s/overlays/ec2-kubeadm/applications
 kubectl kustomize k8s/overlays/ec2-kubeadm
 ```
 
@@ -27,7 +28,7 @@ kubectl kustomize k8s/overlays/ec2-kubeadm
 bash scripts/validate-k8s-manifests.sh
 ```
 
-스크립트는 모든 패키지가 렌더링되는지, `latest` 이미지나 미정 placeholder가 없는지, 실제 Secret이 base에 포함되지 않는지를 확인한다. Ingress Controller의 host network·이미지 digest·필수 인자와 EC2 kubeadm overlay의 Gateway Ingress도 검사하고 NodePort·LoadBalancer 회귀를 차단한다. 또한 Kubernetes CD의 자동·수동 배포 경계, rollback 명령과 기존 Compose CD의 자동 trigger 비활성 상태를 검사한다.
+스크립트는 모든 패키지가 렌더링되는지, `latest` 이미지나 미정 placeholder가 없는지, 실제 Secret이 base에 포함되지 않는지를 확인한다. 자동 CD용 `applications` 패키지가 Deployment 9개와 Service 9개만 포함하는지도 검사한다. Ingress Controller의 host network·이미지 digest·필수 인자와 EC2 kubeadm overlay의 Gateway Ingress를 검사하고 NodePort·LoadBalancer 회귀를 차단한다. 또한 Kubernetes CD의 자동·수동 배포 경계, rollback 명령과 기존 Compose CD의 자동 trigger 비활성 상태를 검사한다.
 
 Kafka Pod는 `enableServiceLinks: false`를 유지한다. 이 값을 제거하면 Kubernetes가 `kafka` Service에서 `KAFKA_PORT=tcp://...`를 자동 생성하고, Confluent 이미지가 이를 레거시 설정으로 해석해 시작 단계에서 종료한다.
 
@@ -40,7 +41,7 @@ Secret 객체, key와 저장 정책은 아키텍처 명세의 "설정과 Secret 
 mode: 600
 ```
 
-키 이름은 `k8s/templates/secret.example.yaml`을 참고한다. 예시 파일은 가짜 값만 담고 있으며 그대로 적용하면 안 된다.
+키 이름은 `k8s/templates/runtime-values.example.yaml`을 참고한다. 예시 파일은 현재 Config Server placeholder, 애플리케이션 bootstrap, SDK와 image pull에서 실제 사용하는 key만 가짜 값으로 담으며 그대로 적용하면 안 된다. 아직 구현되지 않은 Spring AI용 Secret은 포함하지 않는다.
 
 ```bash
 kubectl apply -f /home/ubuntu/prompthub-secrets/secret.yaml
@@ -48,7 +49,9 @@ kubectl apply -f /home/ubuntu/prompthub-secrets/secret.yaml
 
 Private GHCR 이미지를 배포하기 전에는 `read:packages` 권한을 가진 장기 credential로 `ghcr-pull-secret`을 준비한다. GitHub Actions 작업용 `GITHUB_TOKEN`은 장기 image pull credential로 사용하지 않는다.
 
-애플리케이션 적용 전에는 다음 Secret 이름이 모두 존재해야 한다. Spring AI 모듈을 포함하지 않는 현재 base에서는 `spring-ai-secret`이 없어도 된다.
+Product의 AWS 인증은 Large EC2 인스턴스 역할을 사용한다. `product-secret`에는 `AWS_REGION`, `AWS_S3_BUCKET`만 넣고 정적 `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`는 만들거나 주입하지 않는다.
+
+애플리케이션 적용 전에는 다음 Secret 이름이 모두 존재해야 한다.
 
 ```bash
 kubectl -n prompthub get secret \
@@ -75,7 +78,9 @@ jq
 KUBECONFIG=/home/ubuntu/.kube/config
 ```
 
-`develop`에 push 또는 merge되면 변경된 애플리케이션 이미지를 빌드해 GHCR에 짧은 Git SHA tag로 push하고 Deployment를 순차 갱신한다. 공통 빌드 파일, Kubernetes 플랫폼·서비스·Gateway 매니페스트 또는 Kubernetes CD 워크플로가 바뀌면 애플리케이션 전체를 대상으로 한다. 별도의 활성화 변수는 사용하지 않으므로 Secret, kubeconfig, 기존 Docker 중지와 cutover 준비가 끝난 뒤에만 Kubernetes CD가 포함된 PR을 `develop`에 머지한다.
+`develop`에 push 또는 merge되면 변경된 애플리케이션 이미지를 빌드해 GHCR에 짧은 Git SHA tag로 push하고 Deployment를 순차 갱신한다. Kubernetes 플랫폼·서비스·Gateway 매니페스트 변경도 별도로 감지하며, 변경 시 `k8s/overlays/ec2-kubeadm/applications`를 새 image tag와 함께 server-side dry-run 후 자동 적용한다. 공통 빌드 파일, 애플리케이션 매니페스트 또는 Kubernetes CD 워크플로가 바뀌면 애플리케이션 전체를 대상으로 한다.
+
+자동 매니페스트 적용 범위에는 Config, Discovery, 비즈니스 서비스 6개와 API Gateway의 Deployment·Service만 포함한다. StorageClass, PV/PVC, PostgreSQL, Redis, Kafka, Ingress Controller와 Gateway Ingress는 기존 수동 배포 경계를 유지한다. 별도의 활성화 변수는 사용하지 않으므로 Secret, kubeconfig, 기존 Docker 중지와 cutover 준비가 끝난 뒤에만 Kubernetes CD가 포함된 PR을 `develop`에 머지한다.
 
 상태 저장 인프라와 Ingress는 코드 push로 자동 적용하지 않는다. GitHub의 `Actions > CD - Self-hosted Kubernetes > Run workflow`에서 다음 target과 확인 문자열 `DEPLOY`를 사용한다.
 
@@ -84,7 +89,7 @@ KUBECONFIG=/home/ubuntu/.kube/config
 | `infrastructure` | Namespace, StorageClass, PV/PVC, PostgreSQL, Redis, Kafka | Local PV 디렉터리와 `postgres-secret` 준비 |
 | `ingress` | F5 NGINX Ingress Controller, Gateway Ingress | Docker Gateway 중지, Gateway Ready, 80·443·18080·18081 listener 반환 |
 
-워크플로는 Docker 컨테이너를 자동으로 중지하거나 삭제하지 않는다. 애플리케이션 rollout이 실패하면 이번 실행에서 이미지를 바꾼 Deployment를 `kubectl rollout undo`로 복구한다.
+워크플로는 Docker 컨테이너를 자동으로 중지하거나 삭제하지 않는다. 애플리케이션 rollout이 실패하면 적용 전 Pod template과 비교해 이번 실행에서 바뀐 기존 Deployment만 `kubectl rollout undo`로 복구하고, 이번 실행에서 처음 생성한 Deployment는 삭제한다. Service 선언 복구가 필요하면 원인 커밋을 되돌린 뒤 CD를 다시 실행한다.
 
 ## Local PV 호스트 디렉터리
 

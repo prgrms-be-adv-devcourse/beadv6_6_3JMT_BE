@@ -106,11 +106,6 @@ spec:
                 secretKeyRef:
                   name: runtime-secret
                   key: KAFKA_BOOTSTRAP_SERVERS
-            - name: PAYMENT_GRPC_SERVER_PORT
-              valueFrom:
-                secretKeyRef:
-                  name: runtime-secret
-                  key: PAYMENT_GRPC_SERVER_PORT
             - name: SPRING_GRPC_SERVER_PORT
               valueFrom:
                 secretKeyRef:

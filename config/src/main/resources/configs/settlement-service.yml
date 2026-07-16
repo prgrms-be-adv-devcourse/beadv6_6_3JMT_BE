@@ -22,8 +22,6 @@ spring:
       enable-auto-commit: false
 
 grpc:
-  server:
-    port: ${SETTLEMENT_GRPC_SERVER_PORT}
   client:
     user-service:
       address: user-service:${USER_GRPC_SERVER_PORT}

@@ -22,6 +22,7 @@ PACKAGES=(
   "k8s/base/services"
   "k8s/base/gateway"
   "k8s/base"
+  "k8s/overlays/ec2-kubeadm/applications"
   "k8s/overlays/ec2-kubeadm"
 )
 
@@ -101,6 +102,22 @@ for package in "${PACKAGES[@]}"; do
     fi
   fi
 
+  if [[ "${package}" == "k8s/overlays/ec2-kubeadm/applications" ]]; then
+    deployment_count="$(awk '$1 == "kind:" && $2 == "Deployment" { count++ } END { print count + 0 }' "${rendered}")"
+    service_count="$(awk '$1 == "kind:" && $2 == "Service" { count++ } END { print count + 0 }' "${rendered}")"
+    unexpected_kinds="$(awk '$1 == "kind:" && $2 != "Deployment" && $2 != "Service" { print $2 }' "${rendered}" | sort -u)"
+
+    if [[ "${deployment_count}" -ne 9 || "${service_count}" -ne 9 ]]; then
+      echo "application CD package must render 9 Deployments and 9 Services" >&2
+      exit 1
+    fi
+
+    if [[ -n "${unexpected_kinds}" ]]; then
+      echo "application CD package contains manually managed kinds: ${unexpected_kinds}" >&2
+      exit 1
+    fi
+  fi
+
   if [[ "${package}" == "k8s/overlays/ec2-kubeadm" ]]; then
     required_patterns=(
       '^kind:[[:space:]]+Ingress$'
@@ -124,6 +141,7 @@ for package in "${PACKAGES[@]}"; do
   fi
 done
 
+bash "${ROOT_DIR}/scripts/validate-k8s-secret-contract.sh"
 bash "${ROOT_DIR}/scripts/validate-k8s-cd-workflow.sh"
 
 echo "Kubernetes manifest validation passed."
