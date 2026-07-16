@@ -71,7 +71,7 @@ flowchart LR
 | settlement → user | 9081 | 판매자 정보 배치 조회 | `settlement-service/.../infrastructure/client/seller/config/SellerGrpcClientConfig.java` |
 | settlement → product | 9082 | 상품 정보 배치 조회 | `settlement-service/.../infrastructure/client/product/config/ProductGrpcClientConfig.java` |
 | payment → order | 9083 | 주문 결제정보 폴백 조회(스냅샷 미확보 시) | `payment-service/.../infrastructure/external/grpc/OrderGrpcClientConfig.java` (**order 측 서버 예정**) |
-| order → payment | 9084 | 환불 이벤트 폴백 조회(Kafka 유실 시) | `payment-service/.../infrastructure/grpc/PaymentQueryGrpcService.java` |
+| order → payment | 9084 | 환불/결제 승인·실패 이벤트 폴백 조회(Kafka 유실 시) | `payment-service/.../infrastructure/grpc/PaymentQueryGrpcService.java` |
 
 ### 3) 내부 동기 통신 (HTTP)
 
@@ -111,5 +111,5 @@ postgres(5432) + kafka(9092)
    - JWT `sub` → `X-User-Id`, `roles` claim → `X-User-Role`(콤마 조인, `BUYER`/`SELLER`/`ADMIN`)
    - `status` claim이 `ACTIVE`가 아니면 **403 즉시 반환**
    - 다운스트림 전달 전 `Authorization` 헤더는 제거
-5. **다운스트림 소비**: 각 서비스 Controller가 `@RequestHeader("X-User-Id")` 등으로 수신. 역할 검증 방식은 서비스별 규칙을 따른다(payment는 Controller 진입부 직접 검증).
+5. **다운스트림 소비**: 각 서비스 Controller가 `@RequestHeader("X-User-Id")` 등으로 수신. 역할 검증 방식은 서비스별 규칙을 따른다(payment는 역할 검증을 하지 않고 `X-User-Id` 기반 본인 확인만 수행, product도 동일 방향으로 전환).
 6. 헤더 이름(`X-User-Id`, `X-User-Role`)은 **서비스 간 계약이므로 임의 변경 금지** (apigateway CLAUDE.md).

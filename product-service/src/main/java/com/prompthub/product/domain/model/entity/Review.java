@@ -18,7 +18,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "review")
+@Table(name = "review", schema = "product_service")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Review {
 

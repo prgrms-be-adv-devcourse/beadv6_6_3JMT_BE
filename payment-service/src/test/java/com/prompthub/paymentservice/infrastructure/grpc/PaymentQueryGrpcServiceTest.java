@@ -1,10 +1,15 @@
 package com.prompthub.paymentservice.infrastructure.grpc;
 
 import com.prompthub.exception.BusinessException;
+import com.prompthub.paymentservice.application.dto.command.GetPaymentCommand;
 import com.prompthub.paymentservice.application.dto.command.GetRefundCommand;
+import com.prompthub.paymentservice.application.dto.result.PaymentQueryResult;
 import com.prompthub.paymentservice.application.dto.result.RefundQueryResult;
 import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
+import com.prompthub.paymentservice.application.usecase.GetPaymentUseCase;
 import com.prompthub.paymentservice.application.usecase.GetRefundUseCase;
+import com.prompthub.payment.grpc.GetPaymentRequest;
+import com.prompthub.payment.grpc.GetPaymentResponse;
 import com.prompthub.payment.grpc.GetRefundRequest;
 import com.prompthub.payment.grpc.GetRefundResponse;
 import com.prompthub.payment.grpc.PaymentQueryServiceGrpc;
@@ -40,11 +45,13 @@ class PaymentQueryGrpcServiceTest {
         }
     }
 
-    private PaymentQueryServiceGrpc.PaymentQueryServiceBlockingStub stubWith(GetRefundUseCase useCase) throws Exception {
+    private PaymentQueryServiceGrpc.PaymentQueryServiceBlockingStub stubWith(
+        GetRefundUseCase refundUseCase, GetPaymentUseCase paymentUseCase
+    ) throws Exception {
         String serverName = UUID.randomUUID().toString();
         server = InProcessServerBuilder.forName(serverName)
             .directExecutor()
-            .addService(new PaymentQueryGrpcService(useCase))
+            .addService(new PaymentQueryGrpcService(refundUseCase, paymentUseCase))
             .build()
             .start();
         channel = InProcessChannelBuilder.forName(serverName)
@@ -61,11 +68,12 @@ class PaymentQueryGrpcServiceTest {
         UUID orderProductId = UUID.randomUUID();
         OffsetDateTime refundedAt = OffsetDateTime.now();
 
-        GetRefundUseCase useCase = Mockito.mock(GetRefundUseCase.class);
-        when(useCase.getRefund(new GetRefundCommand(paymentId, orderProductId))).thenReturn(new RefundQueryResult(
+        GetRefundUseCase refundUseCase = Mockito.mock(GetRefundUseCase.class);
+        when(refundUseCase.getRefund(new GetRefundCommand(paymentId, orderProductId))).thenReturn(new RefundQueryResult(
             paymentId, orderId, userId, orderProductId, 4_000, "PARTIAL_REFUNDED", "COMPLETED", refundedAt));
+        GetPaymentUseCase paymentUseCase = Mockito.mock(GetPaymentUseCase.class);
 
-        PaymentQueryServiceGrpc.PaymentQueryServiceBlockingStub stub = stubWith(useCase);
+        PaymentQueryServiceGrpc.PaymentQueryServiceBlockingStub stub = stubWith(refundUseCase, paymentUseCase);
 
         GetRefundResponse response = stub.getRefund(GetRefundRequest.newBuilder()
             .setPaymentId(paymentId.toString())
@@ -83,11 +91,12 @@ class PaymentQueryGrpcServiceTest {
     }
 
     @Test
-    void PAYMENT_NOT_FOUND_예외_시_NOT_FOUND_status() throws Exception {
-        GetRefundUseCase useCase = Mockito.mock(GetRefundUseCase.class);
-        when(useCase.getRefund(any())).thenThrow(new BusinessException(PaymentErrorCode.PAYMENT_NOT_FOUND));
+    void GetRefund_PAYMENT_NOT_FOUND_예외_시_NOT_FOUND_status() throws Exception {
+        GetRefundUseCase refundUseCase = Mockito.mock(GetRefundUseCase.class);
+        when(refundUseCase.getRefund(any())).thenThrow(new BusinessException(PaymentErrorCode.PAYMENT_NOT_FOUND));
+        GetPaymentUseCase paymentUseCase = Mockito.mock(GetPaymentUseCase.class);
 
-        PaymentQueryServiceGrpc.PaymentQueryServiceBlockingStub stub = stubWith(useCase);
+        PaymentQueryServiceGrpc.PaymentQueryServiceBlockingStub stub = stubWith(refundUseCase, paymentUseCase);
 
         assertThatThrownBy(() -> stub.getRefund(GetRefundRequest.newBuilder()
                 .setPaymentId(UUID.randomUUID().toString())
@@ -99,15 +108,59 @@ class PaymentQueryGrpcServiceTest {
     }
 
     @Test
-    void REFUND_NOT_FOUND_예외_시_NOT_FOUND_status() throws Exception {
-        GetRefundUseCase useCase = Mockito.mock(GetRefundUseCase.class);
-        when(useCase.getRefund(any())).thenThrow(new BusinessException(PaymentErrorCode.REFUND_NOT_FOUND));
+    void GetRefund_REFUND_NOT_FOUND_예외_시_NOT_FOUND_status() throws Exception {
+        GetRefundUseCase refundUseCase = Mockito.mock(GetRefundUseCase.class);
+        when(refundUseCase.getRefund(any())).thenThrow(new BusinessException(PaymentErrorCode.REFUND_NOT_FOUND));
+        GetPaymentUseCase paymentUseCase = Mockito.mock(GetPaymentUseCase.class);
 
-        PaymentQueryServiceGrpc.PaymentQueryServiceBlockingStub stub = stubWith(useCase);
+        PaymentQueryServiceGrpc.PaymentQueryServiceBlockingStub stub = stubWith(refundUseCase, paymentUseCase);
 
         assertThatThrownBy(() -> stub.getRefund(GetRefundRequest.newBuilder()
                 .setPaymentId(UUID.randomUUID().toString())
                 .setOrderProductId(UUID.randomUUID().toString())
+                .build()))
+            .isInstanceOf(StatusRuntimeException.class)
+            .extracting(e -> ((StatusRuntimeException) e).getStatus().getCode())
+            .isEqualTo(Status.Code.NOT_FOUND);
+    }
+
+    @Test
+    void 정상_조회_시_GetPaymentResponse_반환() throws Exception {
+        UUID paymentId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        OffsetDateTime approvedAt = OffsetDateTime.now();
+
+        GetPaymentUseCase paymentUseCase = Mockito.mock(GetPaymentUseCase.class);
+        when(paymentUseCase.getPayment(new GetPaymentCommand(orderId))).thenReturn(new PaymentQueryResult(
+            paymentId, orderId, userId, "PAID", 10_000, approvedAt, null));
+        GetRefundUseCase refundUseCase = Mockito.mock(GetRefundUseCase.class);
+
+        PaymentQueryServiceGrpc.PaymentQueryServiceBlockingStub stub = stubWith(refundUseCase, paymentUseCase);
+
+        GetPaymentResponse response = stub.getPayment(GetPaymentRequest.newBuilder()
+            .setOrderId(orderId.toString())
+            .build());
+
+        assertThat(response.getPaymentId()).isEqualTo(paymentId.toString());
+        assertThat(response.getOrderId()).isEqualTo(orderId.toString());
+        assertThat(response.getUserId()).isEqualTo(userId.toString());
+        assertThat(response.getStatus()).isEqualTo("PAID");
+        assertThat(response.getAmount()).isEqualTo(10_000);
+        assertThat(response.getApprovedAt()).isEqualTo(approvedAt.toString());
+        assertThat(response.getFailedAt()).isEmpty();
+    }
+
+    @Test
+    void GetPayment_PAYMENT_NOT_FOUND_예외_시_NOT_FOUND_status() throws Exception {
+        GetPaymentUseCase paymentUseCase = Mockito.mock(GetPaymentUseCase.class);
+        when(paymentUseCase.getPayment(any())).thenThrow(new BusinessException(PaymentErrorCode.PAYMENT_NOT_FOUND));
+        GetRefundUseCase refundUseCase = Mockito.mock(GetRefundUseCase.class);
+
+        PaymentQueryServiceGrpc.PaymentQueryServiceBlockingStub stub = stubWith(refundUseCase, paymentUseCase);
+
+        assertThatThrownBy(() -> stub.getPayment(GetPaymentRequest.newBuilder()
+                .setOrderId(UUID.randomUUID().toString())
                 .build()))
             .isInstanceOf(StatusRuntimeException.class)
             .extracting(e -> ((StatusRuntimeException) e).getStatus().getCode())
