@@ -4,7 +4,6 @@ import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.application.service.event.PaymentApprovedEventHandler;
 import com.prompthub.order.application.service.event.PaymentRefundedEventHandler;
 import com.prompthub.order.application.service.event.PaymentFailedEventHandler;
-import com.prompthub.order.application.service.event.PaymentCanceledEventHandler;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -62,16 +61,12 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	@MockitoBean
 	private PaymentFailedEventHandler paymentFailedEventHandler;
 
-	@MockitoBean
-	private PaymentCanceledEventHandler paymentCanceledEventHandler;
-
 	@BeforeEach
 	void clearMocks() {
 		clearInvocations(
 			paymentApprovedEventHandler,
 			paymentRefundedEventHandler,
-			paymentFailedEventHandler,
-			paymentCanceledEventHandler
+			paymentFailedEventHandler
 		);
 	}
 
@@ -174,24 +169,36 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("PAYMENT_FAILED와 PAYMENT_CANCELED는 정상 소비하고 DLT로 보내지 않는다")
-	void consumePaymentEvents_whenNonBusinessEventTypes_thenAckWithoutDlt() throws Exception {
+	@DisplayName("PAYMENT_FAILED는 정상 소비하고 DLT로 보내지 않는다")
+	void consumePaymentFailed_thenAckWithoutDlt() throws Exception {
 		try (Consumer<String, String> dltConsumer = stringConsumer()) {
 			embeddedKafkaBroker.consumeFromAnEmbeddedTopic(dltConsumer, true, PAYMENT_EVENTS_DLT_TOPIC);
-			KafkaTemplate<String, String> rawTemplate = rawStringKafkaTemplate();
-
-			rawTemplate.send(PAYMENT_EVENTS_TOPIC, UUID.randomUUID().toString(), ignoredEvent("PAYMENT_FAILED"))
-				.get(5, TimeUnit.SECONDS);
-			rawTemplate.send(PAYMENT_EVENTS_TOPIC, UUID.randomUUID().toString(), ignoredEvent("PAYMENT_CANCELED"))
+			rawStringKafkaTemplate()
+				.send(PAYMENT_EVENTS_TOPIC, UUID.randomUUID().toString(), ignoredEvent("PAYMENT_FAILED"))
 				.get(5, TimeUnit.SECONDS);
 
 			await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
 				verify(paymentFailedEventHandler).handle(any(EventMessage.class));
-				verify(paymentCanceledEventHandler).handle(any(EventMessage.class));
 				verify(paymentApprovedEventHandler, never()).handle(any(EventMessage.class));
 				verify(paymentRefundedEventHandler, never()).handle(any(EventMessage.class));
 			});
 			assertThat(dltConsumer.poll(Duration.ofSeconds(2)).isEmpty()).isTrue();
+		}
+	}
+
+	@Test
+	@DisplayName("PAYMENT_CANCELED는 미지원 이벤트로 ACK하고 DLT로 보내지 않는다")
+	void consumePaymentCanceled_thenAckAsUnsupportedWithoutDlt() throws Exception {
+		try (Consumer<String, String> dltConsumer = stringConsumer()) {
+			embeddedKafkaBroker.consumeFromAnEmbeddedTopic(dltConsumer, true, PAYMENT_EVENTS_DLT_TOPIC);
+			rawStringKafkaTemplate()
+				.send(PAYMENT_EVENTS_TOPIC, UUID.randomUUID().toString(), ignoredEvent("PAYMENT_CANCELED"))
+				.get(5, TimeUnit.SECONDS);
+
+			assertThat(dltConsumer.poll(Duration.ofSeconds(2)).isEmpty()).isTrue();
+			verify(paymentApprovedEventHandler, never()).handle(any(EventMessage.class));
+			verify(paymentRefundedEventHandler, never()).handle(any(EventMessage.class));
+			verify(paymentFailedEventHandler, never()).handle(any(EventMessage.class));
 		}
 	}
 
