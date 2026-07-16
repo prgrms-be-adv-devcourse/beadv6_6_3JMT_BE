@@ -18,6 +18,8 @@ public interface OrderRepository {
 
 	Optional<Order> findByIdWithOrderProducts(UUID orderId);
 
+	List<Order> findAllByIdsWithOrderProductsForUpdate(List<UUID> orderIds);
+
 	Optional<Order> findByOrderNumber(String orderNumber);
 
 	boolean existsPaidOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId);
