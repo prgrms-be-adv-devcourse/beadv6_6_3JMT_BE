@@ -2,6 +2,8 @@ package com.prompthub.order.fixture;
 
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedOrderPayload;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -60,6 +62,21 @@ public final class PaymentEventFixture {
 			"PG 결제 실패",
 			FAILED_AT
 		);
+	}
+
+	public static PaymentApprovedPayload approvedPayload(List<Order> orders) {
+		List<PaymentApprovedOrderPayload> targets = orders.stream()
+			.map(order -> new PaymentApprovedOrderPayload(
+				order.getId(),
+				order.getOrderProducts().stream()
+					.map(OrderProduct::getId)
+					.toList()
+			))
+			.toList();
+		int totalAmount = orders.stream()
+			.mapToInt(Order::getTotalOrderAmount)
+			.sum();
+		return new PaymentApprovedPayload(PAYMENT_ID, BUYER_ID, totalAmount, targets, APPROVED_AT);
 	}
 
 	private static UUID uuid(long suffix) {

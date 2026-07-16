@@ -2,7 +2,6 @@ package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.dto.CreateOrderCommand;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.model.Order;
@@ -248,46 +247,4 @@ class OrderPolicyServiceTest {
 		}
 	}
 
-	@Nested
-	@DisplayName("결제 승인 정책")
-	class PaymentApprovalPolicy {
-
-		@Test
-		@DisplayName("주문이 PENDING이고 승인 금액이 일치하면 예외가 발생하지 않는다")
-		void validatePaymentApproval_pendingAndAmountMatched_success() {
-			Order order = createPendingOrderWithProducts();
-			PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), TOTAL_AMOUNT);
-
-			orderPolicyService.validatePaymentApproval(order, payload);
-		}
-
-		@Test
-		@DisplayName("주문 상태가 PENDING이 아니면 결제 승인 상태 예외가 발생한다")
-		void validatePaymentApproval_notPending_throwsException() {
-			Order order = createPendingOrderWithProducts();
-			order.markCompleted(APPROVED_AT);
-			PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), TOTAL_AMOUNT);
-
-			assertThatThrownBy(() -> orderPolicyService.validatePaymentApproval(order, payload))
-				.isInstanceOf(OrderException.class)
-				.satisfies(exception ->
-					assertThat(((OrderException) exception).getErrorCode())
-						.isEqualTo(ErrorCode.ORDER_PAYMENT_STATUS_INVALID)
-				);
-		}
-
-		@Test
-		@DisplayName("승인 금액과 주문 금액이 다르면 결제 승인 금액 불일치 예외가 발생한다")
-		void validatePaymentApproval_amountMismatch_throwsException() {
-			Order order = createPendingOrderWithProducts();
-			PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), PRODUCT_AMOUNT_2);
-
-			assertThatThrownBy(() -> orderPolicyService.validatePaymentApproval(order, payload))
-				.isInstanceOf(OrderException.class)
-				.satisfies(exception ->
-					assertThat(((OrderException) exception).getErrorCode())
-						.isEqualTo(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH)
-				);
-		}
-	}
 }

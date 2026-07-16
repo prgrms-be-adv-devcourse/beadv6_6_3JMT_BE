@@ -2,6 +2,8 @@ package com.prompthub.order.application.service.event;
 
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedOrderPayload;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
 import org.springframework.stereotype.Component;
 
@@ -37,6 +39,39 @@ public class PaymentEventValidator {
 		for (UUID orderId : payload.orderIds()) {
 			if (orderId == null || !uniqueOrderIds.add(orderId)) {
 				throw invalidInput();
+			}
+		}
+
+		return uniqueOrderIds.stream()
+			.sorted()
+			.toList();
+	}
+
+	public List<UUID> validate(PaymentApprovedPayload payload) {
+		if (payload == null
+			|| payload.paymentId() == null
+			|| payload.buyerId() == null
+			|| payload.totalAmount() < 0
+			|| payload.approvedAt() == null
+			|| payload.orders() == null
+			|| payload.orders().isEmpty()) {
+			throw invalidInput();
+		}
+
+		Set<UUID> uniqueOrderIds = new HashSet<>();
+		Set<UUID> uniqueOrderProductIds = new HashSet<>();
+		for (PaymentApprovedOrderPayload order : payload.orders()) {
+			if (order == null
+				|| order.orderId() == null
+				|| !uniqueOrderIds.add(order.orderId())
+				|| order.orderProductIds() == null
+				|| order.orderProductIds().isEmpty()) {
+				throw invalidInput();
+			}
+			for (UUID orderProductId : order.orderProductIds()) {
+				if (orderProductId == null || !uniqueOrderProductIds.add(orderProductId)) {
+					throw invalidInput();
+				}
 			}
 		}
 
