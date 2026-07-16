@@ -1,8 +1,8 @@
 package com.prompthub.order.application.service.event;
 
 import com.prompthub.common.event.EventMessage;
+import com.prompthub.order.application.event.order.OrderPaidEvent;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
-import com.prompthub.order.application.service.order.OrderExpirationStore;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
@@ -21,6 +21,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -69,7 +71,7 @@ class PaymentApprovedProcessorTest {
 	private OutboxEventAppender outboxEventAppender;
 
 	@Mock
-	private OrderExpirationStore orderExpirationStore;
+	private ApplicationEventPublisher applicationEventPublisher;
 
 	@Spy
 	private PaymentEventValidator validator = new PaymentEventValidator();
@@ -104,10 +106,9 @@ class PaymentApprovedProcessorTest {
 		then(cart).should().removeProductsByProductIds(List.of(PRODUCT_A, PRODUCT_B));
 		then(processedEventService).should()
 			.markProcessed(eventId, "order-service", "PAYMENT_APPROVED", APPROVED_AT);
-		then(orderExpirationStore).should().removeExpiration(ORDER_A);
-		then(orderExpirationStore).should().clearRetryCount(ORDER_A);
-		then(orderExpirationStore).should().removeExpiration(ORDER_B);
-		then(orderExpirationStore).should().clearRetryCount(ORDER_B);
+		ArgumentCaptor<OrderPaidEvent> eventCaptor = ArgumentCaptor.forClass(OrderPaidEvent.class);
+		then(applicationEventPublisher).should().publishEvent(eventCaptor.capture());
+		assertThat(eventCaptor.getValue().orderIds()).containsExactly(ORDER_A, ORDER_B);
 	}
 
 	@Test
@@ -136,6 +137,7 @@ class PaymentApprovedProcessorTest {
 
 		then(orderEventMessageFactory).shouldHaveNoInteractions();
 		then(outboxEventAppender).shouldHaveNoInteractions();
+		then(applicationEventPublisher).shouldHaveNoInteractions();
 		then(processedEventService).should()
 			.markProcessed(eventId, "order-service", "PAYMENT_APPROVED", APPROVED_AT);
 	}

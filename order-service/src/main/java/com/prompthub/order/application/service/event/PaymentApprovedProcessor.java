@@ -1,8 +1,8 @@
 package com.prompthub.order.application.service.event;
 
 import com.prompthub.common.event.EventMessage;
+import com.prompthub.order.application.event.order.OrderPaidEvent;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
-import com.prompthub.order.application.service.order.OrderExpirationStore;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -15,6 +15,7 @@ import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedOrderPaylo
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,7 +41,7 @@ public class PaymentApprovedProcessor {
 	private final OrderEventMessageFactory orderEventMessageFactory;
 	private final OutboxEventAppender outboxEventAppender;
 	private final PaymentEventValidator validator;
-	private final OrderExpirationStore orderExpirationStore;
+	private final ApplicationEventPublisher applicationEventPublisher;
 
 	@Transactional
 	public void process(
@@ -87,7 +88,9 @@ public class PaymentApprovedProcessor {
 			.ifPresent(cart -> cart.removeProductsByProductIds(productIds));
 
 		processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
-		completedOrders.forEach(order -> removeExpirationQuietly(order.getId()));
+		if (!completedOrders.isEmpty()) {
+			applicationEventPublisher.publishEvent(OrderPaidEvent.from(completedOrders));
+		}
 
 		log.info(
 			"결제 승인 이벤트 처리 완료. eventId={}, paymentId={}, orderIds={}, statuses={}, consumerGroup={}",
@@ -125,12 +128,4 @@ public class PaymentApprovedProcessor {
 		}
 	}
 
-	private void removeExpirationQuietly(UUID orderId) {
-		try {
-			orderExpirationStore.removeExpiration(orderId);
-			orderExpirationStore.clearRetryCount(orderId);
-		} catch (Exception exception) {
-			log.warn("결제 완료 주문의 Redis 만료 대상 제거에 실패했습니다. orderId={}", orderId, exception);
-		}
-	}
 }
