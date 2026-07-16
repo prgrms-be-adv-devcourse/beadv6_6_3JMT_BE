@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode implements com.prompthub.exception.ErrorCode {
 
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "V001", "입력값 검증 실패"),
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "V002", "지원하지 않는 HTTP 메서드입니다."),
     INVALID_AUTHENTICATION(HttpStatus.UNAUTHORIZED, "A003", "토큰이 만료되었거나 유효하지 않습니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "A004", "권한이 없습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "SYS001", "서버 내부 오류가 발생했습니다."),
