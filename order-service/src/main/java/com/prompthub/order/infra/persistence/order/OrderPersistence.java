@@ -1,10 +1,13 @@
 package com.prompthub.order.infra.persistence.order;
 
 import com.prompthub.order.domain.model.Order;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,6 +19,19 @@ public interface OrderPersistence extends JpaRepository<Order, UUID>, OrderPersi
     where o.id = :orderId
 """)
 	Optional<Order> findByIdWithOrderProducts(@Param("orderId") UUID orderId);
+
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select o from Order o where o.id = :orderId")
+	Optional<Order> findByIdForUpdate(@Param("orderId") UUID orderId);
+
+	@Query("""
+    select distinct o
+    from Order o
+    left join fetch o.orderProducts
+    where o.id in :orderIds
+    order by o.id
+""")
+	List<Order> findAllByIdsWithOrderProducts(@Param("orderIds") List<UUID> orderIds);
 
 	@Query("""
     select distinct o
