@@ -29,6 +29,19 @@ class OutboxEventTest {
 	}
 
 	@Test
+	@DisplayName("Outbox 이벤트 테이블은 Aggregate 조회용 aggregate_id 인덱스를 가진다")
+	void outboxEventTable_hasAggregateIdIndex() {
+		Table table = OutboxEvent.class.getAnnotation(Table.class);
+
+		assertThat(table).isNotNull();
+		assertThat(Arrays.stream(table.indexes()))
+			.anySatisfy(index -> {
+				assertThat(index.name()).isEqualTo("idx_order_outbox_event_aggregate_id");
+				assertThat(index.columnList()).isEqualTo("aggregate_id");
+			});
+	}
+
+	@Test
 	@DisplayName("ORDER_PAID Outbox 이벤트는 주문 이벤트 토픽과 PENDING 상태로 생성된다")
 	void orderPaid_createsPendingOutboxEvent() {
 		String payload = "{\"orderId\":\"%s\"}".formatted(ORDER_ID);
@@ -36,7 +49,7 @@ class OutboxEventTest {
 		OutboxEvent outboxEvent = OutboxEvent.orderPaid(ORDER_ID, payload, APPROVED_AT);
 
 		assertThat(outboxEvent.getEventId()).isInstanceOf(UUID.class);
-		assertThat(outboxEvent.getOrderId()).isEqualTo(ORDER_ID);
+		assertThat(outboxEvent.getAggregateId()).isEqualTo(ORDER_ID);
 		assertThat(outboxEvent.getEventType()).isEqualTo("ORDER_PAID");
 		assertThat(outboxEvent.getPayload()).isEqualTo(payload);
 		assertThat(outboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
@@ -53,7 +66,7 @@ class OutboxEventTest {
 		OutboxEvent outboxEvent = OutboxEvent.orderRefund(ORDER_ID, payload, APPROVED_AT);
 
 		assertThat(outboxEvent.getEventId()).isInstanceOf(UUID.class);
-		assertThat(outboxEvent.getOrderId()).isEqualTo(ORDER_ID);
+		assertThat(outboxEvent.getAggregateId()).isEqualTo(ORDER_ID);
 		assertThat(outboxEvent.getEventType()).isEqualTo("ORDER_REFUND");
 		assertThat(outboxEvent.getPayload()).isEqualTo(payload);
 		assertThat(outboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PENDING);

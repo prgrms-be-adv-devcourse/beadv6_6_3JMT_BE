@@ -168,10 +168,10 @@ class PaymentApprovedProcessorTest {
     }
 
     @Test
-    @DisplayName("이미 CANCELED 상태인 주문은 PAID로 변경할 수 없으며 상태 변경 없이 처리 완료된다")
-    void process_fromCanceledToPaid_ignored() {
+    @DisplayName("이미 COMPLETED 상태인 주문은 다시 완료 처리하지 않고 처리 이력만 기록한다")
+    void process_fromCompletedToCompleted_ignored() {
         Order order = createPendingOrderWithProducts();
-        order.markCanceled(); // status CANCELED
+        order.markCompleted(APPROVED_AT);
         PaymentApprovedPayload payload = createPaymentApprovedPayload(order.getId(), TOTAL_AMOUNT);
         UUID eventId = UUID.randomUUID();
 

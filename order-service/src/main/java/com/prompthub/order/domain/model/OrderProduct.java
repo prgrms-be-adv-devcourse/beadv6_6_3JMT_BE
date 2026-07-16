@@ -1,22 +1,23 @@
 package com.prompthub.order.domain.model;
 
-import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.global.exception.OrderException;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.global.exception.ErrorCode;
+import com.prompthub.order.global.exception.OrderException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import static jakarta.persistence.EnumType.STRING;
 import static jakarta.persistence.FetchType.LAZY;
 import static lombok.AccessLevel.PROTECTED;
 
@@ -37,30 +38,18 @@ public class OrderProduct {
     @Column(name = "product_id", columnDefinition = "uuid", nullable = false)
     private UUID productId;
 
-    @Column(name = "seller_id", columnDefinition = "uuid", nullable = false)
-    private UUID sellerId;
-
     @Column(name = "product_title_snapshot", length = 200, nullable = false)
     private String productTitle;
-
-    @Column(name = "product_type_snapshot", length = 30, nullable = false)
-    private String productType;
-
-    @Column(name = "product_model_snapshot", length = 50)
-    private String productModel;
 
     @Column(name = "product_amount_snapshot", nullable = false)
     private int productAmount;
 
-    @Enumerated(STRING)
+    @Enumerated(EnumType.STRING)
     @Column(name = "order_product_status", length = 20, nullable = false)
-    private OrderStatus orderStatus;
+    private OrderProductStatus orderStatus;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
-
-    @Column(name = "canceled_at")
-    private LocalDateTime canceledAt;
 
     @Column(name = "refunded_at")
     private LocalDateTime refundedAt;
@@ -71,25 +60,31 @@ public class OrderProduct {
     @Column(name = "downloaded", nullable = false)
     private boolean downloaded;
 
+    @Transient
+    private UUID legacySellerId;
+
+    @Transient
+    private String legacyProductType;
+
+    @Transient
+    private String legacyProductModel;
+
+    @Transient
+    private LocalDateTime legacyCanceledAt;
+
     private OrderProduct(
-            UUID id,
-            UUID productId,
-            UUID sellerId,
-            String productTitle,
-            String productType,
-            String productModel,
-            int productAmount,
-            OrderStatus orderStatus,
-            LocalDateTime createdAt,
-            LocalDateTime updatedAt,
-            boolean downloaded
+        UUID id,
+        UUID productId,
+        String productTitle,
+        int productAmount,
+        OrderProductStatus orderStatus,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt,
+        boolean downloaded
     ) {
         this.id = id;
         this.productId = productId;
-        this.sellerId = sellerId;
         this.productTitle = productTitle;
-        this.productType = productType;
-        this.productModel = productModel;
         this.productAmount = productAmount;
         this.orderStatus = orderStatus;
         this.createdAt = createdAt;
@@ -98,28 +93,36 @@ public class OrderProduct {
     }
 
     public static OrderProduct create(
-            UUID productId,
-            UUID sellerId,
-            String productTitle,
-            String productType,
-            String productModel,
-            int productAmount
+        UUID productId,
+        String productTitle,
+        int productAmount
     ) {
         LocalDateTime now = LocalDateTime.now();
-
         return new OrderProduct(
-                UUID.randomUUID(),
-                productId,
-                sellerId,
-                productTitle,
-                productType,
-                productModel,
-                productAmount,
-                OrderStatus.PENDING,
-                now,
-                now,
-                false
+            UUID.randomUUID(),
+            productId,
+            productTitle,
+            productAmount,
+            OrderProductStatus.PENDING,
+            now,
+            now,
+            false
         );
+    }
+
+    public static OrderProduct create(
+        UUID productId,
+        UUID sellerId,
+        String productTitle,
+        String productType,
+        String productModel,
+        int productAmount
+    ) {
+        OrderProduct orderProduct = create(productId, productTitle, productAmount);
+        orderProduct.legacySellerId = sellerId;
+        orderProduct.legacyProductType = productType;
+        orderProduct.legacyProductModel = productModel;
+        return orderProduct;
     }
 
     protected void assignOrder(Order order) {
@@ -127,71 +130,48 @@ public class OrderProduct {
     }
 
     public void markPaid() {
-        validateTransition(OrderStatus.PAID);
-
-        this.orderStatus = OrderStatus.PAID;
-        this.updatedAt = LocalDateTime.now();
+        transitionTo(OrderProductStatus.PAID);
     }
 
     public void markFailed() {
-        validateTransition(OrderStatus.FAILED);
-
-        this.orderStatus = OrderStatus.FAILED;
-        this.updatedAt = LocalDateTime.now();
+        transitionTo(OrderProductStatus.FAILED);
     }
 
     public void cancel() {
-        cancel(LocalDateTime.now());
+        throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
     }
 
     public void cancel(LocalDateTime canceledAt) {
-        if (this.orderStatus != OrderStatus.PAID) {
-            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
-        }
-
-        this.orderStatus = OrderStatus.CANCELED;
-        this.canceledAt = canceledAt;
-        this.updatedAt = LocalDateTime.now();
+        cancel();
     }
 
-    public void expirePending(LocalDateTime canceledAt) {
-        if (this.orderStatus != OrderStatus.PENDING) {
+    public void expirePending(LocalDateTime expiredAt) {
+        if (this.orderStatus != OrderProductStatus.PENDING) {
             return;
         }
-
-        this.orderStatus = OrderStatus.CANCELED;
-        this.canceledAt = canceledAt;
-        this.updatedAt = LocalDateTime.now();
+        markFailed();
+        this.legacyCanceledAt = expiredAt;
     }
 
     public void markCanceled(LocalDateTime canceledAt) {
-        if (this.orderStatus != OrderStatus.PENDING) {
-            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
-        }
-
-        this.orderStatus = OrderStatus.CANCELED;
-        this.canceledAt = canceledAt;
-        this.updatedAt = LocalDateTime.now();
+        expirePending(canceledAt);
     }
-
 
     public void refund() {
         refund(LocalDateTime.now());
     }
 
     public void refund(LocalDateTime refundedAt) {
-        if (this.orderStatus != OrderStatus.PAID) {
-            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
-        }
-
-        this.orderStatus = OrderStatus.REFUNDED;
+        transitionTo(OrderProductStatus.REFUNDED);
         this.refundedAt = refundedAt;
-        this.updatedAt = LocalDateTime.now();
     }
 
     public void markDownloaded() {
         if (this.downloaded) {
             return;
+        }
+        if (!isPaid()) {
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
         }
 
         this.downloaded = true;
@@ -199,16 +179,38 @@ public class OrderProduct {
     }
 
     public boolean isPaid() {
-        return this.orderStatus == OrderStatus.PAID;
+        return this.orderStatus == OrderProductStatus.PAID;
     }
 
     public boolean isRefundable() {
-        return this.orderStatus == OrderStatus.PAID && !this.downloaded;
+        return isPaid() && !this.downloaded;
     }
 
-    private void validateTransition(OrderStatus target) {
+    public UUID getSellerId() {
+        if (this.legacySellerId != null) {
+            return this.legacySellerId;
+        }
+        return this.order == null ? null : this.order.getSellerId();
+    }
+
+    public String getProductType() {
+        return this.legacyProductType;
+    }
+
+    public String getProductModel() {
+        return this.legacyProductModel;
+    }
+
+    public LocalDateTime getCanceledAt() {
+        return this.legacyCanceledAt;
+    }
+
+    private void transitionTo(OrderProductStatus target) {
         if (!this.orderStatus.canTransitionTo(target)) {
             throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
         }
+
+        this.orderStatus = target;
+        this.updatedAt = LocalDateTime.now();
     }
 }

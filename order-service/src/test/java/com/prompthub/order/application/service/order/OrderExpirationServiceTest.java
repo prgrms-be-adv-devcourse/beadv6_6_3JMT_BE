@@ -1,6 +1,7 @@
 package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -77,7 +78,7 @@ class OrderExpirationServiceTest {
 			assertThat(order.getCanceledAt()).isEqualTo(EXPIRED_AT);
 			assertThat(order.getOrderProducts())
 				.extracting(OrderProduct::getOrderStatus)
-				.containsOnly(OrderStatus.CANCELED);
+				.containsOnly(OrderProductStatus.FAILED);
 			assertThat(cart.getCartProducts())
 				.extracting(cartProduct -> cartProduct.getProductId())
 				.containsExactly(PRODUCT_ID_1, PRODUCT_ID_2);

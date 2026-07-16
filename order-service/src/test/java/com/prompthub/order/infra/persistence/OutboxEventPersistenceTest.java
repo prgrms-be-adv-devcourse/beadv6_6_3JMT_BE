@@ -47,7 +47,7 @@ class OutboxEventPersistenceTest {
 
 		OutboxEvent found = outboxEventPersistence.findById(saved.getEventId()).orElseThrow();
 
-		assertThat(found.getOrderId()).isEqualTo(ORDER_ID);
+		assertThat(found.getAggregateId()).isEqualTo(ORDER_ID);
 		assertThat(found.getEventType()).isEqualTo("ORDER_PAID");
 		assertThat(found.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
 		assertThat(found.getRetryCount()).isZero();
@@ -90,7 +90,7 @@ class OutboxEventPersistenceTest {
 		);
 
 		assertThat(found)
-			.extracting(OutboxEvent::getOrderId)
-			.containsExactly(oldestPending.getOrderId(), middlePending.getOrderId());
+			.extracting(OutboxEvent::getAggregateId)
+			.containsExactly(oldestPending.getAggregateId(), middlePending.getAggregateId());
 	}
 }

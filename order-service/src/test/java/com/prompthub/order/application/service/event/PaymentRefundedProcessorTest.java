@@ -3,6 +3,7 @@ package com.prompthub.order.application.service.event;
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.OrderRepository;
@@ -70,7 +71,7 @@ class PaymentRefundedProcessorTest {
         assertThat(order.getRefundedAt()).isEqualTo(REFUNDED_AT);
         assertThat(order.getOrderProducts())
             .extracting(OrderProduct::getOrderStatus)
-            .containsOnly(OrderStatus.REFUNDED);
+			.containsOnly(OrderProductStatus.REFUNDED);
 
         then(outboxEventAppender).should().append(orderRefundMessage);
         then(processedEventService).should().markProcessed(eventId, "order-service", eventType, REFUNDED_AT);
