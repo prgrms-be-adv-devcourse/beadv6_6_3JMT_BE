@@ -18,6 +18,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OrderAdapter implements OrderRepository {
 	private final OrderPersistence orderPersistence;
+	private final OrderProductPersistence orderProductPersistence;
 
 	@Override
 	public Order save(Order order) {
@@ -32,6 +33,19 @@ public class OrderAdapter implements OrderRepository {
 	@Override
 	public Optional<Order> findByIdWithOrderProducts(UUID orderId) {
 		return orderPersistence.findByIdWithOrderProducts(orderId);
+	}
+
+	@Override
+	public List<Order> findAllByIdsWithOrderProductsForUpdate(List<UUID> orderIds) {
+		List<UUID> sortedOrderIds = orderIds.stream()
+			.distinct()
+			.sorted()
+			.toList();
+
+		sortedOrderIds.forEach(orderPersistence::findByIdForUpdate);
+		sortedOrderIds.forEach(orderProductPersistence::findAllByOrderIdForUpdate);
+
+		return orderPersistence.findAllByIdsWithOrderProducts(sortedOrderIds);
 	}
 
 	@Override
