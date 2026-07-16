@@ -6,6 +6,6 @@ resources:
   - gateway-ingress.yaml
 labels:
   - pairs:
-      app.kubernetes.io/instance: learning
+      app.kubernetes.io/instance: ec2-kubeadm
     includeSelectors: false
     includeTemplates: true

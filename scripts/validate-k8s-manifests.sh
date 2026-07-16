@@ -22,7 +22,7 @@ PACKAGES=(
   "k8s/base/services"
   "k8s/base/gateway"
   "k8s/base"
-  "k8s/overlays/learning"
+  "k8s/overlays/ec2-kubeadm"
 )
 
 rendered_files=()
@@ -53,6 +53,17 @@ for package in "${PACKAGES[@]}"; do
 
   if grep -Eq '^kind:[[:space:]]+Secret$' "${rendered}"; then
     echo "real Secret resources must not be part of the rendered base: ${package}" >&2
+    exit 1
+  fi
+
+  if ! awk '
+    BEGIN { RS = "---"; invalid = 0 }
+    /kind:[[:space:]]+Deployment/ && !/revisionHistoryLimit:[[:space:]]+1/ {
+      invalid = 1
+    }
+    END { exit invalid }
+  ' "${rendered}"; then
+    echo "every Deployment must retain exactly one previous ReplicaSet: ${package}" >&2
     exit 1
   fi
 
@@ -90,7 +101,7 @@ for package in "${PACKAGES[@]}"; do
     fi
   fi
 
-  if [[ "${package}" == "k8s/overlays/learning" ]]; then
+  if [[ "${package}" == "k8s/overlays/ec2-kubeadm" ]]; then
     required_patterns=(
       '^kind:[[:space:]]+Ingress$'
       '^[[:space:]]+ingressClassName:[[:space:]]+nginx$'
@@ -101,7 +112,7 @@ for package in "${PACKAGES[@]}"; do
 
     for pattern in "${required_patterns[@]}"; do
       if ! grep -Eq "${pattern}" "${rendered}"; then
-        echo "missing learning ingress contract: ${pattern}" >&2
+        echo "missing ec2-kubeadm ingress contract: ${pattern}" >&2
         exit 1
       fi
     done
