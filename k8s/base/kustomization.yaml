@@ -5,3 +5,6 @@ resources:
   - namespace.yaml
   - storage
   - infrastructure
+  - platform
+  - services
+  - gateway
