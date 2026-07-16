@@ -43,7 +43,7 @@ public class PaymentRefundedProcessor {
         Order order = orderRepository.findByIdWithOrderProducts(payload.orderId())
                 .orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
-        if (order.getOrderStatus() != OrderStatus.PAID) {
+        if (order.getOrderStatus() != OrderStatus.COMPLETED) {
             log.warn("이미 처리된 환불이거나 금지된 상태 전이 시도입니다. 상태 변경 무시. eventId={}, eventType={}, orderId={}, currentStatus={}",
                     eventId, eventType, payload.orderId(), order.getOrderStatus());
             processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
@@ -70,6 +70,6 @@ public class PaymentRefundedProcessor {
         );
 
         log.info("결제 이벤트 처리 완료. eventId={}, eventType={}, orderId={}, targetStatus={}, consumerGroup={}",
-                eventId, eventType, payload.orderId(), OrderStatus.REFUNDED, CONSUMER_GROUP);
+                eventId, eventType, payload.orderId(), OrderStatus.ALL_REFUNDED, CONSUMER_GROUP);
     }
 }

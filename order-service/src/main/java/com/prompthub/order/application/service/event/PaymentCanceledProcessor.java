@@ -38,7 +38,7 @@ public class PaymentCanceledProcessor {
         Order order = orderRepository.findByIdWithOrderProducts(payload.orderId())
                 .orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
-        if (order.getOrderStatus() != OrderStatus.PENDING) {
+        if (order.getOrderStatus() != OrderStatus.CREATED) {
             log.warn("이미 처리된 주문이거나 금지된 상태 전이 시도입니다. 상태 변경 무시. eventId={}, eventType={}, orderId={}, currentStatus={}",
                     eventId, eventType, payload.orderId(), order.getOrderStatus());
             processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
@@ -55,6 +55,6 @@ public class PaymentCanceledProcessor {
         );
 
         log.info("결제 이벤트 처리 완료. eventId={}, eventType={}, orderId={}, targetStatus={}, consumerGroup={}",
-                eventId, eventType, payload.orderId(), OrderStatus.CANCELED, CONSUMER_GROUP);
+                eventId, eventType, payload.orderId(), OrderStatus.FAILED, CONSUMER_GROUP);
     }
 }

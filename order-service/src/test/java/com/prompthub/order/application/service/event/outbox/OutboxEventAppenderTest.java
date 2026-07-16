@@ -59,7 +59,7 @@ class OutboxEventAppenderTest {
 		then(outboxEventRepository).should().save(captor.capture());
 
 		OutboxEvent saved = captor.getValue();
-		assertThat(saved.getOrderId()).isEqualTo(aggregateId);
+		assertThat(saved.getAggregateId()).isEqualTo(aggregateId);
 		assertThat(saved.getEventType()).isEqualTo("ORDER_PAID");
 		assertThat(saved.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
 		assertThat(saved.getRetryCount()).isZero();

@@ -2,6 +2,7 @@ package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -87,11 +88,11 @@ public class OrderPolicyService {
 
 	public boolean isRefundable(
 		OrderStatus orderStatus,
-		OrderStatus orderProductStatus,
+		OrderProductStatus orderProductStatus,
 		boolean downloaded
 	) {
-		return orderStatus == OrderStatus.PAID
-			&& orderProductStatus == OrderStatus.PAID
+		return (orderStatus == OrderStatus.COMPLETED || orderStatus == OrderStatus.PARTIAL_REFUNDED)
+			&& orderProductStatus == OrderProductStatus.PAID
 			&& !downloaded;
 	}
 
