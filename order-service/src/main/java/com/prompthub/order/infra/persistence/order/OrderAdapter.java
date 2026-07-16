@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,6 +22,11 @@ public class OrderAdapter implements OrderRepository {
 	@Override
 	public Order save(Order order) {
 		return orderPersistence.save(order);
+	}
+
+	@Override
+	public List<Order> saveAll(List<Order> orders) {
+		return orderPersistence.saveAll(orders);
 	}
 
 	@Override
