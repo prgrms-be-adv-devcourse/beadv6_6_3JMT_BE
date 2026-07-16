@@ -1,0 +1,447 @@
+name: CD - Self-hosted Kubernetes
+
+on:
+  push:
+    branches: ["develop"]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "수동 배포 대상"
+        required: true
+        type: choice
+        options:
+          - infrastructure
+          - ingress
+      confirmation:
+        description: "실행하려면 DEPLOY 입력"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: cd-selfhosted-kubernetes
+  cancel-in-progress: false
+
+env:
+  NAMESPACE: prompthub
+  KUBECONFIG: /home/ubuntu/.kube/config
+
+jobs:
+  planning:
+    name: Plan Application Images
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.plan.outputs.deploy }}
+      build_matrix: ${{ steps.plan.outputs.build_matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 변경 모듈 감지
+        id: changed
+        uses: tj-actions/changed-files@v46
+        with:
+          files_yaml: |
+            user_service:
+              - user-service/**
+            product_service:
+              - product-service/**
+            order_service:
+              - order-service/**
+            payment_service:
+              - payment-service/**
+            settlement_service:
+              - settlement-service/**
+            admin_service:
+              - admin-service/**
+            apigateway:
+              - apigateway/**
+            config:
+              - config/**
+            discovery:
+              - discovery/**
+            all_applications:
+              - common-module/**
+              - Dockerfile
+              - build.gradle
+              - build.gradle.kts
+              - gradle.properties
+              - gradlew
+              - gradlew.bat
+              - settings.gradle
+              - settings.gradle.kts
+              - gradle/**
+              - k8s/base/platform/**
+              - k8s/base/services/**
+              - k8s/base/gateway/**
+              - k8s/overlays/ec2-kubeadm/**
+              - .github/workflows/cd-selfhosted-kubernetes.yml
+              - .github/workflows/reusable-docker-build.yml
+
+      - name: 빌드 대상 결정
+        id: plan
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ steps.changed.outputs.all_applications_any_changed }}" = "true" ]; then
+            services_json='["config","discovery","user-service","product-service","order-service","payment-service","settlement-service","admin-service","apigateway"]'
+          else
+            services=()
+            [ "${{ steps.changed.outputs.config_any_changed }}" = "true" ] && services+=("config")
+            [ "${{ steps.changed.outputs.discovery_any_changed }}" = "true" ] && services+=("discovery")
+            [ "${{ steps.changed.outputs.user_service_any_changed }}" = "true" ] && services+=("user-service")
+            [ "${{ steps.changed.outputs.product_service_any_changed }}" = "true" ] && services+=("product-service")
+            [ "${{ steps.changed.outputs.order_service_any_changed }}" = "true" ] && services+=("order-service")
+            [ "${{ steps.changed.outputs.payment_service_any_changed }}" = "true" ] && services+=("payment-service")
+            [ "${{ steps.changed.outputs.settlement_service_any_changed }}" = "true" ] && services+=("settlement-service")
+            [ "${{ steps.changed.outputs.admin_service_any_changed }}" = "true" ] && services+=("admin-service")
+            [ "${{ steps.changed.outputs.apigateway_any_changed }}" = "true" ] && services+=("apigateway")
+
+            if [ ${#services[@]} -eq 0 ]; then
+              services_json="[]"
+            else
+              services_json="$(printf '%s\n' "${services[@]}" | jq -R . | jq -s -c .)"
+            fi
+          fi
+
+          if [ "$services_json" = "[]" ]; then
+            deploy="false"
+          else
+            deploy="true"
+          fi
+
+          echo "build_matrix=$services_json" >> "$GITHUB_OUTPUT"
+          echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
+          echo "배포 대상: $services_json"
+
+  parallel-build-and-push:
+    name: Build -> ${{ matrix.service }}
+    needs: planning
+    if: needs.planning.outputs.deploy == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.planning.outputs.build_matrix) }}
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: ${{ matrix.service }}
+      module-path: ${{ matrix.service }}
+      push-image: true
+      ecr-repository: prompthub-${{ matrix.service }}
+    secrets: inherit
+
+  deploy-applications:
+    name: Deploy Applications
+    needs:
+      - planning
+      - parallel-build-and-push
+    if: needs.planning.outputs.deploy == 'true'
+    runs-on: [self-hosted, linux, deploy]
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: 매니페스트 정적 검증
+        shell: bash
+        run: bash scripts/validate-k8s-manifests.sh
+
+      - name: 클러스터와 Secret 사전 확인
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          command -v kubectl >/dev/null
+          command -v jq >/dev/null
+          test -r "$KUBECONFIG"
+
+          kubectl config current-context
+          kubectl wait --for=condition=Ready node --all --timeout=60s
+
+          for statefulset in postgres redis kafka; do
+            kubectl rollout status statefulset/"$statefulset" -n "$NAMESPACE" --timeout=5m
+          done
+
+          required_secrets=(
+            postgres-secret
+            runtime-secret
+            jwt-secret
+            payment-secret
+            product-secret
+            ghcr-pull-secret
+          )
+
+          for secret in "${required_secrets[@]}"; do
+            kubectl get secret "$secret" -n "$NAMESPACE" >/dev/null
+          done
+
+      - name: 최초 애플리케이션 리소스 준비
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ensure_package() {
+            local deployment="$1"
+            local service="$2"
+            local package="$3"
+
+            if ! kubectl get deployment "$deployment" -n "$NAMESPACE" >/dev/null 2>&1 ||
+              ! kubectl get service "$service" -n "$NAMESPACE" >/dev/null 2>&1; then
+              kubectl apply -k "$package"
+            fi
+          }
+
+          ensure_package config config k8s/base/platform/config
+          ensure_package discovery discovery k8s/base/platform/discovery
+
+          kubectl rollout status deployment/config -n "$NAMESPACE" --timeout=10m
+          kubectl rollout status deployment/discovery -n "$NAMESPACE" --timeout=10m
+
+          ensure_package user-service user-service k8s/base/services/user
+          ensure_package product-service product-service k8s/base/services/product
+          ensure_package order-service order-service k8s/base/services/order
+          ensure_package payment-service payment-service k8s/base/services/payment
+          ensure_package settlement-service settlement-service k8s/base/services/settlement
+          ensure_package admin-service admin-service k8s/base/services/admin
+          ensure_package apigateway apigateway k8s/base/gateway
+
+          application_deployments=(
+            user-service
+            product-service
+            order-service
+            payment-service
+            settlement-service
+            admin-service
+            apigateway
+          )
+
+          for deployment in "${application_deployments[@]}"; do
+            kubectl rollout status deployment/"$deployment" -n "$NAMESPACE" --timeout=10m
+          done
+
+      - name: 변경 이미지 배포와 실패 시 rollback
+        shell: bash
+        env:
+          BUILD_MATRIX: ${{ needs.planning.outputs.build_matrix }}
+        run: |
+          set -Eeuo pipefail
+
+          owner_lc="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
+          short_sha="${GITHUB_SHA::7}"
+          deployment_order=(
+            config
+            discovery
+            user-service
+            product-service
+            order-service
+            payment-service
+            settlement-service
+            admin-service
+            apigateway
+          )
+          config_consumers=(
+            user-service
+            product-service
+            order-service
+            payment-service
+            settlement-service
+            admin-service
+            apigateway
+          )
+          updated_deployments=()
+          config_updated="false"
+
+          was_updated() {
+            local candidate="$1"
+            local deployment
+
+            for deployment in "${updated_deployments[@]}"; do
+              if [ "$deployment" = "$candidate" ]; then
+                return 0
+              fi
+            done
+
+            return 1
+          }
+
+          rollback_images() {
+            local exit_code="$?"
+            local index
+            local deployment
+
+            trap - ERR
+            set +e
+            echo "배포 실패: 이번 실행에서 변경한 이미지를 rollback 합니다."
+
+            for ((index=${#updated_deployments[@]} - 1; index >= 0; index--)); do
+              deployment="${updated_deployments[$index]}"
+              kubectl rollout undo deployment/"$deployment" -n "$NAMESPACE"
+            done
+
+            for deployment in "${updated_deployments[@]}"; do
+              kubectl rollout status deployment/"$deployment" -n "$NAMESPACE" --timeout=10m
+            done
+
+            if [ "$config_updated" = "true" ]; then
+              echo "Config rollback 값을 다시 읽도록 소비 서비스를 재시작합니다."
+              for deployment in "${config_consumers[@]}"; do
+                kubectl rollout restart deployment/"$deployment" -n "$NAMESPACE"
+                kubectl rollout status deployment/"$deployment" -n "$NAMESPACE" --timeout=10m
+              done
+            fi
+
+            exit "$exit_code"
+          }
+
+          trap rollback_images ERR
+
+          for service in "${deployment_order[@]}"; do
+            if ! jq -e --arg service "$service" 'index($service) != null' <<< "$BUILD_MATRIX" >/dev/null; then
+              continue
+            fi
+
+            image="ghcr.io/$owner_lc/prompthub-$service:$short_sha"
+            current_image="$(kubectl get deployment "$service" -n "$NAMESPACE" -o jsonpath="{.spec.template.spec.containers[?(@.name=='$service')].image}")"
+
+            if [ "$current_image" = "$image" ]; then
+              echo "이미 배포된 이미지이므로 건너뜁니다: $service -> $image"
+              continue
+            fi
+
+            kubectl set image deployment/"$service" "$service=$image" -n "$NAMESPACE"
+            updated_deployments+=("$service")
+
+            kubectl annotate deployment/"$service" kubernetes.io/change-cause="GitHub Actions $GITHUB_SHA" -n "$NAMESPACE" --overwrite
+            kubectl rollout status deployment/"$service" -n "$NAMESPACE" --timeout=10m
+
+            if [ "$service" = "config" ]; then
+              config_updated="true"
+            fi
+          done
+
+          if [ "$config_updated" = "true" ]; then
+            echo "새 Config 값을 읽도록 이미지가 바뀌지 않은 소비 서비스를 재시작합니다."
+            for deployment in "${config_consumers[@]}"; do
+              if was_updated "$deployment"; then
+                continue
+              fi
+
+              kubectl rollout restart deployment/"$deployment" -n "$NAMESPACE"
+              kubectl rollout status deployment/"$deployment" -n "$NAMESPACE" --timeout=10m
+            done
+          fi
+
+          trap - ERR
+          kubectl get deployment -n "$NAMESPACE" -o custom-columns=NAME:.metadata.name,READY:.status.readyReplicas,IMAGE:.spec.template.spec.containers[0].image
+
+  deploy-infrastructure:
+    name: Manually Deploy Infrastructure
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'infrastructure'
+    runs-on: [self-hosted, linux, deploy]
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: 수동 실행 확인
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "DEPLOY" ]; then
+            echo "confirmation에 DEPLOY를 입력해야 합니다." >&2
+            exit 1
+          fi
+
+      - name: 클러스터와 매니페스트 확인
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          command -v kubectl >/dev/null
+          test -r "$KUBECONFIG"
+          kubectl config current-context
+          kubectl wait --for=condition=Ready node --all --timeout=60s
+          bash scripts/validate-k8s-manifests.sh
+
+      - name: Storage와 상태 저장 인프라 적용
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          kubectl apply -f k8s/base/namespace.yaml
+          kubectl get secret postgres-secret -n "$NAMESPACE" >/dev/null
+          kubectl apply -k k8s/base/storage
+          kubectl apply -k k8s/base/infrastructure
+
+          for statefulset in postgres redis kafka; do
+            kubectl rollout status statefulset/"$statefulset" -n "$NAMESPACE" --timeout=10m
+          done
+
+          kubectl get pv
+          kubectl get pvc -n "$NAMESPACE"
+          kubectl get statefulset -n "$NAMESPACE"
+
+  deploy-ingress:
+    name: Manually Deploy Ingress
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'ingress'
+    runs-on: [self-hosted, linux, deploy]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: 수동 실행 확인
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "DEPLOY" ]; then
+            echo "confirmation에 DEPLOY를 입력해야 합니다." >&2
+            exit 1
+          fi
+
+      - name: Gateway와 host listener 확인
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          command -v kubectl >/dev/null
+          command -v ss >/dev/null
+          test -r "$KUBECONFIG"
+          kubectl config current-context
+          bash scripts/validate-k8s-manifests.sh
+
+          kubectl get service apigateway -n "$NAMESPACE" >/dev/null
+          kubectl rollout status deployment/apigateway -n "$NAMESPACE" --timeout=10m
+
+          controller_ready="$(kubectl get daemonset nginx-ingress -n nginx-ingress -o jsonpath='{.status.numberAvailable}' 2>/dev/null || true)"
+          controller_ready="${controller_ready:-0}"
+
+          if [ "$controller_ready" -eq 0 ]; then
+            for port in 80 443 18080 18081; do
+              if ss -H -ltn "sport = :$port" | grep -q .; then
+                echo "Large의 $port 포트를 다른 프로세스가 사용 중입니다." >&2
+                exit 1
+              fi
+            done
+          fi
+
+      - name: Ingress Controller와 Gateway Ingress 적용
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          kubectl apply -k k8s/addons/nginx-ingress
+          kubectl rollout status daemonset/nginx-ingress -n nginx-ingress --timeout=10m
+          kubectl apply -f k8s/overlays/ec2-kubeadm/gateway-ingress.yaml -n "$NAMESPACE"
+
+          kubectl get pods -n nginx-ingress -o wide
+          kubectl get ingress apigateway -n "$NAMESPACE"

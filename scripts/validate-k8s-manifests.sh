@@ -124,4 +124,6 @@ for package in "${PACKAGES[@]}"; do
   fi
 done
 
+bash "${ROOT_DIR}/scripts/validate-k8s-cd-workflow.sh"
+
 echo "Kubernetes manifest validation passed."
