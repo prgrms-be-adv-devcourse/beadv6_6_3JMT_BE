@@ -3,7 +3,6 @@ package com.prompthub.order.fixture;
 import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
@@ -189,26 +188,6 @@ public final class OrderFixture {
 
 	public static List<UUID> productIds() {
 		return List.of(PRODUCT_ID_1, PRODUCT_ID_2);
-	}
-
-	public static PaymentApprovedPayload createPaymentApprovedPayload(UUID orderId) {
-		return createPaymentApprovedPayload(orderId, TOTAL_AMOUNT);
-	}
-
-	public static PaymentApprovedPayload createPaymentApprovedPayload(
-		UUID orderId,
-		int approvedAmount
-	) {
-		return new PaymentApprovedPayload(
-			orderId,
-			PAYMENT_ID,
-			BUYER_ID,
-			"pg-tx-123",
-			"CARD",
-			"TOSS",
-			approvedAmount,
-			APPROVED_AT
-		);
 	}
 
 	public static PaymentRefundedPayload createPaymentRefundedPayload(UUID orderId) {
