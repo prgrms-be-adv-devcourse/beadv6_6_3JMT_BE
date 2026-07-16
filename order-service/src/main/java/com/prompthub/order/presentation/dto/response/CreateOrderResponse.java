@@ -1,5 +1,7 @@
 package com.prompthub.order.presentation.dto.response;
 
+import com.prompthub.order.application.dto.CreateOrderResult;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -7,24 +9,62 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-@Schema(description = "주문 생성 응답")
+@Schema(description = "판매자별 주문 생성 응답")
 public record CreateOrderResponse(
-	@Schema(description = "생성된 주문 ID", example = "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111")
-	UUID orderId,
-	@Schema(description = "주문 번호", example = "ORD-20260618-000001")
-	String orderNumber,
-	@Schema(description = "구매자 ID", example = "7c2f6e91-2c1b-4a3b-9f99-3f527f7d1234")
-	UUID buyerId,
-	@Schema(description = "주문 상태. PENDING, PAID, FAILED, CANCELED, REFUNDED", example = "PENDING")
-	OrderStatus orderStatus,
-	@Schema(description = "주문 상품 목록")
-	List<OrderProductsResponse> products,
-	@Schema(description = "주문 총 금액. 원 단위 정수", example = "30000")
+	@Schema(description = "전체 주문 금액", example = "45000")
 	int totalAmount,
-	@Schema(description = "주문 생성 일시. yyyy-MM-dd'T'HH:mm:ss 형식", example = "2026-06-18T14:30:00")
-	LocalDateTime createdAt,
-	@Schema(description = "주문 취소 일시. 취소 전이면 null", example = "2026-06-19T09:10:00", nullable = true)
-	LocalDateTime canceledAt
+	@Schema(description = "판매자별 주문 목록")
+	List<Order> orders
 ) {
 
+	public static CreateOrderResponse from(CreateOrderResult result) {
+		return new CreateOrderResponse(
+			result.totalAmount(),
+			result.orders().stream().map(Order::from).toList()
+		);
+	}
+
+	public record Order(
+		UUID orderId,
+		String orderNumber,
+		UUID buyerId,
+		UUID sellerId,
+		OrderStatus orderStatus,
+		int orderAmount,
+		List<Product> products,
+		LocalDateTime createdAt
+	) {
+
+		private static Order from(CreateOrderResult.Order order) {
+			return new Order(
+				order.orderId(),
+				order.orderNumber(),
+				order.buyerId(),
+				order.sellerId(),
+				order.orderStatus(),
+				order.orderAmount(),
+				order.products().stream().map(Product::from).toList(),
+				order.createdAt()
+			);
+		}
+	}
+
+	public record Product(
+		UUID orderProductId,
+		UUID productId,
+		String productTitle,
+		int productAmount,
+		OrderProductStatus orderProductStatus
+	) {
+
+		private static Product from(CreateOrderResult.Product product) {
+			return new Product(
+				product.orderProductId(),
+				product.productId(),
+				product.productTitle(),
+				product.productAmount(),
+				product.orderProductStatus()
+			);
+		}
+	}
 }

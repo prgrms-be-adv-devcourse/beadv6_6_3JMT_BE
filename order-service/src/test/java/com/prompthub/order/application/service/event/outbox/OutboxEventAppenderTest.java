@@ -10,10 +10,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,21 +39,24 @@ class OutboxEventAppenderTest {
 	}
 
 	@Test
-	@DisplayName("EventMessage를 직렬화하여 OutboxEvent로 저장한다")
+	@DisplayName("다건 ORDER_CREATED EventMessage 전체를 JSON으로 직렬화해 Outbox에 저장한다")
 	void append_savesSerializedOutboxEvent() throws Exception {
 		OutboxEventAppender appender = new OutboxEventAppender(objectMapper, outboxEventRepository);
-		
-		UUID eventId = UUID.randomUUID();
-		UUID aggregateId = UUID.randomUUID();
+
+		UUID orderGroupId = UUID.randomUUID();
 		LocalDateTime occurredAt = LocalDateTime.now();
-		
-		EventMessage<DummyPayload> message = new EventMessage<>(
-			eventId,
-			"ORDER_PAID",
+
+		EventMessage<Map<String, Object>> message = new EventMessage<>(
+			orderGroupId,
+			"ORDER_CREATED",
 			occurredAt,
-			"ORDER",
-			aggregateId,
-			new DummyPayload("test")
+			"ORDER_GROUP",
+			orderGroupId,
+			Map.of(
+				"buyerId", UUID.randomUUID(),
+				"totalAmount", 11_000,
+				"orders", List.of(Map.of("orderId", UUID.randomUUID()))
+			)
 		);
 
 		appender.append(message);
@@ -59,16 +65,20 @@ class OutboxEventAppenderTest {
 		then(outboxEventRepository).should().save(captor.capture());
 
 		OutboxEvent saved = captor.getValue();
-		assertThat(saved.getAggregateId()).isEqualTo(aggregateId);
-		assertThat(saved.getEventType()).isEqualTo("ORDER_PAID");
+		assertThat(saved.getEventId()).isEqualTo(orderGroupId);
+		assertThat(saved.getAggregateId()).isEqualTo(orderGroupId);
+		assertThat(saved.getEventType()).isEqualTo("ORDER_CREATED");
 		assertThat(saved.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
 		assertThat(saved.getRetryCount()).isZero();
 		assertThat(saved.getOccurredAt()).isEqualTo(occurredAt);
 		assertThat(saved.getPublishedAt()).isNull();
 
-		// 검증 로직 추가 가능
-		assertThat(saved.getPayload()).contains("test");
+		JsonNode json = objectMapper.readTree(saved.getPayload());
+		assertThat(json.path("eventId").asText()).isEqualTo(orderGroupId.toString());
+		assertThat(json.path("aggregateId").asText()).isEqualTo(orderGroupId.toString());
+		assertThat(json.path("eventType").asText()).isEqualTo("ORDER_CREATED");
+		assertThat(json.path("aggregateType").asText()).isEqualTo("ORDER_GROUP");
+		assertThat(json.path("payload").path("totalAmount").intValue()).isEqualTo(11_000);
+		assertThat(json.path("payload").path("orders")).hasSize(1);
 	}
-
-	private record DummyPayload(String data) {}
 }

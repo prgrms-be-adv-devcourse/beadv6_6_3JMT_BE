@@ -16,10 +16,10 @@ public class OrderExpirationRegistrar {
 
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
 	public void registerOrderExpiration(OrderCreatedEvent event) {
-		orderExpirationStore.registerExpiration(
-			event.orderId(),
-			event.createdAt(),
+		event.orders().forEach(order -> orderExpirationStore.registerExpiration(
+			order.orderId(),
+			order.createdAt(),
 			properties.paymentTimeoutMinutes()
-		);
+		));
 	}
 }

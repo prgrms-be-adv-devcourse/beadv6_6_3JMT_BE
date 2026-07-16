@@ -1,11 +1,11 @@
 package com.prompthub.order.application.usecase;
 
-import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
-import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
+import com.prompthub.order.application.dto.CreateOrderCommand;
+import com.prompthub.order.application.dto.CreateOrderResult;
 
 import java.util.UUID;
 
 public interface CreateOrderUseCase {
 
-	CreateOrderResponse createOrder(UUID buyerId, CreateOrderRequest request);
+	CreateOrderResult createOrder(UUID buyerId, CreateOrderCommand command);
 }

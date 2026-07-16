@@ -9,7 +9,6 @@ import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
-import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -85,22 +84,6 @@ public final class OrderFixture {
 	public static final int PRODUCT_AMOUNT_2 = 20_000;
 	public static final int TOTAL_AMOUNT = PRODUCT_AMOUNT_1 + PRODUCT_AMOUNT_2;
 	public static final int TOTAL_ITEM_COUNT = 2;
-
-	public static CreateOrderRequest createOrderRequest() {
-		return new CreateOrderRequest(List.of(PRODUCT_ID_1, PRODUCT_ID_2));
-	}
-
-	public static CreateOrderRequest createOrderRequestWithNullProductIds() {
-		return new CreateOrderRequest(null);
-	}
-
-	public static CreateOrderRequest createOrderRequestWithEmptyProductIds() {
-		return new CreateOrderRequest(List.of());
-	}
-
-	public static CreateOrderRequest createOrderRequestWithDuplicatedProductIds() {
-		return new CreateOrderRequest(List.of(PRODUCT_ID_1, PRODUCT_ID_1));
-	}
 
 	public static List<ProductOrderSnapshot> createProductSnapshots() {
 		return List.of(

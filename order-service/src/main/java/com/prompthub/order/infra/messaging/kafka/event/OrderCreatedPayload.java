@@ -1,26 +1,64 @@
 package com.prompthub.order.infra.messaging.kafka.event;
 
-import com.prompthub.order.domain.model.Order;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 
-import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public record OrderCreatedPayload(
-        UUID orderId,
-        UUID buyerId,
-        String orderNumber,
-        int totalAmount,
-        String orderStatus,
-        LocalDateTime createdAt
+	UUID buyerId,
+	int totalAmount,
+	List<Order> orders
 ) {
-    public static OrderCreatedPayload from(Order order) {
-        return new OrderCreatedPayload(
-                order.getId(),
-                order.getBuyerId(),
-                order.getOrderNumber(),
-                order.getTotalOrderAmount(),
-                order.getOrderStatus().name(),
-                order.getCreatedAt()
-        );
-    }
+
+	public static OrderCreatedPayload from(
+		UUID buyerId,
+		List<com.prompthub.order.domain.model.Order> orders
+	) {
+		return new OrderCreatedPayload(
+			buyerId,
+			orders.stream()
+				.mapToInt(com.prompthub.order.domain.model.Order::getTotalOrderAmount)
+				.sum(),
+			orders.stream().map(Order::from).toList()
+		);
+	}
+
+	public record Order(
+		UUID orderId,
+		String orderNumber,
+		UUID sellerId,
+		int totalAmount,
+		List<Product> products
+	) {
+
+		private static Order from(com.prompthub.order.domain.model.Order order) {
+			return new Order(
+				order.getId(),
+				order.getOrderNumber(),
+				order.getSellerId(),
+				order.getTotalOrderAmount(),
+				order.getOrderProducts().stream().map(Product::from).toList()
+			);
+		}
+	}
+
+	public record Product(
+		UUID orderProductId,
+		UUID productId,
+		String productTitle,
+		int productAmount,
+		OrderProductStatus status
+	) {
+
+		private static Product from(com.prompthub.order.domain.model.OrderProduct product) {
+			return new Product(
+				product.getId(),
+				product.getProductId(),
+				product.getProductTitle(),
+				product.getProductAmount(),
+				product.getOrderStatus()
+			);
+		}
+	}
 }

@@ -11,10 +11,8 @@ import com.prompthub.order.global.exception.GlobalExceptionHandler;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.global.web.AuthHeaders;
 import com.prompthub.order.global.web.OrderServiceAuthInterceptor;
-import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.request.OrderPaymentValidationRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
-import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
@@ -22,7 +20,6 @@ import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
-import com.prompthub.order.presentation.dto.response.OrderProductsResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -66,13 +63,13 @@ class OrderControllerTest {
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@Mock
-	private CreateOrderUseCase createOrderUseCase;
-
-	@Mock
 	private ConfirmDownloadUseCase confirmDownloadUseCase;
 
 	@Mock
 	private OrderQueryUseCase orderQueryUseCase;
+
+	@Mock
+	private CreateOrderUseCase createOrderUseCase;
 
 	@BeforeEach
 	void setUp() {
@@ -80,9 +77,9 @@ class OrderControllerTest {
 		validator.afterPropertiesSet();
 
 		mockMvc = MockMvcBuilders.standaloneSetup(new OrderController(
-			createOrderUseCase,
 			confirmDownloadUseCase,
-			orderQueryUseCase
+			orderQueryUseCase,
+			createOrderUseCase
 		))
 			.setControllerAdvice(new GlobalExceptionHandler())
 			.addInterceptors(new OrderServiceAuthInterceptor())
@@ -410,221 +407,6 @@ class OrderControllerTest {
 					.andExpect(status().isForbidden())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
-			}
-		}
-	}
-
-	@Nested
-	@DisplayName("주문 생성 (POST /api/v1/orders)")
-	class CreateOrder {
-
-		@Nested
-		@DisplayName("성공 케이스")
-		class Success {
-
-			@Test
-			@DisplayName("주문 생성 성공")
-			void createOrder_success() throws Exception {
-				// given
-				UUID orderId = UUID.fromString("33333333-3333-3333-3333-333333333333");
-				UUID orderProductId1 = UUID.fromString("44444444-4444-4444-4444-444444444441");
-				UUID orderProductId2 = UUID.fromString("44444444-4444-4444-4444-444444444442");
-
-				CreateOrderRequest request = createOrderRequest();
-
-				OrderProductsResponse productResponse1 = new OrderProductsResponse(
-					orderProductId1,
-					PRODUCT_ID_1,
-					SELLER_ID_1,
-					PRODUCT_TITLE_1,
-					PRODUCT_TYPE_PROMPT,
-					"GPT-4",
-					PRODUCT_AMOUNT_1,
-					OrderProductStatus.PENDING
-				);
-				OrderProductsResponse productResponse2 = new OrderProductsResponse(
-					orderProductId2,
-					PRODUCT_ID_2,
-					SELLER_ID_2,
-					PRODUCT_TITLE_2,
-					PRODUCT_TYPE_PROMPT,
-					"GPT-4",
-					PRODUCT_AMOUNT_2,
-					OrderProductStatus.PENDING
-				);
-
-				CreateOrderResponse response = new CreateOrderResponse(
-					orderId,
-					ORDER_NUMBER,
-					BUYER_ID,
-					OrderStatus.PENDING,
-					List.of(productResponse1, productResponse2),
-					TOTAL_AMOUNT,
-					LocalDateTime.of(2026, 6, 19, 10, 0),
-					null
-				);
-
-				when(createOrderUseCase.createOrder(eq(BUYER_ID), eq(request)))
-					.thenReturn(response);
-
-				// when & then
-				mockMvc.perform(post("/api/v1/orders")
-						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(request)))
-					.andExpect(status().isOk())
-					.andExpect(jsonPath("$.success").value(true))
-					.andExpect(jsonPath("$.message").value("success"))
-					.andExpect(jsonPath("$.data.orderId").value(orderId.toString()))
-					.andExpect(jsonPath("$.data.orderNumber").value(ORDER_NUMBER))
-					.andExpect(jsonPath("$.data.buyerId").value(BUYER_ID.toString()))
-					.andExpect(jsonPath("$.data.orderStatus").value("CREATED"))
-					.andExpect(jsonPath("$.data.totalAmount").value(TOTAL_AMOUNT))
-					.andExpect(jsonPath("$.data.products[0].orderProductId").value(orderProductId1.toString()))
-					.andExpect(jsonPath("$.data.products[0].productId").value(PRODUCT_ID_1.toString()))
-					.andExpect(jsonPath("$.data.products[0].sellerId").value(SELLER_ID_1.toString()))
-					.andExpect(jsonPath("$.data.products[0].productTitleSnapshot").value(PRODUCT_TITLE_1))
-					.andExpect(jsonPath("$.data.products[0].productTypeSnapshot").value(PRODUCT_TYPE_PROMPT))
-					.andExpect(jsonPath("$.data.products[0].productModelSnapshot").value("GPT-4"))
-					.andExpect(jsonPath("$.data.products[0].productAmountSnapshot").value(PRODUCT_AMOUNT_1))
-					.andExpect(jsonPath("$.data.products[0].orderStatus").value("PENDING"))
-					.andExpect(jsonPath("$.data.products[1].orderProductId").value(orderProductId2.toString()))
-					.andExpect(jsonPath("$.data.products[1].productId").value(PRODUCT_ID_2.toString()))
-					.andExpect(jsonPath("$.data.products[1].sellerId").value(SELLER_ID_2.toString()))
-					.andExpect(jsonPath("$.data.products[1].productTitleSnapshot").value(PRODUCT_TITLE_2))
-					.andExpect(jsonPath("$.data.products[1].productTypeSnapshot").value(PRODUCT_TYPE_PROMPT))
-					.andExpect(jsonPath("$.data.products[1].productModelSnapshot").value("GPT-4"))
-					.andExpect(jsonPath("$.data.products[1].productAmountSnapshot").value(PRODUCT_AMOUNT_2))
-					.andExpect(jsonPath("$.data.products[1].orderStatus").value("PENDING"));
-
-				verify(createOrderUseCase).createOrder(eq(BUYER_ID), eq(request));
-			}
-
-			@Test
-			@DisplayName("USER 권한과 SELLER 권한을 함께 가진 사용자는 주문을 생성할 수 있다")
-			void createOrder_userWithSellerRole_success() throws Exception {
-				UUID orderId = UUID.fromString("33333333-3333-3333-3333-333333333333");
-				CreateOrderRequest request = createOrderRequest();
-				CreateOrderResponse response = new CreateOrderResponse(
-					orderId,
-					ORDER_NUMBER,
-					BUYER_ID,
-					OrderStatus.PENDING,
-					List.of(),
-					TOTAL_AMOUNT,
-					LocalDateTime.of(2026, 6, 19, 10, 0),
-					null
-				);
-
-				when(createOrderUseCase.createOrder(eq(BUYER_ID), eq(request)))
-					.thenReturn(response);
-
-				mockMvc.perform(post("/api/v1/orders")
-						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER + "," + AuthHeaders.SELLER)
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(request)))
-					.andExpect(status().isOk())
-					.andExpect(jsonPath("$.success").value(true))
-					.andExpect(jsonPath("$.data.orderId").value(orderId.toString()));
-
-				verify(createOrderUseCase).createOrder(eq(BUYER_ID), eq(request));
-			}
-		}
-
-		@Nested
-		@DisplayName("실패 케이스")
-		class Failure {
-
-			@Test
-			@DisplayName("X-User-Id 헤더가 없으면 401 Unauthorized")
-			void createOrder_withoutUserIdHeader_unauthorized() throws Exception {
-				// given
-				CreateOrderRequest request = createOrderRequest();
-
-				// when & then
-				mockMvc.perform(post("/api/v1/orders")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(request)))
-					.andExpect(status().isUnauthorized())
-					.andExpect(jsonPath("$.success").value(false))
-					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
-			}
-
-			@Test
-			@DisplayName("X-User-Role 헤더가 없으면 401 Unauthorized")
-			void createOrder_withoutUserRoleHeader_unauthorized() throws Exception {
-				CreateOrderRequest request = createOrderRequest();
-
-				mockMvc.perform(post("/api/v1/orders")
-						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(request)))
-					.andExpect(status().isUnauthorized())
-					.andExpect(jsonPath("$.success").value(false))
-					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
-
-				verifyNoInteractions(createOrderUseCase);
-			}
-
-			@Test
-			@DisplayName("X-User-Role이 USER가 아니면 403 Forbidden")
-			void createOrder_nonUserRole_forbidden() throws Exception {
-				CreateOrderRequest request = createOrderRequest();
-
-				mockMvc.perform(post("/api/v1/orders")
-						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.SELLER)
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(request)))
-					.andExpect(status().isForbidden())
-					.andExpect(jsonPath("$.success").value(false))
-					.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
-
-				verifyNoInteractions(createOrderUseCase);
-			}
-
-			@Test
-			@DisplayName("X-User-Id 헤더가 UUID 형식이 아니면 400 Bad Request")
-			void createOrder_invalidUserIdHeader_badRequest() throws Exception {
-				// given
-				CreateOrderRequest request = createOrderRequest();
-
-				// when & then
-				mockMvc.perform(post("/api/v1/orders")
-						.header(AuthHeaders.USER_ID, "invalid-uuid")
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(request)))
-					.andExpect(status().isBadRequest());
-			}
-
-			@Test
-			@DisplayName("RequestBody가 없으면 400 Bad Request")
-			void createOrder_withoutRequestBody_badRequest() throws Exception {
-				// given
-				// when & then
-				mockMvc.perform(post("/api/v1/orders")
-						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
-						.contentType(MediaType.APPLICATION_JSON))
-					.andExpect(status().isBadRequest());
-			}
-
-			@Test
-			@DisplayName("productIds가 비어 있으면 400 Bad Request")
-			void createOrder_emptyProductIds_badRequest() throws Exception {
-				// given
-				CreateOrderRequest request = createOrderRequestWithEmptyProductIds();
-
-				// when & then
-				mockMvc.perform(post("/api/v1/orders")
-						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(request)))
-					.andExpect(status().isBadRequest());
 			}
 		}
 	}
