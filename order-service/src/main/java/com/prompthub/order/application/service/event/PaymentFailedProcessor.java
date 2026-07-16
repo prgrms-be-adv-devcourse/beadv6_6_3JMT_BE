@@ -12,49 +12,69 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+
+import static java.util.stream.Collectors.toSet;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentFailedProcessor {
 
-    private static final String CONSUMER_GROUP = "order-service";
+	private static final String CONSUMER_GROUP = "order-service";
 
-    private final ProcessedEventService processedEventService;
-    private final OrderRepository orderRepository;
+	private final ProcessedEventService processedEventService;
+	private final OrderRepository orderRepository;
+	private final PaymentEventValidator validator;
 
-    @Transactional
-    public void process(
-            UUID eventId,
-            String eventType,
-            LocalDateTime occurredAt,
-            PaymentFailedPayload payload
-    ) {
-        if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
-            return;
-        }
+	@Transactional
+	public void process(
+		UUID eventId,
+		String eventType,
+		LocalDateTime occurredAt,
+		PaymentFailedPayload payload
+	) {
+		validator.validateEnvelope(eventId, eventType, occurredAt);
+		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
+			return;
+		}
 
-        Order order = orderRepository.findByIdWithOrderProducts(payload.orderId())
-                .orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
+		List<UUID> orderIds = validator.validate(payload);
+		List<Order> orders = orderRepository.findAllByIdsWithOrderProductsForUpdate(orderIds);
 
-        if (order.getOrderStatus() != OrderStatus.CREATED) {
-            log.warn("이미 처리된 주문이거나 금지된 상태 전이 시도입니다. 상태 변경 무시. eventId={}, eventType={}, orderId={}, currentStatus={}",
-                    eventId, eventType, payload.orderId(), order.getOrderStatus());
-            processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
-            return;
-        }
+		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
+			return;
+		}
+		validateAllOrdersLoaded(orderIds, orders);
 
-        order.markFailed();
+		orders.stream()
+			.filter(order -> order.getOrderStatus() == OrderStatus.CREATED)
+			.forEach(Order::markFailed);
 
-        processedEventService.markProcessed(
-                eventId,
-                CONSUMER_GROUP,
-                eventType,
-                occurredAt
-        );
+		processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
 
-        log.info("결제 이벤트 처리 완료. eventId={}, eventType={}, orderId={}, targetStatus={}, consumerGroup={}",
-                eventId, eventType, payload.orderId(), OrderStatus.FAILED, CONSUMER_GROUP);
-    }
+		log.info(
+			"결제 실패 이벤트 처리 완료. eventId={}, paymentId={}, orderIds={}, failureCode={}, "
+				+ "failureReason={}, failedAt={}, statuses={}, consumerGroup={}",
+			eventId,
+			payload.paymentId(),
+			orderIds,
+			payload.failureCode(),
+			payload.failureReason(),
+			payload.failedAt(),
+			orders.stream().map(order -> order.getId() + ":" + order.getOrderStatus()).toList(),
+			CONSUMER_GROUP
+		);
+	}
+
+	private void validateAllOrdersLoaded(List<UUID> orderIds, List<Order> orders) {
+		Set<UUID> loadedOrderIds = orders.stream()
+			.map(Order::getId)
+			.collect(toSet());
+		if (orders.size() != orderIds.size() || !loadedOrderIds.equals(Set.copyOf(orderIds))) {
+			throw new OrderException(ErrorCode.ORDER_NOT_FOUND);
+		}
+	}
 }
