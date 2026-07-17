@@ -31,7 +31,7 @@ import static com.prompthub.order.fixture.OrderV2Fixture.AMOUNT_A1;
 import static com.prompthub.order.fixture.OrderV2Fixture.AMOUNT_A2;
 import static com.prompthub.order.fixture.OrderV2Fixture.BUYER_ID;
 import static com.prompthub.order.fixture.OrderV2Fixture.CREATED_AT;
-import static com.prompthub.order.fixture.OrderV2Fixture.ORDER_GROUP_ID;
+import static com.prompthub.order.fixture.OrderV2Fixture.ORDER_A;
 import static com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_A1;
 import static com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_A2;
 import static com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_B1;
@@ -82,11 +82,11 @@ class OrderCreatorTest {
 		});
 		given(orderEventMessageFactory.createOrderCreatedMessage(any(OrderCreatedPayload.class)))
 			.willReturn(new EventMessage<>(
-				ORDER_GROUP_ID,
+				ORDER_A,
 				"ORDER_CREATED",
 				CREATED_AT,
-				"ORDER_GROUP",
-				ORDER_GROUP_ID,
+				"ORDER",
+				ORDER_A,
 				null
 			));
 	}

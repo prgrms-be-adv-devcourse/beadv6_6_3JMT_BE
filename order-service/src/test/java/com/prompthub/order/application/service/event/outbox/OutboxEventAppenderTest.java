@@ -4,6 +4,7 @@ import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.domain.enums.OutboxEventStatus;
 import com.prompthub.order.domain.model.OutboxEvent;
 import com.prompthub.order.domain.repository.OutboxEventRepository;
+import com.prompthub.order.infra.messaging.kafka.event.OrderCreatedPayload;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,8 +16,6 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,24 +38,22 @@ class OutboxEventAppenderTest {
 	}
 
 	@Test
-	@DisplayName("다건 ORDER_CREATED EventMessage 전체를 JSON으로 직렬화해 Outbox에 저장한다")
+	@DisplayName("단건 ORDER_CREATED EventMessage 전체를 JSON으로 직렬화해 Outbox에 저장한다")
 	void append_savesSerializedOutboxEvent() throws Exception {
 		OutboxEventAppender appender = new OutboxEventAppender(objectMapper, outboxEventRepository);
 
-		UUID orderGroupId = UUID.randomUUID();
+		UUID eventId = UUID.randomUUID();
+		UUID orderId = UUID.randomUUID();
+		UUID buyerId = UUID.randomUUID();
 		LocalDateTime occurredAt = LocalDateTime.now();
 
-		EventMessage<Map<String, Object>> message = new EventMessage<>(
-			orderGroupId,
+		EventMessage<OrderCreatedPayload> message = new EventMessage<>(
+			eventId,
 			"ORDER_CREATED",
 			occurredAt,
-			"ORDER_GROUP",
-			orderGroupId,
-			Map.of(
-				"buyerId", UUID.randomUUID(),
-				"totalAmount", 11_000,
-				"orders", List.of(Map.of("orderId", UUID.randomUUID()))
-			)
+			"ORDER",
+			orderId,
+			new OrderCreatedPayload(orderId, buyerId, 11_000, occurredAt)
 		);
 
 		appender.append(message);
@@ -65,8 +62,8 @@ class OutboxEventAppenderTest {
 		then(outboxEventRepository).should().save(captor.capture());
 
 		OutboxEvent saved = captor.getValue();
-		assertThat(saved.getEventId()).isEqualTo(orderGroupId);
-		assertThat(saved.getAggregateId()).isEqualTo(orderGroupId);
+		assertThat(saved.getEventId()).isEqualTo(eventId);
+		assertThat(saved.getAggregateId()).isEqualTo(orderId);
 		assertThat(saved.getEventType()).isEqualTo("ORDER_CREATED");
 		assertThat(saved.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
 		assertThat(saved.getRetryCount()).isZero();
@@ -74,11 +71,12 @@ class OutboxEventAppenderTest {
 		assertThat(saved.getPublishedAt()).isNull();
 
 		JsonNode json = objectMapper.readTree(saved.getPayload());
-		assertThat(json.path("eventId").asText()).isEqualTo(orderGroupId.toString());
-		assertThat(json.path("aggregateId").asText()).isEqualTo(orderGroupId.toString());
+		assertThat(json.path("eventId").asText()).isEqualTo(eventId.toString());
+		assertThat(json.path("aggregateId").asText()).isEqualTo(orderId.toString());
 		assertThat(json.path("eventType").asText()).isEqualTo("ORDER_CREATED");
-		assertThat(json.path("aggregateType").asText()).isEqualTo("ORDER_GROUP");
+		assertThat(json.path("aggregateType").asText()).isEqualTo("ORDER");
+		assertThat(json.path("payload").path("orderId").asText()).isEqualTo(orderId.toString());
 		assertThat(json.path("payload").path("totalAmount").intValue()).isEqualTo(11_000);
-		assertThat(json.path("payload").path("orders")).hasSize(1);
+		assertThat(json.path("payload").has("orders")).isFalse();
 	}
 }
