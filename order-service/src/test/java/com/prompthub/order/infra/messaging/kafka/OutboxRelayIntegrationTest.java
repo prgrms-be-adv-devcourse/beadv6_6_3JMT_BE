@@ -1,8 +1,14 @@
 package com.prompthub.order.infra.messaging.kafka;
 
+import com.prompthub.order.application.service.event.OrderEventMessageFactory;
+import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
 import com.prompthub.order.domain.enums.OutboxEventStatus;
+import com.prompthub.order.domain.model.Order;
+import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.model.OutboxEvent;
 import com.prompthub.order.domain.repository.OutboxEventRepository;
+import com.prompthub.order.infra.messaging.kafka.event.OrderPaidPayload;
+import com.prompthub.order.infra.messaging.kafka.event.OrderRefundPayload;
 import com.prompthub.order.infra.persistence.outbox.OutboxEventPersistence;
 import com.prompthub.order.infra.messaging.kafka.producer.OutboxRelay;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -18,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
+import org.springframework.test.util.ReflectionTestUtils;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -40,6 +47,12 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
 
     @Autowired
     private OutboxRelay outboxRelay;
+
+    @Autowired
+    private OrderEventMessageFactory orderEventMessageFactory;
+
+    @Autowired
+    private OutboxEventAppender outboxEventAppender;
 
     @Autowired
     private EmbeddedKafkaBroker embeddedKafkaBroker;
@@ -108,9 +121,7 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
 	@Test
     @DisplayName("Outbox Event가 DB에 저장되어 있으면 product-service가 수신 가능한 ORDER_PAID 이벤트를 Kafka로 발행한다")
     void outboxRelayPublishesProductServiceCompatibleOrderPaidEventToKafka() throws Exception {
-        // given
         UUID orderId = UUID.randomUUID();
-        UUID eventId = UUID.randomUUID();
         UUID buyerId = UUID.randomUUID();
         UUID orderProductIdA1 = UUID.randomUUID();
         UUID orderProductIdB1 = UUID.randomUUID();
@@ -124,86 +135,42 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
         UUID sellerB = UUID.randomUUID();
         UUID sellerC = UUID.randomUUID();
         LocalDateTime occurredAt = LocalDateTime.now();
-        String payload = """
-            {
-              "eventId": "%s",
-              "eventType": "ORDER_PAID",
-              "version": 1,
-              "occurredAt": "%s",
-              "aggregateId": "%s",
-              "payload": {
-                "orderId": "%s",
-                "buyerId": "%s",
-                "totalOrderAmount": 39600,
-                "totalProductCount": 4,
-                "paidAt": "%s",
-                "products": [
-                  {
-                    "orderProductId": "%s",
-                    "productId": "%s",
-                    "sellerId": "%s",
-                    "productTitle": "A1",
-                    "productType": "PROMPT",
-                    "productAmount": 9900
-                  },
-                  {
-                    "orderProductId": "%s",
-                    "productId": "%s",
-                    "sellerId": "%s",
-                    "productTitle": "B1",
-                    "productType": "PROMPT",
-                    "productAmount": 9900
-                  },
-                  {
-                    "orderProductId": "%s",
-                    "productId": "%s",
-                    "sellerId": "%s",
-                    "productTitle": "A2",
-                    "productType": "PROMPT",
-                    "productAmount": 9900
-                  },
-                  {
-                    "orderProductId": "%s",
-                    "productId": "%s",
-                    "sellerId": "%s",
-                    "productTitle": "C1",
-                    "productType": "PROMPT",
-                    "productAmount": 9900
-                  }
-                ]
-              }
-            }
-            """.formatted(eventId, occurredAt, orderId, orderId, buyerId, occurredAt,
-            orderProductIdA1, productIdA1, sellerA,
-            orderProductIdB1, productIdB1, sellerB,
-            orderProductIdA2, productIdA2, sellerA,
-            orderProductIdC1, productIdC1, sellerC);
-        OutboxEvent event = OutboxEvent.orderPaid(eventId, orderId, payload, occurredAt);
-        outboxEventRepository.save(event);
+        Order order = paidOrder(orderId, buyerId, 39_600, occurredAt,
+            new ProductLine(orderProductIdA1, productIdA1, sellerA, "A1", 9_900),
+            new ProductLine(orderProductIdB1, productIdB1, sellerB, "B1", 9_900),
+            new ProductLine(orderProductIdA2, productIdA2, sellerA, "A2", 9_900),
+            new ProductLine(orderProductIdC1, productIdC1, sellerC, "C1", 9_900)
+        );
+        OrderPaidPayload payload = OrderPaidPayload.from(order);
+        var message = orderEventMessageFactory.createOrderPaidMessage(order.getId(), payload);
+        outboxEventAppender.append(message);
 
-        // when
         outboxRelay.publishPendingEvents();
 
-        // then
-        // 1. DB 상태 검증
-        OutboxEvent updatedEvent = outboxEventPersistence.findById(event.getEventId()).orElseThrow();
+        OutboxEvent updatedEvent = outboxEventPersistence.findById(message.eventId()).orElseThrow();
         assertThat(updatedEvent.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED);
 
-        // 2. Kafka 메시지 검증
         ConsumerRecords<String, String> records = KafkaTestUtils.getRecords(consumer, Duration.ofMillis(10000));
         assertThat(records.count()).isGreaterThanOrEqualTo(1);
 
+        ConsumerRecord<String, String> matchedRecord = null;
         JsonNode matchedMessage = null;
         for (ConsumerRecord<String, String> record : records) {
             if (record.key().equals(orderId.toString()) && record.value().contains("ORDER_PAID")) {
+                matchedRecord = record;
                 matchedMessage = objectMapper.readTree(record.value());
                 break;
             }
         }
+        assertThat(matchedRecord).isNotNull();
+        assertThat(matchedRecord.key()).isEqualTo(orderId.toString());
         assertThat(matchedMessage).isNotNull();
+        assertThat(matchedMessage.path("eventId").asText()).isEqualTo(message.eventId().toString());
         assertThat(matchedMessage.path("eventType").asText()).isEqualTo("ORDER_PAID");
+        assertThat(matchedMessage.path("aggregateType").asText()).isEqualTo("ORDER");
         assertThat(matchedMessage.path("aggregateId").asText()).isEqualTo(orderId.toString());
         assertThat(matchedMessage.path("payload").path("orderId").asText()).isEqualTo(orderId.toString());
+        assertThat(matchedMessage.path("payload").path("totalOrderAmount").intValue()).isEqualTo(39_600);
         JsonNode products = matchedMessage.path("payload").path("products");
         assertThat(products).hasSize(4);
         assertThat(products).allSatisfy(product -> assertThat(product.has("productId")).isTrue());
@@ -217,72 +184,86 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
     @DisplayName("Outbox Event가 DB에 저장되어 있으면 product-service가 수신 가능한 ORDER_REFUND 이벤트를 Kafka로 발행한다")
     void outboxRelayPublishesProductServiceCompatibleOrderRefundEventToKafka() throws Exception {
         UUID orderId = UUID.randomUUID();
-        UUID eventId = UUID.randomUUID();
-        UUID paymentId = UUID.randomUUID();
         UUID buyerId = UUID.randomUUID();
         UUID orderProductId = UUID.randomUUID();
         UUID productId = UUID.randomUUID();
         UUID sellerId = UUID.randomUUID();
         LocalDateTime occurredAt = LocalDateTime.now();
-        String payload = """
-            {
-              "eventId": "%s",
-              "eventType": "ORDER_REFUND",
-              "version": 1,
-              "occurredAt": "%s",
-              "aggregateId": "%s",
-              "payload": {
-                "orderId": "%s",
-                "paymentId": "%s",
-                "buyerId": "%s",
-                "totalRefundAmount": 9900,
-                "totalProductCount": 1,
-                "refundedAt": "%s",
-                "products": [
-                  {
-                    "orderProductId": "%s",
-                    "productId": "%s",
-                    "sellerId": "%s",
-                    "productTitle": "test",
-                    "productType": "PROMPT",
-                    "refundAmount": 9900
-                  }
-                ]
-              }
-            }
-            """.formatted(eventId, occurredAt, orderId, orderId, paymentId, buyerId, occurredAt,
-            orderProductId, productId, sellerId);
-        OutboxEvent event = OutboxEvent.orderRefund(eventId, orderId, payload, occurredAt);
-        outboxEventRepository.save(event);
+        Order order = paidOrder(orderId, buyerId, 30_000, occurredAt,
+            new ProductLine(orderProductId, productId, sellerId, "refund-target", 9_900),
+            new ProductLine(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "sibling", 20_100)
+        );
+        OrderProduct refundedProduct = order.getOrderProducts().getFirst();
+        order.refundOrderProduct(refundedProduct.getId(), refundedProduct.getProductAmount(), occurredAt);
+        OrderRefundPayload payload = OrderRefundPayload.from(order, refundedProduct, occurredAt);
+        var message = orderEventMessageFactory.createOrderRefundMessage(order.getId(), payload);
+        outboxEventAppender.append(message);
 
         outboxRelay.publishPendingEvents();
 
-        OutboxEvent updatedEvent = outboxEventPersistence.findById(event.getEventId()).orElseThrow();
+        OutboxEvent updatedEvent = outboxEventPersistence.findById(message.eventId()).orElseThrow();
         assertThat(updatedEvent.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED);
 
         ConsumerRecords<String, String> records = KafkaTestUtils.getRecords(consumer, Duration.ofMillis(10000));
         assertThat(records.count()).isGreaterThanOrEqualTo(1);
 
+        ConsumerRecord<String, String> matchedRecord = null;
         JsonNode matchedMessage = null;
         for (ConsumerRecord<String, String> record : records) {
             if (record.key().equals(orderId.toString()) && record.value().contains("ORDER_REFUND")) {
+                matchedRecord = record;
                 matchedMessage = objectMapper.readTree(record.value());
                 break;
             }
         }
+        assertThat(matchedRecord).isNotNull();
+        assertThat(matchedRecord.key()).isEqualTo(orderId.toString());
         assertThat(matchedMessage).isNotNull();
+        assertThat(matchedMessage.path("eventId").asText()).isEqualTo(message.eventId().toString());
         assertThat(matchedMessage.path("eventType").asText()).isEqualTo("ORDER_REFUND");
+        assertThat(matchedMessage.path("aggregateType").asText()).isEqualTo("ORDER");
         assertThat(matchedMessage.path("aggregateId").asText()).isEqualTo(orderId.toString());
         assertThat(matchedMessage.path("payload").path("orderId").asText()).isEqualTo(orderId.toString());
-        assertThat(matchedMessage.path("payload").path("paymentId").asText()).isEqualTo(paymentId.toString());
-        assertThat(matchedMessage.path("payload").path("totalRefundAmount").intValue()).isEqualTo(9900);
+        assertThat(matchedMessage.path("payload").has("paymentId")).isFalse();
+        assertThat(matchedMessage.path("payload").has("totalRefundAmount")).isFalse();
+        assertThat(matchedMessage.path("payload").path("totalOrderAmount").intValue()).isEqualTo(30_000);
         assertThat(matchedMessage.path("payload").path("products")).hasSize(1);
         assertThat(matchedMessage.path("payload").path("products").get(0).has("productId")).isTrue();
         assertThat(matchedMessage.path("payload").path("products").get(0).path("productId").asText())
             .isEqualTo(productId.toString());
         assertThat(matchedMessage.path("payload").path("products").get(0).path("sellerId").asText())
             .isEqualTo(sellerId.toString());
-        assertThat(matchedMessage.path("payload").path("products").get(0).path("refundAmount").intValue())
+        assertThat(matchedMessage.path("payload").path("products").get(0).has("refundAmount")).isFalse();
+        assertThat(matchedMessage.path("payload").path("products").get(0).path("productAmount").intValue())
             .isEqualTo(9900);
+    }
+
+    private Order paidOrder(
+        UUID orderId,
+        UUID buyerId,
+        int totalOrderAmount,
+        LocalDateTime paidAt,
+        ProductLine... lines
+    ) {
+        Order order = Order.create(buyerId, "ORD-" + orderId, totalOrderAmount);
+        ReflectionTestUtils.setField(order, "id", orderId);
+        for (ProductLine line : lines) {
+            OrderProduct product = OrderProduct.create(
+                line.productId(), line.sellerId(), line.productTitle(), "PROMPT", "GPT-4", line.productAmount()
+            );
+            ReflectionTestUtils.setField(product, "id", line.orderProductId());
+            order.addOrderProduct(product);
+        }
+        order.markPaid(paidAt);
+        return order;
+    }
+
+    private record ProductLine(
+        UUID orderProductId,
+        UUID productId,
+        UUID sellerId,
+        String productTitle,
+        int productAmount
+    ) {
     }
 }
