@@ -52,7 +52,7 @@ class OrderPaymentPersistenceImplTest {
 	@Test
 	@DisplayName("paymentId 기준으로 결제 내역 존재 여부를 확인한다")
 	void existsByPaymentId_success() {
-		Order order = Order.create(BUYER_ID, SELLER_ID_1, ORDER_NUMBER, TOTAL_AMOUNT);
+		Order order = Order.create(BUYER_ID, ORDER_NUMBER, TOTAL_AMOUNT);
 		entityManager.persist(order);
 		entityManager.persist(OrderPayment.create(
 			order.getId(),
@@ -73,7 +73,7 @@ class OrderPaymentPersistenceImplTest {
 	@DisplayName("구매자 결제 내역을 order, order_product, order_payment 조인으로 조회한다")
 	void searchOrderPayments_join_success() {
 		// given
-		Order order = Order.create(BUYER_ID, SELLER_ID_1, ORDER_NUMBER, TOTAL_AMOUNT);
+		Order order = Order.create(BUYER_ID, ORDER_NUMBER, TOTAL_AMOUNT);
 		OrderProduct orderProduct = OrderProduct.create(
 			PRODUCT_ID_1,
 			SELLER_ID_1,
@@ -96,7 +96,6 @@ class OrderPaymentPersistenceImplTest {
 
 		Order otherBuyerOrder = Order.create(
 			UUID.fromString("00000000-0000-0000-0000-000000000991"),
-			SELLER_ID_1,
 			"ORD-20260619-9999",
 			TOTAL_AMOUNT
 		);
@@ -148,7 +147,7 @@ class OrderPaymentPersistenceImplTest {
 	@DisplayName("다건 상품 결제는 결제 건 기준 1개 row로 조회한다")
 	void searchOrderPayments_multiProductPayment_groupedByPayment_success() {
 		// given
-		Order order = Order.create(BUYER_ID, SELLER_ID_1, ORDER_NUMBER, TOTAL_AMOUNT);
+		Order order = Order.create(BUYER_ID, ORDER_NUMBER, TOTAL_AMOUNT);
 		order.addOrderProduct(OrderProduct.create(
 			PRODUCT_ID_1,
 			SELLER_ID_1,

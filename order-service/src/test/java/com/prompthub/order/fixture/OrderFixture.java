@@ -134,7 +134,6 @@ public final class OrderFixture {
 	public static Order createPendingOrder() {
 		Order order = Order.create(
 			BUYER_ID,
-			SELLER_ID_1,
 			ORDER_NUMBER,
 			TOTAL_AMOUNT
 		);

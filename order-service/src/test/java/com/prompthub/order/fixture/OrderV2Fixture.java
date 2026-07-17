@@ -89,12 +89,11 @@ public final class OrderV2Fixture {
 				ORDER_A,
 				"ORD-A",
 				BUYER_ID,
-				SELLER_A,
 				OrderStatus.CREATED,
 				AMOUNT_A1 + AMOUNT_A2,
 				List.of(
-					product(ORDER_PRODUCT_A1, PRODUCT_A1, REQUEST_TITLE_A1, AMOUNT_A1),
-					product(ORDER_PRODUCT_A2, PRODUCT_A2, REQUEST_TITLE_A2, AMOUNT_A2)
+					product(ORDER_PRODUCT_A1, PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, AMOUNT_A1),
+					product(ORDER_PRODUCT_A2, PRODUCT_A2, SELLER_A, REQUEST_TITLE_A2, AMOUNT_A2)
 				),
 				CREATED_AT
 			),
@@ -102,20 +101,18 @@ public final class OrderV2Fixture {
 				ORDER_B,
 				"ORD-B",
 				BUYER_ID,
-				SELLER_B,
 				OrderStatus.CREATED,
 				AMOUNT_B1,
-				List.of(product(ORDER_PRODUCT_B1, PRODUCT_B1, REQUEST_TITLE_B1, AMOUNT_B1)),
+				List.of(product(ORDER_PRODUCT_B1, PRODUCT_B1, SELLER_B, REQUEST_TITLE_B1, AMOUNT_B1)),
 				CREATED_AT
 			),
 			new CreateOrderResult.Order(
 				ORDER_C,
 				"ORD-C",
 				BUYER_ID,
-				SELLER_C,
 				OrderStatus.CREATED,
 				AMOUNT_C1,
-				List.of(product(ORDER_PRODUCT_C1, PRODUCT_C1, REQUEST_TITLE_C1, AMOUNT_C1)),
+				List.of(product(ORDER_PRODUCT_C1, PRODUCT_C1, SELLER_C, REQUEST_TITLE_C1, AMOUNT_C1)),
 				CREATED_AT
 			)
 		));
@@ -151,12 +148,14 @@ public final class OrderV2Fixture {
 	private static CreateOrderResult.Product product(
 		UUID orderProductId,
 		UUID productId,
+		UUID sellerId,
 		String productTitle,
 		int productAmount
 	) {
 		return new CreateOrderResult.Product(
 			orderProductId,
 			productId,
+			sellerId,
 			productTitle,
 			productAmount,
 			OrderProductStatus.PENDING

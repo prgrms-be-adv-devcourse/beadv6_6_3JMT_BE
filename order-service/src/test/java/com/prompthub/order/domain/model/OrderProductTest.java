@@ -8,25 +8,33 @@ import static com.prompthub.order.fixture.OrderFixture.PRODUCT_AMOUNT_1;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_ID_1;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TITLE_1;
 import static com.prompthub.order.fixture.OrderFixture.REFUNDED_AT;
+import static com.prompthub.order.fixture.OrderFixture.SELLER_ID_1;
 import static com.prompthub.order.fixture.OrderFixture.createOrderProduct1;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class OrderProductTest {
 
-    @Test
-    void create_startsPending() {
-        OrderProduct product = OrderProduct.create(PRODUCT_ID_1, PRODUCT_TITLE_1, PRODUCT_AMOUNT_1);
+	@Test
+	void create_requiresAndRetainsSellerId() {
+		OrderProduct product = OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, PRODUCT_AMOUNT_1);
 
         assertThat(product.getId()).isNotNull();
-        assertThat(product.getOrder()).isNull();
-        assertThat(product.getProductId()).isEqualTo(PRODUCT_ID_1);
+		assertThat(product.getOrder()).isNull();
+		assertThat(product.getProductId()).isEqualTo(PRODUCT_ID_1);
+		assertThat(product.getSellerId()).isEqualTo(SELLER_ID_1);
         assertThat(product.getProductTitle()).isEqualTo(PRODUCT_TITLE_1);
         assertThat(product.getProductAmount()).isEqualTo(PRODUCT_AMOUNT_1);
         assertThat(product.getOrderStatus()).isEqualTo(OrderProductStatus.PENDING);
         assertThat(product.isDownloaded()).isFalse();
-        assertThat(product.getRefundedAt()).isNull();
-    }
+		assertThat(product.getRefundedAt()).isNull();
+	}
+
+	@Test
+	void create_rejectsMissingSellerId() {
+		assertThatThrownBy(() -> OrderProduct.create(PRODUCT_ID_1, null, PRODUCT_TITLE_1, PRODUCT_AMOUNT_1))
+			.isInstanceOf(NullPointerException.class);
+	}
 
     @Test
     void failedProduct_canBecomePaidAfterPaymentRetry() {

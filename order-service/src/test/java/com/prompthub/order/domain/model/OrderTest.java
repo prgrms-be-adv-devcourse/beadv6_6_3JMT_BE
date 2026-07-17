@@ -9,7 +9,6 @@ import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
 import static com.prompthub.order.fixture.OrderFixture.ORDER_NUMBER;
 import static com.prompthub.order.fixture.OrderFixture.PAID_AT;
 import static com.prompthub.order.fixture.OrderFixture.REFUNDED_AT;
-import static com.prompthub.order.fixture.OrderFixture.SELLER_ID_1;
 import static com.prompthub.order.fixture.OrderFixture.TOTAL_AMOUNT;
 import static com.prompthub.order.fixture.OrderFixture.createOrderProduct1;
 import static com.prompthub.order.fixture.OrderFixture.createOrderProduct2;
@@ -19,13 +18,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class OrderTest {
 
-    @Test
-    void create_startsCreated() {
-        Order order = Order.create(BUYER_ID, SELLER_ID_1, ORDER_NUMBER, TOTAL_AMOUNT);
+	@Test
+	void create_startsCreated() {
+		Order order = Order.create(BUYER_ID, ORDER_NUMBER, TOTAL_AMOUNT);
 
-        assertThat(order.getBuyerId()).isEqualTo(BUYER_ID);
-        assertThat(order.getSellerId()).isEqualTo(SELLER_ID_1);
-        assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
+		assertThat(order.getBuyerId()).isEqualTo(BUYER_ID);
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
         assertThat(order.getCompletedAt()).isNull();
         assertThat(order.getRefundedAt()).isNull();
     }

@@ -27,7 +27,6 @@ public record OrderCreatedPayload(
 	public record Order(
 		UUID orderId,
 		String orderNumber,
-		UUID sellerId,
 		int totalAmount,
 		List<Product> products
 	) {
@@ -36,7 +35,6 @@ public record OrderCreatedPayload(
 			return new Order(
 				order.getId(),
 				order.getOrderNumber(),
-				order.getSellerId(),
 				order.getTotalOrderAmount(),
 				order.getOrderProducts().stream().map(Product::from).toList()
 			);
@@ -46,6 +44,7 @@ public record OrderCreatedPayload(
 	public record Product(
 		UUID orderProductId,
 		UUID productId,
+		UUID sellerId,
 		String productTitle,
 		int productAmount,
 		OrderProductStatus status
@@ -55,6 +54,7 @@ public record OrderCreatedPayload(
 			return new Product(
 				product.getId(),
 				product.getProductId(),
+				product.getSellerId(),
 				product.getProductTitle(),
 				product.getProductAmount(),
 				product.getOrderStatus()

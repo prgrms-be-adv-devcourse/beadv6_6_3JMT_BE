@@ -11,12 +11,12 @@
       {
         "orderId": "00000000-0000-0000-0000-000000000501",
         "orderNumber": "ORD-A",
-        "sellerId": "00000000-0000-0000-0000-000000000101",
         "totalAmount": 3300,
         "products": [
           {
             "orderProductId": "00000000-0000-0000-0000-000000000601",
             "productId": "00000000-0000-0000-0000-000000000201",
+            "sellerId": "00000000-0000-0000-0000-000000000101",
             "productTitle": "요청-A1",
             "productAmount": 1100,
             "status": "PENDING"
@@ -24,6 +24,7 @@
           {
             "orderProductId": "00000000-0000-0000-0000-000000000602",
             "productId": "00000000-0000-0000-0000-000000000202",
+            "sellerId": "00000000-0000-0000-0000-000000000101",
             "productTitle": "요청-A2",
             "productAmount": 2200,
             "status": "PENDING"
@@ -33,12 +34,12 @@
       {
         "orderId": "00000000-0000-0000-0000-000000000502",
         "orderNumber": "ORD-B",
-        "sellerId": "00000000-0000-0000-0000-000000000102",
         "totalAmount": 3300,
         "products": [
           {
             "orderProductId": "00000000-0000-0000-0000-000000000603",
             "productId": "00000000-0000-0000-0000-000000000203",
+            "sellerId": "00000000-0000-0000-0000-000000000102",
             "productTitle": "요청-B1",
             "productAmount": 3300,
             "status": "PENDING"
@@ -48,12 +49,12 @@
       {
         "orderId": "00000000-0000-0000-0000-000000000503",
         "orderNumber": "ORD-C",
-        "sellerId": "00000000-0000-0000-0000-000000000103",
         "totalAmount": 4400,
         "products": [
           {
             "orderProductId": "00000000-0000-0000-0000-000000000604",
             "productId": "00000000-0000-0000-0000-000000000204",
+            "sellerId": "00000000-0000-0000-0000-000000000103",
             "productTitle": "요청-C1",
             "productAmount": 4400,
             "status": "PENDING"

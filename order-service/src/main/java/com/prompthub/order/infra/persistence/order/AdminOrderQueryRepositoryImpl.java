@@ -59,7 +59,7 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
         List<Tuple> rows = queryFactory
             .select(
                 order.id,
-                order.sellerId,
+                orderProduct.sellerId,
                 orderProduct.productTitle,
                 order.totalOrderAmount,
                 order.orderStatus,
@@ -146,7 +146,7 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
         int productCount = rows.size();
         return new AdminOrderListProjection(
             first.get(order.id),
-            first.get(order.sellerId),
+            first.get(orderProduct.sellerId),
             formatProductTitle(first.get(orderProduct.productTitle), productCount),
             productCount,
             valueOrZero(first.get(order.totalOrderAmount)),

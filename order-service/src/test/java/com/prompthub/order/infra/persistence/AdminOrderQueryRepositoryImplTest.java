@@ -50,12 +50,11 @@ class AdminOrderQueryRepositoryImplTest {
         LocalDateTime createdAt = LocalDateTime.of(2026, 6, 24, 10, 0);
         Order order = Order.create(
             BUYER_ID,
-            SELLER_ID_1,
             "ORD-20260624-0001",
             PRODUCT_AMOUNT_1 + PRODUCT_AMOUNT_2
         );
-        order.addOrderProduct(OrderProduct.create(PRODUCT_ID_1, PRODUCT_TITLE_1, PRODUCT_AMOUNT_1));
-        order.addOrderProduct(OrderProduct.create(PRODUCT_ID_2, PRODUCT_TITLE_2, PRODUCT_AMOUNT_2));
+        order.addOrderProduct(OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, PRODUCT_AMOUNT_1));
+        order.addOrderProduct(OrderProduct.create(PRODUCT_ID_2, SELLER_ID_1, PRODUCT_TITLE_2, PRODUCT_AMOUNT_2));
         setAuditTimes(order, createdAt);
         order.markCompleted(createdAt.plusMinutes(1));
         entityManager.persist(order);
@@ -88,11 +87,10 @@ class AdminOrderQueryRepositoryImplTest {
         );
         Order created = Order.create(
             BUYER_ID,
-            SELLER_ID_1,
             "ORD-20260624-0003",
             PRODUCT_AMOUNT_2
         );
-        created.addOrderProduct(OrderProduct.create(PRODUCT_ID_2, PRODUCT_TITLE_2, PRODUCT_AMOUNT_2));
+        created.addOrderProduct(OrderProduct.create(PRODUCT_ID_2, SELLER_ID_1, PRODUCT_TITLE_2, PRODUCT_AMOUNT_2));
         setAuditTimes(created, createdAt.plusHours(1));
         entityManager.persist(completed);
         entityManager.persist(created);
@@ -183,8 +181,8 @@ class AdminOrderQueryRepositoryImplTest {
         int amount,
         LocalDateTime createdAt
     ) {
-        Order order = Order.create(BUYER_ID, SELLER_ID_1, orderNumber, amount);
-        order.addOrderProduct(OrderProduct.create(productId, productTitle, amount));
+        Order order = Order.create(BUYER_ID, orderNumber, amount);
+        order.addOrderProduct(OrderProduct.create(productId, SELLER_ID_1, productTitle, amount));
         setAuditTimes(order, createdAt);
         order.markCompleted(createdAt.plusMinutes(1));
         return order;

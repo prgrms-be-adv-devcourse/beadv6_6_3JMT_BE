@@ -33,7 +33,7 @@ class QuerydslConfigTest {
     void querydslSelectTest() {
         // given
         UUID buyerId = UUID.randomUUID();
-		Order order = Order.create(buyerId, UUID.randomUUID(), "ORD-20260622-0001", 10000);
+		Order order = Order.create(buyerId, "ORD-20260622-0001", 10000);
         entityManager.persist(order);
         entityManager.flush();
         entityManager.clear();

@@ -8,6 +8,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -16,6 +17,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.UUID;
 
 import static jakarta.persistence.FetchType.LAZY;
@@ -23,7 +25,10 @@ import static lombok.AccessLevel.PROTECTED;
 
 @Getter
 @Entity
-@Table(name = "\"order_product\"")
+@Table(
+    name = "\"order_product\"",
+    indexes = @Index(name = "idx_order_product_seller_created_at", columnList = "seller_id, created_at DESC")
+)
 @NoArgsConstructor(access = PROTECTED)
 public class OrderProduct {
 
@@ -37,6 +42,9 @@ public class OrderProduct {
 
     @Column(name = "product_id", columnDefinition = "uuid", nullable = false)
     private UUID productId;
+
+    @Column(name = "seller_id", columnDefinition = "uuid", nullable = false)
+    private UUID sellerId;
 
     @Column(name = "product_title_snapshot", length = 200, nullable = false)
     private String productTitle;
@@ -61,9 +69,6 @@ public class OrderProduct {
     private boolean downloaded;
 
     @Transient
-    private UUID legacySellerId;
-
-    @Transient
     private String legacyProductType;
 
     @Transient
@@ -75,6 +80,7 @@ public class OrderProduct {
     private OrderProduct(
         UUID id,
         UUID productId,
+        UUID sellerId,
         String productTitle,
         int productAmount,
         OrderProductStatus orderStatus,
@@ -84,6 +90,7 @@ public class OrderProduct {
     ) {
         this.id = id;
         this.productId = productId;
+        this.sellerId = sellerId;
         this.productTitle = productTitle;
         this.productAmount = productAmount;
         this.orderStatus = orderStatus;
@@ -92,15 +99,12 @@ public class OrderProduct {
         this.downloaded = downloaded;
     }
 
-    public static OrderProduct create(
-        UUID productId,
-        String productTitle,
-        int productAmount
-    ) {
+    public static OrderProduct create(UUID productId, UUID sellerId, String productTitle, int productAmount) {
         LocalDateTime now = LocalDateTime.now();
         return new OrderProduct(
             UUID.randomUUID(),
             productId,
+            Objects.requireNonNull(sellerId, "sellerId must not be null"),
             productTitle,
             productAmount,
             OrderProductStatus.PENDING,
@@ -118,8 +122,7 @@ public class OrderProduct {
         String productModel,
         int productAmount
     ) {
-        OrderProduct orderProduct = create(productId, productTitle, productAmount);
-        orderProduct.legacySellerId = sellerId;
+        OrderProduct orderProduct = create(productId, sellerId, productTitle, productAmount);
         orderProduct.legacyProductType = productType;
         orderProduct.legacyProductModel = productModel;
         return orderProduct;
@@ -184,13 +187,6 @@ public class OrderProduct {
 
     public boolean isRefundable() {
         return isPaid() && !this.downloaded;
-    }
-
-    public UUID getSellerId() {
-        if (this.legacySellerId != null) {
-            return this.legacySellerId;
-        }
-        return this.order == null ? null : this.order.getSellerId();
     }
 
     public String getProductType() {
