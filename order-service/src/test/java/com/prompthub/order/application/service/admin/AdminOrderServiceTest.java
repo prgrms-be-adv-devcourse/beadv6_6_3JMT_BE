@@ -32,6 +32,7 @@ import java.util.UUID;
 import static com.prompthub.order.fixture.OrderFixture.ORDER_ID;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TITLE_1;
 import static com.prompthub.order.fixture.OrderFixture.SELLER_ID_1;
+import static com.prompthub.order.fixture.OrderFixture.SELLER_ID_2;
 import static com.prompthub.order.fixture.OrderFixture.TOTAL_AMOUNT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -57,25 +58,38 @@ class AdminOrderServiceTest {
 	class GetAdminOrders {
 
 		@Test
-		@DisplayName("ALL 상태는 상태 필터 없이 조회하고 판매자 닉네임을 bulk 매핑한다")
-		void getAdminOrders_allStatus_success() {
+		@DisplayName("한 주문의 모든 판매자를 한 번의 bulk 조회로 닉네임과 함께 매핑한다")
+		void getAdminOrders_mapsAllSellersWithSingleBulkLookup() {
 			AdminOrderSearchCondition condition = new AdminOrderSearchCondition("ALL", 1, 20);
-			AdminOrderListProjection projection = adminOrderProjection(SELLER_ID_1);
+			UUID sellerId3 = UUID.fromString("00000000-0000-0000-0000-000000000203");
+			AdminOrderListProjection projection = adminOrderProjection(
+				ORDER_ID,
+				List.of(
+					new AdminOrderListProjection.SellerSummary(SELLER_ID_1, 2, 30_000),
+					new AdminOrderListProjection.SellerSummary(SELLER_ID_2, 1, 15_000),
+					new AdminOrderListProjection.SellerSummary(sellerId3, 1, 25_000)
+				)
+			);
 			given(adminOrderQueryService.searchAdminOrders(any(), any()))
 				.willReturn(new PageImpl<>(List.of(projection), PageRequest.of(0, 20), 1));
-			given(sellerClient.getSellerNicknames(List.of(SELLER_ID_1)))
-				.willReturn(Map.of(SELLER_ID_1, "판매자A"));
+			given(sellerClient.getSellerNicknames(List.of(SELLER_ID_1, SELLER_ID_2, sellerId3)))
+				.willReturn(Map.of(SELLER_ID_1, "판매자A", SELLER_ID_2, "판매자B"));
 
 			Page<AdminOrderListResponse> response = adminOrderService.getAdminOrders(condition.resolve());
 
 			assertThat(response.getContent()).hasSize(1);
-			assertThat(response.getContent().getFirst().sellerNickname()).isEqualTo("판매자A");
+			assertThat(response.getContent().getFirst().sellerCount()).isEqualTo(3);
+			assertThat(response.getContent().getFirst().sellers()).containsExactly(
+				new AdminOrderListResponse.SellerSummary(SELLER_ID_1, "판매자A", 2, 30_000),
+				new AdminOrderListResponse.SellerSummary(SELLER_ID_2, "판매자B", 1, 15_000),
+				new AdminOrderListResponse.SellerSummary(sellerId3, "알 수 없음", 1, 25_000)
+			);
 			assertThat(response.getContent().getFirst().productTitle()).isEqualTo(PRODUCT_TITLE_1);
 
 			ArgumentCaptor<AdminOrderSearchCondition> conditionCaptor = ArgumentCaptor.forClass(AdminOrderSearchCondition.class);
 			then(adminOrderQueryService).should().searchAdminOrders(conditionCaptor.capture(), any());
 			assertThat(conditionCaptor.getValue().resolvedOrderStatus()).isNull();
-			then(sellerClient).should().getSellerNicknames(List.of(SELLER_ID_1));
+			then(sellerClient).should().getSellerNicknames(List.of(SELLER_ID_1, SELLER_ID_2, sellerId3));
 		}
 
 		@Test
@@ -104,7 +118,7 @@ class AdminOrderServiceTest {
 
 			Page<AdminOrderListResponse> response = adminOrderService.getAdminOrders(condition.resolve());
 
-			assertThat(response.getContent().getFirst().sellerNickname()).isEqualTo("알 수 없음");
+			assertThat(response.getContent().getFirst().sellers().getFirst().sellerNickname()).isEqualTo("알 수 없음");
 		}
 
 		@Test
@@ -121,7 +135,8 @@ class AdminOrderServiceTest {
 
 			Page<AdminOrderListResponse> response = adminOrderService.getAdminOrders(condition.resolve());
 
-			assertThat(response.getContent()).extracting(AdminOrderListResponse::sellerNickname)
+			assertThat(response.getContent()).flatExtracting(AdminOrderListResponse::sellers)
+				.extracting(AdminOrderListResponse.SellerSummary::sellerNickname)
 				.containsExactly("판매자A", "판매자A");
 			then(sellerClient).should().getSellerNicknames(List.of(SELLER_ID_1));
 		}
@@ -203,14 +218,21 @@ class AdminOrderServiceTest {
 	}
 
 	private AdminOrderListProjection adminOrderProjection(UUID orderId, UUID sellerId) {
+		return adminOrderProjection(orderId, List.of(new AdminOrderListProjection.SellerSummary(sellerId, 2, TOTAL_AMOUNT)));
+	}
+
+	private AdminOrderListProjection adminOrderProjection(
+		UUID orderId,
+		List<AdminOrderListProjection.SellerSummary> sellers
+	) {
 		return new AdminOrderListProjection(
 			orderId,
-			sellerId,
 			PRODUCT_TITLE_1,
 			2,
 			TOTAL_AMOUNT,
 			OrderStatus.PAID,
-			LocalDateTime.of(2026, 6, 24, 10, 0)
+			LocalDateTime.of(2026, 6, 24, 10, 0),
+			sellers
 		);
 	}
 }

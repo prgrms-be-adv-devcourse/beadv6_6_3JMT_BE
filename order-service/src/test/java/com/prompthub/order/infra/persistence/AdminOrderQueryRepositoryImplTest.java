@@ -32,6 +32,7 @@ import static com.prompthub.order.fixture.OrderFixture.PRODUCT_ID_2;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TITLE_1;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TITLE_2;
 import static com.prompthub.order.fixture.OrderFixture.SELLER_ID_1;
+import static com.prompthub.order.fixture.OrderFixture.SELLER_ID_2;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
@@ -46,16 +47,27 @@ class AdminOrderQueryRepositoryImplTest {
     private AdminOrderQueryRepositoryImpl repository;
 
     @Test
-    void searchAdminOrders_usesOrderSellerAndCountsProducts() {
+    void searchAdminOrders_groupsProductsBySellerWithoutLosingOrderTotals() {
         LocalDateTime createdAt = LocalDateTime.of(2026, 6, 24, 10, 0);
+        UUID sellerId3 = UUID.fromString("00000000-0000-0000-0000-000000000203");
         Order order = Order.create(
             BUYER_ID,
             "ORD-20260624-0001",
-            PRODUCT_AMOUNT_1 + PRODUCT_AMOUNT_2
+            70_000
         );
-        order.addOrderProduct(OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, PRODUCT_AMOUNT_1));
-        order.addOrderProduct(OrderProduct.create(PRODUCT_ID_2, SELLER_ID_1, PRODUCT_TITLE_2, PRODUCT_AMOUNT_2));
+        OrderProduct sellerAFirst = OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, 10_000);
+        OrderProduct sellerASecond = OrderProduct.create(PRODUCT_ID_2, SELLER_ID_1, PRODUCT_TITLE_2, 20_000);
+        OrderProduct sellerB = OrderProduct.create(UUID.fromString("00000000-0000-0000-0000-000000000103"), SELLER_ID_2, "프롬프트 상품 3", 15_000);
+        OrderProduct sellerC = OrderProduct.create(UUID.fromString("00000000-0000-0000-0000-000000000104"), sellerId3, "프롬프트 상품 4", 25_000);
+        order.addOrderProduct(sellerAFirst);
+        order.addOrderProduct(sellerASecond);
+        order.addOrderProduct(sellerB);
+        order.addOrderProduct(sellerC);
         setAuditTimes(order, createdAt);
+        setProductAuditTimes(sellerAFirst, createdAt.plusSeconds(1));
+        setProductAuditTimes(sellerASecond, createdAt.plusSeconds(2));
+        setProductAuditTimes(sellerB, createdAt.plusSeconds(3));
+        setProductAuditTimes(sellerC, createdAt.plusSeconds(4));
         order.markCompleted(createdAt.plusMinutes(1));
         entityManager.persist(order);
         flushAndClear();
@@ -68,11 +80,15 @@ class AdminOrderQueryRepositoryImplTest {
         assertThat(result.getTotalElements()).isEqualTo(1);
         AdminOrderListProjection projection = result.getContent().getFirst();
         assertThat(projection.orderId()).isEqualTo(order.getId());
-        assertThat(projection.sellerId()).isEqualTo(SELLER_ID_1);
-        assertThat(projection.productTitle()).isEqualTo(PRODUCT_TITLE_1 + " 외 1건");
-        assertThat(projection.totalOrderCount()).isEqualTo(2);
-        assertThat(projection.totalOrderAmount()).isEqualTo(PRODUCT_AMOUNT_1 + PRODUCT_AMOUNT_2);
+        assertThat(projection.productTitle()).isEqualTo(PRODUCT_TITLE_1 + " 외 3건");
+        assertThat(projection.totalOrderCount()).isEqualTo(4);
+        assertThat(projection.totalOrderAmount()).isEqualTo(70_000);
         assertThat(projection.orderStatus()).isEqualTo(OrderStatus.COMPLETED);
+        assertThat(projection.sellers()).containsExactly(
+            new AdminOrderListProjection.SellerSummary(SELLER_ID_1, 2, 30_000),
+            new AdminOrderListProjection.SellerSummary(SELLER_ID_2, 1, 15_000),
+            new AdminOrderListProjection.SellerSummary(sellerId3, 1, 25_000)
+        );
     }
 
     @Test
@@ -191,6 +207,11 @@ class AdminOrderQueryRepositoryImplTest {
     private void setAuditTimes(Order order, LocalDateTime createdAt) {
         ReflectionTestUtils.setField(order, "createdAt", createdAt);
         ReflectionTestUtils.setField(order, "updatedAt", createdAt);
+    }
+
+    private void setProductAuditTimes(OrderProduct orderProduct, LocalDateTime createdAt) {
+        ReflectionTestUtils.setField(orderProduct, "createdAt", createdAt);
+        ReflectionTestUtils.setField(orderProduct, "updatedAt", createdAt);
     }
 
     private void flushAndClear() {

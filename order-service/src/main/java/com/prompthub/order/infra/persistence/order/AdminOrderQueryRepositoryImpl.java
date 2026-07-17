@@ -61,6 +61,7 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
                 order.id,
                 orderProduct.sellerId,
                 orderProduct.productTitle,
+                orderProduct.productAmount,
                 order.totalOrderAmount,
                 order.orderStatus,
                 order.createdAt,
@@ -144,14 +145,25 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
     private AdminOrderListProjection toAdminOrderListProjection(List<Tuple> rows) {
         Tuple first = rows.getFirst();
         int productCount = rows.size();
+        Map<UUID, SellerSummaryAccumulator> sellerSummaries = new LinkedHashMap<>();
+        rows.forEach(row -> sellerSummaries
+            .computeIfAbsent(row.get(orderProduct.sellerId), ignored -> new SellerSummaryAccumulator())
+            .addProduct(valueOrZero(row.get(orderProduct.productAmount))));
+
         return new AdminOrderListProjection(
             first.get(order.id),
-            first.get(orderProduct.sellerId),
             formatProductTitle(first.get(orderProduct.productTitle), productCount),
             productCount,
             valueOrZero(first.get(order.totalOrderAmount)),
             first.get(order.orderStatus),
-            first.get(order.createdAt)
+            first.get(order.createdAt),
+            sellerSummaries.entrySet().stream()
+                .map(entry -> new AdminOrderListProjection.SellerSummary(
+                    entry.getKey(),
+                    entry.getValue().productCount,
+                    entry.getValue().orderAmount
+                ))
+                .toList()
         );
     }
 
@@ -225,6 +237,16 @@ public class AdminOrderQueryRepositoryImpl implements AdminOrderQueryRepository 
 
         private void subtractRefund(long amount) {
             this.transactionAmount -= amount;
+        }
+    }
+
+    private static class SellerSummaryAccumulator {
+        private int productCount;
+        private int orderAmount;
+
+        private void addProduct(int productAmount) {
+            this.productCount++;
+            this.orderAmount += productAmount;
         }
     }
 }

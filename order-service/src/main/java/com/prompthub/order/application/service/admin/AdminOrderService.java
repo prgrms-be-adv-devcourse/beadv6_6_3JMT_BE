@@ -26,8 +26,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import java.util.LinkedHashSet;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -102,9 +102,19 @@ public class AdminOrderService implements AdminOrderUseCase {
 		AdminOrderListProjection projection,
 		Map<UUID, String> sellerNicknames
 	) {
+		List<AdminOrderListResponse.SellerSummary> sellers = projection.sellers().stream()
+			.map(seller -> new AdminOrderListResponse.SellerSummary(
+				seller.sellerId(),
+				sellerNicknames.getOrDefault(seller.sellerId(), UNKNOWN_SELLER_NICKNAME),
+				seller.productCount(),
+				seller.orderAmount()
+			))
+			.toList();
+
 		return new AdminOrderListResponse(
 			projection.orderId(),
-			sellerNicknames.getOrDefault(projection.sellerId(), UNKNOWN_SELLER_NICKNAME),
+			sellers.size(),
+			sellers,
 			projection.productTitle(),
 			projection.totalOrderCount(),
 			projection.totalOrderAmount(),
@@ -118,7 +128,8 @@ public class AdminOrderService implements AdminOrderUseCase {
 			return Set.of();
 		}
 		return orders.stream()
-			.map(AdminOrderListProjection::sellerId)
+			.flatMap(order -> order.sellers().stream())
+			.map(AdminOrderListProjection.SellerSummary::sellerId)
 			.collect(Collectors.toCollection(LinkedHashSet::new));
 	}
 
