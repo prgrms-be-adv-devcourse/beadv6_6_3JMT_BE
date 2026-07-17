@@ -6,10 +6,10 @@ import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
 import org.springframework.stereotype.Component;
 
+import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeParseException;
 import java.util.UUID;
 
 @Component
@@ -47,7 +47,7 @@ public class PaymentEventValidator {
 			return OffsetDateTime.parse(payload.approvedAt())
 				.withOffsetSameInstant(KOREA_OFFSET)
 				.toLocalDateTime();
-		} catch (DateTimeParseException exception) {
+		} catch (DateTimeException exception) {
 			throw invalidInput();
 		}
 	}
