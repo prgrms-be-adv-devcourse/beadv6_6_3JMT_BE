@@ -9,15 +9,13 @@ import java.util.UUID;
 
 public record CreateOrderResult(
 	int totalAmount,
-	List<Order> orders
+	Order order
 ) {
 
-	public static CreateOrderResult from(List<com.prompthub.order.domain.model.Order> orders) {
+	public static CreateOrderResult from(com.prompthub.order.domain.model.Order order) {
 		return new CreateOrderResult(
-			orders.stream()
-				.mapToInt(com.prompthub.order.domain.model.Order::getTotalOrderAmount)
-				.sum(),
-			orders.stream().map(Order::from).toList()
+			order.getTotalOrderAmount(),
+			Order.from(order)
 		);
 	}
 

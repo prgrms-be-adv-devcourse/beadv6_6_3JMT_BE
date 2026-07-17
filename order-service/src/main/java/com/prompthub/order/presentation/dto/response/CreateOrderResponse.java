@@ -9,18 +9,18 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-@Schema(description = "판매자별 주문 생성 응답")
+@Schema(description = "주문 생성 응답")
 public record CreateOrderResponse(
 	@Schema(description = "전체 주문 금액", example = "45000")
 	int totalAmount,
-	@Schema(description = "판매자별 주문 목록")
-	List<Order> orders
+	@Schema(description = "생성된 주문")
+	Order order
 ) {
 
 	public static CreateOrderResponse from(CreateOrderResult result) {
 		return new CreateOrderResponse(
 			result.totalAmount(),
-			result.orders().stream().map(Order::from).toList()
+			Order.from(result.order())
 		);
 	}
 
@@ -48,8 +48,11 @@ public record CreateOrderResponse(
 	}
 
 	public record Product(
+		@Schema(description = "주문 상품 ID")
 		UUID orderProductId,
+		@Schema(description = "상품 ID")
 		UUID productId,
+		@Schema(description = "주문 상품별 판매자 ID")
 		UUID sellerId,
 		String productTitle,
 		int productAmount,

@@ -15,13 +15,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-
-import static java.util.stream.Collectors.groupingBy;
-import static java.util.stream.Collectors.toList;
 
 @Service
 @RequiredArgsConstructor
@@ -35,28 +30,8 @@ public class OrderCreator {
 
 	@Transactional
 	public CreateOrderResult create(UUID buyerId, List<OrderItem> items) {
-		Map<UUID, List<OrderItem>> itemsBySeller = items.stream()
-			.collect(groupingBy(OrderItem::sellerId, LinkedHashMap::new, toList()));
-		List<Order> orders = itemsBySeller.values().stream()
-			.map(itemsForSeller -> createOrder(buyerId, itemsForSeller))
-			.toList();
-
-		List<Order> savedOrders = orderRepository.saveAll(orders);
-		OrderCreatedPayload payload = OrderCreatedPayload.from(buyerId, savedOrders);
-		EventMessage<OrderCreatedPayload> message = orderEventMessageFactory.createOrderCreatedMessage(payload);
-		outboxEventAppender.append(message);
-		applicationEventPublisher.publishEvent(OrderCreatedEvent.from(savedOrders));
-
-		return CreateOrderResult.from(savedOrders);
-	}
-
-	private Order createOrder(UUID buyerId, List<OrderItem> items) {
 		int totalAmount = items.stream().mapToInt(OrderItem::amount).sum();
-		Order order = Order.create(
-			buyerId,
-			orderNumberGenerator.generate(),
-			totalAmount
-		);
+		Order order = Order.create(buyerId, orderNumberGenerator.generate(), totalAmount);
 		items.stream()
 			.map(item -> OrderProduct.create(
 				item.productId(),
@@ -65,6 +40,13 @@ public class OrderCreator {
 				item.amount()
 			))
 			.forEach(order::addOrderProduct);
-		return order;
+
+		Order savedOrder = orderRepository.save(order);
+		OrderCreatedPayload payload = OrderCreatedPayload.from(buyerId, List.of(savedOrder));
+		EventMessage<OrderCreatedPayload> message = orderEventMessageFactory.createOrderCreatedMessage(payload);
+		outboxEventAppender.append(message);
+		applicationEventPublisher.publishEvent(OrderCreatedEvent.from(savedOrder));
+
+		return CreateOrderResult.from(savedOrder);
 	}
 }

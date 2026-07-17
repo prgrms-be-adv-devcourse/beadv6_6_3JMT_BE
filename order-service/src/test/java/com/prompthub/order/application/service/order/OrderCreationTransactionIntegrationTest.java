@@ -39,7 +39,6 @@ import static com.prompthub.order.fixture.OrderV2Fixture.shuffledSnapshots;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willAnswer;
@@ -96,7 +95,7 @@ class OrderCreationTransactionIntegrationTest {
 		willAnswer(invocation -> {
 			assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
 			return invocation.callRealMethod();
-		}).given(orderRepository).saveAll(anyList());
+		}).given(orderRepository).save(any());
 	}
 
 	@AfterEach
@@ -109,16 +108,16 @@ class OrderCreationTransactionIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("판매자별 주문 세 건과 주문 상품 네 건 및 Outbox 한 건을 원자적으로 저장한다")
-	void createsThreeOrdersFourProductsAndOneOutbox() {
+	@DisplayName("단일 주문과 주문 상품 네 건 및 Outbox 한 건을 원자적으로 저장한다")
+	void createsOneOrderFourProductsAndOneOutbox() {
 		Cart cart = saveCart();
 		List<UUID> beforeCartProducts = productIds(cart);
 
 		CreateOrderResult result = orderCommandHandler.createOrder(BUYER_ID, command());
 
 		assertThat(result.totalAmount()).isEqualTo(TOTAL_AMOUNT);
-		assertThat(result.orders()).hasSize(3);
-		assertThat(orderPersistence.count()).isEqualTo(3);
+		assertThat(result.order()).isNotNull();
+		assertThat(orderPersistence.count()).isEqualTo(1);
 		assertThat(countOrderProducts()).isEqualTo(4);
 		assertThat(outboxEventPersistence.count()).isEqualTo(1);
 		assertThat(productIds(loadCart())).containsExactlyInAnyOrderElementsOf(beforeCartProducts);
@@ -144,11 +143,11 @@ class OrderCreationTransactionIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("두 번째 판매자 주문 번호가 충돌하면 신규 주문과 Outbox가 하나도 남지 않는다")
-	void orderNumberConflictRollsBackWholeOrderGroup() {
-		Order existing = Order.create(BUYER_ID, "ORD-B", 1_000);
+	@DisplayName("첫 단건 주문 번호가 충돌하면 신규 주문과 상품 및 Outbox가 모두 롤백된다")
+	void orderNumberConflictRollsBackSingleOrder() {
+		Order existing = Order.create(BUYER_ID, "ORD-A", 1_000);
 		orderPersistence.saveAndFlush(existing);
-		given(orderNumberGenerator.generate()).willReturn("ORD-A", "ORD-B", "ORD-C");
+		given(orderNumberGenerator.generate()).willReturn("ORD-A");
 
 		assertThatThrownBy(() -> orderCommandHandler.createOrder(BUYER_ID, command()))
 			.isInstanceOfAny(DataIntegrityViolationException.class, RuntimeException.class);

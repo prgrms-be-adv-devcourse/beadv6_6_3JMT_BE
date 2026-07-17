@@ -67,7 +67,7 @@ class OrderExpirationAfterCommitIntegrationTest {
 	@BeforeEach
 	void setUp() {
 		given(productClient.getOrderSnapshots(requestedProductIds())).willReturn(shuffledSnapshots());
-		given(orderNumberGenerator.generate()).willReturn("ORD-A", "ORD-B", "ORD-C");
+		given(orderNumberGenerator.generate()).willReturn("ORD-A");
 	}
 
 	@AfterEach
@@ -78,19 +78,19 @@ class OrderExpirationAfterCommitIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("commit 이후 생성된 주문 세 건을 만료 대상으로 한 번씩 등록한다")
-	void commitRegistersAllCreatedOrders() {
+	@DisplayName("commit 이후 생성된 단일 주문을 만료 대상으로 한 번 등록한다")
+	void commitRegistersCreatedOrder() {
 		orderCommandHandler.createOrder(BUYER_ID, command());
 
 		ArgumentCaptor<UUID> orderIdCaptor = ArgumentCaptor.forClass(UUID.class);
 		ArgumentCaptor<LocalDateTime> createdAtCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
-		then(orderExpirationStore).should(times(3))
+		then(orderExpirationStore).should(times(1))
 			.registerExpiration(orderIdCaptor.capture(), createdAtCaptor.capture(),
 				org.mockito.ArgumentMatchers.eq(20));
 
-		assertThat(orderIdCaptor.getAllValues()).hasSize(3).doesNotHaveDuplicates();
-		assertThat(createdAtCaptor.getAllValues()).hasSize(3).doesNotContainNull();
-		assertThat(orderPersistence.count()).isEqualTo(3);
+		assertThat(orderIdCaptor.getAllValues()).hasSize(1).doesNotContainNull();
+		assertThat(createdAtCaptor.getAllValues()).hasSize(1).doesNotContainNull();
+		assertThat(orderPersistence.count()).isEqualTo(1);
 		assertThat(outboxEventPersistence.count()).isEqualTo(1);
 	}
 
