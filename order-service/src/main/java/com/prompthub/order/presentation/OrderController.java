@@ -51,7 +51,7 @@ public class OrderController {
 	private final CreateOrderUseCase createOrderUseCase;
 
 	@PostMapping("/api/v2/orders")
-	@Operation(summary = "판매자별 주문 생성", description = "상품을 판매자별 주문으로 분리해 생성합니다.")
+	@Operation(summary = "단일 주문 생성", description = "요청 상품을 하나의 주문으로 생성하고 주문 상품별 판매자 정보를 제공합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "주문 생성 성공"),
 		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
