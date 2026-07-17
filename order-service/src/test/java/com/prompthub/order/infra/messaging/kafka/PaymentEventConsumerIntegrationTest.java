@@ -128,8 +128,8 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 		message.put("eventId", UUID.randomUUID().toString());
 		message.put("eventType", "PAYMENT_REFUNDED");
 		message.put("occurredAt", LocalDateTime.now().toString());
-		message.put("aggregateType", "PAYMENT");
-		message.put("aggregateId", paymentId.toString());
+		message.put("aggregateType", "ORDER");
+		message.put("aggregateId", orderId.toString());
 		message.put("payload", payload);
 
 		// when
@@ -140,7 +140,10 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
 			verify(paymentRefundedEventHandler).handle(captor.capture())
 		);
-		JsonNode capturedPayload = captor.getValue().payload();
+		EventMessage<JsonNode> capturedMessage = captor.getValue();
+		assertThat(capturedMessage.aggregateType()).isEqualTo("ORDER");
+		assertThat(capturedMessage.aggregateId()).isEqualTo(orderId);
+		JsonNode capturedPayload = capturedMessage.payload();
 		assertThat(capturedPayload.path("paymentId").asText()).isEqualTo(paymentId.toString());
 		assertThat(capturedPayload.path("orderId").asText()).isEqualTo(orderId.toString());
 		assertThat(capturedPayload.path("userId").asText()).isEqualTo(userId.toString());
