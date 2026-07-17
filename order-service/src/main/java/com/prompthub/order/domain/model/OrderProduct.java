@@ -27,7 +27,11 @@ import static lombok.AccessLevel.PROTECTED;
 @Entity
 @Table(
     name = "\"order_product\"",
-    indexes = @Index(name = "idx_order_product_seller_created_at", columnList = "seller_id, created_at DESC")
+    indexes = {
+        @Index(name = "idx_order_product_seller_created_at", columnList = "seller_id, created_at DESC"),
+        @Index(name = "idx_order_product_order_id", columnList = "order_id"),
+        @Index(name = "idx_order_product_refunded_at", columnList = "refunded_at")
+    }
 )
 @NoArgsConstructor(access = PROTECTED)
 public class OrderProduct {
