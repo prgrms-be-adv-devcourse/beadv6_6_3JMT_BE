@@ -76,6 +76,17 @@ class PaymentEventValidatorTest {
 	}
 
 	@Test
+	void validateApproved_rejectsTimestampThatOverflowsDuringKoreanOffsetConversion() {
+		assertInvalidApproved(new PaymentApprovedPayload(
+			PAYMENT_ID,
+			ORDER_A,
+			BUYER_ID,
+			30_000,
+			"+999999999-12-31T23:59:59-18:00"
+		));
+	}
+
+	@Test
 	void validateFailed_acceptsSingleOrderPayload() {
 		validator.validate(new PaymentFailedPayload(PAYMENT_ID, ORDER_A, BUYER_ID));
 	}
