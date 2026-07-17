@@ -19,7 +19,7 @@
 - 한 `Order`는 Payment Service의 `Payment.order_id` 한 건과 대응한다.
 - 주문 생성 HTTP 응답과 주문·결제 Kafka 이벤트는 단건 주문 계약을 사용한다.
 - 주문 완료·실패는 Order 단위로 처리하고, 환불·정산·판매량 반영은 OrderProduct 단위로 처리한다.
-- Order Service는 Payment Entity를 만들거나 결제 테이블을 복제하지 않는다. Payment 생성과 PG 처리는 Payment Service가 계속 소유한다.
+- Payment Service는 결제 승인·PG 처리와 Payment aggregate를 계속 소유한다. Order Service는 신규 Payment aggregate나 Payment FK를 도입하지 않으며, 기존 `OrderPayment` 결제 이벤트 반영 이력 mapping/table만 유지한다.
 
 목표 데이터 수는 다음과 같다.
 
@@ -61,7 +61,7 @@
 
 ### 3.2 제외 범위
 
-- Order Service 내부에 Payment 테이블이나 Payment FK 추가
+- Order Service의 신규 Payment aggregate 또는 Payment FK 도입. 기존 `OrderPayment` 이벤트 반영 이력 table의 V4 복구는 포함 범위다.
 - Toss Payments 직접 호출
 - Product, User, Seller Service DB 직접 참조
 - 한 Checkout에서 여러 Order를 만드는 호환 모드
