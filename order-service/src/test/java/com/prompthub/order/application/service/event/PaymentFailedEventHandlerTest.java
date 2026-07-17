@@ -16,9 +16,9 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.util.UUID;
 
+import static com.prompthub.order.fixture.PaymentEventFixture.BUYER_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.FAILED_AT;
 import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
-import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_B;
 import static com.prompthub.order.fixture.PaymentEventFixture.PAYMENT_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -42,17 +42,15 @@ class PaymentFailedEventHandlerTest {
 	}
 
 	@Test
-	void handle_mapsMultiOrderFailureAndDelegates() throws Exception {
+	void handle_mapsPaymentServiceSingleOrderFailureAndDelegates() throws Exception {
 		UUID eventId = UUID.randomUUID();
 		JsonNode payload = objectMapper.readTree("""
 			{
 			  "paymentId": "%s",
-			  "orderIds": ["%s", "%s"],
-			  "failureCode": "PAY_FAILED",
-			  "failureReason": "PG 결제 실패",
-			  "failedAt": "2026-07-16T10:00:06"
+			  "orderId": "%s",
+			  "userId": "%s"
 			}
-			""".formatted(PAYMENT_ID, ORDER_A, ORDER_B));
+			""".formatted(PAYMENT_ID, ORDER_A, BUYER_ID));
 		EventMessage<JsonNode> message = new EventMessage<>(
 			eventId,
 			"PAYMENT_FAILED",
@@ -66,8 +64,9 @@ class PaymentFailedEventHandlerTest {
 
 		ArgumentCaptor<PaymentFailedPayload> captor = ArgumentCaptor.forClass(PaymentFailedPayload.class);
 		then(processor).should().process(eq(eventId), eq("PAYMENT_FAILED"), eq(FAILED_AT), captor.capture());
-		assertThat(captor.getValue().orderIds()).containsExactly(ORDER_A, ORDER_B);
-		assertThat(captor.getValue().failureCode()).isEqualTo("PAY_FAILED");
+		assertThat(captor.getValue().paymentId()).isEqualTo(PAYMENT_ID);
+		assertThat(captor.getValue().orderId()).isEqualTo(ORDER_A);
+		assertThat(captor.getValue().userId()).isEqualTo(BUYER_ID);
 	}
 
 	@Test
@@ -75,12 +74,10 @@ class PaymentFailedEventHandlerTest {
 		JsonNode payload = objectMapper.readTree("""
 			{
 			  "paymentId": "not-a-uuid",
-			  "orderIds": [],
-			  "failureCode": "PAY_FAILED",
-			  "failureReason": "PG 결제 실패",
-			  "failedAt": "2026-07-16T10:00:06"
+			  "orderId": "%s",
+			  "userId": "%s"
 			}
-			""");
+			""".formatted(ORDER_A, BUYER_ID));
 		EventMessage<JsonNode> message = new EventMessage<>(
 			UUID.randomUUID(),
 			"PAYMENT_FAILED",

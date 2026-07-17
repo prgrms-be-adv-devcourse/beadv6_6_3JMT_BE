@@ -14,8 +14,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
 import static com.prompthub.order.fixture.OrderFixture.CREATED_AT;
@@ -25,7 +25,7 @@ import static com.prompthub.order.fixture.OrderFixture.createPaidOrderWithProduc
 import static com.prompthub.order.fixture.OrderFixture.createPendingOrderWithProducts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
-import java.time.LocalDateTime;
+import static org.mockito.BDDMockito.then;
 
 @ExtendWith(MockitoExtension.class)
 class OrderExpirationServiceTest {
@@ -53,7 +53,7 @@ class OrderExpirationServiceTest {
 			Cart cart = Cart.create(BUYER_ID);
 			cart.addProduct(PRODUCT_ID_1);
 
-			given(orderRepository.findByIdWithOrderProducts(order.getId()))
+			given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
 				.willReturn(Optional.of(order));
 			given(expirationPolicy.paymentTimeoutMinutes())
 				.willReturn(20);
@@ -71,6 +71,7 @@ class OrderExpirationServiceTest {
 			assertThat(cart.getCartProducts())
 				.extracting(cartProduct -> cartProduct.getProductId())
 				.containsExactly(PRODUCT_ID_1);
+			then(orderRepository).should().findByIdWithOrderProductsForUpdate(order.getId());
 		}
 
 		@Test
@@ -79,7 +80,7 @@ class OrderExpirationServiceTest {
 			// given
 			Order order = createPendingOrderWithProducts();
 
-			given(orderRepository.findByIdWithOrderProducts(order.getId()))
+			given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
 				.willReturn(Optional.of(order));
 			given(expirationPolicy.paymentTimeoutMinutes())
 				.willReturn(20);
@@ -98,7 +99,7 @@ class OrderExpirationServiceTest {
 			// given
 			Order order = createPendingOrderWithProducts();
 
-			given(orderRepository.findByIdWithOrderProducts(order.getId()))
+			given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
 				.willReturn(Optional.of(order));
 			given(expirationPolicy.paymentTimeoutMinutes())
 				.willReturn(20);
@@ -117,7 +118,7 @@ class OrderExpirationServiceTest {
 			// given
 			Order order = createPaidOrderWithProducts();
 
-			given(orderRepository.findByIdWithOrderProducts(order.getId()))
+			given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
 				.willReturn(Optional.of(order));
 
 			// when
@@ -135,7 +136,7 @@ class OrderExpirationServiceTest {
 			Order order = createPendingOrderWithProducts();
 			order.updateOrderStatus(OrderStatus.FAILED);
 
-			given(orderRepository.findByIdWithOrderProducts(order.getId()))
+			given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
 				.willReturn(Optional.of(order));
 
 			// when
@@ -153,7 +154,7 @@ class OrderExpirationServiceTest {
 			Order order = createPendingOrderWithProducts();
 			order.updateOrderStatus(OrderStatus.CANCELED);
 
-			given(orderRepository.findByIdWithOrderProducts(order.getId()))
+			given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
 				.willReturn(Optional.of(order));
 
 			// when
@@ -171,7 +172,7 @@ class OrderExpirationServiceTest {
 			Order order = createPendingOrderWithProducts();
 			order.updateOrderStatus(OrderStatus.REFUNDED);
 
-			given(orderRepository.findByIdWithOrderProducts(order.getId()))
+			given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
 				.willReturn(Optional.of(order));
 
 			// when
@@ -186,7 +187,7 @@ class OrderExpirationServiceTest {
 		@DisplayName("Redis에 남은 주문 ID가 DB에 없으면 아무 작업도 하지 않는다")
 		void cancelPendingOrderByTimeout_orderNotFound_doNothing() {
 			// given
-			given(orderRepository.findByIdWithOrderProducts(ORDER_ID))
+			given(orderRepository.findByIdWithOrderProductsForUpdate(ORDER_ID))
 				.willReturn(Optional.empty());
 
 			// when

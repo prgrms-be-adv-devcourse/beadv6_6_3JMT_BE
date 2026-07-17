@@ -8,6 +8,8 @@ import com.prompthub.order.infra.messaging.kafka.router.PaymentEventRouter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import tools.jackson.databind.JsonNode;
@@ -58,6 +60,25 @@ class PaymentEventConsumerTest {
 		consumer.consume(jsonMessage, acknowledgment);
 
 		then(paymentEventRouter).should().route(any());
+		then(acknowledgment).should().acknowledge();
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"PAYMENT_CANCELED", "PAYMENT_REFUND_FAILED"})
+	@DisplayName("미지원 결제 이벤트는 라우터 호출 없이 ACK한다")
+	void consume_unsupportedEvent_acknowledgesWithoutRouting(String eventType) throws Exception {
+		EventMessage<JsonNode> message = new EventMessage<>(
+			UUID.randomUUID(),
+			eventType,
+			LocalDateTime.now(),
+			"PAYMENT",
+			UUID.randomUUID(),
+			objectMapper.createObjectNode()
+		);
+
+		consumer.consume(objectMapper.writeValueAsString(message), acknowledgment);
+
+		then(paymentEventRouter).shouldHaveNoInteractions();
 		then(acknowledgment).should().acknowledge();
 	}
 

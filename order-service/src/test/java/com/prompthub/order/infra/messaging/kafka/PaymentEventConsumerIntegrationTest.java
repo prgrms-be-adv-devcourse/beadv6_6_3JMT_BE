@@ -24,12 +24,11 @@ import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 
 import java.time.Duration;
-import java.time.OffsetDateTime;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -80,27 +79,15 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	void consumePaymentApprovedEvent() {
 		// given
 		UUID paymentId = UUID.randomUUID();
-		UUID buyerId = UUID.randomUUID();
-		UUID firstOrderId = UUID.randomUUID();
-		UUID secondOrderId = UUID.randomUUID();
-		UUID firstOrderProductId = UUID.randomUUID();
-		UUID secondOrderProductId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		UUID orderId = UUID.randomUUID();
 
 		Map<String, Object> payload = new HashMap<>();
 		payload.put("paymentId", paymentId.toString());
-		payload.put("buyerId", buyerId.toString());
-		payload.put("totalAmount", 30000);
-		payload.put("orders", List.of(
-			Map.of(
-				"orderId", firstOrderId.toString(),
-				"orderProductIds", List.of(firstOrderProductId.toString())
-			),
-			Map.of(
-				"orderId", secondOrderId.toString(),
-				"orderProductIds", List.of(secondOrderProductId.toString())
-			)
-		));
-		payload.put("approvedAt", OffsetDateTime.now(ZoneOffset.ofHours(9)).toString());
+		payload.put("orderId", orderId.toString());
+		payload.put("userId", userId.toString());
+		payload.put("amount", 30000);
+		payload.put("approvedAt", "2026-07-17T10:00:05+09:00");
 
 		Map<String, Object> message = new HashMap<>();
 		message.put("eventId", UUID.randomUUID().toString());
@@ -189,8 +176,8 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	@DisplayName("PAYMENT_FAILED는 정상 소비하고 DLT로 보내지 않는다")
 	void consumePaymentFailed_thenAckWithoutDlt() throws Exception {
 		UUID paymentId = UUID.randomUUID();
-		UUID firstOrderId = UUID.randomUUID();
-		UUID secondOrderId = UUID.randomUUID();
+		UUID orderId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
 
 		try (Consumer<String, String> dltConsumer = stringConsumer()) {
 			embeddedKafkaBroker.consumeFromAnEmbeddedTopic(dltConsumer, true, PAYMENT_EVENTS_DLT_TOPIC);
@@ -198,7 +185,7 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 				.send(
 					PAYMENT_EVENTS_TOPIC,
 					paymentId.toString(),
-					paymentFailedEvent(paymentId, firstOrderId, secondOrderId)
+					paymentFailedEvent(paymentId, orderId, userId)
 				)
 				.get(5, TimeUnit.SECONDS);
 
@@ -215,11 +202,8 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	@DisplayName("핸들러 예외는 3회 재시도 후 payment-events.DLT로 이동한다")
 	void consumePaymentApproved_whenHandlerFails_thenRetryAndSendToDlt() throws Exception {
 		UUID paymentId = UUID.randomUUID();
-		UUID buyerId = UUID.randomUUID();
-		UUID firstOrderId = UUID.randomUUID();
-		UUID secondOrderId = UUID.randomUUID();
-		UUID firstOrderProductId = UUID.randomUUID();
-		UUID secondOrderProductId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		UUID orderId = UUID.randomUUID();
 		willThrow(new OrderException(ErrorCode.INVALID_INPUT_VALUE))
 			.given(paymentApprovedEventHandler)
 			.handle(any(EventMessage.class));
@@ -232,11 +216,8 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 					paymentId.toString(),
 					paymentApprovedEvent(
 						paymentId,
-						buyerId,
-						firstOrderId,
-						firstOrderProductId,
-						secondOrderId,
-						secondOrderProductId
+						orderId,
+						userId
 					)
 				)
 				.get(5, TimeUnit.SECONDS);
@@ -260,6 +241,22 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 			embeddedKafkaBroker.consumeFromAnEmbeddedTopic(dltConsumer, true, PAYMENT_EVENTS_DLT_TOPIC);
 			rawStringKafkaTemplate()
 				.send(PAYMENT_EVENTS_TOPIC, UUID.randomUUID().toString(), ignoredEvent("PAYMENT_CANCELED"))
+				.get(5, TimeUnit.SECONDS);
+
+			assertThat(dltConsumer.poll(Duration.ofSeconds(2)).isEmpty()).isTrue();
+			verify(paymentApprovedEventHandler, never()).handle(any(EventMessage.class));
+			verify(paymentRefundedEventHandler, never()).handle(any(EventMessage.class));
+			verify(paymentFailedEventHandler, never()).handle(any(EventMessage.class));
+		}
+	}
+
+	@Test
+	@DisplayName("PAYMENT_REFUND_FAILED는 미지원 이벤트로 ACK하고 DLT로 보내지 않는다")
+	void consumePaymentRefundFailed_thenAckAsUnsupportedWithoutDlt() throws Exception {
+		try (Consumer<String, String> dltConsumer = stringConsumer()) {
+			embeddedKafkaBroker.consumeFromAnEmbeddedTopic(dltConsumer, true, PAYMENT_EVENTS_DLT_TOPIC);
+			rawStringKafkaTemplate()
+				.send(PAYMENT_EVENTS_TOPIC, UUID.randomUUID().toString(), ignoredEvent("PAYMENT_REFUND_FAILED"))
 				.get(5, TimeUnit.SECONDS);
 
 			assertThat(dltConsumer.poll(Duration.ofSeconds(2)).isEmpty()).isTrue();
@@ -327,11 +324,8 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 
 	private String paymentApprovedEvent(
 		UUID paymentId,
-		UUID buyerId,
-		UUID firstOrderId,
-		UUID firstOrderProductId,
-		UUID secondOrderId,
-		UUID secondOrderProductId
+		UUID orderId,
+		UUID userId
 	) {
 		return """
 			{
@@ -342,34 +336,22 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 			  "aggregateId": "%s",
 			  "payload": {
 			    "paymentId": "%s",
-			    "buyerId": "%s",
-			    "totalAmount": 30000,
-			    "orders": [
-			      {
-			        "orderId": "%s",
-			        "orderProductIds": ["%s"]
-			      },
-			      {
-			        "orderId": "%s",
-			        "orderProductIds": ["%s"]
-			      }
-			    ],
-			    "approvedAt": "2026-06-19T12:00:00"
+			    "orderId": "%s",
+			    "userId": "%s",
+			    "amount": 30000,
+			    "approvedAt": "2026-07-17T10:00:05+09:00"
 			  }
 			}
 			""".formatted(
 			UUID.randomUUID(),
 			paymentId,
 			paymentId,
-			buyerId,
-			firstOrderId,
-			firstOrderProductId,
-			secondOrderId,
-			secondOrderProductId
+			orderId,
+			userId
 		);
 	}
 
-	private String paymentFailedEvent(UUID paymentId, UUID firstOrderId, UUID secondOrderId) {
+	private String paymentFailedEvent(UUID paymentId, UUID orderId, UUID userId) {
 		return """
 			{
 			  "eventId": "%s",
@@ -379,18 +361,16 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 			  "aggregateId": "%s",
 			  "payload": {
 			    "paymentId": "%s",
-			    "orderIds": ["%s", "%s"],
-			    "failureCode": "PAYMENT_REJECTED",
-			    "failureReason": "결제가 승인되지 않았습니다",
-			    "failedAt": "2026-06-19T12:00:00"
+			    "orderId": "%s",
+			    "userId": "%s"
 			  }
 			}
 			""".formatted(
 			UUID.randomUUID(),
 			paymentId,
 			paymentId,
-			firstOrderId,
-			secondOrderId
+			orderId,
+			userId
 		);
 	}
 
