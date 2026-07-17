@@ -93,10 +93,65 @@ class SettlementOrderQueryRepositoryImplTest {
         );
     }
 
+    @Test
+    void findSettleableLines_sortsByOccurredAtThenOrderProductIdThenLineType() {
+        UUID earlyOrderId = UUID.fromString("00000000-0000-0000-0000-000000000102");
+        UUID laterOrderId = UUID.fromString("00000000-0000-0000-0000-000000000103");
+        UUID laterFirstProductId = UUID.fromString("00000000-0000-0000-0000-000000000200");
+        UUID laterSecondProductId = UUID.fromString("00000000-0000-0000-0000-000000000201");
+        UUID earlyProductId = UUID.fromString("00000000-0000-0000-0000-000000000202");
+        LocalDateTime earlyOccurredAt = JULY_START.plusDays(1);
+        LocalDateTime laterOccurredAt = JULY_START.plusDays(2);
+
+        Order laterOrder = Order.create(BUYER_ID, "ORD-SORT-LATER", 30_000);
+        setId(laterOrder, laterOrderId);
+        laterOrder.addOrderProduct(product(laterFirstProductId, SELLER_A_ID, 10_000));
+        laterOrder.addOrderProduct(product(laterSecondProductId, SELLER_B_ID, 20_000));
+        laterOrder.markCompleted(laterOccurredAt);
+        laterOrder.refundOrderProduct(laterFirstProductId, 10_000, laterOccurredAt);
+
+        Order earlyOrder = Order.create(BUYER_ID, "ORD-SORT-EARLY", 40_000);
+        setId(earlyOrder, earlyOrderId);
+        earlyOrder.addOrderProduct(product(earlyProductId, SELLER_A_ID, 40_000));
+        earlyOrder.markCompleted(earlyOccurredAt);
+
+        entityManager.persist(laterOrder);
+        entityManager.persist(earlyOrder);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<SettleableLineResult> result = repository.findSettleableLines(JULY_START, AUGUST_START);
+
+        assertThat(result).containsExactly(
+            line(SettlementLineType.PAID, earlyOrderId, earlyProductId, SELLER_A_ID, 40_000, earlyOccurredAt),
+            line(SettlementLineType.PAID, laterOrderId, laterFirstProductId, SELLER_A_ID, 10_000, laterOccurredAt),
+            line(SettlementLineType.REFUND, laterOrderId, laterFirstProductId, SELLER_A_ID, 10_000, laterOccurredAt),
+            line(SettlementLineType.PAID, laterOrderId, laterSecondProductId, SELLER_B_ID, 20_000, laterOccurredAt)
+        );
+    }
+
     private OrderProduct product(UUID orderProductId, UUID sellerId, int amount) {
         OrderProduct product = OrderProduct.create(UUID.randomUUID(), sellerId, "상품 " + orderProductId, amount);
         setId(product, orderProductId);
         return product;
+    }
+
+    private SettleableLineResult line(
+        SettlementLineType lineType,
+        UUID orderId,
+        UUID orderProductId,
+        UUID sellerId,
+        long lineAmount,
+        LocalDateTime occurredAt
+    ) {
+        return new SettleableLineResult(
+            lineType,
+            orderId,
+            orderProductId,
+            sellerId,
+            lineAmount,
+            occurredAt
+        );
     }
 
     private void setId(Object target, UUID id) {
