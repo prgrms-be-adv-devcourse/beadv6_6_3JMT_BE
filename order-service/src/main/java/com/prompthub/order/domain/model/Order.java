@@ -20,6 +20,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static jakarta.persistence.CascadeType.ALL;
@@ -149,15 +150,25 @@ public class Order extends BaseEntity {
         this.legacyCanceledAt = canceledAt;
     }
 
-    public void refund() {
-        refund(LocalDateTime.now());
-    }
+    public Optional<OrderProduct> refundOrderProduct(
+        UUID orderProductId,
+        int refundAmount,
+        LocalDateTime refundedAt
+    ) {
+        OrderProduct target = this.orderProducts.stream()
+            .filter(orderProduct -> orderProduct.getId().equals(orderProductId))
+            .findFirst()
+            .orElseThrow(() -> new OrderException(ErrorCode.ORDER_PRODUCT_NOT_FOUND));
+        if (target.getProductAmount() != refundAmount) {
+            throw new OrderException(ErrorCode.ORDER_REFUND_AMOUNT_MISMATCH);
+        }
+        if (target.getOrderStatus() == OrderProductStatus.REFUNDED) {
+            return Optional.empty();
+        }
 
-    public void refund(LocalDateTime refundedAt) {
-        this.orderProducts.stream()
-            .filter(OrderProduct::isPaid)
-            .forEach(orderProduct -> orderProduct.refund(refundedAt));
+        target.refund(refundedAt);
         recalculateRefundStatus(refundedAt);
+        return Optional.of(target);
     }
 
     public void recalculateRefundStatus(LocalDateTime refundedAt) {

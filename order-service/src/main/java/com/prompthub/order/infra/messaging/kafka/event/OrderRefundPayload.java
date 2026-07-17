@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.prompthub.order.domain.model.Order;
+import com.prompthub.order.domain.model.OrderProduct;
 
 public record OrderRefundPayload(
         UUID orderId,
@@ -13,22 +14,17 @@ public record OrderRefundPayload(
         LocalDateTime refundedAt,
         List<OrderPaidProductPayload> products
 ) {
-    public static OrderRefundPayload from(Order order, LocalDateTime refundedAt) {
+    public static OrderRefundPayload from(
+        Order order,
+        OrderProduct refundedProduct,
+        LocalDateTime refundedAt
+    ) {
         return new OrderRefundPayload(
                 order.getId(),
                 order.getBuyerId(),
                 order.getTotalOrderAmount(),
                 refundedAt,
-                order.getOrderProducts().stream()
-                        .map(op -> new OrderPaidProductPayload(
-                                op.getId(),
-                                op.getProductId(),
-                                op.getSellerId(),
-                                op.getProductTitle(),
-                                op.getProductType(),
-                                op.getProductAmount()
-                        ))
-                        .toList()
+				List.of(OrderPaidProductPayload.from(refundedProduct))
         );
     }
 }
