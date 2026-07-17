@@ -47,18 +47,20 @@ class PaymentRefundedEventHandlerTest {
         UUID aggregateId = UUID.randomUUID();
         LocalDateTime occurredAt = LocalDateTime.now();
         UUID paymentId = UUID.randomUUID();
-        UUID buyerId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID orderProductId = UUID.randomUUID();
 
         String payloadJson = """
             {
                 "paymentId": "%s",
                 "orderId": "%s",
-                "buyerId": "%s",
-                "pgTxId": "tx123",
-                "refundedAmount": 30000,
-                "refundedAt": "2026-06-19T12:00:00"
+                "userId": "%s",
+                "orderProductId": "%s",
+                "amount": 30000,
+                "paymentStatus": "PARTIAL_REFUNDED",
+                "refundedAt": "2026-07-17T11:00:00+09:00"
             }
-        """.formatted(paymentId, aggregateId, buyerId);
+        """.formatted(paymentId, aggregateId, userId, orderProductId);
 
         JsonNode payloadNode = objectMapper.readTree(payloadJson);
 
@@ -79,19 +81,23 @@ class PaymentRefundedEventHandlerTest {
         PaymentRefundedPayload payload = captor.getValue();
         assertThat(payload.paymentId()).isEqualTo(paymentId);
         assertThat(payload.orderId()).isEqualTo(aggregateId);
-        assertThat(payload.buyerId()).isEqualTo(buyerId);
-        assertThat(payload.refundedAmount()).isEqualTo(30000);
+        assertThat(payload.userId()).isEqualTo(userId);
+        assertThat(payload.orderProductId()).isEqualTo(orderProductId);
+        assertThat(payload.amount()).isEqualTo(30000);
+        assertThat(payload.paymentStatus()).isEqualTo("PARTIAL_REFUNDED");
+        assertThat(payload.refundedAt()).isEqualTo("2026-07-17T11:00:00+09:00");
     }
 
     @Test
-    @DisplayName("필수 필드 누락 시 파싱 예외가 발생한다")
-    void handle_missingFields_throwsException() throws Exception {
+    @DisplayName("UUID 필드 형식이 잘못되면 페이로드 매핑 예외가 발생한다")
+    void handle_invalidUuid_throwsException() throws Exception {
         UUID eventId = UUID.randomUUID();
         UUID aggregateId = UUID.randomUUID();
         LocalDateTime occurredAt = LocalDateTime.now();
 
         String payloadJson = """
             {
+                "paymentId": "not-a-uuid",
                 "orderId": "%s"
             }
         """.formatted(aggregateId);

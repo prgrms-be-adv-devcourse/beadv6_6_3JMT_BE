@@ -4,6 +4,7 @@ import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
 import org.springframework.stereotype.Component;
 
 import java.time.DateTimeException;
@@ -50,6 +51,34 @@ public class PaymentEventValidator {
 		} catch (DateTimeException exception) {
 			throw invalidInput();
 		}
+	}
+
+	public LocalDateTime validate(PaymentRefundedPayload payload) {
+		if (payload == null
+			|| payload.paymentId() == null
+			|| payload.orderId() == null
+			|| payload.userId() == null
+			|| payload.orderProductId() == null
+			|| payload.amount() <= 0
+			|| payload.paymentStatus() == null
+			|| payload.paymentStatus().isBlank()
+			|| !isRefundedStatus(payload.paymentStatus())
+			|| payload.refundedAt() == null
+			|| payload.refundedAt().isBlank()) {
+			throw invalidInput();
+		}
+
+		try {
+			return OffsetDateTime.parse(payload.refundedAt())
+				.withOffsetSameInstant(KOREA_OFFSET)
+				.toLocalDateTime();
+		} catch (DateTimeException exception) {
+			throw invalidInput();
+		}
+	}
+
+	private boolean isRefundedStatus(String paymentStatus) {
+		return paymentStatus.equals("PARTIAL_REFUNDED") || paymentStatus.equals("ALL_REFUNDED");
 	}
 
 	private OrderException invalidInput() {

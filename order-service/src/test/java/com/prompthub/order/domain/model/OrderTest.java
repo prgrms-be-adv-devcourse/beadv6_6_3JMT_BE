@@ -2,6 +2,7 @@ package com.prompthub.order.domain.model;
 
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import org.junit.jupiter.api.Test;
 
@@ -63,7 +64,7 @@ class OrderTest {
     }
 
     @Test
-    void refundedChildren_recalculatePartialAndAllRefunded() {
+    void refundOrderProduct_refundsOnlyTargetAndRecalculatesPartialStatus() {
         Order order = createPendingOrder();
         OrderProduct first = createOrderProduct1();
         OrderProduct second = createOrderProduct2();
@@ -71,31 +72,100 @@ class OrderTest {
         order.addOrderProduct(second);
         order.markCompleted(PAID_AT);
 
-        first.refund(REFUNDED_AT);
-        order.recalculateRefundStatus(REFUNDED_AT);
+        var refunded = order.refundOrderProduct(first.getId(), first.getProductAmount(), REFUNDED_AT);
 
+        assertThat(refunded).containsSame(first);
+        assertThat(first.getOrderStatus()).isEqualTo(OrderProductStatus.REFUNDED);
+        assertThat(first.getRefundedAt()).isEqualTo(REFUNDED_AT);
+        assertThat(second.getOrderStatus()).isEqualTo(OrderProductStatus.PAID);
+        assertThat(second.getRefundedAt()).isNull();
         assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PARTIAL_REFUNDED);
         assertThat(order.getRefundedAt()).isNull();
+    }
 
-        second.refund(REFUNDED_AT.plusMinutes(1));
-        order.recalculateRefundStatus(REFUNDED_AT.plusMinutes(1));
+    @Test
+    void refundOrderProduct_lastPaidProductRecalculatesAllRefunded() {
+        Order order = createPendingOrder();
+        OrderProduct first = createOrderProduct1();
+        OrderProduct second = createOrderProduct2();
+        order.addOrderProduct(first);
+        order.addOrderProduct(second);
+        order.markCompleted(PAID_AT);
+        order.refundOrderProduct(first.getId(), first.getProductAmount(), REFUNDED_AT);
+
+        order.refundOrderProduct(second.getId(), second.getProductAmount(), REFUNDED_AT.plusMinutes(1));
 
         assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.ALL_REFUNDED);
         assertThat(order.getRefundedAt()).isEqualTo(REFUNDED_AT.plusMinutes(1));
     }
 
     @Test
-    void duplicateRefundRecalculation_isIdempotent() {
+    void refundOrderProduct_missingProduct_throwsNotFound() {
         Order order = createPendingOrder();
         OrderProduct product = createOrderProduct1();
         order.addOrderProduct(product);
         order.markCompleted(PAID_AT);
-        product.refund(REFUNDED_AT);
-        order.recalculateRefundStatus(REFUNDED_AT);
 
-        order.recalculateRefundStatus(REFUNDED_AT.plusMinutes(1));
+        assertThatThrownBy(() -> order.refundOrderProduct(
+            java.util.UUID.randomUUID(),
+            product.getProductAmount(),
+            REFUNDED_AT
+        ))
+            .isInstanceOf(OrderException.class)
+            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_PRODUCT_NOT_FOUND);
+    }
 
+    @Test
+    void refundOrderProduct_amountMismatch_throwsDedicatedError() {
+        Order order = createPendingOrder();
+        OrderProduct product = createOrderProduct1();
+        order.addOrderProduct(product);
+        order.markCompleted(PAID_AT);
+
+        assertThatThrownBy(() -> order.refundOrderProduct(
+            product.getId(),
+            product.getProductAmount() - 1,
+            REFUNDED_AT
+        ))
+            .isInstanceOf(OrderException.class)
+            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_REFUND_AMOUNT_MISMATCH);
+        assertThat(product.getOrderStatus()).isEqualTo(OrderProductStatus.PAID);
+    }
+
+    @Test
+    void refundOrderProduct_nonPaidProduct_throwsInvalidTransition() {
+        Order order = createPendingOrder();
+        OrderProduct product = createOrderProduct1();
+        order.addOrderProduct(product);
+
+        assertThatThrownBy(() -> order.refundOrderProduct(
+            product.getId(),
+            product.getProductAmount(),
+            REFUNDED_AT
+        ))
+            .isInstanceOf(OrderException.class)
+            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+        assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
+        assertThat(product.getOrderStatus()).isEqualTo(OrderProductStatus.PENDING);
+    }
+
+    @Test
+    void refundOrderProduct_duplicateRefund_isIdempotent() {
+        Order order = createPendingOrder();
+        OrderProduct product = createOrderProduct1();
+        order.addOrderProduct(product);
+        order.markCompleted(PAID_AT);
+        order.refundOrderProduct(product.getId(), product.getProductAmount(), REFUNDED_AT);
+
+        var duplicate = order.refundOrderProduct(
+            product.getId(),
+            product.getProductAmount(),
+            REFUNDED_AT.plusMinutes(1)
+        );
+
+        assertThat(duplicate).isEmpty();
         assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.ALL_REFUNDED);
         assertThat(order.getRefundedAt()).isEqualTo(REFUNDED_AT);
+        assertThat(product.getRefundedAt()).isEqualTo(REFUNDED_AT);
     }
 }

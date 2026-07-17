@@ -16,6 +16,7 @@ import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
 import com.prompthub.order.infra.persistence.cart.CartPersistence;
 import com.prompthub.order.infra.persistence.order.OrderPersistence;
 import com.prompthub.order.infra.persistence.outbox.OutboxEventPersistence;
@@ -28,7 +29,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,9 +41,11 @@ import static com.prompthub.order.fixture.PaymentEventFixture.APPROVED_AT_OFFSET
 import static com.prompthub.order.fixture.PaymentEventFixture.BUYER_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.FAILED_AT;
 import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
+import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_PRODUCT_A;
 import static com.prompthub.order.fixture.PaymentEventFixture.OTHER_BUYER_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.PAYMENT_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.PRODUCT_A;
+import static com.prompthub.order.fixture.PaymentEventFixture.SELLER_A;
 import static com.prompthub.order.fixture.PaymentEventFixture.approvedPayload;
 import static com.prompthub.order.fixture.PaymentEventFixture.createdOrder;
 import static com.prompthub.order.fixture.PaymentEventFixture.failedPayload;
@@ -58,12 +64,17 @@ class PaymentEventTransactionIntegrationTest {
 
 	private static final UUID UNRELATED_PRODUCT =
 		UUID.fromString("00000000-0000-0000-0000-000000000799");
+	private static final LocalDateTime REFUNDED_AT = LocalDateTime.of(2026, 7, 17, 11, 0);
+	private static final String REFUNDED_AT_OFFSET = "2026-07-17T11:00:00+09:00";
 
 	@Autowired
 	private PaymentApprovedProcessor approvedProcessor;
 
 	@Autowired
 	private PaymentFailedProcessor failedProcessor;
+
+	@Autowired
+	private PaymentRefundedProcessor refundedProcessor;
 
 	@Autowired
 	private OrderPersistence orderPersistence;
@@ -73,6 +84,9 @@ class PaymentEventTransactionIntegrationTest {
 
 	@Autowired
 	private OutboxEventPersistence outboxEventPersistence;
+
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	@PersistenceContext
 	private EntityManager entityManager;
@@ -245,6 +259,116 @@ class PaymentEventTransactionIntegrationTest {
 	}
 
 	@Test
+	void refundedEvent_commitsOnlyTargetProductSingleProductOutboxAndProcessedEvent() throws Exception {
+		Order paidOrder = saveAndApproveScenario();
+
+		refundedProcessor.process(
+			UUID.randomUUID(),
+			"PAYMENT_REFUNDED",
+			REFUNDED_AT,
+			refundedPayload(paidOrder, ORDER_PRODUCT_A, BUYER_ID, 10_000)
+		);
+
+		Order reloaded = reloadOrder();
+		assertThat(reloaded.getOrderStatus()).isEqualTo(OrderStatus.PARTIAL_REFUNDED);
+		assertThat(reloaded.getRefundedAt()).isNull();
+		assertThat(findProduct(reloaded, ORDER_PRODUCT_A).getOrderStatus())
+			.isEqualTo(OrderProductStatus.REFUNDED);
+		assertThat(reloaded.getOrderProducts())
+			.filteredOn(product -> !product.getId().equals(ORDER_PRODUCT_A))
+			.extracting(OrderProduct::getOrderStatus)
+			.containsOnly(OrderProductStatus.PAID);
+		OutboxEvent refundOutbox = refundOutboxes().getFirst();
+		JsonNode refundMessage = objectMapper.readTree(refundOutbox.getPayload());
+		JsonNode products = refundMessage.path("payload").path("products");
+		assertThat(products.size()).isEqualTo(1);
+		assertThat(products.get(0).path("orderProductId").asText()).isEqualTo(ORDER_PRODUCT_A.toString());
+		assertThat(products.get(0).path("sellerId").asText()).isEqualTo(SELLER_A.toString());
+		assertThat(processedEventRepository.count()).isEqualTo(2);
+	}
+
+	@Test
+	void sameRefundedEventTwice_keepsOneRefundOutboxAndOneRefundProcessedEvent() {
+		Order paidOrder = saveAndApproveScenario();
+		UUID eventId = UUID.randomUUID();
+		PaymentRefundedPayload payload = refundedPayload(paidOrder, ORDER_PRODUCT_A, BUYER_ID, 10_000);
+
+		refundedProcessor.process(eventId, "PAYMENT_REFUNDED", REFUNDED_AT, payload);
+		refundedProcessor.process(eventId, "PAYMENT_REFUNDED", REFUNDED_AT, payload);
+
+		assertThat(refundOutboxes()).hasSize(1);
+		assertThat(processedEventRepository.count()).isEqualTo(2);
+	}
+
+	@Test
+	void semanticDuplicateRefundWithDifferentEventId_marksProcessedWithoutSecondOutbox() {
+		Order paidOrder = saveAndApproveScenario();
+		PaymentRefundedPayload payload = refundedPayload(paidOrder, ORDER_PRODUCT_A, BUYER_ID, 10_000);
+
+		refundedProcessor.process(UUID.randomUUID(), "PAYMENT_REFUNDED", REFUNDED_AT, payload);
+		refundedProcessor.process(UUID.randomUUID(), "PAYMENT_REFUNDED", REFUNDED_AT.plusMinutes(1), payload);
+
+		assertThat(reloadOrder().getOrderStatus()).isEqualTo(OrderStatus.PARTIAL_REFUNDED);
+		assertThat(refundOutboxes()).hasSize(1);
+		assertThat(processedEventRepository.count()).isEqualTo(3);
+	}
+
+	@Test
+	void refundedEvent_buyerMismatch_rollsBackWithoutRefundSideEffects() {
+		Order paidOrder = saveAndApproveScenario();
+
+		assertThatThrownBy(() -> refundedProcessor.process(
+			UUID.randomUUID(),
+			"PAYMENT_REFUNDED",
+			REFUNDED_AT,
+			refundedPayload(paidOrder, ORDER_PRODUCT_A, OTHER_BUYER_ID, 10_000)
+		))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_ACCESS_DENIED);
+
+		entityManager.clear();
+		assertPaidStateAndNoRefundSideEffects();
+	}
+
+	@Test
+	void refundedEvent_outboxFailure_rollsBackProductOrderOutboxAndProcessedEvent() {
+		Order paidOrder = saveAndApproveScenario();
+		willThrow(new RuntimeException("refund outbox failure"))
+			.given(outboxEventRepository).save(any());
+
+		assertThatThrownBy(() -> refundedProcessor.process(
+			UUID.randomUUID(),
+			"PAYMENT_REFUNDED",
+			REFUNDED_AT,
+			refundedPayload(paidOrder, ORDER_PRODUCT_A, BUYER_ID, 10_000)
+		))
+			.isInstanceOf(RuntimeException.class)
+			.hasMessageContaining("refund outbox failure");
+
+		entityManager.clear();
+		assertPaidStateAndNoRefundSideEffects();
+	}
+
+	@Test
+	void refundedEvent_processedEventFailure_rollsBackProductOrderAndOutbox() {
+		Order paidOrder = saveAndApproveScenario();
+		willThrow(new RuntimeException("refund processed event failure"))
+			.given(processedEventRepository).save(any());
+
+		assertThatThrownBy(() -> refundedProcessor.process(
+			UUID.randomUUID(),
+			"PAYMENT_REFUNDED",
+			REFUNDED_AT,
+			refundedPayload(paidOrder, ORDER_PRODUCT_A, BUYER_ID, 10_000)
+		))
+			.isInstanceOf(RuntimeException.class)
+			.hasMessageContaining("refund processed event failure");
+
+		entityManager.clear();
+		assertPaidStateAndNoRefundSideEffects();
+	}
+
+	@Test
 	void failedEvent_commitsFailedStatesAndKeepsCartOutboxAndRedisUnchanged() {
 		saveScenario();
 
@@ -309,6 +433,54 @@ class PaymentEventTransactionIntegrationTest {
 
 		entityManager.clear();
 		assertCreatedStateAndNoSideEffects();
+	}
+
+	private Order saveAndApproveScenario() {
+		Order order = saveScenario();
+		approvedProcessor.process(UUID.randomUUID(), "PAYMENT_APPROVED", APPROVED_AT, approvedPayload(order));
+		entityManager.clear();
+		return reloadOrder();
+	}
+
+	private PaymentRefundedPayload refundedPayload(
+		Order order,
+		UUID orderProductId,
+		UUID userId,
+		int amount
+	) {
+		return new PaymentRefundedPayload(
+			PAYMENT_ID,
+			order.getId(),
+			userId,
+			orderProductId,
+			amount,
+			"PARTIAL_REFUNDED",
+			REFUNDED_AT_OFFSET
+		);
+	}
+
+	private OrderProduct findProduct(Order order, UUID orderProductId) {
+		return order.getOrderProducts().stream()
+			.filter(product -> product.getId().equals(orderProductId))
+			.findFirst()
+			.orElseThrow();
+	}
+
+	private List<OutboxEvent> refundOutboxes() {
+		return outboxEventPersistence.findAll().stream()
+			.filter(outbox -> outbox.getEventType().equals("ORDER_REFUND"))
+			.toList();
+	}
+
+	private void assertPaidStateAndNoRefundSideEffects() {
+		Order reloaded = reloadOrder();
+		assertThat(reloaded.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
+		assertThat(reloaded.getOrderProducts())
+			.extracting(OrderProduct::getOrderStatus)
+			.containsOnly(OrderProductStatus.PAID);
+		assertThat(refundOutboxes()).isEmpty();
+		assertThat(outboxEventPersistence.count()).isEqualTo(1);
+		assertThat(processedEventRepository.count()).isEqualTo(1);
 	}
 
 	private Order saveScenario() {
