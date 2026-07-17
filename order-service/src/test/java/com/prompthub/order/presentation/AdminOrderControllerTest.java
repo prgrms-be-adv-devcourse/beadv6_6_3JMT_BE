@@ -27,6 +27,7 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.ORDER_ID;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TITLE_1;
@@ -64,10 +65,21 @@ class AdminOrderControllerTest {
 		AdminOrderSearchCondition condition = new AdminOrderSearchCondition("ALL", 1, 20).resolve();
 		AdminOrderListResponse order = new AdminOrderListResponse(
 			ORDER_ID,
-			"판매자A",
+			3,
+			List.of(
+				new AdminOrderListResponse.SellerSummary(
+					UUID.fromString("00000000-0000-0000-0000-000000000201"), "판매자A", 2, 30_000
+				),
+				new AdminOrderListResponse.SellerSummary(
+					UUID.fromString("00000000-0000-0000-0000-000000000202"), "판매자B", 1, 15_000
+				),
+				new AdminOrderListResponse.SellerSummary(
+					UUID.fromString("00000000-0000-0000-0000-000000000203"), "판매자C", 1, 25_000
+				)
+			),
 			PRODUCT_TITLE_1,
-			2,
-			TOTAL_AMOUNT,
+			4,
+			70_000,
 			OrderStatus.PAID,
 			LocalDateTime.of(2026, 6, 24, 10, 0)
 		);
@@ -81,8 +93,11 @@ class AdminOrderControllerTest {
 				.param("size", "20"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.success").value(true))
-			.andExpect(jsonPath("$.data[0].sellerNickname").value("판매자A"))
-			.andExpect(jsonPath("$.data[0].totalOrderCount").value(2))
+			.andExpect(jsonPath("$.data[0].sellerCount").value(3))
+			.andExpect(jsonPath("$.data[0].sellers.length()").value(3))
+			.andExpect(jsonPath("$.data[0].sellers[0].sellerNickname").value("판매자A"))
+			.andExpect(jsonPath("$.data[0].sellerNickname").doesNotExist())
+			.andExpect(jsonPath("$.data[0].totalOrderCount").value(4))
 			.andExpect(jsonPath("$.meta.page").value(1))
 			.andExpect(jsonPath("$.meta.size").value(20))
 			.andExpect(jsonPath("$.meta.total").value(1))
