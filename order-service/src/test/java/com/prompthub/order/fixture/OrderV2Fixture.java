@@ -34,8 +34,6 @@ public final class OrderV2Fixture {
 	public static final UUID ORDER_PRODUCT_B1 = uuid(603);
 	public static final UUID ORDER_PRODUCT_C1 = uuid(604);
 
-	public static final UUID ORDER_GROUP_ID = uuid(900);
-
 	public static final String REQUEST_TITLE_A1 = "요청-A1";
 	public static final String REQUEST_TITLE_A2 = "요청-A2";
 	public static final String REQUEST_TITLE_B1 = "요청-B1";

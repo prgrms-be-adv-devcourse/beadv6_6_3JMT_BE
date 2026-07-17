@@ -39,15 +39,15 @@ class OutboxRelayTest {
 	private KafkaTemplate<String, String> kafkaTemplate;
 
 	@Test
-	@DisplayName("주문 묶음 Outbox 한 건은 aggregateId를 key로 ORDER_CREATED를 한 번 발행한다")
-	void orderGroupEventUsesAggregateIdAndSendsOnce() throws Exception {
-		UUID orderGroupId = UUID.fromString("00000000-0000-0000-0000-000000000900");
+	@DisplayName("단건 주문 Outbox는 orderId aggregateId를 key로 ORDER_CREATED를 한 번 발행한다")
+	void orderEventUsesAggregateIdAndSendsOnce() throws Exception {
+		UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000900");
 		String payload = """
-			{"eventType":"ORDER_CREATED","aggregateType":"ORDER_GROUP","aggregateId":"%s","payload":{"orders":[{}, {}, {}]}}
-			""".formatted(orderGroupId);
+			{"eventType":"ORDER_CREATED","aggregateType":"ORDER","aggregateId":"%s","payload":{"orderId":"%s","buyerId":"00000000-0000-0000-0000-000000000001","totalAmount":11000,"createdAt":"2026-07-17T10:00:00"}}
+			""".formatted(ORDER_ID, ORDER_ID);
 		OutboxEvent event = OutboxEvent.create(
-			orderGroupId,
-			orderGroupId,
+			eventId,
+			ORDER_ID,
 			"ORDER_CREATED",
 			payload,
 			APPROVED_AT
@@ -58,13 +58,13 @@ class OutboxRelayTest {
 			new OutboxRelayProperties(true, 5_000L, 100, 3, ORDER_EVENTS_TOPIC)
 		);
 		given(outboxEventRepository.findPendingEvents(100)).willReturn(List.of(event));
-		given(kafkaTemplate.send(ORDER_EVENTS_TOPIC, orderGroupId.toString(), payload))
+		given(kafkaTemplate.send(ORDER_EVENTS_TOPIC, ORDER_ID.toString(), payload))
 			.willReturn(CompletableFuture.completedFuture(null));
 
 		relay.publishPendingEvents();
 
 		then(kafkaTemplate).should(times(1))
-			.send(ORDER_EVENTS_TOPIC, orderGroupId.toString(), payload);
+			.send(ORDER_EVENTS_TOPIC, ORDER_ID.toString(), payload);
 		assertThat(event.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED);
 	}
 
