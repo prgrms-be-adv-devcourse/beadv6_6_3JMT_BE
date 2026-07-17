@@ -46,8 +46,8 @@ public final class PaymentEventFixture {
 		String orderNumber,
 		int amount
 	) {
-		Order order = Order.create(buyerId, sellerId, orderNumber, amount);
-		OrderProduct product = OrderProduct.create(productId, "상품-" + orderNumber, amount);
+		Order order = Order.create(buyerId, orderNumber, amount);
+		OrderProduct product = OrderProduct.create(productId, sellerId, "상품-" + orderNumber, amount);
 		ReflectionTestUtils.setField(order, "id", orderId);
 		ReflectionTestUtils.setField(product, "id", orderProductId);
 		order.addOrderProduct(product);

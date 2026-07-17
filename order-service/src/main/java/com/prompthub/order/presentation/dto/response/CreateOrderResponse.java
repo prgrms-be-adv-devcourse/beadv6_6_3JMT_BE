@@ -28,7 +28,6 @@ public record CreateOrderResponse(
 		UUID orderId,
 		String orderNumber,
 		UUID buyerId,
-		UUID sellerId,
 		OrderStatus orderStatus,
 		int orderAmount,
 		List<Product> products,
@@ -40,7 +39,6 @@ public record CreateOrderResponse(
 				order.orderId(),
 				order.orderNumber(),
 				order.buyerId(),
-				order.sellerId(),
 				order.orderStatus(),
 				order.orderAmount(),
 				order.products().stream().map(Product::from).toList(),
@@ -52,6 +50,7 @@ public record CreateOrderResponse(
 	public record Product(
 		UUID orderProductId,
 		UUID productId,
+		UUID sellerId,
 		String productTitle,
 		int productAmount,
 		OrderProductStatus orderProductStatus
@@ -61,6 +60,7 @@ public record CreateOrderResponse(
 			return new Product(
 				product.orderProductId(),
 				product.productId(),
+				product.sellerId(),
 				product.productTitle(),
 				product.productAmount(),
 				product.orderProductStatus()

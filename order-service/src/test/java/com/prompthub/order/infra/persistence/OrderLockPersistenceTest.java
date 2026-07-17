@@ -71,8 +71,8 @@ class OrderLockPersistenceTest {
 
 	private Order order(UUID orderId, UUID orderProductId, String orderNumber, long productSuffix) {
 		UUID productId = UUID.fromString("00000000-0000-0000-0000-%012d".formatted(productSuffix));
-		Order order = Order.create(BUYER_ID, SELLER_ID, orderNumber, 1_000);
-		OrderProduct product = OrderProduct.create(productId, "상품", 1_000);
+		Order order = Order.create(BUYER_ID, orderNumber, 1_000);
+		OrderProduct product = OrderProduct.create(productId, SELLER_ID, "상품", 1_000);
 		ReflectionTestUtils.setField(order, "id", orderId);
 		ReflectionTestUtils.setField(product, "id", orderProductId);
 		order.addOrderProduct(product);

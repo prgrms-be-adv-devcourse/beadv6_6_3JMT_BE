@@ -75,21 +75,21 @@ class OrderCreatedPayloadSerializationTest {
 	}
 
 	private List<Order> orders() {
-		Order orderA = order(ORDER_A, SELLER_A, "ORD-A", AMOUNT_A1 + AMOUNT_A2);
-		orderA.addOrderProduct(product(ORDER_PRODUCT_A1, PRODUCT_A1, REQUEST_TITLE_A1, AMOUNT_A1));
-		orderA.addOrderProduct(product(ORDER_PRODUCT_A2, PRODUCT_A2, REQUEST_TITLE_A2, AMOUNT_A2));
+		Order orderA = order(ORDER_A, "ORD-A", AMOUNT_A1 + AMOUNT_A2);
+		orderA.addOrderProduct(product(ORDER_PRODUCT_A1, PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, AMOUNT_A1));
+		orderA.addOrderProduct(product(ORDER_PRODUCT_A2, PRODUCT_A2, SELLER_A, REQUEST_TITLE_A2, AMOUNT_A2));
 
-		Order orderB = order(ORDER_B, SELLER_B, "ORD-B", AMOUNT_B1);
-		orderB.addOrderProduct(product(ORDER_PRODUCT_B1, PRODUCT_B1, REQUEST_TITLE_B1, AMOUNT_B1));
+		Order orderB = order(ORDER_B, "ORD-B", AMOUNT_B1);
+		orderB.addOrderProduct(product(ORDER_PRODUCT_B1, PRODUCT_B1, SELLER_B, REQUEST_TITLE_B1, AMOUNT_B1));
 
-		Order orderC = order(ORDER_C, SELLER_C, "ORD-C", AMOUNT_C1);
-		orderC.addOrderProduct(product(ORDER_PRODUCT_C1, PRODUCT_C1, REQUEST_TITLE_C1, AMOUNT_C1));
+		Order orderC = order(ORDER_C, "ORD-C", AMOUNT_C1);
+		orderC.addOrderProduct(product(ORDER_PRODUCT_C1, PRODUCT_C1, SELLER_C, REQUEST_TITLE_C1, AMOUNT_C1));
 
 		return List.of(orderA, orderB, orderC);
 	}
 
-	private Order order(java.util.UUID id, java.util.UUID sellerId, String number, int amount) {
-		Order order = Order.create(BUYER_ID, sellerId, number, amount);
+	private Order order(java.util.UUID id, String number, int amount) {
+		Order order = Order.create(BUYER_ID, number, amount);
 		ReflectionTestUtils.setField(order, "id", id);
 		ReflectionTestUtils.setField(order, "createdAt", CREATED_AT);
 		ReflectionTestUtils.setField(order, "updatedAt", CREATED_AT);
@@ -99,10 +99,11 @@ class OrderCreatedPayloadSerializationTest {
 	private OrderProduct product(
 		java.util.UUID id,
 		java.util.UUID productId,
+		java.util.UUID sellerId,
 		String title,
 		int amount
 	) {
-		OrderProduct product = OrderProduct.create(productId, title, amount);
+		OrderProduct product = OrderProduct.create(productId, sellerId, title, amount);
 		ReflectionTestUtils.setField(product, "id", id);
 		ReflectionTestUtils.setField(product, "createdAt", CREATED_AT);
 		ReflectionTestUtils.setField(product, "updatedAt", CREATED_AT);

@@ -146,7 +146,7 @@ class OrderCreationTransactionIntegrationTest {
 	@Test
 	@DisplayName("두 번째 판매자 주문 번호가 충돌하면 신규 주문과 Outbox가 하나도 남지 않는다")
 	void orderNumberConflictRollsBackWholeOrderGroup() {
-		Order existing = Order.create(BUYER_ID, SELLER_B, "ORD-B", 1_000);
+		Order existing = Order.create(BUYER_ID, "ORD-B", 1_000);
 		orderPersistence.saveAndFlush(existing);
 		given(orderNumberGenerator.generate()).willReturn("ORD-A", "ORD-B", "ORD-C");
 

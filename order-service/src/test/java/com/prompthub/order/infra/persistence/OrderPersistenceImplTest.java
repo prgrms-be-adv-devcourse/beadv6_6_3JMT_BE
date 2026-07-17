@@ -67,7 +67,6 @@ class OrderPersistenceImplTest {
 	private Order createPaidOrder(String orderNumber, LocalDateTime createdAt) {
 		Order order = Order.create(
 			BUYER_ID,
-			SELLER_ID_1,
 			orderNumber,
 			PRODUCT_AMOUNT_1
 		);

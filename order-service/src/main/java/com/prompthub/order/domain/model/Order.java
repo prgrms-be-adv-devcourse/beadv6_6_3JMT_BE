@@ -31,7 +31,6 @@ import static lombok.AccessLevel.PROTECTED;
     name = "\"order\"",
     indexes = {
         @Index(name = "idx_order_buyer_created_at", columnList = "buyer_id, created_at DESC"),
-        @Index(name = "idx_order_seller_created_at", columnList = "seller_id, created_at DESC"),
         @Index(name = "idx_order_status_created_at", columnList = "order_status, created_at DESC"),
         @Index(name = "idx_order_completed_at", columnList = "completed_at"),
         @Index(name = "idx_order_refunded_at", columnList = "refunded_at")
@@ -46,9 +45,6 @@ public class Order extends BaseEntity {
 
     @Column(name = "buyer_id", columnDefinition = "uuid", nullable = false)
     private UUID buyerId;
-
-    @Column(name = "seller_id", columnDefinition = "uuid", nullable = false)
-    private UUID sellerId;
 
     @Column(name = "order_number", length = 30, nullable = false, unique = true)
     private String orderNumber;
@@ -75,14 +71,12 @@ public class Order extends BaseEntity {
     private Order(
         UUID id,
         UUID buyerId,
-        UUID sellerId,
         String orderNumber,
         int totalOrderAmount,
         OrderStatus orderStatus
     ) {
         this.id = id;
         this.buyerId = buyerId;
-        this.sellerId = sellerId;
         this.orderNumber = orderNumber;
         this.totalOrderAmount = totalOrderAmount;
         this.orderStatus = orderStatus;
@@ -90,14 +84,12 @@ public class Order extends BaseEntity {
 
     public static Order create(
         UUID buyerId,
-        UUID sellerId,
         String orderNumber,
         int totalOrderAmount
     ) {
         return new Order(
             UUID.randomUUID(),
             buyerId,
-            sellerId,
             orderNumber,
             totalOrderAmount,
             OrderStatus.CREATED

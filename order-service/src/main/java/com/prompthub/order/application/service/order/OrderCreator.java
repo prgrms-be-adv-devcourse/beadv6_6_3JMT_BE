@@ -37,8 +37,8 @@ public class OrderCreator {
 	public CreateOrderResult create(UUID buyerId, List<OrderItem> items) {
 		Map<UUID, List<OrderItem>> itemsBySeller = items.stream()
 			.collect(groupingBy(OrderItem::sellerId, LinkedHashMap::new, toList()));
-		List<Order> orders = itemsBySeller.entrySet().stream()
-			.map(entry -> createOrder(buyerId, entry.getKey(), entry.getValue()))
+		List<Order> orders = itemsBySeller.values().stream()
+			.map(itemsForSeller -> createOrder(buyerId, itemsForSeller))
 			.toList();
 
 		List<Order> savedOrders = orderRepository.saveAll(orders);
@@ -50,16 +50,20 @@ public class OrderCreator {
 		return CreateOrderResult.from(savedOrders);
 	}
 
-	private Order createOrder(UUID buyerId, UUID sellerId, List<OrderItem> items) {
+	private Order createOrder(UUID buyerId, List<OrderItem> items) {
 		int totalAmount = items.stream().mapToInt(OrderItem::amount).sum();
 		Order order = Order.create(
 			buyerId,
-			sellerId,
 			orderNumberGenerator.generate(),
 			totalAmount
 		);
 		items.stream()
-			.map(item -> OrderProduct.create(item.productId(), item.productTitle(), item.amount()))
+			.map(item -> OrderProduct.create(
+				item.productId(),
+				item.sellerId(),
+				item.productTitle(),
+				item.amount()
+			))
 			.forEach(order::addOrderProduct);
 		return order;
 	}

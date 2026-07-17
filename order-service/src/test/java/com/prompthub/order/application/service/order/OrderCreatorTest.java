@@ -25,10 +25,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.prompthub.order.fixture.OrderV2Fixture.AMOUNT_A1;
 import static com.prompthub.order.fixture.OrderV2Fixture.AMOUNT_A2;
@@ -112,8 +109,9 @@ class OrderCreatorTest {
 		List<Order> orders = ordersCaptor.getValue();
 
 		assertThat(orders).hasSize(3);
-		assertThat(orders).extracting(Order::getSellerId)
-			.containsExactly(SELLER_A, SELLER_B, SELLER_C);
+		assertThat(orders).flatExtracting(Order::getOrderProducts)
+			.extracting(OrderProduct::getSellerId)
+			.containsExactly(SELLER_A, SELLER_A, SELLER_B, SELLER_C);
 		assertThat(orders).extracting(Order::getOrderNumber)
 			.containsExactly("ORD-A", "ORD-B", "ORD-C")
 			.doesNotHaveDuplicates();
@@ -124,16 +122,15 @@ class OrderCreatorTest {
 			.extracting(OrderProduct::getOrderStatus)
 			.containsOnly(OrderProductStatus.PENDING);
 
-		Map<UUID, Order> bySeller = orders.stream()
-			.collect(Collectors.toMap(Order::getSellerId, Function.identity()));
-		assertSellerAOrder(bySeller.get(SELLER_A));
-		assertSingleProductOrder(bySeller.get(SELLER_B), PRODUCT_B1, REQUEST_TITLE_B1, AMOUNT_B1);
-		assertSingleProductOrder(bySeller.get(SELLER_C), PRODUCT_C1, REQUEST_TITLE_C1, AMOUNT_C1);
+		assertSellerAOrder(orders.get(0));
+		assertSingleProductOrder(orders.get(1), PRODUCT_B1, REQUEST_TITLE_B1, AMOUNT_B1);
+		assertSingleProductOrder(orders.get(2), PRODUCT_C1, REQUEST_TITLE_C1, AMOUNT_C1);
 
 		assertThat(result.totalAmount()).isEqualTo(TOTAL_AMOUNT);
 		assertThat(result.orders()).hasSize(3);
-		assertThat(result.orders()).extracting(CreateOrderResult.Order::sellerId)
-			.containsExactly(SELLER_A, SELLER_B, SELLER_C);
+		assertThat(result.orders()).flatExtracting(CreateOrderResult.Order::products)
+			.extracting(CreateOrderResult.Product::sellerId)
+			.containsExactly(SELLER_A, SELLER_A, SELLER_B, SELLER_C);
 		then(orderNumberGenerator).should(times(3)).generate();
 		then(outboxEventAppender).should(times(1)).append(any(EventMessage.class));
 	}
