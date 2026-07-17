@@ -34,6 +34,9 @@ import static com.prompthub.order.fixture.PaymentEventFixture.BUYER_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
 import static com.prompthub.order.fixture.PaymentEventFixture.OTHER_BUYER_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.PAYMENT_ID;
+import static com.prompthub.order.fixture.PaymentEventFixture.SELLER_A;
+import static com.prompthub.order.fixture.PaymentEventFixture.SELLER_B;
+import static com.prompthub.order.fixture.PaymentEventFixture.SELLER_C;
 import static com.prompthub.order.fixture.PaymentEventFixture.approvedPayload;
 import static com.prompthub.order.fixture.PaymentEventFixture.createdOrder;
 import static com.prompthub.order.fixture.PaymentEventFixture.productIds;
@@ -91,7 +94,11 @@ class PaymentApprovedProcessorTest {
 		assertThat(order.getOrderProducts())
 			.extracting(OrderProduct::getOrderStatus)
 			.containsOnly(OrderProductStatus.PAID);
-		then(orderEventMessageFactory).should().createOrderPaidMessage(eq(ORDER_A), any());
+		ArgumentCaptor<OrderPaidPayload> paidPayloadCaptor = ArgumentCaptor.forClass(OrderPaidPayload.class);
+		then(orderEventMessageFactory).should().createOrderPaidMessage(eq(ORDER_A), paidPayloadCaptor.capture());
+		assertThat(paidPayloadCaptor.getValue().products())
+			.extracting(product -> product.sellerId())
+			.containsExactly(SELLER_A, SELLER_B, SELLER_A, SELLER_C);
 		then(outboxEventAppender).should().append(any());
 		then(cart).should().removeProductsByProductIds(productIds());
 		then(processedEventService).should()

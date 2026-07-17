@@ -102,7 +102,7 @@ class OrderQueryServiceTest {
 
         @Test
         @DisplayName("PENDING 상태이고 만료 전이며 금액이 일치하면 결제 가능 응답을 반환한다")
-        void validatePaymentReady_pendingNotExpiredAndAmountMatched_success() {
+		void validatePaymentReady_pendingNotExpiredAndAmountMatched_success() {
             Order order = createPendingOrderWithProducts();
             given(orderRepository.findByIdWithOrderProducts(order.getId()))
                 .willReturn(Optional.of(order));
@@ -120,7 +120,28 @@ class OrderQueryServiceTest {
             assertThat(response.buyerId()).isEqualTo(BUYER_ID);
             assertThat(response.totalAmount()).isEqualTo(TOTAL_AMOUNT);
             assertThat(response.expiresAt()).isEqualTo(CREATED_AT.plusMinutes(20));
-        }
+		}
+
+		@Test
+		@DisplayName("한 주문의 네 주문상품이 서로 다른 판매자여도 단일 주문 총액으로 결제 가능 여부를 검증한다")
+		void validatePaymentReady_fourSellerProducts_usesSingleOrderTotalAmount() {
+			Order order = com.prompthub.order.fixture.PaymentEventFixture.createdOrder();
+			ReflectionTestUtils.setField(order, "createdAt", CREATED_AT);
+			given(orderRepository.findByIdWithOrderProducts(order.getId()))
+				.willReturn(Optional.of(order));
+			given(expirationPolicy.paymentTimeoutMinutes()).willReturn(20);
+
+			OrderPaymentValidationResponse response = orderQueryService.validatePaymentReady(
+				BUYER_ID,
+				order.getId(),
+				order.getTotalOrderAmount(),
+				CREATED_AT.plusMinutes(19)
+			);
+
+			assertThat(order.getOrderProducts()).hasSize(4);
+			assertThat(response.orderId()).isEqualTo(order.getId());
+			assertThat(response.totalAmount()).isEqualTo(order.getTotalOrderAmount());
+		}
 
         @Test
         @DisplayName("PENDING 상태여도 만료 시간이 지났으면 O015 예외가 발생한다")
@@ -460,7 +481,7 @@ class OrderQueryServiceTest {
 
         @Test
         @DisplayName("결제 완료 주문상품만 콘텐츠 열람 가능하다")
-        void getOrderDetail_contentAccessibleByOrderProductStatus_success() {
+		void getOrderDetail_contentAccessibleByOrderProductStatus_success() {
             // given
             Order order = createPendingOrderWithProducts();
             OrderProduct paidProduct = order.getOrderProducts().getFirst();
@@ -478,7 +499,38 @@ class OrderQueryServiceTest {
             assertThat(response.products())
                 .extracting(product -> product.isContentAccessible())
                 .containsExactly(true, false);
-        }
+		}
+
+		@Test
+		@DisplayName("한 주문의 주문상품별 판매자와 다운로드·환불 가능 상태를 그대로 반환한다")
+		void getOrderDetail_fourSellerProducts_preservesLineSellerAndEligibility() {
+			Order order = com.prompthub.order.fixture.PaymentEventFixture.createdOrder();
+			order.markPaid(PAID_AT);
+			OrderProduct downloadedProduct = order.getOrderProducts().getFirst();
+			OrderProduct refundedProduct = order.getOrderProducts().get(1);
+			downloadedProduct.markDownloaded();
+			order.refundOrderProduct(refundedProduct.getId(), refundedProduct.getProductAmount(), REFUNDED_AT);
+			given(orderRepository.findByIdWithOrderProducts(order.getId()))
+				.willReturn(Optional.of(order));
+
+			OrderDetailResponse response = orderQueryService.getOrderDetail(BUYER_ID, order.getId());
+
+			assertThat(response.orderId()).isEqualTo(order.getId());
+			assertThat(response.totalAmount()).isEqualTo(order.getTotalOrderAmount());
+			assertThat(response.products()).extracting(product -> product.sellerId())
+				.containsExactly(
+					com.prompthub.order.fixture.PaymentEventFixture.SELLER_A,
+					com.prompthub.order.fixture.PaymentEventFixture.SELLER_B,
+					com.prompthub.order.fixture.PaymentEventFixture.SELLER_A,
+					com.prompthub.order.fixture.PaymentEventFixture.SELLER_C
+				);
+			assertThat(response.products()).extracting(product -> product.orderStatus())
+				.containsExactly(OrderProductStatus.PAID, OrderProductStatus.REFUNDED, OrderProductStatus.PAID, OrderProductStatus.PAID);
+			assertThat(response.products()).extracting(product -> product.downloaded())
+				.containsExactly(true, false, false, false);
+			assertThat(response.products()).extracting(product -> product.isRefundable())
+				.containsExactly(false, false, true, true);
+		}
     }
 
     @Nested
@@ -677,7 +729,7 @@ class OrderQueryServiceTest {
 
         @Test
         @DisplayName("PAID가 아닌 주문은 환불 가능하지 않다")
-        void getMyOrders_notPaidOrder_notRefundable() {
+		void getMyOrders_notPaidOrder_notRefundable() {
             // given
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderListProjection projection = orderListProjection(
@@ -696,6 +748,31 @@ class OrderQueryServiceTest {
 
             // then
             assertThat(response.getContent().getFirst().isRefundable()).isFalse();
+		}
+
+		@Test
+		@DisplayName("한 주문의 상품별 상태와 다운로드 여부로 목록 환불 가능 여부를 계산한다")
+		void getMyOrders_singleOrderLines_preservePerProductRefundEligibility() {
+			PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
+			PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+			OrderListProjection refundable = orderListProjection(OrderStatus.COMPLETED, OrderProductStatus.PAID, false, null);
+			OrderListProjection downloaded = new OrderListProjection(
+				ORDER_ID, UUID.randomUUID(), PRODUCT_ID_2, OrderStatus.COMPLETED, OrderProductStatus.PAID,
+				true, PRODUCT_TYPE_PROMPT, PRODUCT_TITLE_2, PRODUCT_MODEL, null, PAID_AT, CREATED_AT
+			);
+			OrderListProjection refunded = new OrderListProjection(
+				ORDER_ID, UUID.randomUUID(), UUID.randomUUID(), OrderStatus.PARTIAL_REFUNDED, OrderProductStatus.REFUNDED,
+				false, PRODUCT_TYPE_PROMPT, "환불 상품", PRODUCT_MODEL, null, PAID_AT, CREATED_AT
+			);
+			given(orderRepository.searchOrderproducts(BUYER_ID, null, null, null, pageable))
+				.willReturn(new PageImpl<>(List.of(refundable, downloaded, refunded), pageable, 3));
+
+			Page<OrderListResponse> response = orderQueryService.getOrders(BUYER_ID, request);
+
+			assertThat(response.getContent()).extracting(OrderListResponse::orderId)
+				.containsOnly(ORDER_ID);
+			assertThat(response.getContent()).extracting(OrderListResponse::isRefundable)
+				.containsExactly(true, false, false);
 		}
     }
 }

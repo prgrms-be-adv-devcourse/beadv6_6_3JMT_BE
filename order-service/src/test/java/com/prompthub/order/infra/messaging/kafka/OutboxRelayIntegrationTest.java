@@ -112,9 +112,17 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
         UUID orderId = UUID.randomUUID();
         UUID eventId = UUID.randomUUID();
         UUID buyerId = UUID.randomUUID();
-        UUID orderProductId = UUID.randomUUID();
-        UUID productId = UUID.randomUUID();
-        UUID sellerId = UUID.randomUUID();
+        UUID orderProductIdA1 = UUID.randomUUID();
+        UUID orderProductIdB1 = UUID.randomUUID();
+        UUID orderProductIdA2 = UUID.randomUUID();
+        UUID orderProductIdC1 = UUID.randomUUID();
+        UUID productIdA1 = UUID.randomUUID();
+        UUID productIdB1 = UUID.randomUUID();
+        UUID productIdA2 = UUID.randomUUID();
+        UUID productIdC1 = UUID.randomUUID();
+        UUID sellerA = UUID.randomUUID();
+        UUID sellerB = UUID.randomUUID();
+        UUID sellerC = UUID.randomUUID();
         LocalDateTime occurredAt = LocalDateTime.now();
         String payload = """
             {
@@ -126,15 +134,39 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
               "payload": {
                 "orderId": "%s",
                 "buyerId": "%s",
-                "totalOrderAmount": 9900,
-                "totalProductCount": 1,
+                "totalOrderAmount": 39600,
+                "totalProductCount": 4,
                 "paidAt": "%s",
                 "products": [
                   {
                     "orderProductId": "%s",
                     "productId": "%s",
                     "sellerId": "%s",
-                    "productTitle": "test",
+                    "productTitle": "A1",
+                    "productType": "PROMPT",
+                    "productAmount": 9900
+                  },
+                  {
+                    "orderProductId": "%s",
+                    "productId": "%s",
+                    "sellerId": "%s",
+                    "productTitle": "B1",
+                    "productType": "PROMPT",
+                    "productAmount": 9900
+                  },
+                  {
+                    "orderProductId": "%s",
+                    "productId": "%s",
+                    "sellerId": "%s",
+                    "productTitle": "A2",
+                    "productType": "PROMPT",
+                    "productAmount": 9900
+                  },
+                  {
+                    "orderProductId": "%s",
+                    "productId": "%s",
+                    "sellerId": "%s",
+                    "productTitle": "C1",
                     "productType": "PROMPT",
                     "productAmount": 9900
                   }
@@ -142,7 +174,10 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
               }
             }
             """.formatted(eventId, occurredAt, orderId, orderId, buyerId, occurredAt,
-            orderProductId, productId, sellerId);
+            orderProductIdA1, productIdA1, sellerA,
+            orderProductIdB1, productIdB1, sellerB,
+            orderProductIdA2, productIdA2, sellerA,
+            orderProductIdC1, productIdC1, sellerC);
         OutboxEvent event = OutboxEvent.orderPaid(eventId, orderId, payload, occurredAt);
         outboxEventRepository.save(event);
 
@@ -169,9 +204,13 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
         assertThat(matchedMessage.path("eventType").asText()).isEqualTo("ORDER_PAID");
         assertThat(matchedMessage.path("aggregateId").asText()).isEqualTo(orderId.toString());
         assertThat(matchedMessage.path("payload").path("orderId").asText()).isEqualTo(orderId.toString());
-        assertThat(matchedMessage.path("payload").path("products")).hasSize(1);
-        assertThat(matchedMessage.path("payload").path("products").get(0).path("productId").asText())
-            .isEqualTo(productId.toString());
+        JsonNode products = matchedMessage.path("payload").path("products");
+        assertThat(products).hasSize(4);
+        assertThat(products).allSatisfy(product -> assertThat(product.has("productId")).isTrue());
+        assertThat(products).extracting(product -> product.path("productId").asText())
+            .containsExactly(productIdA1.toString(), productIdB1.toString(), productIdA2.toString(), productIdC1.toString());
+        assertThat(products).extracting(product -> product.path("sellerId").asText())
+            .containsExactly(sellerA.toString(), sellerB.toString(), sellerA.toString(), sellerC.toString());
     }
 
     @Test
@@ -238,6 +277,11 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
         assertThat(matchedMessage.path("payload").path("paymentId").asText()).isEqualTo(paymentId.toString());
         assertThat(matchedMessage.path("payload").path("totalRefundAmount").intValue()).isEqualTo(9900);
         assertThat(matchedMessage.path("payload").path("products")).hasSize(1);
+        assertThat(matchedMessage.path("payload").path("products").get(0).has("productId")).isTrue();
+        assertThat(matchedMessage.path("payload").path("products").get(0).path("productId").asText())
+            .isEqualTo(productId.toString());
+        assertThat(matchedMessage.path("payload").path("products").get(0).path("sellerId").asText())
+            .isEqualTo(sellerId.toString());
         assertThat(matchedMessage.path("payload").path("products").get(0).path("refundAmount").intValue())
             .isEqualTo(9900);
     }
