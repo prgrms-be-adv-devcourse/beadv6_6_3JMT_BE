@@ -63,6 +63,49 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
     }
 
     @Test
+    @DisplayName("ORDER_CREATED Outbox Event는 주문 ID를 Kafka key로 발행한다")
+    void outboxRelayPublishesOrderCreatedWithOrderIdKafkaKey() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        UUID eventId = UUID.randomUUID();
+        UUID buyerId = UUID.randomUUID();
+        LocalDateTime occurredAt = LocalDateTime.now();
+        String payload = """
+            {
+              "eventId": "%s",
+              "eventType": "ORDER_CREATED",
+              "occurredAt": "%s",
+              "aggregateType": "ORDER",
+              "aggregateId": "%s",
+              "payload": {
+                "orderId": "%s",
+                "buyerId": "%s",
+                "totalAmount": 9900,
+                "createdAt": "%s"
+              }
+            }
+            """.formatted(eventId, occurredAt, orderId, orderId, buyerId, occurredAt);
+        OutboxEvent event = OutboxEvent.orderCreated(eventId, orderId, payload, occurredAt);
+        outboxEventRepository.save(event);
+
+        outboxRelay.publishPendingEvents();
+
+        ConsumerRecords<String, String> records = KafkaTestUtils.getRecords(consumer, Duration.ofMillis(10000));
+        ConsumerRecord<String, String> orderCreatedRecord = null;
+        for (ConsumerRecord<String, String> record : records.records("order-events")) {
+            if (record.value().contains("ORDER_CREATED")) {
+                orderCreatedRecord = record;
+                break;
+            }
+        }
+
+        assertThat(orderCreatedRecord).isNotNull();
+        assertThat(orderCreatedRecord.key()).isEqualTo(orderId.toString());
+        JsonNode message = objectMapper.readTree(orderCreatedRecord.value());
+        assertThat(message.path("aggregateId").asText()).isEqualTo(orderId.toString());
+        assertThat(message.path("payload").path("orderId").asText()).isEqualTo(orderId.toString());
+    }
+
+	@Test
     @DisplayName("Outbox Event가 DB에 저장되어 있으면 product-service가 수신 가능한 ORDER_PAID 이벤트를 Kafka로 발행한다")
     void outboxRelayPublishesProductServiceCompatibleOrderPaidEventToKafka() throws Exception {
         // given
