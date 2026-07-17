@@ -30,7 +30,7 @@ public class OrderCreator {
 
 	@Transactional
 	public CreateOrderResult create(UUID buyerId, List<OrderItem> items) {
-		int totalAmount = items.stream().mapToInt(OrderItem::amount).sum();
+		int totalAmount = OrderAmountCalculator.sum(items, OrderItem::amount);
 		Order order = Order.create(buyerId, orderNumberGenerator.generate(), totalAmount);
 		items.stream()
 			.map(item -> OrderProduct.create(

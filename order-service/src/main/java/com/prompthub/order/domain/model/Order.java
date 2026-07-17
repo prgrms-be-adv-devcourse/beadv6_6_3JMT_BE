@@ -215,6 +215,11 @@ public class Order extends BaseEntity {
         return this.orderStatus == OrderStatus.COMPLETED;
     }
 
+    public boolean canAccessContent(OrderProduct orderProduct) {
+        return (this.orderStatus == OrderStatus.COMPLETED || this.orderStatus == OrderStatus.PARTIAL_REFUNDED)
+            && orderProduct.isPaid();
+    }
+
     public int getTotalProductCount() {
         return this.orderProducts.size();
     }

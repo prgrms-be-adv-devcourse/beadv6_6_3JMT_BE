@@ -55,10 +55,10 @@ public class OrderPolicyService {
 		Set<UUID> requestedIds = new HashSet<>(requestedProductIds);
 		if (products.stream().anyMatch(product -> product == null
 			|| product.productId() == null
-			|| product.sellerId() == null
-			|| product.amount() <= 0)) {
+			|| product.sellerId() == null)) {
 			throw invalidInput();
 		}
+		OrderAmountCalculator.sum(products, ProductOrderSnapshot::amount);
 		Set<UUID> responseIds = products.stream().map(ProductOrderSnapshot::productId).collect(toSet());
 
 		if (responseIds.size() != products.size() || !responseIds.equals(requestedIds)) {
