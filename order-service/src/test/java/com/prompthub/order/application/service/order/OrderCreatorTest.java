@@ -25,12 +25,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderV2Fixture.AMOUNT_A1;
 import static com.prompthub.order.fixture.OrderV2Fixture.AMOUNT_A2;
-import static com.prompthub.order.fixture.OrderV2Fixture.AMOUNT_B1;
-import static com.prompthub.order.fixture.OrderV2Fixture.AMOUNT_C1;
 import static com.prompthub.order.fixture.OrderV2Fixture.BUYER_ID;
 import static com.prompthub.order.fixture.OrderV2Fixture.CREATED_AT;
 import static com.prompthub.order.fixture.OrderV2Fixture.ORDER_GROUP_ID;
@@ -49,7 +46,6 @@ import static com.prompthub.order.fixture.OrderV2Fixture.TOTAL_AMOUNT;
 import static com.prompthub.order.fixture.OrderV2Fixture.orderItems;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.times;
@@ -77,13 +73,11 @@ class OrderCreatorTest {
 
 	@BeforeEach
 	void setUp() {
-		given(orderRepository.saveAll(anyList())).willAnswer(invocation -> {
-			List<Order> orders = invocation.getArgument(0);
-			orders.forEach(order -> {
-				ReflectionTestUtils.setField(order, "createdAt", CREATED_AT);
-				ReflectionTestUtils.setField(order, "updatedAt", CREATED_AT);
-			});
-			return orders;
+		given(orderRepository.save(any(Order.class))).willAnswer(invocation -> {
+			Order order = invocation.getArgument(0);
+			ReflectionTestUtils.setField(order, "createdAt", CREATED_AT);
+			ReflectionTestUtils.setField(order, "updatedAt", CREATED_AT);
+			return order;
 		});
 		given(orderEventMessageFactory.createOrderCreatedMessage(any(OrderCreatedPayload.class)))
 			.willReturn(new EventMessage<>(
@@ -97,48 +91,48 @@ class OrderCreatorTest {
 	}
 
 	@Test
-	@DisplayName("A·B·C 판매자 상품을 주문 세 건과 Outbox 한 건으로 생성한다")
-	@SuppressWarnings("unchecked")
-	void createsOrdersPerSellerAndSingleOutbox() {
-		given(orderNumberGenerator.generate()).willReturn("ORD-A", "ORD-B", "ORD-C");
+	@DisplayName("A·B·C 판매자 상품을 주문 한 건과 Outbox 한 건으로 생성한다")
+	void createsSingleOrderAndSingleOutbox() {
+		given(orderNumberGenerator.generate()).willReturn("ORD-A");
 
 		CreateOrderResult result = orderCreator.create(BUYER_ID, orderItems());
 
-		ArgumentCaptor<List<Order>> ordersCaptor = ArgumentCaptor.forClass(List.class);
-		then(orderRepository).should().saveAll(ordersCaptor.capture());
-		List<Order> orders = ordersCaptor.getValue();
+		ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+		then(orderRepository).should().save(orderCaptor.capture());
+		Order order = orderCaptor.getValue();
 
-		assertThat(orders).hasSize(3);
-		assertThat(orders).flatExtracting(Order::getOrderProducts)
+		assertThat(order.getOrderProducts())
 			.extracting(OrderProduct::getSellerId)
-			.containsExactly(SELLER_A, SELLER_A, SELLER_B, SELLER_C);
-		assertThat(orders).extracting(Order::getOrderNumber)
-			.containsExactly("ORD-A", "ORD-B", "ORD-C")
-			.doesNotHaveDuplicates();
-		assertThat(orders).extracting(Order::getOrderStatus)
-			.containsOnly(OrderStatus.CREATED);
-		assertThat(orders).flatExtracting(Order::getOrderProducts)
+			.containsExactly(SELLER_A, SELLER_B, SELLER_A, SELLER_C);
+		assertThat(order.getOrderNumber()).isEqualTo("ORD-A");
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
+		assertThat(order.getOrderProducts())
 			.hasSize(4)
 			.extracting(OrderProduct::getOrderStatus)
 			.containsOnly(OrderProductStatus.PENDING);
-
-		assertSellerAOrder(orders.get(0));
-		assertSingleProductOrder(orders.get(1), PRODUCT_B1, REQUEST_TITLE_B1, AMOUNT_B1);
-		assertSingleProductOrder(orders.get(2), PRODUCT_C1, REQUEST_TITLE_C1, AMOUNT_C1);
+		assertThat(order.getTotalOrderAmount()).isEqualTo(TOTAL_AMOUNT);
+		assertThat(order.getOrderProducts())
+			.extracting(OrderProduct::getProductId)
+			.containsExactly(PRODUCT_A1, PRODUCT_B1, PRODUCT_A2, PRODUCT_C1);
+		assertThat(order.getOrderProducts())
+			.extracting(OrderProduct::getProductTitle)
+			.containsExactly(REQUEST_TITLE_A1, REQUEST_TITLE_B1, REQUEST_TITLE_A2, REQUEST_TITLE_C1);
+		assertThat(order.getOrderProducts())
+			.allSatisfy(product -> assertThat(product.getOrder()).isSameAs(order));
 
 		assertThat(result.totalAmount()).isEqualTo(TOTAL_AMOUNT);
-		assertThat(result.orders()).hasSize(3);
-		assertThat(result.orders()).flatExtracting(CreateOrderResult.Order::products)
+		assertThat(result.order().products())
 			.extracting(CreateOrderResult.Product::sellerId)
-			.containsExactly(SELLER_A, SELLER_A, SELLER_B, SELLER_C);
-		then(orderNumberGenerator).should(times(3)).generate();
+			.containsExactly(SELLER_A, SELLER_B, SELLER_A, SELLER_C);
+		then(orderNumberGenerator).should(times(1)).generate();
+		then(orderRepository).should(times(1)).save(any(Order.class));
 		then(outboxEventAppender).should(times(1)).append(any(EventMessage.class));
 	}
 
 	@Test
-	@DisplayName("ORDER_CREATED payload는 생성된 모든 주문과 상품 및 합계를 포함한다")
+	@DisplayName("ORDER_CREATED payload는 생성된 단일 주문의 모든 상품 및 합계를 포함한다")
 	void outboxPayloadContainsAllOrdersAndProducts() {
-		given(orderNumberGenerator.generate()).willReturn("ORD-A", "ORD-B", "ORD-C");
+		given(orderNumberGenerator.generate()).willReturn("ORD-A");
 
 		orderCreator.create(BUYER_ID, orderItems());
 
@@ -148,37 +142,31 @@ class OrderCreatorTest {
 
 		assertThat(payload.buyerId()).isEqualTo(BUYER_ID);
 		assertThat(payload.totalAmount()).isEqualTo(TOTAL_AMOUNT);
-		assertThat(payload.orders()).hasSize(3);
+		assertThat(payload.orders()).hasSize(1);
 		assertThat(payload.orders()).flatExtracting(OrderCreatedPayload.Order::products)
 			.hasSize(4)
 			.extracting(OrderCreatedPayload.Product::productId)
-			.containsExactlyInAnyOrder(PRODUCT_A1, PRODUCT_A2, PRODUCT_B1, PRODUCT_C1);
+			.containsExactly(PRODUCT_A1, PRODUCT_B1, PRODUCT_A2, PRODUCT_C1);
 		assertThat(payload.orders()).flatExtracting(OrderCreatedPayload.Order::products)
 			.extracting(OrderCreatedPayload.Product::productTitle)
-			.containsExactlyInAnyOrder(
+			.containsExactly(
 				REQUEST_TITLE_A1,
-				REQUEST_TITLE_A2,
 				REQUEST_TITLE_B1,
+				REQUEST_TITLE_A2,
 				REQUEST_TITLE_C1
 			);
 	}
 
 	@Test
-	@DisplayName("생성된 모든 주문을 하나의 내부 이벤트로 만료 등록 흐름에 전달한다")
-	void publishesCreatedOrdersForExpiration() {
-		given(orderNumberGenerator.generate()).willReturn("ORD-A", "ORD-B", "ORD-C");
+	@DisplayName("생성된 단일 주문을 하나의 내부 이벤트로 만료 등록 흐름에 전달한다")
+	void publishesCreatedOrderForExpiration() {
+		given(orderNumberGenerator.generate()).willReturn("ORD-A");
 
 		orderCreator.create(BUYER_ID, orderItems());
 
 		ArgumentCaptor<OrderCreatedEvent> eventCaptor = ArgumentCaptor.forClass(OrderCreatedEvent.class);
 		then(applicationEventPublisher).should().publishEvent(eventCaptor.capture());
-		assertThat(eventCaptor.getValue().orders())
-			.hasSize(3)
-			.extracting(OrderCreatedEvent.Item::createdAt)
-			.containsOnly(CREATED_AT);
-		assertThat(eventCaptor.getValue().orders())
-			.extracting(OrderCreatedEvent.Item::orderId)
-			.doesNotHaveDuplicates();
+		assertThat(eventCaptor.getValue().createdAt()).isEqualTo(CREATED_AT);
 	}
 
 	@Test
@@ -192,37 +180,8 @@ class OrderCreatorTest {
 
 		CreateOrderResult result = orderCreator.create(BUYER_ID, singleSellerItems);
 
-		assertThat(result.orders()).hasSize(1);
-		assertThat(result.orders().getFirst().products()).hasSize(2);
-		then(orderRepository).should().saveAll(anyList());
+		assertThat(result.order().products()).hasSize(2);
+		then(orderRepository).should().save(any(Order.class));
 		then(outboxEventAppender).should(times(1)).append(any(EventMessage.class));
-	}
-
-	private void assertSellerAOrder(Order order) {
-		assertThat(order.getTotalOrderAmount()).isEqualTo(AMOUNT_A1 + AMOUNT_A2);
-		assertThat(order.getOrderProducts())
-			.extracting(OrderProduct::getProductId)
-			.containsExactly(PRODUCT_A1, PRODUCT_A2);
-		assertThat(order.getOrderProducts())
-			.extracting(OrderProduct::getProductTitle)
-			.containsExactly(REQUEST_TITLE_A1, REQUEST_TITLE_A2);
-		assertThat(order.getOrderProducts())
-			.allSatisfy(product -> assertThat(product.getOrder()).isSameAs(order));
-	}
-
-	private void assertSingleProductOrder(
-		Order order,
-		UUID productId,
-		String title,
-		int amount
-	) {
-		assertThat(order.getTotalOrderAmount()).isEqualTo(amount);
-		assertThat(order.getOrderProducts()).singleElement()
-			.satisfies(product -> {
-				assertThat(product.getProductId()).isEqualTo(productId);
-				assertThat(product.getProductTitle()).isEqualTo(title);
-				assertThat(product.getProductAmount()).isEqualTo(amount);
-				assertThat(product.getOrder()).isSameAs(order);
-			});
 	}
 }

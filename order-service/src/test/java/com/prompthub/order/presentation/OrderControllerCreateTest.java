@@ -28,11 +28,14 @@ import java.util.stream.Stream;
 import static com.prompthub.order.fixture.OrderV2Fixture.AMOUNT_A1;
 import static com.prompthub.order.fixture.OrderV2Fixture.BUYER_ID;
 import static com.prompthub.order.fixture.OrderV2Fixture.ORDER_A;
-import static com.prompthub.order.fixture.OrderV2Fixture.ORDER_B;
-import static com.prompthub.order.fixture.OrderV2Fixture.ORDER_C;
+import static com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_A2;
+import static com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_B1;
+import static com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_C1;
 import static com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_A1;
 import static com.prompthub.order.fixture.OrderV2Fixture.REQUEST_TITLE_A1;
 import static com.prompthub.order.fixture.OrderV2Fixture.SELLER_A;
+import static com.prompthub.order.fixture.OrderV2Fixture.SELLER_B;
+import static com.prompthub.order.fixture.OrderV2Fixture.SELLER_C;
 import static com.prompthub.order.fixture.OrderV2Fixture.TOTAL_AMOUNT;
 import static com.prompthub.order.fixture.OrderV2Fixture.requestJson;
 import static com.prompthub.order.fixture.OrderV2Fixture.result;
@@ -77,8 +80,8 @@ class OrderControllerCreateTest {
 	}
 
 	@Test
-	@DisplayName("POST /api/v2/orders는 총액과 판매자별 주문 목록을 반환한다")
-	void createOrderReturnsSellerOrders() throws Exception {
+	@DisplayName("POST /api/v2/orders는 총액과 생성된 단일 주문을 반환한다")
+	void createOrderReturnsSingleOrder() throws Exception {
 		given(createOrderUseCase.createOrder(eq(BUYER_ID), any(CreateOrderCommand.class)))
 			.willReturn(result());
 
@@ -91,18 +94,22 @@ class OrderControllerCreateTest {
 			.andExpect(jsonPath("$.success").value(true))
 			.andExpect(jsonPath("$.message").value("success"))
 			.andExpect(jsonPath("$.data.totalAmount").value(TOTAL_AMOUNT))
-			.andExpect(jsonPath("$.data.orders.length()").value(3))
-			.andExpect(jsonPath("$.data.orders[0].orderId").value(ORDER_A.toString()))
-			.andExpect(jsonPath("$.data.orders[0].orderStatus").value("CREATED"))
-			.andExpect(jsonPath("$.data.orders[0].orderAmount").value(AMOUNT_A1 + 2_200))
-			.andExpect(jsonPath("$.data.orders[0].products.length()").value(2))
-			.andExpect(jsonPath("$.data.orders[0].products[0].productId").value(PRODUCT_A1.toString()))
-			.andExpect(jsonPath("$.data.orders[0].products[0].sellerId").value(SELLER_A.toString()))
-			.andExpect(jsonPath("$.data.orders[0].products[0].productTitle").value(REQUEST_TITLE_A1))
-			.andExpect(jsonPath("$.data.orders[0].products[0].productAmount").value(AMOUNT_A1))
-			.andExpect(jsonPath("$.data.orders[0].products[0].orderProductStatus").value("PENDING"))
-			.andExpect(jsonPath("$.data.orders[1].orderId").value(ORDER_B.toString()))
-			.andExpect(jsonPath("$.data.orders[2].orderId").value(ORDER_C.toString()));
+			.andExpect(jsonPath("$.data.order.orderId").value(ORDER_A.toString()))
+			.andExpect(jsonPath("$.data.order.orderStatus").value("CREATED"))
+			.andExpect(jsonPath("$.data.order.orderAmount").value(TOTAL_AMOUNT))
+			.andExpect(jsonPath("$.data.order.products.length()").value(4))
+			.andExpect(jsonPath("$.data.order.products[0].productId").value(PRODUCT_A1.toString()))
+			.andExpect(jsonPath("$.data.order.products[0].sellerId").value(SELLER_A.toString()))
+			.andExpect(jsonPath("$.data.order.products[0].productTitle").value(REQUEST_TITLE_A1))
+			.andExpect(jsonPath("$.data.order.products[0].productAmount").value(AMOUNT_A1))
+			.andExpect(jsonPath("$.data.order.products[0].orderProductStatus").value("PENDING"))
+			.andExpect(jsonPath("$.data.order.products[1].productId").value(PRODUCT_B1.toString()))
+			.andExpect(jsonPath("$.data.order.products[1].sellerId").value(SELLER_B.toString()))
+			.andExpect(jsonPath("$.data.order.products[2].productId").value(PRODUCT_A2.toString()))
+			.andExpect(jsonPath("$.data.order.products[2].sellerId").value(SELLER_A.toString()))
+			.andExpect(jsonPath("$.data.order.products[3].productId").value(PRODUCT_C1.toString()))
+			.andExpect(jsonPath("$.data.order.products[3].sellerId").value(SELLER_C.toString()))
+			.andExpect(jsonPath("$.data.orders").doesNotExist());
 
 		ArgumentCaptor<CreateOrderCommand> commandCaptor = ArgumentCaptor.forClass(CreateOrderCommand.class);
 		then(createOrderUseCase).should().createOrder(eq(BUYER_ID), commandCaptor.capture());

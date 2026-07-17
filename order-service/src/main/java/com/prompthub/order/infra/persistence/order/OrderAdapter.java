@@ -26,11 +26,6 @@ public class OrderAdapter implements OrderRepository {
 	}
 
 	@Override
-	public List<Order> saveAll(List<Order> orders) {
-		return orderPersistence.saveAll(orders);
-	}
-
-	@Override
 	public Optional<Order> findByIdWithOrderProducts(UUID orderId) {
 		return orderPersistence.findByIdWithOrderProducts(orderId);
 	}

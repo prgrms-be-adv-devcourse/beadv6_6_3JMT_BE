@@ -14,8 +14,6 @@ import java.util.UUID;
 public interface OrderRepository {
 	Order save (Order order);
 
-	List<Order> saveAll(List<Order> orders);
-
 	Optional<Order> findByIdWithOrderProducts(UUID orderId);
 
 	List<Order> findAllByIdsWithOrderProductsForUpdate(List<UUID> orderIds);

@@ -1,9 +1,6 @@
 package com.prompthub.order.application.service.order;
 
-import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
-import com.prompthub.order.domain.model.OrderProduct;
-import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,7 +15,6 @@ import java.util.UUID;
 public class OrderExpirationService {
 
 	private final OrderRepository orderRepository;
-	private final CartRepository cartRepository;
 	private final OrderExpirationPolicy expirationPolicy;
 
 	public boolean cancelPendingOrderByTimeout(UUID orderId, LocalDateTime now) {
@@ -37,19 +33,6 @@ public class OrderExpirationService {
 		}
 
 		order.expirePending(now);
-		restoreCart(order);
 		return true;
-	}
-
-	private void restoreCart(Order order) {
-		Cart cart = cartRepository.findByBuyerIdWithCartProducts(order.getBuyerId())
-			.orElseGet(() -> Cart.create(order.getBuyerId()));
-
-		order.getOrderProducts().stream()
-			.map(OrderProduct::getProductId)
-			.filter(productId -> !cart.containsProduct(productId))
-			.forEach(cart::addProduct);
-
-		cartRepository.save(cart);
 	}
 }
