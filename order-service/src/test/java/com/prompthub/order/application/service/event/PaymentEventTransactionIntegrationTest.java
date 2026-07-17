@@ -12,7 +12,10 @@ import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.model.OutboxEvent;
 import com.prompthub.order.domain.repository.OutboxEventRepository;
 import com.prompthub.order.domain.repository.ProcessedEventRepository;
+import com.prompthub.order.global.exception.ErrorCode;
+import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
 import com.prompthub.order.infra.persistence.cart.CartPersistence;
 import com.prompthub.order.infra.persistence.order.OrderPersistence;
 import com.prompthub.order.infra.persistence.outbox.OutboxEventPersistence;
@@ -28,23 +31,23 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.prompthub.order.fixture.PaymentEventFixture.APPROVED_AT;
+import static com.prompthub.order.fixture.PaymentEventFixture.APPROVED_AT_OFFSET;
 import static com.prompthub.order.fixture.PaymentEventFixture.BUYER_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.FAILED_AT;
 import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
-import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_B;
+import static com.prompthub.order.fixture.PaymentEventFixture.OTHER_BUYER_ID;
+import static com.prompthub.order.fixture.PaymentEventFixture.PAYMENT_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.PRODUCT_A;
-import static com.prompthub.order.fixture.PaymentEventFixture.PRODUCT_B;
 import static com.prompthub.order.fixture.PaymentEventFixture.approvedPayload;
-import static com.prompthub.order.fixture.PaymentEventFixture.createdOrders;
+import static com.prompthub.order.fixture.PaymentEventFixture.createdOrder;
 import static com.prompthub.order.fixture.PaymentEventFixture.failedPayload;
+import static com.prompthub.order.fixture.PaymentEventFixture.productIds;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -99,99 +102,198 @@ class PaymentEventTransactionIntegrationTest {
 	}
 
 	@Test
-	void approvedEvent_commitsOrdersCartOutboxProcessedEventAndAfterCommitCleanup() {
-		List<Order> orders = saveScenario();
+	void approvedEvent_commitsFourProductsCartOneOutboxProcessedEventAndAfterCommitCleanup() {
+		Order order = saveScenario();
 		UUID eventId = UUID.randomUUID();
 
-		approvedProcessor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, approvedPayload(orders));
+		approvedProcessor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, approvedPayload(order));
 
-		assertThat(reloadOrders())
-			.extracting(Order::getOrderStatus)
-			.containsOnly(OrderStatus.COMPLETED);
-		assertThat(reloadOrders())
-			.flatExtracting(Order::getOrderProducts)
+		Order reloaded = reloadOrder();
+		assertThat(reloaded.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
+		assertThat(reloaded.getOrderProducts())
 			.extracting(OrderProduct::getOrderStatus)
 			.containsOnly(OrderProductStatus.PAID);
 		assertThat(cartProductIds()).containsExactly(UNRELATED_PRODUCT);
 		assertThat(outboxEventPersistence.findAll())
 			.extracting(OutboxEvent::getAggregateId)
-			.containsExactlyInAnyOrder(ORDER_A, ORDER_B);
+			.containsExactly(ORDER_A);
 		assertThat(processedEventRepository.count()).isEqualTo(1);
 		then(orderExpirationStore).should().removeExpiration(ORDER_A);
 		then(orderExpirationStore).should().clearRetryCount(ORDER_A);
-		then(orderExpirationStore).should().removeExpiration(ORDER_B);
-		then(orderExpirationStore).should().clearRetryCount(ORDER_B);
 	}
 
 	@Test
-	void secondOutboxFailure_rollsBackEveryDatabaseChangeAndSkipsRedisCleanup() {
-		List<Order> orders = saveScenario();
-		AtomicInteger saves = new AtomicInteger();
-		willAnswer(invocation -> {
-			if (saves.incrementAndGet() == 2) {
-				throw new RuntimeException("second outbox failure");
-			}
-			return invocation.callRealMethod();
-		}).given(outboxEventRepository).save(any());
+	void approvedEvent_outboxFailure_rollsBackOrderCartOutboxAndProcessedEventAndSkipsRedisCleanup() {
+		Order order = saveScenario();
+		willThrow(new RuntimeException("outbox failure"))
+			.given(outboxEventRepository).save(any());
 
 		assertThatThrownBy(() -> approvedProcessor.process(
 			UUID.randomUUID(),
 			"PAYMENT_APPROVED",
 			APPROVED_AT,
-			approvedPayload(orders)
+			approvedPayload(order)
 		))
 			.isInstanceOf(RuntimeException.class)
-			.hasMessageContaining("second outbox failure");
+			.hasMessageContaining("outbox failure");
 
 		entityManager.clear();
-		assertThat(reloadOrders())
-			.extracting(Order::getOrderStatus)
-			.containsOnly(OrderStatus.CREATED);
-		assertThat(cartProductIds())
-			.containsExactlyInAnyOrder(PRODUCT_A, PRODUCT_B, UNRELATED_PRODUCT);
-		assertThat(outboxEventPersistence.count()).isZero();
-		assertThat(processedEventRepository.count()).isZero();
+		assertCreatedStateAndNoSideEffects();
 		then(orderExpirationStore).shouldHaveNoInteractions();
 	}
 
 	@Test
-	void sameApprovedEventTwice_keepsOneProcessedEventAndOneOutboxPerOrder() {
-		List<Order> orders = saveScenario();
+	void approvedEvent_processedEventFailure_rollsBackOrderCartOutboxAndSkipsRedisCleanup() {
+		Order order = saveScenario();
+		willThrow(new RuntimeException("processed event failure"))
+			.given(processedEventRepository).save(any());
+
+		assertThatThrownBy(() -> approvedProcessor.process(
+			UUID.randomUUID(),
+			"PAYMENT_APPROVED",
+			APPROVED_AT,
+			approvedPayload(order)
+		))
+			.isInstanceOf(RuntimeException.class)
+			.hasMessageContaining("processed event failure");
+
+		entityManager.clear();
+		assertCreatedStateAndNoSideEffects();
+		then(orderExpirationStore).shouldHaveNoInteractions();
+	}
+
+	@Test
+	void sameApprovedEventTwice_keepsOneProcessedEventAndOneOutbox() {
+		Order order = saveScenario();
 		UUID eventId = UUID.randomUUID();
-		PaymentApprovedPayload payload = approvedPayload(orders);
+		PaymentApprovedPayload payload = approvedPayload(order);
 
 		approvedProcessor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, payload);
 		approvedProcessor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, payload);
 
-		assertThat(outboxEventPersistence.count()).isEqualTo(2);
+		assertThat(outboxEventPersistence.count()).isEqualTo(1);
 		assertThat(processedEventRepository.count()).isEqualTo(1);
 		then(orderExpirationStore).should(times(1)).removeExpiration(ORDER_A);
-		then(orderExpirationStore).should(times(1)).removeExpiration(ORDER_B);
 	}
 
 	@Test
-	void failedEvent_commitsFailedStatesAndKeepsCartAndOutboxUnchanged() {
+	void differentLateApproval_marksProcessedButPreservesReaddedCartProduct() {
+		Order order = saveScenario();
+		PaymentApprovedPayload payload = approvedPayload(order);
+		approvedProcessor.process(UUID.randomUUID(), "PAYMENT_APPROVED", APPROVED_AT, payload);
+		Cart cart = cartPersistence.findByBuyerIdWithCartProducts(BUYER_ID).orElseThrow();
+		cart.addProduct(PRODUCT_A);
+		cartPersistence.saveAndFlush(cart);
+
+		approvedProcessor.process(UUID.randomUUID(), "PAYMENT_APPROVED", APPROVED_AT, payload);
+
+		assertThat(reloadOrder().getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
+		assertThat(cartProductIds()).containsExactly(PRODUCT_A, UNRELATED_PRODUCT);
+		assertThat(outboxEventPersistence.count()).isEqualTo(1);
+		assertThat(processedEventRepository.count()).isEqualTo(2);
+		then(orderExpirationStore).should(times(1)).removeExpiration(ORDER_A);
+	}
+
+	@Test
+	void approvedEvent_amountMismatch_rollsBackWithoutSideEffects() {
+		Order order = saveScenario();
+		PaymentApprovedPayload payload = new PaymentApprovedPayload(
+			PAYMENT_ID,
+			ORDER_A,
+			BUYER_ID,
+			order.getTotalOrderAmount() - 1,
+			APPROVED_AT_OFFSET
+		);
+
+		assertThatThrownBy(() -> approvedProcessor.process(
+			UUID.randomUUID(),
+			"PAYMENT_APPROVED",
+			APPROVED_AT,
+			payload
+		))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
+
+		entityManager.clear();
+		assertCreatedStateAndNoSideEffects();
+		then(orderExpirationStore).shouldHaveNoInteractions();
+	}
+
+	@Test
+	void approvedEvent_buyerMismatch_rollsBackWithoutSideEffects() {
+		Order order = saveScenario();
+		PaymentApprovedPayload payload = new PaymentApprovedPayload(
+			PAYMENT_ID,
+			ORDER_A,
+			OTHER_BUYER_ID,
+			order.getTotalOrderAmount(),
+			APPROVED_AT_OFFSET
+		);
+
+		assertThatThrownBy(() -> approvedProcessor.process(
+			UUID.randomUUID(),
+			"PAYMENT_APPROVED",
+			APPROVED_AT,
+			payload
+		))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_ACCESS_DENIED);
+
+		entityManager.clear();
+		assertCreatedStateAndNoSideEffects();
+		then(orderExpirationStore).shouldHaveNoInteractions();
+	}
+
+	@Test
+	void failedEvent_commitsFailedStatesAndKeepsCartOutboxAndRedisUnchanged() {
 		saveScenario();
-		UUID eventId = UUID.randomUUID();
 
-		failedProcessor.process(eventId, "PAYMENT_FAILED", FAILED_AT, failedPayload());
+		failedProcessor.process(UUID.randomUUID(), "PAYMENT_FAILED", FAILED_AT, failedPayload());
 
-		assertThat(reloadOrders())
-			.extracting(Order::getOrderStatus)
-			.containsOnly(OrderStatus.FAILED);
-		assertThat(reloadOrders())
-			.flatExtracting(Order::getOrderProducts)
+		Order reloaded = reloadOrder();
+		assertThat(reloaded.getOrderStatus()).isEqualTo(OrderStatus.FAILED);
+		assertThat(reloaded.getOrderProducts())
 			.extracting(OrderProduct::getOrderStatus)
 			.containsOnly(OrderProductStatus.FAILED);
-		assertThat(cartProductIds())
-			.containsExactlyInAnyOrder(PRODUCT_A, PRODUCT_B, UNRELATED_PRODUCT);
+		assertThat(cartProductIds()).containsExactlyElementsOf(allCartProductIds());
 		assertThat(outboxEventPersistence.count()).isZero();
 		assertThat(processedEventRepository.count()).isEqualTo(1);
 		then(orderExpirationStore).shouldHaveNoInteractions();
 	}
 
 	@Test
-	void failedEvent_processedEventFailure_rollsBackAllOrderStatesAndKeepsCart() {
+	void failedEvent_afterCompletedOrder_isNoOpExceptProcessedEvent() {
+		Order order = saveScenario();
+		approvedProcessor.process(UUID.randomUUID(), "PAYMENT_APPROVED", APPROVED_AT, approvedPayload(order));
+
+		failedProcessor.process(UUID.randomUUID(), "PAYMENT_FAILED", FAILED_AT, failedPayload());
+
+		assertThat(reloadOrder().getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
+		assertThat(outboxEventPersistence.count()).isEqualTo(1);
+		assertThat(processedEventRepository.count()).isEqualTo(2);
+		then(orderExpirationStore).should(times(1)).removeExpiration(ORDER_A);
+	}
+
+	@Test
+	void failedEvent_buyerMismatch_rollsBackWithoutProcessedEvent() {
+		saveScenario();
+		PaymentFailedPayload payload = new PaymentFailedPayload(PAYMENT_ID, ORDER_A, OTHER_BUYER_ID);
+
+		assertThatThrownBy(() -> failedProcessor.process(
+			UUID.randomUUID(),
+			"PAYMENT_FAILED",
+			FAILED_AT,
+			payload
+		))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_ACCESS_DENIED);
+
+		entityManager.clear();
+		assertCreatedStateAndNoSideEffects();
+	}
+
+	@Test
+	void failedEvent_processedEventFailure_rollsBackOrderAndFourProductStates() {
 		saveScenario();
 		willThrow(new RuntimeException("processed event failure"))
 			.given(processedEventRepository).save(any());
@@ -206,30 +308,20 @@ class PaymentEventTransactionIntegrationTest {
 			.hasMessageContaining("processed event failure");
 
 		entityManager.clear();
-		assertThat(reloadOrders())
-			.extracting(Order::getOrderStatus)
-			.containsOnly(OrderStatus.CREATED);
-		assertThat(cartProductIds())
-			.containsExactlyInAnyOrder(PRODUCT_A, PRODUCT_B, UNRELATED_PRODUCT);
-		assertThat(outboxEventPersistence.count()).isZero();
-		assertThat(processedEventRepository.count()).isZero();
+		assertCreatedStateAndNoSideEffects();
 	}
 
-	private List<Order> saveScenario() {
-		List<Order> orders = orderPersistence.saveAllAndFlush(createdOrders());
+	private Order saveScenario() {
+		Order order = orderPersistence.saveAndFlush(createdOrder());
 		Cart cart = Cart.create(BUYER_ID);
-		cart.addProduct(PRODUCT_A);
-		cart.addProduct(PRODUCT_B);
+		productIds().forEach(cart::addProduct);
 		cart.addProduct(UNRELATED_PRODUCT);
 		cartPersistence.saveAndFlush(cart);
-		return orders;
+		return order;
 	}
 
-	private List<Order> reloadOrders() {
-		return List.of(
-			orderPersistence.findByIdWithOrderProducts(ORDER_A).orElseThrow(),
-			orderPersistence.findByIdWithOrderProducts(ORDER_B).orElseThrow()
-		);
+	private Order reloadOrder() {
+		return orderPersistence.findByIdWithOrderProducts(ORDER_A).orElseThrow();
 	}
 
 	private List<UUID> cartProductIds() {
@@ -238,5 +330,26 @@ class PaymentEventTransactionIntegrationTest {
 			.map(CartProduct::getProductId)
 			.sorted()
 			.toList();
+	}
+
+	private List<UUID> allCartProductIds() {
+		return List.of(
+			productIds().get(0),
+			productIds().get(1),
+			productIds().get(2),
+			productIds().get(3),
+			UNRELATED_PRODUCT
+		).stream().sorted().toList();
+	}
+
+	private void assertCreatedStateAndNoSideEffects() {
+		Order reloaded = reloadOrder();
+		assertThat(reloaded.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
+		assertThat(reloaded.getOrderProducts())
+			.extracting(OrderProduct::getOrderStatus)
+			.containsOnly(OrderProductStatus.PENDING);
+		assertThat(cartProductIds()).containsExactlyElementsOf(allCartProductIds());
+		assertThat(outboxEventPersistence.count()).isZero();
+		assertThat(processedEventRepository.count()).isZero();
 	}
 }

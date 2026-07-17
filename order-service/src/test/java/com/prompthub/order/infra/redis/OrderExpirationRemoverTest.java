@@ -8,10 +8,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
-
 import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
-import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_B;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
@@ -26,15 +23,20 @@ class OrderExpirationRemoverTest {
 	private OrderExpirationRemover remover;
 
 	@Test
-	void removeOrderExpiration_continuesAfterOneOrderFails() {
+	void removeOrderExpiration_removesSingleOrderExpirationAndRetryCount() {
+		remover.removeOrderExpiration(new OrderPaidEvent(ORDER_A));
+
+		then(orderExpirationStore).should().removeExpiration(ORDER_A);
+		then(orderExpirationStore).should().clearRetryCount(ORDER_A);
+	}
+
+	@Test
+	void removeOrderExpiration_whenExpirationRemovalFails_skipsRetryClear() {
 		willThrow(new RuntimeException("redis unavailable"))
 			.given(orderExpirationStore).removeExpiration(ORDER_A);
 
-		remover.removeOrderExpiration(new OrderPaidEvent(List.of(ORDER_A, ORDER_B)));
+		remover.removeOrderExpiration(new OrderPaidEvent(ORDER_A));
 
-		then(orderExpirationStore).should().removeExpiration(ORDER_A);
 		then(orderExpirationStore).should(never()).clearRetryCount(ORDER_A);
-		then(orderExpirationStore).should().removeExpiration(ORDER_B);
-		then(orderExpirationStore).should().clearRetryCount(ORDER_B);
 	}
 }

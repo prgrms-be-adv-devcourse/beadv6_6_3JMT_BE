@@ -10,7 +10,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -31,16 +30,12 @@ public class OrderAdapter implements OrderRepository {
 	}
 
 	@Override
-	public List<Order> findAllByIdsWithOrderProductsForUpdate(List<UUID> orderIds) {
-		List<UUID> sortedOrderIds = orderIds.stream()
-			.distinct()
-			.sorted()
-			.toList();
-
-		sortedOrderIds.forEach(orderPersistence::findByIdForUpdate);
-		sortedOrderIds.forEach(orderProductPersistence::findAllByOrderIdForUpdate);
-
-		return orderPersistence.findAllByIdsWithOrderProducts(sortedOrderIds);
+	public Optional<Order> findByIdWithOrderProductsForUpdate(UUID orderId) {
+		if (orderPersistence.findByIdForUpdate(orderId).isEmpty()) {
+			return Optional.empty();
+		}
+		orderProductPersistence.findAllByOrderIdForUpdate(orderId);
+		return orderPersistence.findByIdWithOrderProducts(orderId);
 	}
 
 	@Override

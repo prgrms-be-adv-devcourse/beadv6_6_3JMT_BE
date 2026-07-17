@@ -2,7 +2,6 @@ package com.prompthub.order.application.service.event;
 
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedOrderPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import com.prompthub.order.infra.messaging.kafka.support.EventPayloadMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,9 +19,6 @@ import java.util.UUID;
 import static com.prompthub.order.fixture.PaymentEventFixture.APPROVED_AT;
 import static com.prompthub.order.fixture.PaymentEventFixture.BUYER_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
-import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_B;
-import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_PRODUCT_A;
-import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_PRODUCT_B;
 import static com.prompthub.order.fixture.PaymentEventFixture.PAYMENT_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -46,20 +42,17 @@ class PaymentApprovedEventHandlerTest {
 	}
 
 	@Test
-	void handle_mapsMultiOrderApprovalAndDelegates() throws Exception {
+	void handle_mapsPaymentServiceSingleOrderApprovalAndDelegates() throws Exception {
 		UUID eventId = UUID.randomUUID();
 		String payloadJson = """
 			{
 			  "paymentId": "%s",
-			  "buyerId": "%s",
-			  "totalAmount": 30000,
-			  "orders": [
-			    {"orderId": "%s", "orderProductIds": ["%s"]},
-			    {"orderId": "%s", "orderProductIds": ["%s"]}
-			  ],
-			  "approvedAt": "2026-07-16T10:00:05"
+			  "orderId": "%s",
+			  "userId": "%s",
+			  "amount": 30000,
+			  "approvedAt": "2026-07-17T10:00:05+09:00"
 			}
-			""".formatted(PAYMENT_ID, BUYER_ID, ORDER_A, ORDER_PRODUCT_A, ORDER_B, ORDER_PRODUCT_B);
+			""".formatted(PAYMENT_ID, ORDER_A, BUYER_ID);
 		JsonNode payloadNode = objectMapper.readTree(payloadJson);
 		EventMessage<JsonNode> message = new EventMessage<>(
 			eventId,
@@ -76,11 +69,10 @@ class PaymentApprovedEventHandlerTest {
 		then(processor).should().process(eq(eventId), eq("PAYMENT_APPROVED"), eq(APPROVED_AT), captor.capture());
 		PaymentApprovedPayload payload = captor.getValue();
 		assertThat(payload.paymentId()).isEqualTo(PAYMENT_ID);
-		assertThat(payload.buyerId()).isEqualTo(BUYER_ID);
-		assertThat(payload.totalAmount()).isEqualTo(30_000);
-		assertThat(payload.orders())
-			.extracting(PaymentApprovedOrderPayload::orderId)
-			.containsExactly(ORDER_A, ORDER_B);
+		assertThat(payload.orderId()).isEqualTo(ORDER_A);
+		assertThat(payload.userId()).isEqualTo(BUYER_ID);
+		assertThat(payload.amount()).isEqualTo(30_000);
+		assertThat(payload.approvedAt()).isEqualTo("2026-07-17T10:00:05+09:00");
 	}
 
 	@Test
@@ -88,12 +80,12 @@ class PaymentApprovedEventHandlerTest {
 		JsonNode payloadNode = objectMapper.readTree("""
 			{
 			  "paymentId": "not-a-uuid",
-			  "buyerId": "%s",
-			  "totalAmount": 30000,
-			  "orders": [],
-			  "approvedAt": "2026-07-16T10:00:05"
+			  "orderId": "%s",
+			  "userId": "%s",
+			  "amount": 30000,
+			  "approvedAt": "2026-07-17T10:00:05+09:00"
 			}
-			""".formatted(BUYER_ID));
+			""".formatted(ORDER_A, BUYER_ID));
 		EventMessage<JsonNode> message = new EventMessage<>(
 			UUID.randomUUID(),
 			"PAYMENT_APPROVED",

@@ -19,7 +19,7 @@ public class OrderExpirationRemover {
 
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
 	public void removeOrderExpiration(OrderPaidEvent event) {
-		event.orderIds().forEach(this::removeQuietly);
+		removeQuietly(event.orderId());
 	}
 
 	private void removeQuietly(UUID orderId) {

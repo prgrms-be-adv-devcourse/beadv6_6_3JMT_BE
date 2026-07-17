@@ -13,35 +13,30 @@ import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.infra.messaging.kafka.event.OrderPaidPayload;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedOrderPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.PaymentEventFixture.APPROVED_AT;
+import static com.prompthub.order.fixture.PaymentEventFixture.APPROVED_AT_OFFSET;
 import static com.prompthub.order.fixture.PaymentEventFixture.BUYER_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
-import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_B;
-import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_PRODUCT_A;
-import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_PRODUCT_B;
 import static com.prompthub.order.fixture.PaymentEventFixture.OTHER_BUYER_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.PAYMENT_ID;
-import static com.prompthub.order.fixture.PaymentEventFixture.PRODUCT_A;
-import static com.prompthub.order.fixture.PaymentEventFixture.PRODUCT_B;
-import static com.prompthub.order.fixture.PaymentEventFixture.SELLER_B;
 import static com.prompthub.order.fixture.PaymentEventFixture.approvedPayload;
-import static com.prompthub.order.fixture.PaymentEventFixture.createdOrders;
+import static com.prompthub.order.fixture.PaymentEventFixture.createdOrder;
+import static com.prompthub.order.fixture.PaymentEventFixture.productIds;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -50,7 +45,6 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentApprovedProcessorTest {
@@ -80,159 +74,118 @@ class PaymentApprovedProcessorTest {
 	private PaymentApprovedProcessor processor;
 
 	@Test
-	void process_multipleOrders_completesAllAndCreatesOutboxPerOrder() {
-		List<Order> orders = createdOrders();
-		PaymentApprovedPayload payload = approvedPayload(orders);
+	void process_createdOrder_completesFourProductsAndCreatesOneOutboxAndCleanupEvent() {
+		Order order = createdOrder();
+		PaymentApprovedPayload payload = approvedPayload(order);
 		Cart cart = mock(Cart.class);
 		UUID eventId = UUID.randomUUID();
 		given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
-		given(orderRepository.findAllByIdsWithOrderProductsForUpdate(List.of(ORDER_A, ORDER_B)))
-			.willReturn(orders);
+		given(orderRepository.findByIdWithOrderProductsForUpdate(ORDER_A)).willReturn(Optional.of(order));
 		given(cartRepository.findByBuyerIdWithCartProducts(BUYER_ID)).willReturn(Optional.of(cart));
-		stubOrderPaidMessages();
+		stubOrderPaidMessage();
 
 		processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, payload);
 
-		assertThat(orders)
-			.extracting(Order::getOrderStatus)
-			.containsOnly(OrderStatus.COMPLETED);
-		assertThat(orders)
-			.flatExtracting(Order::getOrderProducts)
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
+		assertThat(order.getCompletedAt()).isEqualTo(APPROVED_AT);
+		assertThat(order.getOrderProducts())
 			.extracting(OrderProduct::getOrderStatus)
 			.containsOnly(OrderProductStatus.PAID);
 		then(orderEventMessageFactory).should().createOrderPaidMessage(eq(ORDER_A), any());
-		then(orderEventMessageFactory).should().createOrderPaidMessage(eq(ORDER_B), any());
-		then(outboxEventAppender).should(times(2)).append(any());
-		then(cart).should().removeProductsByProductIds(List.of(PRODUCT_A, PRODUCT_B));
+		then(outboxEventAppender).should().append(any());
+		then(cart).should().removeProductsByProductIds(productIds());
 		then(processedEventService).should()
 			.markProcessed(eventId, "order-service", "PAYMENT_APPROVED", APPROVED_AT);
 		ArgumentCaptor<OrderPaidEvent> eventCaptor = ArgumentCaptor.forClass(OrderPaidEvent.class);
 		then(applicationEventPublisher).should().publishEvent(eventCaptor.capture());
-		assertThat(eventCaptor.getValue().orderIds()).containsExactly(ORDER_A, ORDER_B);
+		assertThat(eventCaptor.getValue().orderId()).isEqualTo(ORDER_A);
 	}
 
 	@Test
-	void process_failedOrders_recoversToCompleted() {
-		List<Order> orders = createdOrders();
-		orders.forEach(Order::markFailed);
+	void process_failedOrder_recoversToCompleted() {
+		Order order = createdOrder();
+		order.markFailed();
 		UUID eventId = UUID.randomUUID();
-		stubTargets(eventId, orders);
-		stubOrderPaidMessages();
+		stubTarget(eventId, order);
+		given(cartRepository.findByBuyerIdWithCartProducts(BUYER_ID)).willReturn(Optional.empty());
+		stubOrderPaidMessage();
 
-		processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, approvedPayload(orders));
+		processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, approvedPayload(order));
 
-		assertThat(orders)
-			.extracting(Order::getOrderStatus)
-			.containsOnly(OrderStatus.COMPLETED);
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
+		assertThat(order.getOrderProducts())
+			.extracting(OrderProduct::getOrderStatus)
+			.containsOnly(OrderProductStatus.PAID);
 	}
 
-	@Test
-	void process_completedOrders_doNotCreateDuplicateOutbox() {
-		List<Order> orders = createdOrders();
-		orders.forEach(order -> order.markCompleted(APPROVED_AT));
+	@ParameterizedTest
+	@EnumSource(value = OrderStatus.class, names = {"COMPLETED", "PARTIAL_REFUNDED", "ALL_REFUNDED"})
+	void process_lateApproval_marksOnlyProcessedAndPreservesReaddedCartProduct(OrderStatus status) {
+		Order order = createdOrder();
+		order.updateOrderStatus(status);
 		UUID eventId = UUID.randomUUID();
-		stubTargets(eventId, orders);
+		stubTarget(eventId, order);
 
-		processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, approvedPayload(orders));
+		processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, approvedPayload(order));
 
 		then(orderEventMessageFactory).shouldHaveNoInteractions();
 		then(outboxEventAppender).shouldHaveNoInteractions();
+		then(cartRepository).shouldHaveNoInteractions();
 		then(applicationEventPublisher).shouldHaveNoInteractions();
 		then(processedEventService).should()
 			.markProcessed(eventId, "order-service", "PAYMENT_APPROVED", APPROVED_AT);
+		assertThat(order.getOrderStatus()).isEqualTo(status);
 	}
 
 	@Test
-	void process_foreignOrderProduct_throwsInvalidInput() {
-		List<Order> orders = createdOrders();
+	void process_buyerMismatch_rejectsWithoutMutation() {
+		Order order = createdOrder();
 		PaymentApprovedPayload payload = new PaymentApprovedPayload(
 			PAYMENT_ID,
-			BUYER_ID,
-			30_000,
-			List.of(
-				new PaymentApprovedOrderPayload(ORDER_A, List.of(UUID.randomUUID())),
-				new PaymentApprovedOrderPayload(ORDER_B, List.of(ORDER_PRODUCT_B))
-			),
-			APPROVED_AT
+			ORDER_A,
+			OTHER_BUYER_ID,
+			order.getTotalOrderAmount(),
+			APPROVED_AT_OFFSET
 		);
 		UUID eventId = UUID.randomUUID();
-		given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
-		given(orderRepository.findAllByIdsWithOrderProductsForUpdate(List.of(ORDER_A, ORDER_B)))
-			.willReturn(orders);
+		stubTarget(eventId, order);
 
 		assertThatThrownBy(() -> processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, payload))
 			.isInstanceOf(OrderException.class)
-			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-		assertThat(orders)
-			.extracting(Order::getOrderStatus)
-			.containsOnly(OrderStatus.CREATED);
-		then(outboxEventAppender).shouldHaveNoInteractions();
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_ACCESS_DENIED);
+		assertUnchanged(order);
+	}
+
+	@Test
+	void process_amountMismatch_rejectsWithoutMutation() {
+		Order order = createdOrder();
+		PaymentApprovedPayload payload = new PaymentApprovedPayload(
+			PAYMENT_ID,
+			ORDER_A,
+			BUYER_ID,
+			order.getTotalOrderAmount() - 1,
+			APPROVED_AT_OFFSET
+		);
+		UUID eventId = UUID.randomUUID();
+		stubTarget(eventId, order);
+
+		assertThatThrownBy(() -> processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, payload))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
+		assertUnchanged(order);
 	}
 
 	@Test
 	void process_missingOrder_throwsBeforeMutation() {
-		List<Order> orders = createdOrders();
-		PaymentApprovedPayload payload = approvedPayload(orders);
+		Order order = createdOrder();
 		UUID eventId = UUID.randomUUID();
 		given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
-		given(orderRepository.findAllByIdsWithOrderProductsForUpdate(List.of(ORDER_A, ORDER_B)))
-			.willReturn(List.of(orders.getFirst()));
+		given(orderRepository.findByIdWithOrderProductsForUpdate(ORDER_A)).willReturn(Optional.empty());
 
-		assertThatThrownBy(() -> processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, payload))
+		assertThatThrownBy(() -> processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, approvedPayload(order)))
 			.isInstanceOf(OrderException.class)
 			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_NOT_FOUND);
-		assertThat(orders)
-			.extracting(Order::getOrderStatus)
-			.containsOnly(OrderStatus.CREATED);
 		then(outboxEventAppender).shouldHaveNoInteractions();
-	}
-
-	@Test
-	void process_buyerMismatch_throwsBeforeMutation() {
-		List<Order> orders = new ArrayList<>(createdOrders());
-		orders.set(1, com.prompthub.order.fixture.PaymentEventFixture.order(
-			ORDER_B,
-			ORDER_PRODUCT_B,
-			PRODUCT_B,
-			SELLER_B,
-			OTHER_BUYER_ID,
-			"ORD-B",
-			20_000
-		));
-		PaymentApprovedPayload payload = approvedPayload(orders);
-		UUID eventId = UUID.randomUUID();
-		given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
-		given(orderRepository.findAllByIdsWithOrderProductsForUpdate(List.of(ORDER_A, ORDER_B)))
-			.willReturn(orders);
-
-		assertThatThrownBy(() -> processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, payload))
-			.isInstanceOf(OrderException.class)
-			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-		assertThat(orders)
-			.extracting(Order::getOrderStatus)
-			.containsOnly(OrderStatus.CREATED);
-	}
-
-	@Test
-	void process_totalAmountIsNotCorrelatedInThisIssue() {
-		List<Order> orders = createdOrders();
-		PaymentApprovedPayload original = approvedPayload(orders);
-		PaymentApprovedPayload payload = new PaymentApprovedPayload(
-			original.paymentId(),
-			original.buyerId(),
-			1,
-			original.orders(),
-			original.approvedAt()
-		);
-		UUID eventId = UUID.randomUUID();
-		stubTargets(eventId, orders);
-		stubOrderPaidMessages();
-
-		processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, payload);
-
-		assertThat(orders)
-			.extracting(Order::getOrderStatus)
-			.containsOnly(OrderStatus.COMPLETED);
 	}
 
 	@Test
@@ -240,7 +193,7 @@ class PaymentApprovedProcessorTest {
 		UUID eventId = UUID.randomUUID();
 		given(processedEventService.isProcessed(eventId, "order-service")).willReturn(true);
 
-		processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, approvedPayload(createdOrders()));
+		processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, approvedPayload(createdOrder()));
 
 		then(orderRepository).shouldHaveNoInteractions();
 		then(outboxEventAppender).shouldHaveNoInteractions();
@@ -248,30 +201,34 @@ class PaymentApprovedProcessorTest {
 
 	@Test
 	void process_eventCompletedWhileWaitingForLock_returnsWithoutMutation() {
-		List<Order> orders = createdOrders();
+		Order order = createdOrder();
 		UUID eventId = UUID.randomUUID();
-		given(processedEventService.isProcessed(eventId, "order-service"))
-			.willReturn(false, true);
-		given(orderRepository.findAllByIdsWithOrderProductsForUpdate(List.of(ORDER_A, ORDER_B)))
-			.willReturn(orders);
+		given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false, true);
+		given(orderRepository.findByIdWithOrderProductsForUpdate(ORDER_A)).willReturn(Optional.of(order));
 
-		processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, approvedPayload(orders));
+		processor.process(eventId, "PAYMENT_APPROVED", APPROVED_AT, approvedPayload(order));
 
-		assertThat(orders)
-			.extracting(Order::getOrderStatus)
-			.containsOnly(OrderStatus.CREATED);
-		then(outboxEventAppender).shouldHaveNoInteractions();
+		assertUnchanged(order);
 		then(processedEventService).should(never()).markProcessed(any(), any(), any(), any());
 	}
 
-	private void stubTargets(UUID eventId, List<Order> orders) {
-		given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
-		given(orderRepository.findAllByIdsWithOrderProductsForUpdate(List.of(ORDER_A, ORDER_B)))
-			.willReturn(orders);
-		given(cartRepository.findByBuyerIdWithCartProducts(BUYER_ID)).willReturn(Optional.empty());
+	private void assertUnchanged(Order order) {
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
+		assertThat(order.getOrderProducts())
+			.extracting(OrderProduct::getOrderStatus)
+			.containsOnly(OrderProductStatus.PENDING);
+		then(outboxEventAppender).shouldHaveNoInteractions();
+		then(cartRepository).shouldHaveNoInteractions();
+		then(applicationEventPublisher).shouldHaveNoInteractions();
+		then(processedEventService).should(never()).markProcessed(any(), any(), any(), any());
 	}
 
-	private void stubOrderPaidMessages() {
+	private void stubTarget(UUID eventId, Order order) {
+		given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
+		given(orderRepository.findByIdWithOrderProductsForUpdate(ORDER_A)).willReturn(Optional.of(order));
+	}
+
+	private void stubOrderPaidMessage() {
 		given(orderEventMessageFactory.createOrderPaidMessage(any(), any()))
 			.willAnswer(invocation -> {
 				UUID orderId = invocation.getArgument(0);

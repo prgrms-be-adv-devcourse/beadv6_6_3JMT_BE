@@ -18,7 +18,7 @@ public class OrderExpirationService {
 	private final OrderExpirationPolicy expirationPolicy;
 
 	public boolean cancelPendingOrderByTimeout(UUID orderId, LocalDateTime now) {
-		return orderRepository.findByIdWithOrderProducts(orderId)
+		return orderRepository.findByIdWithOrderProductsForUpdate(orderId)
 			.map(order -> cancelIfExpired(order, now))
 			.orElse(true);
 	}

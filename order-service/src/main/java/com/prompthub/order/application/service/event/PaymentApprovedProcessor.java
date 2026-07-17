@@ -11,7 +11,6 @@ import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.infra.messaging.kafka.event.OrderPaidPayload;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedOrderPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,13 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -51,81 +45,65 @@ public class PaymentApprovedProcessor {
 		PaymentApprovedPayload payload
 	) {
 		validator.validateEnvelope(eventId, eventType, occurredAt);
+		LocalDateTime approvedAt = validator.validate(payload);
 		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
 			return;
 		}
 
-		List<UUID> orderIds = validator.validate(payload);
-		List<Order> orders = orderRepository.findAllByIdsWithOrderProductsForUpdate(orderIds);
+		Order order = orderRepository.findByIdWithOrderProductsForUpdate(payload.orderId())
+			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
 		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
 			return;
 		}
-		validateAllOrdersLoaded(orderIds, orders);
-		validateApprovalTargets(payload, orders);
+		validateBuyer(payload, order);
+		validateAmount(payload, order);
 
-		List<Order> completedOrders = new ArrayList<>();
-		for (Order order : orders) {
-			if (order.getOrderStatus() == OrderStatus.CREATED
-				|| order.getOrderStatus() == OrderStatus.FAILED) {
-				order.markCompleted(payload.approvedAt());
-				completedOrders.add(order);
-				EventMessage<OrderPaidPayload> message = orderEventMessageFactory.createOrderPaidMessage(
-					order.getId(),
-					OrderPaidPayload.from(order)
-				);
-				outboxEventAppender.append(message);
-			}
+		boolean transitioned = order.getOrderStatus() == OrderStatus.CREATED
+			|| order.getOrderStatus() == OrderStatus.FAILED;
+		if (transitioned) {
+			order.markCompleted(approvedAt);
+			EventMessage<OrderPaidPayload> message = orderEventMessageFactory.createOrderPaidMessage(
+				order.getId(),
+				OrderPaidPayload.from(order)
+			);
+			outboxEventAppender.append(message);
+			removePurchasedProductsFromCart(payload.userId(), order);
+			applicationEventPublisher.publishEvent(new OrderPaidEvent(order.getId()));
 		}
-
-		List<UUID> productIds = orders.stream()
-			.flatMap(order -> order.getOrderProducts().stream())
-			.map(OrderProduct::getProductId)
-			.distinct()
-			.sorted()
-			.toList();
-		cartRepository.findByBuyerIdWithCartProducts(payload.buyerId())
-			.ifPresent(cart -> cart.removeProductsByProductIds(productIds));
 
 		processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
-		if (!completedOrders.isEmpty()) {
-			applicationEventPublisher.publishEvent(OrderPaidEvent.from(completedOrders));
-		}
 
 		log.info(
-			"결제 승인 이벤트 처리 완료. eventId={}, paymentId={}, orderIds={}, statuses={}, consumerGroup={}",
+			"결제 승인 이벤트 처리 완료. eventId={}, paymentId={}, orderId={}, status={}, transitioned={}, consumerGroup={}",
 			eventId,
 			payload.paymentId(),
-			orderIds,
-			orders.stream().map(order -> order.getId() + ":" + order.getOrderStatus()).toList(),
+			order.getId(),
+			order.getOrderStatus(),
+			transitioned,
 			CONSUMER_GROUP
 		);
 	}
 
-	private void validateAllOrdersLoaded(List<UUID> orderIds, List<Order> orders) {
-		Set<UUID> loadedOrderIds = orders.stream()
-			.map(Order::getId)
-			.collect(Collectors.toSet());
-		if (orders.size() != orderIds.size() || !loadedOrderIds.equals(Set.copyOf(orderIds))) {
-			throw new OrderException(ErrorCode.ORDER_NOT_FOUND);
+	private void validateBuyer(PaymentApprovedPayload payload, Order order) {
+		if (!order.getBuyerId().equals(payload.userId())) {
+			throw new OrderException(ErrorCode.ORDER_ACCESS_DENIED);
 		}
 	}
 
-	private void validateApprovalTargets(PaymentApprovedPayload payload, List<Order> orders) {
-		Map<UUID, Order> ordersById = orders.stream()
-			.collect(Collectors.toMap(Order::getId, Function.identity()));
-		for (PaymentApprovedOrderPayload target : payload.orders()) {
-			Order order = ordersById.get(target.orderId());
-			if (order == null || !order.getBuyerId().equals(payload.buyerId())) {
-				throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
-			}
-			Set<UUID> actualOrderProductIds = order.getOrderProducts().stream()
-				.map(OrderProduct::getId)
-				.collect(Collectors.toSet());
-			if (!actualOrderProductIds.containsAll(target.orderProductIds())) {
-				throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
-			}
+	private void validateAmount(PaymentApprovedPayload payload, Order order) {
+		if (order.getTotalOrderAmount() != payload.amount()) {
+			throw new OrderException(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
 		}
 	}
 
+	private void removePurchasedProductsFromCart(UUID buyerId, Order order) {
+		List<UUID> productIds = order.getOrderProducts().stream()
+			.map(OrderProduct::getProductId)
+			.distinct()
+			.sorted()
+			.toList();
+		cartRepository.findByBuyerIdWithCartProducts(buyerId)
+			.ifPresent(cart -> cart.removeProductsByProductIds(productIds));
+	}
 }
