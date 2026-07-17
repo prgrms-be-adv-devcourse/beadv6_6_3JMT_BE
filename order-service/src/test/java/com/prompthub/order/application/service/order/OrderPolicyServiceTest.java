@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.*;
 import static com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_A1;
@@ -98,6 +99,59 @@ class OrderPolicyServiceTest {
 		@DisplayName("요청 상품과 조회 상품이 일치하면 예외가 발생하지 않는다")
 		void matchingProducts_success() {
 			orderPolicyService.validateProductSnapshots(requestedProductIds(), shuffledSnapshots());
+		}
+
+		@Test
+		@DisplayName("상품 총액이 int 최댓값이면 검증에 성공한다")
+		void totalAmountAtIntMax_success() {
+			List<UUID> requestedIds = List.of(PRODUCT_ID_1, PRODUCT_ID_2);
+			List<ProductOrderSnapshot> snapshots = List.of(
+				new ProductOrderSnapshot(
+					PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1,
+					PRODUCT_TYPE_PROMPT, PRODUCT_MODEL, Integer.MAX_VALUE - 1
+				),
+				new ProductOrderSnapshot(
+					PRODUCT_ID_2, SELLER_ID_2, PRODUCT_TITLE_2,
+					PRODUCT_TYPE_PROMPT, PRODUCT_MODEL, 1
+				)
+			);
+
+			orderPolicyService.validateProductSnapshots(requestedIds, snapshots);
+		}
+
+		@Test
+		@DisplayName("상품 총액이 int 범위를 넘으면 안정적인 입력값 검증 예외가 발생한다")
+		void totalAmountOverflow_throwsStableOrderException() {
+			List<UUID> requestedIds = List.of(PRODUCT_ID_1, PRODUCT_ID_2);
+			List<ProductOrderSnapshot> snapshots = List.of(
+				new ProductOrderSnapshot(
+					PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1,
+					PRODUCT_TYPE_PROMPT, PRODUCT_MODEL, Integer.MAX_VALUE
+				),
+				new ProductOrderSnapshot(
+					PRODUCT_ID_2, SELLER_ID_2, PRODUCT_TITLE_2,
+					PRODUCT_TYPE_PROMPT, PRODUCT_MODEL, 1
+				)
+			);
+
+			assertThatThrownBy(() -> orderPolicyService.validateProductSnapshots(requestedIds, snapshots))
+				.isInstanceOf(OrderException.class)
+				.hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+		}
+
+		@Test
+		@DisplayName("상품 금액이 0이면 입력값 검증 예외가 발생한다")
+		void zeroProductAmount_throwsStableOrderException() {
+			List<ProductOrderSnapshot> snapshots = List.of(
+				new ProductOrderSnapshot(
+					PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1,
+					PRODUCT_TYPE_PROMPT, PRODUCT_MODEL, 0
+				)
+			);
+
+			assertThatThrownBy(() -> orderPolicyService.validateProductSnapshots(List.of(PRODUCT_ID_1), snapshots))
+				.isInstanceOf(OrderException.class)
+				.hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 		}
 
 		@Test
