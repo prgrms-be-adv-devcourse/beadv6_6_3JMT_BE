@@ -15,13 +15,13 @@ public record AdminOrderListResponse(
 	int sellerCount,
 	@Schema(description = "판매자별 주문 상품 수와 금액 요약")
 	List<SellerSummary> sellers,
-	@Schema(description = "상품명. 다건 주문이면 첫 상품명 외 N건 형식", example = "면접 답변 프롬프트 외 2건")
+	@Schema(description = "상품명. 주문 상품이 여러 건이면 첫 상품명 외 N건 형식", example = "면접 답변 프롬프트 외 2건")
 	String productTitle,
 	@Schema(description = "주문 상품 수", example = "3")
 	int totalOrderCount,
 	@Schema(description = "총 주문 금액", example = "15000")
 	int totalOrderAmount,
-	@Schema(description = "주문 상태", example = "PAID")
+	@Schema(description = "주문 상태", example = "COMPLETED")
 	OrderStatus orderStatus,
 	@Schema(description = "주문 생성 일시", example = "2026-06-24T10:00:00")
 	LocalDateTime createdAt
