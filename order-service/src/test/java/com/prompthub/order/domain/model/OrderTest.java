@@ -43,6 +43,41 @@ class OrderTest {
     }
 
     @Test
+    void canAccessContent_completedOrderPaidProduct_returnsTrue() {
+        Order order = createPendingOrder();
+        OrderProduct product = createOrderProduct1();
+        order.addOrderProduct(product);
+        order.markCompleted(PAID_AT);
+
+        assertThat(order.canAccessContent(product)).isTrue();
+    }
+
+    @Test
+    void canAccessContent_partialRefundedOrderRemainingPaidProduct_returnsTrue() {
+        Order order = createPendingOrder();
+        OrderProduct refundedProduct = createOrderProduct1();
+        OrderProduct remainingProduct = createOrderProduct2();
+        order.addOrderProduct(refundedProduct);
+        order.addOrderProduct(remainingProduct);
+        order.markCompleted(PAID_AT);
+        order.refundOrderProduct(refundedProduct.getId(), refundedProduct.getProductAmount(), REFUNDED_AT);
+
+        assertThat(order.canAccessContent(remainingProduct)).isTrue();
+    }
+
+    @Test
+    void canAccessContent_partialRefundedOrderRefundedProduct_returnsFalse() {
+        Order order = createPendingOrder();
+        OrderProduct refundedProduct = createOrderProduct1();
+        order.addOrderProduct(refundedProduct);
+        order.addOrderProduct(createOrderProduct2());
+        order.markCompleted(PAID_AT);
+        order.refundOrderProduct(refundedProduct.getId(), refundedProduct.getProductAmount(), REFUNDED_AT);
+
+        assertThat(order.canAccessContent(refundedProduct)).isFalse();
+    }
+
+    @Test
     void failedOrder_canBecomeCompletedAfterPaymentRetry() {
         Order order = createPendingOrder();
         OrderProduct product = createOrderProduct1();

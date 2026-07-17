@@ -24,7 +24,7 @@ public class ConfirmDownloadCommandHandler implements ConfirmDownloadUseCase {
 
 	@Override
 	public OrderProductDownloadResponse confirmDownload(UUID buyerId, UUID orderId, UUID orderProductId) {
-		Order order = orderRepository.findByIdWithOrderProducts(orderId)
+		Order order = orderRepository.findByIdWithOrderProductsForUpdate(orderId)
 			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
 		if (!order.getBuyerId().equals(buyerId)) {
@@ -36,7 +36,7 @@ public class ConfirmDownloadCommandHandler implements ConfirmDownloadUseCase {
 			.findFirst()
 			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_PRODUCT_NOT_FOUND));
 
-		if (!order.isPaid() || !orderProduct.isPaid()) {
+		if (!order.canAccessContent(orderProduct)) {
 			throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
 		}
 

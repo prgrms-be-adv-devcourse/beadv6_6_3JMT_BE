@@ -226,6 +226,46 @@ class OrderQueryServiceTest {
             then(productClient).should().getProductContent(orderProduct.getProductId());
         }
 
+		@Test
+		@DisplayName("부분 환불 주문의 남은 결제 상품 콘텐츠는 조회할 수 있다")
+		void getOrderContent_partialRefundedRemainingPaidProduct_success() {
+			Order order = createPaidOrderWithProducts();
+			OrderProduct refundedProduct = order.getOrderProducts().getFirst();
+			OrderProduct remainingProduct = order.getOrderProducts().get(1);
+			order.refundOrderProduct(refundedProduct.getId(), refundedProduct.getProductAmount(), REFUNDED_AT);
+			given(orderRepository.findByIdWithOrderProducts(order.getId())).willReturn(Optional.of(order));
+			given(productClient.getProductContent(remainingProduct.getProductId()))
+				.willReturn(new ProductContent(remainingProduct.getProductId(), PRODUCT_CONTENT));
+
+			OrderContentResponse response = orderQueryService.getOrderContent(
+				BUYER_ID,
+				order.getId(),
+				remainingProduct.getId()
+			);
+
+			assertThat(response.orderProductId()).isEqualTo(remainingProduct.getId());
+			assertThat(response.content()).isEqualTo(PRODUCT_CONTENT);
+		}
+
+		@Test
+		@DisplayName("부분 환불 주문의 환불 상품 콘텐츠는 조회할 수 없다")
+		void getOrderContent_partialRefundedRefundedProduct_throwsException() {
+			Order order = createPaidOrderWithProducts();
+			OrderProduct refundedProduct = order.getOrderProducts().getFirst();
+			order.refundOrderProduct(refundedProduct.getId(), refundedProduct.getProductAmount(), REFUNDED_AT);
+			given(orderRepository.findByIdWithOrderProducts(order.getId())).willReturn(Optional.of(order));
+
+			assertThatThrownBy(() -> orderQueryService.getOrderContent(
+				BUYER_ID,
+				order.getId(),
+				refundedProduct.getId()
+			))
+				.isInstanceOf(OrderException.class)
+				.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
+
+			then(productClient).shouldHaveNoInteractions();
+		}
+
         @Test
         @DisplayName("상품 콘텐츠 조회가 SYS002로 실패하면 다운로드 상태를 변경하지 않고 예외를 전파한다")
         void getOrderContent_productServiceUnavailable_keepsDownloadState() {
