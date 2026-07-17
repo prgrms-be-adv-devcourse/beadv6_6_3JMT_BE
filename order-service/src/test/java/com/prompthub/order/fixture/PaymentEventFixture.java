@@ -28,7 +28,6 @@ public final class PaymentEventFixture {
 	public static final UUID SELLER_A = uuid(801);
 	public static final UUID SELLER_B = uuid(802);
 	public static final UUID SELLER_C = uuid(803);
-	public static final UUID SELLER_D = uuid(804);
 	public static final LocalDateTime APPROVED_AT = LocalDateTime.of(2026, 7, 17, 10, 0, 5);
 	public static final String APPROVED_AT_OFFSET = "2026-07-17T10:00:05+09:00";
 	public static final LocalDateTime FAILED_AT = LocalDateTime.of(2026, 7, 17, 10, 0, 6);
@@ -39,7 +38,7 @@ public final class PaymentEventFixture {
 	public static Order createdOrder() {
 		Order order = Order.create(BUYER_ID, "ORD-A", 100_000);
 		ReflectionTestUtils.setField(order, "id", ORDER_A);
-		addProduct(order, ORDER_PRODUCT_D, PRODUCT_D, SELLER_D, 40_000);
+		addProduct(order, ORDER_PRODUCT_D, PRODUCT_D, SELLER_A, 40_000);
 		addProduct(order, ORDER_PRODUCT_B, PRODUCT_B, SELLER_B, 20_000);
 		addProduct(order, ORDER_PRODUCT_A, PRODUCT_A, SELLER_A, 10_000);
 		addProduct(order, ORDER_PRODUCT_C, PRODUCT_C, SELLER_C, 30_000);

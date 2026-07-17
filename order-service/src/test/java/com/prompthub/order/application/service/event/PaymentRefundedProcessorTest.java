@@ -83,6 +83,7 @@ class PaymentRefundedProcessorTest {
 		then(orderEventMessageFactory).should().createOrderRefundMessage(eq(order.getId()), captor.capture());
 		assertThat(captor.getValue().products()).singleElement().satisfies(product -> {
 			assertThat(product.orderProductId()).isEqualTo(target.getId());
+			assertThat(product.productId()).isEqualTo(target.getProductId());
 			assertThat(product.sellerId()).isEqualTo(SELLER_ID_1);
 			assertThat(product.productAmount()).isEqualTo(PRODUCT_AMOUNT_1);
 		});

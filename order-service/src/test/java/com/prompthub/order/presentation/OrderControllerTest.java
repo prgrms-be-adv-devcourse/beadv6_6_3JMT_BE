@@ -280,7 +280,8 @@ class OrderControllerTest {
 			@DisplayName("내 주문 상세 조회 성공")
 			void getOrderDetail_success() throws Exception {
 				// given
-				OrderDetailProductResponse product = new OrderDetailProductResponse(
+				int totalAmount = PRODUCT_AMOUNT_1 * 2 + PRODUCT_AMOUNT_2 * 2;
+				OrderDetailProductResponse productA1 = new OrderDetailProductResponse(
 					ORDER_PRODUCT_ID,
 					PRODUCT_ID_1,
 					SELLER_ID_1,
@@ -293,14 +294,29 @@ class OrderControllerTest {
 					true,
 					false
 				);
+				OrderDetailProductResponse productB1 = new OrderDetailProductResponse(
+					UUID.randomUUID(), UUID.randomUUID(), UUID.fromString("00000000-0000-0000-0000-000000000202"),
+					"B1", PRODUCT_TYPE_PROMPT, "GPT-4", PRODUCT_AMOUNT_2, OrderProductStatus.REFUNDED,
+					false, false, false
+				);
+				OrderDetailProductResponse productA2 = new OrderDetailProductResponse(
+					UUID.randomUUID(), UUID.randomUUID(), SELLER_ID_1,
+					"A2", PRODUCT_TYPE_PROMPT, "GPT-4", PRODUCT_AMOUNT_1, OrderProductStatus.PAID,
+					true, true, false
+				);
+				OrderDetailProductResponse productC1 = new OrderDetailProductResponse(
+					UUID.randomUUID(), UUID.randomUUID(), UUID.fromString("00000000-0000-0000-0000-000000000203"),
+					"C1", PRODUCT_TYPE_PROMPT, "GPT-4", PRODUCT_AMOUNT_2, OrderProductStatus.PAID,
+					true, false, true
+				);
 				OrderDetailResponse response = new OrderDetailResponse(
 					ORDER_ID,
 					ORDER_NUMBER,
 					BUYER_ID,
 					OrderStatus.PAID,
-					List.of(product),
-					TOTAL_AMOUNT,
-					TOTAL_ITEM_COUNT,
+					List.of(productA1, productB1, productA2, productC1),
+					totalAmount,
+					4,
 					PAID_AT,
 					null,
 					null,
@@ -322,8 +338,8 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data.orderNumber").value(ORDER_NUMBER))
 					.andExpect(jsonPath("$.data.buyerId").value(BUYER_ID.toString()))
 					.andExpect(jsonPath("$.data.orderStatus").value("COMPLETED"))
-					.andExpect(jsonPath("$.data.totalAmount").value(TOTAL_AMOUNT))
-					.andExpect(jsonPath("$.data.totalProductCount").value(TOTAL_ITEM_COUNT))
+					.andExpect(jsonPath("$.data.totalAmount").value(totalAmount))
+					.andExpect(jsonPath("$.data.totalProductCount").value(4))
 					.andExpect(jsonPath("$.data.paidAt").value("2026-06-20T12:00:00"))
 					.andExpect(jsonPath("$.data.canceledAt").doesNotExist())
 					.andExpect(jsonPath("$.data.refundedAt").doesNotExist())
@@ -341,7 +357,14 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.data.products[0].isRefundable").value(true))
 					.andExpect(jsonPath("$.data.products[0].isRefund").doesNotExist())
 					.andExpect(jsonPath("$.data.products[0].downloaded").value(false))
-					.andExpect(jsonPath("$.data.products[0].download").doesNotExist());
+					.andExpect(jsonPath("$.data.products[0].download").doesNotExist())
+					.andExpect(jsonPath("$.data.products[1].sellerId").value("00000000-0000-0000-0000-000000000202"))
+					.andExpect(jsonPath("$.data.products[2].sellerId").value(SELLER_ID_1.toString()))
+					.andExpect(jsonPath("$.data.products[3].sellerId").value("00000000-0000-0000-0000-000000000203"))
+					.andExpect(jsonPath("$.data.products[1].orderStatus").value("REFUNDED"))
+					.andExpect(jsonPath("$.data.products[1].isRefundable").value(false))
+					.andExpect(jsonPath("$.data.products[3].downloaded").value(true))
+					.andExpect(jsonPath("$.data.products[3].isRefundable").value(false));
 
 				verify(orderQueryUseCase).getOrderDetail(eq(BUYER_ID), eq(ORDER_ID));
 			}
