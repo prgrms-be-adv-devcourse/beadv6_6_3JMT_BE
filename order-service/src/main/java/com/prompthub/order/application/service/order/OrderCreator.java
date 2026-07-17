@@ -42,7 +42,7 @@ public class OrderCreator {
 			.forEach(order::addOrderProduct);
 
 		Order savedOrder = orderRepository.save(order);
-		OrderCreatedPayload payload = OrderCreatedPayload.from(buyerId, List.of(savedOrder));
+		OrderCreatedPayload payload = OrderCreatedPayload.from(savedOrder);
 		EventMessage<OrderCreatedPayload> message = orderEventMessageFactory.createOrderCreatedMessage(payload);
 		outboxEventAppender.append(message);
 		applicationEventPublisher.publishEvent(OrderCreatedEvent.from(savedOrder));

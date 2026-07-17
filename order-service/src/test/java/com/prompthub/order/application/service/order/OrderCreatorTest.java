@@ -130,31 +130,22 @@ class OrderCreatorTest {
 	}
 
 	@Test
-	@DisplayName("ORDER_CREATED payload는 생성된 단일 주문의 모든 상품 및 합계를 포함한다")
-	void outboxPayloadContainsAllOrdersAndProducts() {
+	@DisplayName("ORDER_CREATED payload는 생성된 단일 주문의 Payment Service 계약 필드를 포함한다")
+	void outboxPayloadContainsSingleOrderPaymentServiceContract() {
 		given(orderNumberGenerator.generate()).willReturn("ORD-A");
 
 		orderCreator.create(BUYER_ID, orderItems());
 
+		ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+		then(orderRepository).should().save(orderCaptor.capture());
 		ArgumentCaptor<OrderCreatedPayload> payloadCaptor = ArgumentCaptor.forClass(OrderCreatedPayload.class);
 		then(orderEventMessageFactory).should().createOrderCreatedMessage(payloadCaptor.capture());
 		OrderCreatedPayload payload = payloadCaptor.getValue();
 
+		assertThat(payload.orderId()).isEqualTo(orderCaptor.getValue().getId());
 		assertThat(payload.buyerId()).isEqualTo(BUYER_ID);
 		assertThat(payload.totalAmount()).isEqualTo(TOTAL_AMOUNT);
-		assertThat(payload.orders()).hasSize(1);
-		assertThat(payload.orders()).flatExtracting(OrderCreatedPayload.Order::products)
-			.hasSize(4)
-			.extracting(OrderCreatedPayload.Product::productId)
-			.containsExactly(PRODUCT_A1, PRODUCT_B1, PRODUCT_A2, PRODUCT_C1);
-		assertThat(payload.orders()).flatExtracting(OrderCreatedPayload.Order::products)
-			.extracting(OrderCreatedPayload.Product::productTitle)
-			.containsExactly(
-				REQUEST_TITLE_A1,
-				REQUEST_TITLE_B1,
-				REQUEST_TITLE_A2,
-				REQUEST_TITLE_C1
-			);
+		assertThat(payload.createdAt()).isEqualTo(CREATED_AT);
 	}
 
 	@Test

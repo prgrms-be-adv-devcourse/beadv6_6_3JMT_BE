@@ -14,16 +14,15 @@ import java.util.UUID;
 public class OrderEventMessageFactory {
 
 	public EventMessage<OrderCreatedPayload> createOrderCreatedMessage(OrderCreatedPayload payload) {
-		UUID orderGroupId = UUID.randomUUID();
-        return new EventMessage<>(
-			orderGroupId,
+		return new EventMessage<>(
+			UUID.randomUUID(),
 			OrderEventType.ORDER_CREATED.code(),
 			LocalDateTime.now(),
-			"ORDER_GROUP",
-			orderGroupId,
+			"ORDER",
+			payload.orderId(),
 			payload
-        );
-    }
+		);
+	}
 
     public EventMessage<OrderPaidPayload> createOrderPaidMessage(
             UUID orderId,
