@@ -3,7 +3,6 @@ package com.prompthub.order.presentation;
 import com.prompthub.order.application.usecase.ConfirmDownloadUseCase;
 import com.prompthub.order.application.usecase.CreateOrderUseCase;
 import com.prompthub.order.application.usecase.OrderQueryUseCase;
-import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -17,7 +16,6 @@ import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
-import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -556,94 +554,6 @@ class OrderControllerTest {
 						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 						.param("from", "2026-06-30")
 						.param("to", "2026-06-01"))
-					.andExpect(status().isBadRequest())
-					.andExpect(jsonPath("$.success").value(false))
-					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
-
-				verifyNoInteractions(orderQueryUseCase);
-			}
-		}
-	}
-
-	@Nested
-	@DisplayName("내 결제 내역 조회 (GET /api/v1/orders/payments)")
-	class GetOrderPayments {
-
-		@Nested
-		@DisplayName("성공 케이스")
-		class Success {
-
-			@Test
-			@DisplayName("내 결제 내역 조회 성공")
-			void getOrderPayments_success() throws Exception {
-				// given
-				OrderPaymentListResponse payment = new OrderPaymentListResponse(
-					ORDER_ID,
-					PAYMENT_ID,
-					PaymentStatus.PAID,
-					true,
-					PRODUCT_TYPE_PROMPT,
-					PRODUCT_TITLE_1,
-					PRODUCT_AMOUNT_1,
-					PAID_AT
-				);
-				Page<OrderPaymentListResponse> response = new PageImpl<>(List.of(payment), PageRequest.of(0, 20), 1);
-				PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
-
-				when(orderQueryUseCase.getOrderPayments(eq(BUYER_ID), eq(request)))
-					.thenReturn(response);
-
-				// when & then
-				mockMvc.perform(get("/api/v1/orders/payments")
-						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
-						.param("page", "1")
-						.param("size", "20"))
-					.andExpect(status().isOk())
-					.andExpect(jsonPath("$.success").value(true))
-					.andExpect(jsonPath("$.message").value("success"))
-					.andExpect(jsonPath("$.data[0].orderId").value(ORDER_ID.toString()))
-					.andExpect(jsonPath("$.data[0].paymentId").value(PAYMENT_ID.toString()))
-					.andExpect(jsonPath("$.data[0].paymentStatus").value("PAID"))
-					.andExpect(jsonPath("$.data[0].isRefundable").value(true))
-					.andExpect(jsonPath("$.data[0].isRefund").doesNotExist())
-					.andExpect(jsonPath("$.data[0].productType").value(PRODUCT_TYPE_PROMPT))
-					.andExpect(jsonPath("$.data[0].title").value(PRODUCT_TITLE_1))
-					.andExpect(jsonPath("$.data[0].amount").value(PRODUCT_AMOUNT_1))
-					.andExpect(jsonPath("$.data[0].paidAt").value("2026-06-20T12:00:00"))
-					.andExpect(jsonPath("$.meta.page").value(1))
-					.andExpect(jsonPath("$.meta.size").value(20))
-					.andExpect(jsonPath("$.meta.total").value(1))
-					.andExpect(jsonPath("$.meta.hasNext").value(false));
-
-				verify(orderQueryUseCase).getOrderPayments(eq(BUYER_ID), eq(request));
-			}
-		}
-
-		@Nested
-		@DisplayName("실패 케이스")
-		class Failure {
-
-			@Test
-			@DisplayName("내 결제 내역 조회 시 X-User-Id 헤더가 없으면 401 Unauthorized")
-			void getOrderPayments_withoutUserIdHeader_unauthorized() throws Exception {
-				// when & then
-				mockMvc.perform(get("/api/v1/orders/payments"))
-					.andExpect(status().isUnauthorized())
-					.andExpect(jsonPath("$.success").value(false))
-					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
-
-				verifyNoInteractions(orderQueryUseCase);
-			}
-
-			@Test
-			@DisplayName("내 결제 내역 조회 시 size가 100을 초과하면 400 Bad Request")
-			void getOrderPayments_sizeOverLimit_badRequest() throws Exception {
-				// when & then
-				mockMvc.perform(get("/api/v1/orders/payments")
-						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
-						.param("size", "101"))
 					.andExpect(status().isBadRequest())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));

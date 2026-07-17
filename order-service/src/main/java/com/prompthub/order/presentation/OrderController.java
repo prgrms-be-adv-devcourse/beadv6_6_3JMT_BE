@@ -11,7 +11,6 @@ import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
-import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import com.prompthub.presentation.dto.ApiResult;
@@ -42,7 +41,7 @@ import static com.prompthub.order.global.web.AuthHeaders.USER_ID;
 
 @RestController
 @RequiredArgsConstructor
-@Tag(name = "Order", description = "주문 생성, 조회, 구매 콘텐츠, 리뷰, 결제 내역 API")
+@Tag(name = "Order", description = "주문 생성, 조회, 구매 콘텐츠, 리뷰 API")
 @SecurityRequirement(name = "gatewayHeaders")
 public class OrderController {
 
@@ -150,30 +149,6 @@ public class OrderController {
 			resolvedRequest.size(),
 			orders.getTotalElements(),
 			orders.hasNext()
-		);
-	}
-
-	@GetMapping("/api/v1/orders/payments")
-	@Operation(summary = "주문 결제 내역 조회", description = "구매자 본인의 주문 결제 내역을 페이지 조건으로 조회합니다.")
-	@ApiResponses({
-		@ApiResponse(responseCode = "200", description = "주문 결제 내역 조회 성공"),
-		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
-		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음")
-	})
-	public PageResponse<OrderPaymentListResponse> getOrderPayments(
-		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
-		@RequestHeader(USER_ID) UUID buyerId,
-		@ModelAttribute PageRequestParams request
-	) {
-		PageRequestParams resolvedRequest = request.resolve();
-		Page<OrderPaymentListResponse> orderPayments = orderQueryUseCase.getOrderPayments(buyerId, resolvedRequest);
-
-		return PageResponse.success(
-			orderPayments.getContent(),
-			resolvedRequest.page(),
-			resolvedRequest.size(),
-			orderPayments.getTotalElements(),
-			orderPayments.hasNext()
 		);
 	}
 

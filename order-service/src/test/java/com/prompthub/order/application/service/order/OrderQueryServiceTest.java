@@ -3,14 +3,11 @@ package com.prompthub.order.application.service.order;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.OrderForPaymentResult;
 import com.prompthub.order.application.dto.OrderListProjection;
-import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductContent;
-import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
-import com.prompthub.order.domain.repository.OrderPaymentRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
@@ -18,7 +15,6 @@ import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
-import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -51,9 +47,6 @@ class OrderQueryServiceTest {
 
     @Mock
     private OrderRepository orderRepository;
-
-    @Mock
-    private OrderPaymentRepository orderPaymentRepository;
 
     @Mock
     private ProductClient productClient;
@@ -616,49 +609,8 @@ class OrderQueryServiceTest {
     }
 
     @Nested
-    @DisplayName("내 결제 내역 조회")
-    class GetMyOrderPayments {
-
-        @Test
-        @DisplayName("page와 size가 전달되면 구매자 결제 내역을 반환한다")
-        void getMyOrderPayments_defaultPage_success() {
-            // given
-            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
-            OrderPaymentListProjection projection = orderPaymentListProjection(
-                OrderStatus.COMPLETED,
-                OrderProductStatus.PAID,
-                PAID_AT,
-                false
-            );
-            PageRequest pageable = PageRequest.of(0, 20, Sort.by(
-                Sort.Order.desc("approvedAt")
-            ));
-
-            given(orderPaymentRepository.searchOrderPayments(BUYER_ID, pageable))
-                .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
-
-            // when
-            Page<OrderPaymentListResponse> response = orderQueryService.getOrderPayments(BUYER_ID, request);
-
-            // then
-            assertThat(response.getNumber()).isZero();
-            assertThat(response.getSize()).isEqualTo(20);
-            assertThat(response.getTotalElements()).isEqualTo(1);
-            assertThat(response.hasNext()).isFalse();
-
-            OrderPaymentListResponse payment = response.getContent().getFirst();
-            assertThat(payment.orderId()).isEqualTo(ORDER_ID);
-            assertThat(payment.paymentId()).isEqualTo(PAYMENT_ID);
-            assertThat(payment.paymentStatus()).isEqualTo(PaymentStatus.PAID);
-            assertThat(payment.isRefundable()).isTrue();
-
-            assertThat(payment.productType()).isEqualTo(PRODUCT_TYPE_PROMPT);
-            assertThat(payment.title()).isEqualTo(PRODUCT_TITLE_1);
-            assertThat(payment.amount()).isEqualTo(TOTAL_AMOUNT);
-            assertThat(payment.paidAt()).isEqualTo(PAID_AT);
-
-            then(orderPaymentRepository).should().searchOrderPayments(BUYER_ID, pageable);
-        }
+    @DisplayName("주문상품 환불 가능 여부 조회")
+    class GetOrderRefundEligibility {
 
         @Test
         @DisplayName("다운로드한 상품은 환불 가능하지 않다")
@@ -704,32 +656,6 @@ class OrderQueryServiceTest {
 
             // then
             assertThat(response.getContent().getFirst().isRefundable()).isFalse();
-        }
-
-
-        @Test
-        @DisplayName("order.paidAt이 없으면 order_payment.approvedAt을 paidAt으로 반환한다")
-        void getMyOrderPayments_paidAtFallback_success() {
-            // given
-            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
-            OrderPaymentListProjection projection = orderPaymentListProjection(
-				OrderStatus.COMPLETED,
-                OrderProductStatus.PAID,
-                null,
-                false
-            );
-            PageRequest pageable = PageRequest.of(0, 20, Sort.by(
-                Sort.Order.desc("approvedAt")
-            ));
-
-            given(orderPaymentRepository.searchOrderPayments(BUYER_ID, pageable))
-                .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
-
-            // when
-            Page<OrderPaymentListResponse> response = orderQueryService.getOrderPayments(BUYER_ID, request);
-
-            // then
-            assertThat(response.getContent().getFirst().paidAt()).isEqualTo(APPROVED_AT);
-        }
+		}
     }
 }

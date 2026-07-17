@@ -1,7 +1,6 @@
 package com.prompthub.order.fixture;
 
 import com.prompthub.order.application.dto.OrderListProjection;
-import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
 import com.prompthub.order.domain.enums.OrderProductStatus;
@@ -219,28 +218,6 @@ public final class OrderFixture {
 			rating,
 			PAID_AT,
 			CREATED_AT
-		);
-	}
-
-	public static OrderPaymentListProjection orderPaymentListProjection(
-		OrderStatus orderStatus,
-		OrderProductStatus orderProductStatus,
-		LocalDateTime paidAt,
-		boolean downloaded
-	) {
-		boolean isRefundable = (orderStatus == OrderStatus.COMPLETED || orderStatus == OrderStatus.PARTIAL_REFUNDED)
-			&& orderProductStatus == OrderProductStatus.PAID
-			&& !downloaded;
-		return new OrderPaymentListProjection(
-			ORDER_ID,
-			PAYMENT_ID,
-			orderStatus,
-			isRefundable,
-			PRODUCT_TYPE_PROMPT,
-			PRODUCT_TITLE_1,
-			TOTAL_AMOUNT,
-			paidAt,
-			APPROVED_AT
 		);
 	}
 }
