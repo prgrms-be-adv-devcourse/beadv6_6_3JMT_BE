@@ -7,7 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "관리자 주문 목록 조회 조건")
 public record AdminOrderSearchCondition(
-	@Schema(description = "주문 상태 필터. ALL, PENDING, PAID, FAILED, CANCELED, REFUNDED", example = "ALL", defaultValue = "ALL")
+	@Schema(description = "주문 상태 필터. ALL, CREATED, COMPLETED, FAILED, PARTIAL_REFUNDED, ALL_REFUNDED", example = "ALL", defaultValue = "ALL")
 	String orderStatus,
 	@Schema(description = "페이지 번호. 1부터 시작하며 생략 시 1", example = "1", defaultValue = "1")
 	Integer page,
