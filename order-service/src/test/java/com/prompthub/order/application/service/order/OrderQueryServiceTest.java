@@ -771,6 +771,8 @@ class OrderQueryServiceTest {
 
 			assertThat(response.getContent()).extracting(OrderListResponse::orderId)
 				.containsOnly(ORDER_ID);
+			assertThat(response.getContent()).extracting(OrderListResponse::orderStatus)
+				.containsExactly(OrderStatus.COMPLETED, OrderStatus.COMPLETED, OrderStatus.PARTIAL_REFUNDED);
 			assertThat(response.getContent()).extracting(OrderListResponse::isRefundable)
 				.containsExactly(true, false, false);
 		}
