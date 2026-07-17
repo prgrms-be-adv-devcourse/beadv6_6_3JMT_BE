@@ -38,21 +38,22 @@ CREATE TABLE cart_product (
 
 CREATE TABLE "order" (
     id uuid NOT NULL,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL,
+    created_at timestamp(6) without time zone,
+    updated_at timestamp(6) without time zone,
     buyer_id uuid NOT NULL,
-    seller_id uuid NOT NULL,
+    canceled_at timestamp(6) without time zone,
     order_number character varying(30) NOT NULL,
     order_status character varying(20) NOT NULL,
-    completed_at timestamp(6) without time zone,
+    paid_at timestamp(6) without time zone,
     refunded_at timestamp(6) without time zone,
     total_order_amount integer NOT NULL,
-    CONSTRAINT order_order_status_check CHECK (((order_status)::text = ANY (ARRAY[('CREATED'::character varying)::text, ('COMPLETED'::character varying)::text, ('FAILED'::character varying)::text, ('PARTIAL_REFUNDED'::character varying)::text, ('ALL_REFUNDED'::character varying)::text])))
+    total_product_count integer NOT NULL,
+    CONSTRAINT order_order_status_check CHECK (((order_status)::text = ANY (ARRAY[('PENDING'::character varying)::text, ('PAID'::character varying)::text, ('FAILED'::character varying)::text, ('CANCELED'::character varying)::text, ('REFUNDED'::character varying)::text])))
 );
 
 CREATE TABLE order_outbox_event (
     event_id uuid NOT NULL,
-    aggregate_id uuid NOT NULL,
+    order_id uuid NOT NULL,
     event_type character varying(100) NOT NULL,
     payload text NOT NULL,
     status character varying(20) NOT NULL,
@@ -60,6 +61,20 @@ CREATE TABLE order_outbox_event (
     occurred_at timestamp(6) without time zone NOT NULL,
     published_at timestamp(6) without time zone,
     CONSTRAINT order_outbox_event_status_check CHECK (((status)::text = ANY (ARRAY['PENDING'::text, 'PUBLISHED'::text, 'FAILED'::text])))
+);
+
+CREATE TABLE order_payment (
+    id uuid NOT NULL,
+    created_at timestamp(6) without time zone,
+    updated_at timestamp(6) without time zone,
+    approved_amount integer NOT NULL,
+    approved_at timestamp(6) without time zone NOT NULL,
+    buyer_id uuid NOT NULL,
+    order_id uuid NOT NULL,
+    payment_id uuid NOT NULL,
+    payment_method character varying(30) NOT NULL,
+    pg_tx_id character varying(100) NOT NULL,
+    provider character varying(50) NOT NULL
 );
 
 CREATE TABLE order_processed_event (
@@ -82,16 +97,20 @@ ALTER TABLE order_processed_event ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTI
 
 CREATE TABLE order_product (
     id uuid NOT NULL,
+    canceled_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
     downloaded boolean NOT NULL,
     order_product_status character varying(20) NOT NULL,
     product_amount_snapshot integer NOT NULL,
     product_id uuid NOT NULL,
+    product_model_snapshot character varying(50),
     product_title_snapshot character varying(200) NOT NULL,
+    product_type_snapshot character varying(30) NOT NULL,
     refunded_at timestamp(6) without time zone,
+    seller_id uuid NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     order_id uuid NOT NULL,
-    CONSTRAINT order_product_order_product_status_check CHECK (((order_product_status)::text = ANY (ARRAY[('PENDING'::character varying)::text, ('PAID'::character varying)::text, ('FAILED'::character varying)::text, ('REFUNDED'::character varying)::text])))
+    CONSTRAINT order_product_order_product_status_check CHECK (((order_product_status)::text = ANY (ARRAY[('PENDING'::character varying)::text, ('PAID'::character varying)::text, ('FAILED'::character varying)::text, ('CANCELED'::character varying)::text, ('REFUNDED'::character varying)::text])))
 );
 
 ALTER TABLE ONLY cart
@@ -109,6 +128,18 @@ ALTER TABLE ONLY "order"
 ALTER TABLE ONLY order_outbox_event
     ADD CONSTRAINT order_outbox_event_pkey PRIMARY KEY (event_id);
 
+ALTER TABLE ONLY order_payment
+    ADD CONSTRAINT order_payment_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY order_payment
+    ADD CONSTRAINT uk_order_payment_order_id UNIQUE (order_id);
+
+ALTER TABLE ONLY order_payment
+    ADD CONSTRAINT uk_order_payment_payment_id UNIQUE (payment_id);
+
+ALTER TABLE ONLY order_payment
+    ADD CONSTRAINT uk_order_payment_pg_tx_id UNIQUE (pg_tx_id);
+
 ALTER TABLE ONLY order_processed_event
     ADD CONSTRAINT order_processed_event_pkey PRIMARY KEY (id);
 
@@ -118,19 +149,9 @@ ALTER TABLE ONLY order_processed_event
 ALTER TABLE ONLY order_product
     ADD CONSTRAINT order_product_pkey PRIMARY KEY (id);
 
-CREATE INDEX idx_order_outbox_event_aggregate_id ON order_outbox_event USING btree (aggregate_id);
+CREATE INDEX idx_order_outbox_event_order_id ON order_outbox_event USING btree (order_id);
 
 CREATE INDEX idx_order_outbox_event_status_occurred_at ON order_outbox_event USING btree (status, occurred_at);
-
-CREATE INDEX idx_order_buyer_created_at ON "order" USING btree (buyer_id, created_at DESC);
-
-CREATE INDEX idx_order_seller_created_at ON "order" USING btree (seller_id, created_at DESC);
-
-CREATE INDEX idx_order_status_created_at ON "order" USING btree (order_status, created_at DESC);
-
-CREATE INDEX idx_order_completed_at ON "order" USING btree (completed_at);
-
-CREATE INDEX idx_order_refunded_at ON "order" USING btree (refunded_at);
 
 CREATE INDEX idx_order_processed_event_event_type ON order_processed_event USING btree (event_type);
 
