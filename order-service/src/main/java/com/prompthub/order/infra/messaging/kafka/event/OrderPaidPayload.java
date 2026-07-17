@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.UUID;
 
 import com.prompthub.order.domain.model.Order;
-import com.prompthub.order.domain.model.OrderProduct;
 
 public record OrderPaidPayload(
         UUID orderId,
@@ -23,14 +22,7 @@ public record OrderPaidPayload(
                 order.getOrderProducts().size(),
                 order.getPaidAt(),
                 order.getOrderProducts().stream()
-                        .map(op -> new OrderPaidProductPayload(
-                                op.getId(),
-                                op.getProductId(),
-                                op.getSellerId(),
-                                op.getProductTitle(),
-                                op.getProductType(),
-                                op.getProductAmount()
-                        ))
+						.map(OrderPaidProductPayload::from)
                         .toList()
         );
     }

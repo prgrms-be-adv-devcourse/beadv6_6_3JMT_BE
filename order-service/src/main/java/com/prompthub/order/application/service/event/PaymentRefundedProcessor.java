@@ -2,8 +2,8 @@ package com.prompthub.order.application.service.event;
 
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
-import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
+import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -28,6 +29,7 @@ public class PaymentRefundedProcessor {
     private final OrderRepository orderRepository;
     private final OrderEventMessageFactory orderEventMessageFactory;
     private final OutboxEventAppender outboxEventAppender;
+    private final PaymentEventValidator validator;
 
     @Transactional
     public void process(
@@ -36,31 +38,31 @@ public class PaymentRefundedProcessor {
             LocalDateTime occurredAt,
             PaymentRefundedPayload payload
     ) {
+        validator.validateEnvelope(eventId, eventType, occurredAt);
+        LocalDateTime refundedAt = validator.validate(payload);
         if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
             return;
         }
 
-        Order order = orderRepository.findByIdWithOrderProducts(payload.orderId())
+        Order order = orderRepository.findByIdWithOrderProductsForUpdate(payload.orderId())
                 .orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
-        if (order.getOrderStatus() != OrderStatus.COMPLETED) {
-            log.warn("이미 처리된 환불이거나 금지된 상태 전이 시도입니다. 상태 변경 무시. eventId={}, eventType={}, orderId={}, currentStatus={}",
-                    eventId, eventType, payload.orderId(), order.getOrderStatus());
-            processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
+        if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
             return;
         }
+        validateBuyer(payload, order);
 
-        order.refund(payload.refundedAt());
-
-        OrderRefundPayload orderRefundPayload = OrderRefundPayload.from(order, payload.refundedAt());
-
-        EventMessage<OrderRefundPayload> orderRefundMessage =
-                orderEventMessageFactory.createOrderRefundMessage(
-                        order.getId(),
-                        orderRefundPayload
-                );
-
-        outboxEventAppender.append(orderRefundMessage);
+        Optional<OrderProduct> refundedProduct = order.refundOrderProduct(
+                payload.orderProductId(),
+                payload.amount(),
+                refundedAt
+        );
+        refundedProduct.ifPresent(product -> {
+            OrderRefundPayload orderRefundPayload = OrderRefundPayload.from(order, product, refundedAt);
+            EventMessage<OrderRefundPayload> orderRefundMessage =
+                    orderEventMessageFactory.createOrderRefundMessage(order.getId(), orderRefundPayload);
+            outboxEventAppender.append(orderRefundMessage);
+        });
 
         processedEventService.markProcessed(
                 eventId,
@@ -69,7 +71,21 @@ public class PaymentRefundedProcessor {
                 occurredAt
         );
 
-        log.info("결제 이벤트 처리 완료. eventId={}, eventType={}, orderId={}, targetStatus={}, consumerGroup={}",
-                eventId, eventType, payload.orderId(), OrderStatus.ALL_REFUNDED, CONSUMER_GROUP);
+        log.info(
+                "결제 환불 이벤트 처리 완료. eventId={}, paymentId={}, orderId={}, orderProductId={}, status={}, transitioned={}, consumerGroup={}",
+                eventId,
+                payload.paymentId(),
+                order.getId(),
+                payload.orderProductId(),
+                order.getOrderStatus(),
+                refundedProduct.isPresent(),
+                CONSUMER_GROUP
+        );
+    }
+
+    private void validateBuyer(PaymentRefundedPayload payload, Order order) {
+        if (!order.getBuyerId().equals(payload.userId())) {
+            throw new OrderException(ErrorCode.ORDER_ACCESS_DENIED);
+        }
     }
 }

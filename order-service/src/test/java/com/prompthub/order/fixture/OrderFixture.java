@@ -2,7 +2,6 @@ package com.prompthub.order.fixture;
 
 import com.prompthub.order.application.dto.OrderListProjection;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
@@ -186,17 +185,6 @@ public final class OrderFixture {
 
 	public static List<UUID> productIds() {
 		return List.of(PRODUCT_ID_1, PRODUCT_ID_2);
-	}
-
-	public static PaymentRefundedPayload createPaymentRefundedPayload(UUID orderId) {
-		return new PaymentRefundedPayload(
-			orderId,
-			PAYMENT_ID,
-			BUYER_ID,
-			"pg-tx-123",
-			TOTAL_AMOUNT,
-			REFUNDED_AT
-		);
 	}
 
 	public static OrderListProjection orderListProjection(

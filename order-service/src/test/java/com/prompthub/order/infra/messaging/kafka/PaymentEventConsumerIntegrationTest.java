@@ -15,6 +15,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -22,11 +23,10 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
+import tools.jackson.databind.JsonNode;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -112,30 +112,43 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 		// given
 		UUID paymentId = UUID.randomUUID();
 		UUID orderId = UUID.randomUUID();
-		UUID buyerId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		UUID orderProductId = UUID.randomUUID();
 
 		Map<String, Object> payload = new HashMap<>();
 		payload.put("paymentId", paymentId.toString());
 		payload.put("orderId", orderId.toString());
-		payload.put("userId", buyerId.toString());
-		payload.put("amount", 30000);
-		payload.put("refundedAt", OffsetDateTime.now(ZoneOffset.ofHours(9)).toString());
+		payload.put("userId", userId.toString());
+		payload.put("orderProductId", orderProductId.toString());
+		payload.put("amount", 10000);
+		payload.put("paymentStatus", "PARTIAL_REFUNDED");
+		payload.put("refundedAt", "2026-07-17T11:00:00+09:00");
 
 		Map<String, Object> message = new HashMap<>();
 		message.put("eventId", UUID.randomUUID().toString());
 		message.put("eventType", "PAYMENT_REFUNDED");
 		message.put("occurredAt", LocalDateTime.now().toString());
-		message.put("aggregateType", "ORDER");
-		message.put("aggregateId", orderId.toString());
+		message.put("aggregateType", "PAYMENT");
+		message.put("aggregateId", paymentId.toString());
 		message.put("payload", payload);
 
 		// when
 		kafkaTemplate.send(PAYMENT_EVENTS_TOPIC, orderId.toString(), message);
 
 		// then
+		ArgumentCaptor<EventMessage<JsonNode>> captor = eventMessageCaptor();
 		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
-			verify(paymentRefundedEventHandler).handle(any(EventMessage.class))
+			verify(paymentRefundedEventHandler).handle(captor.capture())
 		);
+		JsonNode capturedPayload = captor.getValue().payload();
+		assertThat(capturedPayload.path("paymentId").asText()).isEqualTo(paymentId.toString());
+		assertThat(capturedPayload.path("orderId").asText()).isEqualTo(orderId.toString());
+		assertThat(capturedPayload.path("userId").asText()).isEqualTo(userId.toString());
+		assertThat(capturedPayload.path("orderProductId").asText()).isEqualTo(orderProductId.toString());
+		assertThat(capturedPayload.path("amount").asInt()).isEqualTo(10_000);
+		assertThat(capturedPayload.path("paymentStatus").asText()).isEqualTo("PARTIAL_REFUNDED");
+		assertThat(capturedPayload.path("refundedAt").asText())
+			.isEqualTo("2026-07-17T11:00:00+09:00");
 	}
 
 	@Test
@@ -391,5 +404,10 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 			new StringDeserializer(),
 			new StringDeserializer()
 		).createConsumer();
+	}
+
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private ArgumentCaptor<EventMessage<JsonNode>> eventMessageCaptor() {
+		return (ArgumentCaptor) ArgumentCaptor.forClass(EventMessage.class);
 	}
 }
