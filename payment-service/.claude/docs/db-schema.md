@@ -1,6 +1,6 @@
 # DB 테이블 구조
 
-payment-service가 소유하는 테이블 요약. 스키마는 **JPA 엔티티(`ddl-auto: update`)** 로 생성되고, `update`가 표현/수행하지 못하는 델타(컬럼 제거·타입 확장·부분 유니크 인덱스)는 멱등 **`src/main/resources/schema.sql`** 로 처리한다(`defer-datasource-initialization: true`, `sql.init.mode: always`).
+payment-service가 소유하는 테이블 요약. 스키마는 **Flyway 마이그레이션(`src/main/resources/db/migration/V{n}__*.sql`)** 으로 관리되고, Hibernate는 `ddl-auto: validate`로 엔티티-스키마 일치만 검증한다. 상세 규칙은 [`flyway-migration.md`](../rules/flyway-migration.md) 참조.
 
 모노레포 전체 ERD: `../../../docs/erd/schema.md`
 
@@ -53,14 +53,14 @@ payment-service가 소유하는 테이블 요약. 스키마는 **JPA 엔티티(`
 | `created_at` | TIMESTAMPTZ | ✅ | `NOW()` | 생성 일시 |
 | `updated_at` | TIMESTAMPTZ | ✅ | `NOW()` | 수정 일시 |
 
-**인덱스** (`schema.sql`):
+**인덱스** (Flyway):
 
 | 인덱스 | 대상 | 목적 |
 |---|---|---|
 | `uk_payment_pg_tx_id` | UNIQUE (`pg_tx_id`) | 동일 paymentKey 이중 confirm 차단(멱등) |
 | `uk_payment_order_paid` | UNIQUE (`order_id`) WHERE `status='PAID'` | 같은 주문 동시 결제 시 두 번째 PAID 전이 차단(동시성 방어). 부분 유니크라 재결제(FAILED 다건)는 허용 |
 
-> 중복 판정은 `existsByOrderIdAndStatusIn(order_id, {PAID, REFUNDING, REFUNDED, UNKNOWN})` 로 수행한다. REQUESTED·FAILED·READY는 비차단이라 재결제가 가능하고, 한 주문에 FAILED 행이 여러 개 존재할 수 있다.
+> 중복 판정은 `existsByOrderIdAndStatusIn(order_id, {PAID, PARTIAL_REFUNDED, ALL_REFUNDED, UNKNOWN})` 로 수행한다. REQUESTED·FAILED·READY는 비차단이라 재결제가 가능하고, 한 주문에 FAILED 행이 여러 개 존재할 수 있다.
 
 ---
 
@@ -97,7 +97,7 @@ payment-service가 소유하는 테이블 요약. 스키마는 **JPA 엔티티(`
 | `created_at` | TIMESTAMPTZ | ✅ | `NOW()` | 생성 일시 |
 | `updated_at` | TIMESTAMPTZ | ✅ | `NOW()` | 수정 일시 |
 
-**인덱스** (`schema.sql`):
+**인덱스** (Flyway):
 
 | 인덱스 | 대상 | 목적 |
 |---|---|---|
