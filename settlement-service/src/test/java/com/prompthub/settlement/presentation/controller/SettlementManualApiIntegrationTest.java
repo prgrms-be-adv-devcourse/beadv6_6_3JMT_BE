@@ -1,4 +1,4 @@
-package com.prompthub.settlement;
+package com.prompthub.settlement.presentation.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -9,19 +9,19 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest(properties = {
-		"spring.cloud.config.enabled=false",
-		"spring.cloud.config.fail-fast=false"
+	"spring.cloud.config.enabled=false",
+	"spring.cloud.config.fail-fast=false",
+	"settlement.manual-api.enabled=true"
 })
 @ActiveProfiles("test")
-class SettlementApplicationTests {
+class SettlementManualApiIntegrationTest {
 
 	@Autowired
 	private ApplicationContext applicationContext;
 
 	@Test
-	void contextLoads_withoutManualApiFlag_doesNotCreateManualApiBeans() {
-		assertThat(applicationContext.containsBean("settlementBatchController")).isFalse();
-		assertThat(applicationContext.containsBean("settlementOpenAPI")).isFalse();
+	void manualApiEnabled_createsControllerAndOpenApiBeans() {
+		assertThat(applicationContext.containsBean("settlementBatchController")).isTrue();
+		assertThat(applicationContext.containsBean("settlementOpenAPI")).isTrue();
 	}
-
 }
