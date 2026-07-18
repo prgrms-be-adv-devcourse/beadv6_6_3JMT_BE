@@ -187,7 +187,7 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void 금액_불일치_시_400_AMOUNT_MISMATCH_및_FAILED_저장() {
+    void 금액_불일치_시_400_AMOUNT_MISMATCH_및_결제시도_미기록() {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
 
@@ -199,13 +199,29 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         assertThat(response.getStatusCode().value()).isEqualTo(400);
         assertThat(response.getBody().get("code")).isEqualTo("PAY012");
 
-        Payment payment = paymentJpaRepository.findAll().stream()
-            .filter(p -> p.getOrderId().equals(orderId))
-            .findFirst()
-            .orElseThrow(() -> new AssertionError("Payment not found for orderId=" + orderId));
-        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
+        boolean paymentExists = paymentJpaRepository.findAll().stream()
+            .anyMatch(p -> p.getOrderId().equals(orderId));
+        assertThat(paymentExists).isFalse();
 
         verify(paymentGateway, never()).confirm(anyString(), any(), anyInt());
+    }
+
+    @Test
+    void 금액_불일치_후_올바른_금액으로_재시도_시_정상_승인() {
+        UUID orderId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        OffsetDateTime approvedAt = OffsetDateTime.now();
+
+        when(orderGateway.getOrderPaymentInfo(orderId))
+            .thenReturn(new OrderPaymentInfo(orderId, userId, 10_000, OffsetDateTime.now()));
+        when(paymentGateway.confirm(anyString(), eq(orderId), eq(10_000)))
+            .thenReturn(new ConfirmResult("카드", 10_000, "{}", approvedAt));
+
+        ResponseEntity<Map> mismatch = confirm(orderId, userId, "toss-mismatch-retry-key-1", 9_000);
+        assertThat(mismatch.getStatusCode().value()).isEqualTo(400);
+
+        ResponseEntity<Map> success = confirm(orderId, userId, "toss-mismatch-retry-key-2", 10_000);
+        assertThat(success.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
     @Test

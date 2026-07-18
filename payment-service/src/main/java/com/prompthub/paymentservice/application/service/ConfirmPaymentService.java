@@ -78,7 +78,6 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
         }
 
         if (command.amount() != orderInfo.totalAmount()) {
-            failBeforeRequest(command, orderInfo);
             throw new BusinessException(PaymentErrorCode.AMOUNT_MISMATCH);
         }
 
@@ -137,27 +136,5 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
             // uk_payment_order_paid 충돌 — 서로 다른 paymentKey로 같은 주문 동시 결제
             throw new BusinessException(PaymentErrorCode.DUPLICATE_PAYMENT);
         }
-    }
-
-    /**
-     * 금액 불일치 — Toss 호출 전 Payment를 READY로 생성하고 즉시 FAILED로 전이해 실패 이력을 남기고
-     * PaymentFailedEvent를 발행한다(Order 쪽 상태 전이를 위해 Kafka 발행 필요).
-     */
-    private void failBeforeRequest(ConfirmPaymentCommand command, OrderPaymentInfo orderInfo) {
-        transactionTemplate.execute(status -> {
-            Payment payment = Payment.create(
-                command.orderId(), command.userId(),
-                command.paymentKey(), PG_PROVIDER, PAYMENT_METHOD, testMode,
-                orderInfo.totalAmount()
-            );
-            paymentRepository.saveAndFlush(payment);
-            payment.fail(
-                "AMOUNT_MISMATCH", "요청 금액이 주문 금액과 일치하지 않습니다.",
-                null, null, OffsetDateTime.now()
-            );
-            paymentRepository.save(payment);
-            applicationEventPublisher.publishEvent(new PaymentFailedEvent(payment));
-            return null;
-        });
     }
 }

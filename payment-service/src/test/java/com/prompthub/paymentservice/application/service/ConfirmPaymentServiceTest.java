@@ -10,7 +10,6 @@ import com.prompthub.paymentservice.application.gateway.external.OrderPaymentInf
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
 import com.prompthub.paymentservice.domain.event.PaymentApprovedEvent;
-import com.prompthub.paymentservice.domain.event.PaymentFailedEvent;
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;
 import com.prompthub.paymentservice.domain.repository.PaymentRepository;
@@ -136,13 +135,11 @@ class ConfirmPaymentServiceTest {
     }
 
     @Test
-    void 금액_불일치_시_AMOUNT_MISMATCH_예외_및_FAILED_저장() {
+    void 금액_불일치_시_AMOUNT_MISMATCH_예외_및_결제시도_미기록() {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         when(orderGateway.getOrderPaymentInfo(orderId))
             .thenReturn(new OrderPaymentInfo(orderId, userId, 10_000, OffsetDateTime.now()));
-        when(paymentRepository.saveAndFlush(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ConfirmPaymentCommand command = new ConfirmPaymentCommand("toss-key", orderId, userId, 9_000);
 
@@ -152,11 +149,9 @@ class ConfirmPaymentServiceTest {
             .isEqualTo(PaymentErrorCode.AMOUNT_MISMATCH);
 
         verify(paymentGateway, never()).confirm(anyString(), any(), anyInt());
-
-        ArgumentCaptor<PaymentFailedEvent> captor = ArgumentCaptor.forClass(PaymentFailedEvent.class);
-        verify(applicationEventPublisher).publishEvent(captor.capture());
-        assertThat(captor.getValue().payment().getStatus()).isEqualTo(PaymentStatus.FAILED);
-        assertThat(captor.getValue().payment().getTotalAmount()).isEqualTo(10_000);
+        verify(paymentRepository, never()).save(any());
+        verify(paymentRepository, never()).saveAndFlush(any());
+        verify(applicationEventPublisher, never()).publishEvent(any());
     }
 
     @Test

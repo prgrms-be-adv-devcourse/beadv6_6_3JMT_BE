@@ -41,12 +41,12 @@
 2. 주문·상태 중복 확인(`PAID`/`FAILED`/`PARTIAL_REFUNDED`/`ALL_REFUNDED`/`UNKNOWN` 존재) → `409(PAY002)`
 3. 주문 정보 gRPC 조회(order 9083, 매 요청 직접 호출) — 조회 불가/타임아웃 → `503(PAY009)`, 주문 없음 → `404(PAY008)`
 4. 본인 검증: 주문 정보 `buyerId != X-User-Id` → `403(PAY010)`
-5. 금액 검증: 요청 `amount != 주문 totalAmount` → Payment를 `READY`로 생성 즉시 `FAILED` 전이 + `PAYMENT_FAILED` 발행 → `400(PAY012)`
+5. 금액 검증: 요청 `amount != 주문 totalAmount` → `400(PAY012)`. Toss를 호출한 적 없는 순수 입력 검증 실패라 Payment 레코드를 생성하지 않고, `PAYMENT_FAILED`도 발행하지 않는다 — 같은 orderId로 올바른 금액으로 즉시 재시도 가능
 6. Payment 레코드 생성(`READY` → `REQUESTED`), `pg_tx_id`(=paymentKey) 멱등키 겸용
 7. 토스페이먼츠 confirm API 동기 호출(주문 정보 금액) → `PAID` / `FAILED`
 8. Payment 상태 저장 → `200` 반환
 
-> **재결제 차단**: 결제가 한 번이라도 `FAILED`로 끝난 주문은 같은 orderId로 다시 결제할 수 없습니다(새 주문으로만 재시도 가능). 중복 판정이 `PAID`/`FAILED`/`PARTIAL_REFUNDED`/`ALL_REFUNDED`/`UNKNOWN` 상태 존재 여부이기 때문입니다.
+> **재결제 차단**: 실제로 Toss confirm까지 시도했다가 `FAILED`로 끝난 주문은 같은 orderId로 다시 결제할 수 없습니다(새 주문으로만 재시도 가능). 중복 판정이 `PAID`/`FAILED`/`PARTIAL_REFUNDED`/`ALL_REFUNDED`/`UNKNOWN` 상태 존재 여부이기 때문입니다. 금액 불일치(`PAY012`)는 Payment 자체가 생성되지 않으므로 이 차단 대상이 아닙니다.
 
 **이후 비동기 흐름**
 - 승인 시 → `PAYMENT_APPROVED` 발행 (Order PAID 전환 + `is_download = true`)
