@@ -39,16 +39,16 @@ class OutboxRelayTest {
 	private KafkaTemplate<String, String> kafkaTemplate;
 
 	@Test
-	@DisplayName("단건 주문 Outbox는 orderId aggregateId를 key로 ORDER_CREATED를 한 번 발행한다")
-	void orderEventUsesAggregateIdAndSendsOnce() throws Exception {
+	@DisplayName("ORDER_PAID Outbox는 orderId aggregateId를 key로 한 번 발행한다")
+	void orderPaidEventUsesAggregateIdAndSendsOnce() throws Exception {
 		UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000900");
 		String payload = """
-			{"eventType":"ORDER_CREATED","aggregateType":"ORDER","aggregateId":"%s","payload":{"orderId":"%s","buyerId":"00000000-0000-0000-0000-000000000001","totalAmount":11000,"createdAt":"2026-07-17T10:00:00"}}
+			{"eventType":"ORDER_PAID","aggregateType":"ORDER","aggregateId":"%s","payload":{"orderId":"%s"}}
 			""".formatted(ORDER_ID, ORDER_ID);
 		OutboxEvent event = OutboxEvent.create(
 			eventId,
 			ORDER_ID,
-			"ORDER_CREATED",
+			"ORDER_PAID",
 			payload,
 			APPROVED_AT
 		);

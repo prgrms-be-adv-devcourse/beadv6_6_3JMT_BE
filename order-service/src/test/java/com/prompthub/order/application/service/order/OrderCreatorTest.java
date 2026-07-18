@@ -1,11 +1,8 @@
 package com.prompthub.order.application.service.order;
 
-import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.application.dto.CreateOrderResult;
 import com.prompthub.order.application.dto.OrderItem;
 import com.prompthub.order.application.event.order.OrderCreatedEvent;
-import com.prompthub.order.application.service.event.OrderEventMessageFactory;
-import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
@@ -13,7 +10,6 @@ import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.infra.messaging.kafka.event.OrderCreatedPayload;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,14 +20,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static com.prompthub.order.fixture.OrderV2Fixture.AMOUNT_A1;
 import static com.prompthub.order.fixture.OrderV2Fixture.AMOUNT_A2;
 import static com.prompthub.order.fixture.OrderV2Fixture.BUYER_ID;
 import static com.prompthub.order.fixture.OrderV2Fixture.CREATED_AT;
-import static com.prompthub.order.fixture.OrderV2Fixture.ORDER_A;
 import static com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_A1;
 import static com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_A2;
 import static com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_B1;
@@ -62,12 +56,6 @@ class OrderCreatorTest {
 	private OrderNumberGenerator orderNumberGenerator;
 
 	@Mock
-	private OrderEventMessageFactory orderEventMessageFactory;
-
-	@Mock
-	private OutboxEventAppender outboxEventAppender;
-
-	@Mock
 	private ApplicationEventPublisher applicationEventPublisher;
 
 	@InjectMocks
@@ -80,20 +68,11 @@ class OrderCreatorTest {
 			ReflectionTestUtils.setField(order, "updatedAt", CREATED_AT);
 			return order;
 		});
-		given(orderEventMessageFactory.createOrderCreatedMessage(any(OrderCreatedPayload.class)))
-			.willReturn(new EventMessage<>(
-				ORDER_A,
-				"ORDER_CREATED",
-				CREATED_AT,
-				"ORDER",
-				ORDER_A,
-				null
-			));
 	}
 
 	@Test
-	@DisplayName("A·B·C 판매자 상품을 주문 한 건과 Outbox 한 건으로 생성한다")
-	void createsSingleOrderAndSingleOutbox() {
+	@DisplayName("A·B·C 판매자 상품을 주문 한 건으로 생성한다")
+	void createsSingleOrderWithMultipleSellerProducts() {
 		stubSuccessfulCreation();
 		given(orderNumberGenerator.generate()).willReturn("ORD-A");
 
@@ -128,27 +107,6 @@ class OrderCreatorTest {
 			.containsExactly(SELLER_A, SELLER_B, SELLER_A, SELLER_C);
 		then(orderNumberGenerator).should(times(1)).generate();
 		then(orderRepository).should(times(1)).save(any(Order.class));
-		then(outboxEventAppender).should(times(1)).append(any(EventMessage.class));
-	}
-
-	@Test
-	@DisplayName("ORDER_CREATED payload는 생성된 단일 주문의 Payment Service 계약 필드를 포함한다")
-	void outboxPayloadContainsSingleOrderPaymentServiceContract() {
-		stubSuccessfulCreation();
-		given(orderNumberGenerator.generate()).willReturn("ORD-A");
-
-		orderCreator.create(BUYER_ID, orderItems());
-
-		ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
-		then(orderRepository).should().save(orderCaptor.capture());
-		ArgumentCaptor<OrderCreatedPayload> payloadCaptor = ArgumentCaptor.forClass(OrderCreatedPayload.class);
-		then(orderEventMessageFactory).should().createOrderCreatedMessage(payloadCaptor.capture());
-		OrderCreatedPayload payload = payloadCaptor.getValue();
-
-		assertThat(payload.orderId()).isEqualTo(orderCaptor.getValue().getId());
-		assertThat(payload.buyerId()).isEqualTo(BUYER_ID);
-		assertThat(payload.totalAmount()).isEqualTo(TOTAL_AMOUNT);
-		assertThat(payload.createdAt()).isEqualTo(CREATED_AT);
 	}
 
 	@Test
@@ -159,14 +117,17 @@ class OrderCreatorTest {
 
 		orderCreator.create(BUYER_ID, orderItems());
 
+		ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+		then(orderRepository).should().save(orderCaptor.capture());
 		ArgumentCaptor<OrderCreatedEvent> eventCaptor = ArgumentCaptor.forClass(OrderCreatedEvent.class);
 		then(applicationEventPublisher).should().publishEvent(eventCaptor.capture());
+		assertThat(eventCaptor.getValue().orderId()).isEqualTo(orderCaptor.getValue().getId());
 		assertThat(eventCaptor.getValue().createdAt()).isEqualTo(CREATED_AT);
 	}
 
 	@Test
-	@DisplayName("판매자가 한 명이어도 주문 한 건과 Outbox 한 건을 생성한다")
-	void singleSellerStillCreatesSingleOutbox() {
+	@DisplayName("판매자가 한 명이어도 주문 한 건을 생성한다")
+	void singleSellerStillCreatesSingleOrder() {
 		stubSuccessfulCreation();
 		given(orderNumberGenerator.generate()).willReturn("ORD-A");
 		List<OrderItem> singleSellerItems = List.of(
@@ -178,7 +139,6 @@ class OrderCreatorTest {
 
 		assertThat(result.order().products()).hasSize(2);
 		then(orderRepository).should().save(any(Order.class));
-		then(outboxEventAppender).should(times(1)).append(any(EventMessage.class));
 	}
 
 	@Test
@@ -210,8 +170,6 @@ class OrderCreatorTest {
 
 		then(orderNumberGenerator).shouldHaveNoInteractions();
 		then(orderRepository).shouldHaveNoInteractions();
-		then(orderEventMessageFactory).shouldHaveNoInteractions();
-		then(outboxEventAppender).shouldHaveNoInteractions();
 		then(applicationEventPublisher).shouldHaveNoInteractions();
 	}
 
@@ -228,8 +186,6 @@ class OrderCreatorTest {
 
 		then(orderNumberGenerator).shouldHaveNoInteractions();
 		then(orderRepository).shouldHaveNoInteractions();
-		then(orderEventMessageFactory).shouldHaveNoInteractions();
-		then(outboxEventAppender).shouldHaveNoInteractions();
 		then(applicationEventPublisher).shouldHaveNoInteractions();
 	}
 }

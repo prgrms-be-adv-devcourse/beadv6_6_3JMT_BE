@@ -6,7 +6,6 @@ import com.prompthub.order.application.dto.CreateOrderResult;
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.repository.OrderRepository;
-import com.prompthub.order.domain.repository.OutboxEventRepository;
 import com.prompthub.order.infra.persistence.cart.CartPersistence;
 import com.prompthub.order.infra.persistence.order.OrderPersistence;
 import com.prompthub.order.infra.persistence.outbox.OutboxEventPersistence;
@@ -42,7 +41,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willAnswer;
-import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.reset;
 
 @SpringBootTest
@@ -82,9 +80,6 @@ class OrderCreationTransactionIntegrationTest {
 	@MockitoSpyBean
 	private OrderRepository orderRepository;
 
-	@MockitoSpyBean
-	private OutboxEventRepository outboxEventRepository;
-
 	@BeforeEach
 	void setUp() {
 		given(orderNumberGenerator.generate()).willReturn("ORD-A", "ORD-B", "ORD-C");
@@ -104,12 +99,12 @@ class OrderCreationTransactionIntegrationTest {
 		orderPersistence.deleteAll();
 		cartPersistence.deleteAll();
 		reset(productClient, sellerClient, orderNumberGenerator, orderExpirationStore,
-			orderRepository, outboxEventRepository);
+			orderRepository);
 	}
 
 	@Test
-	@DisplayName("단일 주문과 주문 상품 네 건 및 Outbox 한 건을 원자적으로 저장한다")
-	void createsOneOrderFourProductsAndOneOutbox() {
+	@DisplayName("단일 주문과 주문 상품 네 건을 저장하고 주문 생성 Outbox는 저장하지 않는다")
+	void createsOneOrderFourProductsWithoutOrderCreatedOutbox() {
 		Cart cart = saveCart();
 		List<UUID> beforeCartProducts = productIds(cart);
 
@@ -119,31 +114,12 @@ class OrderCreationTransactionIntegrationTest {
 		assertThat(result.order()).isNotNull();
 		assertThat(orderPersistence.count()).isEqualTo(1);
 		assertThat(countOrderProducts()).isEqualTo(4);
-		assertThat(outboxEventPersistence.count()).isEqualTo(1);
+		assertThat(outboxEventPersistence.count()).isZero();
 		assertThat(productIds(loadCart())).containsExactlyInAnyOrderElementsOf(beforeCartProducts);
 	}
 
 	@Test
-	@DisplayName("Outbox 저장이 실패하면 앞서 저장한 모든 주문과 상품을 롤백한다")
-	void outboxFailureRollsBackOrdersAndProducts() {
-		saveCart();
-		willThrow(new RuntimeException("outbox failure"))
-			.given(outboxEventRepository).save(any());
-
-		assertThatThrownBy(() -> orderCommandHandler.createOrder(BUYER_ID, command()))
-			.isInstanceOf(RuntimeException.class)
-			.hasMessageContaining("outbox failure");
-
-		assertThat(orderPersistence.count()).isZero();
-		assertThat(countOrderProducts()).isZero();
-		assertThat(outboxEventPersistence.count()).isZero();
-		then(orderExpirationStore).shouldHaveNoInteractions();
-		assertThat(productIds(loadCart()))
-			.containsExactlyInAnyOrder(PRODUCT_A1, PRODUCT_A2, PRODUCT_B1, PRODUCT_C1, UNRELATED_PRODUCT);
-	}
-
-	@Test
-	@DisplayName("첫 단건 주문 번호가 충돌하면 신규 주문과 상품 및 Outbox가 모두 롤백된다")
+	@DisplayName("첫 단건 주문 번호가 충돌하면 신규 주문과 상품이 모두 롤백된다")
 	void orderNumberConflictRollsBackSingleOrder() {
 		Order existing = Order.create(BUYER_ID, "ORD-A", 1_000);
 		orderPersistence.saveAndFlush(existing);

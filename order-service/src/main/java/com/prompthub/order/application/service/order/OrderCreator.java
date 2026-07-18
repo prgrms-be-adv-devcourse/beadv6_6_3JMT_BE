@@ -1,15 +1,11 @@
 package com.prompthub.order.application.service.order;
 
-import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.application.dto.CreateOrderResult;
 import com.prompthub.order.application.dto.OrderItem;
 import com.prompthub.order.application.event.order.OrderCreatedEvent;
-import com.prompthub.order.application.service.event.OrderEventMessageFactory;
-import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.OrderRepository;
-import com.prompthub.order.infra.messaging.kafka.event.OrderCreatedPayload;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -24,8 +20,6 @@ public class OrderCreator {
 
 	private final OrderRepository orderRepository;
 	private final OrderNumberGenerator orderNumberGenerator;
-	private final OrderEventMessageFactory orderEventMessageFactory;
-	private final OutboxEventAppender outboxEventAppender;
 	private final ApplicationEventPublisher applicationEventPublisher;
 
 	@Transactional
@@ -42,9 +36,6 @@ public class OrderCreator {
 			.forEach(order::addOrderProduct);
 
 		Order savedOrder = orderRepository.save(order);
-		OrderCreatedPayload payload = OrderCreatedPayload.from(savedOrder);
-		EventMessage<OrderCreatedPayload> message = orderEventMessageFactory.createOrderCreatedMessage(payload);
-		outboxEventAppender.append(message);
 		applicationEventPublisher.publishEvent(OrderCreatedEvent.from(savedOrder));
 
 		return CreateOrderResult.from(savedOrder);

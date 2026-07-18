@@ -102,7 +102,7 @@ class OrderCreationResilienceIntegrationTest {
 		orderCommandHandler.createOrder(BUYER_ID, command());
 
 		assertThat(orderPersistence.count()).isEqualTo(1);
-		assertThat(outboxEventPersistence.count()).isEqualTo(1);
+		assertThat(outboxEventPersistence.count()).isZero();
 		assertCartUnchanged();
 	}
 

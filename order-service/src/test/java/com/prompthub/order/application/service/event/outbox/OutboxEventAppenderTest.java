@@ -4,7 +4,6 @@ import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.domain.enums.OutboxEventStatus;
 import com.prompthub.order.domain.model.OutboxEvent;
 import com.prompthub.order.domain.repository.OutboxEventRepository;
-import com.prompthub.order.infra.messaging.kafka.event.OrderCreatedPayload;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,22 +37,21 @@ class OutboxEventAppenderTest {
 	}
 
 	@Test
-	@DisplayName("단건 ORDER_CREATED EventMessage 전체를 JSON으로 직렬화해 Outbox에 저장한다")
+	@DisplayName("ORDER_PAID EventMessage 전체를 JSON으로 직렬화해 Outbox에 저장한다")
 	void append_savesSerializedOutboxEvent() throws Exception {
 		OutboxEventAppender appender = new OutboxEventAppender(objectMapper, outboxEventRepository);
 
 		UUID eventId = UUID.randomUUID();
 		UUID orderId = UUID.randomUUID();
-		UUID buyerId = UUID.randomUUID();
 		LocalDateTime occurredAt = LocalDateTime.now();
 
-		EventMessage<OrderCreatedPayload> message = new EventMessage<>(
+		EventMessage<DummyPayload> message = new EventMessage<>(
 			eventId,
-			"ORDER_CREATED",
+			"ORDER_PAID",
 			occurredAt,
 			"ORDER",
 			orderId,
-			new OrderCreatedPayload(orderId, buyerId, 11_000, occurredAt)
+			new DummyPayload(orderId)
 		);
 
 		appender.append(message);
@@ -64,7 +62,7 @@ class OutboxEventAppenderTest {
 		OutboxEvent saved = captor.getValue();
 		assertThat(saved.getEventId()).isEqualTo(eventId);
 		assertThat(saved.getAggregateId()).isEqualTo(orderId);
-		assertThat(saved.getEventType()).isEqualTo("ORDER_CREATED");
+		assertThat(saved.getEventType()).isEqualTo("ORDER_PAID");
 		assertThat(saved.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
 		assertThat(saved.getRetryCount()).isZero();
 		assertThat(saved.getOccurredAt()).isEqualTo(occurredAt);
@@ -73,10 +71,11 @@ class OutboxEventAppenderTest {
 		JsonNode json = objectMapper.readTree(saved.getPayload());
 		assertThat(json.path("eventId").asText()).isEqualTo(eventId.toString());
 		assertThat(json.path("aggregateId").asText()).isEqualTo(orderId.toString());
-		assertThat(json.path("eventType").asText()).isEqualTo("ORDER_CREATED");
+		assertThat(json.path("eventType").asText()).isEqualTo("ORDER_PAID");
 		assertThat(json.path("aggregateType").asText()).isEqualTo("ORDER");
 		assertThat(json.path("payload").path("orderId").asText()).isEqualTo(orderId.toString());
-		assertThat(json.path("payload").path("totalAmount").intValue()).isEqualTo(11_000);
-		assertThat(json.path("payload").has("orders")).isFalse();
+	}
+
+	private record DummyPayload(UUID orderId) {
 	}
 }

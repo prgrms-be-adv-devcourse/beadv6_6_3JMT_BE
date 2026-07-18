@@ -6,7 +6,6 @@ import com.prompthub.order.domain.enums.OutboxEventStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.model.OutboxEvent;
-import com.prompthub.order.domain.repository.OutboxEventRepository;
 import com.prompthub.order.infra.messaging.kafka.event.OrderPaidPayload;
 import com.prompthub.order.infra.messaging.kafka.event.OrderRefundPayload;
 import com.prompthub.order.infra.persistence.outbox.OutboxEventPersistence;
@@ -40,9 +39,6 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
-    private OutboxEventRepository outboxEventRepository;
-
-    @Autowired
     private OutboxEventPersistence outboxEventPersistence;
 
     @Autowired
@@ -73,49 +69,6 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
     @AfterEach
     void tearDown() {
         consumer.close();
-    }
-
-    @Test
-    @DisplayName("ORDER_CREATED Outbox Event는 주문 ID를 Kafka key로 발행한다")
-    void outboxRelayPublishesOrderCreatedWithOrderIdKafkaKey() throws Exception {
-        UUID orderId = UUID.randomUUID();
-        UUID eventId = UUID.randomUUID();
-        UUID buyerId = UUID.randomUUID();
-        LocalDateTime occurredAt = LocalDateTime.now();
-        String payload = """
-            {
-              "eventId": "%s",
-              "eventType": "ORDER_CREATED",
-              "occurredAt": "%s",
-              "aggregateType": "ORDER",
-              "aggregateId": "%s",
-              "payload": {
-                "orderId": "%s",
-                "buyerId": "%s",
-                "totalAmount": 9900,
-                "createdAt": "%s"
-              }
-            }
-            """.formatted(eventId, occurredAt, orderId, orderId, buyerId, occurredAt);
-        OutboxEvent event = OutboxEvent.orderCreated(eventId, orderId, payload, occurredAt);
-        outboxEventRepository.save(event);
-
-        outboxRelay.publishPendingEvents();
-
-        ConsumerRecords<String, String> records = KafkaTestUtils.getRecords(consumer, Duration.ofMillis(10000));
-        ConsumerRecord<String, String> orderCreatedRecord = null;
-        for (ConsumerRecord<String, String> record : records.records("order-events")) {
-            if (record.value().contains("ORDER_CREATED")) {
-                orderCreatedRecord = record;
-                break;
-            }
-        }
-
-        assertThat(orderCreatedRecord).isNotNull();
-        assertThat(orderCreatedRecord.key()).isEqualTo(orderId.toString());
-        JsonNode message = objectMapper.readTree(orderCreatedRecord.value());
-        assertThat(message.path("aggregateId").asText()).isEqualTo(orderId.toString());
-        assertThat(message.path("payload").path("orderId").asText()).isEqualTo(orderId.toString());
     }
 
 	@Test

@@ -5,7 +5,7 @@ import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.service.order.OrderCommandHandler;
 import com.prompthub.order.application.service.order.OrderExpirationStore;
 import com.prompthub.order.application.service.order.OrderNumberGenerator;
-import com.prompthub.order.domain.repository.OutboxEventRepository;
+import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.infra.persistence.order.OrderPersistence;
 import com.prompthub.order.infra.persistence.outbox.OutboxEventPersistence;
 import org.junit.jupiter.api.AfterEach;
@@ -15,9 +15,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,10 +29,8 @@ import static com.prompthub.order.fixture.OrderV2Fixture.requestedProductIds;
 import static com.prompthub.order.fixture.OrderV2Fixture.shuffledSnapshots;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 
@@ -61,9 +59,6 @@ class OrderExpirationAfterCommitIntegrationTest {
 	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;
 
-	@MockitoSpyBean
-	private OutboxEventRepository outboxEventRepository;
-
 	@BeforeEach
 	void setUp() {
 		given(productClient.getOrderSnapshots(requestedProductIds())).willReturn(shuffledSnapshots());
@@ -74,7 +69,7 @@ class OrderExpirationAfterCommitIntegrationTest {
 	void tearDown() {
 		outboxEventPersistence.deleteAll();
 		orderPersistence.deleteAll();
-		reset(productClient, sellerClient, orderNumberGenerator, orderExpirationStore, outboxEventRepository);
+		reset(productClient, sellerClient, orderNumberGenerator, orderExpirationStore);
 	}
 
 	@Test
@@ -91,20 +86,20 @@ class OrderExpirationAfterCommitIntegrationTest {
 		assertThat(orderIdCaptor.getAllValues()).hasSize(1).doesNotContainNull();
 		assertThat(createdAtCaptor.getAllValues()).hasSize(1).doesNotContainNull();
 		assertThat(orderPersistence.count()).isEqualTo(1);
-		assertThat(outboxEventPersistence.count()).isEqualTo(1);
+		assertThat(outboxEventPersistence.count()).isZero();
 	}
 
 	@Test
-	@DisplayName("Outbox 실패로 rollback되면 주문 만료 등록을 수행하지 않는다")
+	@DisplayName("주문 트랜잭션 커밋이 실패하면 주문 만료 등록을 수행하지 않는다")
 	void rollbackDoesNotRegisterExpirations() {
-		willThrow(new RuntimeException("outbox failure"))
-			.given(outboxEventRepository).save(any());
+		Order existing = Order.create(BUYER_ID, "ORD-A", 1_000);
+		orderPersistence.saveAndFlush(existing);
 
 		assertThatThrownBy(() -> orderCommandHandler.createOrder(BUYER_ID, command()))
-			.isInstanceOf(RuntimeException.class);
+			.isInstanceOfAny(DataIntegrityViolationException.class, RuntimeException.class);
 
 		then(orderExpirationStore).shouldHaveNoInteractions();
-		assertThat(orderPersistence.count()).isZero();
+		assertThat(orderPersistence.count()).isEqualTo(1);
 		assertThat(outboxEventPersistence.count()).isZero();
 	}
 }
