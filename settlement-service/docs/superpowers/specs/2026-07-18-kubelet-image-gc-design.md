@@ -2,7 +2,7 @@
 
 - 작성일: 2026-07-18
 - 관련 이슈: #403 `[FEATURE] Kubernetes 노드 이미지 GC 기준 조정`
-- 작업 브랜치: `infra/#403-kubelet-image-gc`
+- 작업 브랜치: `docs/#403-kubelet-image-gc`
 
 ## 1. 배경
 
