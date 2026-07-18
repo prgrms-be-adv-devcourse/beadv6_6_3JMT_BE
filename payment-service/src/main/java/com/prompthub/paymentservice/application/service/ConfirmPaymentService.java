@@ -2,7 +2,6 @@ package com.prompthub.paymentservice.application.service;
 
 import com.prompthub.exception.BusinessException;
 import com.prompthub.paymentservice.application.dto.command.ConfirmPaymentCommand;
-import com.prompthub.paymentservice.application.dto.command.RecordOrderSnapshotCommand;
 import com.prompthub.paymentservice.application.dto.result.PaymentResult;
 import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.gateway.external.ConfirmResult;
@@ -11,14 +10,10 @@ import com.prompthub.paymentservice.application.gateway.external.OrderPaymentInf
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
 import com.prompthub.paymentservice.application.usecase.ConfirmPaymentUseCase;
-import com.prompthub.paymentservice.application.usecase.RecordOrderSnapshotUseCase;
 import com.prompthub.paymentservice.domain.event.PaymentApprovedEvent;
 import com.prompthub.paymentservice.domain.event.PaymentFailedEvent;
-import com.prompthub.paymentservice.domain.model.OrderSnapshot;
-import com.prompthub.paymentservice.domain.model.OrderSnapshotSource;
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;
-import com.prompthub.paymentservice.domain.repository.OrderSnapshotRepository;
 import com.prompthub.paymentservice.domain.repository.PaymentRepository;
 import java.time.OffsetDateTime;
 import java.util.Set;
@@ -37,15 +32,14 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
     private static final String PG_PROVIDER = "TOSS_PAYMENTS";
     private static final String PAYMENT_METHOD = "CARD";
 
-    // 진행·완료 상태가 이미 있으면 재결제 차단. REQUESTED·FAILED·READY는 비차단(재결제 허용).
+    // 진행 중(READY·REQUESTED)만 비차단. PAID·FAILED(재결제 영구 차단 정책)·환불·UNKNOWN은 전부 차단.
     private static final Set<PaymentStatus> BLOCKING_STATUSES = Set.of(
-        PaymentStatus.PAID, PaymentStatus.PARTIAL_REFUNDED, PaymentStatus.ALL_REFUNDED, PaymentStatus.UNKNOWN
+        PaymentStatus.PAID, PaymentStatus.FAILED,
+        PaymentStatus.PARTIAL_REFUNDED, PaymentStatus.ALL_REFUNDED, PaymentStatus.UNKNOWN
     );
 
     private final PaymentRepository paymentRepository;
-    private final OrderSnapshotRepository orderSnapshotRepository;
     private final OrderGateway orderGateway;
-    private final RecordOrderSnapshotUseCase recordOrderSnapshotUseCase;
     private final PaymentGateway paymentGateway;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final TransactionTemplate transactionTemplate;
@@ -53,18 +47,14 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
 
     public ConfirmPaymentService(
         PaymentRepository paymentRepository,
-        OrderSnapshotRepository orderSnapshotRepository,
         OrderGateway orderGateway,
-        RecordOrderSnapshotUseCase recordOrderSnapshotUseCase,
         PaymentGateway paymentGateway,
         ApplicationEventPublisher applicationEventPublisher,
         TransactionTemplate transactionTemplate,
         @Value("${payment.toss.test-mode:false}") boolean testMode
     ) {
         this.paymentRepository = paymentRepository;
-        this.orderSnapshotRepository = orderSnapshotRepository;
         this.orderGateway = orderGateway;
-        this.recordOrderSnapshotUseCase = recordOrderSnapshotUseCase;
         this.paymentGateway = paymentGateway;
         this.applicationEventPublisher = applicationEventPublisher;
         this.transactionTemplate = transactionTemplate;
@@ -73,40 +63,48 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
 
     @Override
     public PaymentResult confirm(ConfirmPaymentCommand command) {
-        // TX1: 스냅샷 확보 + 검증 + Payment 생성/REQUESTED — 커밋 후 DB 커넥션 반납
-        Prepared prepared;
+        if (paymentRepository.existsByPgTxId(command.paymentKey())) {
+            throw new BusinessException(PaymentErrorCode.DUPLICATE_PAYMENT);
+        }
+        if (paymentRepository.existsByOrderIdAndStatusIn(command.orderId(), BLOCKING_STATUSES)) {
+            throw new BusinessException(PaymentErrorCode.DUPLICATE_PAYMENT);
+        }
+
+        // 주문 정보 gRPC 조회 — DB 트랜잭션 밖에서 실행해 네트워크 왕복 동안 커넥션을 점유하지 않는다.
+        OrderPaymentInfo orderInfo = orderGateway.getOrderPaymentInfo(command.orderId());
+
+        if (!orderInfo.buyerId().equals(command.userId())) {
+            throw new BusinessException(PaymentErrorCode.NOT_ORDER_OWNER);
+        }
+
+        if (command.amount() != orderInfo.totalAmount()) {
+            failBeforeRequest(command, orderInfo);
+            throw new BusinessException(PaymentErrorCode.AMOUNT_MISMATCH);
+        }
+
+        // TX1: Payment 생성 + REQUESTED 전이 — 커밋 후 DB 커넥션 반납
+        UUID paymentId;
         try {
-            prepared = transactionTemplate.execute(status -> {
-                OrderSnapshot snapshot = resolveSnapshot(command.orderId());
-
-                if (!snapshot.getBuyerId().equals(command.userId())) {
-                    throw new BusinessException(PaymentErrorCode.NOT_ORDER_OWNER);
-                }
-                if (paymentRepository.existsByOrderIdAndStatusIn(command.orderId(), BLOCKING_STATUSES)) {
-                    throw new BusinessException(PaymentErrorCode.DUPLICATE_PAYMENT);
-                }
-
+            paymentId = transactionTemplate.execute(status -> {
                 Payment payment = Payment.create(
                     command.orderId(), command.userId(),
                     command.paymentKey(), PG_PROVIDER, PAYMENT_METHOD, testMode,
-                    snapshot.getTotalAmount()
+                    orderInfo.totalAmount()
                 );
                 paymentRepository.saveAndFlush(payment);
                 payment.markRequested(OffsetDateTime.now());
                 paymentRepository.save(payment);
-                return new Prepared(payment.getId(), snapshot.getTotalAmount());
+                return payment.getId();
             });
         } catch (DataIntegrityViolationException e) {
-            // pg_tx_id UNIQUE 충돌 — 동일 paymentKey 재요청(D8)
+            // pg_tx_id/orderId 사전 체크와 INSERT 사이의 좁은 레이스 — 최종 방어선
             throw new BusinessException(PaymentErrorCode.DUPLICATE_PAYMENT);
         }
 
-        UUID paymentId = prepared.paymentId();
-
-        // Toss API 호출 — 트랜잭션 밖, DB 커넥션 미점유. 금액의 진실 공급원은 스냅샷.
+        // Toss API 호출 — 트랜잭션 밖, DB 커넥션 미점유.
         try {
             ConfirmResult result = paymentGateway.confirm(
-                command.paymentKey(), command.orderId(), prepared.amount()
+                command.paymentKey(), command.orderId(), orderInfo.totalAmount()
             );
 
             // TX2: 승인 결과 반영
@@ -136,33 +134,30 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
             throw new BusinessException(e.getErrorCode(), e.getFailureReason());
 
         } catch (DataIntegrityViolationException e) {
-            // uk_payment_order_paid 충돌 — 서로 다른 paymentKey로 같은 주문 동시 결제(§5.3)
+            // uk_payment_order_paid 충돌 — 서로 다른 paymentKey로 같은 주문 동시 결제
             throw new BusinessException(PaymentErrorCode.DUPLICATE_PAYMENT);
         }
     }
 
     /**
-     * 스냅샷 확보. 로컬에 있으면 그대로, 없으면 gRPC 폴백으로 조회해 기록한다.
-     * gRPC 기록은 REQUIRES_NEW라 유니크 충돌 시에도 TX1을 오염시키지 않으므로, 충돌 시 재조회로 회복한다.
+     * 금액 불일치 — Toss 호출 전 Payment를 READY로 생성하고 즉시 FAILED로 전이해 실패 이력을 남기고
+     * PaymentFailedEvent를 발행한다(Order 쪽 상태 전이를 위해 Kafka 발행 필요).
      */
-    private OrderSnapshot resolveSnapshot(UUID orderId) {
-        return orderSnapshotRepository.findByOrderId(orderId)
-            .orElseGet(() -> fetchAndRecordSnapshot(orderId));
+    private void failBeforeRequest(ConfirmPaymentCommand command, OrderPaymentInfo orderInfo) {
+        transactionTemplate.execute(status -> {
+            Payment payment = Payment.create(
+                command.orderId(), command.userId(),
+                command.paymentKey(), PG_PROVIDER, PAYMENT_METHOD, testMode,
+                orderInfo.totalAmount()
+            );
+            paymentRepository.saveAndFlush(payment);
+            payment.fail(
+                "AMOUNT_MISMATCH", "요청 금액이 주문 금액과 일치하지 않습니다.",
+                null, null, OffsetDateTime.now()
+            );
+            paymentRepository.save(payment);
+            applicationEventPublisher.publishEvent(new PaymentFailedEvent(payment));
+            return null;
+        });
     }
-
-    private OrderSnapshot fetchAndRecordSnapshot(UUID orderId) {
-        OrderPaymentInfo info = orderGateway.getOrderPaymentInfo(orderId);
-        try {
-            return recordOrderSnapshotUseCase.record(new RecordOrderSnapshotCommand(
-                info.orderId(), info.buyerId(), info.totalAmount(),
-                info.orderCreatedAt(), OrderSnapshotSource.QUERY
-            ));
-        } catch (DataIntegrityViolationException raced) {
-            // 그 사이 ORDER_CREATED 이벤트가 스냅샷을 기록 — 재조회로 회복
-            return orderSnapshotRepository.findByOrderId(orderId)
-                .orElseThrow(() -> new BusinessException(PaymentErrorCode.ORDER_INFO_UNAVAILABLE));
-        }
-    }
-
-    private record Prepared(UUID paymentId, int amount) {}
 }
