@@ -21,6 +21,8 @@ spring:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
 settlement:
+  manual-api:
+    enabled: true
   scheduler:
     cron: "0 0 4 1 * *"
 
