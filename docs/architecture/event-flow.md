@@ -2,16 +2,16 @@
 
 서비스 간 Kafka 이벤트 계약과 흐름. **2026-07-06 기준 실제 코드에서 도출**했으며 각 사실의 근거 파일을 병기한다. 시스템 전체 구조는 `overview.md` 참조.
 
-> ⚠️ **부분 반영(주문-결제 흐름 재설계, payment-service 측)**: payment-service에 ① `order-events`의 `ORDER_CREATED` 구독(주문 스냅샷 확보) ② `payment.failed` 발행이 **구현 완료**되었다. 단 order-service 후속(ORDER_CREATED 발행, gRPC 서버 9083, `payment.events`(dot)→`payment-events`(dash) 토픽 통일, PAYMENT_FAILED 소비)은 **미완**이라 실서비스 E2E는 아직 이어지지 않는다. 아래 payment 항목은 "구현", order 항목은 "예정"으로 표기한다. (설계: `payment-service/.claude/plans/11-order-payment-flow-redesign.md`)
+> ⚠️ **부분 반영(주문-결제 흐름 재설계, payment-service 측)**: payment-service는 `ORDER_CREATED` 구독을 제거하고 결제 승인 시마다 order gRPC(9083)로 직접 조회하는 구조로 전환했다(#396). `payment.failed` 발행은 **구현 완료**. order-service 후속(gRPC 서버 9083, `payment.events`(dot)→`payment-events`(dash) 토픽 통일, PAYMENT_FAILED 소비)은 **미완**이라 실서비스 E2E는 아직 이어지지 않는다. (설계: `payment-service/.claude/plans/396-confirm-payment-flow-redesign.md`)
 
 ## Kafka 토픽 목록
 
 | 토픽 | 발행 | 소비 | 메시지 키 | 페이로드 |
 |---|---|---|---|---|
-| `payment.approved` | payment | order | `orderId` | `PaymentApprovedMessage` (paymentId, orderId, userId, amount, approvedAt) |
+| `payment.approved` | payment | order | `orderId` | `PaymentApprovedMessage` (orderId, approvedAmount, approvedAt) |
 | `payment.refunded` | payment | order | `orderId` | `PaymentRefundedMessage` (paymentId, orderId, userId, amount, refundedAt) |
-| `payment.failed` | payment (구현) | order (예정) | `orderId` | `PaymentFailedMessage` (eventType, paymentId, orderId, userId). PG confirm 실패 시 발행 |
-| `order-events` | order | product, settlement, **payment(구현: `ORDER_CREATED`만)** | `orderId` (aggregateId) | `OrderEventEnvelope`(`ORDER_PAID`/`ORDER_REFUND`) + **평면 메시지 `ORDER_CREATED`(예정: order 발행)** |
+| `payment.failed` | payment (구현) | order (예정) | `orderId` | `PaymentFailedMessage` (orderId). PG confirm 실패 또는 금액 불일치 시 발행 |
+| `order-events` | order | product, settlement, **payment(구현: `ORDER_REFUND_REQUESTED`만)** | `orderId` (aggregateId) | `OrderEventEnvelope`(`ORDER_PAID`/`ORDER_REFUND`) |
 | `product-events` | product | order | `productId` | `ProductStoppedEvent` / `ProductDeletedEvent` / `ProductPriceChangedEvent` |
 
 - 토픽 상수: `payment-service/.../infrastructure/messaging/config/PaymentTopic.java`, 각 서비스 Consumer/Producer의 `TOPIC` 상수.
@@ -24,7 +24,7 @@ P = 발행, C = 소비(괄호는 consumer groupId):
 
 | 서비스 \ 토픽 | payment.approved | payment.refunded | payment.failed | order-events | product-events |
 |---|---|---|---|---|---|
-| payment | P | P | P (구현) | C (`payment-service-order-events`, `ORDER_CREATED`만) | - |
+| payment | P | P | P (구현) | C (`payment-service-order-events`, `ORDER_REFUND_REQUESTED`만) | - |
 | order | C (`order-service`) | C (`order-service`) | C (예정) | P | C (`order-service`) |
 | product | - | - | - | C (`product-service`) | P |
 | settlement | - | - | - | C (`settlement-service`) | - |
@@ -33,7 +33,7 @@ P = 발행, C = 소비(괄호는 consumer groupId):
 주의 사항:
 
 - **settlement의 order-events 리스너는 기본 비활성**: `autoStartup = "${settlement.kafka.listener.order.enabled:false}"` — 설정으로 켜야 소비한다. `settlement-service/.../kafka/consumer/order/OrderEventConsumer.java:34`
-- **payment-service는 `order-events`를 구독한다(신규)**: `OrderEventConsumer`가 전용 그룹 `payment-service-order-events`로 소비하되 최상위 `eventType == ORDER_CREATED`만 처리(그 외 무시)하고 주문 스냅샷을 upsert한다. `StringDeserializer`+`ObjectMapper` 수동 파싱, MANUAL ack, 재시도 3회 후 `order-events.DLT`. 단 order-service가 아직 `ORDER_CREATED`를 발행하지 않아 실서비스에선 수신 메시지가 없다.
+- **payment-service는 `order-events`를 구독한다**: `OrderEventConsumer`가 전용 그룹 `payment-service-order-events`로 소비하되 최상위 `eventType == ORDER_REFUND_REQUESTED`만 처리(그 외 무시)하고 부분환불을 개시한다. `StringDeserializer`+`ObjectMapper` 수동 파싱, MANUAL ack, 재시도 3회 후 `order-events.DLT`. 결제 승인 시 필요한 주문 정보는 이벤트 구독이 아니라 매 요청 gRPC(order 9083) 직접 조회로 확보한다(#396).
 - user-service는 Kafka를 사용하지 않는다.
 
 ### 서비스별 발행 메커니즘
@@ -86,21 +86,21 @@ sequenceDiagram
 
 product가 판매중지/삭제/가격변경 시 `product-events` 발행 → order가 소비해 장바구니·주문 가능 상태에 반영. (`ProductEventProducer.java` → `order-service/.../consumer/product/ProductEventConsumer.java`)
 
-### 주문 생성 → 결제 (재설계, payment 측 구현 / order 측 예정)
+### 주문 생성 → 결제 (재설계, payment 측 구현 / order 측 gRPC 서버 예정)
 
 ```mermaid
 sequenceDiagram
-    participant ORD as Order
-    participant K as Kafka
+    participant Client
     participant PAY as Payment
+    participant ORD as Order
 
-    ORD-->>K: order-events ORDER_CREATED (평면 메시지) — 예정
-    K-->>PAY: consume (payment-service-order-events) → 주문 스냅샷 upsert(EVENT)
-    Note over PAY: confirm 시 스냅샷 부재면 gRPC(order 9083) 폴백으로 확보(GRPC) — 서버 예정
-    PAY->>PAY: confirm — 스냅샷 금액으로 Toss 승인, 본인 검증, 재결제 판정
+    Client->>PAY: POST /confirm (paymentKey, orderId, amount)
+    PAY->>ORD: 주문 정보 gRPC 조회(order 9083) — 매 요청
+    Note over PAY: 주문 정보 buyerId로 본인 검증, totalAmount와 요청 amount 비교
+    PAY->>PAY: confirm — 주문 정보 금액으로 Toss 승인, 재결제(FAILED 이력 존재) 차단
 ```
 
-payment는 스냅샷을 진실 공급원으로 삼아 confirm 요청에서 `amount`를 제거했다. 스냅샷은 이벤트(평상시) 또는 gRPC(이벤트 유실·지연 시)로 확보한다.
+payment는 로컬 스냅샷 캐시를 제거하고(#396) 매 confirm 요청마다 order gRPC를 직접 호출해 금액·본인 확인의 진실 공급원으로 삼는다. 한 번 `FAILED`로 끝난 주문은 같은 orderId로 재결제할 수 없다.
 
 ### 결제 실패
 
