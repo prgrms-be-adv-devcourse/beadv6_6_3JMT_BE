@@ -17,3 +17,7 @@ spring:
 
 api:
   init: /api/v2
+
+settlement:
+  manual-api:
+    enabled: false
