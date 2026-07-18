@@ -36,6 +36,11 @@ public class PaymentRepositoryAdapter implements PaymentRepository {
     }
 
     @Override
+    public boolean existsByPgTxId(String pgTxId) {
+        return jpaRepository.existsByPgTxId(pgTxId);
+    }
+
+    @Override
     public boolean existsByOrderIdAndStatusIn(UUID orderId, Collection<PaymentStatus> statuses) {
         return jpaRepository.existsByOrderIdAndStatusIn(orderId, statuses);
     }

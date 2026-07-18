@@ -105,4 +105,14 @@ class PaymentJpaRepositoryTest extends AbstractJpaTest {
 
         assertThat(found).isEmpty();
     }
+
+    @Test
+    void existsByPgTxId_존재_여부_확인() {
+        Payment payment = Payment.create(
+            UUID.randomUUID(), UUID.randomUUID(), "pg-tx-exists", "TOSS_PAYMENTS", "CARD", false, 10_000);
+        paymentJpaRepository.saveAndFlush(payment);
+
+        assertThat(paymentJpaRepository.existsByPgTxId("pg-tx-exists")).isTrue();
+        assertThat(paymentJpaRepository.existsByPgTxId("pg-tx-missing")).isFalse();
+    }
 }

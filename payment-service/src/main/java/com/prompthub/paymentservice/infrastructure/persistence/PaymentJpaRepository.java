@@ -12,6 +12,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PaymentJpaRepository extends JpaRepository<Payment, UUID> {
+    boolean existsByPgTxId(String pgTxId);
+
     boolean existsByOrderIdAndStatusIn(UUID orderId, Collection<PaymentStatus> statuses);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
