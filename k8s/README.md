@@ -268,6 +268,10 @@ imageMinimumGCAge: 0s
 imageMaximumGCAge: 0s
 ```
 
+`imageMinimumGCAge: 0s`는 kubelet 설정 API 규칙에 따라 기본값 `2m`으로 해석된다. 따라서
+사용하지 않은 지 2분이 지나지 않은 이미지는 디스크 임계값을 넘어도 GC 대상에서 제외된다.
+`imageMaximumGCAge: 0s`는 최대 미사용 기간에 따른 강제 GC를 비활성화한다.
+
 이미지 사용률이 60%를 넘으면 kubelet이 미사용 이미지를 정리해 50% 수준까지 낮춘다.
 기간 기반 강제 삭제와 `crictl rmi --prune`, `ctr images rm` 같은 외부 정리 작업은 사용하지
 않는다. Deployment는 `revisionHistoryLimit: 1`로 직전 ReplicaSet을 보존하고, 로컬 이미지가
