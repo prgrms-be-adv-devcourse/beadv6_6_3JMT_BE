@@ -93,4 +93,61 @@ class KafkaPaymentEventPublisherTest {
         assertThat(message.aggregateId()).isEqualTo(payment.getOrderId());
         assertThat(message.payload().orderId()).isEqualTo(payment.getOrderId());
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void 환불_성공_시_축소된_페이로드로_발행한다() {
+        stubSendSuccess();
+        Payment payment = Payment.create(
+            UUID.randomUUID(), UUID.randomUUID(), "pgTx-3", "TOSS_PAYMENTS", "CARD", true, 10_000);
+        payment.markRequested(OffsetDateTime.now());
+        payment.approve(10_000, "CARD", "{}", OffsetDateTime.now());
+        com.prompthub.paymentservice.domain.model.Refund refund =
+            com.prompthub.paymentservice.domain.model.Refund.create(payment.getId(), UUID.randomUUID(), 4_000, null);
+        OffsetDateTime refundedAt = OffsetDateTime.now();
+        refund.complete(refundedAt);
+        payment.applyRefund(refundedAt, false);
+
+        publisher.onPaymentRefunded(new com.prompthub.paymentservice.domain.event.PaymentRefundedEvent(payment, refund));
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        org.mockito.Mockito.verify(kafkaTemplate)
+            .send(org.mockito.ArgumentMatchers.eq(PaymentTopic.PAYMENT_EVENTS),
+                org.mockito.ArgumentMatchers.eq(payment.getOrderId().toString()), captor.capture());
+
+        EventMessage<com.prompthub.paymentservice.infrastructure.messaging.dto.PaymentRefundedMessage> message =
+            (EventMessage<com.prompthub.paymentservice.infrastructure.messaging.dto.PaymentRefundedMessage>) captor.getValue();
+        assertThat(message.eventType()).isEqualTo("PAYMENT_REFUNDED");
+        assertThat(message.payload().orderId()).isEqualTo(payment.getOrderId());
+        assertThat(message.payload().refundAmount()).isEqualTo(4_000);
+        assertThat(message.payload().refundedAt()).isNotNull();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void 환불_실패_시_축소된_페이로드로_발행한다() {
+        stubSendSuccess();
+        Payment payment = Payment.create(
+            UUID.randomUUID(), UUID.randomUUID(), "pgTx-4", "TOSS_PAYMENTS", "CARD", true, 10_000);
+        payment.markRequested(OffsetDateTime.now());
+        payment.approve(10_000, "CARD", "{}", OffsetDateTime.now());
+        com.prompthub.paymentservice.domain.model.Refund refund =
+            com.prompthub.paymentservice.domain.model.Refund.create(payment.getId(), UUID.randomUUID(), 4_000, null);
+        refund.fail("PG 오류");
+
+        publisher.onPaymentRefundFailed(
+            new com.prompthub.paymentservice.domain.event.PaymentRefundFailedEvent(payment, refund, "PG 오류"));
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        org.mockito.Mockito.verify(kafkaTemplate)
+            .send(org.mockito.ArgumentMatchers.eq(PaymentTopic.PAYMENT_EVENTS),
+                org.mockito.ArgumentMatchers.eq(payment.getOrderId().toString()), captor.capture());
+
+        EventMessage<com.prompthub.paymentservice.infrastructure.messaging.dto.PaymentRefundFailedMessage> message =
+            (EventMessage<com.prompthub.paymentservice.infrastructure.messaging.dto.PaymentRefundFailedMessage>) captor.getValue();
+        assertThat(message.eventType()).isEqualTo("PAYMENT_REFUND_FAILED");
+        assertThat(message.payload().orderId()).isEqualTo(payment.getOrderId());
+        assertThat(message.payload().refundAmount()).isEqualTo(4_000);
+        assertThat(message.payload().failedAt()).isNotNull();
+    }
 }

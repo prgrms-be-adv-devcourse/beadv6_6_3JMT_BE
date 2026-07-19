@@ -32,7 +32,7 @@ public class RefundRepositoryAdapter implements RefundRepository {
     }
 
     @Override
-    public Optional<Refund> findByPaymentIdAndOrderProductId(UUID paymentId, UUID orderProductId) {
-        return jpaRepository.findByPaymentIdAndOrderProductId(paymentId, orderProductId);
+    public boolean existsByRefundRequestId(UUID refundRequestId) {
+        return jpaRepository.existsByRefundRequestId(refundRequestId);
     }
 }

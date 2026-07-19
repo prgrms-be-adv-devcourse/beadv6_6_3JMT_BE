@@ -102,13 +102,18 @@ OrderProduct 단위로만 존재하며, 주문 전체를 환불하려면 order-s
 
 **처리 흐름**
 1. `OrderEventConsumer`가 `ORDER_REFUND_REQUESTED` 수신
-2. `orderId`로 `PAID`/`PARTIAL_REFUNDED` 상태 Payment 조회(락)
-3. 누적 환불액이 `total_amount`를 넘으면 처리 중단(DLT)
-4. PG 환불 동기 호출(단일 트랜잭션 안에서 수행 — REFUNDING 같은 진행중 마커 없음)
-5. 성공: 누적액이 `total_amount`에 도달했으면 `ALL_REFUNDED`, 아니면 `PARTIAL_REFUNDED`로 전이 + `payment-events`에 `PAYMENT_REFUNDED` 발행
-6. 실패: `Refund.FAILED`만 기록, Payment 상태는 그대로 + `payment-events`에 `PAYMENT_REFUND_FAILED` 발행. 재시도 장치 없음(필요 시 order-service가 이벤트 재발행)
+2. `refundRequestId`로 이미 처리된 요청인지 조회 — 이미 처리됐으면 정상 종료(중복 이벤트, dedup)
+3. 신규 요청이면 `Refund` 생성(`refundRequestId` 저장) 후 `orderId`로 `PAID`/`PARTIAL_REFUNDED` 상태 Payment 조회(락)
+4. 누적 환불액이 `total_amount`를 넘으면 `Refund.FAILED` 기록 + `PAYMENT_REFUND_FAILED` 발행(예외 아님, 정상 흐름 — DLT로 가지 않는다)
+5. PG 환불 동기 호출(단일 트랜잭션 안에서 수행 — 중간 상태 커밋 없음)
+6. 성공: 누적액이 `total_amount`에 도달했으면 `ALL_REFUNDED`, 아니면 `PARTIAL_REFUNDED`로 전이 + `payment-events`에 `PAYMENT_REFUNDED` 발행
+7. 실패(PG 오류): `Refund.FAILED`만 기록, Payment 상태는 그대로 + `payment-events`에 `PAYMENT_REFUND_FAILED` 발행. 재시도 장치 없음(필요 시 order-service가 새 `refundRequestId`로 이벤트 재발행)
+
+**동일 상품 재환불**: dedup 키가 `refundRequestId`이므로 같은 OrderProduct에 대해 여러 차례(예: 부분 하자 추가 발견) 환불을 요청할 수 있다. 같은 `refundRequestId`가 재전송되는 경우(Kafka redelivery)만 중복 처리를 막는다.
 
 **금액 검증**: order-service가 보낸 `refundAmount`를 그대로 신뢰한다(payment-service는 상품별 가격 정보를 갖고 있지 않음). 누적 환불액이 결제 총액을 넘지 않는지만 확인한다.
+
+**Kafka 유실 시 폴백**: 없음. `GetRefund` gRPC 폴백 조회는 제거되었다(#398) — order-service가 Kafka 자체 재조회로 대응한다.
 
 ---
 

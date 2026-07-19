@@ -43,8 +43,9 @@ jobs:
   # 리뷰어가 머지 전에 참고할 수 있도록, 열려 있는 PR에도 영수증을 올린다.
   # codeflow/card 액션 자체는 receipts 기능을 merged PR에만 게시하도록 하드코딩해놔서
   # (index.js의 isMergedPR 체크), 여기서는 액션이 로컬에 남긴 state 파일만 읽어
-  # 같은 sticky marker로 직접 코멘트를 올린다. 머지되면 아래 receipt 잡이 같은
-  # marker를 찾아 "공식" 영수증으로 덮어쓴다.
+  # 별도 마커(codeflow-card:review-receipt)로 직접 코멘트를 올린다. 아래 receipt
+  # 잡이 쓰는 공식 마커(codeflow-card:receipt)와 다르므로, 머지 시 덮어써지지 않고
+  # 리뷰용 영수증과 merge 영수증이 각각 별도 코멘트로 남는다.
   review-receipt:
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
@@ -71,8 +72,13 @@ jobs:
             const prev = runs.length > 1 ? runs[runs.length - 2] : null;
             const d = (a, b) => (a == null || b == null) ? null : a - b;
             const sign = n => n == null ? "—" : (n > 0 ? "+" : "") + n;
+            const trend = (currVal, prevVal) => {
+              if (currVal == null) return "—";
+              if (prevVal == null || currVal === prevVal) return String(currVal);
+              return prevVal + " → " + currVal + " " + (currVal < prevVal ? "▼" : "▲");
+            };
             const lines = [];
-            lines.push("<!-- codeflow-card:receipt -->");
+            lines.push("<!-- codeflow-card:review-receipt -->");
             lines.push("```");
             lines.push("--- CODEFLOW RECEIPT (review) ---");
             lines.push("PR #" + curr.pr);
@@ -81,8 +87,24 @@ jobs:
             lines.push("LOC".padEnd(14) + (dLoc != null ? sign(dLoc) : String(curr.loc)));
             const dFns = d(curr.functions, prev && prev.functions);
             lines.push("functions".padEnd(14) + (dFns != null ? sign(dFns) : String(curr.functions)));
+            const dDead = d(curr.dead, prev && prev.dead);
+            lines.push("dead code".padEnd(14) + (dDead != null ? sign(dDead) : String(curr.dead)));
+            const dCirc = d(curr.circular, prev && prev.circular);
+            lines.push("circular deps".padEnd(14) + (dCirc != null ? sign(dCirc) : String(curr.circular)));
+            if (curr.topBlast) {
+              lines.push("blast radius".padEnd(14) + trend(curr.topBlast.total, prev && prev.topBlast && prev.topBlast.total));
+            }
             if (curr.grade) {
-              lines.push("health".padEnd(14) + (prev && prev.grade && prev.grade !== curr.grade ? prev.grade + " → " + curr.grade : curr.grade));
+              if (prev && prev.grade && prev.grade !== curr.grade) {
+                const arrow = (prev.score != null && curr.score != null) ? " " + (curr.score > prev.score ? "▲" : "▼") : "";
+                lines.push("health".padEnd(14) + prev.grade + " → " + curr.grade + arrow);
+              } else {
+                lines.push("health".padEnd(14) + curr.grade);
+              }
+            }
+            if (curr.avgCoupling != null) {
+              const dCoup = d(curr.avgCoupling, prev && prev.avgCoupling);
+              lines.push("avg coupling".padEnd(14) + (dCoup != null ? sign(Math.round(dCoup * 10) / 10) : curr.avgCoupling));
             }
             lines.push("--------------------------");
             lines.push("   merge 전 리뷰 참고용 (develop 대비 diff)");
@@ -90,7 +112,7 @@ jobs:
             fs.writeFileSync("/tmp/receipt-body.md", lines.join("\n"));
           '
           BODY="$(cat /tmp/receipt-body.md)"
-          MARKER='<!-- codeflow-card:receipt -->'
+          MARKER='<!-- codeflow-card:review-receipt -->'
           PR="${{ github.event.pull_request.number }}"
           EXISTING=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --paginate --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | head -1)
           if [ -n "$EXISTING" ]; then
