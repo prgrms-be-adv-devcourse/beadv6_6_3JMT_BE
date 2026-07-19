@@ -2,6 +2,7 @@ package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductContent;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -52,7 +53,7 @@ class ConfirmDownloadCommandHandlerTest {
             Order order = createPaidOrderWithProducts();
             OrderProduct orderProduct = order.getOrderProducts().getFirst();
 
-            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+            given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
                 .willReturn(Optional.of(order));
             given(productClient.getProductContent(orderProduct.getProductId()))
                 .willReturn(new ProductContent(orderProduct.getProductId(), "content"));
@@ -67,16 +68,61 @@ class ConfirmDownloadCommandHandlerTest {
             assertThat(response.isRefundable()).isFalse();
             assertThat(orderProduct.isDownloaded()).isTrue();
 
-            then(orderRepository).should().findByIdWithOrderProducts(order.getId());
+            then(orderRepository).should().findByIdWithOrderProductsForUpdate(order.getId());
+            then(orderRepository).should(never()).findByIdWithOrderProducts(any());
             then(productClient).should().getProductContent(orderProduct.getProductId());
         }
+
+		@Test
+		@DisplayName("부분 환불 주문의 남은 결제 상품은 잠금 후 다운로드 처리한다")
+		void confirmDownload_partialRefundedRemainingPaidProduct_success() {
+			Order order = createPaidOrderWithProducts();
+			OrderProduct refundedProduct = order.getOrderProducts().getFirst();
+			OrderProduct remainingProduct = order.getOrderProducts().get(1);
+			order.refundOrderProduct(refundedProduct.getId(), refundedProduct.getProductAmount(), REFUNDED_AT);
+			given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId())).willReturn(Optional.of(order));
+			given(productClient.getProductContent(remainingProduct.getProductId()))
+				.willReturn(new ProductContent(remainingProduct.getProductId(), "content"));
+
+			OrderProductDownloadResponse response = confirmDownloadCommandHandler.confirmDownload(
+				BUYER_ID,
+				order.getId(),
+				remainingProduct.getId()
+			);
+
+			assertThat(response.downloaded()).isTrue();
+			assertThat(remainingProduct.isDownloaded()).isTrue();
+			then(orderRepository).should().findByIdWithOrderProductsForUpdate(order.getId());
+			then(orderRepository).should(never()).findByIdWithOrderProducts(any());
+		}
+
+		@Test
+		@DisplayName("부분 환불 주문의 환불 상품은 잠금 후 다운로드를 거부한다")
+		void confirmDownload_partialRefundedRefundedProduct_throwsException() {
+			Order order = createPaidOrderWithProducts();
+			OrderProduct refundedProduct = order.getOrderProducts().getFirst();
+			order.refundOrderProduct(refundedProduct.getId(), refundedProduct.getProductAmount(), REFUNDED_AT);
+			given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId())).willReturn(Optional.of(order));
+
+			assertThatThrownBy(() -> confirmDownloadCommandHandler.confirmDownload(
+				BUYER_ID,
+				order.getId(),
+				refundedProduct.getId()
+			))
+				.isInstanceOf(OrderException.class)
+				.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
+
+			then(productClient).shouldHaveNoInteractions();
+			then(orderRepository).should().findByIdWithOrderProductsForUpdate(order.getId());
+			then(orderRepository).should(never()).findByIdWithOrderProducts(any());
+		}
 
         @Test
         @DisplayName("상품 콘텐츠 조회가 실패하면 다운로드 상태를 변경하지 않고 예외를 전파한다")
         void confirmDownload_productContentFailureDoesNotMarkDownloaded() {
             Order order = createPaidOrderWithProducts();
             OrderProduct orderProduct = order.getOrderProducts().getFirst();
-            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+            given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
                 .willReturn(Optional.of(order));
             given(productClient.getProductContent(orderProduct.getProductId()))
                 .willThrow(new com.prompthub.exception.BusinessException(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE));
@@ -98,7 +144,7 @@ class ConfirmDownloadCommandHandlerTest {
             OrderProduct orderProduct = order.getOrderProducts().getFirst();
             orderProduct.markDownloaded();
 
-            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+            given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
                 .willReturn(Optional.of(order));
             given(productClient.getProductContent(orderProduct.getProductId()))
                 .willReturn(new ProductContent(orderProduct.getProductId(), "content"));
@@ -119,7 +165,7 @@ class ConfirmDownloadCommandHandlerTest {
             Order order = createPaidOrderWithProducts();
             UUID otherBuyerId = UUID.fromString("00000000-0000-0000-0000-000000000777");
 
-            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+            given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
                 .willReturn(Optional.of(order));
 
             // when & then
@@ -138,7 +184,7 @@ class ConfirmDownloadCommandHandlerTest {
             // given
             Order order = createPendingOrderWithProducts();
 
-            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+            given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
                 .willReturn(Optional.of(order));
 
             // when & then
@@ -157,9 +203,9 @@ class ConfirmDownloadCommandHandlerTest {
             // given
             Order order = createPaidOrderWithProducts();
             OrderProduct orderProduct = order.getOrderProducts().getFirst();
-            ReflectionTestUtils.setField(orderProduct, "orderStatus", OrderStatus.REFUNDED);
+            ReflectionTestUtils.setField(orderProduct, "orderStatus", OrderProductStatus.REFUNDED);
 
-            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+            given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
                 .willReturn(Optional.of(order));
 
             // when & then

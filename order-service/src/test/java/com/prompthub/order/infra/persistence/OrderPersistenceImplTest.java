@@ -68,8 +68,7 @@ class OrderPersistenceImplTest {
 		Order order = Order.create(
 			BUYER_ID,
 			orderNumber,
-			PRODUCT_AMOUNT_1,
-			1
+			PRODUCT_AMOUNT_1
 		);
 		order.addOrderProduct(OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, PRODUCT_TYPE_PROMPT,
 			"GPT-4",

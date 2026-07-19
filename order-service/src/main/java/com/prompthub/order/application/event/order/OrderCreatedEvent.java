@@ -7,4 +7,8 @@ public record OrderCreatedEvent(
 	UUID orderId,
 	LocalDateTime createdAt
 ) {
+
+	public static OrderCreatedEvent from(com.prompthub.order.domain.model.Order order) {
+		return new OrderCreatedEvent(order.getId(), order.getCreatedAt());
+	}
 }

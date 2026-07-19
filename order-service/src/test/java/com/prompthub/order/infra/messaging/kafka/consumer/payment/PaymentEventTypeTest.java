@@ -15,6 +15,7 @@ class PaymentEventTypeTest {
 	void from_returns_enum_when_supported() {
 		assertThat(PaymentEventType.from("PAYMENT_APPROVED")).isEqualTo(PaymentEventType.PAYMENT_APPROVED);
 		assertThat(PaymentEventType.from("PAYMENT_REFUNDED")).isEqualTo(PaymentEventType.PAYMENT_REFUNDED);
+		assertThat(PaymentEventType.from("PAYMENT_FAILED")).isEqualTo(PaymentEventType.PAYMENT_FAILED);
 	}
 
 	@Test
@@ -22,6 +23,7 @@ class PaymentEventTypeTest {
 	void from_returns_null_when_unsupported() {
 		assertThat(PaymentEventType.from("PAYMENT_CHARGEBACK")).isNull();
 		assertThat(PaymentEventType.from("ORDER_PAID")).isNull();
+		assertThat(PaymentEventType.from("PAYMENT_CANCELED")).isNull();
 	}
 
 	@ParameterizedTest

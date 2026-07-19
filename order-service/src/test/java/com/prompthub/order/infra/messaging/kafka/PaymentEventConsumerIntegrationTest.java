@@ -2,9 +2,10 @@ package com.prompthub.order.infra.messaging.kafka;
 
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.application.service.event.PaymentApprovedEventHandler;
-import com.prompthub.order.application.service.event.PaymentRefundedEventHandler;
 import com.prompthub.order.application.service.event.PaymentFailedEventHandler;
-import com.prompthub.order.application.service.event.PaymentCanceledEventHandler;
+import com.prompthub.order.application.service.event.PaymentRefundedEventHandler;
+import com.prompthub.order.global.exception.ErrorCode;
+import com.prompthub.order.global.exception.OrderException;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -14,6 +15,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -21,11 +23,10 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
+import tools.jackson.databind.JsonNode;
 
 import java.time.Duration;
-import java.time.OffsetDateTime;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -35,8 +36,10 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
@@ -62,16 +65,12 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	@MockitoBean
 	private PaymentFailedEventHandler paymentFailedEventHandler;
 
-	@MockitoBean
-	private PaymentCanceledEventHandler paymentCanceledEventHandler;
-
 	@BeforeEach
-	void clearMocks() {
-		clearInvocations(
+	void resetMocks() {
+		reset(
 			paymentApprovedEventHandler,
 			paymentRefundedEventHandler,
-			paymentFailedEventHandler,
-			paymentCanceledEventHandler
+			paymentFailedEventHandler
 		);
 	}
 
@@ -80,26 +79,26 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	void consumePaymentApprovedEvent() {
 		// given
 		UUID paymentId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
 		UUID orderId = UUID.randomUUID();
-		UUID buyerId = UUID.randomUUID();
 
 		Map<String, Object> payload = new HashMap<>();
 		payload.put("paymentId", paymentId.toString());
 		payload.put("orderId", orderId.toString());
-		payload.put("userId", buyerId.toString());
+		payload.put("userId", userId.toString());
 		payload.put("amount", 30000);
-		payload.put("approvedAt", OffsetDateTime.now(ZoneOffset.ofHours(9)).toString());
+		payload.put("approvedAt", "2026-07-17T10:00:05+09:00");
 
 		Map<String, Object> message = new HashMap<>();
 		message.put("eventId", UUID.randomUUID().toString());
 		message.put("eventType", "PAYMENT_APPROVED");
 		message.put("occurredAt", LocalDateTime.now().toString());
-		message.put("aggregateType", "ORDER");
-		message.put("aggregateId", orderId.toString());
+		message.put("aggregateType", "PAYMENT");
+		message.put("aggregateId", paymentId.toString());
 		message.put("payload", payload);
 
 		// when
-		kafkaTemplate.send(PAYMENT_EVENTS_TOPIC, orderId.toString(), message);
+		kafkaTemplate.send(PAYMENT_EVENTS_TOPIC, paymentId.toString(), message);
 
 		// then
 		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> 
@@ -113,14 +112,17 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 		// given
 		UUID paymentId = UUID.randomUUID();
 		UUID orderId = UUID.randomUUID();
-		UUID buyerId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		UUID orderProductId = UUID.randomUUID();
 
 		Map<String, Object> payload = new HashMap<>();
 		payload.put("paymentId", paymentId.toString());
 		payload.put("orderId", orderId.toString());
-		payload.put("userId", buyerId.toString());
-		payload.put("amount", 30000);
-		payload.put("refundedAt", OffsetDateTime.now(ZoneOffset.ofHours(9)).toString());
+		payload.put("userId", userId.toString());
+		payload.put("orderProductId", orderProductId.toString());
+		payload.put("amount", 10000);
+		payload.put("paymentStatus", "PARTIAL_REFUNDED");
+		payload.put("refundedAt", "2026-07-17T11:00:00+09:00");
 
 		Map<String, Object> message = new HashMap<>();
 		message.put("eventId", UUID.randomUUID().toString());
@@ -134,9 +136,22 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 		kafkaTemplate.send(PAYMENT_EVENTS_TOPIC, orderId.toString(), message);
 
 		// then
+		ArgumentCaptor<EventMessage<JsonNode>> captor = eventMessageCaptor();
 		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
-			verify(paymentRefundedEventHandler).handle(any(EventMessage.class))
+			verify(paymentRefundedEventHandler).handle(captor.capture())
 		);
+		EventMessage<JsonNode> capturedMessage = captor.getValue();
+		assertThat(capturedMessage.aggregateType()).isEqualTo("ORDER");
+		assertThat(capturedMessage.aggregateId()).isEqualTo(orderId);
+		JsonNode capturedPayload = capturedMessage.payload();
+		assertThat(capturedPayload.path("paymentId").asText()).isEqualTo(paymentId.toString());
+		assertThat(capturedPayload.path("orderId").asText()).isEqualTo(orderId.toString());
+		assertThat(capturedPayload.path("userId").asText()).isEqualTo(userId.toString());
+		assertThat(capturedPayload.path("orderProductId").asText()).isEqualTo(orderProductId.toString());
+		assertThat(capturedPayload.path("amount").asInt()).isEqualTo(10_000);
+		assertThat(capturedPayload.path("paymentStatus").asText()).isEqualTo("PARTIAL_REFUNDED");
+		assertThat(capturedPayload.path("refundedAt").asText())
+			.isEqualTo("2026-07-17T11:00:00+09:00");
 	}
 
 	@Test
@@ -174,24 +189,96 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("PAYMENT_FAILED와 PAYMENT_CANCELED는 정상 소비하고 DLT로 보내지 않는다")
-	void consumePaymentEvents_whenNonBusinessEventTypes_thenAckWithoutDlt() throws Exception {
+	@DisplayName("PAYMENT_FAILED는 정상 소비하고 DLT로 보내지 않는다")
+	void consumePaymentFailed_thenAckWithoutDlt() throws Exception {
+		UUID paymentId = UUID.randomUUID();
+		UUID orderId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+
 		try (Consumer<String, String> dltConsumer = stringConsumer()) {
 			embeddedKafkaBroker.consumeFromAnEmbeddedTopic(dltConsumer, true, PAYMENT_EVENTS_DLT_TOPIC);
-			KafkaTemplate<String, String> rawTemplate = rawStringKafkaTemplate();
-
-			rawTemplate.send(PAYMENT_EVENTS_TOPIC, UUID.randomUUID().toString(), ignoredEvent("PAYMENT_FAILED"))
-				.get(5, TimeUnit.SECONDS);
-			rawTemplate.send(PAYMENT_EVENTS_TOPIC, UUID.randomUUID().toString(), ignoredEvent("PAYMENT_CANCELED"))
+			rawStringKafkaTemplate()
+				.send(
+					PAYMENT_EVENTS_TOPIC,
+					paymentId.toString(),
+					paymentFailedEvent(paymentId, orderId, userId)
+				)
 				.get(5, TimeUnit.SECONDS);
 
 			await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
 				verify(paymentFailedEventHandler).handle(any(EventMessage.class));
-				verify(paymentCanceledEventHandler).handle(any(EventMessage.class));
 				verify(paymentApprovedEventHandler, never()).handle(any(EventMessage.class));
 				verify(paymentRefundedEventHandler, never()).handle(any(EventMessage.class));
 			});
 			assertThat(dltConsumer.poll(Duration.ofSeconds(2)).isEmpty()).isTrue();
+		}
+	}
+
+	@Test
+	@DisplayName("핸들러 예외는 3회 재시도 후 payment-events.DLT로 이동한다")
+	void consumePaymentApproved_whenHandlerFails_thenRetryAndSendToDlt() throws Exception {
+		UUID paymentId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		UUID orderId = UUID.randomUUID();
+		willThrow(new OrderException(ErrorCode.INVALID_INPUT_VALUE))
+			.given(paymentApprovedEventHandler)
+			.handle(any(EventMessage.class));
+
+		try (Consumer<String, String> dltConsumer = stringConsumer()) {
+			embeddedKafkaBroker.consumeFromAnEmbeddedTopic(dltConsumer, true, PAYMENT_EVENTS_DLT_TOPIC);
+			rawStringKafkaTemplate()
+				.send(
+					PAYMENT_EVENTS_TOPIC,
+					paymentId.toString(),
+					paymentApprovedEvent(
+						paymentId,
+						orderId,
+						userId
+					)
+				)
+				.get(5, TimeUnit.SECONDS);
+
+			ConsumerRecord<String, String> dltRecord = KafkaTestUtils.getSingleRecord(
+				dltConsumer,
+				PAYMENT_EVENTS_DLT_TOPIC,
+				Duration.ofSeconds(15)
+			);
+
+			verify(paymentApprovedEventHandler, times(4)).handle(any(EventMessage.class));
+			assertThat(dltRecord.key()).isEqualTo(paymentId.toString());
+			assertThat(dltRecord.value()).contains("PAYMENT_APPROVED", paymentId.toString());
+		}
+	}
+
+	@Test
+	@DisplayName("PAYMENT_CANCELED는 미지원 이벤트로 ACK하고 DLT로 보내지 않는다")
+	void consumePaymentCanceled_thenAckAsUnsupportedWithoutDlt() throws Exception {
+		try (Consumer<String, String> dltConsumer = stringConsumer()) {
+			embeddedKafkaBroker.consumeFromAnEmbeddedTopic(dltConsumer, true, PAYMENT_EVENTS_DLT_TOPIC);
+			rawStringKafkaTemplate()
+				.send(PAYMENT_EVENTS_TOPIC, UUID.randomUUID().toString(), ignoredEvent("PAYMENT_CANCELED"))
+				.get(5, TimeUnit.SECONDS);
+
+			assertThat(dltConsumer.poll(Duration.ofSeconds(2)).isEmpty()).isTrue();
+			verify(paymentApprovedEventHandler, never()).handle(any(EventMessage.class));
+			verify(paymentRefundedEventHandler, never()).handle(any(EventMessage.class));
+			verify(paymentFailedEventHandler, never()).handle(any(EventMessage.class));
+		}
+	}
+
+	@Test
+	@DisplayName("PAYMENT_REFUND_FAILED는 미지원 이벤트로 ACK하고 DLT로 보내지 않는다")
+	void consumePaymentRefundFailed_thenAckAsUnsupportedWithoutDlt() throws Exception {
+		try (Consumer<String, String> dltConsumer = stringConsumer()) {
+			embeddedKafkaBroker.consumeFromAnEmbeddedTopic(dltConsumer, true, PAYMENT_EVENTS_DLT_TOPIC);
+			rawStringKafkaTemplate()
+				.send(PAYMENT_EVENTS_TOPIC, UUID.randomUUID().toString(), ignoredEvent("PAYMENT_REFUND_FAILED"))
+				.get(5, TimeUnit.SECONDS);
+
+			assertThat(dltConsumer.poll(Duration.ofSeconds(2)).isEmpty()).isTrue();
+			verify(paymentApprovedEventHandler, never()).handle(any(EventMessage.class));
+			verify(paymentRefundedEventHandler, never()).handle(any(EventMessage.class));
+			verify(paymentFailedEventHandler, never()).handle(any(EventMessage.class));
 		}
 	}
 
@@ -250,6 +337,59 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 			}
 			""".formatted(UUID.randomUUID(), eventType, UUID.randomUUID());
 	}
+
+	private String paymentApprovedEvent(
+		UUID paymentId,
+		UUID orderId,
+		UUID userId
+	) {
+		return """
+			{
+			  "eventId": "%s",
+			  "eventType": "PAYMENT_APPROVED",
+			  "occurredAt": "2026-06-19T12:00:00",
+			  "aggregateType": "PAYMENT",
+			  "aggregateId": "%s",
+			  "payload": {
+			    "paymentId": "%s",
+			    "orderId": "%s",
+			    "userId": "%s",
+			    "amount": 30000,
+			    "approvedAt": "2026-07-17T10:00:05+09:00"
+			  }
+			}
+			""".formatted(
+			UUID.randomUUID(),
+			paymentId,
+			paymentId,
+			orderId,
+			userId
+		);
+	}
+
+	private String paymentFailedEvent(UUID paymentId, UUID orderId, UUID userId) {
+		return """
+			{
+			  "eventId": "%s",
+			  "eventType": "PAYMENT_FAILED",
+			  "occurredAt": "2026-06-19T12:00:00",
+			  "aggregateType": "PAYMENT",
+			  "aggregateId": "%s",
+			  "payload": {
+			    "paymentId": "%s",
+			    "orderId": "%s",
+			    "userId": "%s"
+			  }
+			}
+			""".formatted(
+			UUID.randomUUID(),
+			paymentId,
+			paymentId,
+			orderId,
+			userId
+		);
+	}
+
 	private KafkaTemplate<String, String> rawStringKafkaTemplate() {
 		Map<String, Object> properties = KafkaTestUtils.producerProps(embeddedKafkaBroker);
 		properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
@@ -267,5 +407,10 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 			new StringDeserializer(),
 			new StringDeserializer()
 		).createConsumer();
+	}
+
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private ArgumentCaptor<EventMessage<JsonNode>> eventMessageCaptor() {
+		return (ArgumentCaptor) ArgumentCaptor.forClass(EventMessage.class);
 	}
 }

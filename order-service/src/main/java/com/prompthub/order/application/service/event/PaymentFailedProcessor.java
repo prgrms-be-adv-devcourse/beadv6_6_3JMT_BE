@@ -19,42 +19,50 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PaymentFailedProcessor {
 
-    private static final String CONSUMER_GROUP = "order-service";
+	private static final String CONSUMER_GROUP = "order-service";
 
-    private final ProcessedEventService processedEventService;
-    private final OrderRepository orderRepository;
+	private final ProcessedEventService processedEventService;
+	private final OrderRepository orderRepository;
+	private final PaymentEventValidator validator;
 
-    @Transactional
-    public void process(
-            UUID eventId,
-            String eventType,
-            LocalDateTime occurredAt,
-            PaymentFailedPayload payload
-    ) {
-        if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
-            return;
-        }
+	@Transactional
+	public void process(
+		UUID eventId,
+		String eventType,
+		LocalDateTime occurredAt,
+		PaymentFailedPayload payload
+	) {
+		validator.validateEnvelope(eventId, eventType, occurredAt);
+		validator.validate(payload);
+		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
+			return;
+		}
 
-        Order order = orderRepository.findByIdWithOrderProducts(payload.orderId())
-                .orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
+		Order order = orderRepository.findByIdWithOrderProductsForUpdate(payload.orderId())
+			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
-        if (order.getOrderStatus() != OrderStatus.PENDING) {
-            log.warn("이미 처리된 주문이거나 금지된 상태 전이 시도입니다. 상태 변경 무시. eventId={}, eventType={}, orderId={}, currentStatus={}",
-                    eventId, eventType, payload.orderId(), order.getOrderStatus());
-            processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
-            return;
-        }
+		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
+			return;
+		}
+		if (!order.getBuyerId().equals(payload.userId())) {
+			throw new OrderException(ErrorCode.ORDER_ACCESS_DENIED);
+		}
 
-        order.markFailed();
+		boolean transitioned = order.getOrderStatus() == OrderStatus.CREATED;
+		if (transitioned) {
+			order.markFailed();
+		}
 
-        processedEventService.markProcessed(
-                eventId,
-                CONSUMER_GROUP,
-                eventType,
-                occurredAt
-        );
+		processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
 
-        log.info("결제 이벤트 처리 완료. eventId={}, eventType={}, orderId={}, targetStatus={}, consumerGroup={}",
-                eventId, eventType, payload.orderId(), OrderStatus.FAILED, CONSUMER_GROUP);
-    }
+		log.info(
+			"결제 실패 이벤트 처리 완료. eventId={}, paymentId={}, orderId={}, status={}, transitioned={}, consumerGroup={}",
+			eventId,
+			payload.paymentId(),
+			order.getId(),
+			order.getOrderStatus(),
+			transitioned,
+			CONSUMER_GROUP
+		);
+	}
 }

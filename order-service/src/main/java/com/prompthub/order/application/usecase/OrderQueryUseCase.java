@@ -5,7 +5,6 @@ import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
-import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import org.springframework.data.domain.Page;
 
@@ -24,5 +23,4 @@ public interface OrderQueryUseCase {
 
 	Page<OrderListResponse> getOrders(UUID buyerId, PageRequestParams request);
 
-	Page<OrderPaymentListResponse> getOrderPayments(UUID buyerId, PageRequestParams request);
 }
