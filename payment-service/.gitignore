@@ -38,3 +38,7 @@ out/
 
 ### Local environment ###
 .env
+
+### Claude Code (개인 설정·런타임 파일) ###
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
