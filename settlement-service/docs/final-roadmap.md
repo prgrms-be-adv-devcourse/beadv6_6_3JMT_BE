@@ -7,7 +7,7 @@
 | 항목 | 상태 | 상세 |
 | --- | --- | --- |
 | 어드민 모듈 분리 | 설계 확정 | [architecture/admin-module-separation.md](architecture/admin-module-separation.md) |
-| 운영 배치 실행 CronJob 전환 | 방향 확정 — 인프라 작업 후속 | §2 |
+| 운영 배치 실행 CronJob 전환 | 구현 완료 (#364) | §2 |
 | AI 정산 어시스턴트 | 아이디어 | §3 |
 | 정산 통계 · 대시보드 | 브레인스토밍 예정 | §4 |
 | 지급 완료 Kafka 발행 | 확정 (설계 메모 있음) | [architecture/integration-catalog.md](architecture/integration-catalog.md) §3 |
@@ -17,22 +17,26 @@
 어드민 페이지용 API(`SettlementController`)를 신설 admin-service 로 이관한다.
 배치 계산 책임은 settlement-service에 남고, `SettlementBatchController`는
 `settlement.manual-api.enabled=true`인 로컬 검증 환경에서만 생성한다. 운영 기본값은
-비활성이며 운영 배치 실행은 Kubernetes CronJob 전환 작업에서 별도로 정리한다.
+비활성이며 운영 배치는 Kubernetes `CronJob/settlement-weekly`가 실행한다.
 어드민은 gRPC로 호출하지 않고 운영 단일 진실인 `seller_settlement`(유저 DB)를 직접 조회·변경한다.
 
 - 설계: [architecture/admin-module-separation.md](architecture/admin-module-separation.md)
 - 운영 단일 진실(seller_settlement) 결정: [trade-offs/seller-settlement-separation.md](trade-offs/seller-settlement-separation.md)
 - 접근 방식 결정(직접 DB vs gRPC): [trade-offs/admin-data-access.md](trade-offs/admin-data-access.md)
 
-## 2. 운영 배치 실행 → Kubernetes CronJob — 방향 확정
+## 2. 운영 배치 실행 → Kubernetes CronJob — 구현 완료 (#364)
 
-운영 정산 배치는 Kubernetes CronJob이 settlement-service 배치 이미지를 정해진 주기에
-실행하는 구조로 전환한다. 배치 계산과 Spring Batch Job 소유권은 settlement-service에 둔다.
+운영 정산 배치는 Kubernetes `CronJob/settlement-weekly`가 매주 월요일 00:00
+`Asia/Seoul`에 settlement-service 배치 이미지를 실행한다. `SettlementCronJobRunner`가 실행일의
+이전 주 월요일~일요일을 계산해 `settlementJob`을 한 번 실행하고, 완료 여부를 프로세스 종료 코드
+`0`/`1`로 반환한다. 배치 계산과 Spring Batch Job 소유권은 settlement-service에 둔다.
 
 - `SettlementBatchController`는 로컬 배치 검증용 기능 플래그가 켜진 환경에서만 사용한다.
-- 현재 Deployment, Service, 애플리케이션 내부 `@Scheduled`는 CronJob 전환 전 과도기 구성이다.
-- CronJob 매니페스트 추가, Deployment·Service 정리, Gateway 배치 라우트 제거는 별도 인프라 작업으로 진행한다.
-- 운영 관리자 재실행이 필요하면 admin-service가 일회성 Kubernetes Job을 생성하는 제어면을 별도로 설계한다.
+- 운영에는 settlement-service Deployment·Service·Gateway 라우트가 없고, 애플리케이션 내부 스케줄도 없다.
+- 정산과 order-service는 포함 날짜 `period_start`/`period_end`를 주고받고, order는
+  `[periodStart 00:00, periodEnd + 1일 00:00)` 범위로 조회한다. `period(yyyy-MM)`는 이전 배포와의
+  호환을 위한 order-service fallback만 유지한다.
+- 완료된 과거 주차의 누락 보정과 운영자 일회성 Job 생성은 이번 CronJob 범위 밖이며 별도 설계한다.
 
 ## 3. AI 정산 어시스턴트 — 아이디어
 
