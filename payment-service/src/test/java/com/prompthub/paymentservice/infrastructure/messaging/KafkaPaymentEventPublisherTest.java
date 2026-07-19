@@ -65,10 +65,8 @@ class KafkaPaymentEventPublisherTest {
         assertThat(message.occurredAt()).isEqualTo(approvedAt.withOffsetSameInstant(KST).toLocalDateTime());
         assertThat(message.aggregateType()).isEqualTo("ORDER");
         assertThat(message.aggregateId()).isEqualTo(payment.getOrderId());
-        assertThat(message.payload().paymentId()).isEqualTo(payment.getId());
         assertThat(message.payload().orderId()).isEqualTo(payment.getOrderId());
-        assertThat(message.payload().userId()).isEqualTo(payment.getUserId());
-        assertThat(message.payload().amount()).isEqualTo(10_000);
+        assertThat(message.payload().approvedAmount()).isEqualTo(10_000);
     }
 
     @Test
@@ -93,8 +91,6 @@ class KafkaPaymentEventPublisherTest {
         assertThat(message.occurredAt()).isEqualTo(failedAt.withOffsetSameInstant(KST).toLocalDateTime());
         assertThat(message.aggregateType()).isEqualTo("ORDER");
         assertThat(message.aggregateId()).isEqualTo(payment.getOrderId());
-        assertThat(message.payload().paymentId()).isEqualTo(payment.getId());
         assertThat(message.payload().orderId()).isEqualTo(payment.getOrderId());
-        assertThat(message.payload().userId()).isEqualTo(payment.getUserId());
     }
 }

@@ -148,8 +148,8 @@ public class Payment {
     }
 
     public void fail(String failureCode, String failureReason, String requestPayload, String responsePayload, OffsetDateTime failedAt) {
-        if (this.status != PaymentStatus.REQUESTED) {
-            throw new IllegalStateException("REQUESTED 상태에서만 FAILED로 전환할 수 있습니다.");
+        if (this.status != PaymentStatus.READY && this.status != PaymentStatus.REQUESTED) {
+            throw new IllegalStateException("READY/REQUESTED 상태에서만 FAILED로 전환할 수 있습니다.");
         }
         this.status = PaymentStatus.FAILED;
         this.failureCode = failureCode;

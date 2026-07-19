@@ -7,6 +7,7 @@ import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import lombok.Getter;
@@ -22,7 +23,8 @@ import static lombok.AccessLevel.PROTECTED;
 @Slf4j
 @Getter
 @Entity
-@Table(name = "refund")
+@Table(name = "refund", uniqueConstraints =
+    @UniqueConstraint(name = "uk_refund_payment_order_product", columnNames = {"payment_id", "order_product_id"}))
 @EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor(access = PROTECTED)
 public class Refund {
