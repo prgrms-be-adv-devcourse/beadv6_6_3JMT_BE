@@ -1,11 +1,11 @@
 package com.prompthub.settlement.infrastructure.batch.model;
 
-import java.time.YearMonth;
+import com.prompthub.settlement.domain.model.SettlementPeriod;
 import java.util.UUID;
 
 public record SettlementItem(
         UUID sellerId,
-        YearMonth period,
+        SettlementPeriod period,
         UUID settlementBatchId
 ) {
 }

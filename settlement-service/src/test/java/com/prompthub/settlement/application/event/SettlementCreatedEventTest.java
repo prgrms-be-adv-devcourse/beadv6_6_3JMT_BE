@@ -4,10 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementDetail;
+import com.prompthub.settlement.domain.model.SettlementPeriod;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +17,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 class SettlementCreatedEventTest {
 
     private static final LocalDateTime OCCURRED_AT = LocalDateTime.of(2026, 6, 15, 10, 0);
+    private static final SettlementPeriod PERIOD = SettlementPeriod.of(
+            LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 7));
 
     private SettlementDetail sale(String lineAmount) {
         return SettlementDetail.sale(UUID.randomUUID(),
@@ -30,7 +32,7 @@ class SettlementCreatedEventTest {
         UUID settlementId = UUID.randomUUID();
         UUID sellerId = UUID.randomUUID();
         Settlement settlement = Settlement.create(
-                UUID.randomUUID(), sellerId, YearMonth.of(2026, 6),
+                UUID.randomUUID(), sellerId, PERIOD,
                 List.of(sale("100.00"), sale("200.00")));
         ReflectionTestUtils.setField(settlement, "id", settlementId); // id는 @GeneratedValue라 unit에선 수동 세팅
 
@@ -41,7 +43,7 @@ class SettlementCreatedEventTest {
         assertThat(event.settlementId()).isEqualTo(settlementId);
         assertThat(event.sellerId()).isEqualTo(sellerId);
         assertThat(event.periodStart()).isEqualTo(LocalDate.of(2026, 6, 1));
-        assertThat(event.periodEnd()).isEqualTo(LocalDate.of(2026, 6, 30));
+        assertThat(event.periodEnd()).isEqualTo(LocalDate.of(2026, 6, 7));
         assertThat(event.productCount()).isEqualTo(2);
         assertThat(event.totalAmount()).isEqualByComparingTo("300.00");
         assertThat(event.settlementTotalAmount()).isEqualByComparingTo("255.00");

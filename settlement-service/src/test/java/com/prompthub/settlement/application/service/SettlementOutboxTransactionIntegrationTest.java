@@ -7,13 +7,14 @@ import static org.mockito.BDDMockito.willThrow;
 
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
 import com.prompthub.settlement.application.port.OutboxEventAppender;
+import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.infrastructure.persistence.SettlementJpaRepository;
 import com.prompthub.settlement.infrastructure.persistence.SettlementSourceLineJpaRepository;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +30,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 })
 @ActiveProfiles("test")
 class SettlementOutboxTransactionIntegrationTest {
+
+    private static final SettlementPeriod PERIOD = SettlementPeriod.of(
+            LocalDate.of(2026, 6, 15), LocalDate.of(2026, 6, 21));
 
     @Autowired
     private SettlementCalculationApplicationService service;
@@ -64,7 +68,7 @@ class SettlementOutboxTransactionIntegrationTest {
                 new BigDecimal("10000.00"),
                 LocalDateTime.of(2026, 6, 15, 10, 0)));
         CalculateSettlementCommand command = new CalculateSettlementCommand(
-                UUID.randomUUID(), sellerId, YearMonth.of(2026, 6));
+                UUID.randomUUID(), sellerId, PERIOD);
         willThrow(new IllegalStateException("outbox save failed"))
                 .given(outboxEventAppender)
                 .appendSettlementCreated(any(UUID.class), any());
