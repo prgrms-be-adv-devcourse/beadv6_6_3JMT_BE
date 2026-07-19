@@ -80,30 +80,18 @@ class VersionedRouteDefinitionLocatorTest {
     }
 
     @Test
-    void settlement_service가_admin_service보다_먼저_매칭되도록_order가_보존된다() {
-        // 의도적으로 admin-service를 먼저 넣어 Map 순회 순서가 아니라 order 필드가
-        // 우선순위를 결정함을 검증한다.
-        Map<String, List<String>> config = new LinkedHashMap<>();
-        config.put("admin-service", List.of("v1"));
-        config.put("settlement-service", List.of("v1"));
-
-        List<RouteDefinition> definitions = VersionedRouteDefinitionLocator.buildRouteDefinitions(propertiesOf(config));
-
-        RouteDefinition settlement = routeById(definitions, "settlement-service");
-        RouteDefinition admin = routeById(definitions, "admin-service");
-        assertThat(settlement.getOrder()).isLessThan(admin.getOrder());
-    }
-
-    @Test
-    void 전체_서비스_기본_설정이면_6개_라우트가_모두_생성된다() {
+    void 전체_서비스_기본_설정에_settlement_service_라우트가_없다() {
         Map<String, List<String>> config = new LinkedHashMap<>();
         for (VersionedServiceRoute spec : VersionedServiceRoute.ALL) {
             config.put(spec.id(), List.of("v1"));
         }
+        config.put("settlement-service", List.of("v1", "v2"));
 
         List<RouteDefinition> definitions = VersionedRouteDefinitionLocator.buildRouteDefinitions(propertiesOf(config));
 
-        assertThat(definitions).hasSize(VersionedServiceRoute.ALL.size());
+        assertThat(definitions).hasSize(5);
+        assertThat(definitions).extracting(RouteDefinition::getId)
+            .doesNotContain("settlement-service");
     }
 
     @Test
