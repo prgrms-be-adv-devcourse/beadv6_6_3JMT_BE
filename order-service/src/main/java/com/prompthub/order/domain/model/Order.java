@@ -97,10 +97,6 @@ public class Order extends BaseEntity {
         );
     }
 
-    public void updateOrderStatus(OrderStatus status) {
-        this.orderStatus = status;
-    }
-
     public void addOrderProduct(OrderProduct orderProduct) {
         this.orderProducts.add(orderProduct);
         orderProduct.assignOrder(this);
@@ -127,10 +123,14 @@ public class Order extends BaseEntity {
     }
 
     public void markFailed() {
+        markFailed(LocalDateTime.now());
+    }
+
+    public void markFailed(LocalDateTime failedAt) {
         validateTransition(OrderStatus.FAILED);
 
+        this.orderProducts.forEach(product -> product.expirePending(failedAt));
         this.orderStatus = OrderStatus.FAILED;
-        this.orderProducts.forEach(OrderProduct::markFailed);
     }
 
     public void cancel() {
@@ -146,7 +146,7 @@ public class Order extends BaseEntity {
     }
 
     public void markCanceled(LocalDateTime canceledAt) {
-        markFailed();
+        markFailed(canceledAt);
         this.legacyCanceledAt = canceledAt;
     }
 
@@ -199,7 +199,7 @@ public class Order extends BaseEntity {
             return;
         }
 
-        markFailed();
+        markFailed(expiredAt);
         this.legacyCanceledAt = expiredAt;
     }
 

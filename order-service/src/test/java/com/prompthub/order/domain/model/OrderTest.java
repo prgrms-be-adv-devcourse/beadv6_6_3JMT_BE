@@ -5,8 +5,13 @@ import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
+import static com.prompthub.order.fixture.OrderFixture.CANCELED_AT;
 import static com.prompthub.order.fixture.OrderFixture.ORDER_NUMBER;
 import static com.prompthub.order.fixture.OrderFixture.PAID_AT;
 import static com.prompthub.order.fixture.OrderFixture.REFUNDED_AT;
@@ -88,6 +93,60 @@ class OrderTest {
 
         assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
         assertThat(product.getOrderStatus()).isEqualTo(OrderProductStatus.PAID);
+    }
+
+    @Test
+    void markFailed_withFailureTime_onlyFailsPendingProducts() {
+        Order order = createPendingOrder();
+        OrderProduct pending = createOrderProduct1();
+        OrderProduct paid = createOrderProduct2();
+        OrderProduct alreadyFailed = OrderProduct.create(
+            UUID.randomUUID(),
+            paid.getSellerId(),
+            "이미 실패한 상품",
+            30_000
+        );
+        paid.markPaid();
+        alreadyFailed.markFailed();
+        LocalDateTime originalUpdatedAt = CANCELED_AT.minusHours(1);
+        ReflectionTestUtils.setField(pending, "updatedAt", originalUpdatedAt);
+        ReflectionTestUtils.setField(paid, "updatedAt", originalUpdatedAt);
+        ReflectionTestUtils.setField(alreadyFailed, "updatedAt", originalUpdatedAt);
+        order.addOrderProduct(pending);
+        order.addOrderProduct(paid);
+        order.addOrderProduct(alreadyFailed);
+
+        order.markFailed(CANCELED_AT);
+
+        assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.FAILED);
+        assertThat(pending.getOrderStatus()).isEqualTo(OrderProductStatus.FAILED);
+        assertThat(pending.getCanceledAt()).isEqualTo(CANCELED_AT);
+        assertThat(pending.getUpdatedAt()).isAfter(originalUpdatedAt);
+        assertThat(paid.getOrderStatus()).isEqualTo(OrderProductStatus.PAID);
+        assertThat(paid.getUpdatedAt()).isEqualTo(originalUpdatedAt);
+        assertThat(paid.getCanceledAt()).isNull();
+        assertThat(alreadyFailed.getOrderStatus()).isEqualTo(OrderProductStatus.FAILED);
+        assertThat(alreadyFailed.getUpdatedAt()).isEqualTo(originalUpdatedAt);
+        assertThat(alreadyFailed.getCanceledAt()).isNull();
+    }
+
+    @Test
+    void markFailed_withFailureTime_rejectsCompletedOrderWithoutPartialMutation() {
+        Order order = createPendingOrder();
+        OrderProduct product = createOrderProduct1();
+        order.addOrderProduct(product);
+        order.markCompleted(PAID_AT);
+        LocalDateTime productUpdatedAt = product.getUpdatedAt();
+
+        assertThatThrownBy(() -> order.markFailed(CANCELED_AT))
+            .isInstanceOf(OrderException.class)
+            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+
+        assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
+        assertThat(order.getCompletedAt()).isEqualTo(PAID_AT);
+        assertThat(product.getOrderStatus()).isEqualTo(OrderProductStatus.PAID);
+        assertThat(product.getUpdatedAt()).isEqualTo(productUpdatedAt);
+        assertThat(product.getCanceledAt()).isNull();
     }
 
     @Test

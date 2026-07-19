@@ -10,12 +10,17 @@ import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Getter
 @Entity
-@Table(name = "cart")
+@Table(
+	name = "cart",
+	uniqueConstraints = @UniqueConstraint(name = "uk_cart_buyer_id", columnNames = "buyer_id")
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Cart extends BaseEntity {
 
@@ -60,6 +65,19 @@ public class Cart extends BaseEntity {
 		cartProduct.assignCart(this);
 
 		return cartProduct;
+	}
+
+	public int addProductsIfAbsent(Collection<UUID> productIds) {
+		if (productIds == null || productIds.isEmpty()) {
+			return 0;
+		}
+
+		int before = cartProducts.size();
+		new LinkedHashSet<>(productIds).stream()
+			.filter(Objects::nonNull)
+			.filter(productId -> !containsProduct(productId))
+			.forEach(this::addProduct);
+		return cartProducts.size() - before;
 	}
 
 	public void removeProduct(UUID cartProductId) {

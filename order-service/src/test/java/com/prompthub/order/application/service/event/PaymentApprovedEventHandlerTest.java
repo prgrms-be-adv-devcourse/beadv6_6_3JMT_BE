@@ -70,9 +70,12 @@ class PaymentApprovedEventHandlerTest {
 		PaymentApprovedPayload payload = captor.getValue();
 		assertThat(payload.paymentId()).isEqualTo(PAYMENT_ID);
 		assertThat(payload.orderId()).isEqualTo(ORDER_A);
+		assertThat(payload.buyerId()).isEqualTo(BUYER_ID);
 		assertThat(payload.userId()).isEqualTo(BUYER_ID);
+		assertThat(payload.approvedAmount()).isEqualTo(30_000);
 		assertThat(payload.amount()).isEqualTo(30_000);
-		assertThat(payload.approvedAt()).isEqualTo("2026-07-17T10:00:05+09:00");
+		assertThat(payload.approvedAtValue()).isEqualTo("2026-07-17T10:00:05+09:00");
+		assertThat(payload.approvedAt()).isEqualTo(APPROVED_AT);
 	}
 
 	@Test

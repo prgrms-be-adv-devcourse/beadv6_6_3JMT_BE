@@ -66,6 +66,7 @@ class PaymentFailedEventHandlerTest {
 		then(processor).should().process(eq(eventId), eq("PAYMENT_FAILED"), eq(FAILED_AT), captor.capture());
 		assertThat(captor.getValue().paymentId()).isEqualTo(PAYMENT_ID);
 		assertThat(captor.getValue().orderId()).isEqualTo(ORDER_A);
+		assertThat(captor.getValue().buyerId()).isEqualTo(BUYER_ID);
 		assertThat(captor.getValue().userId()).isEqualTo(BUYER_ID);
 	}
 
