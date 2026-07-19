@@ -12,15 +12,11 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
-    defer-datasource-initialization: true   # Hibernate DDL 이후 schema.sql 실행
+      ddl-auto: validate                    # 스키마는 Flyway(V{n} 마이그레이션)가 만든다
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-  sql:
-    init:
-      mode: always                          # 비내장 PostgreSQL에서도 schema.sql 실행
 
   kafka:
     bootstrap-servers: localhost:9092
