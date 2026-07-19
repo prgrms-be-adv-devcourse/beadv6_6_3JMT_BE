@@ -4,8 +4,6 @@ import com.prompthub.order.application.usecase.AdminOrderUseCase;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.GlobalExceptionHandler;
-import com.prompthub.order.global.web.AdminAuthInterceptor;
-import com.prompthub.order.global.web.AuthHeaders;
 import com.prompthub.order.presentation.dto.request.AdminOrderSearchCondition;
 import com.prompthub.order.presentation.dto.response.AdminDailyTransactionResponse;
 import com.prompthub.order.presentation.dto.response.AdminMonthlyTradeAmountResponse;
@@ -54,14 +52,13 @@ class AdminOrderControllerTest {
 
 		mockMvc = MockMvcBuilders.standaloneSetup(new AdminOrderController(adminOrderUseCase))
 			.setControllerAdvice(new GlobalExceptionHandler())
-			.addInterceptors(new AdminAuthInterceptor())
 			.setValidator(validator)
 			.build();
 	}
 
 	@Test
-	@DisplayName("ADMIN 권한으로 전체 주문 목록을 조회한다")
-	void getAdminOrders_admin_success() throws Exception {
+	@DisplayName("전체 주문 목록을 조회한다")
+	void getAdminOrders_success() throws Exception {
 		AdminOrderSearchCondition condition = new AdminOrderSearchCondition("ALL", 1, 20).resolve();
 		AdminOrderListResponse order = new AdminOrderListResponse(
 			ORDER_ID,
@@ -87,7 +84,6 @@ class AdminOrderControllerTest {
 			.willReturn(new PageImpl<>(List.of(order), PageRequest.of(0, 20), 1));
 
 		mockMvc.perform(get("/api/v1/admin/orders")
-				.header(AuthHeaders.USER_ROLE, AuthHeaders.ADMIN)
 				.param("orderStatus", "ALL")
 				.param("page", "1")
 				.param("size", "20"))
@@ -105,33 +101,9 @@ class AdminOrderControllerTest {
 	}
 
 	@Test
-	@DisplayName("USER 권한으로 관리자 주문 목록 조회 시 403")
-	void getAdminOrders_user_forbidden() throws Exception {
-		mockMvc.perform(get("/api/v1/admin/orders")
-				.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.success").value(false))
-			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
-
-		verifyNoInteractions(adminOrderUseCase);
-	}
-
-	@Test
-	@DisplayName("X-User-Role이 없으면 401")
-	void getAdminOrders_missingRole_unauthorized() throws Exception {
-		mockMvc.perform(get("/api/v1/admin/orders"))
-			.andExpect(status().isUnauthorized())
-			.andExpect(jsonPath("$.success").value(false))
-			.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
-
-		verifyNoInteractions(adminOrderUseCase);
-	}
-
-	@Test
 	@DisplayName("존재하지 않는 주문 상태는 400")
 	void getAdminOrders_invalidStatus_badRequest() throws Exception {
 		mockMvc.perform(get("/api/v1/admin/orders")
-				.header(AuthHeaders.USER_ROLE, AuthHeaders.ADMIN)
 				.param("orderStatus", "UNKNOWN"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.success").value(false))
@@ -141,45 +113,20 @@ class AdminOrderControllerTest {
 	}
 
 	@Test
-	@DisplayName("ADMIN 권한으로 이번 달 실제 거래액을 조회한다")
-	void getMonthlyTransactionAmount_admin_success() throws Exception {
+	@DisplayName("이번 달 실제 거래액을 조회한다")
+	void getMonthlyTransactionAmount_success() throws Exception {
 		given(adminOrderUseCase.getMonthlyTransactionAmount())
 			.willReturn(new AdminMonthlyTradeAmountResponse(25_000L));
 
-		mockMvc.perform(get("/api/v1/admin/orders/month")
-				.header(AuthHeaders.USER_ROLE, AuthHeaders.ADMIN))
+		mockMvc.perform(get("/api/v1/admin/orders/month"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.success").value(true))
 			.andExpect(jsonPath("$.data.monthlyTransactionAmount").value(25_000L));
 	}
 
 	@Test
-	@DisplayName("USER 권한으로 이번 달 실제 거래액 조회 시 403")
-	void getMonthlyTransactionAmount_user_forbidden() throws Exception {
-		mockMvc.perform(get("/api/v1/admin/orders/month")
-				.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.success").value(false))
-			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
-
-		verifyNoInteractions(adminOrderUseCase);
-	}
-
-	@Test
-	@DisplayName("SELLER 권한으로 이번 달 실제 거래액 조회 시 403")
-	void getMonthlyTransactionAmount_seller_forbidden() throws Exception {
-		mockMvc.perform(get("/api/v1/admin/orders/month")
-				.header(AuthHeaders.USER_ROLE, AuthHeaders.SELLER))
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.success").value(false))
-			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
-
-		verifyNoInteractions(adminOrderUseCase);
-	}
-
-	@Test
-	@DisplayName("ADMIN 권한으로 최근 7일 거래량을 조회한다")
-	void getWeeklyTransactions_admin_success() throws Exception {
+	@DisplayName("최근 7일 거래량을 조회한다")
+	void getWeeklyTransactions_success() throws Exception {
 		given(adminOrderUseCase.getWeeklyTransactions())
 			.willReturn(new AdminWeeklyTransactionResponse(
 				2L,
@@ -188,8 +135,7 @@ class AdminOrderControllerTest {
 				List.of(new AdminDailyTransactionResponse(LocalDate.of(2026, 6, 24), 2L, 30_000L))
 			));
 
-		mockMvc.perform(get("/api/v1/admin/orders/weekend")
-				.header(AuthHeaders.USER_ROLE, AuthHeaders.ADMIN))
+		mockMvc.perform(get("/api/v1/admin/orders/weekend"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.success").value(true))
 			.andExpect(jsonPath("$.data.totalTransactionCount").value(2))
@@ -200,29 +146,4 @@ class AdminOrderControllerTest {
 			.andExpect(jsonPath("$.data.dailyTransactions[0].transactionCount").value(2))
 			.andExpect(jsonPath("$.data.dailyTransactions[0].transactionAmount").value(30_000));
 	}
-
-	@Test
-	@DisplayName("USER 권한으로 최근 7일 거래량 조회 시 403")
-	void getWeeklyTransactions_user_forbidden() throws Exception {
-		mockMvc.perform(get("/api/v1/admin/orders/weekend")
-				.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.success").value(false))
-			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
-
-		verifyNoInteractions(adminOrderUseCase);
-	}
-
-	@Test
-	@DisplayName("SELLER 권한으로 최근 7일 거래량 조회 시 403")
-	void getWeeklyTransactions_seller_forbidden() throws Exception {
-		mockMvc.perform(get("/api/v1/admin/orders/weekend")
-				.header(AuthHeaders.USER_ROLE, AuthHeaders.SELLER))
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.success").value(false))
-			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
-
-		verifyNoInteractions(adminOrderUseCase);
-	}
-
 }

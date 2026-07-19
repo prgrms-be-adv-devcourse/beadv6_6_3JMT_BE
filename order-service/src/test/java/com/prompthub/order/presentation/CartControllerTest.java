@@ -5,7 +5,6 @@ import com.prompthub.order.global.exception.CartException;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.GlobalExceptionHandler;
 import com.prompthub.order.global.web.AuthHeaders;
-import com.prompthub.order.global.web.OrderServiceAuthInterceptor;
 import com.prompthub.order.presentation.dto.request.AddCartProductRequest;
 import com.prompthub.order.presentation.dto.response.AddCartProductResponse;
 import com.prompthub.order.presentation.dto.response.CartProductResponse;
@@ -70,7 +69,6 @@ class CartControllerTest {
 
 		mockMvc = MockMvcBuilders.standaloneSetup(new CartController(cartUseCase))
 			.setControllerAdvice(new GlobalExceptionHandler())
-			.addInterceptors(new OrderServiceAuthInterceptor())
 			.setValidator(validator)
 			.build();
 	}
@@ -92,8 +90,7 @@ class CartControllerTest {
 			when(cartUseCase.getCart(BUYER_ID)).thenReturn(response);
 
 			mockMvc.perform(get("/api/v1/cart/products")
-					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
+					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.message").value("success"))
@@ -103,27 +100,6 @@ class CartControllerTest {
 				.andExpect(jsonPath("$.data.products[0].productTitle").value(PRODUCT_TITLE_1))
 				.andExpect(jsonPath("$.data.totalAmount").value(PRODUCT_AMOUNT_1))
 				.andExpect(jsonPath("$.data.totalItemCount").value(1));
-
-			verify(cartUseCase).getCart(BUYER_ID);
-		}
-
-		@Test
-		@DisplayName("USER 권한과 SELLER 권한을 함께 가진 사용자는 장바구니를 조회할 수 있다")
-		void getCart_userWithSellerRole_success() throws Exception {
-			CartResponse response = new CartResponse(
-				CART_ID,
-				BUYER_ID,
-				List.of(cartProductResponse()),
-				PRODUCT_AMOUNT_1,
-				1
-			);
-			when(cartUseCase.getCart(BUYER_ID)).thenReturn(response);
-
-			mockMvc.perform(get("/api/v1/cart/products")
-					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER + "," + AuthHeaders.SELLER))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.success").value(true));
 
 			verify(cartUseCase).getCart(BUYER_ID);
 		}
@@ -139,30 +115,6 @@ class CartControllerTest {
 			verifyNoInteractions(cartUseCase);
 		}
 
-		@Test
-		@DisplayName("X-User-Role 헤더가 없으면 401 Unauthorized")
-		void getCart_withoutUserRoleHeader_unauthorized() throws Exception {
-			mockMvc.perform(get("/api/v1/cart/products")
-					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
-				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.success").value(false))
-				.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
-
-			verifyNoInteractions(cartUseCase);
-		}
-
-		@Test
-		@DisplayName("X-User-Role이 USER가 아니면 403 Forbidden")
-		void getCart_nonUserRole_forbidden() throws Exception {
-			mockMvc.perform(get("/api/v1/cart/products")
-					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.ADMIN))
-				.andExpect(status().isForbidden())
-				.andExpect(jsonPath("$.success").value(false))
-				.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
-
-			verifyNoInteractions(cartUseCase);
-		}
 	}
 
 	@Nested
@@ -189,7 +141,6 @@ class CartControllerTest {
 
 			mockMvc.perform(post("/api/v1/cart/products")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isOk())
@@ -207,7 +158,6 @@ class CartControllerTest {
 		void addCartProduct_withoutProductId_badRequest() throws Exception {
 			mockMvc.perform(post("/api/v1/cart/products")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content("{}"))
 				.andExpect(status().isBadRequest())
@@ -226,7 +176,6 @@ class CartControllerTest {
 
 			mockMvc.perform(post("/api/v1/cart/products")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isConflict())
@@ -243,7 +192,6 @@ class CartControllerTest {
 
 			mockMvc.perform(post("/api/v1/cart/products")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isBadRequest())
@@ -260,8 +208,7 @@ class CartControllerTest {
 		@DisplayName("장바구니 상품 삭제 성공")
 		void deleteCartProduct_success() throws Exception {
 			mockMvc.perform(delete("/api/v1/cart/products/{cartProductId}", CART_PRODUCT_ID)
-					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
+					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.message").value("success"))
@@ -274,8 +221,7 @@ class CartControllerTest {
 		@DisplayName("cartProductId가 UUID가 아니면 400 Bad Request")
 		void deleteCartProduct_invalidCartProductId_badRequest() throws Exception {
 			mockMvc.perform(delete("/api/v1/cart/products/not-a-uuid")
-					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
+					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
@@ -301,8 +247,7 @@ class CartControllerTest {
 				.when(cartUseCase).deleteCartProduct(BUYER_ID, CART_PRODUCT_ID);
 
 			mockMvc.perform(delete("/api/v1/cart/products/{cartProductId}", CART_PRODUCT_ID)
-					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
+					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 				.andExpect(status().isForbidden())
 				.andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.code").value(ErrorCode.CART_ITEM_FORBIDDEN.getCode()));

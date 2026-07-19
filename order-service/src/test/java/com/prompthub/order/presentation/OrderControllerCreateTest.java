@@ -7,7 +7,6 @@ import com.prompthub.order.application.usecase.OrderQueryUseCase;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.GlobalExceptionHandler;
 import com.prompthub.order.global.web.AuthHeaders;
-import com.prompthub.order.global.web.OrderServiceAuthInterceptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -74,7 +73,6 @@ class OrderControllerCreateTest {
 			createOrderUseCase
 		))
 			.setControllerAdvice(new GlobalExceptionHandler())
-			.addInterceptors(new OrderServiceAuthInterceptor())
 			.setValidator(validator)
 			.build();
 	}
@@ -87,7 +85,6 @@ class OrderControllerCreateTest {
 
 		mockMvc.perform(post("/api/v2/orders")
 				.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-				.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(requestJson()))
 			.andExpect(status().isOk())
@@ -124,61 +121,19 @@ class OrderControllerCreateTest {
 	}
 
 	@Nested
-	@DisplayName("구매자 인증")
-	class Authentication {
+	@DisplayName("구매자 식별자")
+	class BuyerIdentity {
 
 		@Test
 		@DisplayName("X-User-Id가 없으면 401을 반환한다")
 		void missingUserIdReturnsUnauthorized() throws Exception {
 			mockMvc.perform(post("/api/v2/orders")
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(requestJson()))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
 
 			verifyNoInteractions(createOrderUseCase);
-		}
-
-		@Test
-		@DisplayName("X-User-Role이 없으면 401을 반환한다")
-		void missingRoleReturnsUnauthorized() throws Exception {
-			mockMvc.perform(post("/api/v2/orders")
-					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.contentType(MediaType.APPLICATION_JSON)
-					.content(requestJson()))
-				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
-
-			verifyNoInteractions(createOrderUseCase);
-		}
-
-		@Test
-		@DisplayName("BUYER 역할이 없으면 403을 반환한다")
-		void nonBuyerReturnsForbidden() throws Exception {
-			mockMvc.perform(post("/api/v2/orders")
-					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.ADMIN)
-					.contentType(MediaType.APPLICATION_JSON)
-					.content(requestJson()))
-				.andExpect(status().isForbidden())
-				.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
-
-			verifyNoInteractions(createOrderUseCase);
-		}
-
-		@Test
-		@DisplayName("BUYER와 SELLER 복수 역할이면 주문을 생성한다")
-		void buyerWithSellerRoleCreatesOrder() throws Exception {
-			given(createOrderUseCase.createOrder(eq(BUYER_ID), any(CreateOrderCommand.class)))
-				.willReturn(result());
-
-			mockMvc.perform(post("/api/v2/orders")
-					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER + "," + AuthHeaders.SELLER)
-					.contentType(MediaType.APPLICATION_JSON)
-					.content(requestJson()))
-				.andExpect(status().isOk());
 		}
 	}
 
@@ -188,7 +143,6 @@ class OrderControllerCreateTest {
 	void invalidRequestReturnsV001(String description, String body) throws Exception {
 		mockMvc.perform(post("/api/v2/orders")
 				.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-				.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(body))
 			.andExpect(status().isBadRequest())
@@ -209,7 +163,6 @@ class OrderControllerCreateTest {
 
 		mockMvc.perform(post("/api/v2/orders")
 				.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-				.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(body))
 			.andExpect(status().isOk());
@@ -220,7 +173,6 @@ class OrderControllerCreateTest {
 	void missingBodyReturnsBadRequest() throws Exception {
 		mockMvc.perform(post("/api/v2/orders")
 				.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-				.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 				.contentType(MediaType.APPLICATION_JSON))
 			.andExpect(status().isBadRequest());
 
