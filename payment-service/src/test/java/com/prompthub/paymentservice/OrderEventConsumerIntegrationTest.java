@@ -61,7 +61,7 @@ class OrderEventConsumerIntegrationTest extends AbstractIntegrationTest {
 
         when(paymentGateway.refund(anyString(), any(), anyInt())).thenReturn(new RefundResult(refundedAt));
 
-        send(orderId.toString(), orderRefundRequestedJson(orderId, orderProductId, userId, 4_000));
+        send(orderId.toString(), orderRefundRequestedJson(orderId, orderProductId, userId, UUID.randomUUID(), 4_000));
 
         await().atMost(Duration.ofSeconds(15))
             .pollInterval(Duration.ofMillis(300))
@@ -92,7 +92,7 @@ class OrderEventConsumerIntegrationTest extends AbstractIntegrationTest {
         // 단일 파티션 순서 보장: 무시 대상 → 처리 대상 순으로 발행. 뒤 메시지가 처리되면
         // 컨슈머가 앞의 무시 대상 메시지를 이미 지나쳤다는 의미다.
         send(ignoredOrderId.toString(), orderPaidJson(ignoredOrderId, buyerId));
-        send(orderId.toString(), orderRefundRequestedJson(orderId, orderProductId, buyerId, 4_000));
+        send(orderId.toString(), orderRefundRequestedJson(orderId, orderProductId, buyerId, UUID.randomUUID(), 4_000));
 
         await().atMost(Duration.ofSeconds(15))
             .pollInterval(Duration.ofMillis(300))
@@ -102,13 +102,15 @@ class OrderEventConsumerIntegrationTest extends AbstractIntegrationTest {
             });
     }
 
-    private String orderRefundRequestedJson(UUID orderId, UUID orderProductId, UUID buyerId, int refundAmount) {
+    private String orderRefundRequestedJson(
+        UUID orderId, UUID orderProductId, UUID buyerId, UUID refundRequestId, int refundAmount
+    ) {
         return String.format(
             "{\"eventId\":\"%s\",\"eventType\":\"ORDER_REFUND_REQUESTED\",\"occurredAt\":\"2026-07-13T10:00:00\","
                 + "\"aggregateType\":\"ORDER\",\"aggregateId\":\"%s\",\"payload\":{"
-                + "\"orderId\":\"%s\",\"orderProductId\":\"%s\",\"buyerId\":\"%s\","
+                + "\"orderId\":\"%s\",\"orderProductId\":\"%s\",\"buyerId\":\"%s\",\"refundRequestId\":\"%s\","
                 + "\"refundAmount\":%d,\"requestedAt\":\"2026-07-13T10:00:00\"}}",
-            UUID.randomUUID(), orderId, orderId, orderProductId, buyerId, refundAmount);
+            UUID.randomUUID(), orderId, orderId, orderProductId, buyerId, refundRequestId, refundAmount);
     }
 
     private String orderPaidJson(UUID orderId, UUID buyerId) {

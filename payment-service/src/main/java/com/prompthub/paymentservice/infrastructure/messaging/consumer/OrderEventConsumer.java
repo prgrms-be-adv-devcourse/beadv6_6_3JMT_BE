@@ -60,17 +60,15 @@ public class OrderEventConsumer {
 
         processRefundUseCase.process(new ProcessRefundCommand(
             requested.orderId(),
-            requested.orderProductId(),
-            requested.buyerId(),
+            requested.refundRequestId(),
             requested.refundAmount(),
             requested.requestedAt().atOffset(KST)
         ));
-        log.info("부분환불 처리 완료 — orderId={}, orderProductId={}", requested.orderId(), requested.orderProductId());
+        log.info("환불 처리 완료 — orderId={}, refundRequestId={}", requested.orderId(), requested.refundRequestId());
     }
 
     private void validateRefund(OrderRefundRequestedMessage message) {
-        if (message.orderId() == null || message.orderProductId() == null
-            || message.buyerId() == null || message.requestedAt() == null) {
+        if (message.orderId() == null || message.refundRequestId() == null || message.requestedAt() == null) {
             throw new IllegalArgumentException("ORDER_REFUND_REQUESTED 필수 필드 누락: " + message);
         }
     }

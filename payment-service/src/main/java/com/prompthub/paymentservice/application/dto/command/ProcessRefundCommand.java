@@ -5,8 +5,7 @@ import java.util.UUID;
 
 public record ProcessRefundCommand(
     UUID orderId,
-    UUID orderProductId,
-    UUID buyerId,
+    UUID refundRequestId,
     int refundAmount,
     OffsetDateTime requestedAt
 ) {}
