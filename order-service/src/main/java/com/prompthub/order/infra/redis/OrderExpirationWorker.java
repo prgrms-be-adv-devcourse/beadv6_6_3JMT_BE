@@ -1,7 +1,7 @@
 package com.prompthub.order.infra.redis;
 
-import com.prompthub.order.application.service.order.OrderExpirationService;
 import com.prompthub.order.application.service.order.OrderExpirationStore;
+import com.prompthub.order.application.service.order.OrderFailureCompensationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -25,7 +25,7 @@ import java.util.UUID;
 public class OrderExpirationWorker {
 
 	private final OrderExpirationStore orderExpirationStore;
-	private final OrderExpirationService orderExpirationService;
+	private final OrderFailureCompensationService compensationService;
 	private final OrderExpirationProperties properties;
 	private final Clock clock;
 
@@ -40,7 +40,7 @@ public class OrderExpirationWorker {
 
 	private void processExpiredOrder(UUID orderId, LocalDateTime now) {
 		try {
-			boolean completed = orderExpirationService.cancelPendingOrderByTimeout(orderId, now);
+			boolean completed = compensationService.compensateTimeout(orderId, now);
 			if (completed) {
 				orderExpirationStore.removeExpiration(orderId);
 				orderExpirationStore.clearRetryCount(orderId);

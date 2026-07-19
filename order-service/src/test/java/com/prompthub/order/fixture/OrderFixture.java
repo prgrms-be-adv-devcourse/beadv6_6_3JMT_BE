@@ -157,7 +157,7 @@ public final class OrderFixture {
 
 	public static Order createCanceledOrderWithProducts() {
 		Order order = createPendingOrderWithProducts();
-		order.updateOrderStatus(OrderStatus.FAILED);
+		order.markFailed(CANCELED_AT);
 		return order;
 	}
 
