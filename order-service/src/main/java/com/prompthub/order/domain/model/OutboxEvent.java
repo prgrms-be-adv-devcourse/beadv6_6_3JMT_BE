@@ -1,7 +1,6 @@
 package com.prompthub.order.domain.model;
 
 import com.prompthub.order.domain.enums.OutboxEventStatus;
-import com.prompthub.order.infra.messaging.kafka.event.OrderEventType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -79,52 +78,6 @@ public class OutboxEvent {
         this.retryCount = retryCount;
         this.occurredAt = occurredAt;
         this.publishedAt = publishedAt;
-    }
-
-    public static OutboxEvent orderPaid(
-        UUID aggregateId,
-        String payload,
-        LocalDateTime occurredAt
-    ) {
-        return orderPaid(UUID.randomUUID(), aggregateId, payload, occurredAt);
-    }
-
-    public static OutboxEvent orderPaid(
-        UUID eventId,
-        UUID aggregateId,
-        String payload,
-        LocalDateTime occurredAt
-    ) {
-        return create(
-            eventId,
-            aggregateId,
-            OrderEventType.ORDER_PAID.code(),
-            payload,
-            occurredAt
-        );
-    }
-
-    public static OutboxEvent orderRefund(
-        UUID aggregateId,
-        String payload,
-        LocalDateTime occurredAt
-    ) {
-        return orderRefund(UUID.randomUUID(), aggregateId, payload, occurredAt);
-    }
-
-    public static OutboxEvent orderRefund(
-        UUID eventId,
-        UUID aggregateId,
-        String payload,
-        LocalDateTime occurredAt
-    ) {
-        return create(
-            eventId,
-            aggregateId,
-            OrderEventType.ORDER_REFUND.code(),
-            payload,
-            occurredAt
-        );
     }
 
     public static OutboxEvent create(

@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.core.KafkaTemplate;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -71,7 +72,7 @@ class OutboxRelayTest {
 	@Test
 	@DisplayName("PENDING Outbox 이벤트를 Kafka로 발행하고 성공 시 PUBLISHED 상태로 변경한다")
 	void publishPendingEvents_publishesEventAndMarksPublished() throws Exception {
-		OutboxEvent event = OutboxEvent.orderPaid(
+		OutboxEvent event = createPendingEvent(
 			ORDER_ID,
 			"""
 				{"eventType":"ORDER_PAID","payload":{"orderId":"%s"}}
@@ -100,12 +101,12 @@ class OutboxRelayTest {
 	@Test
 	@DisplayName("Kafka 발행 실패 시 retry_count를 증가시키고 다음 이벤트 처리를 계속한다")
 	void publishPendingEvents_recordsFailureAndContinues() {
-		OutboxEvent failedEvent = OutboxEvent.orderPaid(
+		OutboxEvent failedEvent = createPendingEvent(
 			ORDER_ID,
 			"{\"eventType\":\"ORDER_PAID\",\"orderId\":\"%s\"}".formatted(ORDER_ID),
 			APPROVED_AT
 		);
-		OutboxEvent nextEvent = OutboxEvent.orderPaid(
+		OutboxEvent nextEvent = createPendingEvent(
 			NEXT_ORDER_ID,
 			"{\"eventType\":\"ORDER_PAID\",\"orderId\":\"%s\"}".formatted(NEXT_ORDER_ID),
 			APPROVED_AT.plusSeconds(1)
@@ -131,7 +132,7 @@ class OutboxRelayTest {
 	@Test
 	@DisplayName("Kafka 발행 실패 횟수가 최대 재시도 횟수에 도달하면 FAILED 상태로 변경한다")
 	void publishPendingEvents_marksFailedWhenMaxRetryCountReached() {
-		OutboxEvent event = OutboxEvent.orderPaid(
+		OutboxEvent event = createPendingEvent(
 			ORDER_ID,
 			"{\"eventType\":\"ORDER_PAID\",\"orderId\":\"%s\"}".formatted(ORDER_ID),
 			APPROVED_AT
@@ -151,5 +152,19 @@ class OutboxRelayTest {
 
 		assertThat(event.getRetryCount()).isEqualTo(3);
 		assertThat(event.getStatus()).isEqualTo(OutboxEventStatus.FAILED);
+	}
+
+	private OutboxEvent createPendingEvent(
+		UUID aggregateId,
+		String payload,
+		LocalDateTime occurredAt
+	) {
+		return OutboxEvent.create(
+			UUID.randomUUID(),
+			aggregateId,
+			"ORDER_PAID",
+			payload,
+			occurredAt
+		);
 	}
 }
