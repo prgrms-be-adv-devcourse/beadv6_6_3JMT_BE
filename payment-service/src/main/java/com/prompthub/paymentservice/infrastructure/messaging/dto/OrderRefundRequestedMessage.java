@@ -6,11 +6,11 @@ import java.util.UUID;
 /**
  * order-events의 ORDER_REFUND_REQUESTED payload(EventMessage&lt;T&gt; 봉투 내부).
  * requestedAt은 order-service에서 존 없는 LocalDateTime으로 직렬화되므로, 소비 시 KST를 부여한다.
+ * orderProductId/buyerId는 order-service가 보내지 않는다 — payload에 존재하지 않는 필드다.
  */
 public record OrderRefundRequestedMessage(
     UUID orderId,
-    UUID orderProductId,
-    UUID buyerId,
+    UUID refundRequestId,
     int refundAmount,
     LocalDateTime requestedAt
 ) {}

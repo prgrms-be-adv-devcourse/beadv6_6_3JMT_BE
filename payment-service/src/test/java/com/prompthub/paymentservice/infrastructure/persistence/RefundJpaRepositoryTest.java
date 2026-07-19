@@ -18,10 +18,9 @@ class RefundJpaRepositoryTest extends AbstractJpaTest {
     @Test
     void refund_save_findById_round_trip() {
         UUID paymentId = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
-        UUID orderProductId = UUID.randomUUID();
+        UUID refundRequestId = UUID.randomUUID();
 
-        Refund refund = Refund.create(paymentId, userId, 5_000, "단순 변심", orderProductId);
+        Refund refund = Refund.create(paymentId, refundRequestId, 5_000, "단순 변심");
 
         Refund saved = refundJpaRepository.saveAndFlush(refund);
 
@@ -30,7 +29,7 @@ class RefundJpaRepositoryTest extends AbstractJpaTest {
 
         assertThat(found.getId()).isEqualTo(saved.getId());
         assertThat(found.getPaymentId()).isEqualTo(paymentId);
-        assertThat(found.getOrderProductId()).isEqualTo(orderProductId);
+        assertThat(found.getRefundRequestId()).isEqualTo(refundRequestId);
         assertThat(found.getRefundAmount()).isEqualTo(5_000);
         assertThat(found.getStatus()).isEqualTo(RefundStatus.REQUESTED);
         assertThat(found.getRequestedAt()).isNotNull();
@@ -40,25 +39,39 @@ class RefundJpaRepositoryTest extends AbstractJpaTest {
     }
 
     @Test
-    void 같은_결제_같은_상품_중복_환불_시_유니크_제약_위반() {
+    void 같은_refundRequestId_중복_저장_시_유니크_제약_위반() {
         UUID paymentId = UUID.randomUUID();
-        UUID orderProductId = UUID.randomUUID();
+        UUID refundRequestId = UUID.randomUUID();
 
-        Refund first = Refund.create(paymentId, UUID.randomUUID(), 5_000, null, orderProductId);
+        Refund first = Refund.create(paymentId, refundRequestId, 5_000, null);
         refundJpaRepository.saveAndFlush(first);
 
-        Refund duplicate = Refund.create(paymentId, UUID.randomUUID(), 3_000, null, orderProductId);
+        Refund duplicate = Refund.create(paymentId, refundRequestId, 3_000, null);
 
         assertThatThrownBy(() -> refundJpaRepository.saveAndFlush(duplicate))
             .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 
     @Test
+    void 같은_결제_같은_상품도_다른_refundRequestId면_재환불_허용() {
+        UUID paymentId = UUID.randomUUID();
+
+        Refund first = Refund.create(paymentId, UUID.randomUUID(), 5_000, null);
+        Refund second = Refund.create(paymentId, UUID.randomUUID(), 3_000, null);
+
+        refundJpaRepository.saveAndFlush(first);
+        refundJpaRepository.saveAndFlush(second);
+
+        assertThat(refundJpaRepository.findById(first.getId())).isPresent();
+        assertThat(refundJpaRepository.findById(second.getId())).isPresent();
+    }
+
+    @Test
     void findByPaymentIdAndStatus_COMPLETED_건만_조회() {
         UUID paymentId = UUID.randomUUID();
-        Refund completed = Refund.create(paymentId, UUID.randomUUID(), 3_000, null, UUID.randomUUID());
+        Refund completed = Refund.create(paymentId, UUID.randomUUID(), 3_000, null);
         completed.complete(java.time.OffsetDateTime.now());
-        Refund requested = Refund.create(paymentId, UUID.randomUUID(), 2_000, null, UUID.randomUUID());
+        Refund requested = Refund.create(paymentId, UUID.randomUUID(), 2_000, null);
         refundJpaRepository.saveAndFlush(completed);
         refundJpaRepository.saveAndFlush(requested);
 
@@ -69,23 +82,16 @@ class RefundJpaRepositoryTest extends AbstractJpaTest {
     }
 
     @Test
-    void findByPaymentIdAndOrderProductId_정상_조회() {
-        UUID paymentId = UUID.randomUUID();
-        UUID orderProductId = UUID.randomUUID();
-        Refund refund = Refund.create(paymentId, UUID.randomUUID(), 4_000, null, orderProductId);
+    void existsByRefundRequestId_존재하면_true() {
+        UUID refundRequestId = UUID.randomUUID();
+        Refund refund = Refund.create(UUID.randomUUID(), refundRequestId, 4_000, null);
         refundJpaRepository.saveAndFlush(refund);
 
-        java.util.Optional<Refund> found = refundJpaRepository.findByPaymentIdAndOrderProductId(paymentId, orderProductId);
-
-        assertThat(found).isPresent();
-        assertThat(found.get().getRefundAmount()).isEqualTo(4_000);
+        assertThat(refundJpaRepository.existsByRefundRequestId(refundRequestId)).isTrue();
     }
 
     @Test
-    void findByPaymentIdAndOrderProductId_없으면_empty() {
-        java.util.Optional<Refund> found = refundJpaRepository
-            .findByPaymentIdAndOrderProductId(UUID.randomUUID(), UUID.randomUUID());
-
-        assertThat(found).isEmpty();
+    void existsByRefundRequestId_없으면_false() {
+        assertThat(refundJpaRepository.existsByRefundRequestId(UUID.randomUUID())).isFalse();
     }
 }

@@ -1,13 +1,12 @@
 package com.prompthub.paymentservice.application.service;
 
-import com.prompthub.paymentservice.application.dto.command.ProcessRefundCommand;
+import com.prompthub.paymentservice.application.dto.command.RefundCommand;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
 import com.prompthub.paymentservice.application.gateway.external.RefundResult;
 import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.domain.event.PaymentRefundFailedEvent;
 import com.prompthub.paymentservice.domain.event.PaymentRefundedEvent;
-import com.prompthub.paymentservice.domain.exception.InvalidRefundStateException;
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;
 import com.prompthub.paymentservice.domain.model.Refund;
@@ -36,7 +35,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class ProcessRefundServiceTest {
+class RefundServiceTest {
 
     @Mock
     PaymentRepository paymentRepository;
@@ -47,22 +46,38 @@ class ProcessRefundServiceTest {
     @Mock
     ApplicationEventPublisher applicationEventPublisher;
 
-    ProcessRefundService service;
+    RefundService service;
 
     @BeforeEach
     void setUp() {
-        service = new ProcessRefundService(paymentRepository, refundRepository, paymentGateway, applicationEventPublisher);
+        service = new RefundService(paymentRepository, refundRepository, paymentGateway, applicationEventPublisher);
+    }
+
+    @Test
+    void 이미_처리된_refundRequestId면_정상_종료하고_아무것도_안_한다() {
+        UUID refundRequestId = UUID.randomUUID();
+        when(refundRepository.existsByRefundRequestId(refundRequestId)).thenReturn(true);
+
+        RefundCommand command = new RefundCommand(
+            UUID.randomUUID(), refundRequestId, 3_000, OffsetDateTime.now());
+
+        service.refund(command);
+
+        verify(paymentRepository, never()).findByOrderIdAndStatusInForUpdate(any(), any());
+        verify(refundRepository, never()).save(any());
+        verify(applicationEventPublisher, never()).publishEvent(any());
     }
 
     @Test
     void 결제_건_없으면_예외() {
         UUID orderId = UUID.randomUUID();
+        when(refundRepository.existsByRefundRequestId(any())).thenReturn(false);
         when(paymentRepository.findByOrderIdAndStatusInForUpdate(any(), any())).thenReturn(Optional.empty());
 
-        ProcessRefundCommand command = new ProcessRefundCommand(
-            orderId, UUID.randomUUID(), UUID.randomUUID(), 3_000, OffsetDateTime.now());
+        RefundCommand command = new RefundCommand(
+            orderId, UUID.randomUUID(), 3_000, OffsetDateTime.now());
 
-        assertThatThrownBy(() -> service.process(command))
+        assertThatThrownBy(() -> service.refund(command))
             .isInstanceOf(com.prompthub.exception.BusinessException.class)
             .extracting(e -> ((com.prompthub.exception.BusinessException) e).getErrorCode())
             .isEqualTo(PaymentErrorCode.PAYMENT_NOT_FOUND);
@@ -71,42 +86,53 @@ class ProcessRefundServiceTest {
     }
 
     @Test
-    void 누적_환불액_초과_시_예외() {
+    void 누적_환불액_초과_시_예외_없이_FAILED_row_생성_및_실패_이벤트_발행() {
         Payment payment = 결제_생성_후_승인(10_000);
+        when(refundRepository.existsByRefundRequestId(any())).thenReturn(false);
         when(paymentRepository.findByOrderIdAndStatusInForUpdate(any(), any())).thenReturn(Optional.of(payment));
         when(refundRepository.findByPaymentIdAndStatus(payment.getId(), RefundStatus.COMPLETED))
             .thenReturn(List.of(기존_완료_환불(payment.getId(), 8_000)));
+        when(refundRepository.save(any(Refund.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ProcessRefundCommand command = new ProcessRefundCommand(
-            payment.getOrderId(), UUID.randomUUID(), payment.getUserId(), 3_000, OffsetDateTime.now());
+        RefundCommand command = new RefundCommand(
+            payment.getOrderId(), UUID.randomUUID(), 3_000, OffsetDateTime.now());
 
-        assertThatThrownBy(() -> service.process(command))
-            .isInstanceOf(InvalidRefundStateException.class);
+        service.refund(command);
 
         verify(paymentGateway, never()).refund(anyString(), any(), anyInt());
+
+        ArgumentCaptor<Refund> refundCaptor = ArgumentCaptor.forClass(Refund.class);
+        verify(refundRepository).save(refundCaptor.capture());
+        assertThat(refundCaptor.getValue().getStatus()).isEqualTo(RefundStatus.FAILED);
+        assertThat(refundCaptor.getValue().getReason()).isNotBlank();
+
+        ArgumentCaptor<PaymentRefundFailedEvent> eventCaptor = ArgumentCaptor.forClass(PaymentRefundFailedEvent.class);
+        verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().payment().getId()).isEqualTo(payment.getId());
     }
 
     @Test
     void 부분_환불_성공_시_PARTIAL_REFUNDED_전이() {
         Payment payment = 결제_생성_후_승인(10_000);
-        UUID orderProductId = UUID.randomUUID();
+        UUID refundRequestId = UUID.randomUUID();
         OffsetDateTime refundedAt = OffsetDateTime.now();
+        when(refundRepository.existsByRefundRequestId(refundRequestId)).thenReturn(false);
         when(paymentRepository.findByOrderIdAndStatusInForUpdate(any(), any())).thenReturn(Optional.of(payment));
         when(refundRepository.findByPaymentIdAndStatus(payment.getId(), RefundStatus.COMPLETED))
             .thenReturn(List.of());
         when(refundRepository.save(any(Refund.class))).thenAnswer(inv -> inv.getArgument(0));
         when(paymentGateway.refund(anyString(), any(), anyInt())).thenReturn(new RefundResult(refundedAt));
 
-        ProcessRefundCommand command = new ProcessRefundCommand(
-            payment.getOrderId(), orderProductId, payment.getUserId(), 4_000, OffsetDateTime.now());
-        service.process(command);
+        RefundCommand command = new RefundCommand(
+            payment.getOrderId(), refundRequestId, 4_000, OffsetDateTime.now());
+        service.refund(command);
 
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PARTIAL_REFUNDED);
 
         ArgumentCaptor<Refund> refundCaptor = ArgumentCaptor.forClass(Refund.class);
         verify(refundRepository).save(refundCaptor.capture());
         assertThat(refundCaptor.getValue().getRefundAmount()).isEqualTo(4_000);
-        assertThat(refundCaptor.getValue().getOrderProductId()).isEqualTo(orderProductId);
+        assertThat(refundCaptor.getValue().getRefundRequestId()).isEqualTo(refundRequestId);
         assertThat(refundCaptor.getValue().getStatus()).isEqualTo(RefundStatus.COMPLETED);
 
         ArgumentCaptor<PaymentRefundedEvent> eventCaptor = ArgumentCaptor.forClass(PaymentRefundedEvent.class);
@@ -117,15 +143,16 @@ class ProcessRefundServiceTest {
     @Test
     void 누적_환불액_totalAmount_도달_시_ALL_REFUNDED_전이() {
         Payment payment = 결제_생성_후_승인(10_000);
+        when(refundRepository.existsByRefundRequestId(any())).thenReturn(false);
         when(paymentRepository.findByOrderIdAndStatusInForUpdate(any(), any())).thenReturn(Optional.of(payment));
         when(refundRepository.findByPaymentIdAndStatus(payment.getId(), RefundStatus.COMPLETED))
             .thenReturn(List.of(기존_완료_환불(payment.getId(), 6_000)));
         when(refundRepository.save(any(Refund.class))).thenAnswer(inv -> inv.getArgument(0));
         when(paymentGateway.refund(anyString(), any(), anyInt())).thenReturn(new RefundResult(OffsetDateTime.now()));
 
-        ProcessRefundCommand command = new ProcessRefundCommand(
-            payment.getOrderId(), UUID.randomUUID(), payment.getUserId(), 4_000, OffsetDateTime.now());
-        service.process(command);
+        RefundCommand command = new RefundCommand(
+            payment.getOrderId(), UUID.randomUUID(), 4_000, OffsetDateTime.now());
+        service.refund(command);
 
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.ALL_REFUNDED);
     }
@@ -133,6 +160,7 @@ class ProcessRefundServiceTest {
     @Test
     void PG_실패_시_Refund_FAILED_Payment_상태_불변_및_실패_이벤트_발행() {
         Payment payment = 결제_생성_후_승인(10_000);
+        when(refundRepository.existsByRefundRequestId(any())).thenReturn(false);
         when(paymentRepository.findByOrderIdAndStatusInForUpdate(any(), any())).thenReturn(Optional.of(payment));
         when(refundRepository.findByPaymentIdAndStatus(payment.getId(), RefundStatus.COMPLETED))
             .thenReturn(List.of());
@@ -140,15 +168,16 @@ class ProcessRefundServiceTest {
         when(paymentGateway.refund(anyString(), any(), anyInt()))
             .thenThrow(new PaymentGatewayException(PaymentErrorCode.PG_INVALID_REQUEST, "CANCEL_FAILED", "환불 실패", null, null));
 
-        ProcessRefundCommand command = new ProcessRefundCommand(
-            payment.getOrderId(), UUID.randomUUID(), payment.getUserId(), 4_000, OffsetDateTime.now());
-        service.process(command);
+        RefundCommand command = new RefundCommand(
+            payment.getOrderId(), UUID.randomUUID(), 4_000, OffsetDateTime.now());
+        service.refund(command);
 
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
 
         ArgumentCaptor<Refund> refundCaptor = ArgumentCaptor.forClass(Refund.class);
         verify(refundRepository).save(refundCaptor.capture());
         assertThat(refundCaptor.getValue().getStatus()).isEqualTo(RefundStatus.FAILED);
+        assertThat(refundCaptor.getValue().getReason()).isEqualTo("환불 실패");
 
         ArgumentCaptor<PaymentRefundFailedEvent> eventCaptor = ArgumentCaptor.forClass(PaymentRefundFailedEvent.class);
         verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
@@ -164,7 +193,7 @@ class ProcessRefundServiceTest {
     }
 
     private Refund 기존_완료_환불(UUID paymentId, int amount) {
-        Refund refund = Refund.create(paymentId, UUID.randomUUID(), amount, null, UUID.randomUUID());
+        Refund refund = Refund.create(paymentId, UUID.randomUUID(), amount, null);
         refund.complete(OffsetDateTime.now());
         return refund;
     }

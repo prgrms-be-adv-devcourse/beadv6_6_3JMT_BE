@@ -40,9 +40,7 @@ public class KafkaPaymentEventPublisher {
     public void onPaymentApproved(PaymentApprovedEvent event) {
         Payment payment = event.payment();
         PaymentApprovedMessage payload = new PaymentApprovedMessage(
-            payment.getId(),
             payment.getOrderId(),
-            payment.getUserId(),
             payment.getApprovedAmount(),
             toKstString(payment.getApprovedAt())
         );
@@ -71,11 +69,7 @@ public class KafkaPaymentEventPublisher {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPaymentFailed(PaymentFailedEvent event) {
         Payment payment = event.payment();
-        PaymentFailedMessage payload = new PaymentFailedMessage(
-            payment.getId(),
-            payment.getOrderId(),
-            payment.getUserId()
-        );
+        PaymentFailedMessage payload = new PaymentFailedMessage(payment.getOrderId());
         EventMessage<PaymentFailedMessage> message = new EventMessage<>(
             UUID.randomUUID(),
             PaymentEventType.PAYMENT_FAILED.code(),
@@ -103,12 +97,8 @@ public class KafkaPaymentEventPublisher {
         Payment payment = event.payment();
         Refund refund = event.refund();
         PaymentRefundedMessage payload = new PaymentRefundedMessage(
-            payment.getId(),
             payment.getOrderId(),
-            payment.getUserId(),
-            refund.getOrderProductId(),
             refund.getRefundAmount(),
-            payment.getStatus().name(),
             toKstString(payment.getRefundedAt())
         );
         EventMessage<PaymentRefundedMessage> message = new EventMessage<>(
@@ -139,13 +129,8 @@ public class KafkaPaymentEventPublisher {
         Refund refund = event.refund();
         OffsetDateTime failedAt = OffsetDateTime.now();
         PaymentRefundFailedMessage payload = new PaymentRefundFailedMessage(
-            payment.getId(),
             payment.getOrderId(),
-            payment.getUserId(),
-            refund.getOrderProductId(),
             refund.getRefundAmount(),
-            payment.getStatus().name(),
-            event.failureReason(),
             toKstString(failedAt)
         );
         EventMessage<PaymentRefundFailedMessage> message = new EventMessage<>(

@@ -3,10 +3,9 @@ package com.prompthub.paymentservice.application.dto.command;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-public record ProcessRefundCommand(
+public record RefundCommand(
     UUID orderId,
-    UUID orderProductId,
-    UUID buyerId,
+    UUID refundRequestId,
     int refundAmount,
     OffsetDateTime requestedAt
 ) {}

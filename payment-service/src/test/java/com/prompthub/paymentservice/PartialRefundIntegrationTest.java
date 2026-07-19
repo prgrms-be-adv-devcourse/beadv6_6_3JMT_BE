@@ -72,7 +72,7 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
         consumer.poll(Duration.ZERO);
         consumer.seekToBeginning(java.util.List.of(partition));
 
-        send(orderId.toString(), json(orderId, UUID.randomUUID(), userId, 6_000));
+        send(orderId.toString(), json(orderId, UUID.randomUUID(), 6_000));
 
         await().atMost(Duration.ofSeconds(15))
             .pollInterval(Duration.ofMillis(300))
@@ -81,7 +81,7 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
                 assertThat(updated.getStatus()).isEqualTo(PaymentStatus.PARTIAL_REFUNDED);
             });
 
-        send(orderId.toString(), json(orderId, UUID.randomUUID(), userId, 4_000));
+        send(orderId.toString(), json(orderId, UUID.randomUUID(), 4_000));
 
         await().atMost(Duration.ofSeconds(15))
             .pollInterval(Duration.ofMillis(300))
@@ -108,6 +108,102 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void 동일_상품_재환불_두_refundRequestId_모두_성공() {
+        UUID orderId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        Payment payment = Payment.create(orderId, userId, "pg-key-re-refund", "TOSS_PAYMENTS", "CARD", false, 10_000);
+        payment.markRequested(OffsetDateTime.now());
+        payment.approve(10_000, "카드", "{}", OffsetDateTime.now());
+        paymentJpaRepository.saveAndFlush(payment);
+
+        when(paymentGateway.refund(anyString(), any(), anyInt()))
+            .thenReturn(new RefundResult(OffsetDateTime.now()));
+
+        send(orderId.toString(), json(orderId, UUID.randomUUID(), 3_000));
+
+        await().atMost(Duration.ofSeconds(15))
+            .pollInterval(Duration.ofMillis(300))
+            .untilAsserted(() -> assertThat(refundJpaRepository.count()).isEqualTo(1));
+
+        send(orderId.toString(), json(orderId, UUID.randomUUID(), 2_000));
+
+        await().atMost(Duration.ofSeconds(15))
+            .pollInterval(Duration.ofMillis(300))
+            .untilAsserted(() -> assertThat(refundJpaRepository.count()).isEqualTo(2));
+
+        Payment updated = paymentJpaRepository.findById(payment.getId()).orElseThrow();
+        assertThat(updated.getStatus()).isEqualTo(PaymentStatus.PARTIAL_REFUNDED);
+    }
+
+    @Test
+    void 동일_refundRequestId_재전송_시_한번만_처리() {
+        UUID orderId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID refundRequestId = UUID.randomUUID();
+        Payment payment = Payment.create(orderId, userId, "pg-key-dedup", "TOSS_PAYMENTS", "CARD", false, 10_000);
+        payment.markRequested(OffsetDateTime.now());
+        payment.approve(10_000, "카드", "{}", OffsetDateTime.now());
+        paymentJpaRepository.saveAndFlush(payment);
+
+        when(paymentGateway.refund(anyString(), any(), anyInt()))
+            .thenReturn(new RefundResult(OffsetDateTime.now()));
+
+        String message = json(orderId, refundRequestId, 3_000);
+        send(orderId.toString(), message);
+        send(orderId.toString(), message);
+
+        await().atMost(Duration.ofSeconds(15))
+            .pollInterval(Duration.ofMillis(300))
+            .untilAsserted(() -> {
+                Payment updated = paymentJpaRepository.findById(payment.getId()).orElseThrow();
+                assertThat(updated.getStatus()).isEqualTo(PaymentStatus.PARTIAL_REFUNDED);
+            });
+
+        // 두 메시지가 모두 소비될 시간을 확보한 뒤 refund row가 1건만 있는지 확인
+        await().pollDelay(Duration.ofSeconds(3)).atMost(Duration.ofSeconds(10))
+            .untilAsserted(() -> assertThat(refundJpaRepository.count()).isEqualTo(1));
+    }
+
+    @Test
+    void 과환불_시도_시_예외_없이_FAILED_기록_및_실패_이벤트_발행() {
+        UUID orderId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        Payment payment = Payment.create(orderId, userId, "pg-key-over-refund", "TOSS_PAYMENTS", "CARD", false, 10_000);
+        payment.markRequested(OffsetDateTime.now());
+        payment.approve(10_000, "카드", "{}", OffsetDateTime.now());
+        paymentJpaRepository.saveAndFlush(payment);
+
+        KafkaConsumer<String, String> consumer = 컨슈머_생성("partial-refund-over-test-group");
+        TopicPartition partition = new TopicPartition(PaymentTopic.PAYMENT_EVENTS, 0);
+        consumer.assign(java.util.List.of(partition));
+        consumer.poll(Duration.ZERO);
+        consumer.seekToBeginning(java.util.List.of(partition));
+
+        send(orderId.toString(), json(orderId, UUID.randomUUID(), 12_000));
+
+        try {
+            long deadline = System.currentTimeMillis() + 10_000;
+            boolean found = false;
+            while (!found && System.currentTimeMillis() < deadline) {
+                var polled = consumer.poll(Duration.ofMillis(500));
+                for (var r : polled) {
+                    if (orderId.toString().equals(r.key()) && r.value().contains("PAYMENT_REFUND_FAILED")) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            assertThat(found).withFailMessage("PAYMENT_REFUND_FAILED 메시지 수신 실패").isTrue();
+        } finally {
+            consumer.close();
+        }
+
+        Payment unchanged = paymentJpaRepository.findById(payment.getId()).orElseThrow();
+        assertThat(unchanged.getStatus()).isEqualTo(PaymentStatus.PAID);
+        assertThat(refundJpaRepository.count()).isEqualTo(1);
+    }
+
+    @Test
     void PG_환불_실패_시_Payment_상태_불변_및_실패_이벤트_발행() {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
@@ -125,7 +221,7 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
         consumer.poll(Duration.ZERO);
         consumer.seekToBeginning(java.util.List.of(partition));
 
-        send(orderId.toString(), json(orderId, UUID.randomUUID(), userId, 4_000));
+        send(orderId.toString(), json(orderId, UUID.randomUUID(), 4_000));
 
         try {
             long deadline = System.currentTimeMillis() + 10_000;
@@ -148,13 +244,13 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
         assertThat(unchanged.getStatus()).isEqualTo(PaymentStatus.PAID);
     }
 
-    private String json(UUID orderId, UUID orderProductId, UUID buyerId, int refundAmount) {
+    private String json(UUID orderId, UUID refundRequestId, int refundAmount) {
         return String.format(
             "{\"eventId\":\"%s\",\"eventType\":\"ORDER_REFUND_REQUESTED\",\"occurredAt\":\"2026-07-13T10:00:00\","
                 + "\"aggregateType\":\"ORDER\",\"aggregateId\":\"%s\",\"payload\":{"
-                + "\"orderId\":\"%s\",\"orderProductId\":\"%s\",\"buyerId\":\"%s\","
+                + "\"orderId\":\"%s\",\"refundRequestId\":\"%s\","
                 + "\"refundAmount\":%d,\"requestedAt\":\"2026-07-13T10:00:00\"}}",
-            UUID.randomUUID(), orderId, orderId, orderProductId, buyerId, refundAmount);
+            UUID.randomUUID(), orderId, orderId, refundRequestId, refundAmount);
     }
 
     private void send(String key, String value) {
