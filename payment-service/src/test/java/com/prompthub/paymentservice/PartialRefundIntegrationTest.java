@@ -72,7 +72,7 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
         consumer.poll(Duration.ZERO);
         consumer.seekToBeginning(java.util.List.of(partition));
 
-        send(orderId.toString(), json(orderId, UUID.randomUUID(), userId, UUID.randomUUID(), 6_000));
+        send(orderId.toString(), json(orderId, UUID.randomUUID(), 6_000));
 
         await().atMost(Duration.ofSeconds(15))
             .pollInterval(Duration.ofMillis(300))
@@ -81,7 +81,7 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
                 assertThat(updated.getStatus()).isEqualTo(PaymentStatus.PARTIAL_REFUNDED);
             });
 
-        send(orderId.toString(), json(orderId, UUID.randomUUID(), userId, UUID.randomUUID(), 4_000));
+        send(orderId.toString(), json(orderId, UUID.randomUUID(), 4_000));
 
         await().atMost(Duration.ofSeconds(15))
             .pollInterval(Duration.ofMillis(300))
@@ -111,7 +111,6 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
     void 동일_상품_재환불_두_refundRequestId_모두_성공() {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        UUID orderProductId = UUID.randomUUID();
         Payment payment = Payment.create(orderId, userId, "pg-key-re-refund", "TOSS_PAYMENTS", "CARD", false, 10_000);
         payment.markRequested(OffsetDateTime.now());
         payment.approve(10_000, "카드", "{}", OffsetDateTime.now());
@@ -120,13 +119,13 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
         when(paymentGateway.refund(anyString(), any(), anyInt()))
             .thenReturn(new RefundResult(OffsetDateTime.now()));
 
-        send(orderId.toString(), json(orderId, orderProductId, userId, UUID.randomUUID(), 3_000));
+        send(orderId.toString(), json(orderId, UUID.randomUUID(), 3_000));
 
         await().atMost(Duration.ofSeconds(15))
             .pollInterval(Duration.ofMillis(300))
             .untilAsserted(() -> assertThat(refundJpaRepository.count()).isEqualTo(1));
 
-        send(orderId.toString(), json(orderId, orderProductId, userId, UUID.randomUUID(), 2_000));
+        send(orderId.toString(), json(orderId, UUID.randomUUID(), 2_000));
 
         await().atMost(Duration.ofSeconds(15))
             .pollInterval(Duration.ofMillis(300))
@@ -149,7 +148,7 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
         when(paymentGateway.refund(anyString(), any(), anyInt()))
             .thenReturn(new RefundResult(OffsetDateTime.now()));
 
-        String message = json(orderId, UUID.randomUUID(), userId, refundRequestId, 3_000);
+        String message = json(orderId, refundRequestId, 3_000);
         send(orderId.toString(), message);
         send(orderId.toString(), message);
 
@@ -180,7 +179,7 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
         consumer.poll(Duration.ZERO);
         consumer.seekToBeginning(java.util.List.of(partition));
 
-        send(orderId.toString(), json(orderId, UUID.randomUUID(), userId, UUID.randomUUID(), 12_000));
+        send(orderId.toString(), json(orderId, UUID.randomUUID(), 12_000));
 
         try {
             long deadline = System.currentTimeMillis() + 10_000;
@@ -222,7 +221,7 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
         consumer.poll(Duration.ZERO);
         consumer.seekToBeginning(java.util.List.of(partition));
 
-        send(orderId.toString(), json(orderId, UUID.randomUUID(), userId, UUID.randomUUID(), 4_000));
+        send(orderId.toString(), json(orderId, UUID.randomUUID(), 4_000));
 
         try {
             long deadline = System.currentTimeMillis() + 10_000;
@@ -245,13 +244,13 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
         assertThat(unchanged.getStatus()).isEqualTo(PaymentStatus.PAID);
     }
 
-    private String json(UUID orderId, UUID orderProductId, UUID buyerId, UUID refundRequestId, int refundAmount) {
+    private String json(UUID orderId, UUID refundRequestId, int refundAmount) {
         return String.format(
             "{\"eventId\":\"%s\",\"eventType\":\"ORDER_REFUND_REQUESTED\",\"occurredAt\":\"2026-07-13T10:00:00\","
                 + "\"aggregateType\":\"ORDER\",\"aggregateId\":\"%s\",\"payload\":{"
-                + "\"orderId\":\"%s\",\"orderProductId\":\"%s\",\"buyerId\":\"%s\",\"refundRequestId\":\"%s\","
+                + "\"orderId\":\"%s\",\"refundRequestId\":\"%s\","
                 + "\"refundAmount\":%d,\"requestedAt\":\"2026-07-13T10:00:00\"}}",
-            UUID.randomUUID(), orderId, orderId, orderProductId, buyerId, refundRequestId, refundAmount);
+            UUID.randomUUID(), orderId, orderId, refundRequestId, refundAmount);
     }
 
     private void send(String key, String value) {
