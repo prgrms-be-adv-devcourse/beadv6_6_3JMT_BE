@@ -73,8 +73,18 @@ class PaymentTest {
     }
 
     @Test
-    void REQUESTED_아닌_상태에서_fail_실패() {
+    void READY_상태에서_바로_fail_가능() {
         Payment payment = 결제_생성();
+
+        payment.fail("AMOUNT_MISMATCH", "금액 불일치", null, null, OffsetDateTime.now());
+
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
+        assertThat(payment.getFailureCode()).isEqualTo("AMOUNT_MISMATCH");
+    }
+
+    @Test
+    void PAID_상태에서_fail_실패() {
+        Payment payment = 결제_생성_후_승인(10_000);
 
         assertThatThrownBy(() -> payment.fail("REJECT", "거절", null, "{}", OffsetDateTime.now()))
             .isInstanceOf(IllegalStateException.class);
