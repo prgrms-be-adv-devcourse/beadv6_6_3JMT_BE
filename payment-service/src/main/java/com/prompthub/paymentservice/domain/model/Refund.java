@@ -24,7 +24,7 @@ import static lombok.AccessLevel.PROTECTED;
 @Getter
 @Entity
 @Table(name = "refund", uniqueConstraints =
-    @UniqueConstraint(name = "uk_refund_payment_order_product", columnNames = {"payment_id", "order_product_id"}))
+    @UniqueConstraint(name = "uk_refund_request_id", columnNames = {"refund_request_id"}))
 @EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor(access = PROTECTED)
 public class Refund {
@@ -36,11 +36,8 @@ public class Refund {
     @Column(name = "payment_id", columnDefinition = "uuid", nullable = false)
     private UUID paymentId;
 
-    @Column(name = "order_product_id", columnDefinition = "uuid", nullable = false)
-    private UUID orderProductId;
-
-    @Column(name = "user_id", columnDefinition = "uuid", nullable = false)
-    private UUID userId;
+    @Column(name = "refund_request_id", columnDefinition = "uuid", nullable = false)
+    private UUID refundRequestId;
 
     @Column(name = "refund_amount", nullable = false)
     private int refundAmount;
@@ -67,14 +64,13 @@ public class Refund {
     private OffsetDateTime updatedAt;
 
     private Refund(
-        UUID id, UUID paymentId, UUID orderProductId, UUID userId,
+        UUID id, UUID paymentId, UUID refundRequestId,
         int refundAmount, String reason,
         RefundStatus status, OffsetDateTime requestedAt, OffsetDateTime completedAt
     ) {
         this.id = id;
         this.paymentId = paymentId;
-        this.orderProductId = orderProductId;
-        this.userId = userId;
+        this.refundRequestId = refundRequestId;
         this.refundAmount = refundAmount;
         this.reason = reason;
         this.status = status;
@@ -83,12 +79,11 @@ public class Refund {
     }
 
     public static Refund create(
-        UUID paymentId, UUID userId,
-        int refundAmount, String reason,
-        UUID orderProductId
+        UUID paymentId, UUID refundRequestId,
+        int refundAmount, String reason
     ) {
         return new Refund(
-            UUID.randomUUID(), paymentId, orderProductId, userId,
+            UUID.randomUUID(), paymentId, refundRequestId,
             refundAmount, reason,
             RefundStatus.REQUESTED,
             OffsetDateTime.now(),
@@ -105,11 +100,12 @@ public class Refund {
         this.completedAt = completedAt;
     }
 
-    public void fail() {
+    public void fail(String reason) {
         if (this.status != RefundStatus.REQUESTED) {
             throw new InvalidRefundStateException("REQUESTED 상태에서만 FAILED로 전환할 수 있습니다.");
         }
         log.debug("Refund 상태 전이 — id={}, {} → FAILED", id, status);
         this.status = RefundStatus.FAILED;
+        this.reason = reason;
     }
 }

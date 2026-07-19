@@ -97,12 +97,8 @@ public class KafkaPaymentEventPublisher {
         Payment payment = event.payment();
         Refund refund = event.refund();
         PaymentRefundedMessage payload = new PaymentRefundedMessage(
-            payment.getId(),
             payment.getOrderId(),
-            payment.getUserId(),
-            refund.getOrderProductId(),
             refund.getRefundAmount(),
-            payment.getStatus().name(),
             toKstString(payment.getRefundedAt())
         );
         EventMessage<PaymentRefundedMessage> message = new EventMessage<>(
@@ -133,13 +129,8 @@ public class KafkaPaymentEventPublisher {
         Refund refund = event.refund();
         OffsetDateTime failedAt = OffsetDateTime.now();
         PaymentRefundFailedMessage payload = new PaymentRefundFailedMessage(
-            payment.getId(),
             payment.getOrderId(),
-            payment.getUserId(),
-            refund.getOrderProductId(),
             refund.getRefundAmount(),
-            payment.getStatus().name(),
-            event.failureReason(),
             toKstString(failedAt)
         );
         EventMessage<PaymentRefundFailedMessage> message = new EventMessage<>(
