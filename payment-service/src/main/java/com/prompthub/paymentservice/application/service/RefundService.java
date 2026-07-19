@@ -48,34 +48,45 @@ public class RefundService implements RefundUseCase {
             .orElseThrow(() -> new BusinessException(PaymentErrorCode.PAYMENT_NOT_FOUND));
 
         Refund refund = Refund.create(payment.getId(), command.refundRequestId(), command.refundAmount(), null);
+        int remainingAmount = calculateRemainingAmount(payment);
 
+        if (command.refundAmount() > remainingAmount) {
+            failByExceedingLimit(payment, refund, remainingAmount, command.refundAmount());
+            return;
+        }
+
+        executeGatewayRefund(payment, refund, command.refundAmount(), remainingAmount);
+    }
+
+    private int calculateRemainingAmount(Payment payment) {
         int totalRefundedAmount = refundRepository
             .findByPaymentIdAndStatus(payment.getId(), RefundStatus.COMPLETED)
             .stream()
             .mapToInt(Refund::getRefundAmount)
             .sum();
-        int remaining = payment.getTotalAmount() - totalRefundedAmount;
+        return payment.getTotalAmount() - totalRefundedAmount;
+    }
 
-        if (command.refundAmount() > remaining) {
-            log.warn("환불 가능 잔액 초과 — paymentId={}, remaining={}, requested={}",
-                payment.getId(), remaining, command.refundAmount());
-            refund.fail("환불 가능 잔액을 초과했습니다.");
-            refundRepository.save(refund);
-            applicationEventPublisher.publishEvent(
-                new PaymentRefundFailedEvent(payment, refund, "환불 가능 잔액을 초과했습니다."));
-            return;
-        }
+    private void failByExceedingLimit(Payment payment, Refund refund, int remainingAmount, int requestedAmount) {
+        log.warn("환불 가능 잔액 초과 — paymentId={}, remainingAmount={}, requestedAmount={}",
+            payment.getId(), remainingAmount, requestedAmount);
+        refund.fail("환불 가능 잔액을 초과했습니다.");
+        refundRepository.save(refund);
+        applicationEventPublisher.publishEvent(
+            new PaymentRefundFailedEvent(payment, refund, "환불 가능 잔액을 초과했습니다."));
+    }
 
+    private void executeGatewayRefund(Payment payment, Refund refund, int amount, int remainingAmount) {
         try {
-            RefundResult result = paymentGateway.refund(payment.getPgTxId(), refund.getId(), command.refundAmount());
+            RefundResult result = paymentGateway.refund(payment.getPgTxId(), refund.getId(), amount);
             refund.complete(result.refundedAt());
-            payment.applyRefund(result.refundedAt(), command.refundAmount() == remaining);
+            payment.applyRefund(result.refundedAt(), amount == remainingAmount);
             paymentRepository.save(payment);
             refundRepository.save(refund);
             applicationEventPublisher.publishEvent(new PaymentRefundedEvent(payment, refund));
         } catch (PaymentGatewayException e) {
             log.error("PG 환불 실패 — paymentId={}, refundRequestId={}, code={}, reason={}",
-                payment.getId(), command.refundRequestId(), e.getFailureCode(), e.getFailureReason());
+                payment.getId(), refund.getRefundRequestId(), e.getFailureCode(), e.getFailureReason());
             refund.fail(e.getFailureReason());
             refundRepository.save(refund);
             applicationEventPublisher.publishEvent(
