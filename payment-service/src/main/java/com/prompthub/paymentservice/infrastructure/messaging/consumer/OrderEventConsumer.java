@@ -1,7 +1,7 @@
 package com.prompthub.paymentservice.infrastructure.messaging.consumer;
 
-import com.prompthub.paymentservice.application.dto.command.ProcessRefundCommand;
-import com.prompthub.paymentservice.application.usecase.ProcessRefundUseCase;
+import com.prompthub.paymentservice.application.dto.command.RefundCommand;
+import com.prompthub.paymentservice.application.usecase.RefundUseCase;
 import com.prompthub.paymentservice.infrastructure.messaging.dto.OrderRefundRequestedMessage;
 import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +29,7 @@ public class OrderEventConsumer {
     private static final ZoneOffset KST = ZoneOffset.ofHours(9);
 
     private final ObjectMapper objectMapper;
-    private final ProcessRefundUseCase processRefundUseCase;
+    private final RefundUseCase refundUseCase;
 
     @KafkaListener(
         topics = TOPIC_ORDER_EVENTS,
@@ -58,7 +58,7 @@ public class OrderEventConsumer {
         OrderRefundRequestedMessage requested = objectMapper.treeToValue(payload, OrderRefundRequestedMessage.class);
         validateRefund(requested);
 
-        processRefundUseCase.process(new ProcessRefundCommand(
+        refundUseCase.refund(new RefundCommand(
             requested.orderId(),
             requested.refundRequestId(),
             requested.refundAmount(),

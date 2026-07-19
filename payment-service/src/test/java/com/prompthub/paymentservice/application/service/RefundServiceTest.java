@@ -1,6 +1,6 @@
 package com.prompthub.paymentservice.application.service;
 
-import com.prompthub.paymentservice.application.dto.command.ProcessRefundCommand;
+import com.prompthub.paymentservice.application.dto.command.RefundCommand;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
 import com.prompthub.paymentservice.application.gateway.external.RefundResult;
@@ -35,7 +35,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class ProcessRefundServiceTest {
+class RefundServiceTest {
 
     @Mock
     PaymentRepository paymentRepository;
@@ -46,11 +46,11 @@ class ProcessRefundServiceTest {
     @Mock
     ApplicationEventPublisher applicationEventPublisher;
 
-    ProcessRefundService service;
+    RefundService service;
 
     @BeforeEach
     void setUp() {
-        service = new ProcessRefundService(paymentRepository, refundRepository, paymentGateway, applicationEventPublisher);
+        service = new RefundService(paymentRepository, refundRepository, paymentGateway, applicationEventPublisher);
     }
 
     @Test
@@ -58,10 +58,10 @@ class ProcessRefundServiceTest {
         UUID refundRequestId = UUID.randomUUID();
         when(refundRepository.existsByRefundRequestId(refundRequestId)).thenReturn(true);
 
-        ProcessRefundCommand command = new ProcessRefundCommand(
+        RefundCommand command = new RefundCommand(
             UUID.randomUUID(), refundRequestId, 3_000, OffsetDateTime.now());
 
-        service.process(command);
+        service.refund(command);
 
         verify(paymentRepository, never()).findByOrderIdAndStatusInForUpdate(any(), any());
         verify(refundRepository, never()).save(any());
@@ -74,10 +74,10 @@ class ProcessRefundServiceTest {
         when(refundRepository.existsByRefundRequestId(any())).thenReturn(false);
         when(paymentRepository.findByOrderIdAndStatusInForUpdate(any(), any())).thenReturn(Optional.empty());
 
-        ProcessRefundCommand command = new ProcessRefundCommand(
+        RefundCommand command = new RefundCommand(
             orderId, UUID.randomUUID(), 3_000, OffsetDateTime.now());
 
-        assertThatThrownBy(() -> service.process(command))
+        assertThatThrownBy(() -> service.refund(command))
             .isInstanceOf(com.prompthub.exception.BusinessException.class)
             .extracting(e -> ((com.prompthub.exception.BusinessException) e).getErrorCode())
             .isEqualTo(PaymentErrorCode.PAYMENT_NOT_FOUND);
@@ -94,10 +94,10 @@ class ProcessRefundServiceTest {
             .thenReturn(List.of(기존_완료_환불(payment.getId(), 8_000)));
         when(refundRepository.save(any(Refund.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ProcessRefundCommand command = new ProcessRefundCommand(
+        RefundCommand command = new RefundCommand(
             payment.getOrderId(), UUID.randomUUID(), 3_000, OffsetDateTime.now());
 
-        service.process(command);
+        service.refund(command);
 
         verify(paymentGateway, never()).refund(anyString(), any(), anyInt());
 
@@ -123,9 +123,9 @@ class ProcessRefundServiceTest {
         when(refundRepository.save(any(Refund.class))).thenAnswer(inv -> inv.getArgument(0));
         when(paymentGateway.refund(anyString(), any(), anyInt())).thenReturn(new RefundResult(refundedAt));
 
-        ProcessRefundCommand command = new ProcessRefundCommand(
+        RefundCommand command = new RefundCommand(
             payment.getOrderId(), refundRequestId, 4_000, OffsetDateTime.now());
-        service.process(command);
+        service.refund(command);
 
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PARTIAL_REFUNDED);
 
@@ -150,9 +150,9 @@ class ProcessRefundServiceTest {
         when(refundRepository.save(any(Refund.class))).thenAnswer(inv -> inv.getArgument(0));
         when(paymentGateway.refund(anyString(), any(), anyInt())).thenReturn(new RefundResult(OffsetDateTime.now()));
 
-        ProcessRefundCommand command = new ProcessRefundCommand(
+        RefundCommand command = new RefundCommand(
             payment.getOrderId(), UUID.randomUUID(), 4_000, OffsetDateTime.now());
-        service.process(command);
+        service.refund(command);
 
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.ALL_REFUNDED);
     }
@@ -168,9 +168,9 @@ class ProcessRefundServiceTest {
         when(paymentGateway.refund(anyString(), any(), anyInt()))
             .thenThrow(new PaymentGatewayException(PaymentErrorCode.PG_INVALID_REQUEST, "CANCEL_FAILED", "환불 실패", null, null));
 
-        ProcessRefundCommand command = new ProcessRefundCommand(
+        RefundCommand command = new RefundCommand(
             payment.getOrderId(), UUID.randomUUID(), 4_000, OffsetDateTime.now());
-        service.process(command);
+        service.refund(command);
 
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
 

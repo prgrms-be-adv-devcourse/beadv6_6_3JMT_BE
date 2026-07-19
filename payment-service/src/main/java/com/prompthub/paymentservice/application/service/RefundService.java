@@ -1,12 +1,12 @@
 package com.prompthub.paymentservice.application.service;
 
 import com.prompthub.exception.BusinessException;
-import com.prompthub.paymentservice.application.dto.command.ProcessRefundCommand;
+import com.prompthub.paymentservice.application.dto.command.RefundCommand;
 import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
 import com.prompthub.paymentservice.application.gateway.external.RefundResult;
-import com.prompthub.paymentservice.application.usecase.ProcessRefundUseCase;
+import com.prompthub.paymentservice.application.usecase.RefundUseCase;
 import com.prompthub.paymentservice.domain.event.PaymentRefundFailedEvent;
 import com.prompthub.paymentservice.domain.event.PaymentRefundedEvent;
 import com.prompthub.paymentservice.domain.model.Payment;
@@ -26,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class ProcessRefundService implements ProcessRefundUseCase {
+public class RefundService implements RefundUseCase {
 
     private static final List<PaymentStatus> REFUNDABLE_STATUSES =
         List.of(PaymentStatus.PAID, PaymentStatus.PARTIAL_REFUNDED);
@@ -37,7 +37,7 @@ public class ProcessRefundService implements ProcessRefundUseCase {
     private final ApplicationEventPublisher applicationEventPublisher;
 
     @Override
-    public void process(ProcessRefundCommand command) {
+    public void refund(RefundCommand command) {
         if (refundRepository.existsByRefundRequestId(command.refundRequestId())) {
             log.info("이미 처리된 환불 요청 — 중복 이벤트로 판단하고 종료. refundRequestId={}", command.refundRequestId());
             return;
@@ -49,12 +49,12 @@ public class ProcessRefundService implements ProcessRefundUseCase {
 
         Refund refund = Refund.create(payment.getId(), command.refundRequestId(), command.refundAmount(), null);
 
-        int alreadyRefunded = refundRepository
+        int totalRefundedAmount = refundRepository
             .findByPaymentIdAndStatus(payment.getId(), RefundStatus.COMPLETED)
             .stream()
             .mapToInt(Refund::getRefundAmount)
             .sum();
-        int remaining = payment.getTotalAmount() - alreadyRefunded;
+        int remaining = payment.getTotalAmount() - totalRefundedAmount;
 
         if (command.refundAmount() > remaining) {
             log.warn("환불 가능 잔액 초과 — paymentId={}, remaining={}, requested={}",
