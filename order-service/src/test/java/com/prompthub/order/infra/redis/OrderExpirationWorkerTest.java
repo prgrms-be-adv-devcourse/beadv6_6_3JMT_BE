@@ -1,7 +1,7 @@
 package com.prompthub.order.infra.redis;
 
-import com.prompthub.order.application.service.order.OrderExpirationService;
 import com.prompthub.order.application.service.order.OrderExpirationStore;
+import com.prompthub.order.application.service.order.OrderFailureCompensationService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +20,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class OrderExpirationWorkerTest {
@@ -32,7 +33,7 @@ class OrderExpirationWorkerTest {
 	private OrderExpirationStore orderExpirationStore;
 
 	@Mock
-	private OrderExpirationService orderExpirationService;
+	private OrderFailureCompensationService compensationService;
 
 	@Test
 	@DisplayName("만료 대상 주문 처리 완료 시 Redis 대상과 재시도 카운트를 제거한다")
@@ -40,7 +41,7 @@ class OrderExpirationWorkerTest {
 		OrderExpirationWorker worker = worker();
 		given(orderExpirationStore.findExpiredOrderIds(NOW, 100))
 			.willReturn(Set.of(ORDER_ID));
-		given(orderExpirationService.cancelPendingOrderByTimeout(ORDER_ID, NOW_LOCAL))
+		given(compensationService.compensateTimeout(ORDER_ID, NOW_LOCAL))
 			.willReturn(true);
 
 		worker.processExpiredOrders();
@@ -55,7 +56,7 @@ class OrderExpirationWorkerTest {
 		OrderExpirationWorker worker = worker();
 		given(orderExpirationStore.findExpiredOrderIds(NOW, 100))
 			.willReturn(Set.of(ORDER_ID));
-		given(orderExpirationService.cancelPendingOrderByTimeout(ORDER_ID, NOW_LOCAL))
+		given(compensationService.compensateTimeout(ORDER_ID, NOW_LOCAL))
 			.willReturn(false);
 
 		worker.processExpiredOrders();
@@ -71,14 +72,17 @@ class OrderExpirationWorkerTest {
 		given(orderExpirationStore.findExpiredOrderIds(NOW, 100))
 			.willReturn(Set.of(ORDER_ID));
 		willThrow(new RuntimeException("DB unavailable"))
-			.given(orderExpirationService).cancelPendingOrderByTimeout(ORDER_ID, NOW_LOCAL);
+			.given(compensationService).compensateTimeout(ORDER_ID, NOW_LOCAL);
 		given(orderExpirationStore.incrementRetryCount(ORDER_ID))
 			.willReturn(3L);
 
 		worker.processExpiredOrders();
 
+		then(compensationService).should(times(1)).compensateTimeout(ORDER_ID, NOW_LOCAL);
+		then(orderExpirationStore).should(times(1)).incrementRetryCount(ORDER_ID);
 		then(orderExpirationStore).should(never()).moveToDeadLetter(ORDER_ID);
 		then(orderExpirationStore).should(never()).removeExpiration(ORDER_ID);
+		then(orderExpirationStore).should(never()).clearRetryCount(ORDER_ID);
 	}
 
 	@Test
@@ -88,7 +92,7 @@ class OrderExpirationWorkerTest {
 		given(orderExpirationStore.findExpiredOrderIds(NOW, 100))
 			.willReturn(Set.of(ORDER_ID));
 		willThrow(new RuntimeException("DB unavailable"))
-			.given(orderExpirationService).cancelPendingOrderByTimeout(ORDER_ID, NOW_LOCAL);
+			.given(compensationService).compensateTimeout(ORDER_ID, NOW_LOCAL);
 		given(orderExpirationStore.incrementRetryCount(ORDER_ID))
 			.willReturn(4L);
 
@@ -102,7 +106,7 @@ class OrderExpirationWorkerTest {
 	private OrderExpirationWorker worker() {
 		return new OrderExpirationWorker(
 			orderExpirationStore,
-			orderExpirationService,
+			compensationService,
 			new OrderExpirationProperties(true, 20, 5_000L, 100, 3),
 			CLOCK
 		);

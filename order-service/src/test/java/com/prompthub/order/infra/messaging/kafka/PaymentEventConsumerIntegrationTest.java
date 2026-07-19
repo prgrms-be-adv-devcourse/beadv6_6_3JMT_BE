@@ -24,6 +24,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -46,6 +47,8 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 
 	private static final String PAYMENT_EVENTS_TOPIC = "payment-events";
 	private static final String PAYMENT_EVENTS_DLT_TOPIC = "payment-events.DLT";
+	private static final String ORDER_SERVICE_CONSUMER_GROUP = "order-service";
+	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@Autowired
 	private KafkaTemplate<String, Object> kafkaTemplate;
@@ -155,12 +158,17 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("PaymentEventConsumer는 payment-events만 구독하고 기존 payment.approved/payment.refunded는 구독하지 않는다")
-	void kafkaListener_shouldSubscribeOnlyPaymentEventsTopic() {
+	@DisplayName("PaymentEventConsumer는 order-service 그룹으로 payment-events만 구독하고 기존 payment.approved/payment.refunded는 구독하지 않는다")
+	void kafkaListener_shouldUseOrderServiceGroupAndSubscribeOnlyPaymentEventsTopic() {
 		assertThat(kafkaListenerEndpointRegistry.getListenerContainers())
 			.flatExtracting(container -> Arrays.asList(container.getContainerProperties().getTopics()))
 			.contains(PAYMENT_EVENTS_TOPIC)
 			.doesNotContain("payment.approved", "payment.refunded");
+		assertThat(kafkaListenerEndpointRegistry.getListenerContainers())
+			.filteredOn(container -> Arrays.asList(container.getContainerProperties().getTopics())
+				.contains(PAYMENT_EVENTS_TOPIC))
+			.extracting(container -> container.getContainerProperties().getGroupId())
+			.containsExactly(ORDER_SERVICE_CONSUMER_GROUP);
 	}
 
 	@Test
@@ -191,6 +199,7 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	@Test
 	@DisplayName("PAYMENT_FAILED는 정상 소비하고 DLT로 보내지 않는다")
 	void consumePaymentFailed_thenAckWithoutDlt() throws Exception {
+		UUID eventId = UUID.randomUUID();
 		UUID paymentId = UUID.randomUUID();
 		UUID orderId = UUID.randomUUID();
 		UUID userId = UUID.randomUUID();
@@ -201,16 +210,68 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 				.send(
 					PAYMENT_EVENTS_TOPIC,
 					paymentId.toString(),
-					paymentFailedEvent(paymentId, orderId, userId)
+					paymentFailedEvent(eventId, paymentId, orderId, userId)
 				)
 				.get(5, TimeUnit.SECONDS);
 
+			ArgumentCaptor<EventMessage<JsonNode>> captor = eventMessageCaptor();
 			await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
-				verify(paymentFailedEventHandler).handle(any(EventMessage.class));
+				verify(paymentFailedEventHandler).handle(captor.capture());
 				verify(paymentApprovedEventHandler, never()).handle(any(EventMessage.class));
 				verify(paymentRefundedEventHandler, never()).handle(any(EventMessage.class));
 			});
+			EventMessage<JsonNode> capturedMessage = captor.getValue();
+			assertThat(capturedMessage.eventId()).isEqualTo(eventId);
+			assertThat(capturedMessage.eventType()).isEqualTo("PAYMENT_FAILED");
+			assertThat(capturedMessage.aggregateId()).isEqualTo(paymentId);
+			assertThat(capturedMessage.payload().path("paymentId").asText())
+				.isEqualTo(paymentId.toString());
+			assertThat(capturedMessage.payload().path("orderId").asText())
+				.isEqualTo(orderId.toString());
+			assertThat(capturedMessage.payload().path("userId").asText())
+				.isEqualTo(userId.toString());
 			assertThat(dltConsumer.poll(Duration.ofSeconds(2)).isEmpty()).isTrue();
+		}
+	}
+
+	@Test
+	@DisplayName("결제 실패 핸들러 예외는 3회 재시도 후 원본 key와 payload로 DLT에 이동한다")
+	void consumePaymentFailed_whenHandlerFails_thenRetryAndSendToDlt() throws Exception {
+		UUID eventId = UUID.randomUUID();
+		UUID paymentId = UUID.randomUUID();
+		UUID orderId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		String rawPaymentFailedEvent = paymentFailedEvent(eventId, paymentId, orderId, userId);
+		willThrow(new OrderException(ErrorCode.INVALID_INPUT_VALUE))
+			.given(paymentFailedEventHandler)
+			.handle(any(EventMessage.class));
+
+		try (Consumer<String, String> dltConsumer = stringConsumer()) {
+			embeddedKafkaBroker.consumeFromAnEmbeddedTopic(dltConsumer, true, PAYMENT_EVENTS_DLT_TOPIC);
+			rawStringKafkaTemplate()
+				.send(
+					PAYMENT_EVENTS_TOPIC,
+					paymentId.toString(),
+					rawPaymentFailedEvent
+				)
+				.get(5, TimeUnit.SECONDS);
+
+			ConsumerRecord<String, String> dltRecord = KafkaTestUtils.getSingleRecord(
+				dltConsumer,
+				PAYMENT_EVENTS_DLT_TOPIC,
+				Duration.ofSeconds(15)
+			);
+
+			verify(paymentFailedEventHandler, times(4)).handle(any(EventMessage.class));
+			assertThat(dltRecord.partition()).isZero();
+			assertThat(dltRecord.key()).isEqualTo(paymentId.toString());
+			assertThat(objectMapper.readValue(dltRecord.value(), String.class))
+				.isEqualTo(rawPaymentFailedEvent);
+			assertThat(dltRecord.value()).contains(
+				"PAYMENT_FAILED",
+				eventId.toString(),
+				orderId.toString()
+			);
 		}
 	}
 
@@ -367,7 +428,7 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 		);
 	}
 
-	private String paymentFailedEvent(UUID paymentId, UUID orderId, UUID userId) {
+	private String paymentFailedEvent(UUID eventId, UUID paymentId, UUID orderId, UUID userId) {
 		return """
 			{
 			  "eventId": "%s",
@@ -382,7 +443,7 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 			  }
 			}
 			""".formatted(
-			UUID.randomUUID(),
+			eventId,
 			paymentId,
 			paymentId,
 			orderId,

@@ -86,7 +86,7 @@ class OrderCreationResilienceIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("조회용 Product 호출 실패 후 주문용 호출이 정상화되면 Cart를 유지하며 주문을 생성한다")
+	@DisplayName("조회용 Product 호출 실패 후 주문용 호출이 정상화되면 주문 상품을 Cart에서 제거한다")
 	void queryFailureDoesNotPreventSubsequentOrderCreation() {
 		saveCart();
 		given(productClient.getCartSnapshots(anyList()))
@@ -103,7 +103,7 @@ class OrderCreationResilienceIntegrationTest {
 
 		assertThat(orderPersistence.count()).isEqualTo(1);
 		assertThat(outboxEventPersistence.count()).isZero();
-		assertCartUnchanged();
+		assertCartEmpty();
 	}
 
 	private void assertOrderCreationFailureKeepsData(BusinessException productFailure) {
@@ -129,6 +129,11 @@ class OrderCreationResilienceIntegrationTest {
 			.hasValueSatisfying(savedCart -> assertThat(savedCart.getCartProducts())
 				.extracting(product -> product.getProductId())
 				.containsExactly(PRODUCT_ID));
+	}
+
+	private void assertCartEmpty() {
+		assertThat(cartPersistence.findByBuyerIdWithCartProducts(BUYER_ID))
+			.hasValueSatisfying(savedCart -> assertThat(savedCart.getCartProducts()).isEmpty());
 	}
 
 	private CreateOrderCommand command() {

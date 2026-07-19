@@ -5,8 +5,10 @@ import com.prompthub.order.application.dto.OrderItem;
 import com.prompthub.order.application.event.order.OrderCreatedEvent;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
+import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
@@ -15,17 +17,22 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderV2Fixture.AMOUNT_A1;
 import static com.prompthub.order.fixture.OrderV2Fixture.AMOUNT_A2;
 import static com.prompthub.order.fixture.OrderV2Fixture.BUYER_ID;
 import static com.prompthub.order.fixture.OrderV2Fixture.CREATED_AT;
+import static com.prompthub.order.fixture.OrderV2Fixture.ORDER_A;
 import static com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_A1;
 import static com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_A2;
 import static com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_B1;
@@ -44,13 +51,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class OrderCreatorTest {
 
+	private static final UUID UNRELATED_PRODUCT =
+		UUID.fromString("00000000-0000-0000-0000-000000000205");
+
 	@Mock
 	private OrderRepository orderRepository;
+
+	@Mock
+	private CartRepository cartRepository;
 
 	@Mock
 	private OrderNumberGenerator orderNumberGenerator;
@@ -107,6 +121,44 @@ class OrderCreatorTest {
 			.containsExactly(SELLER_A, SELLER_B, SELLER_A, SELLER_C);
 		then(orderNumberGenerator).should(times(1)).generate();
 		then(orderRepository).should(times(1)).save(any(Order.class));
+	}
+
+	@Test
+	@DisplayName("주문 생성 시 주문 상품만 장바구니에서 제거하고 무관한 상품은 유지한다")
+	void removesOrderedProductsFromExistingCart() {
+		stubSuccessfulCreation();
+		given(orderNumberGenerator.generate()).willReturn("ORD-A");
+		Cart cart = Cart.create(BUYER_ID);
+		cart.addProduct(PRODUCT_A1);
+		cart.addProduct(PRODUCT_B1);
+		cart.addProduct(UNRELATED_PRODUCT);
+		given(cartRepository.findByBuyerIdForUpdateWithCartProducts(BUYER_ID))
+			.willReturn(Optional.of(cart));
+
+		orderCreator.create(BUYER_ID, orderItems());
+
+		assertThat(cart.getCartProducts())
+			.extracting(product -> product.getProductId())
+			.containsExactly(UNRELATED_PRODUCT);
+
+		InOrder lockOrder = inOrder(orderRepository, cartRepository);
+		lockOrder.verify(orderRepository).save(any(Order.class));
+		lockOrder.verify(cartRepository).findByBuyerIdForUpdateWithCartProducts(BUYER_ID);
+		lockOrder.verify(cartRepository).save(cart);
+	}
+
+	@Test
+	@DisplayName("주문 생성 시 장바구니가 없으면 장바구니 저장을 시도하지 않는다")
+	void doesNotSaveCartWhenBuyerHasNoCart() {
+		stubSuccessfulCreation();
+		given(orderNumberGenerator.generate()).willReturn("ORD-A");
+		given(cartRepository.findByBuyerIdForUpdateWithCartProducts(BUYER_ID))
+			.willReturn(Optional.empty());
+
+		orderCreator.create(BUYER_ID, orderItems());
+
+		then(cartRepository).should().findByBuyerIdForUpdateWithCartProducts(BUYER_ID);
+		then(cartRepository).shouldHaveNoMoreInteractions();
 	}
 
 	@Test
@@ -170,6 +222,7 @@ class OrderCreatorTest {
 
 		then(orderNumberGenerator).shouldHaveNoInteractions();
 		then(orderRepository).shouldHaveNoInteractions();
+		then(cartRepository).shouldHaveNoInteractions();
 		then(applicationEventPublisher).shouldHaveNoInteractions();
 	}
 
@@ -186,6 +239,7 @@ class OrderCreatorTest {
 
 		then(orderNumberGenerator).shouldHaveNoInteractions();
 		then(orderRepository).shouldHaveNoInteractions();
+		then(cartRepository).shouldHaveNoInteractions();
 		then(applicationEventPublisher).shouldHaveNoInteractions();
 	}
 }

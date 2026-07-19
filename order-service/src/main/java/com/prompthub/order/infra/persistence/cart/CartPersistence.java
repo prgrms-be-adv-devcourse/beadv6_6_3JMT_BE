@@ -2,7 +2,9 @@ package com.prompthub.order.infra.persistence.cart;
 
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.CartProduct;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -20,6 +22,10 @@ public interface CartPersistence extends JpaRepository<Cart, UUID> {
     Optional<Cart> findByBuyerIdWithCartProducts(
             @Param("buyerId") UUID buyerId
     );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from Cart c where c.buyerId = :buyerId")
+    Optional<Cart> findByBuyerIdForUpdate(@Param("buyerId") UUID buyerId);
 
     @Query("""
         select cp

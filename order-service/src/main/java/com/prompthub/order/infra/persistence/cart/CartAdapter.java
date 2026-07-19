@@ -21,6 +21,12 @@ public class CartAdapter implements CartRepository {
 	}
 
 	@Override
+	public Optional<Cart> findByBuyerIdForUpdateWithCartProducts(UUID buyerId) {
+		return cartPersistence.findByBuyerIdForUpdate(buyerId)
+			.flatMap(ignored -> cartPersistence.findByBuyerIdWithCartProducts(buyerId));
+	}
+
+	@Override
 	public Optional<CartProduct> findCartProductWithCart(UUID cartProductId) {
 		return cartPersistence.findCartProductWithCart(cartProductId);
 	}

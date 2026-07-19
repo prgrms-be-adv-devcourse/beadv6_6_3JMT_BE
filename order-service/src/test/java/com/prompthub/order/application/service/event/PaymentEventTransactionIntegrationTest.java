@@ -187,11 +187,11 @@ class PaymentEventTransactionIntegrationTest {
 
 		assertThat(outboxEventPersistence.count()).isEqualTo(1);
 		assertThat(processedEventRepository.count()).isEqualTo(1);
-		then(orderExpirationStore).should(times(1)).removeExpiration(ORDER_A);
+		then(orderExpirationStore).should(times(2)).removeExpiration(ORDER_A);
 	}
 
 	@Test
-	void differentLateApproval_marksProcessedButPreservesReaddedCartProduct() {
+	void differentLateApproval_marksProcessedCleansExpirationAndPreservesReaddedCartProduct() {
 		Order order = saveScenario();
 		PaymentApprovedPayload payload = approvedPayload(order);
 		approvedProcessor.process(UUID.randomUUID(), "PAYMENT_APPROVED", APPROVED_AT, payload);
@@ -205,7 +205,8 @@ class PaymentEventTransactionIntegrationTest {
 		assertThat(cartProductIds()).containsExactly(PRODUCT_A, UNRELATED_PRODUCT);
 		assertThat(outboxEventPersistence.count()).isEqualTo(1);
 		assertThat(processedEventRepository.count()).isEqualTo(2);
-		then(orderExpirationStore).should(times(1)).removeExpiration(ORDER_A);
+		then(orderExpirationStore).should(times(2)).removeExpiration(ORDER_A);
+		then(orderExpirationStore).should(times(2)).clearRetryCount(ORDER_A);
 	}
 
 	@Test
@@ -369,7 +370,7 @@ class PaymentEventTransactionIntegrationTest {
 	}
 
 	@Test
-	void failedEvent_commitsFailedStatesAndKeepsCartOutboxAndRedisUnchanged() {
+	void failedEvent_commitsFailedStatesRestoresCartAndCleansExpiration() {
 		saveScenario();
 
 		failedProcessor.process(UUID.randomUUID(), "PAYMENT_FAILED", FAILED_AT, failedPayload());
@@ -382,7 +383,8 @@ class PaymentEventTransactionIntegrationTest {
 		assertThat(cartProductIds()).containsExactlyElementsOf(allCartProductIds());
 		assertThat(outboxEventPersistence.count()).isZero();
 		assertThat(processedEventRepository.count()).isEqualTo(1);
-		then(orderExpirationStore).shouldHaveNoInteractions();
+		then(orderExpirationStore).should().removeExpiration(ORDER_A);
+		then(orderExpirationStore).should().clearRetryCount(ORDER_A);
 	}
 
 	@Test
@@ -395,7 +397,8 @@ class PaymentEventTransactionIntegrationTest {
 		assertThat(reloadOrder().getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
 		assertThat(outboxEventPersistence.count()).isEqualTo(1);
 		assertThat(processedEventRepository.count()).isEqualTo(2);
-		then(orderExpirationStore).should(times(1)).removeExpiration(ORDER_A);
+		then(orderExpirationStore).should(times(2)).removeExpiration(ORDER_A);
+		then(orderExpirationStore).should(times(2)).clearRetryCount(ORDER_A);
 	}
 
 	@Test
