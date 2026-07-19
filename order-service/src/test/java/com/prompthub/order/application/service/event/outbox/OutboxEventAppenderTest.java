@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.lang.reflect.Method;
@@ -36,21 +37,21 @@ class OutboxEventAppenderTest {
 	}
 
 	@Test
-	@DisplayName("EventMessage를 직렬화하여 OutboxEvent로 저장한다")
+	@DisplayName("ORDER_PAID EventMessage 전체를 JSON으로 직렬화해 Outbox에 저장한다")
 	void append_savesSerializedOutboxEvent() throws Exception {
 		OutboxEventAppender appender = new OutboxEventAppender(objectMapper, outboxEventRepository);
-		
+
 		UUID eventId = UUID.randomUUID();
-		UUID aggregateId = UUID.randomUUID();
+		UUID orderId = UUID.randomUUID();
 		LocalDateTime occurredAt = LocalDateTime.now();
-		
+
 		EventMessage<DummyPayload> message = new EventMessage<>(
 			eventId,
 			"ORDER_PAID",
 			occurredAt,
 			"ORDER",
-			aggregateId,
-			new DummyPayload("test")
+			orderId,
+			new DummyPayload(orderId)
 		);
 
 		appender.append(message);
@@ -59,16 +60,22 @@ class OutboxEventAppenderTest {
 		then(outboxEventRepository).should().save(captor.capture());
 
 		OutboxEvent saved = captor.getValue();
-		assertThat(saved.getOrderId()).isEqualTo(aggregateId);
+		assertThat(saved.getEventId()).isEqualTo(eventId);
+		assertThat(saved.getAggregateId()).isEqualTo(orderId);
 		assertThat(saved.getEventType()).isEqualTo("ORDER_PAID");
 		assertThat(saved.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
 		assertThat(saved.getRetryCount()).isZero();
 		assertThat(saved.getOccurredAt()).isEqualTo(occurredAt);
 		assertThat(saved.getPublishedAt()).isNull();
 
-		// 검증 로직 추가 가능
-		assertThat(saved.getPayload()).contains("test");
+		JsonNode json = objectMapper.readTree(saved.getPayload());
+		assertThat(json.path("eventId").asText()).isEqualTo(eventId.toString());
+		assertThat(json.path("aggregateId").asText()).isEqualTo(orderId.toString());
+		assertThat(json.path("eventType").asText()).isEqualTo("ORDER_PAID");
+		assertThat(json.path("aggregateType").asText()).isEqualTo("ORDER");
+		assertThat(json.path("payload").path("orderId").asText()).isEqualTo(orderId.toString());
 	}
 
-	private record DummyPayload(String data) {}
+	private record DummyPayload(UUID orderId) {
+	}
 }

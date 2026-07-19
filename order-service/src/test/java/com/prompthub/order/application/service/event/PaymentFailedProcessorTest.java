@@ -1,167 +1,139 @@
 package com.prompthub.order.application.service.event;
 
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
+import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.OrderRepository;
-import com.prompthub.order.fixture.OrderFixture;
+import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Spy;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.prompthub.order.fixture.PaymentEventFixture.FAILED_AT;
+import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
+import static com.prompthub.order.fixture.PaymentEventFixture.OTHER_BUYER_ID;
+import static com.prompthub.order.fixture.PaymentEventFixture.PAYMENT_ID;
+import static com.prompthub.order.fixture.PaymentEventFixture.createdOrder;
+import static com.prompthub.order.fixture.PaymentEventFixture.failedPayload;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
+@ExtendWith(MockitoExtension.class)
 class PaymentFailedProcessorTest {
 
-    private ProcessedEventService processedEventService;
-    private OrderRepository orderRepository;
-    private PaymentFailedProcessor paymentFailedProcessor;
+	@Mock
+	private ProcessedEventService processedEventService;
 
-    @BeforeEach
-    void setUp() {
-        processedEventService = mock(ProcessedEventService.class);
-        orderRepository = mock(OrderRepository.class);
-        paymentFailedProcessor = new PaymentFailedProcessor(processedEventService, orderRepository);
-    }
+	@Mock
+	private OrderRepository orderRepository;
 
-    @Test
-    void process_pendingOrder_shouldTransitionToFailed() {
-        // given
-        UUID eventId = UUID.randomUUID();
-        UUID orderId = OrderFixture.ORDER_ID;
-        PaymentFailedPayload payload = new PaymentFailedPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, "Failed PG confirm", LocalDateTime.now());
+	@Spy
+	private PaymentEventValidator validator = new PaymentEventValidator();
 
-        Order order = OrderFixture.createPendingOrderWithProducts();
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
-        when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
+	@InjectMocks
+	private PaymentFailedProcessor processor;
 
-        // when
-        paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload);
+	@Test
+	void process_createdOrder_marksOrderAndFourProductsFailed() {
+		Order order = createdOrder();
+		UUID eventId = UUID.randomUUID();
+		stubTarget(eventId, order);
 
-        // then
-        assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.FAILED);
-        verify(processedEventService).markProcessed(eq(eventId), eq("order-service"), eq("PAYMENT_FAILED"), any());
-    }
+		processor.process(eventId, "PAYMENT_FAILED", FAILED_AT, failedPayload());
 
-    @Test
-    void process_alreadyFailedOrder_shouldIdempotentlySucceedWithoutException() {
-        // given
-        UUID eventId = UUID.randomUUID();
-        UUID orderId = OrderFixture.ORDER_ID;
-        PaymentFailedPayload payload = new PaymentFailedPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, "Failed PG confirm", LocalDateTime.now());
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.FAILED);
+		assertThat(order.getOrderProducts())
+			.extracting(OrderProduct::getOrderStatus)
+			.containsOnly(OrderProductStatus.FAILED);
+		then(processedEventService).should()
+			.markProcessed(eventId, "order-service", "PAYMENT_FAILED", FAILED_AT);
+	}
 
-        Order order = OrderFixture.createPendingOrderWithProducts();
-        order.markFailed(); // status FAILED
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
-        when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
+	@ParameterizedTest
+	@EnumSource(value = OrderStatus.class, names = {"FAILED", "COMPLETED", "PARTIAL_REFUNDED", "ALL_REFUNDED"})
+	void process_lateFailure_isNoOpExceptProcessedEvent(OrderStatus status) {
+		Order order = createdOrder();
+		order.updateOrderStatus(status);
+		UUID eventId = UUID.randomUUID();
+		stubTarget(eventId, order);
 
-        // when
-        paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload);
+		processor.process(eventId, "PAYMENT_FAILED", FAILED_AT, failedPayload());
 
-        // then
-        assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.FAILED);
-        verify(processedEventService).markProcessed(eq(eventId), eq("order-service"), eq("PAYMENT_FAILED"), any());
-    }
+		assertThat(order.getOrderStatus()).isEqualTo(status);
+		then(processedEventService).should()
+			.markProcessed(eventId, "order-service", "PAYMENT_FAILED", FAILED_AT);
+	}
 
-    @Test
-    void process_alreadyPaidOrder_shouldReturnGracefully() {
-        // given
-        UUID eventId = UUID.randomUUID();
-        UUID orderId = OrderFixture.ORDER_ID;
-        PaymentFailedPayload payload = new PaymentFailedPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, "Failed PG confirm", LocalDateTime.now());
+	@Test
+	void process_buyerMismatch_rejectsWithoutMutationOrProcessedEvent() {
+		Order order = createdOrder();
+		UUID eventId = UUID.randomUUID();
+		stubTarget(eventId, order);
+		PaymentFailedPayload payload = new PaymentFailedPayload(PAYMENT_ID, ORDER_A, OTHER_BUYER_ID);
 
-        Order order = OrderFixture.createPaidOrderWithProducts(); // status PAID
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
-        when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
+		assertThatThrownBy(() -> processor.process(eventId, "PAYMENT_FAILED", FAILED_AT, payload))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_ACCESS_DENIED);
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
+		assertThat(order.getOrderProducts())
+			.extracting(OrderProduct::getOrderStatus)
+			.containsOnly(OrderProductStatus.PENDING);
+		then(processedEventService).should(never()).markProcessed(any(), any(), any(), any());
+	}
 
-        // when
-        paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload);
+	@Test
+	void process_missingOrder_throwsBeforeStateChange() {
+		UUID eventId = UUID.randomUUID();
+		given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
+		given(orderRepository.findByIdWithOrderProductsForUpdate(ORDER_A)).willReturn(Optional.empty());
 
-        // then
-        verify(processedEventService).markProcessed(eq(eventId), eq("order-service"), eq("PAYMENT_FAILED"), any());
-    }
+		assertThatThrownBy(() -> processor.process(eventId, "PAYMENT_FAILED", FAILED_AT, failedPayload()))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_NOT_FOUND);
+		then(processedEventService).should(never()).markProcessed(any(), any(), any(), any());
+	}
 
-    @Test
-    void process_alreadyCanceledOrder_shouldReturnGracefully() {
-        // given
-        UUID eventId = UUID.randomUUID();
-        UUID orderId = OrderFixture.ORDER_ID;
-        PaymentFailedPayload payload = new PaymentFailedPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, "Failed PG confirm", LocalDateTime.now());
+	@Test
+	void process_sameEventId_returnsBeforeLocking() {
+		UUID eventId = UUID.randomUUID();
+		given(processedEventService.isProcessed(eventId, "order-service")).willReturn(true);
 
-        Order order = OrderFixture.createPendingOrderWithProducts();
-        order.markCanceled(); // status CANCELED
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
-        when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
+		processor.process(eventId, "PAYMENT_FAILED", FAILED_AT, failedPayload());
 
-        // when
-        paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload);
+		then(orderRepository).shouldHaveNoInteractions();
+		then(processedEventService).should(never()).markProcessed(any(), any(), any(), any());
+	}
 
-        // then
-        verify(processedEventService).markProcessed(eq(eventId), eq("order-service"), eq("PAYMENT_FAILED"), any());
-    }
+	@Test
+	void process_eventCompletedWhileWaitingForLock_returnsWithoutStateChange() {
+		Order order = createdOrder();
+		UUID eventId = UUID.randomUUID();
+		given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false, true);
+		given(orderRepository.findByIdWithOrderProductsForUpdate(ORDER_A)).willReturn(Optional.of(order));
 
-    @Test
-    void process_alreadyRefundedOrder_shouldReturnGracefully() {
-        // given
-        UUID eventId = UUID.randomUUID();
-        UUID orderId = OrderFixture.ORDER_ID;
-        PaymentFailedPayload payload = new PaymentFailedPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, "Failed PG confirm", LocalDateTime.now());
+		processor.process(eventId, "PAYMENT_FAILED", FAILED_AT, failedPayload());
 
-        Order order = OrderFixture.createPendingOrderWithProducts();
-        order.markCanceled(); // Hack to transition easily if refunded is complicated, let's use Reflection or direct transition
-        org.springframework.test.util.ReflectionTestUtils.setField(order, "orderStatus", OrderStatus.REFUNDED);
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
+		then(processedEventService).should(never()).markProcessed(any(), any(), any(), any());
+	}
 
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
-        when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.of(order));
-
-        // when
-        paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload);
-
-        // then
-        verify(processedEventService).markProcessed(eq(eventId), eq("order-service"), eq("PAYMENT_FAILED"), any());
-    }
-
-    @Test
-    void process_duplicateEvent_shouldReturnEarly() {
-        // given
-        UUID eventId = UUID.randomUUID();
-        UUID orderId = OrderFixture.ORDER_ID;
-        PaymentFailedPayload payload = new PaymentFailedPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, "Failed PG confirm", LocalDateTime.now());
-
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(true);
-
-        // when
-        paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload);
-
-        // then
-        verifyNoInteractions(orderRepository);
-        verify(processedEventService, never()).markProcessed(any(), any(), any(), any());
-    }
-
-    @Test
-    void process_orderNotFound_shouldThrowException() {
-        // given
-        UUID eventId = UUID.randomUUID();
-        UUID orderId = UUID.randomUUID();
-        PaymentFailedPayload payload = new PaymentFailedPayload(orderId, OrderFixture.PAYMENT_ID, OrderFixture.BUYER_ID, "Failed PG confirm", LocalDateTime.now());
-
-        when(processedEventService.isProcessed(eventId, "order-service")).thenReturn(false);
-        when(orderRepository.findByIdWithOrderProducts(orderId)).thenReturn(Optional.empty());
-
-        // when & then
-        assertThatThrownBy(() -> paymentFailedProcessor.process(eventId, "PAYMENT_FAILED", LocalDateTime.now(), payload))
-                .isInstanceOf(OrderException.class)
-                .hasFieldOrPropertyWithValue("errorCode", com.prompthub.order.global.exception.ErrorCode.ORDER_NOT_FOUND);
-
-        verify(processedEventService, never()).markProcessed(any(), any(), any(), any());
-    }
+	private void stubTarget(UUID eventId, Order order) {
+		given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
+		given(orderRepository.findByIdWithOrderProductsForUpdate(ORDER_A)).willReturn(Optional.of(order));
+	}
 }

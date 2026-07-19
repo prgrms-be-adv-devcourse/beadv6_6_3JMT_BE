@@ -3,13 +3,10 @@ package com.prompthub.order.application.service.order;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.OrderForPaymentResult;
 import com.prompthub.order.application.dto.OrderListProjection;
-import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.usecase.OrderQueryUseCase;
-import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
-import com.prompthub.order.domain.repository.OrderPaymentRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
@@ -18,7 +15,6 @@ import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
-import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -38,7 +34,6 @@ public class OrderQueryService implements OrderQueryUseCase {
 
 	private final OrderExpirationPolicy expirationPolicy;
 	private final OrderRepository orderRepository;
-	private final OrderPaymentRepository orderPaymentRepository;
 	private final ProductClient productClient;
 	private final OrderPolicyService orderPolicyService;
 
@@ -96,16 +91,12 @@ public class OrderQueryService implements OrderQueryUseCase {
 			throw new OrderException(ErrorCode.FORBIDDEN);
 		}
 
-		if (!order.isPaid()) {
-			throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
-		}
-
 		OrderProduct orderProduct = order.getOrderProducts().stream()
 			.filter(product -> product.getId().equals(orderProductId))
 			.findFirst()
 			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED));
 
-		if (!orderProduct.isPaid()) {
+		if (!order.canAccessContent(orderProduct)) {
 			throw new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
 		}
 
@@ -179,19 +170,6 @@ public class OrderQueryService implements OrderQueryUseCase {
 		return orders.map(this::toOrderListResponse);
 	}
 
-	@Override
-	public Page<OrderPaymentListResponse> getOrderPayments(UUID buyerId, PageRequestParams request) {
-		PageRequest pageable = PageRequest.of(
-			request.page() - 1,
-			request.size(),
-			Sort.by(Sort.Order.desc("approvedAt"))
-		);
-
-		Page<OrderPaymentListProjection> orderPayments = orderPaymentRepository.searchOrderPayments(buyerId, pageable);
-
-		return orderPayments.map(this::toOrderPaymentListResponse);
-	}
-
 	private OrderListResponse toOrderListResponse(OrderListProjection projection) {
 		return new OrderListResponse(
 			projection.orderId(),
@@ -225,19 +203,6 @@ public class OrderQueryService implements OrderQueryUseCase {
 			orderProduct.isPaid(),
 			orderProduct.isRefundable(),
 			orderProduct.isDownloaded()
-		);
-	}
-
-	private OrderPaymentListResponse toOrderPaymentListResponse(OrderPaymentListProjection projection) {
-		return new OrderPaymentListResponse(
-			projection.orderId(),
-			projection.paymentId(),
-			PaymentStatus.from(projection.orderStatus()),
-			projection.isRefundable(),
-			projection.productType(),
-			projection.title(),
-			projection.amount(),
-			projection.paidAt() == null ? projection.approvedAt() : projection.paidAt()
 		);
 	}
 }

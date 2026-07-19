@@ -6,7 +6,6 @@ import java.util.Arrays;
 import java.util.Optional;
 
 public enum OrderEventType implements EventType {
-	ORDER_CREATED,
 	ORDER_PAID,
 	ORDER_REFUND,
 	ORDER_CANCELED,

@@ -14,10 +14,12 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.APPROVED_AT;
+import static com.prompthub.order.fixture.OrderFixture.EVENT_ID;
 import static com.prompthub.order.fixture.OrderFixture.ORDER_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -35,8 +37,10 @@ class OutboxEventPersistenceTest {
 	@Test
 	@DisplayName("OutboxEvent를 outbox_event 테이블에 저장하고 조회한다")
 	void saveAndFindOutboxEvent() {
-		OutboxEvent outboxEvent = OutboxEvent.orderPaid(
+		OutboxEvent outboxEvent = OutboxEvent.create(
+			EVENT_ID,
 			ORDER_ID,
+			"ORDER_PAID",
 			"{\"eventType\":\"ORDER_PAID\"}",
 			APPROVED_AT
 		);
@@ -47,7 +51,7 @@ class OutboxEventPersistenceTest {
 
 		OutboxEvent found = outboxEventPersistence.findById(saved.getEventId()).orElseThrow();
 
-		assertThat(found.getOrderId()).isEqualTo(ORDER_ID);
+		assertThat(found.getAggregateId()).isEqualTo(ORDER_ID);
 		assertThat(found.getEventType()).isEqualTo("ORDER_PAID");
 		assertThat(found.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
 		assertThat(found.getRetryCount()).isZero();
@@ -58,23 +62,23 @@ class OutboxEventPersistenceTest {
 	@Test
 	@DisplayName("PENDING OutboxEvent를 발생 시각 오름차순으로 지정한 개수만큼 조회한다")
 	void findPendingEventsOrderByOccurredAtAsc() {
-		OutboxEvent newestPending = OutboxEvent.orderPaid(
+		OutboxEvent newestPending = createPendingEvent(
 			UUID.randomUUID(),
 			"{\"eventType\":\"ORDER_PAID\",\"order\":\"newest\"}",
 			APPROVED_AT.plusMinutes(2)
 		);
-		OutboxEvent oldestPending = OutboxEvent.orderPaid(
+		OutboxEvent oldestPending = createPendingEvent(
 			UUID.randomUUID(),
 			"{\"eventType\":\"ORDER_PAID\",\"order\":\"oldest\"}",
 			APPROVED_AT
 		);
-		OutboxEvent published = OutboxEvent.orderPaid(
+		OutboxEvent published = createPendingEvent(
 			UUID.randomUUID(),
 			"{\"eventType\":\"ORDER_PAID\",\"order\":\"published\"}",
 			APPROVED_AT.minusMinutes(1)
 		);
 		published.markPublished(APPROVED_AT.plusMinutes(3));
-		OutboxEvent middlePending = OutboxEvent.orderPaid(
+		OutboxEvent middlePending = createPendingEvent(
 			UUID.randomUUID(),
 			"{\"eventType\":\"ORDER_PAID\",\"order\":\"middle\"}",
 			APPROVED_AT.plusMinutes(1)
@@ -90,7 +94,21 @@ class OutboxEventPersistenceTest {
 		);
 
 		assertThat(found)
-			.extracting(OutboxEvent::getOrderId)
-			.containsExactly(oldestPending.getOrderId(), middlePending.getOrderId());
+			.extracting(OutboxEvent::getAggregateId)
+			.containsExactly(oldestPending.getAggregateId(), middlePending.getAggregateId());
+	}
+
+	private OutboxEvent createPendingEvent(
+		UUID aggregateId,
+		String payload,
+		LocalDateTime occurredAt
+	) {
+		return OutboxEvent.create(
+			UUID.randomUUID(),
+			aggregateId,
+			"ORDER_PAID",
+			payload,
+			occurredAt
+		);
 	}
 }

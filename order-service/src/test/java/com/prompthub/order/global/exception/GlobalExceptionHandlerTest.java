@@ -118,6 +118,16 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.code").value("V001"));
     }
 
+    @Test
+    @DisplayName("지원하지 않는 HTTP 메서드는 V002와 HTTP 405를 반환한다")
+    void unsupportedHttpMethodReturnsV002AndMethodNotAllowed() throws Exception {
+        mockMvc.perform(post("/test/business"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("지원하지 않는 HTTP 메서드입니다."))
+                .andExpect(jsonPath("$.code").value("V002"));
+    }
+
     @RestController
     static class TestController {
 

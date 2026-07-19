@@ -3,13 +3,11 @@ package com.prompthub.order.application.service.order;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.OrderForPaymentResult;
 import com.prompthub.order.application.dto.OrderListProjection;
-import com.prompthub.order.application.dto.OrderPaymentListProjection;
 import com.prompthub.order.application.dto.ProductContent;
-import com.prompthub.order.domain.enums.PaymentStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
-import com.prompthub.order.domain.repository.OrderPaymentRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
@@ -17,7 +15,6 @@ import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
-import com.prompthub.order.presentation.dto.response.OrderPaymentListResponse;
 import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -50,9 +47,6 @@ class OrderQueryServiceTest {
 
     @Mock
     private OrderRepository orderRepository;
-
-    @Mock
-    private OrderPaymentRepository orderPaymentRepository;
 
     @Mock
     private ProductClient productClient;
@@ -108,7 +102,7 @@ class OrderQueryServiceTest {
 
         @Test
         @DisplayName("PENDING 상태이고 만료 전이며 금액이 일치하면 결제 가능 응답을 반환한다")
-        void validatePaymentReady_pendingNotExpiredAndAmountMatched_success() {
+		void validatePaymentReady_pendingNotExpiredAndAmountMatched_success() {
             Order order = createPendingOrderWithProducts();
             given(orderRepository.findByIdWithOrderProducts(order.getId()))
                 .willReturn(Optional.of(order));
@@ -126,7 +120,28 @@ class OrderQueryServiceTest {
             assertThat(response.buyerId()).isEqualTo(BUYER_ID);
             assertThat(response.totalAmount()).isEqualTo(TOTAL_AMOUNT);
             assertThat(response.expiresAt()).isEqualTo(CREATED_AT.plusMinutes(20));
-        }
+		}
+
+		@Test
+		@DisplayName("한 주문의 네 주문상품이 서로 다른 판매자여도 단일 주문 총액으로 결제 가능 여부를 검증한다")
+		void validatePaymentReady_fourSellerProducts_usesSingleOrderTotalAmount() {
+			Order order = com.prompthub.order.fixture.PaymentEventFixture.createdOrder();
+			ReflectionTestUtils.setField(order, "createdAt", CREATED_AT);
+			given(orderRepository.findByIdWithOrderProducts(order.getId()))
+				.willReturn(Optional.of(order));
+			given(expirationPolicy.paymentTimeoutMinutes()).willReturn(20);
+
+			OrderPaymentValidationResponse response = orderQueryService.validatePaymentReady(
+				BUYER_ID,
+				order.getId(),
+				order.getTotalOrderAmount(),
+				CREATED_AT.plusMinutes(19)
+			);
+
+			assertThat(order.getOrderProducts()).hasSize(4);
+			assertThat(response.orderId()).isEqualTo(order.getId());
+			assertThat(response.totalAmount()).isEqualTo(order.getTotalOrderAmount());
+		}
 
         @Test
         @DisplayName("PENDING 상태여도 만료 시간이 지났으면 O015 예외가 발생한다")
@@ -203,6 +218,46 @@ class OrderQueryServiceTest {
             then(orderRepository).should().findByIdWithOrderProducts(order.getId());
             then(productClient).should().getProductContent(orderProduct.getProductId());
         }
+
+		@Test
+		@DisplayName("부분 환불 주문의 남은 결제 상품 콘텐츠는 조회할 수 있다")
+		void getOrderContent_partialRefundedRemainingPaidProduct_success() {
+			Order order = createPaidOrderWithProducts();
+			OrderProduct refundedProduct = order.getOrderProducts().getFirst();
+			OrderProduct remainingProduct = order.getOrderProducts().get(1);
+			order.refundOrderProduct(refundedProduct.getId(), refundedProduct.getProductAmount(), REFUNDED_AT);
+			given(orderRepository.findByIdWithOrderProducts(order.getId())).willReturn(Optional.of(order));
+			given(productClient.getProductContent(remainingProduct.getProductId()))
+				.willReturn(new ProductContent(remainingProduct.getProductId(), PRODUCT_CONTENT));
+
+			OrderContentResponse response = orderQueryService.getOrderContent(
+				BUYER_ID,
+				order.getId(),
+				remainingProduct.getId()
+			);
+
+			assertThat(response.orderProductId()).isEqualTo(remainingProduct.getId());
+			assertThat(response.content()).isEqualTo(PRODUCT_CONTENT);
+		}
+
+		@Test
+		@DisplayName("부분 환불 주문의 환불 상품 콘텐츠는 조회할 수 없다")
+		void getOrderContent_partialRefundedRefundedProduct_throwsException() {
+			Order order = createPaidOrderWithProducts();
+			OrderProduct refundedProduct = order.getOrderProducts().getFirst();
+			order.refundOrderProduct(refundedProduct.getId(), refundedProduct.getProductAmount(), REFUNDED_AT);
+			given(orderRepository.findByIdWithOrderProducts(order.getId())).willReturn(Optional.of(order));
+
+			assertThatThrownBy(() -> orderQueryService.getOrderContent(
+				BUYER_ID,
+				order.getId(),
+				refundedProduct.getId()
+			))
+				.isInstanceOf(OrderException.class)
+				.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
+
+			then(productClient).shouldHaveNoInteractions();
+		}
 
         @Test
         @DisplayName("상품 콘텐츠 조회가 SYS002로 실패하면 다운로드 상태를 변경하지 않고 예외를 전파한다")
@@ -333,7 +388,7 @@ class OrderQueryServiceTest {
             // given
             Order order = createPaidOrderWithProducts();
             OrderProduct orderProduct = order.getOrderProducts().getFirst();
-            ReflectionTestUtils.setField(orderProduct, "orderStatus", OrderStatus.REFUNDED);
+            ReflectionTestUtils.setField(orderProduct, "orderStatus", OrderProductStatus.REFUNDED);
 
             given(orderRepository.findByIdWithOrderProducts(order.getId()))
                 .willReturn(Optional.of(order));
@@ -426,13 +481,13 @@ class OrderQueryServiceTest {
 
         @Test
         @DisplayName("결제 완료 주문상품만 콘텐츠 열람 가능하다")
-        void getOrderDetail_contentAccessibleByOrderProductStatus_success() {
+		void getOrderDetail_contentAccessibleByOrderProductStatus_success() {
             // given
             Order order = createPendingOrderWithProducts();
             OrderProduct paidProduct = order.getOrderProducts().getFirst();
             OrderProduct refundedProduct = order.getOrderProducts().get(1);
-            ReflectionTestUtils.setField(paidProduct, "orderStatus", OrderStatus.PAID);
-            ReflectionTestUtils.setField(refundedProduct, "orderStatus", OrderStatus.REFUNDED);
+            ReflectionTestUtils.setField(paidProduct, "orderStatus", OrderProductStatus.PAID);
+            ReflectionTestUtils.setField(refundedProduct, "orderStatus", OrderProductStatus.REFUNDED);
 
             given(orderRepository.findByIdWithOrderProducts(order.getId()))
                 .willReturn(Optional.of(order));
@@ -444,7 +499,38 @@ class OrderQueryServiceTest {
             assertThat(response.products())
                 .extracting(product -> product.isContentAccessible())
                 .containsExactly(true, false);
-        }
+		}
+
+		@Test
+		@DisplayName("한 주문의 주문상품별 판매자와 다운로드·환불 가능 상태를 그대로 반환한다")
+		void getOrderDetail_fourSellerProducts_preservesLineSellerAndEligibility() {
+			Order order = com.prompthub.order.fixture.PaymentEventFixture.createdOrder();
+			order.markPaid(PAID_AT);
+			OrderProduct downloadedProduct = order.getOrderProducts().getFirst();
+			OrderProduct refundedProduct = order.getOrderProducts().get(1);
+			downloadedProduct.markDownloaded();
+			order.refundOrderProduct(refundedProduct.getId(), refundedProduct.getProductAmount(), REFUNDED_AT);
+			given(orderRepository.findByIdWithOrderProducts(order.getId()))
+				.willReturn(Optional.of(order));
+
+			OrderDetailResponse response = orderQueryService.getOrderDetail(BUYER_ID, order.getId());
+
+			assertThat(response.orderId()).isEqualTo(order.getId());
+			assertThat(response.totalAmount()).isEqualTo(order.getTotalOrderAmount());
+			assertThat(response.products()).extracting(product -> product.sellerId())
+				.containsExactly(
+					com.prompthub.order.fixture.PaymentEventFixture.SELLER_A,
+					com.prompthub.order.fixture.PaymentEventFixture.SELLER_B,
+					com.prompthub.order.fixture.PaymentEventFixture.SELLER_A,
+					com.prompthub.order.fixture.PaymentEventFixture.SELLER_C
+				);
+			assertThat(response.products()).extracting(product -> product.orderStatus())
+				.containsExactly(OrderProductStatus.PAID, OrderProductStatus.REFUNDED, OrderProductStatus.PAID, OrderProductStatus.PAID);
+			assertThat(response.products()).extracting(product -> product.downloaded())
+				.containsExactly(true, false, false, false);
+			assertThat(response.products()).extracting(product -> product.isRefundable())
+				.containsExactly(false, false, true, true);
+		}
     }
 
     @Nested
@@ -457,8 +543,8 @@ class OrderQueryServiceTest {
             // given
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderListProjection projection = orderListProjection(
-                OrderStatus.PAID,
-                OrderStatus.PAID,
+				OrderStatus.COMPLETED,
+				OrderProductStatus.PAID,
                 false,
                 4.5
             );
@@ -514,7 +600,7 @@ class OrderQueryServiceTest {
 
             given(orderRepository.searchOrderproducts(
                 BUYER_ID,
-                OrderStatus.PAID,
+				OrderStatus.COMPLETED,
                 null,
                 null,
                 pageable
@@ -526,7 +612,7 @@ class OrderQueryServiceTest {
             // then
             then(orderRepository).should().searchOrderproducts(
                 BUYER_ID,
-                OrderStatus.PAID,
+				OrderStatus.COMPLETED,
                 null,
                 null,
                 pageable
@@ -575,8 +661,8 @@ class OrderQueryServiceTest {
             // given
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderListProjection projection = orderListProjection(
-                OrderStatus.PAID,
-                OrderStatus.PAID,
+                OrderStatus.COMPLETED,
+                OrderProductStatus.PAID,
                 false,
                 null
             );
@@ -615,49 +701,8 @@ class OrderQueryServiceTest {
     }
 
     @Nested
-    @DisplayName("내 결제 내역 조회")
-    class GetMyOrderPayments {
-
-        @Test
-        @DisplayName("page와 size가 전달되면 구매자 결제 내역을 반환한다")
-        void getMyOrderPayments_defaultPage_success() {
-            // given
-            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
-            OrderPaymentListProjection projection = orderPaymentListProjection(
-                OrderStatus.PAID,
-                OrderStatus.PAID,
-                PAID_AT,
-                false
-            );
-            PageRequest pageable = PageRequest.of(0, 20, Sort.by(
-                Sort.Order.desc("approvedAt")
-            ));
-
-            given(orderPaymentRepository.searchOrderPayments(BUYER_ID, pageable))
-                .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
-
-            // when
-            Page<OrderPaymentListResponse> response = orderQueryService.getOrderPayments(BUYER_ID, request);
-
-            // then
-            assertThat(response.getNumber()).isZero();
-            assertThat(response.getSize()).isEqualTo(20);
-            assertThat(response.getTotalElements()).isEqualTo(1);
-            assertThat(response.hasNext()).isFalse();
-
-            OrderPaymentListResponse payment = response.getContent().getFirst();
-            assertThat(payment.orderId()).isEqualTo(ORDER_ID);
-            assertThat(payment.paymentId()).isEqualTo(PAYMENT_ID);
-            assertThat(payment.paymentStatus()).isEqualTo(PaymentStatus.PAID);
-            assertThat(payment.isRefundable()).isTrue();
-
-            assertThat(payment.productType()).isEqualTo(PRODUCT_TYPE_PROMPT);
-            assertThat(payment.title()).isEqualTo(PRODUCT_TITLE_1);
-            assertThat(payment.amount()).isEqualTo(TOTAL_AMOUNT);
-            assertThat(payment.paidAt()).isEqualTo(PAID_AT);
-
-            then(orderPaymentRepository).should().searchOrderPayments(BUYER_ID, pageable);
-        }
+    @DisplayName("주문상품 환불 가능 여부 조회")
+    class GetOrderRefundEligibility {
 
         @Test
         @DisplayName("다운로드한 상품은 환불 가능하지 않다")
@@ -665,8 +710,8 @@ class OrderQueryServiceTest {
             // given
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderListProjection projection = orderListProjection(
-                OrderStatus.PAID,
-                OrderStatus.PAID,
+                OrderStatus.COMPLETED,
+                OrderProductStatus.PAID,
                 true,
                 null
             );
@@ -684,12 +729,12 @@ class OrderQueryServiceTest {
 
         @Test
         @DisplayName("PAID가 아닌 주문은 환불 가능하지 않다")
-        void getMyOrders_notPaidOrder_notRefundable() {
+		void getMyOrders_notPaidOrder_notRefundable() {
             // given
             PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
             OrderListProjection projection = orderListProjection(
-                OrderStatus.CANCELED,
-                OrderStatus.CANCELED,
+				OrderStatus.FAILED,
+                OrderProductStatus.FAILED,
                 false,
                 null
             );
@@ -703,32 +748,33 @@ class OrderQueryServiceTest {
 
             // then
             assertThat(response.getContent().getFirst().isRefundable()).isFalse();
-        }
+		}
 
+		@Test
+		@DisplayName("한 주문의 상품별 상태와 다운로드 여부로 목록 환불 가능 여부를 계산한다")
+		void getMyOrders_singleOrderLines_preservePerProductRefundEligibility() {
+			PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
+			PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+			OrderListProjection refundable = orderListProjection(OrderStatus.COMPLETED, OrderProductStatus.PAID, false, null);
+			OrderListProjection downloaded = new OrderListProjection(
+				ORDER_ID, UUID.randomUUID(), PRODUCT_ID_2, OrderStatus.COMPLETED, OrderProductStatus.PAID,
+				true, PRODUCT_TYPE_PROMPT, PRODUCT_TITLE_2, PRODUCT_MODEL, null, PAID_AT, CREATED_AT
+			);
+			OrderListProjection refunded = new OrderListProjection(
+				ORDER_ID, UUID.randomUUID(), UUID.randomUUID(), OrderStatus.PARTIAL_REFUNDED, OrderProductStatus.REFUNDED,
+				false, PRODUCT_TYPE_PROMPT, "환불 상품", PRODUCT_MODEL, null, PAID_AT, CREATED_AT
+			);
+			given(orderRepository.searchOrderproducts(BUYER_ID, null, null, null, pageable))
+				.willReturn(new PageImpl<>(List.of(refundable, downloaded, refunded), pageable, 3));
 
-        @Test
-        @DisplayName("order.paidAt이 없으면 order_payment.approvedAt을 paidAt으로 반환한다")
-        void getMyOrderPayments_paidAtFallback_success() {
-            // given
-            PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
-            OrderPaymentListProjection projection = orderPaymentListProjection(
-                OrderStatus.PAID,
-                OrderStatus.PAID,
-                null,
-                false
-            );
-            PageRequest pageable = PageRequest.of(0, 20, Sort.by(
-                Sort.Order.desc("approvedAt")
-            ));
+			Page<OrderListResponse> response = orderQueryService.getOrders(BUYER_ID, request);
 
-            given(orderPaymentRepository.searchOrderPayments(BUYER_ID, pageable))
-                .willReturn(new PageImpl<>(List.of(projection), pageable, 1));
-
-            // when
-            Page<OrderPaymentListResponse> response = orderQueryService.getOrderPayments(BUYER_ID, request);
-
-            // then
-            assertThat(response.getContent().getFirst().paidAt()).isEqualTo(APPROVED_AT);
-        }
+			assertThat(response.getContent()).extracting(OrderListResponse::orderId)
+				.containsOnly(ORDER_ID);
+			assertThat(response.getContent()).extracting(OrderListResponse::orderStatus)
+				.containsExactly(OrderStatus.COMPLETED, OrderStatus.COMPLETED, OrderStatus.PARTIAL_REFUNDED);
+			assertThat(response.getContent()).extracting(OrderListResponse::isRefundable)
+				.containsExactly(true, false, false);
+		}
     }
 }

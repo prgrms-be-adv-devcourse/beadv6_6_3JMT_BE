@@ -15,6 +15,8 @@ public interface OrderRepository {
 
 	Optional<Order> findByIdWithOrderProducts(UUID orderId);
 
+	Optional<Order> findByIdWithOrderProductsForUpdate(UUID orderId);
+
 	Optional<Order> findByOrderNumber(String orderNumber);
 
 	boolean existsPaidOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId);

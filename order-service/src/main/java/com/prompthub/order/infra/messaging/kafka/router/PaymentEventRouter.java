@@ -2,7 +2,6 @@ package com.prompthub.order.infra.messaging.kafka.router;
 
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.application.service.event.PaymentApprovedEventHandler;
-import com.prompthub.order.application.service.event.PaymentCanceledEventHandler;
 import com.prompthub.order.application.service.event.PaymentFailedEventHandler;
 import com.prompthub.order.application.service.event.PaymentRefundedEventHandler;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentEventType;
@@ -19,7 +18,6 @@ public class PaymentEventRouter {
     private final PaymentApprovedEventHandler approvedHandler;
     private final PaymentRefundedEventHandler refundedHandler;
     private final PaymentFailedEventHandler failedHandler;
-    private final PaymentCanceledEventHandler canceledHandler;
 
     public void route(EventMessage<JsonNode> message) {
         PaymentEventType eventType = PaymentEventType.from(message.eventType());
@@ -35,7 +33,6 @@ public class PaymentEventRouter {
             case PAYMENT_APPROVED -> approvedHandler.handle(message);
             case PAYMENT_REFUNDED -> refundedHandler.handle(message);
             case PAYMENT_FAILED -> failedHandler.handle(message);
-            case PAYMENT_CANCELED -> canceledHandler.handle(message);
         }
     }
 }
