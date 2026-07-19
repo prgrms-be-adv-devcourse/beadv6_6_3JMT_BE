@@ -47,7 +47,7 @@ public class PaymentController {
                       "message": "success"
                     }
                     """))),
-        @ApiResponse(responseCode = "400", description = "입력값 오류(V001) 또는 PG사 결제 실패(PAY_FAILED)",
+        @ApiResponse(responseCode = "400", description = "입력값 오류(V001), 금액 불일치(PAY012) 또는 PG사 결제 실패(PAY_FAILED)",
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = ErrorResponse.class),
                 examples = {
@@ -57,6 +57,14 @@ public class PaymentController {
                           "data": null,
                           "message": "paymentKey: 공백일 수 없습니다",
                           "code": "V001"
+                        }
+                        """),
+                    @ExampleObject(name = "금액 불일치", value = """
+                        {
+                          "success": false,
+                          "data": null,
+                          "message": "결제 금액이 주문 금액과 일치하지 않습니다.",
+                          "code": "PAY012"
                         }
                         """),
                     @ExampleObject(name = "PG사 결제 실패", value = """
@@ -132,7 +140,7 @@ public class PaymentController {
         @Valid @RequestBody ConfirmPaymentRequest request
     ) {
         ConfirmPaymentCommand command = new ConfirmPaymentCommand(
-            request.paymentKey(), request.orderId(), userId
+            request.paymentKey(), request.orderId(), userId, request.amount()
         );
         PaymentResult result = confirmPaymentUseCase.confirm(command);
         return ResponseEntity.ok(ApiResult.success(new ConfirmPaymentResponse(result.paymentId())));

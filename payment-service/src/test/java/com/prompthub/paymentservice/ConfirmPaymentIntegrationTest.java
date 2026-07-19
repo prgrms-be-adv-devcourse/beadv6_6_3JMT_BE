@@ -1,20 +1,18 @@
 package com.prompthub.paymentservice;
 
 import com.prompthub.paymentservice.application.exception.PaymentErrorCode;
+import com.prompthub.paymentservice.application.gateway.external.ConfirmResult;
+import com.prompthub.paymentservice.application.gateway.external.OrderGateway;
+import com.prompthub.paymentservice.application.gateway.external.OrderPaymentInfo;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGateway;
 import com.prompthub.paymentservice.application.gateway.external.PaymentGatewayException;
-import com.prompthub.paymentservice.application.gateway.external.ConfirmResult;
-import com.prompthub.paymentservice.domain.model.OrderSnapshot;
-import com.prompthub.paymentservice.domain.model.OrderSnapshotSource;
 import com.prompthub.paymentservice.domain.model.Payment;
 import com.prompthub.paymentservice.domain.model.PaymentStatus;
 import com.prompthub.paymentservice.infrastructure.messaging.config.PaymentTopic;
-import com.prompthub.paymentservice.infrastructure.persistence.OrderSnapshotJpaRepository;
 import com.prompthub.paymentservice.infrastructure.persistence.PaymentJpaRepository;
 import com.prompthub.paymentservice.support.AbstractIntegrationTest;
 import java.time.Duration;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -37,8 +35,12 @@ import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
@@ -51,16 +53,15 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     PaymentJpaRepository paymentJpaRepository;
 
-    @Autowired
-    OrderSnapshotJpaRepository orderSnapshotJpaRepository;
-
     @MockitoBean
     PaymentGateway paymentGateway;
+
+    @MockitoBean
+    OrderGateway orderGateway;
 
     @BeforeEach
     void setUpRestTemplate() {
         paymentJpaRepository.deleteAll();
-        orderSnapshotJpaRepository.deleteAll();
         restTemplate = new RestTemplate();
         restTemplate.setErrorHandler(new DefaultResponseErrorHandler() {
             @Override
@@ -74,18 +75,29 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         return "http://localhost:" + port + path;
     }
 
+    private ResponseEntity<Map> confirm(UUID orderId, UUID userId, String paymentKey, int amount) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-User-Id", userId.toString());
+        Map<String, Object> body = Map.of(
+            "paymentKey", paymentKey,
+            "orderId", orderId.toString(),
+            "amount", amount
+        );
+        return restTemplate.exchange(
+            url("/api/v2/payments/confirm"), HttpMethod.POST, new HttpEntity<>(body, headers), Map.class);
+    }
+
     @Test
     void 결제_승인_정상_플로우_DB_PAID_Kafka_메시지_수신() {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         OffsetDateTime approvedAt = OffsetDateTime.now();
 
+        when(orderGateway.getOrderPaymentInfo(orderId))
+            .thenReturn(new OrderPaymentInfo(orderId, userId, 10_000, OffsetDateTime.now()));
         when(paymentGateway.confirm(anyString(), eq(orderId), eq(10_000)))
             .thenReturn(new ConfirmResult("카드", 10_000, "{}", approvedAt));
-
-        // 이벤트 경로로 확보됐을 스냅샷을 사전 저장 (금액의 진실 공급원)
-        orderSnapshotJpaRepository.saveAndFlush(OrderSnapshot.create(
-            orderId, userId, 10_000, OrderSnapshotSource.EVENT, OffsetDateTime.now(ZoneOffset.ofHours(9))));
 
         Map<String, Object> consumerProps = buildConsumerProps(kafka.getBootstrapServers(), "integration-test-group");
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProps);
@@ -95,20 +107,7 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         consumer.poll(Duration.ZERO);
         consumer.seekToBeginning(java.util.List.of(partition));
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-User-Id", userId.toString());
-        Map<String, Object> body = Map.of(
-            "paymentKey", "toss-integration-key",
-            "orderId", orderId.toString()
-        );
-
-        ResponseEntity<Map> response = restTemplate.exchange(
-            url("/api/v2/payments/confirm"),
-            HttpMethod.POST,
-            new HttpEntity<>(body, headers),
-            Map.class
-        );
+        ResponseEntity<Map> response = confirm(orderId, userId, "toss-integration-key", 10_000);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
@@ -146,12 +145,11 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
 
+        when(orderGateway.getOrderPaymentInfo(orderId))
+            .thenReturn(new OrderPaymentInfo(orderId, userId, 10_000, OffsetDateTime.now()));
         when(paymentGateway.confirm(anyString(), eq(orderId), eq(10_000)))
             .thenThrow(new PaymentGatewayException(
                 PaymentErrorCode.PAYMENT_FAILED, "REJECT", "카드 거절", null, "{}"));
-
-        orderSnapshotJpaRepository.saveAndFlush(OrderSnapshot.create(
-            orderId, userId, 10_000, OrderSnapshotSource.EVENT, OffsetDateTime.now(ZoneOffset.ofHours(9))));
 
         KafkaConsumer<String, String> consumer =
             new KafkaConsumer<>(buildConsumerProps(kafka.getBootstrapServers(), "failed-test-group"));
@@ -160,20 +158,7 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         consumer.poll(Duration.ZERO);
         consumer.seekToBeginning(java.util.List.of(partition));
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-User-Id", userId.toString());
-        Map<String, Object> body = Map.of(
-            "paymentKey", "toss-failed-key",
-            "orderId", orderId.toString()
-        );
-
-        ResponseEntity<Map> response = restTemplate.exchange(
-            url("/api/v2/payments/confirm"),
-            HttpMethod.POST,
-            new HttpEntity<>(body, headers),
-            Map.class
-        );
+        ResponseEntity<Map> response = confirm(orderId, userId, "toss-failed-key", 10_000);
 
         assertThat(response.getStatusCode().value()).isEqualTo(422);
 
@@ -199,6 +184,64 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         } finally {
             consumer.close();
         }
+    }
+
+    @Test
+    void 금액_불일치_시_400_AMOUNT_MISMATCH_및_결제시도_미기록() {
+        UUID orderId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+
+        when(orderGateway.getOrderPaymentInfo(orderId))
+            .thenReturn(new OrderPaymentInfo(orderId, userId, 10_000, OffsetDateTime.now()));
+
+        ResponseEntity<Map> response = confirm(orderId, userId, "toss-mismatch-key", 9_000);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody().get("code")).isEqualTo("PAY012");
+
+        boolean paymentExists = paymentJpaRepository.findAll().stream()
+            .anyMatch(p -> p.getOrderId().equals(orderId));
+        assertThat(paymentExists).isFalse();
+
+        verify(paymentGateway, never()).confirm(anyString(), any(), anyInt());
+    }
+
+    @Test
+    void 금액_불일치_후_올바른_금액으로_재시도_시_정상_승인() {
+        UUID orderId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        OffsetDateTime approvedAt = OffsetDateTime.now();
+
+        when(orderGateway.getOrderPaymentInfo(orderId))
+            .thenReturn(new OrderPaymentInfo(orderId, userId, 10_000, OffsetDateTime.now()));
+        when(paymentGateway.confirm(anyString(), eq(orderId), eq(10_000)))
+            .thenReturn(new ConfirmResult("카드", 10_000, "{}", approvedAt));
+
+        ResponseEntity<Map> mismatch = confirm(orderId, userId, "toss-mismatch-retry-key-1", 9_000);
+        assertThat(mismatch.getStatusCode().value()).isEqualTo(400);
+
+        ResponseEntity<Map> success = confirm(orderId, userId, "toss-mismatch-retry-key-2", 10_000);
+        assertThat(success.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void 실패한_주문_재결제_시도_시_409_DUPLICATE_PAYMENT() {
+        UUID orderId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+
+        when(orderGateway.getOrderPaymentInfo(orderId))
+            .thenReturn(new OrderPaymentInfo(orderId, userId, 10_000, OffsetDateTime.now()));
+        when(paymentGateway.confirm(anyString(), eq(orderId), eq(10_000)))
+            .thenThrow(new PaymentGatewayException(
+                PaymentErrorCode.PAYMENT_FAILED, "REJECT", "카드 거절", null, "{}"));
+
+        ResponseEntity<Map> first = confirm(orderId, userId, "toss-retry-key-1", 10_000);
+        assertThat(first.getStatusCode().value()).isEqualTo(422);
+
+        ResponseEntity<Map> second = confirm(orderId, userId, "toss-retry-key-2", 10_000);
+
+        assertThat(second.getStatusCode().value()).isEqualTo(409);
+        assertThat(second.getBody().get("code")).isEqualTo("PAY002");
     }
 
     private Map<String, Object> buildConsumerProps(String bootstrapServers, String groupId) {

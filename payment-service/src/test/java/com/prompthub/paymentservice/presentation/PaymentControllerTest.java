@@ -51,7 +51,7 @@ class PaymentControllerTest {
                 .header("X-User-Id", UUID.randomUUID().toString())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
-                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID())
+                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID(), 10_000)
                 )))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success").value(true))
@@ -78,7 +78,7 @@ class PaymentControllerTest {
                 .header("X-User-Id", UUID.randomUUID().toString())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
-                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID())
+                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID(), 10_000)
                 )))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.success").value(false))
@@ -94,7 +94,7 @@ class PaymentControllerTest {
                 .header("X-User-Id", UUID.randomUUID().toString())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
-                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID())
+                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID(), 10_000)
                 )))
             .andExpect(status().isBadGateway())
             .andExpect(jsonPath("$.code").value("PAY003"));
@@ -109,7 +109,7 @@ class PaymentControllerTest {
                 .header("X-User-Id", UUID.randomUUID().toString())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
-                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID())
+                    new ConfirmPaymentRequest("toss-key", UUID.randomUUID(), 10_000)
                 )))
             .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.code").value("PAY_FAILED"));
