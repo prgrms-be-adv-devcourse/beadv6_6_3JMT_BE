@@ -1,34 +1,35 @@
 # 이벤트 흐름
 
-서비스 간 Kafka 이벤트 계약과 흐름. **2026-07-06 기준 실제 코드에서 도출**했으며 각 사실의 근거 파일을 병기한다. 시스템 전체 구조는 `overview.md` 참조.
+서비스 간 Kafka 이벤트 계약과 흐름. **2026-07-18 기준 실제 코드에서 도출**했으며 각 사실의 근거 파일을 병기한다. 시스템 전체 구조는 `overview.md` 참조.
 
-> ⚠️ **부분 반영(주문-결제 흐름 재설계, payment-service 측)**: payment-service는 `ORDER_CREATED` 구독을 제거하고 결제 승인 시마다 order gRPC(9083)로 직접 조회하는 구조로 전환했다(#396). `payment.failed` 발행은 **구현 완료**. order-service 후속(gRPC 서버 9083, `payment.events`(dot)→`payment-events`(dash) 토픽 통일, PAYMENT_FAILED 소비)은 **미완**이라 실서비스 E2E는 아직 이어지지 않는다. (설계: `payment-service/.claude/plans/396-confirm-payment-flow-redesign.md`)
+> 주문-결제 흐름 재설계(#396)는 payment/order 양측 모두 반영 완료됐다. payment-service는 `ORDER_CREATED` 구독을 제거하고 결제 승인 시마다 order gRPC(9083)로 직접 조회하는 구조다. order-service는 gRPC 서버(9083, `OrderQueryGrpcServer`)를 제공하며, `payment-events` 토픽의 `PAYMENT_FAILED`를 소비해 주문을 `PENDING`→`FAILED`로 전이한다(`PaymentFailedProcessor`). (설계: `payment-service/.claude/plans/396-confirm-payment-flow-redesign.md`)
 
 ## Kafka 토픽 목록
 
+payment가 발행하는 결제/환불 이벤트는 **토픽 이름이 이벤트 종류별로 나뉘어 있지 않다** — 아래 표의 `payment-events` 단일 토픽에 4종 이벤트를 모두 발행하고, 공통 봉투(`EventMessage<T>`)의 `eventType` 필드로 구분한다.
+
 | 토픽 | 발행 | 소비 | 메시지 키 | 페이로드 |
 |---|---|---|---|---|
-| `payment.approved` | payment | order | `orderId` | `PaymentApprovedMessage` (orderId, approvedAmount, approvedAt) |
-| `payment.refunded` | payment | order | `orderId` | `PaymentRefundedMessage` (paymentId, orderId, userId, amount, refundedAt) |
-| `payment.failed` | payment (구현) | order (예정) | `orderId` | `PaymentFailedMessage` (orderId). PG confirm 실패 시 발행(Toss 호출 전 금액 불일치는 발행 안 함, #396) |
+| `payment-events` | payment | order (`PAYMENT_APPROVED`/`PAYMENT_REFUNDED`/`PAYMENT_FAILED`만 라우팅, `PAYMENT_REFUND_FAILED`는 미소비 — 아래 참조) | `orderId`(문자열) | `EventMessage<T>` 봉투: `eventId`, `eventType`, `occurredAt`, `aggregateType`(=`ORDER` 고정), `aggregateId`(=orderId), `payload`. `eventType`별 payload — `PAYMENT_APPROVED`→`PaymentApprovedMessage`, `PAYMENT_REFUNDED`→`PaymentRefundedMessage`, `PAYMENT_FAILED`→`PaymentFailedMessage`, `PAYMENT_REFUND_FAILED`→`PaymentRefundFailedMessage` |
 | `order-events` | order | product, settlement, **payment(구현: `ORDER_REFUND_REQUESTED`만)** | `orderId` (aggregateId) | `OrderEventEnvelope`(`ORDER_PAID`/`ORDER_REFUND`) |
 | `product-events` | product | order | `productId` | `ProductStoppedEvent` / `ProductDeletedEvent` / `ProductPriceChangedEvent` |
 
-- 토픽 상수: `payment-service/.../infrastructure/messaging/config/PaymentTopic.java`, 각 서비스 Consumer/Producer의 `TOPIC` 상수.
+- 토픽 상수: `payment-service/.../infrastructure/messaging/config/PaymentTopic.java`(`PAYMENT_EVENTS = "payment-events"`), 각 서비스 Consumer/Producer의 `TOPIC` 상수.
 - `NewTopic` 선언은 payment-service `KafkaConfig`의 `payment-events`(partitions 1, replicas 1)만 존재. 나머지 토픽은 브로커 auto-create에 의존한다.
-- `payment.failed`는 payment-service에 **구현됨**(`payment-events` 토픽, `KafkaPaymentEventPublisher.onPaymentFailed`). `payment.canceled`/`payment.cancel_failed`/`payment.refund_failed`는 여전히 코드 없음 — 추측 구현 금지.
+- payment-service가 실제 발행하는 이벤트 4종: `PAYMENT_APPROVED`, `PAYMENT_REFUNDED`, `PAYMENT_REFUND_FAILED`, `PAYMENT_FAILED` (전부 `KafkaPaymentEventPublisher`, `payment-events` 토픽). `PAYMENT_CANCELED`는 여전히 코드 없음 — 추측 구현 금지.
+- **`PAYMENT_REFUND_FAILED`는 payment는 발행하지만 order-service `PaymentEventType` enum에는 정의돼 있지 않다** — order 쪽에서 `Unsupported payment event` 경고만 남기고 무시된다(`order-service/.../PaymentEventRouter.java`). 사실상 소비자가 없는 이벤트.
 
 ## 이벤트 발행 / 소비 매트릭스
 
 P = 발행, C = 소비(괄호는 consumer groupId):
 
-| 서비스 \ 토픽 | payment.approved | payment.refunded | payment.failed | order-events | product-events |
-|---|---|---|---|---|---|
-| payment | P | P | P (구현) | C (`payment-service-order-events`, `ORDER_REFUND_REQUESTED`만) | - |
-| order | C (`order-service`) | C (`order-service`) | C (예정) | P | C (`order-service`) |
-| product | - | - | - | C (`product-service`) | P |
-| settlement | - | - | - | C (`settlement-service`) | - |
-| user | - | - | - | - | - |
+| 서비스 \ 토픽 | payment-events | order-events | product-events |
+|---|---|---|---|
+| payment | P (`PAYMENT_APPROVED`/`PAYMENT_REFUNDED`/`PAYMENT_REFUND_FAILED`/`PAYMENT_FAILED` 4종) | C (`payment-service-order-events`, `ORDER_REFUND_REQUESTED`만) | - |
+| order | C (`order-service`, `PAYMENT_APPROVED`/`PAYMENT_REFUNDED`/`PAYMENT_FAILED`만 라우팅 — `PAYMENT_REFUND_FAILED`는 정의 없어 무시) | P | C (`order-service`) |
+| product | - | C (`product-service`) | P |
+| settlement | - | C (`settlement-service`) | - |
+| user | - | - | - |
 
 주의 사항:
 
@@ -40,8 +41,8 @@ P = 발행, C = 소비(괄호는 consumer groupId):
 
 | 서비스 | 방식 | 근거 |
 |---|---|---|
-| payment (승인/실패) | 도메인 이벤트 → `@TransactionalEventListener(AFTER_COMMIT)` → `KafkaTemplate.send` (승인=TX2 `PaymentApprovedEvent`, 실패=TX3 `PaymentFailedEvent`) | `KafkaPaymentEventPublisher.java` |
-| payment (환불) | 스케줄러/서비스가 트랜잭션 커밋 후 publisher **직접 호출** (Spring Boot 4.1 중첩 리스너 제한 우회) | `KafkaPaymentEventPublisher.java` |
+| payment (승인/실패) | 도메인 이벤트 → `@TransactionalEventListener(AFTER_COMMIT)` → `KafkaTemplate.send("payment-events", ...)` (승인=`PaymentApprovedEvent`, 실패=`PaymentFailedEvent`) | `KafkaPaymentEventPublisher.java` |
+| payment (환불/환불실패) | 스케줄러/서비스가 트랜잭션 커밋 후 publisher **직접 호출**, 동일하게 `payment-events`에 발행 (Spring Boot 4.1 중첩 리스너 제한 우회) | `KafkaPaymentEventPublisher.java` |
 | order | **Outbox 패턴**: `OutboxEventAppender`가 `OutboxEvent`(PENDING) 저장 → `OutboxRelay`가 `@Scheduled`(기본 5초) 폴링 후 동기 발행(`send().get()`) | `order-service/.../outbox/OutboxEventAppender.java`, `kafka/producer/OutboxRelay.java` |
 | product | `KafkaTemplate.send` 직접 호출 (Outbox·트랜잭션 리스너 없음) | `product-service/.../messaging/producer/ProductEventProducer.java` |
 
@@ -58,7 +59,7 @@ sequenceDiagram
     participant STL as Settlement
 
     PAY->>PAY: Toss 승인 성공, 트랜잭션 커밋
-    PAY->>K: payment.approved (AFTER_COMMIT)
+    PAY->>K: payment-events (eventType=PAYMENT_APPROVED, AFTER_COMMIT)
     K->>ORD: consume (order-service)
     ORD->>ORD: Order PENDING→PAID, OutboxEvent(ORDER_PAID) 저장
     ORD->>K: order-events ORDER_PAID (OutboxRelay, ~5초)
@@ -75,7 +76,7 @@ sequenceDiagram
     participant ORD as Order
     participant STL as Settlement
 
-    PAY->>K: payment.refunded (커밋 후 직접 발행)
+    PAY->>K: payment-events (eventType=PAYMENT_REFUNDED, 커밋 후 직접 발행)
     K->>ORD: consume (order-service)
     ORD->>ORD: Order PAID→REFUNDED, OutboxEvent(ORDER_REFUND) 저장
     ORD->>K: order-events ORDER_REFUND (OutboxRelay)
@@ -86,7 +87,7 @@ sequenceDiagram
 
 product가 판매중지/삭제/가격변경 시 `product-events` 발행 → order가 소비해 장바구니·주문 가능 상태에 반영. (`ProductEventProducer.java` → `order-service/.../consumer/product/ProductEventConsumer.java`)
 
-### 주문 생성 → 결제 (재설계, payment 측 구현 / order 측 gRPC 서버 예정)
+### 주문 생성 → 결제 (재설계, payment/order 양측 구현 완료)
 
 ```mermaid
 sequenceDiagram
@@ -111,16 +112,17 @@ sequenceDiagram
     participant ORD as Order
 
     PAY->>PAY: Toss confirm 실패, TX3 커밋(FAILED)
-    PAY->>K: payment.failed (AFTER_COMMIT)
-    K-->>ORD: consume — 예정 (order가 PENDING→FAILED, 현재는 PAYMENT_FAILED 무시 중)
+    PAY->>K: payment-events (eventType=PAYMENT_FAILED, AFTER_COMMIT)
+    K->>ORD: consume — order가 PENDING→FAILED (`PaymentFailedProcessor`)
 ```
 
-취소(`payment.canceled` 등)는 여전히 코드 없음 — 임의 구현 금지.
+취소(`PAYMENT_CANCELED` 등)는 여전히 코드 없음 — 임의 구현 금지. `PAYMENT_REFUND_FAILED`는 payment가 발행하지만 order가 소비하지 않는다(위 토픽 목록 참조).
 
-## 알려진 불일치 (2026-07-06 코드 기준)
+## 알려진 불일치 (2026-07-18 코드 기준)
 
 | 항목 | 내용 | 영향 |
 |---|---|---|
 | **`ORDER_REFUND` vs `ORDER_REFUNDED`** | order는 eventType `ORDER_REFUND`를 발행(`OutboxEventAppender.java:28`)하는데 settlement enum은 `ORDER_REFUNDED`만 인식(`OrderEventType.java:8`) → `UNKNOWN`으로 떨어져 **환불 정산이 기록되지 않는다** | 높음 — `docs/qa/order-payment-event-idempotency-check.md`에서도 지적됨 |
+| **`PAYMENT_REFUND_FAILED` 소비자 없음** | payment는 환불 실패 시 `payment-events`에 `PAYMENT_REFUND_FAILED`를 발행하지만, order-service `PaymentEventType` enum에 값이 없어 라우터가 무시(`Unsupported payment event` 로그만 남김) | 중간 — 환불 실패를 order/후속 서비스가 알 방법이 없음 |
 | settlement 리스너 기본 OFF | `settlement.kafka.listener.order.enabled` 기본값 `false` | 배포 설정에서 활성화 필요 |
 | payment-service `.claude/docs/events.md`와의 차이 | 서비스 로컬 계약 문서와 이 문서가 다르면 **코드를 우선**하고 두 문서를 함께 갱신할 것 | - |
