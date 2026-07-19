@@ -72,6 +72,11 @@ jobs:
             const prev = runs.length > 1 ? runs[runs.length - 2] : null;
             const d = (a, b) => (a == null || b == null) ? null : a - b;
             const sign = n => n == null ? "—" : (n > 0 ? "+" : "") + n;
+            const trend = (currVal, prevVal) => {
+              if (currVal == null) return "—";
+              if (prevVal == null || currVal === prevVal) return String(currVal);
+              return prevVal + " → " + currVal + " " + (currVal < prevVal ? "▼" : "▲");
+            };
             const lines = [];
             lines.push("<!-- codeflow-card:review-receipt -->");
             lines.push("```");
@@ -82,8 +87,24 @@ jobs:
             lines.push("LOC".padEnd(14) + (dLoc != null ? sign(dLoc) : String(curr.loc)));
             const dFns = d(curr.functions, prev && prev.functions);
             lines.push("functions".padEnd(14) + (dFns != null ? sign(dFns) : String(curr.functions)));
+            const dDead = d(curr.dead, prev && prev.dead);
+            lines.push("dead code".padEnd(14) + (dDead != null ? sign(dDead) : String(curr.dead)));
+            const dCirc = d(curr.circular, prev && prev.circular);
+            lines.push("circular deps".padEnd(14) + (dCirc != null ? sign(dCirc) : String(curr.circular)));
+            if (curr.topBlast) {
+              lines.push("blast radius".padEnd(14) + trend(curr.topBlast.total, prev && prev.topBlast && prev.topBlast.total));
+            }
             if (curr.grade) {
-              lines.push("health".padEnd(14) + (prev && prev.grade && prev.grade !== curr.grade ? prev.grade + " → " + curr.grade : curr.grade));
+              if (prev && prev.grade && prev.grade !== curr.grade) {
+                const arrow = (prev.score != null && curr.score != null) ? " " + (curr.score > prev.score ? "▲" : "▼") : "";
+                lines.push("health".padEnd(14) + prev.grade + " → " + curr.grade + arrow);
+              } else {
+                lines.push("health".padEnd(14) + curr.grade);
+              }
+            }
+            if (curr.avgCoupling != null) {
+              const dCoup = d(curr.avgCoupling, prev && prev.avgCoupling);
+              lines.push("avg coupling".padEnd(14) + (dCoup != null ? sign(Math.round(dCoup * 10) / 10) : curr.avgCoupling));
             }
             lines.push("--------------------------");
             lines.push("   merge 전 리뷰 참고용 (develop 대비 diff)");
