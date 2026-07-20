@@ -92,6 +92,8 @@ class KafkaPaymentEventPublisherTest {
         assertThat(message.aggregateType()).isEqualTo("ORDER");
         assertThat(message.aggregateId()).isEqualTo(payment.getOrderId());
         assertThat(message.payload().orderId()).isEqualTo(payment.getOrderId());
+        assertThat(message.payload().failedAmount()).isEqualTo(10_000);
+        assertThat(message.payload().failedAt()).isEqualTo(failedAt.withOffsetSameInstant(KST).toString());
     }
 
     @Test
