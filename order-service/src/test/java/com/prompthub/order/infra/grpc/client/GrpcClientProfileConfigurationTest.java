@@ -1,12 +1,9 @@
 package com.prompthub.order.infra.grpc.client;
 
 import com.prompthub.order.application.client.ProductClient;
-import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.infra.grpc.client.product.ProductGrpcClientAdapter;
 import com.prompthub.order.infra.grpc.client.product.ProductGrpcClientConfig;
 import com.prompthub.order.infra.grpc.client.product.ProductGrpcResilienceConfig;
-import com.prompthub.order.infra.grpc.client.seller.SellerGrpcClientAdapter;
-import com.prompthub.order.infra.grpc.client.seller.SellerGrpcClientConfig;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.convert.ApplicationConversionService;
@@ -20,9 +17,7 @@ class GrpcClientProfileConfigurationTest {
 		.withUserConfiguration(
 			ProductGrpcClientConfig.class,
 			ProductGrpcResilienceConfig.class,
-			ProductGrpcClientAdapter.class,
-			SellerGrpcClientConfig.class,
-			SellerGrpcClientAdapter.class
+			ProductGrpcClientAdapter.class
 		)
 		.withInitializer(context -> context.getBeanFactory()
 			.setConversionService(ApplicationConversionService.getSharedInstance()))
@@ -47,8 +42,6 @@ class GrpcClientProfileConfigurationTest {
 				assertThat(context).hasNotFailed();
 				assertThat(context).hasSingleBean(ProductClient.class);
 				assertThat(context.getBean(ProductClient.class)).isInstanceOf(ProductGrpcClientAdapter.class);
-				assertThat(context).hasSingleBean(SellerClient.class);
-				assertThat(context.getBean(SellerClient.class)).isInstanceOf(SellerGrpcClientAdapter.class);
 			});
 	}
 }

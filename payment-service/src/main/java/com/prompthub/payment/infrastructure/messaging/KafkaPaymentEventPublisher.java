@@ -69,7 +69,11 @@ public class KafkaPaymentEventPublisher {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPaymentFailed(PaymentFailedEvent event) {
         Payment payment = event.payment();
-        PaymentFailedMessage payload = new PaymentFailedMessage(payment.getOrderId());
+        PaymentFailedMessage payload = new PaymentFailedMessage(
+            payment.getOrderId(),
+            payment.getTotalAmount(),
+            toKstString(payment.getFailedAt())
+        );
         EventMessage<PaymentFailedMessage> message = new EventMessage<>(
             UUID.randomUUID(),
             PaymentEventType.PAYMENT_FAILED.code(),

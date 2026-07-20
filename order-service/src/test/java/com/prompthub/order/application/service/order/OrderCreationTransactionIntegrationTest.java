@@ -1,7 +1,6 @@
 package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.client.ProductClient;
-import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.dto.CreateOrderResult;
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
@@ -71,9 +70,6 @@ class OrderCreationTransactionIntegrationTest {
 	private ProductClient productClient;
 
 	@MockitoBean
-	private SellerClient sellerClient;
-
-	@MockitoBean
 	private OrderNumberGenerator orderNumberGenerator;
 
 	@MockitoBean
@@ -103,7 +99,7 @@ class OrderCreationTransactionIntegrationTest {
 		outboxEventPersistence.deleteAll();
 		orderPersistence.deleteAll();
 		cartPersistence.deleteAll();
-		reset(productClient, sellerClient, orderNumberGenerator, orderExpirationStore,
+		reset(productClient, orderNumberGenerator, orderExpirationStore,
 			orderRepository, cartRepository);
 	}
 

@@ -2,7 +2,6 @@ package com.prompthub.order.application.service.order;
 
 import com.prompthub.exception.BusinessException;
 import com.prompthub.order.application.client.ProductClient;
-import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.dto.CreateOrderCommand;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.application.service.cart.CartService;
@@ -53,9 +52,6 @@ class OrderCreationResilienceIntegrationTest {
 
 	@MockitoBean
 	private ProductClient productClient;
-
-	@MockitoBean
-	private SellerClient sellerClient;
 
 	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;

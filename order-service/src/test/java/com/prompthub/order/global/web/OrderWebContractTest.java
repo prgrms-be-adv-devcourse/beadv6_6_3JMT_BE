@@ -1,7 +1,6 @@
 package com.prompthub.order.global.web;
 
 import com.prompthub.order.application.dto.CreateOrderCommand;
-import com.prompthub.order.application.usecase.AdminOrderUseCase;
 import com.prompthub.order.application.usecase.CartUseCase;
 import com.prompthub.order.application.usecase.ConfirmDownloadUseCase;
 import com.prompthub.order.application.usecase.CreateOrderUseCase;
@@ -43,9 +42,6 @@ class OrderWebContractTest {
 	private MockMvc mockMvc;
 
 	@MockitoBean
-	private AdminOrderUseCase adminOrderUseCase;
-
-	@MockitoBean
 	private CreateOrderUseCase createOrderUseCase;
 
 	@MockitoBean
@@ -56,19 +52,6 @@ class OrderWebContractTest {
 
 	@MockitoBean
 	private CartUseCase cartUseCase;
-
-	@Test
-	@DisplayName("관리자 API는 역할 헤더 없이 유스케이스까지 도달한다")
-	void adminApiWithoutRoleReachesUseCase() throws Exception {
-		given(adminOrderUseCase.getAdminOrders(any()))
-			.willReturn(new PageImpl<>(List.of()));
-
-		mockMvc.perform(get("/api/v1/admin/orders"))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.success").value(true));
-
-		then(adminOrderUseCase).should().getAdminOrders(any());
-	}
 
 	@Test
 	@DisplayName("장바구니 API는 사용자 ID만으로 유스케이스까지 도달한다")

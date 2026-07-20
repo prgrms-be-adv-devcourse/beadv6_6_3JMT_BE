@@ -1,7 +1,6 @@
 package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.client.ProductClient;
-import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.service.event.ProcessedEventService;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
@@ -82,16 +81,13 @@ class OrderFailureCompensationJpaTest extends PostgreSqlIntegrationTestSupport {
 	private ProductClient productClient;
 
 	@MockitoBean
-	private SellerClient sellerClient;
-
-	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;
 
 	private DatabaseStateProbe databaseStateProbe;
 
 	@BeforeEach
 	void setUp() {
-		reset(productClient, sellerClient, orderExpirationStore);
+		reset(productClient, orderExpirationStore);
 		databaseStateProbe = new DatabaseStateProbe(
 			orderPersistence,
 			cartPersistence,

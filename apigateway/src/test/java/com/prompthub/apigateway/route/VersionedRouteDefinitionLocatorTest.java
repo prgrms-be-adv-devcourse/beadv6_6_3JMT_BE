@@ -105,4 +105,18 @@ class VersionedRouteDefinitionLocatorTest {
 
         assertThat(definitions).hasSize(VersionedServiceRoute.ALL.size());
     }
+
+    @Test
+    void 어드민_주문_경로는_admin_service가_소유하고_order_service는_소유하지_않는다() {
+        Map<String, List<String>> config = new LinkedHashMap<>();
+        config.put("admin-service", List.of("v2"));
+        config.put("order-service", List.of("v1", "v2"));
+
+        List<RouteDefinition> definitions = VersionedRouteDefinitionLocator.buildRouteDefinitions(propertiesOf(config));
+
+        String adminPattern = pathPredicateValue(routeById(definitions, "admin-service"));
+        String orderPattern = pathPredicateValue(routeById(definitions, "order-service"));
+        assertThat(adminPattern).contains("/api/v2/admin/orders");
+        assertThat(orderPattern).doesNotContain("/admin/orders");
+    }
 }
