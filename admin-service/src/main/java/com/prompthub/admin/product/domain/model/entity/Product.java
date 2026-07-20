@@ -116,6 +116,10 @@ public class Product {
 	@Column(name = "deleted_at")
 	private LocalDateTime deletedAt;
 
+	public static Product create() {
+		return new Product();
+	}
+
 	public UUID familyRootId() {
 		return this.parentId != null ? this.parentId : this.id;
 	}

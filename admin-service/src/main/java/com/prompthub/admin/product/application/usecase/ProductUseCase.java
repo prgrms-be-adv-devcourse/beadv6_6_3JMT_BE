@@ -4,7 +4,7 @@ import com.prompthub.admin.product.presentation.dto.response.AdminProductListIte
 import java.util.List;
 import java.util.UUID;
 
-public interface ProductAdminUseCase {
+public interface ProductUseCase {
 
 	List<AdminProductListItemResponse> getPendingReviewProducts();
 

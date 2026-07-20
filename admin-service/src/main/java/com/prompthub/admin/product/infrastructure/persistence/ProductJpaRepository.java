@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface AdminProductJpaRepository extends JpaRepository<Product, UUID> {
+public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 
 	@Query("""
 		select p

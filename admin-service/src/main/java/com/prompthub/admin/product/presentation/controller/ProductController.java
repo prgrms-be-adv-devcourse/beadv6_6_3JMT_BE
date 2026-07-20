@@ -1,6 +1,6 @@
 package com.prompthub.admin.product.presentation.controller;
 
-import com.prompthub.admin.product.application.usecase.ProductAdminUseCase;
+import com.prompthub.admin.product.application.usecase.ProductUseCase;
 import com.prompthub.admin.product.presentation.dto.request.ProductRejectRequest;
 import com.prompthub.admin.product.presentation.dto.response.AdminProductListItemResponse;
 import com.prompthub.presentation.dto.ApiResult;
@@ -18,20 +18,20 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("${api.init}/admin/products")
 @RequiredArgsConstructor
-public class AdminProductController {
+public class ProductController {
 
-	private final ProductAdminUseCase productAdminUseCase;
+	private final ProductUseCase productUseCase;
 
 	@GetMapping
 	public ApiResult<List<AdminProductListItemResponse>> getPendingReviewProducts() {
-		return ApiResult.success(productAdminUseCase.getPendingReviewProducts());
+		return ApiResult.success(productUseCase.getPendingReviewProducts());
 	}
 
 	@PatchMapping("/{productId}/approve")
 	public ApiResult<Void> approveProduct(
 		@PathVariable UUID productId
 	) {
-		productAdminUseCase.approveProduct(productId);
+		productUseCase.approveProduct(productId);
 		return ApiResult.success(null);
 	}
 
@@ -40,7 +40,7 @@ public class AdminProductController {
 		@PathVariable UUID productId,
 		@Valid @RequestBody ProductRejectRequest request
 	) {
-		productAdminUseCase.rejectProduct(productId, request.reason());
+		productUseCase.rejectProduct(productId, request.reason());
 		return ApiResult.success(null);
 	}
 
@@ -48,7 +48,7 @@ public class AdminProductController {
 	public ApiResult<Void> revertProductToPendingReview(
 		@PathVariable UUID productId
 	) {
-		productAdminUseCase.revertProductToPendingReview(productId);
+		productUseCase.revertProductToPendingReview(productId);
 		return ApiResult.success(null);
 	}
 }

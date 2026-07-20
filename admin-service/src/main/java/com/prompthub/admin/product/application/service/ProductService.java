@@ -1,12 +1,12 @@
 package com.prompthub.admin.product.application.service;
 
 import com.prompthub.admin.global.exception.AdminErrorCode;
-import com.prompthub.admin.product.application.usecase.ProductAdminUseCase;
-import com.prompthub.admin.product.domain.exception.ProductAdminException;
+import com.prompthub.admin.product.application.usecase.ProductUseCase;
+import com.prompthub.admin.product.domain.exception.ProductException;
 import com.prompthub.admin.product.domain.model.entity.Product;
 import com.prompthub.admin.product.domain.model.entity.ProductFamily;
 import com.prompthub.admin.product.domain.model.enums.ProductStatus;
-import com.prompthub.admin.product.domain.repository.AdminProductRepository;
+import com.prompthub.admin.product.domain.repository.ProductRepository;
 import com.prompthub.admin.product.presentation.dto.response.AdminProductListItemResponse;
 import java.util.List;
 import java.util.UUID;
@@ -17,14 +17,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class ProductAdminService implements ProductAdminUseCase {
+public class ProductService implements ProductUseCase {
 
-	private final AdminProductRepository adminProductRepository;
+	private final ProductRepository productRepository;
 
 	@Override
 	@Transactional(readOnly = true)
 	public List<AdminProductListItemResponse> getPendingReviewProducts() {
-		return adminProductRepository.findPendingReviewProducts().stream()
+		return productRepository.findPendingReviewProducts().stream()
 			.map(AdminProductListItemResponse::from)
 			.toList();
 	}
@@ -35,52 +35,52 @@ public class ProductAdminService implements ProductAdminUseCase {
 		UUID familyRootId = target.familyRootId();
 		ProductFamily family = ProductFamily.of(
 			familyRootId,
-			adminProductRepository.findAllByFamilyRootIds(List.of(familyRootId))
+			productRepository.findAllByFamilyRootIds(List.of(familyRootId))
 		);
 		family.currentOnSale().ifPresent(previous -> {
 			previous.supersede();
-			adminProductRepository.save(previous);
+			productRepository.save(previous);
 		});
 		target.approve();
-		adminProductRepository.save(target);
+		productRepository.save(target);
 	}
 
 	@Override
 	public void rejectProduct(UUID productId, String reason) {
 		Product product = getProductInPendingReview(productId);
 		product.reject(reason);
-		adminProductRepository.save(product);
+		productRepository.save(product);
 	}
 
 	@Override
 	public void revertProductToPendingReview(UUID productId) {
-		Product target = adminProductRepository.findById(productId)
-			.orElseThrow(() -> new ProductAdminException(AdminErrorCode.PRODUCT_NOT_FOUND));
+		Product target = productRepository.findById(productId)
+			.orElseThrow(() -> new ProductException(AdminErrorCode.PRODUCT_NOT_FOUND));
 		if (target.getStatus() != ProductStatus.ON_SALE && target.getStatus() != ProductStatus.REJECTED) {
-			throw new ProductAdminException(AdminErrorCode.PRODUCT_INVALID_STATUS);
+			throw new ProductException(AdminErrorCode.PRODUCT_INVALID_STATUS);
 		}
 
 		if (target.getStatus() == ProductStatus.ON_SALE) {
 			UUID familyRootId = target.familyRootId();
 			ProductFamily family = ProductFamily.of(
 				familyRootId,
-				adminProductRepository.findAllByFamilyRootIds(List.of(familyRootId))
+				productRepository.findAllByFamilyRootIds(List.of(familyRootId))
 			);
 			family.mostRecentSuperseded().ifPresent(paired -> {
 				paired.restoreFromSuperseded();
-				adminProductRepository.save(paired);
+				productRepository.save(paired);
 			});
 		}
 
 		target.revertToPendingReview();
-		adminProductRepository.save(target);
+		productRepository.save(target);
 	}
 
 	private Product getProductInPendingReview(UUID productId) {
-		Product product = adminProductRepository.findById(productId)
-			.orElseThrow(() -> new ProductAdminException(AdminErrorCode.PRODUCT_NOT_FOUND));
+		Product product = productRepository.findById(productId)
+			.orElseThrow(() -> new ProductException(AdminErrorCode.PRODUCT_NOT_FOUND));
 		if (product.getStatus() != ProductStatus.PENDING_REVIEW) {
-			throw new ProductAdminException(AdminErrorCode.PRODUCT_INVALID_STATUS);
+			throw new ProductException(AdminErrorCode.PRODUCT_INVALID_STATUS);
 		}
 		return product;
 	}
