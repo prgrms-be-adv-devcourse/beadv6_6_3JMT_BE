@@ -119,4 +119,19 @@ class VersionedRouteDefinitionLocatorTest {
         assertThat(adminPattern).contains("/api/v2/admin/orders");
         assertThat(orderPattern).doesNotContain("/admin/orders");
     }
+
+    @Test
+    void 어드민_회원_판매자심사_경로는_admin_service가_소유하고_user_service는_소유하지_않는다() {
+        Map<String, List<String>> config = new LinkedHashMap<>();
+        config.put("admin-service", List.of("v2"));
+        config.put("user-service", List.of("v1", "v2"));
+
+        List<RouteDefinition> definitions = VersionedRouteDefinitionLocator.buildRouteDefinitions(propertiesOf(config));
+
+        String adminPattern = pathPredicateValue(routeById(definitions, "admin-service"));
+        String userPattern = pathPredicateValue(routeById(definitions, "user-service"));
+        assertThat(adminPattern).contains("/api/v2/admin/users");
+        assertThat(adminPattern).contains("/api/v2/admin/sellers/register");
+        assertThat(userPattern).doesNotContain("/admin/");
+    }
 }
