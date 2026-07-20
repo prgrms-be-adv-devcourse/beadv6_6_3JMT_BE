@@ -3,7 +3,6 @@ package com.prompthub.order.support;
 import java.util.UUID;
 
 import com.prompthub.order.application.client.ProductClient;
-import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.service.order.OrderExpirationStore;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -28,9 +27,6 @@ class PostgreSqlIntegrationTestSupportSmokeTest extends PostgreSqlIntegrationTes
 
 	@MockitoBean
 	private ProductClient productClient;
-
-	@MockitoBean
-	private SellerClient sellerClient;
 
 	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;

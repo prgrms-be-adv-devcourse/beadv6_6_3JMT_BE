@@ -1,7 +1,6 @@
 package com.prompthub.order.infra.redis;
 
 import com.prompthub.order.application.client.ProductClient;
-import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.service.order.OrderCommandHandler;
 import com.prompthub.order.application.service.order.OrderExpirationStore;
 import com.prompthub.order.application.service.order.OrderNumberGenerator;
@@ -51,9 +50,6 @@ class OrderExpirationAfterCommitIntegrationTest {
 	private ProductClient productClient;
 
 	@MockitoBean
-	private SellerClient sellerClient;
-
-	@MockitoBean
 	private OrderNumberGenerator orderNumberGenerator;
 
 	@MockitoBean
@@ -69,7 +65,7 @@ class OrderExpirationAfterCommitIntegrationTest {
 	void tearDown() {
 		outboxEventPersistence.deleteAll();
 		orderPersistence.deleteAll();
-		reset(productClient, sellerClient, orderNumberGenerator, orderExpirationStore);
+		reset(productClient, orderNumberGenerator, orderExpirationStore);
 	}
 
 	@Test

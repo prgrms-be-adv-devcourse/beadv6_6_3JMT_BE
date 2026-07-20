@@ -4,7 +4,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.context.ActiveProfiles;
 import com.prompthub.order.application.client.ProductClient;
-import com.prompthub.order.application.client.SellerClient;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest(properties = {
@@ -22,7 +21,4 @@ public abstract class KafkaIntegrationTest {
 
 	@MockitoBean
 	protected ProductClient productClient;
-
-	@MockitoBean
-	protected SellerClient sellerClient;
 }

@@ -1,7 +1,6 @@
 package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.client.ProductClient;
-import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.dto.ProductCartSnapshot;
 import com.prompthub.order.application.service.cart.CartService;
 import com.prompthub.order.application.service.event.PaymentApprovedProcessor;
@@ -80,9 +79,6 @@ class OrderFailureCompensationConcurrencyTest extends PostgreSqlIntegrationTestS
 	private ProductClient productClient;
 
 	@MockitoBean
-	private SellerClient sellerClient;
-
-	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;
 
 	@Autowired
@@ -94,7 +90,7 @@ class OrderFailureCompensationConcurrencyTest extends PostgreSqlIntegrationTestS
 
 	@BeforeEach
 	void setUp() {
-		reset(productClient, sellerClient, orderExpirationStore);
+		reset(productClient, orderExpirationStore);
 		given(productClient.getCartSnapshot(PRODUCT_A)).willReturn(productSnapshot());
 		databaseStateProbe = new DatabaseStateProbe(
 			orderPersistence,
@@ -108,7 +104,7 @@ class OrderFailureCompensationConcurrencyTest extends PostgreSqlIntegrationTestS
 	@AfterEach
 	void tearDown() {
 		concurrentScenarioRunner.close();
-		reset(productClient, sellerClient, orderExpirationStore);
+		reset(productClient, orderExpirationStore);
 	}
 
 	@RepeatedTest(5)
