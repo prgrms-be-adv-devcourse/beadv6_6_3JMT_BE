@@ -27,14 +27,16 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import static com.prompthub.order.infra.grpc.client.product.ProductGrpcOperation.CART_SNAPSHOTS;
+import static com.prompthub.order.infra.grpc.client.product.ProductGrpcOperation.ORDER_SNAPSHOTS;
+import static com.prompthub.order.infra.grpc.client.product.ProductGrpcOperation.PRODUCT_CONTENT;
+
 @Component
 @Profile({"default", "local", "dev", "prod"})
 @Slf4j
 public class ProductGrpcClientAdapter implements ProductClient {
 
 	private static final String ON_SALE = "ON_SALE";
-	private static final String PRODUCT_ORDER_GRPC = "productOrderGrpc";
-	private static final String PRODUCT_QUERY_GRPC = "productQueryGrpc";
 
 	private final ProductQueryServiceGrpc.ProductQueryServiceBlockingStub stub;
 	private final int deadlineMs;
@@ -52,7 +54,7 @@ public class ProductGrpcClientAdapter implements ProductClient {
 
 	@Override
 	public List<ProductOrderSnapshot> getOrderSnapshots(List<UUID> productIds) {
-		return execute(PRODUCT_ORDER_GRPC, "GetOrderSnapshots", () ->
+		return execute(ORDER_SNAPSHOTS, () ->
 			withDeadline().getOrderSnapshots(GetOrderSnapshotsRequest.newBuilder()
 					.addAllProductIds(toStrings(productIds))
 					.build())
@@ -65,7 +67,7 @@ public class ProductGrpcClientAdapter implements ProductClient {
 
 	@Override
 	public ProductCartSnapshot getCartSnapshot(UUID productId) {
-		return execute(PRODUCT_QUERY_GRPC, "GetCartSnapshots", () -> {
+		return execute(CART_SNAPSHOTS, () -> {
 			var response = withDeadline().getCartSnapshots(GetCartSnapshotsRequest.newBuilder()
 					.addProductIds(productId.toString())
 					.build())
@@ -79,7 +81,7 @@ public class ProductGrpcClientAdapter implements ProductClient {
 
 	@Override
 	public List<ProductCartSnapshot> getCartSnapshots(List<UUID> productIds) {
-		return execute(PRODUCT_QUERY_GRPC, "GetCartSnapshots", () ->
+		return execute(CART_SNAPSHOTS, () ->
 			withDeadline().getCartSnapshots(GetCartSnapshotsRequest.newBuilder()
 					.addAllProductIds(toStrings(productIds))
 					.build())
@@ -92,7 +94,7 @@ public class ProductGrpcClientAdapter implements ProductClient {
 
 	@Override
 	public ProductContent getProductContent(UUID productId) {
-		return execute(PRODUCT_QUERY_GRPC, "GetProductContent", () -> {
+		return execute(PRODUCT_CONTENT, () -> {
 			var response = withDeadline().getProductContent(GetProductContentRequest.newBuilder()
 				.setProductId(productId.toString())
 				.build());
@@ -100,8 +102,8 @@ public class ProductGrpcClientAdapter implements ProductClient {
 		});
 	}
 
-	private <T> T execute(String circuitBreakerName, String grpcMethod, Supplier<T> supplier) {
-		CircuitBreaker circuitBreaker = resilience.circuitBreaker(circuitBreakerName);
+	private <T> T execute(ProductGrpcOperation operation, Supplier<T> supplier) {
+		CircuitBreaker circuitBreaker = resilience.circuitBreaker(operation.circuitBreakerName());
 		Bulkhead bulkhead = resilience.productGrpcBulkhead();
 		long startedAt = System.nanoTime();
 
@@ -111,13 +113,13 @@ public class ProductGrpcClientAdapter implements ProductClient {
 				Bulkhead.decorateSupplier(bulkhead, supplier)
 			).get();
 		} catch (CallNotPermittedException exception) {
-			logFailure(circuitBreakerName, grpcMethod, "circuit_open", null, startedAt);
+			logFailure(operation, "circuit_open", null, startedAt);
 			throw productServiceUnavailable();
 		} catch (BulkheadFullException exception) {
-			logFailure(circuitBreakerName, grpcMethod, "bulkhead_full", null, startedAt);
+			logFailure(operation, "bulkhead_full", null, startedAt);
 			throw productServiceUnavailable();
 		} catch (StatusRuntimeException exception) {
-			logFailure(circuitBreakerName, grpcMethod, failureReason(exception), exception, startedAt);
+			logFailure(operation, failureReason(exception), exception, startedAt);
 			throw mapGrpcException(exception);
 		}
 	}
@@ -183,8 +185,7 @@ public class ProductGrpcClientAdapter implements ProductClient {
 	}
 
 	private void logFailure(
-		String circuitBreakerName,
-		String grpcMethod,
+		ProductGrpcOperation operation,
 		String failureReason,
 		StatusRuntimeException exception,
 		long startedAt
@@ -195,8 +196,8 @@ public class ProductGrpcClientAdapter implements ProductClient {
 		log.warn(
 			"Product gRPC call failed. requestId={}, circuitBreakerName={}, bulkheadName=productGrpcBulkhead, "
 				+ "grpcMethod={}, grpcStatus={}, failureReason={}, elapsedMs={}, circuitState={}",
-			requestId, circuitBreakerName, grpcMethod, grpcStatus, failureReason, elapsedMs,
-			resilience.circuitBreaker(circuitBreakerName).getState()
+			requestId, operation.circuitBreakerName(), operation.grpcMethod(), grpcStatus, failureReason, elapsedMs,
+			resilience.circuitBreaker(operation.circuitBreakerName()).getState()
 		);
 	}
 
