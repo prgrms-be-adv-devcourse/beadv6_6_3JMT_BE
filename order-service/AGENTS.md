@@ -127,7 +127,7 @@ com.prompthub.order
 
 외부 인증과 역할·상태 인가는 API Gateway가 담당하고, order-service는 Gateway가 전달한 신뢰된 사용자 ID를 사용한다.
 
-- `/api/v1/orders/**`, `/api/v1/cart/**`: `X-User-Id` 필수. 애플리케이션 계층에서 주문·장바구니 소유권을 검증한다.
+- `/api/v1/orders/**`, `/api/v2/cart/**`: `X-User-Id` 필수. 애플리케이션 계층에서 주문·장바구니 소유권을 검증한다.
 - `/api/v1/admin/**`: 관리자 역할·상태 검증은 Gateway의 책임이다. order-service 관리자 Controller는 역할 헤더를 읽거나 검증하지 않는다.
 - 관리자 API의 401·403은 Gateway 또는 공통 예외 계약에 따라 외부에 노출될 수 있지만, order-service 내부 계약은 사용자 ID와 소유권 검증에 한정한다.
 
