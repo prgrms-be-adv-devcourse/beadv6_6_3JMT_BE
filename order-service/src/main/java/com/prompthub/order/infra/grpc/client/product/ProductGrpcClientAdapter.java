@@ -28,7 +28,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Component
-@Profile({"dev", "prod"})
+@Profile({"default", "local", "dev", "prod"})
 @Slf4j
 public class ProductGrpcClientAdapter implements ProductClient {
 

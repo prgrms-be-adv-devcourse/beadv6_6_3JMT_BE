@@ -67,7 +67,7 @@ public class OrderController {
 		return ApiResult.success(CreateOrderResponse.from(result));
 	}
 
-	@GetMapping("/api/v1/orders/{orderId}")
+	@GetMapping("/api/v2/orders/{orderId}")
 	@Operation(summary = "주문 상세 조회", description = "구매자 본인의 주문 상세와 주문 상품 목록을 조회합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "주문 상세 조회 성공"),
@@ -85,7 +85,7 @@ public class OrderController {
 	}
 
 	@Operation(summary = "결제 승인 전 유효성 검사", description = "PG 승인 요청 전에 주문 소유자, 상태, 만료 시간, 결제 금액을 검증합니다.")
-	@PostMapping("/api/v1/orders/{orderId}/payment-ready")
+	@PostMapping("/api/v2/orders/{orderId}/payment-ready")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "결제 가능 주문"),
 		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패, O014 주문 금액 불일치"),
@@ -109,7 +109,7 @@ public class OrderController {
 		));
 	}
 
-	@GetMapping("/api/v1/orders/{orderId}/content/{orderProductId}")
+	@GetMapping("/api/v2/orders/{orderId}/content/{orderProductId}")
 	@Operation(summary = "구매 콘텐츠 열람", description = "결제 완료된 주문 상품의 구매 콘텐츠를 조회합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "구매 콘텐츠 열람 성공"),
@@ -128,7 +128,7 @@ public class OrderController {
 		return ApiResult.success(orderQueryUseCase.getOrderContent(buyerId, orderId, orderProductId));
 	}
 
-	@GetMapping("/api/v1/orders")
+	@GetMapping("/api/v2/orders")
 	@Operation(summary = "주문 목록 조회", description = "구매자 본인의 주문 목록을 페이지 조건으로 조회합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "주문 목록 조회 성공"),
@@ -152,7 +152,7 @@ public class OrderController {
 		);
 	}
 
-	@PatchMapping("/api/v1/orders/{orderId}/products/{orderProductId}/download")
+	@PatchMapping("/api/v2/orders/{orderId}/products/{orderProductId}/download")
 	@Operation(summary = "주문상품 다운로드 확정", description = "구매자가 다운로드 버튼을 클릭했음을 기록하고 환불 가능 여부를 반환합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "주문상품 다운로드 확정 성공"),

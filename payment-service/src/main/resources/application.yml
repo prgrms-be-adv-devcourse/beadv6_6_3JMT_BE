@@ -3,8 +3,10 @@ spring:
     name: payment-service
   config:
     import:
+      - ${CONFIG_IMPORT:optional:configserver:}
       - optional:file:.env[.properties]
-      - ${CONFIG_IMPORT:}
+      - optional:file:../.env[.properties]
+      - optional:file:./payment-service/.env[.properties]
   cloud:
     config:
       fail-fast: true
