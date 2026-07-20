@@ -37,9 +37,5 @@ public interface ProductRepository {
 
 	long countOnSaleProductsBySellerId(UUID sellerId);
 
-	List<Product> findPendingReviewProducts();
-
-	List<Product> findAllAdminProducts();
-
 	List<Product> findAllByFamilyRootIds(List<UUID> familyRootIds);
 }
