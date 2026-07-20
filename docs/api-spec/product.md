@@ -4,7 +4,8 @@
 
 > 최종 프로젝트 전환에 따라 product-service 외부 API는 `/api/v2`로 서빙한다(#273).
 > 게이트웨이는 경로를 rewrite하지 않으므로(ADR-0007) 각 서비스가 해당 버전 경로를 직접 서빙한다.
-> 내부 통신(`/internal/**`)은 버전 없이 유지한다.
+> 서비스 간 내부 통신은 REST(`/internal/**`)가 아니라 gRPC로 통일되어 있다(#413, #431) — 남은
+> `/internal/**` REST 엔드포인트는 없다.
 
 ## 공통 사항
 
@@ -655,32 +656,39 @@
 
 ### POST /products/{productId}/reviews — 별점 작성
 
-- UC: UC-PRODUCT-09
-- 인증: 필요
-- 필요 역할: USER
-- 1상품 1리뷰 제약
-- 미구현 (이슈 #93)
-
----
-
-## 내부 API (Internal)
-
-내부 서비스 간 호출 전용. Gateway를 거치지 않음.
-
-### POST /internal/products/reviews — 리뷰 upsert
-
-- 호출: order-service → product-service
-- 호출 시점: 구매 후 리뷰 작성
+- 인증: 필요 (`X-User-Id` 헤더)
+- 1상품 1리뷰 제약 — 이미 남긴 별점이 있으면 upsert(수정)로 처리
+- 구매 여부는 서버에서 검증하지 않는다(알려진 한계, #440)
 
 #### Request
 
+**Body**
+
 ```json
 {
-  "buyerId": "uuid",
-  "productId": "uuid",
   "rating": 5
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| rating | integer | Y | 1~5 |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": null,
+  "message": "success"
+}
+```
+
+**400 Bad Request** — rating이 1~5 범위 밖 (`VALIDATION_FAILED`, V001)
+
+---
 
 ## Kafka 이벤트
 
