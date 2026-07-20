@@ -1,0 +1,12 @@
+-- 어드민 주문 목록/월간·주간 통계 쿼리 검증용 픽스처.
+-- H2 스키마는 application-test.yml 안내대로 admin 재매핑 엔티티(Order/OrderProduct) 기준으로 생성된다(ddl-auto: create-drop).
+INSERT INTO "order" (id, total_order_amount, order_status, completed_at, created_at) VALUES
+('aaaaaaaa-0000-0000-0000-000000000001', 30000, 'COMPLETED', '2026-06-10 10:01:00', '2026-06-10 10:00:00'),
+('aaaaaaaa-0000-0000-0000-000000000002', 10000, 'ALL_REFUNDED', '2026-06-11 09:00:00', '2026-06-11 08:59:00'),
+('aaaaaaaa-0000-0000-0000-000000000003', 5000, 'CREATED', NULL, '2026-06-12 10:00:00');
+
+INSERT INTO "order_product" (id, order_id, seller_id, product_title_snapshot, product_amount_snapshot, created_at, refunded_at) VALUES
+('bbbbbbbb-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000001', '프롬프트 상품 1', 10000, '2026-06-10 10:00:01', NULL),
+('bbbbbbbb-0000-0000-0000-000000000002', 'aaaaaaaa-0000-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000002', '프롬프트 상품 2', 20000, '2026-06-10 10:00:02', NULL),
+('bbbbbbbb-0000-0000-0000-000000000003', 'aaaaaaaa-0000-0000-0000-000000000002', 'cccccccc-0000-0000-0000-000000000001', '프롬프트 상품 3', 10000, '2026-06-11 08:59:01', '2026-06-12 09:00:00'),
+('bbbbbbbb-0000-0000-0000-000000000004', 'aaaaaaaa-0000-0000-0000-000000000003', 'cccccccc-0000-0000-0000-000000000002', '프롬프트 상품 4', 5000, '2026-06-12 10:00:01', NULL);
