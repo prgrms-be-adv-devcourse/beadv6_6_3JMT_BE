@@ -2,7 +2,7 @@
 # 테스트에서만 ddl-auto: create-drop 으로 재매핑 엔티티 기준 스키마를 만든다.
 spring:
   datasource:
-    url: jdbc:h2:mem:admin;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:mem:admin;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS product_service
     username: sa
     password: ""
     driver-class-name: org.h2.Driver

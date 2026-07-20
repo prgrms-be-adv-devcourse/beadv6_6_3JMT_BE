@@ -1,19 +1,4 @@
-package com.prompthub.product.presentation.controller;
-
-import com.prompthub.product.application.usecase.ProductAdminUseCase;
-import com.prompthub.product.exception.ProductExceptionHandler;
-import java.util.List;
-import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+package com.prompthub.admin.product.presentation.controller;
 
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -22,29 +7,38 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@ExtendWith(MockitoExtension.class)
-class AdminProductControllerTest {
+import java.util.List;
+import java.util.UUID;
 
+import com.prompthub.admin.product.application.usecase.ProductUseCase;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+@WebMvcTest(ProductController.class)
+@ActiveProfiles("test")
+class ProductControllerTest {
+
+	@Autowired
 	private MockMvc mockMvc;
 
-	@Mock
-	private ProductAdminUseCase productAdminUseCase;
-
-	@BeforeEach
-	void setUp() {
-		mockMvc = MockMvcBuilders.standaloneSetup(new AdminProductController(productAdminUseCase))
-			.setControllerAdvice(new ProductExceptionHandler())
-			.build();
-	}
+	@MockitoBean
+	private ProductUseCase productUseCase;
 
 	@Nested
 	@DisplayName("GET /api/v2/admin/products")
 	class GetPendingReviewProducts {
 
 		@Test
-		@DisplayName("검수 대기 목록을 조회한다 (역할 검사는 gateway 소관)")
+		@DisplayName("검수 대기 목록을 조회한다")
 		void getPendingReviewProducts_success() throws Exception {
-			given(productAdminUseCase.getPendingReviewProducts()).willReturn(List.of());
+			given(productUseCase.getPendingReviewProducts()).willReturn(List.of());
 
 			mockMvc.perform(get("/api/v2/admin/products"))
 				.andExpect(status().isOk())
@@ -65,7 +59,7 @@ class AdminProductControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
-			then(productAdminUseCase).should().approveProduct(productId);
+			then(productUseCase).should().approveProduct(productId);
 		}
 	}
 
@@ -84,7 +78,7 @@ class AdminProductControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
-			then(productAdminUseCase).should().rejectProduct(productId, "콘텐츠 미흡");
+			then(productUseCase).should().rejectProduct(productId, "콘텐츠 미흡");
 		}
 	}
 }

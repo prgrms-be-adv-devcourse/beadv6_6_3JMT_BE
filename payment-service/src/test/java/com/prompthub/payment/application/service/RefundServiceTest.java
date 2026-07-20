@@ -112,7 +112,7 @@ class RefundServiceTest {
     }
 
     @Test
-    void 부분_환불_성공_시_PARTIAL_REFUNDED_전이() {
+    void 부분_환불_성공_시_Payment_상태는_PAID_유지() {
         Payment payment = 결제_생성_후_승인(10_000);
         UUID refundRequestId = UUID.randomUUID();
         OffsetDateTime refundedAt = OffsetDateTime.now();
@@ -127,7 +127,7 @@ class RefundServiceTest {
             payment.getOrderId(), refundRequestId, 4_000, OffsetDateTime.now());
         service.refund(command);
 
-        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PARTIAL_REFUNDED);
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
 
         ArgumentCaptor<Refund> refundCaptor = ArgumentCaptor.forClass(Refund.class);
         verify(refundRepository).save(refundCaptor.capture());
@@ -141,7 +141,7 @@ class RefundServiceTest {
     }
 
     @Test
-    void 누적_환불액_totalAmount_도달_시_ALL_REFUNDED_전이() {
+    void 누적_환불액_totalAmount_도달해도_Payment_상태는_PAID_유지() {
         Payment payment = 결제_생성_후_승인(10_000);
         when(refundRepository.existsByRefundRequestId(any())).thenReturn(false);
         when(paymentRepository.findByOrderIdAndStatusInForUpdate(any(), any())).thenReturn(Optional.of(payment));
@@ -154,7 +154,11 @@ class RefundServiceTest {
             payment.getOrderId(), UUID.randomUUID(), 4_000, OffsetDateTime.now());
         service.refund(command);
 
-        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.ALL_REFUNDED);
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
+
+        ArgumentCaptor<Refund> refundCaptor = ArgumentCaptor.forClass(Refund.class);
+        verify(refundRepository).save(refundCaptor.capture());
+        assertThat(refundCaptor.getValue().getStatus()).isEqualTo(RefundStatus.COMPLETED);
     }
 
     @Test

@@ -90,46 +90,6 @@ class PaymentTest {
             .isInstanceOf(IllegalStateException.class);
     }
 
-    @Test
-    void applyRefund_부분환불_시_PARTIAL_REFUNDED_상태() {
-        Payment payment = 결제_생성_후_승인(10_000);
-        OffsetDateTime refundedAt = OffsetDateTime.now();
-
-        payment.applyRefund(refundedAt, false);
-
-        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PARTIAL_REFUNDED);
-        assertThat(payment.getRefundedAt()).isEqualTo(refundedAt);
-    }
-
-    @Test
-    void applyRefund_전액소진_시_ALL_REFUNDED_상태() {
-        Payment payment = 결제_생성_후_승인(10_000);
-        OffsetDateTime refundedAt = OffsetDateTime.now();
-
-        payment.applyRefund(refundedAt, true);
-
-        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.ALL_REFUNDED);
-    }
-
-    @Test
-    void applyRefund_PARTIAL_REFUNDED_상태에서_추가_환불_가능() {
-        Payment payment = 결제_생성_후_승인(10_000);
-        payment.applyRefund(OffsetDateTime.now(), false);
-
-        OffsetDateTime secondRefundedAt = OffsetDateTime.now();
-        payment.applyRefund(secondRefundedAt, true);
-
-        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.ALL_REFUNDED);
-    }
-
-    @Test
-    void PAID_아니고_PARTIAL_REFUNDED도_아닌_상태에서_applyRefund_실패() {
-        Payment payment = 결제_생성(); // READY 상태
-
-        assertThatThrownBy(() -> payment.applyRefund(OffsetDateTime.now(), true))
-            .isInstanceOf(IllegalStateException.class);
-    }
-
     private Payment 결제_생성_후_승인(int amount) {
         Payment payment = Payment.create(
             UUID.randomUUID(), UUID.randomUUID(),

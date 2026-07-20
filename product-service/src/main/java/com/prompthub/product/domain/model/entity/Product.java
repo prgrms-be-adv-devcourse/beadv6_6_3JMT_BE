@@ -3,8 +3,7 @@ package com.prompthub.product.domain.model.entity;
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
-import com.prompthub.product.exception.ProductException;
-import com.prompthub.product.exception.enums.ProductErrorCode;
+import com.prompthub.product.domain.model.vo.ProductContent;
 import com.prompthub.product.infra.persistence.converter.TagsConverter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
@@ -114,38 +113,11 @@ public class Product {
 	@Column(name = "deleted_at")
 	private LocalDateTime deletedAt;
 
-	public static Product create(
-		UUID id,
-		UUID sellerId,
-		ProductType productType,
-		String name,
-		String description,
-		String model,
-		AmountType amountType,
-		int amount,
-		String thumbnailUrl,
-		List<String> imageUrls,
-		String content,
-		String fileUrl,
-		String externalUrl,
-		List<String> tags
-	) {
-		validateTypeFields(productType, content, fileUrl, externalUrl);
+	public static Product create(UUID id, UUID sellerId, ProductContent productContent) {
 		Product product = new Product();
 		product.id = id;
 		product.sellerId = sellerId;
-		product.productType = productType;
-		product.name = name;
-		product.description = description;
-		product.model = model;
-		product.amountType = amountType;
-		product.amount = amount;
-		product.thumbnailUrl = thumbnailUrl;
-		product.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
-		product.content = content;
-		product.fileUrl = fileUrl;
-		product.externalUrl = externalUrl;
-		product.tags = tags != null ? tags : new ArrayList<>();
+		product.applyContent(productContent);
 		product.majorVersion = 1;
 		product.patchVersion = 0;
 		product.status = ProductStatus.DRAFT;
@@ -157,35 +129,8 @@ public class Product {
 		return product;
 	}
 
-	public void update(
-		ProductType productType,
-		String name,
-		String description,
-		String model,
-		AmountType amountType,
-		int amount,
-		String thumbnailUrl,
-		List<String> imageUrls,
-		String content,
-		String fileUrl,
-		String externalUrl,
-		List<String> tags,
-		String changeReason,
-		boolean isMajor
-	) {
-		validateTypeFields(productType, content, fileUrl, externalUrl);
-		this.productType = productType;
-		this.name = name;
-		this.description = description;
-		this.model = model;
-		this.amountType = amountType;
-		this.amount = amount;
-		this.thumbnailUrl = thumbnailUrl;
-		this.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
-		this.content = content;
-		this.fileUrl = fileUrl;
-		this.externalUrl = externalUrl;
-		this.tags = tags != null ? tags : new ArrayList<>();
+	public void update(ProductContent productContent, String changeReason, boolean isMajor) {
+		applyContent(productContent);
 		this.changeReason = changeReason;
 		if (isMajor) {
 			this.majorVersion++;
@@ -237,39 +182,12 @@ public class Product {
 		return this.parentId == null;
 	}
 
-	public Product nextVersion(
-		boolean isMajor,
-		ProductType productType,
-		String name,
-		String description,
-		String model,
-		AmountType amountType,
-		int amount,
-		String thumbnailUrl,
-		List<String> imageUrls,
-		String content,
-		String fileUrl,
-		String externalUrl,
-		List<String> tags,
-		String changeReason
-	) {
-		validateTypeFields(productType, content, fileUrl, externalUrl);
+	public Product nextVersion(boolean isMajor, ProductContent productContent, String changeReason) {
 		Product next = new Product();
 		next.id = UUID.randomUUID();
 		next.parentId = this.familyRootId();
 		next.sellerId = this.sellerId;
-		next.productType = productType;
-		next.name = name;
-		next.description = description;
-		next.model = model;
-		next.amountType = amountType;
-		next.amount = amount;
-		next.thumbnailUrl = thumbnailUrl;
-		next.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
-		next.content = content;
-		next.fileUrl = fileUrl;
-		next.externalUrl = externalUrl;
-		next.tags = tags != null ? tags : new ArrayList<>();
+		next.applyContent(productContent);
 		next.changeReason = changeReason;
 		next.badge = null; // 새 버전 row는 뱃지를 물려받지 않고 초기화한다(예: "신규" 뱃지가 계속 남는 걸 방지)
 		if (isMajor) {
@@ -297,14 +215,6 @@ public class Product {
 		this.updatedAt = LocalDateTime.now();
 	}
 
-	public void restoreFromSuperseded() {
-		if (this.status != ProductStatus.SUPERSEDED) {
-			throw new IllegalStateException("SUPERSEDED 상태의 상품만 ON_SALE로 복원할 수 있습니다. current=" + this.status);
-		}
-		this.status = ProductStatus.ON_SALE;
-		this.updatedAt = LocalDateTime.now();
-	}
-
 	public void submitForReview() {
 		if (this.status != ProductStatus.DRAFT && this.status != ProductStatus.REJECTED) {
 			throw new IllegalStateException("검수 요청할 수 없는 상태입니다. current=" + this.status);
@@ -314,46 +224,18 @@ public class Product {
 		this.updatedAt = LocalDateTime.now();
 	}
 
-	public void approve() {
-		if (this.status != ProductStatus.PENDING_REVIEW) {
-			throw new IllegalStateException("검수 대기 상태의 상품만 승인할 수 있습니다. current=" + this.status);
-		}
-		this.status = ProductStatus.ON_SALE;
-		this.updatedAt = LocalDateTime.now();
-	}
-
-	public void reject(String reason) {
-		if (this.status != ProductStatus.PENDING_REVIEW) {
-			throw new IllegalStateException("검수 대기 상태의 상품만 반려할 수 있습니다. current=" + this.status);
-		}
-		this.status = ProductStatus.REJECTED;
-		this.rejectionReason = reason;
-		this.updatedAt = LocalDateTime.now();
-	}
-
-	public void revertToPendingReview() {
-		if (this.status != ProductStatus.ON_SALE && this.status != ProductStatus.REJECTED) {
-			throw new IllegalStateException("승인 또는 반려 상태의 상품만 검수 대기로 되돌릴 수 있습니다. current=" + this.status);
-		}
-		this.status = ProductStatus.PENDING_REVIEW;
-		this.rejectionReason = null;
-		this.updatedAt = LocalDateTime.now();
-	}
-
-	private static void validateTypeFields(
-		ProductType productType, String content, String fileUrl, String externalUrl
-	) {
-		boolean hasContent = content != null && !content.isBlank();
-		boolean hasFileUrl = fileUrl != null && !fileUrl.isBlank();
-		boolean hasExternalUrl = externalUrl != null && !externalUrl.isBlank();
-
-		boolean ok = switch (productType) {
-			case PROMPT -> hasContent && !hasFileUrl && !hasExternalUrl;
-			case PPT, EXCEL -> hasFileUrl && !hasContent && !hasExternalUrl;
-			case NOTION -> hasExternalUrl && !hasContent && !hasFileUrl;
-		};
-		if (!ok) {
-			throw new ProductException(ProductErrorCode.PRODUCT_TYPE_FIELD_MISMATCH);
-		}
+	private void applyContent(ProductContent productContent) {
+		this.productType = productContent.productType();
+		this.name = productContent.name();
+		this.description = productContent.description();
+		this.model = productContent.model();
+		this.amountType = productContent.amountType();
+		this.amount = productContent.amount();
+		this.thumbnailUrl = productContent.thumbnailUrl();
+		this.imageUrls = productContent.imageUrls();
+		this.content = productContent.content();
+		this.fileUrl = productContent.fileUrl();
+		this.externalUrl = productContent.externalUrl();
+		this.tags = productContent.tags();
 	}
 }

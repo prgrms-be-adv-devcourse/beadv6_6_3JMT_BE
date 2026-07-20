@@ -1,10 +1,10 @@
-package com.prompthub.product.application.usecase;
+package com.prompthub.admin.product.application.usecase;
 
-import com.prompthub.product.presentation.dto.response.AdminProductListItemResponse;
+import com.prompthub.admin.product.presentation.dto.response.AdminProductListItemResponse;
 import java.util.List;
 import java.util.UUID;
 
-public interface ProductAdminUseCase {
+public interface ProductUseCase {
 
 	List<AdminProductListItemResponse> getPendingReviewProducts();
 

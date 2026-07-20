@@ -108,7 +108,6 @@ class KafkaPaymentEventPublisherTest {
             com.prompthub.payment.domain.model.Refund.create(payment.getId(), UUID.randomUUID(), 4_000, null);
         OffsetDateTime refundedAt = OffsetDateTime.now();
         refund.complete(refundedAt);
-        payment.applyRefund(refundedAt, false);
 
         publisher.onPaymentRefunded(new com.prompthub.payment.domain.event.PaymentRefundedEvent(payment, refund));
 

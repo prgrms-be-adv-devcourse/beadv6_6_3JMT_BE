@@ -57,7 +57,7 @@ class PaymentJpaRepositoryTest extends AbstractJpaTest {
         paymentJpaRepository.saveAndFlush(payment);
 
         Optional<Payment> found = paymentJpaRepository.findByOrderIdAndStatusInForUpdate(
-            orderId, List.of(PaymentStatus.PAID, PaymentStatus.PARTIAL_REFUNDED));
+            orderId, List.of(PaymentStatus.PAID));
 
         assertThat(found).isPresent();
         assertThat(found.get().getId()).isEqualTo(payment.getId());
@@ -72,7 +72,7 @@ class PaymentJpaRepositoryTest extends AbstractJpaTest {
         paymentJpaRepository.saveAndFlush(payment); // READY 상태
 
         Optional<Payment> found = paymentJpaRepository.findByOrderIdAndStatusInForUpdate(
-            orderId, List.of(PaymentStatus.PAID, PaymentStatus.PARTIAL_REFUNDED));
+            orderId, List.of(PaymentStatus.PAID));
 
         assertThat(found).isEmpty();
     }

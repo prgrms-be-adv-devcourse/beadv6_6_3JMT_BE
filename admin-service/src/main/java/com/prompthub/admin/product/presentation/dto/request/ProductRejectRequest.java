@@ -1,4 +1,4 @@
-package com.prompthub.product.presentation.dto.request;
+package com.prompthub.admin.product.presentation.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 

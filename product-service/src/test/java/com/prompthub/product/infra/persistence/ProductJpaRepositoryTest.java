@@ -1,12 +1,11 @@
 package com.prompthub.product.infra.persistence;
 
+import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.Review;
-import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
-import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.model.enums.ReviewStatus;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import java.util.List;
@@ -58,11 +57,7 @@ class ProductJpaRepositoryTest {
 	}
 
 	private Product product(UUID parentId, ProductStatus status, short majorVersion, short patchVersion) {
-		Product product = Product.create(
-			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
-			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", null, null, List.of()
-		);
+		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
 		ReflectionTestUtils.setField(product, "parentId", parentId);
 		ReflectionTestUtils.setField(product, "status", status);
 		ReflectionTestUtils.setField(product, "majorVersion", majorVersion);
