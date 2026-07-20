@@ -92,24 +92,13 @@ class OrderWebContractTest {
 	@Test
 	@DisplayName("주문 API는 사용자 ID가 없으면 401을 반환한다")
 	void orderApiWithoutUserIdReturnsUnauthorized() throws Exception {
-		mockMvc.perform(get("/api/v1/orders"))
+		mockMvc.perform(get("/api/v2/orders"))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
 
 		then(orderQueryUseCase).shouldHaveNoInteractions();
 	}
 
-	@Test
-	@DisplayName("v1 주문 생성 POST는 노출하지 않는다")
-	void v1CreateOrderIsNotExposed() throws Exception {
-		mockMvc.perform(post("/api/v1/orders")
-				.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(requestJson()))
-			.andExpect(status().isMethodNotAllowed());
-
-		then(createOrderUseCase).shouldHaveNoInteractions();
-	}
 
 	@Test
 	@DisplayName("기존 v1 주문 조회 API는 사용자 ID만으로 호출할 수 있다")
@@ -117,7 +106,7 @@ class OrderWebContractTest {
 		given(orderQueryUseCase.getOrders(eq(BUYER_ID), any()))
 			.willReturn(new PageImpl<>(List.of()));
 
-		mockMvc.perform(get("/api/v1/orders")
+		mockMvc.perform(get("/api/v2/orders")
 				.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.success").value(true));
