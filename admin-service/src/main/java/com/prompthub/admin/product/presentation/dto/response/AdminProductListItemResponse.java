@@ -1,6 +1,6 @@
-package com.prompthub.product.presentation.dto.response;
+package com.prompthub.admin.product.presentation.dto.response;
 
-import com.prompthub.product.domain.model.entity.Product;
+import com.prompthub.admin.product.domain.model.entity.Product;
 import java.time.LocalDateTime;
 import java.util.UUID;
 

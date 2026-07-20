@@ -23,7 +23,7 @@ public record VersionedServiceRoute(String id, String uri, List<String> pathSuff
         new VersionedServiceRoute(
             "admin-service",
             "lb://ADMIN-SERVICE",
-            List.of("/admin/settlements/**", "/admin/orders", "/admin/orders/**"),
+            List.of("/admin/settlements/**", "/admin/orders", "/admin/orders/**", "/admin/products", "/admin/products/**"),
             1
         ),
         new VersionedServiceRoute(
@@ -40,8 +40,7 @@ public record VersionedServiceRoute(String id, String uri, List<String> pathSuff
             "lb://PRODUCT-SERVICE",
             List.of(
                 "/products", "/products/**",
-                "/sellers/me/products", "/sellers/me/products/**",
-                "/admin/products", "/admin/products/**"
+                "/sellers/me/products", "/sellers/me/products/**"
             ),
             3
         ),

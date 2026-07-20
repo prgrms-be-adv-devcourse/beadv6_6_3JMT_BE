@@ -13,7 +13,7 @@
 
 **Architecture:** `Product` 엔티티에 family(계보) 개념과 `nextVersion()`/`supersede()` 도메인
 메서드를 추가하고, family 내 대표 row를 고르는 로직은 신규 `ProductFamily` 값 객체로 분리한다.
-쓰기 경로(`ProductSellerService`, `ProductAdminService`)는 이 도메인 메서드로 새 row 생성/전환을
+쓰기 경로(`ProductSellerService`, `ProductService`)는 이 도메인 메서드로 새 row 생성/전환을
 수행하고, 읽기 경로(공개 조회 + 4종 내부 gRPC)는 `ProductRepository.findAllByFamilyRootIds`로
 family를 조회해 대표 row를 resolve한다.
 
@@ -2017,9 +2017,9 @@ git commit -m "feat: 내부 gRPC 4종이 family 기준으로 대표 row를 resol
 
 ---
 
-### Task 14: `AdminProductControllerTest` 신규 작성
+### Task 14: `ProductControllerTest` 신규 작성
 
-이슈 #223 본문에 명시된 대로 현재 `AdminProductControllerTest`가 존재하지 않는다.
+이슈 #223 본문에 명시된 대로 현재 `ProductControllerTest`가 존재하지 않는다.
 `ProductControllerTest.java`의 스타일(`@WebMvcTest` 또는 기존 컨트롤러 테스트 패턴)을 그대로
 따른다.
 
@@ -2027,7 +2027,7 @@ git commit -m "feat: 내부 gRPC 4종이 family 기준으로 대표 row를 resol
 - Create: `product-service/src/test/java/com/prompthub/product/presentation/controller/AdminProductControllerTest.java`
 
 **Interfaces:**
-- Consumes: `ProductAdminUseCase`(mock), `AdminProductController`.
+- Consumes: `ProductUseCase`(mock), `ProductController`.
 
 - [ ] **Step 1: 기존 `ProductControllerTest.java`의 테스트 설정 방식 확인**
 
@@ -2085,7 +2085,7 @@ git commit -m "feat: 내부 gRPC 4종이 family 기준으로 대표 row를 resol
 
 Run: `cd product-service && .\gradlew.bat test --tests "com.prompthub.product.presentation.controller.AdminProductControllerTest" --no-daemon`
 Expected: FAIL(파일이 아직 setup 보일러플레이트 없이 미완성이거나, mock 설정이 실제
-`ProductAdminUseCase` 예외 처리와 안 맞으면 실패). 실패 원인을 보고 Step 1에서 확인한
+`ProductUseCase` 예외 처리와 안 맞으면 실패). 실패 원인을 보고 Step 1에서 확인한
 `ProductControllerTest.java`의 실제 exception handler/응답 포맷에 맞춰 조정한다.
 
 - [ ] **Step 4: 통과할 때까지 setup 보정 후 재실행**
@@ -2141,7 +2141,7 @@ git commit -m "docs: SUPERSEDED 상태 및 판매자 상세 응답 변경사항 
 
 - **Spec coverage**: 설계 문서의 핵심 개념(family, 상태 전이/분기 규칙, 불변식), 데이터 모델
   변경(SUPERSEDED — 단 DB 마이그레이션은 ddl-auto 환경 특성상 애플리케이션 레벨로 대체),
-  도메인 모델 변경, `ProductSellerService`/`ProductAdminService` 변경, family resolution
+  도메인 모델 변경, `ProductSellerService`/`ProductService` 변경, family resolution
   적용 5개 호출처, 판매자 화면 변경, 테스트 계획이 모두 Task 1~14에 매핑된다. 설계 문서에
   없던 리뷰/평점 family 집계 문제(Task 5~6)는 계획 수립 중 발견해 사용자 승인 후 추가했다.
 - **미해결 사항 반영**: 설계 문서의 "관리자 목록에 구분 필드 추가는 범위 밖" 결정을 그대로
