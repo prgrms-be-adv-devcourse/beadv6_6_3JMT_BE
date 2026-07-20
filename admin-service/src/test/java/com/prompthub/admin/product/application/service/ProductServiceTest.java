@@ -1,16 +1,16 @@
-package com.prompthub.product.application.service;
+package com.prompthub.admin.product.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
-import com.prompthub.product.domain.model.entity.Product;
-import com.prompthub.product.domain.model.enums.AmountType;
-import com.prompthub.product.domain.model.enums.ProductStatus;
-import com.prompthub.product.domain.model.enums.ProductType;
-import com.prompthub.product.domain.repository.ProductRepository;
-import com.prompthub.product.exception.ProductException;
+import com.prompthub.admin.product.domain.exception.ProductException;
+import com.prompthub.admin.product.domain.model.entity.Product;
+import com.prompthub.admin.product.domain.model.enums.AmountType;
+import com.prompthub.admin.product.domain.model.enums.ProductStatus;
+import com.prompthub.admin.product.domain.model.enums.ProductType;
+import com.prompthub.admin.product.domain.repository.ProductRepository;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,7 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
-class ProductAdminServiceTest {
+class ProductServiceTest {
 
 	private static final UUID SELLER_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
 	private static final UUID FAMILY_ROOT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
@@ -33,7 +33,7 @@ class ProductAdminServiceTest {
 	private ProductRepository productRepository;
 
 	@InjectMocks
-	private ProductAdminService productAdminService;
+	private ProductService productAdminService;
 
 	@Nested
 	@DisplayName("상품 승인")
@@ -143,11 +143,15 @@ class ProductAdminServiceTest {
 	}
 
 	private Product product(UUID id, UUID parentId, ProductStatus status, short majorVersion, short patchVersion) {
-		Product product = Product.create(
-			id, SELLER_ID, ProductType.PROMPT,
-			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", null, null, List.of()
-		);
+		Product product = Product.create();
+		ReflectionTestUtils.setField(product, "id", id);
+		ReflectionTestUtils.setField(product, "sellerId", SELLER_ID);
+		ReflectionTestUtils.setField(product, "productType", ProductType.PROMPT);
+		ReflectionTestUtils.setField(product, "name", "제목");
+		ReflectionTestUtils.setField(product, "description", "설명");
+		ReflectionTestUtils.setField(product, "model", "model");
+		ReflectionTestUtils.setField(product, "amountType", AmountType.PAID);
+		ReflectionTestUtils.setField(product, "amount", 1000);
 		ReflectionTestUtils.setField(product, "parentId", parentId);
 		ReflectionTestUtils.setField(product, "status", status);
 		ReflectionTestUtils.setField(product, "majorVersion", majorVersion);
