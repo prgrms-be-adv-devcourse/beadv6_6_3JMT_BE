@@ -215,46 +215,12 @@ public class Product {
 		this.updatedAt = LocalDateTime.now();
 	}
 
-	public void restoreFromSuperseded() {
-		if (this.status != ProductStatus.SUPERSEDED) {
-			throw new IllegalStateException("SUPERSEDED 상태의 상품만 ON_SALE로 복원할 수 있습니다. current=" + this.status);
-		}
-		this.status = ProductStatus.ON_SALE;
-		this.updatedAt = LocalDateTime.now();
-	}
-
 	public void submitForReview() {
 		if (this.status != ProductStatus.DRAFT && this.status != ProductStatus.REJECTED) {
 			throw new IllegalStateException("검수 요청할 수 없는 상태입니다. current=" + this.status);
 		}
 		this.rejectionReason = null;
 		this.status = ProductStatus.PENDING_REVIEW;
-		this.updatedAt = LocalDateTime.now();
-	}
-
-	public void approve() {
-		if (this.status != ProductStatus.PENDING_REVIEW) {
-			throw new IllegalStateException("검수 대기 상태의 상품만 승인할 수 있습니다. current=" + this.status);
-		}
-		this.status = ProductStatus.ON_SALE;
-		this.updatedAt = LocalDateTime.now();
-	}
-
-	public void reject(String reason) {
-		if (this.status != ProductStatus.PENDING_REVIEW) {
-			throw new IllegalStateException("검수 대기 상태의 상품만 반려할 수 있습니다. current=" + this.status);
-		}
-		this.status = ProductStatus.REJECTED;
-		this.rejectionReason = reason;
-		this.updatedAt = LocalDateTime.now();
-	}
-
-	public void revertToPendingReview() {
-		if (this.status != ProductStatus.ON_SALE && this.status != ProductStatus.REJECTED) {
-			throw new IllegalStateException("승인 또는 반려 상태의 상품만 검수 대기로 되돌릴 수 있습니다. current=" + this.status);
-		}
-		this.status = ProductStatus.PENDING_REVIEW;
-		this.rejectionReason = null;
 		this.updatedAt = LocalDateTime.now();
 	}
 

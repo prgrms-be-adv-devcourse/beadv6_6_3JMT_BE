@@ -100,16 +100,6 @@ class ProductTest {
 	}
 
 	@Test
-	void restoreFromSuperseded_supersededRow_transitionsToOnSale() {
-		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
-		ReflectionTestUtils.setField(product, "status", ProductStatus.SUPERSEDED);
-
-		product.restoreFromSuperseded();
-
-		assertThat(product.getStatus()).isEqualTo(ProductStatus.ON_SALE);
-	}
-
-	@Test
 	void create_notion_withExternalUrl_succeeds() {
 		Product product = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), notionContent("제목", 1000)
