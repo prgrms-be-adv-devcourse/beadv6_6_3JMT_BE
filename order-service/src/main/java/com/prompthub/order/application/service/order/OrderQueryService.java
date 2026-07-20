@@ -176,11 +176,13 @@ public class OrderQueryService implements OrderQueryUseCase {
 			projection.orderProductId(),
 			projection.productId(),
 			projection.orderStatus(),
+			projection.orderProductStatus(),
 			orderPolicyService.isRefundable(
 				projection.orderStatus(),
 				projection.orderProductStatus(),
 				projection.downloaded()
 			),
+			projection.downloaded(),
 			projection.productType(),
 			projection.title(),
 			projection.model(),
