@@ -129,28 +129,6 @@ public class Product {
 		return product;
 	}
 
-	public static Product create(
-		UUID id,
-		UUID sellerId,
-		ProductType productType,
-		String name,
-		String description,
-		String model,
-		AmountType amountType,
-		int amount,
-		String thumbnailUrl,
-		List<String> imageUrls,
-		String content,
-		String fileUrl,
-		String externalUrl,
-		List<String> tags
-	) {
-		return create(id, sellerId, new ProductContent(
-			productType, name, description, model, amountType, amount,
-			thumbnailUrl, imageUrls, content, fileUrl, externalUrl, tags
-		));
-	}
-
 	public void update(ProductContent productContent, String changeReason, boolean isMajor) {
 		applyContent(productContent);
 		this.changeReason = changeReason;
@@ -162,28 +140,6 @@ public class Product {
 			this.patchVersion++;
 		}
 		this.updatedAt = LocalDateTime.now();
-	}
-
-	public void update(
-		ProductType productType,
-		String name,
-		String description,
-		String model,
-		AmountType amountType,
-		int amount,
-		String thumbnailUrl,
-		List<String> imageUrls,
-		String content,
-		String fileUrl,
-		String externalUrl,
-		List<String> tags,
-		String changeReason,
-		boolean isMajor
-	) {
-		update(new ProductContent(
-			productType, name, description, model, amountType, amount,
-			thumbnailUrl, imageUrls, content, fileUrl, externalUrl, tags
-		), changeReason, isMajor);
 	}
 
 	public void stop() {
@@ -249,28 +205,6 @@ public class Product {
 		next.createdAt = LocalDateTime.now();
 		next.updatedAt = LocalDateTime.now();
 		return next;
-	}
-
-	public Product nextVersion(
-		boolean isMajor,
-		ProductType productType,
-		String name,
-		String description,
-		String model,
-		AmountType amountType,
-		int amount,
-		String thumbnailUrl,
-		List<String> imageUrls,
-		String content,
-		String fileUrl,
-		String externalUrl,
-		List<String> tags,
-		String changeReason
-	) {
-		return nextVersion(isMajor, new ProductContent(
-			productType, name, description, model, amountType, amount,
-			thumbnailUrl, imageUrls, content, fileUrl, externalUrl, tags
-		), changeReason);
 	}
 
 	public void supersede() {
