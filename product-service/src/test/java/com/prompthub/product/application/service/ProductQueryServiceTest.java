@@ -29,6 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
@@ -228,11 +229,7 @@ class ProductQueryServiceTest {
 	}
 
 	private Product productFixture(UUID id, UUID parentId, ProductStatus status, short majorVersion, short patchVersion) {
-		Product product = Product.create(
-			id, SELLER_ID, ProductType.PROMPT,
-			"제목", "설명", "model", com.prompthub.product.domain.model.enums.AmountType.PAID, 1000,
-			null, List.of(), "content", null, null, List.of()
-		);
+		Product product = Product.create(id, SELLER_ID, promptContent());
 		ReflectionTestUtils.setField(product, "parentId", parentId);
 		ReflectionTestUtils.setField(product, "status", status);
 		ReflectionTestUtils.setField(product, "majorVersion", majorVersion);

@@ -1,5 +1,6 @@
 package com.prompthub.product.application.service;
 
+import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
@@ -8,9 +9,7 @@ import static org.mockito.BDDMockito.then;
 import com.prompthub.product.application.client.SellerClient;
 import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.domain.model.entity.Product;
-import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
-import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.infra.messaging.producer.ProductEventProducer;
@@ -253,11 +252,7 @@ class ProductSellerServiceTest {
 	}
 
 	private Product product(UUID id, UUID parentId, ProductStatus status, short majorVersion, short patchVersion) {
-		Product product = Product.create(
-			id, SELLER_ID, ProductType.PROMPT,
-			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", null, null, List.of()
-		);
+		Product product = Product.create(id, SELLER_ID, promptContent());
 		ReflectionTestUtils.setField(product, "parentId", parentId);
 		ReflectionTestUtils.setField(product, "status", status);
 		ReflectionTestUtils.setField(product, "majorVersion", majorVersion);
