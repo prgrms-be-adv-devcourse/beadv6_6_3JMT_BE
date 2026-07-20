@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
-import com.prompthub.product.application.client.SellerClient;
 import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
@@ -35,9 +34,6 @@ class ProductSellerServiceTest {
 
 	@Mock
 	private ProductRepository productRepository;
-
-	@Mock
-	private SellerClient sellerClient;
 
 	@Mock
 	private ProductEventProducer productEventProducer;
@@ -127,9 +123,6 @@ class ProductSellerServiceTest {
 		@Test
 		@DisplayName("NOTION 생성 시 external_url을 외부 링크 원문 그대로 저장한다")
 		void createProduct_notion_savesExternalUrlRaw() {
-			given(sellerClient.getSellerInfo(SELLER_ID))
-				.willReturn(new com.prompthub.product.application.client.SellerInfo(
-					SELLER_ID, "판매자", null, "ACTIVE"));
 			given(productRepository.save(org.mockito.ArgumentMatchers.any(Product.class)))
 				.willAnswer(inv -> inv.getArgument(0));
 
@@ -149,9 +142,6 @@ class ProductSellerServiceTest {
 		@Test
 		@DisplayName("PPT 생성 시 file_url 임시 키를 상품 경로로 이동해 키로 저장한다")
 		void createProduct_ppt_movesFileKey() {
-			given(sellerClient.getSellerInfo(SELLER_ID))
-				.willReturn(new com.prompthub.product.application.client.SellerInfo(
-					SELLER_ID, "판매자", null, "ACTIVE"));
 			given(productRepository.save(org.mockito.ArgumentMatchers.any(Product.class)))
 				.willAnswer(inv -> inv.getArgument(0));
 

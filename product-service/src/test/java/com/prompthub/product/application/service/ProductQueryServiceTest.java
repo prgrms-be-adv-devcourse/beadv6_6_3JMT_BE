@@ -1,7 +1,5 @@
 package com.prompthub.product.application.service;
 
-import com.prompthub.product.application.client.SellerClient;
-import com.prompthub.product.application.client.SellerInfo;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
@@ -47,9 +45,6 @@ class ProductQueryServiceTest {
 	@Mock
 	private ProductRepository productRepository;
 
-	@Mock
-	private SellerClient sellerClient;
-
 	@InjectMocks
 	private ProductQueryService productQueryService;
 
@@ -66,8 +61,6 @@ class ProductQueryServiceTest {
 				.willReturn(List.of(projection));
 			given(productRepository.countPublicProducts("react", "PROMPT"))
 				.willReturn(1L);
-			given(sellerClient.getSellerInfo(SELLER_ID))
-				.willReturn(new SellerInfo(SELLER_ID, "테스트판매자", null, "ACTIVE"));
 			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID)))
 				.willReturn(List.of(product));
 
@@ -132,8 +125,6 @@ class ProductQueryServiceTest {
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
 			given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(4.5);
-			given(sellerClient.getSellerInfo(SELLER_ID))
-				.willReturn(new SellerInfo(SELLER_ID, "테스트판매자", null, "ACTIVE"));
 
 			ProductDetailResponse response = productQueryService.getProduct(PRODUCT_ID);
 
@@ -142,7 +133,6 @@ class ProductQueryServiceTest {
 			assertThat(response.productType()).isEqualTo("PROMPT");
 			assertThat(response.tags()).containsExactly("리액트", "리팩터링");
 			assertThat(response.rating()).isEqualTo(4.5);
-			assertThat(response.seller()).isEqualTo("테스트판매자");
 			assertThat(response.content()).contains("전체 내용은 구매 후 확인");
 			assertThat(response.versions()).hasSize(1);
 		}
@@ -185,8 +175,6 @@ class ProductQueryServiceTest {
 			given(productRepository.findById(oldId)).willReturn(Optional.of(old));
 			given(productRepository.findAllByFamilyRootIds(List.of(oldId))).willReturn(List.of(old, current));
 			given(productRepository.getAverageRating(oldId)).willReturn(4.5);
-			given(sellerClient.getSellerInfo(SELLER_ID))
-				.willReturn(new com.prompthub.product.application.client.SellerInfo(SELLER_ID, "판매자", null, "ACTIVE"));
 			given(productRepository.countOnSaleProductsBySellerId(SELLER_ID)).willReturn(1L);
 
 			ProductDetailResponse result = productQueryService.getProduct(oldId);
@@ -207,8 +195,6 @@ class ProductQueryServiceTest {
 			given(productRepository.findAllByFamilyRootIds(List.of(oldId))).willReturn(List.of(old, current));
 			given(productRepository.getAverageRating(oldId)).willReturn(0.0);
 			given(productRepository.sumSalesCountByFamilyRootId(oldId)).willReturn(42L);
-			given(sellerClient.getSellerInfo(SELLER_ID))
-				.willReturn(new com.prompthub.product.application.client.SellerInfo(SELLER_ID, "판매자", null, "ACTIVE"));
 			given(productRepository.countOnSaleProductsBySellerId(SELLER_ID)).willReturn(1L);
 
 			ProductDetailResponse result = productQueryService.getProduct(oldId);
@@ -253,8 +239,6 @@ class ProductQueryServiceTest {
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
 			given(productRepository.findRelatedProducts(PRODUCT_ID, ProductType.PROMPT, 4))
 				.willReturn(List.of(productListProjection(RELATED_PRODUCT_ID, "PROMPT")));
-			given(sellerClient.getSellerInfo(SELLER_ID))
-				.willReturn(new SellerInfo(SELLER_ID, "테스트판매자", null, "ACTIVE"));
 			given(productRepository.findAllByIdIn(List.of(RELATED_PRODUCT_ID)))
 				.willReturn(List.of(related));
 
