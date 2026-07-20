@@ -14,5 +14,4 @@ public interface PaymentRepository {
     boolean existsByPgTxId(String pgTxId);
     boolean existsByOrderIdAndStatusIn(UUID orderId, Collection<PaymentStatus> statuses);
     Optional<Payment> findByOrderIdAndStatusInForUpdate(UUID orderId, Collection<PaymentStatus> statuses);
-    Optional<Payment> findLatestByOrderId(UUID orderId);
 }
