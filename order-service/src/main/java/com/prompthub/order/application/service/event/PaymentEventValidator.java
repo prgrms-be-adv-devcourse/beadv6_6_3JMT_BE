@@ -37,17 +37,15 @@ public class PaymentEventValidator {
 		if (payload == null
 			|| payload.paymentId() == null
 			|| payload.orderId() == null
-			|| payload.userId() == null
-			|| payload.amount() <= 0
-			|| payload.approvedAt() == null
-			|| payload.approvedAt().isBlank()) {
+			|| payload.buyerId() == null
+			|| payload.approvedAmount() <= 0
+			|| payload.approvedAtValue() == null
+			|| payload.approvedAtValue().isBlank()) {
 			throw invalidInput();
 		}
 
 		try {
-			return OffsetDateTime.parse(payload.approvedAt())
-				.withOffsetSameInstant(KOREA_OFFSET)
-				.toLocalDateTime();
+			return payload.approvedAt();
 		} catch (DateTimeException exception) {
 			throw invalidInput();
 		}

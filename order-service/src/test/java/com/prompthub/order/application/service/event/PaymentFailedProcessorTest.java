@@ -1,139 +1,64 @@
 package com.prompthub.order.application.service.event;
 
-import com.prompthub.order.domain.enums.OrderProductStatus;
-import com.prompthub.order.domain.enums.OrderStatus;
-import com.prompthub.order.domain.model.Order;
-import com.prompthub.order.domain.model.OrderProduct;
-import com.prompthub.order.domain.repository.OrderRepository;
-import com.prompthub.order.global.exception.ErrorCode;
-import com.prompthub.order.global.exception.OrderException;
+import com.prompthub.order.application.service.order.OrderFailureCompensationService;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
+import java.lang.reflect.Method;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.PaymentEventFixture.FAILED_AT;
-import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
-import static com.prompthub.order.fixture.PaymentEventFixture.OTHER_BUYER_ID;
-import static com.prompthub.order.fixture.PaymentEventFixture.PAYMENT_ID;
-import static com.prompthub.order.fixture.PaymentEventFixture.createdOrder;
 import static com.prompthub.order.fixture.PaymentEventFixture.failedPayload;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentFailedProcessorTest {
 
-	@Mock
-	private ProcessedEventService processedEventService;
+	private static final UUID EVENT_ID = UUID.fromString("00000000-0000-0000-0000-000000000901");
+	private static final String EVENT_TYPE = "PAYMENT_FAILED";
 
 	@Mock
-	private OrderRepository orderRepository;
+	private OrderFailureCompensationService compensationService;
 
-	@Spy
-	private PaymentEventValidator validator = new PaymentEventValidator();
-
-	@InjectMocks
 	private PaymentFailedProcessor processor;
 
-	@Test
-	void process_createdOrder_marksOrderAndFourProductsFailed() {
-		Order order = createdOrder();
-		UUID eventId = UUID.randomUUID();
-		stubTarget(eventId, order);
-
-		processor.process(eventId, "PAYMENT_FAILED", FAILED_AT, failedPayload());
-
-		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.FAILED);
-		assertThat(order.getOrderProducts())
-			.extracting(OrderProduct::getOrderStatus)
-			.containsOnly(OrderProductStatus.FAILED);
-		then(processedEventService).should()
-			.markProcessed(eventId, "order-service", "PAYMENT_FAILED", FAILED_AT);
-	}
-
-	@ParameterizedTest
-	@EnumSource(value = OrderStatus.class, names = {"FAILED", "COMPLETED", "PARTIAL_REFUNDED", "ALL_REFUNDED"})
-	void process_lateFailure_isNoOpExceptProcessedEvent(OrderStatus status) {
-		Order order = createdOrder();
-		order.updateOrderStatus(status);
-		UUID eventId = UUID.randomUUID();
-		stubTarget(eventId, order);
-
-		processor.process(eventId, "PAYMENT_FAILED", FAILED_AT, failedPayload());
-
-		assertThat(order.getOrderStatus()).isEqualTo(status);
-		then(processedEventService).should()
-			.markProcessed(eventId, "order-service", "PAYMENT_FAILED", FAILED_AT);
+	@BeforeEach
+	void setUp() {
+		processor = new PaymentFailedProcessor(compensationService);
 	}
 
 	@Test
-	void process_buyerMismatch_rejectsWithoutMutationOrProcessedEvent() {
-		Order order = createdOrder();
-		UUID eventId = UUID.randomUUID();
-		stubTarget(eventId, order);
-		PaymentFailedPayload payload = new PaymentFailedPayload(PAYMENT_ID, ORDER_A, OTHER_BUYER_ID);
+	@DisplayName("결제 실패 metadata와 payload를 공통 보상 서비스에 그대로 위임한다")
+	void process_delegatesMetadataAndPayload() {
+		PaymentFailedPayload payload = failedPayload();
 
-		assertThatThrownBy(() -> processor.process(eventId, "PAYMENT_FAILED", FAILED_AT, payload))
-			.isInstanceOf(OrderException.class)
-			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_ACCESS_DENIED);
-		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
-		assertThat(order.getOrderProducts())
-			.extracting(OrderProduct::getOrderStatus)
-			.containsOnly(OrderProductStatus.PENDING);
-		then(processedEventService).should(never()).markProcessed(any(), any(), any(), any());
+		processor.process(EVENT_ID, EVENT_TYPE, FAILED_AT, payload);
+
+		then(compensationService).should()
+			.compensatePaymentFailure(EVENT_ID, EVENT_TYPE, FAILED_AT, payload);
 	}
 
 	@Test
-	void process_missingOrder_throwsBeforeStateChange() {
-		UUID eventId = UUID.randomUUID();
-		given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
-		given(orderRepository.findByIdWithOrderProductsForUpdate(ORDER_A)).willReturn(Optional.empty());
+	@DisplayName("Processor는 DB 트랜잭션 경계를 소유하지 않는다")
+	void processorHasNoTransactionalBoundary() throws Exception {
+		Method process = PaymentFailedProcessor.class.getDeclaredMethod(
+			"process",
+			UUID.class,
+			String.class,
+			LocalDateTime.class,
+			PaymentFailedPayload.class
+		);
 
-		assertThatThrownBy(() -> processor.process(eventId, "PAYMENT_FAILED", FAILED_AT, failedPayload()))
-			.isInstanceOf(OrderException.class)
-			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_NOT_FOUND);
-		then(processedEventService).should(never()).markProcessed(any(), any(), any(), any());
-	}
-
-	@Test
-	void process_sameEventId_returnsBeforeLocking() {
-		UUID eventId = UUID.randomUUID();
-		given(processedEventService.isProcessed(eventId, "order-service")).willReturn(true);
-
-		processor.process(eventId, "PAYMENT_FAILED", FAILED_AT, failedPayload());
-
-		then(orderRepository).shouldHaveNoInteractions();
-		then(processedEventService).should(never()).markProcessed(any(), any(), any(), any());
-	}
-
-	@Test
-	void process_eventCompletedWhileWaitingForLock_returnsWithoutStateChange() {
-		Order order = createdOrder();
-		UUID eventId = UUID.randomUUID();
-		given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false, true);
-		given(orderRepository.findByIdWithOrderProductsForUpdate(ORDER_A)).willReturn(Optional.of(order));
-
-		processor.process(eventId, "PAYMENT_FAILED", FAILED_AT, failedPayload());
-
-		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
-		then(processedEventService).should(never()).markProcessed(any(), any(), any(), any());
-	}
-
-	private void stubTarget(UUID eventId, Order order) {
-		given(processedEventService.isProcessed(eventId, "order-service")).willReturn(false);
-		given(orderRepository.findByIdWithOrderProductsForUpdate(ORDER_A)).willReturn(Optional.of(order));
+		assertThat(AnnotatedElementUtils.hasAnnotation(PaymentFailedProcessor.class, Transactional.class)).isFalse();
+		assertThat(AnnotatedElementUtils.hasAnnotation(process, Transactional.class)).isFalse();
 	}
 }

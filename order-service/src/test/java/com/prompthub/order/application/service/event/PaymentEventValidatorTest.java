@@ -57,14 +57,14 @@ class PaymentEventValidatorTest {
 	}
 
 	@Test
-	void validateApproved_rejectsTimestampWithoutOffset() {
-		assertInvalidApproved(new PaymentApprovedPayload(
+	void validateApproved_acceptsTimestampWithoutOffset() {
+		assertThat(validator.validate(new PaymentApprovedPayload(
 			PAYMENT_ID,
 			ORDER_A,
 			BUYER_ID,
 			30_000,
 			"2026-07-17T10:00:05"
-		));
+		))).isEqualTo(LocalDateTime.of(2026, 7, 17, 10, 0, 5));
 	}
 
 	@Test

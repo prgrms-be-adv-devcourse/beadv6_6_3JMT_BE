@@ -1,7 +1,7 @@
 package com.prompthub.order.application.service.event;
 
 import com.prompthub.common.event.EventMessage;
-import com.prompthub.order.application.event.order.OrderPaidEvent;
+import com.prompthub.order.application.event.order.OrderExpirationCleanupRequestedEvent;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
@@ -47,6 +47,7 @@ public class PaymentApprovedProcessor {
 		validator.validateEnvelope(eventId, eventType, occurredAt);
 		LocalDateTime approvedAt = validator.validate(payload);
 		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
+			publishCleanup(payload.orderId());
 			return;
 		}
 
@@ -54,6 +55,7 @@ public class PaymentApprovedProcessor {
 			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
 		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
+			publishCleanup(order.getId());
 			return;
 		}
 		validateBuyer(payload, order);
@@ -63,16 +65,16 @@ public class PaymentApprovedProcessor {
 			|| order.getOrderStatus() == OrderStatus.FAILED;
 		if (transitioned) {
 			order.markCompleted(approvedAt);
+			removePurchasedProductsFromCart(order.getBuyerId(), order);
 			EventMessage<OrderPaidPayload> message = orderEventMessageFactory.createOrderPaidMessage(
 				order.getId(),
 				OrderPaidPayload.from(order)
 			);
 			outboxEventAppender.append(message);
-			removePurchasedProductsFromCart(payload.userId(), order);
-			applicationEventPublisher.publishEvent(new OrderPaidEvent(order.getId()));
 		}
 
 		processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
+		publishCleanup(order.getId());
 
 		log.info(
 			"결제 승인 이벤트 처리 완료. eventId={}, paymentId={}, orderId={}, status={}, transitioned={}, consumerGroup={}",
@@ -85,14 +87,18 @@ public class PaymentApprovedProcessor {
 		);
 	}
 
+	private void publishCleanup(UUID orderId) {
+		applicationEventPublisher.publishEvent(new OrderExpirationCleanupRequestedEvent(orderId));
+	}
+
 	private void validateBuyer(PaymentApprovedPayload payload, Order order) {
-		if (!order.getBuyerId().equals(payload.userId())) {
+		if (!order.getBuyerId().equals(payload.buyerId())) {
 			throw new OrderException(ErrorCode.ORDER_ACCESS_DENIED);
 		}
 	}
 
 	private void validateAmount(PaymentApprovedPayload payload, Order order) {
-		if (order.getTotalOrderAmount() != payload.amount()) {
+		if (order.getTotalOrderAmount() != payload.approvedAmount()) {
 			throw new OrderException(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
 		}
 	}
@@ -103,7 +109,10 @@ public class PaymentApprovedProcessor {
 			.distinct()
 			.sorted()
 			.toList();
-		cartRepository.findByBuyerIdWithCartProducts(buyerId)
-			.ifPresent(cart -> cart.removeProductsByProductIds(productIds));
+		cartRepository.findByBuyerIdForUpdateWithCartProducts(buyerId)
+			.ifPresent(cart -> {
+				cart.removeProductsByProductIds(productIds);
+				cartRepository.save(cart);
+			});
 	}
 }
