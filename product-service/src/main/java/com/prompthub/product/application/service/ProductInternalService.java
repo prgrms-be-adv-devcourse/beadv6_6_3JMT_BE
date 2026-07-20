@@ -69,17 +69,6 @@ public class ProductInternalService implements ProductInternalUseCase {
 	}
 
 	@Override
-	public ProductCartSnapshotResponse getCartSnapshot(UUID productId) {
-		Map<UUID, Product> resolved = resolveFamilyRepresentatives(List.of(productId), ProductFamily::currentOnSale);
-		Product product = resolved.get(productId);
-		if (product == null) {
-			throw new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND);
-		}
-		String sellerNickname = sellerClient.getSellerInfo(product.getSellerId()).sellerName();
-		return ProductCartSnapshotResponse.from(productId, product, sellerNickname);
-	}
-
-	@Override
 	public List<ProductCartSnapshotResponse> getCartSnapshots(List<UUID> productIds) {
 		Map<UUID, Product> resolved = resolveFamilyRepresentatives(productIds, ProductFamily::currentOnSale);
 		Map<UUID, String> sellerNicknames = resolved.values().stream()

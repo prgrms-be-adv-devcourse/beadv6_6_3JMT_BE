@@ -614,92 +614,6 @@
 
 내부 서비스 간 호출 전용. Gateway를 거치지 않음.
 
-### POST /internal/products/order-snapshots — 주문 스냅샷 조회
-
-- 호출: order-service → product-service
-- 호출 시점: 주문 생성 시
-
-#### Request
-
-```json
-["uuid1", "uuid2"]
-```
-
-#### Response
-
-```json
-[
-  {
-    "productId": "uuid",
-    "sellerId": "uuid",
-    "title": "상품명",
-    "productType": "PROMPT",
-    "model": "GPT-4o",
-    "amount": 5000
-  }
-]
-```
-
----
-
-### GET /internal/products/{productId}/cart-snapshot — 장바구니 단건 스냅샷
-
-- 호출: order-service → product-service
-
-#### Response
-
-```json
-{
-  "productId": "uuid",
-  "title": "상품명",
-  "productType": "PROMPT",
-  "model": "GPT-4o",
-  "amount": 5000,
-  "thumbnailUrl": "https://...",
-  "sellerId": "uuid",
-  "sellerNickname": "판매자명",
-  "status": "ON_SALE"
-}
-```
-
----
-
-### POST /internal/products/cart-snapshots — 장바구니 목록 스냅샷
-
-- 호출: order-service → product-service
-
-#### Request
-
-```json
-["uuid1", "uuid2"]
-```
-
-#### Response
-
-cart-snapshot 배열 반환
-
----
-
-### GET /internal/products/{productId}/content — 구매자 산출물 조회 (유형별)
-
-- 호출: order-service → product-service
-- 호출 시점: 구매 후 콘텐츠 다운로드
-- `content`는 상품 유형별 산출물을 담는다: **PROMPT**=본문 텍스트, **PPT·EXCEL**=파일
-  presigned 다운로드 URL, **NOTION**=외부 링크. 응답 구조(`{productId, content}`, gRPC
-  `GetProductContentResponse`)는 유형과 무관하게 동일하며, 소비자는 자신이 아는 productType에
-  따라 렌더링한다.
-
-#### Response
-
-```json
-{
-  "productId": "uuid",
-  "content": "프롬프트 원문 | 파일 presigned URL | 외부 링크"
-}
-```
-
----
-
 ### POST /internal/products/reviews — 리뷰 upsert
 
 - 호출: order-service → product-service
@@ -712,28 +626,6 @@ cart-snapshot 배열 반환
   "buyerId": "uuid",
   "productId": "uuid",
   "rating": 5
-}
-```
-
----
-
-### GET /internal/products/count — 판매자 등록 상품 수 조회
-
-- 호출: settlement-service → product-service
-- 호출 시점: 판매자 정산 요약 조회 시
-
-#### Query Parameters
-
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| sellerId | UUID | Y | 판매자 ID |
-
-#### Response
-
-```json
-{
-  "sellerId": "uuid",
-  "productCount": 12
 }
 ```
 
