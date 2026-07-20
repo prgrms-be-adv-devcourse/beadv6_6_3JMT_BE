@@ -74,12 +74,6 @@ spring:
   cloud:
     config:
       enabled: false
-    openfeign:
-      client:
-        config:
-          product-service:
-            connect-timeout: ${PRODUCT_SERVICE_CONNECT_TIMEOUT_MS:2000}
-            read-timeout: ${PRODUCT_SERVICE_READ_TIMEOUT_MS:3000}
 
 grpc:
   server:
@@ -90,9 +84,6 @@ eureka:
     enabled: false
 
 prompthub:
-  clients:
-    product-service:
-      url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
   grpc:
     product:
       host: ${PRODUCT_GRPC_HOST:localhost}

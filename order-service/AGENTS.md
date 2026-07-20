@@ -23,7 +23,7 @@
 - Spring Web MVC, Spring Data JPA, QueryDSL
 - PostgreSQL, H2 테스트 데이터베이스
 - Apache Kafka, Redis
-- REST/OpenFeign, gRPC, Protobuf
+- gRPC, Protobuf
 - Resilience4j CircuitBreaker·Bulkhead
 - springdoc-openapi
 - JUnit 5, Mockito, Embedded Kafka
@@ -109,7 +109,7 @@ com.prompthub.order
 - 도메인 상태는 `markPaid`, `expirePending`, `markDownloaded`처럼 의미가 드러나는 메서드로 변경한다. 검증을 우회하는 public setter를 추가하지 않는다.
 - JPA Entity를 Controller 응답 DTO나 Kafka payload로 직접 사용하지 않는다.
 
-현재 `domain/model`은 JPA annotation을 사용하는 실용적인 구조다. 이를 JPA 비의존 도메인으로 이미 분리된 것처럼 가정하지 않는다. 다만 새 코드에서 Spring Web, Kafka, Redis, gRPC, Feign 같은 기술 세부사항을 `domain`에 추가하지 않는다.
+현재 `domain/model`은 JPA annotation을 사용하는 실용적인 구조다. 이를 JPA 비의존 도메인으로 이미 분리된 것처럼 가정하지 않는다. 다만 새 코드에서 Spring Web, Kafka, Redis, gRPC 같은 기술 세부사항을 `domain`에 추가하지 않는다.
 
 기존 코드 일부에는 `application`이 presentation DTO 또는 infra Kafka payload를 참조하는 예외가 있다. 관련 리팩터링이 요청되지 않았다면 이를 일괄 수정하지 말고, 새 코드에서는 이런 역방향 의존성을 늘리지 않는다.
 
@@ -159,11 +159,9 @@ com.prompthub.order
 
 | 프로파일 | ProductClient | SellerClient |
 |---|---|---|
-| `default`, `local` | `ProductRestClientAdapter` | `SellerRestFallbackClient` |
-| `dev`, `prod` | `ProductGrpcClientAdapter` | `SellerGrpcClientAdapter` |
+| `default`, `local`, `dev`, `prod` | `ProductGrpcClientAdapter` | `SellerGrpcClientAdapter` |
 
-- `default/local`의 상품 조회는 OpenFeign을 사용한다.
-- `default/local`의 판매자 조회는 현재 batch REST API가 없어 빈 결과를 반환하며, 관리자 조회 서비스가 fallback 표시를 적용한다.
+- 모든 런타임 프로파일의 상품·판매자 조회는 gRPC를 사용한다.
 - `dev/prod`의 gRPC 호출에는 설정된 deadline을 적용한다.
 - 상품 gRPC 호출은 기존 Resilience4j CircuitBreaker·Bulkhead와 gRPC status-to-error 매핑을 유지한다.
 - 호출 실패를 무조건 빈 결과로 바꾸지 않는다. 현재 상품 조회는 서비스 불가 예외를 전달하고, 판매자 닉네임 조회만 빈 결과 fallback을 사용한다.
