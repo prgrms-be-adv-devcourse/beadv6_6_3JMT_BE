@@ -3026,7 +3026,7 @@ EOF
 
 - [x] `./gradlew :admin-service:test :apigateway:test :user-service:test` 전체 통과 확인
 - [x] `admin-service/works/user/design.md`의 결정 사항 7개가 실제 구현과 일치하는지 재확인
-- [ ] admin-service가 Redis에 실제로 붙는지 확인 — config 모듈 값은 이 플랜에서 채웠지만(Task 1 Step 2), 루트 `docker-compose.yml`의 admin-service `environment`에 `REDIS_HOST`/`REDIS_PORT`를 추가하는 건 세 모듈(`user-service`/`admin-service`/`apigateway`) 밖의 별도 작업으로 남아있다
+- [x] admin-service가 Redis에 실제로 붙는지 확인 — 루트 `docker-compose.yml`의 admin-service `environment`에 `REDIS_HOST`/`REDIS_PORT`(+ `redis` depends_on)를 사용자 확인 후 추가 완료(세 모듈 밖이라 별도 커밋)
 - [x] 기존 `SellerNickname` 컬럼 매핑 이슈(`user_id` vs 실제 `id`) — Task 2 진행 중 User 엔티티 추가로 H2 테스트가 실제로 깨져(두 엔티티가 같은 `"user"` 테이블에 매핑되며 컬럼이 병합) 드러났다. 사용자 컨펌 후 `SellerNickname.java`의 `@Column(name = "user_id")` → `"id"`로 수정, `seller_nicknames.sql` 픽스처도 갱신(Task 2 커밋에 포함).
 
 ## 해결된 이슈
