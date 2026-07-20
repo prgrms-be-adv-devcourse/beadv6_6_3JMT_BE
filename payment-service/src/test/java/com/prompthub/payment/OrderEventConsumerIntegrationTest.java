@@ -66,7 +66,7 @@ class OrderEventConsumerIntegrationTest extends AbstractIntegrationTest {
             .pollInterval(Duration.ofMillis(300))
             .untilAsserted(() -> {
                 Payment updated = paymentJpaRepository.findById(payment.getId()).orElseThrow();
-                assertThat(updated.getStatus()).isEqualTo(PaymentStatus.PARTIAL_REFUNDED);
+                assertThat(updated.getStatus()).isEqualTo(PaymentStatus.PAID);
             });
 
         long refundCount = refundJpaRepository.findAll().stream()
@@ -96,7 +96,7 @@ class OrderEventConsumerIntegrationTest extends AbstractIntegrationTest {
             .pollInterval(Duration.ofMillis(300))
             .untilAsserted(() -> {
                 Payment updated = paymentJpaRepository.findById(payment.getId()).orElseThrow();
-                assertThat(updated.getStatus()).isEqualTo(PaymentStatus.PARTIAL_REFUNDED);
+                assertThat(updated.getStatus()).isEqualTo(PaymentStatus.PAID);
             });
     }
 

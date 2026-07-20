@@ -103,12 +103,12 @@ public class KafkaPaymentEventPublisher {
         PaymentRefundedMessage payload = new PaymentRefundedMessage(
             payment.getOrderId(),
             refund.getRefundAmount(),
-            toKstString(payment.getRefundedAt())
+            toKstString(refund.getCompletedAt())
         );
         EventMessage<PaymentRefundedMessage> message = new EventMessage<>(
             UUID.randomUUID(),
             PaymentEventType.PAYMENT_REFUNDED.code(),
-            toKst(payment.getRefundedAt()),
+            toKst(refund.getCompletedAt()),
             AGGREGATE_TYPE_ORDER,
             payment.getOrderId(),
             payload
