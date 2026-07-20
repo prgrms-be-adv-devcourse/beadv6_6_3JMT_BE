@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/cart")
+@RequestMapping("/api/v2/cart")
 @RequiredArgsConstructor
 @Tag(name = "Cart", description = "장바구니 조회, 상품 추가, 상품 삭제 API")
 @SecurityRequirement(name = "gatewayHeaders")

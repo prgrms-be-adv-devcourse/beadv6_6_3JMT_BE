@@ -104,7 +104,7 @@ class OrderControllerTest {
 			when(orderQueryUseCase.validatePaymentReady(eq(BUYER_ID), eq(ORDER_ID), eq(TOTAL_AMOUNT), ArgumentMatchers.any(LocalDateTime.class)))
 				.thenReturn(response);
 
-			mockMvc.perform(post("/api/v1/orders/{orderId}/payment-ready", ORDER_ID)
+			mockMvc.perform(post("/api/v2/orders/{orderId}/payment-ready", ORDER_ID)
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
@@ -122,7 +122,7 @@ class OrderControllerTest {
 			when(orderQueryUseCase.validatePaymentReady(eq(BUYER_ID), eq(ORDER_ID), eq(TOTAL_AMOUNT), ArgumentMatchers.any(LocalDateTime.class)))
 				.thenThrow(new OrderException(ErrorCode.ORDER_EXPIRED));
 
-			mockMvc.perform(post("/api/v1/orders/{orderId}/payment-ready", ORDER_ID)
+			mockMvc.perform(post("/api/v2/orders/{orderId}/payment-ready", ORDER_ID)
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
@@ -151,7 +151,7 @@ class OrderControllerTest {
 				.thenReturn(response);
 
 			// when & then
-			mockMvc.perform(patch("/api/v1/orders/{orderId}/products/{orderProductId}/download", ORDER_ID, ORDER_PRODUCT_ID)
+			mockMvc.perform(patch("/api/v2/orders/{orderId}/products/{orderProductId}/download", ORDER_ID, ORDER_PRODUCT_ID)
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
@@ -194,7 +194,7 @@ class OrderControllerTest {
 					.thenReturn(response);
 
 				// when & then
-				mockMvc.perform(get("/api/v1/orders/{orderId}/content/{orderProductId}", ORDER_ID, ORDER_PRODUCT_ID)
+				mockMvc.perform(get("/api/v2/orders/{orderId}/content/{orderProductId}", ORDER_ID, ORDER_PRODUCT_ID)
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isOk())
 					.andExpect(jsonPath("$.success").value(true))
@@ -220,7 +220,7 @@ class OrderControllerTest {
 			@DisplayName("X-User-Id 헤더가 없으면 401 Unauthorized")
 			void getOrderContent_withoutUserIdHeader_unauthorized() throws Exception {
 				// when & then
-				mockMvc.perform(get("/api/v1/orders/{orderId}/content/{orderProductId}", ORDER_ID, ORDER_PRODUCT_ID))
+				mockMvc.perform(get("/api/v2/orders/{orderId}/content/{orderProductId}", ORDER_ID, ORDER_PRODUCT_ID))
 					.andExpect(status().isUnauthorized())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
@@ -232,7 +232,7 @@ class OrderControllerTest {
 			@DisplayName("orderId가 UUID 형식이 아니면 400 Bad Request")
 			void getOrderContent_invalidOrderId_badRequest() throws Exception {
 				// when & then
-				mockMvc.perform(get("/api/v1/orders/{orderId}/content/{orderProductId}", "invalid-order-id", ORDER_PRODUCT_ID)
+				mockMvc.perform(get("/api/v2/orders/{orderId}/content/{orderProductId}", "invalid-order-id", ORDER_PRODUCT_ID)
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isBadRequest())
 					.andExpect(jsonPath("$.success").value(false))
@@ -249,7 +249,7 @@ class OrderControllerTest {
 					.thenThrow(new OrderException(ErrorCode.ORDER_CONTENT_ACCESS_DENIED));
 
 				// when & then
-				mockMvc.perform(get("/api/v1/orders/{orderId}/content/{orderProductId}", ORDER_ID, ORDER_PRODUCT_ID)
+				mockMvc.perform(get("/api/v2/orders/{orderId}/content/{orderProductId}", ORDER_ID, ORDER_PRODUCT_ID)
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isForbidden())
 					.andExpect(jsonPath("$.success").value(false))
@@ -318,7 +318,7 @@ class OrderControllerTest {
 					.thenReturn(response);
 
 				// when & then
-				mockMvc.perform(get("/api/v1/orders/{orderId}", ORDER_ID)
+				mockMvc.perform(get("/api/v2/orders/{orderId}", ORDER_ID)
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isOk())
 					.andExpect(jsonPath("$.success").value(true))
@@ -367,7 +367,7 @@ class OrderControllerTest {
 			@DisplayName("X-User-Id 헤더가 없으면 401 Unauthorized")
 			void getOrderDetail_withoutUserIdHeader_unauthorized() throws Exception {
 				// when & then
-				mockMvc.perform(get("/api/v1/orders/{orderId}", ORDER_ID))
+				mockMvc.perform(get("/api/v2/orders/{orderId}", ORDER_ID))
 					.andExpect(status().isUnauthorized())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
@@ -379,7 +379,7 @@ class OrderControllerTest {
 			@DisplayName("orderId가 UUID 형식이 아니면 400 Bad Request")
 			void getOrderDetail_invalidOrderId_badRequest() throws Exception {
 				// when & then
-				mockMvc.perform(get("/api/v1/orders/{orderId}", "invalid-order-id")
+				mockMvc.perform(get("/api/v2/orders/{orderId}", "invalid-order-id")
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isBadRequest())
 					.andExpect(jsonPath("$.success").value(false))
@@ -396,7 +396,7 @@ class OrderControllerTest {
 					.thenThrow(new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
 				// when & then
-				mockMvc.perform(get("/api/v1/orders/{orderId}", ORDER_ID)
+				mockMvc.perform(get("/api/v2/orders/{orderId}", ORDER_ID)
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isNotFound())
 					.andExpect(jsonPath("$.success").value(false))
@@ -411,7 +411,7 @@ class OrderControllerTest {
 					.thenThrow(new OrderException(ErrorCode.FORBIDDEN));
 
 				// when & then
-				mockMvc.perform(get("/api/v1/orders/{orderId}", ORDER_ID)
+				mockMvc.perform(get("/api/v2/orders/{orderId}", ORDER_ID)
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isForbidden())
 					.andExpect(jsonPath("$.success").value(false))
@@ -437,7 +437,9 @@ class OrderControllerTest {
 					ORDER_PRODUCT_ID,
 					PRODUCT_ID_1,
 					OrderStatus.PAID,
+					OrderProductStatus.PAID,
 					true,
+					false,
 					PRODUCT_TYPE_PROMPT,
 					PRODUCT_TITLE_1,
 					PRODUCT_MODEL,
@@ -458,7 +460,7 @@ class OrderControllerTest {
 					.thenReturn(response);
 
 				// when & then
-				mockMvc.perform(get("/api/v1/orders")
+				mockMvc.perform(get("/api/v2/orders")
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
 						.param("page", "1")
 						.param("size", "20")
@@ -498,7 +500,9 @@ class OrderControllerTest {
 					ORDER_PRODUCT_ID,
 					PRODUCT_ID_1,
 					OrderStatus.PAID,
+					OrderProductStatus.PAID,
 					true,
+					false,
 					PRODUCT_TYPE_PROMPT,
 					PRODUCT_TITLE_1,
 					PRODUCT_MODEL,
@@ -513,7 +517,7 @@ class OrderControllerTest {
 					.thenReturn(response);
 
 				// when & then
-				mockMvc.perform(get("/api/v1/orders")
+				mockMvc.perform(get("/api/v2/orders")
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isOk())
 					.andExpect(jsonPath("$.data[0].rating").doesNotExist());
@@ -528,7 +532,7 @@ class OrderControllerTest {
 			@DisplayName("날짜 형식이 잘못되면 400 Bad Request와 V001을 반환한다")
 			void getOrders_invalidDate_badRequest() throws Exception {
 				// when & then
-				mockMvc.perform(get("/api/v1/orders")
+				mockMvc.perform(get("/api/v2/orders")
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
 						.param("from", "2026/06/01"))
 					.andExpect(status().isBadRequest())
@@ -542,7 +546,7 @@ class OrderControllerTest {
 			@DisplayName("size가 100을 초과하면 400 Bad Request와 V001을 반환한다")
 			void getOrders_sizeOverLimit_badRequest() throws Exception {
 				// when & then
-				mockMvc.perform(get("/api/v1/orders")
+				mockMvc.perform(get("/api/v2/orders")
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
 						.param("size", "101"))
 					.andExpect(status().isBadRequest())
@@ -556,7 +560,7 @@ class OrderControllerTest {
 			@DisplayName("from이 to보다 늦으면 400 Bad Request와 V001을 반환한다")
 			void getOrders_fromAfterTo_badRequest() throws Exception {
 				// when & then
-				mockMvc.perform(get("/api/v1/orders")
+				mockMvc.perform(get("/api/v2/orders")
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
 						.param("from", "2026-06-30")
 						.param("to", "2026-06-01"))
