@@ -53,7 +53,7 @@ public class CartService implements CartUseCase {
 		ProductCartSnapshot snapshot = productClient.getCartSnapshot(request.productId());
 		validateOnSale(snapshot);
 
-		Cart cart = cartRepository.findByBuyerIdWithCartProducts(buyerId)
+		Cart cart = cartRepository.findByBuyerIdForUpdateWithCartProducts(buyerId)
 			.orElseGet(() -> Cart.create(buyerId));
 
 		if (cart.containsProduct(request.productId())) {
@@ -71,13 +71,14 @@ public class CartService implements CartUseCase {
 		CartProduct cartProduct = cartRepository.findCartProductWithCart(cartProductId)
 			.orElseThrow(() -> new CartException(ErrorCode.CART_PRODUCT_NOT_FOUND));
 
-		Cart cart = cartProduct.getCart();
-		if (!cart.getBuyerId().equals(buyerId)) {
+		if (!cartProduct.getCart().getBuyerId().equals(buyerId)) {
 			throw new CartException(ErrorCode.CART_ITEM_FORBIDDEN);
 		}
 
-		cart.removeProduct(cartProductId);
-		cartRepository.save(cart);
+		Cart lockedCart = cartRepository.findByBuyerIdForUpdateWithCartProducts(buyerId)
+			.orElseThrow(() -> new CartException(ErrorCode.CART_PRODUCT_NOT_FOUND));
+		lockedCart.removeProduct(cartProductId);
+		cartRepository.save(lockedCart);
 	}
 
 	private CartResponse toCartResponse(Cart cart) {

@@ -17,6 +17,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OrderAdapter implements OrderRepository {
 	private final OrderPersistence orderPersistence;
+	private final OrderProductPersistence orderProductPersistence;
 
 	@Override
 	public Order save(Order order) {
@@ -25,6 +26,15 @@ public class OrderAdapter implements OrderRepository {
 
 	@Override
 	public Optional<Order> findByIdWithOrderProducts(UUID orderId) {
+		return orderPersistence.findByIdWithOrderProducts(orderId);
+	}
+
+	@Override
+	public Optional<Order> findByIdWithOrderProductsForUpdate(UUID orderId) {
+		if (orderPersistence.findByIdForUpdate(orderId).isEmpty()) {
+			return Optional.empty();
+		}
+		orderProductPersistence.findAllByOrderIdForUpdate(orderId);
 		return orderPersistence.findByIdWithOrderProducts(orderId);
 	}
 

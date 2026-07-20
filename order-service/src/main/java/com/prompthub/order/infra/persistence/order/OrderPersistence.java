@@ -1,7 +1,9 @@
 package com.prompthub.order.infra.persistence.order;
 
 import com.prompthub.order.domain.model.Order;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -17,6 +19,10 @@ public interface OrderPersistence extends JpaRepository<Order, UUID>, OrderPersi
 """)
 	Optional<Order> findByIdWithOrderProducts(@Param("orderId") UUID orderId);
 
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select o from Order o where o.id = :orderId")
+	Optional<Order> findByIdForUpdate(@Param("orderId") UUID orderId);
+
 	@Query("""
     select distinct o
     from Order o
@@ -31,8 +37,11 @@ public interface OrderPersistence extends JpaRepository<Order, UUID>, OrderPersi
     join o.orderProducts op
     where o.buyerId = :buyerId
       and op.productId = :productId
-      and o.orderStatus = com.prompthub.order.domain.enums.OrderStatus.PAID
-      and op.orderStatus = com.prompthub.order.domain.enums.OrderStatus.PAID
+      and o.orderStatus in (
+        com.prompthub.order.domain.enums.OrderStatus.COMPLETED,
+        com.prompthub.order.domain.enums.OrderStatus.PARTIAL_REFUNDED
+      )
+      and op.orderStatus = com.prompthub.order.domain.enums.OrderProductStatus.PAID
 """)
 	boolean existsPaidOrderProductByBuyerIdAndProductId(
 		@Param("buyerId") UUID buyerId,

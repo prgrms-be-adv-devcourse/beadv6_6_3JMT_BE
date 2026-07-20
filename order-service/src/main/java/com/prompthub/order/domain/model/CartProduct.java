@@ -11,7 +11,13 @@ import java.util.UUID;
 
 @Getter
 @Entity
-@Table(name = "cart_product")
+@Table(
+	name = "cart_product",
+	uniqueConstraints = @UniqueConstraint(
+		name = "uk_cart_product_cart_product",
+		columnNames = {"cart_id", "product_id"}
+	)
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CartProduct extends BaseEntity {
 

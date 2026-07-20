@@ -1,13 +1,13 @@
 package com.prompthub.order.application.service.order;
 
+import com.prompthub.order.application.dto.CreateOrderCommand;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import org.springframework.stereotype.Service;
 
@@ -24,16 +24,23 @@ public class OrderPolicyService {
 	private static final int DEFAULT_PAGE = 1;
 	private static final int DEFAULT_SIZE = 20;
 	private static final int MAX_SIZE = 100;
+	private static final int MAX_PRODUCT_TITLE_LENGTH = 200;
 
-	public void validateCreateOrderRequest(CreateOrderRequest request) {
-		if (request.productIds() == null || request.productIds().isEmpty()) {
-			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
+	public void validateCreateOrderCommand(CreateOrderCommand command) {
+		if (command == null || command.products() == null || command.products().isEmpty()) {
+			throw invalidInput();
 		}
 
-		Set<UUID> uniqueProductIds = new HashSet<>(request.productIds());
-
-		if (uniqueProductIds.size() != request.productIds().size()) {
-			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
+		Set<UUID> uniqueProductIds = new HashSet<>();
+		for (CreateOrderCommand.Product product : command.products()) {
+			if (product == null
+				|| product.productId() == null
+				|| product.productTitle() == null
+				|| product.productTitle().isBlank()
+				|| product.productTitle().length() > MAX_PRODUCT_TITLE_LENGTH
+				|| !uniqueProductIds.add(product.productId())) {
+				throw invalidInput();
+			}
 		}
 	}
 
@@ -42,17 +49,25 @@ public class OrderPolicyService {
 		List<ProductOrderSnapshot> products
 	) {
 		if (products == null || products.size() != requestedProductIds.size()) {
-			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
+			throw invalidInput();
 		}
 
 		Set<UUID> requestedIds = new HashSet<>(requestedProductIds);
-		Set<UUID> responseIds = products.stream()
-			.map(ProductOrderSnapshot::productId)
-			.collect(toSet());
-
-		if (!responseIds.containsAll(requestedIds)) {
-			throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
+		if (products.stream().anyMatch(product -> product == null
+			|| product.productId() == null
+			|| product.sellerId() == null)) {
+			throw invalidInput();
 		}
+		OrderAmountCalculator.sum(products, ProductOrderSnapshot::amount);
+		Set<UUID> responseIds = products.stream().map(ProductOrderSnapshot::productId).collect(toSet());
+
+		if (responseIds.size() != products.size() || !responseIds.equals(requestedIds)) {
+			throw invalidInput();
+		}
+	}
+
+	private OrderException invalidInput() {
+		return new OrderException(ErrorCode.INVALID_INPUT_VALUE);
 	}
 
 	public int resolvePage(Integer page) {
@@ -87,11 +102,11 @@ public class OrderPolicyService {
 
 	public boolean isRefundable(
 		OrderStatus orderStatus,
-		OrderStatus orderProductStatus,
+		OrderProductStatus orderProductStatus,
 		boolean downloaded
 	) {
-		return orderStatus == OrderStatus.PAID
-			&& orderProductStatus == OrderStatus.PAID
+		return (orderStatus == OrderStatus.COMPLETED || orderStatus == OrderStatus.PARTIAL_REFUNDED)
+			&& orderProductStatus == OrderProductStatus.PAID
 			&& !downloaded;
 	}
 
@@ -108,13 +123,4 @@ public class OrderPolicyService {
 		}
 	}
 
-	public void validatePaymentApproval(Order order, PaymentApprovedPayload payload) {
-		if (!order.isPending() && order.getOrderStatus() != OrderStatus.FAILED) {
-			throw new OrderException(ErrorCode.ORDER_PAYMENT_STATUS_INVALID);
-		}
-
-		if (order.getTotalOrderAmount() != payload.approvedAmount()) {
-			throw new OrderException(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
-		}
-	}
 }

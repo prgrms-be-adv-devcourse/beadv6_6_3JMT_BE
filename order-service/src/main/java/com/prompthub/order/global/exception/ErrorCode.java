@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode implements com.prompthub.exception.ErrorCode {
 
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "V001", "입력값 검증 실패"),
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "V002", "지원하지 않는 HTTP 메서드입니다."),
     INVALID_AUTHENTICATION(HttpStatus.UNAUTHORIZED, "A003", "토큰이 만료되었거나 유효하지 않습니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "A004", "권한이 없습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "SYS001", "서버 내부 오류가 발생했습니다."),
@@ -34,6 +35,7 @@ public enum ErrorCode implements com.prompthub.exception.ErrorCode {
     ORDER_PAYMENT_STATUS_INVALID(HttpStatus.BAD_REQUEST, "O013", "결제 완료 처리할 수 없는 주문 상태입니다."),
     ORDER_PAYMENT_AMOUNT_MISMATCH(HttpStatus.BAD_REQUEST, "O014", "주문 금액과 결제 승인 금액이 일치하지 않습니다."),
     ORDER_EXPIRED(HttpStatus.CONFLICT, "O015", "만료된 주문입니다."),
+    ORDER_REFUND_AMOUNT_MISMATCH(HttpStatus.BAD_REQUEST, "O016", "주문 상품 금액과 환불 금액이 일치하지 않습니다."),
     ORDER_CONTENT_ACCESS_DENIED(HttpStatus.FORBIDDEN, "E001", "구매 콘텐츠를 열람할 수 없습니다."),
     ORDER_REVIEW_ACCESS_DENIED(HttpStatus.FORBIDDEN, "E002", "구매한 상품에만 리뷰를 작성할 수 있습니다."),
     CART_ITEM_DUPLICATED(HttpStatus.CONFLICT, "C001", "이미 장바구니에 담긴 상품입니다."),

@@ -1,5 +1,7 @@
 package com.prompthub.order.infra.messaging.kafka.event;
 
+import com.prompthub.order.domain.model.OrderProduct;
+
 import java.util.UUID;
 
 public record OrderPaidProductPayload(
@@ -10,4 +12,14 @@ public record OrderPaidProductPayload(
         String productType,
         int productAmount
 ) {
+	public static OrderPaidProductPayload from(OrderProduct orderProduct) {
+		return new OrderPaidProductPayload(
+			orderProduct.getId(),
+			orderProduct.getProductId(),
+			orderProduct.getSellerId(),
+			orderProduct.getProductTitle(),
+			orderProduct.getProductType(),
+			orderProduct.getProductAmount()
+		);
+	}
 }

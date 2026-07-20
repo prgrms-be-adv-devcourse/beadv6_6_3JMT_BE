@@ -5,11 +5,11 @@ import jakarta.persistence.Table;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
 import java.time.LocalDateTime;
-import java.util.UUID;
+import java.util.Arrays;
 
 import static com.prompthub.order.fixture.OrderFixture.APPROVED_AT;
+import static com.prompthub.order.fixture.OrderFixture.EVENT_ID;
 import static com.prompthub.order.fixture.OrderFixture.ORDER_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,32 +29,34 @@ class OutboxEventTest {
 	}
 
 	@Test
-	@DisplayName("ORDER_PAID Outbox 이벤트는 주문 이벤트 토픽과 PENDING 상태로 생성된다")
-	void orderPaid_createsPendingOutboxEvent() {
-		String payload = "{\"orderId\":\"%s\"}".formatted(ORDER_ID);
+	@DisplayName("Outbox 이벤트 테이블은 Aggregate 조회용 aggregate_id 인덱스를 가진다")
+	void outboxEventTable_hasAggregateIdIndex() {
+		Table table = OutboxEvent.class.getAnnotation(Table.class);
 
-		OutboxEvent outboxEvent = OutboxEvent.orderPaid(ORDER_ID, payload, APPROVED_AT);
-
-		assertThat(outboxEvent.getEventId()).isInstanceOf(UUID.class);
-		assertThat(outboxEvent.getOrderId()).isEqualTo(ORDER_ID);
-		assertThat(outboxEvent.getEventType()).isEqualTo("ORDER_PAID");
-		assertThat(outboxEvent.getPayload()).isEqualTo(payload);
-		assertThat(outboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
-		assertThat(outboxEvent.getRetryCount()).isZero();
-		assertThat(outboxEvent.getOccurredAt()).isEqualTo(APPROVED_AT);
-		assertThat(outboxEvent.getPublishedAt()).isNull();
+		assertThat(table).isNotNull();
+		assertThat(Arrays.stream(table.indexes()))
+			.anySatisfy(index -> {
+				assertThat(index.name()).isEqualTo("idx_order_outbox_event_aggregate_id");
+				assertThat(index.columnList()).isEqualTo("aggregate_id");
+			});
 	}
 
 	@Test
-	@DisplayName("ORDER_REFUND Outbox 이벤트는 주문 이벤트 토픽과 PENDING 상태로 생성된다")
-	void orderRefund_createsPendingOutboxEvent() {
+	@DisplayName("Outbox 이벤트는 전달받은 이벤트 정보와 PENDING 상태로 생성된다")
+	void create_createsPendingOutboxEvent() {
 		String payload = "{\"orderId\":\"%s\"}".formatted(ORDER_ID);
 
-		OutboxEvent outboxEvent = OutboxEvent.orderRefund(ORDER_ID, payload, APPROVED_AT);
+		OutboxEvent outboxEvent = OutboxEvent.create(
+			EVENT_ID,
+			ORDER_ID,
+			"ORDER_PAID",
+			payload,
+			APPROVED_AT
+		);
 
-		assertThat(outboxEvent.getEventId()).isInstanceOf(UUID.class);
-		assertThat(outboxEvent.getOrderId()).isEqualTo(ORDER_ID);
-		assertThat(outboxEvent.getEventType()).isEqualTo("ORDER_REFUND");
+		assertThat(outboxEvent.getEventId()).isEqualTo(EVENT_ID);
+		assertThat(outboxEvent.getAggregateId()).isEqualTo(ORDER_ID);
+		assertThat(outboxEvent.getEventType()).isEqualTo("ORDER_PAID");
 		assertThat(outboxEvent.getPayload()).isEqualTo(payload);
 		assertThat(outboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
 		assertThat(outboxEvent.getRetryCount()).isZero();
@@ -65,8 +67,10 @@ class OutboxEventTest {
 	@Test
 	@DisplayName("Outbox 이벤트 발행 성공 시 PUBLISHED 상태와 발행 시각을 기록한다")
 	void markPublished_changesStatusAndPublishedAt() {
-		OutboxEvent outboxEvent = OutboxEvent.orderPaid(
+		OutboxEvent outboxEvent = OutboxEvent.create(
+			EVENT_ID,
 			ORDER_ID,
+			"ORDER_PAID",
 			"{\"eventType\":\"ORDER_PAID\"}",
 			APPROVED_AT
 		);
@@ -81,8 +85,10 @@ class OutboxEventTest {
 	@Test
 	@DisplayName("Outbox 이벤트 발행 실패 시 retry_count를 증가시키고 최대 횟수 미만이면 PENDING을 유지한다")
 	void recordPublishFailure_incrementsRetryCountBeforeMaxRetryCount() {
-		OutboxEvent outboxEvent = OutboxEvent.orderPaid(
+		OutboxEvent outboxEvent = OutboxEvent.create(
+			EVENT_ID,
 			ORDER_ID,
+			"ORDER_PAID",
 			"{\"eventType\":\"ORDER_PAID\"}",
 			APPROVED_AT
 		);
@@ -97,8 +103,10 @@ class OutboxEventTest {
 	@Test
 	@DisplayName("Outbox 이벤트 발행 실패 횟수가 최대 재시도 횟수에 도달하면 FAILED 상태로 변경한다")
 	void recordPublishFailure_marksFailedWhenMaxRetryCountReached() {
-		OutboxEvent outboxEvent = OutboxEvent.orderPaid(
+		OutboxEvent outboxEvent = OutboxEvent.create(
+			EVENT_ID,
 			ORDER_ID,
+			"ORDER_PAID",
 			"{\"eventType\":\"ORDER_PAID\"}",
 			APPROVED_AT
 		);

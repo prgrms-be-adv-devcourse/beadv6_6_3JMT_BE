@@ -96,17 +96,6 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("사용자 권한 헤더가 없으면 인증 에러를 반환한다")
-    void missingUserRoleHeaderReturnsAuthenticationError() throws Exception {
-        mockMvc.perform(get("/test/role-header")
-                        .header(AuthHeaders.USER_ID, "00000000-0000-0000-0000-000000000001"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("토큰이 만료되었거나 유효하지 않습니다."))
-                .andExpect(jsonPath("$.code").value("A003"));
-    }
-
-    @Test
     @DisplayName("읽을 수 없는 JSON은 V001 에러 코드를 반환한다")
     void unreadableJsonReturnsV001() throws Exception {
         mockMvc.perform(post("/test/validation")
@@ -116,6 +105,16 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value("입력값 검증 실패"))
                 .andExpect(jsonPath("$.code").value("V001"));
+    }
+
+    @Test
+    @DisplayName("지원하지 않는 HTTP 메서드는 V002와 HTTP 405를 반환한다")
+    void unsupportedHttpMethodReturnsV002AndMethodNotAllowed() throws Exception {
+        mockMvc.perform(post("/test/business"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("지원하지 않는 HTTP 메서드입니다."))
+                .andExpect(jsonPath("$.code").value("V002"));
     }
 
     @RestController
@@ -144,12 +143,6 @@ class GlobalExceptionHandlerTest {
         void header(@RequestHeader(AuthHeaders.USER_ID) String userId) {
         }
 
-        @GetMapping("/test/role-header")
-        void roleHeader(
-                @RequestHeader(AuthHeaders.USER_ID) String userId,
-                @RequestHeader(AuthHeaders.USER_ROLE) String userRole
-        ) {
-        }
     }
 
     record TestRequest(@NotBlank String name) {

@@ -44,7 +44,7 @@ sequenceDiagram
 대안/예외:
 
 - Product Service 응답에서 필요한 상품 스냅샷이 누락되면 `SYS002`로 실패한다.
-- 인증/권한 헤더가 없거나 유효하지 않으면 인증 또는 권한 오류로 응답한다.
+- `X-User-Id`가 없거나 유효하지 않으면 `A003` 인증 오류로 응답한다. 리소스 소유권 위반은 order-service가 `403`으로 응답하며, 역할·계정 상태 인가는 Gateway가 담당한다.
 
 ## UC-CART-02 장바구니 상품 추가
 
@@ -319,7 +319,7 @@ sequenceDiagram
 | 보조 액터 | Seller Service |
 | API | `GET /api/v1/admin/orders` |
 | 목표 | 관리자가 전체 주문 목록을 상태별로 조회한다. |
-| 사전조건 | `X-User-Role`이 `ADMIN`이다. |
+| 사전조건 | Gateway가 관리자 역할·계정 상태를 검증한 요청이다. |
 | 완료 조건 | 관리자 주문 목록 페이지가 반환된다. |
 
 ```mermaid
@@ -331,8 +331,8 @@ sequenceDiagram
     participant DB as Order DB
 
     Admin->>Gateway: GET /api/v1/admin/orders
-    Gateway->>Order: X-User-Role, orderStatus, page, size 전달
-    Order->>Order: 관리자 권한 및 조회 조건 검증
+    Gateway->>Order: orderStatus, page, size 전달
+    Order->>Order: 조회 조건 검증
     Order->>DB: 전체 주문 목록 조회
     DB-->>Order: 관리자 주문 projection 페이지
     Order->>Seller: 판매자 닉네임 목록 조회
@@ -352,7 +352,7 @@ sequenceDiagram
 | 주 액터 | 관리자 |
 | API | `GET /api/v1/admin/orders/month` |
 | 목표 | 관리자가 이번 달 거래액 합계를 확인한다. |
-| 사전조건 | `X-User-Role`이 `ADMIN`이다. |
+| 사전조건 | Gateway가 관리자 역할·계정 상태를 검증한 요청이다. |
 | 완료 조건 | `monthlyTransactionAmount`가 반환된다. |
 
 ```mermaid
@@ -363,8 +363,7 @@ sequenceDiagram
     participant DB as Order DB
 
     Admin->>Gateway: GET /api/v1/admin/orders/month
-    Gateway->>Order: X-User-Role 전달
-    Order->>Order: 관리자 권한 확인
+    Gateway->>Order: 관리자 요청 전달
     Order->>DB: 이번 달 시작부터 다음 달 시작 전까지 거래액 집계
     DB-->>Order: 합계
     Order-->>Admin: 월 거래액 응답
@@ -381,7 +380,7 @@ sequenceDiagram
 | 주 액터 | 관리자 |
 | API | `GET /api/v1/admin/orders/weekend` |
 | 목표 | 관리자가 최근 7일 거래 건수와 거래액을 일자별로 확인한다. |
-| 사전조건 | `X-User-Role`이 `ADMIN`이다. |
+| 사전조건 | Gateway가 관리자 역할·계정 상태를 검증한 요청이다. |
 | 완료 조건 | 전체 합계, 조회 기간, 일자별 거래량이 반환된다. |
 
 > 현재 구현 경로는 `/weekend`이다. 의미상 `/week`에 가깝지만 이 문서는 구현 경로를 우선한다.
@@ -394,8 +393,8 @@ sequenceDiagram
     participant DB as Order DB
 
     Admin->>Gateway: GET /api/v1/admin/orders/weekend
-    Gateway->>Order: X-User-Role 전달
-    Order->>Order: 관리자 권한 및 최근 7일 기간 산정
+    Gateway->>Order: 관리자 요청 전달
+    Order->>Order: 최근 7일 기간 산정
     Order->>DB: 기간 내 일자별 거래량 조회
     DB-->>Order: 일자별 projection
     Order->>Order: 누락 일자는 0으로 채우고 전체 합계 계산

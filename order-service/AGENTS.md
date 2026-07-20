@@ -97,7 +97,7 @@ com.prompthub.order
     grpc/                 dev/prod gRPC Client와 주문 gRPC Server
   global/
     exception/            서비스 예외와 예외 응답 처리
-    web/                  인증 헤더와 Interceptor
+    web/                  인증 헤더와 웹 공통 설정
 ```
 
 ### 의존성 원칙
@@ -125,17 +125,17 @@ com.prompthub.order
 
 ## 6. API, 인증, 응답과 예외
 
-Gateway가 검증해 전달하는 내부 헤더를 사용한다.
+외부 인증과 역할·상태 인가는 API Gateway가 담당하고, order-service는 Gateway가 전달한 신뢰된 사용자 ID를 사용한다.
 
-- `/api/v1/orders/**`, `/api/v1/cart/**`: `X-User-Id` 필수, `X-User-Role=BUYER` 검증
-- `/api/v1/admin/**`: `X-User-Role=ADMIN` 검증
-- CORS preflight인 `OPTIONS` 요청은 현재 Interceptor 정책대로 통과시킨다.
+- `/api/v1/orders/**`, `/api/v1/cart/**`: `X-User-Id` 필수. 애플리케이션 계층에서 주문·장바구니 소유권을 검증한다.
+- `/api/v1/admin/**`: 관리자 역할·상태 검증은 Gateway의 책임이다. order-service 관리자 Controller는 역할 헤더를 읽거나 검증하지 않는다.
+- 관리자 API의 401·403은 Gateway 또는 공통 예외 계약에 따라 외부에 노출될 수 있지만, order-service 내부 계약은 사용자 ID와 소유권 검증에 한정한다.
 
-관련 구현은 `global/web/AuthHeaders`, `OrderServiceAuthInterceptor`, `AdminAuthInterceptor`, `WebConfig`에 있다.
+관련 구현은 `global/web/AuthHeaders`, Controller의 사용자 ID 바인딩, 애플리케이션 서비스의 소유권 검증, `GlobalExceptionHandler`에 있다.
 
 - 비즈니스 서비스에서 JWT를 직접 파싱하거나 JWT 비밀키를 추가하지 않는다.
 - 외부에서 전달된 사용자 ID를 사용하더라도 주문·장바구니 소유권 검증을 생략하지 않는다.
-- 인증 경로나 역할 정책을 변경하면 Interceptor 테스트와 Controller 테스트를 함께 갱신한다.
+- 인증 헤더나 소유권 정책을 변경하면 웹 계약 테스트와 Controller 테스트를 함께 갱신한다.
 - API는 `common-module`의 `ApiResult`, `PageResponse` 형식을 유지한다.
 - 서비스 비즈니스 실패는 `global/exception/ErrorCode`, `OrderException`, `GlobalExceptionHandler` 흐름을 따른다.
 - 도메인 예외에 HTTP 요청·응답 객체를 전달하지 않는다.
@@ -230,7 +230,7 @@ Redis는 미결제 주문의 만료 예약과 재시도를 관리한다.
 
 기능 변경 또는 버그 수정에는 정상 경로뿐 아니라 다음 실패 경로를 검토한다.
 
-- 주문 소유자·역할 불일치
+- 주문·장바구니 소유자 불일치 또는 사용자 ID 누락
 - 잘못된 주문 상태 전이
 - 금액·상품 스냅샷 불일치
 - 중복 Kafka 이벤트

@@ -13,6 +13,7 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @Slf4j
@@ -117,6 +118,26 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(errorCode));
     }
 
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleHttpRequestMethodNotSupportedException(
+            HttpRequestMethodNotSupportedException exception,
+            HttpServletRequest request
+    ) {
+        ErrorCode errorCode = ErrorCode.METHOD_NOT_ALLOWED;
+
+        log.warn(
+                "[{}] 지원하지 않는 HTTP 메서드 요청입니다. method={}, supportedMethods={}",
+                getRequestId(request),
+                exception.getMethod(),
+                exception.getSupportedHttpMethods()
+        );
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .headers(exception.getHeaders())
+                .body(ErrorResponse.of(errorCode));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(
             Exception exception,
@@ -132,8 +153,7 @@ public class GlobalExceptionHandler {
     }
 
     private ErrorCode resolveMissingHeaderErrorCode(String headerName) {
-        if (AuthHeaders.USER_ID.equalsIgnoreCase(headerName)
-                || AuthHeaders.USER_ROLE.equalsIgnoreCase(headerName)) {
+        if (AuthHeaders.USER_ID.equalsIgnoreCase(headerName)) {
             return ErrorCode.INVALID_AUTHENTICATION;
         }
 
