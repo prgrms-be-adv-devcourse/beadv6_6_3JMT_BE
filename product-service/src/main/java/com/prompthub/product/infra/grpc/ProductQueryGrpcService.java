@@ -7,11 +7,8 @@ import com.prompthub.product.grpc.GetOrderSnapshotsRequest;
 import com.prompthub.product.grpc.GetOrderSnapshotsResponse;
 import com.prompthub.product.grpc.GetProductContentRequest;
 import com.prompthub.product.grpc.GetProductContentResponse;
-import com.prompthub.product.grpc.GetProductsByIdsRequest;
-import com.prompthub.product.grpc.GetProductsByIdsResponse;
 import com.prompthub.product.grpc.GetSellerStatsRequest;
 import com.prompthub.product.grpc.GetSellerStatsResponse;
-import com.prompthub.product.grpc.Product;
 import com.prompthub.product.grpc.ProductCartSnapshotMessage;
 import com.prompthub.product.grpc.ProductOrderSnapshot;
 import com.prompthub.product.grpc.ProductQueryServiceGrpc;
@@ -25,7 +22,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * product-service가 서버로서 제공하는 gRPC 계약(루트 grpc/product/product_query.proto)의 단일 구현.
- * settlement(GetSellerStats)·order(스냅샷/콘텐츠)·user(GetProductsByIds) 호출을 하나의 서비스로 서빙한다.
+ * settlement(GetSellerStats)·order(스냅샷/콘텐츠) 호출을 하나의 서비스로 서빙한다.
  */
 @Slf4j
 @Component
@@ -123,35 +120,6 @@ public class ProductQueryGrpcService extends ProductQueryServiceGrpc.ProductQuer
 		} catch (Exception e) {
 			log.error("GetProductContent failed: productId={}", request.getProductId(), e);
 			responseObserver.onError(Status.NOT_FOUND.withDescription("Product not found: " + request.getProductId()).asRuntimeException());
-		}
-	}
-
-	@Override
-	public void getProductsByIds(GetProductsByIdsRequest request, StreamObserver<GetProductsByIdsResponse> responseObserver) {
-		try {
-			List<UUID> productIds = request.getProductIdsList().stream()
-				.map(UUID::fromString)
-				.toList();
-			List<Product> products = productInternalUseCase.getProductsByIds(productIds).stream()
-				.map(p -> Product.newBuilder()
-					.setProductId(p.productId().toString())
-					.setSellerId(p.sellerId().toString())
-					.setTitle(p.title())
-					.setPrice(p.amount())
-					.setThumbnailUrl(p.thumbnailUrl() != null ? p.thumbnailUrl() : "")
-					.setModel(p.model() != null ? p.model() : "")
-					.setSalesCount(p.salesCount())
-					.setAverageRating(p.averageRating())
-					.setStatus(p.status())
-					.build())
-				.toList();
-			responseObserver.onNext(GetProductsByIdsResponse.newBuilder()
-				.addAllProducts(products)
-				.build());
-			responseObserver.onCompleted();
-		} catch (Exception e) {
-			log.error("GetProductsByIds failed: productIds={}", request.getProductIdsList(), e);
-			responseObserver.onError(Status.INTERNAL.withDescription(e.getMessage()).asRuntimeException());
 		}
 	}
 }

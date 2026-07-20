@@ -1,5 +1,6 @@
 package com.prompthub.product.presentation.controller;
 
+import com.prompthub.product.application.usecase.ProductInternalUseCase;
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
@@ -8,6 +9,7 @@ import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
 import com.prompthub.product.presentation.dto.response.ProductVersionResponse;
+import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import com.prompthub.presentation.dto.PageResponse;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,6 +26,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -42,9 +45,12 @@ class ProductControllerTest {
 	@Mock
 	private ProductQueryUseCase productQueryUseCase;
 
+	@Mock
+	private ProductInternalUseCase productInternalUseCase;
+
 	@BeforeEach
 	void setUp() {
-		mockMvc = MockMvcBuilders.standaloneSetup(new ProductController(productQueryUseCase))
+		mockMvc = MockMvcBuilders.standaloneSetup(new ProductController(productQueryUseCase, productInternalUseCase))
 			.setControllerAdvice(new ProductExceptionHandler())
 			.build();
 	}
@@ -147,6 +153,32 @@ class ProductControllerTest {
 				.andExpect(status().isOk());
 
 			org.mockito.Mockito.verify(productQueryUseCase).getRelatedProducts(eq(PRODUCT_ID), eq(2));
+		}
+	}
+
+	@Nested
+	@DisplayName("GET /api/v2/products/by-ids")
+	class GetProductsByIds {
+
+		@Test
+		@DisplayName("ids 파라미터로 여러 상품을 배치 조회한다")
+		void getProductsByIds_success() throws Exception {
+			UUID productId2 = UUID.fromString("55555555-5555-5555-5555-555555555555");
+			ProductsByIdsResponse item = new ProductsByIdsResponse(
+				PRODUCT_ID, SELLER_ID, "리액트 컴포넌트 리팩터링 도우미", 7900, null,
+				"PROMPT", "GPT-4o", 760, 4.7, "ON_SALE"
+			);
+			given(productInternalUseCase.getProductsByIds(List.of(PRODUCT_ID, productId2)))
+				.willReturn(List.of(item));
+
+			mockMvc.perform(get("/api/v2/products/by-ids")
+					.param("ids", PRODUCT_ID + "," + productId2))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data[0].title").value("리액트 컴포넌트 리팩터링 도우미"));
+
+			verify(productInternalUseCase).getProductsByIds(List.of(PRODUCT_ID, productId2));
 		}
 	}
 

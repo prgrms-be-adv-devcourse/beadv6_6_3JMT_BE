@@ -93,6 +93,59 @@
 
 ---
 
+### GET /products/by-ids — 상품 배치 조회
+
+- 인증: 불필요
+- 용도: 찜 목록 등 productId 목록만 갖고 있는 화면에서 카드 표시 정보를 한 번에 조회
+
+#### Query Parameters
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| ids | string (comma-separated UUID) | Y | 조회할 상품 ID 목록. 예: `ids=uuid1,uuid2` |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "productId": "uuid",
+      "sellerId": "uuid",
+      "title": "사진 같은 제품 목업 생성기",
+      "amount": 5900,
+      "thumbnailUrl": null,
+      "productType": "PROMPT",
+      "model": "Midjourney v6",
+      "salesCount": 1240,
+      "averageRating": 4.9,
+      "status": "ON_SALE"
+    }
+  ],
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| productId | string | 상품 ID |
+| sellerId | string | 판매자 ID |
+| title | string | 상품명 |
+| amount | integer | 현재 가격 |
+| thumbnailUrl | string \| null | 썸네일 이미지 URL |
+| productType | string | 상품 유형 |
+| model | string | 대상 AI 모델 |
+| salesCount | integer | 누적 판매 수 |
+| averageRating | number | 평균 별점 |
+| status | string | 상품 상태 |
+
+요청한 productId 중 존재하지 않거나 현재 판매 중인 버전이 없는 상품은 응답 배열에서 제외된다.
+
+---
+
 ### GET /products/{productId} — 상품 상세 조회
 
 - 인증: 불필요
@@ -684,27 +737,20 @@
 
 ### 제공 (Server)
 
-product-service가 서버로 구현해 다른 서비스에 노출하는 서비스다.
+product-service가 서버로 구현해 다른 서비스에 노출하는 서비스다. 계약은 루트
+`grpc/product/product_query.proto`의 단일 `ProductQueryService`로 관리한다(소유자=product).
 
-#### `ProductQueryService` (소비: settlement-service)
-
-| rpc | 요청 | 응답 |
-|---|---|---|
-| `CountBySeller` | `seller_id` | `seller_id`, `product_count` |
-
-#### `ProductInternalService` (소비: order-service)
+#### `ProductQueryService` (소비: settlement-service, order-service)
 
 | rpc | 요청 | 응답 |
 |---|---|---|
+| `GetSellerStats` | `seller_id` | `seller_id`, `product_count`, `sales_count` |
 | `GetOrderSnapshots` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `title`, `product_type`, `amount`, `model` |
 | `GetCartSnapshots` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `seller_nickname`, `title`, `product_type`, `amount`, `thumbnail_url` |
 | `GetProductContent` | `product_id` | `product_id`, `content` |
 
-#### `ProductService` (소비: user-service)
-
-| rpc | 요청 | 응답 |
-|---|---|---|
-| `GetProductsByIds` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `title`, `price`, `thumbnail_url`, `category`, `model`, `sales_count`, `average_rating`, `status` |
+> `GetProductsByIds`(옛 user-service 소비용)는 실제 호출자가 없어 제거했다(#431). user-service
+> wishlist가 상품 카드 정보를 조회하려면 공개 REST `GET /products/by-ids`를 직접 호출한다.
 
 ### 소비 (Client)
 
