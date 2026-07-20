@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 설계 문서: `product-service/docs/plans/2026-07-13-product-type-fields-design.md` (근거)
+- 설계 문서: `docs/superpowers/specs/2026-07-13-product-type-fields-design.md` (근거, 로컬 보관 — git 미추적)
 - 유형별 필드 매트릭스: PROMPT→`content` / PPT·EXCEL→`file_url` / NOTION→`external_url` (각 1개, 나머지 null)
 - 불일치/누락 = `ProductException(PRODUCT_TYPE_FIELD_MISMATCH)` → 400
 - 컬럼 순서: 팩토리 시그니처는 `content` 바로 다음에 `fileUrl`, `externalUrl` 삽입
