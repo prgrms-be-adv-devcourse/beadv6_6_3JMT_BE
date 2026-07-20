@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import com.prompthub.order.application.client.ProductClient;
-import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.service.order.OrderExpirationStore;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -30,9 +29,6 @@ class RedisContainerSupportSmokeTest extends RedisContainerSupport {
 
 	@MockitoBean
 	private ProductClient productClient;
-
-	@MockitoBean
-	private SellerClient sellerClient;
 
 	@Test
 	@Order(1)

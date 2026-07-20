@@ -1,7 +1,6 @@
 package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.client.ProductClient;
-import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
@@ -60,9 +59,6 @@ class OrderFailureCompensationTransactionIntegrationTest extends PostgreSqlInteg
 	private ProductClient productClient;
 
 	@MockitoBean
-	private SellerClient sellerClient;
-
-	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;
 
 	@MockitoSpyBean
@@ -74,12 +70,12 @@ class OrderFailureCompensationTransactionIntegrationTest extends PostgreSqlInteg
 	@BeforeEach
 	void setUp() {
 		cleanDatabase();
-		reset(productClient, sellerClient, orderExpirationStore, cartRepository, processedEventRepository);
+		reset(productClient, orderExpirationStore, cartRepository, processedEventRepository);
 	}
 
 	@AfterEach
 	void tearDown() {
-		reset(productClient, sellerClient, orderExpirationStore, cartRepository, processedEventRepository);
+		reset(productClient, orderExpirationStore, cartRepository, processedEventRepository);
 		cleanDatabase();
 	}
 

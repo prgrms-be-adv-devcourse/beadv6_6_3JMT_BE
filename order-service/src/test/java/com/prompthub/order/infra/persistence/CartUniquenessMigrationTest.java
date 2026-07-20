@@ -1,7 +1,6 @@
 package com.prompthub.order.infra.persistence;
 
 import com.prompthub.order.application.client.ProductClient;
-import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.service.order.OrderExpirationStore;
 import com.prompthub.order.support.PostgreSqlIntegrationTestSupport;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,9 +28,6 @@ class CartUniquenessMigrationTest extends PostgreSqlIntegrationTestSupport {
 
 	@MockitoBean
 	private ProductClient productClient;
-
-	@MockitoBean
-	private SellerClient sellerClient;
 
 	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;
