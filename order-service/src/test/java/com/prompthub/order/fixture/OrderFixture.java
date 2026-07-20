@@ -156,9 +156,22 @@ public final class OrderFixture {
 		return order;
 	}
 
+	public static Order createFailedOrderWithProducts() {
+		Order order = createPendingOrderWithProducts();
+		order.markFailed();
+		return order;
+	}
+
 	public static Order createCanceledOrderWithProducts() {
 		Order order = createPendingOrderWithProducts();
-		order.updateOrderStatus(OrderStatus.FAILED);
+		order.markCanceled(CANCELED_AT);
+		return order;
+	}
+
+	public static Order createRefundedOrderWithProducts() {
+		Order order = createPaidOrderWithProducts();
+		order.refundOrderProduct(order.getOrderProducts().get(0).getId(), PRODUCT_AMOUNT_1, REFUNDED_AT);
+		order.refundOrderProduct(order.getOrderProducts().get(1).getId(), PRODUCT_AMOUNT_2, REFUNDED_AT);
 		return order;
 	}
 

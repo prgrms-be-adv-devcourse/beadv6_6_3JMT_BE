@@ -40,6 +40,10 @@ import static com.prompthub.order.fixture.PaymentEventFixture.SELLER_C;
 import static com.prompthub.order.fixture.PaymentEventFixture.approvedPayload;
 import static com.prompthub.order.fixture.PaymentEventFixture.createdOrder;
 import static com.prompthub.order.fixture.PaymentEventFixture.productIds;
+import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_PRODUCT_A;
+import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_PRODUCT_B;
+import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_PRODUCT_C;
+import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_PRODUCT_D;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -129,7 +133,15 @@ class PaymentApprovedProcessorTest {
 	@EnumSource(value = OrderStatus.class, names = {"COMPLETED", "PARTIAL_REFUNDED", "ALL_REFUNDED"})
 	void process_lateApproval_marksOnlyProcessedAndPreservesReaddedCartProduct(OrderStatus status) {
 		Order order = createdOrder();
-		order.updateOrderStatus(status);
+		order.markPaid();
+		if (status == OrderStatus.PARTIAL_REFUNDED) {
+			order.refundOrderProduct(ORDER_PRODUCT_A, 10_000, APPROVED_AT);
+		} else if (status == OrderStatus.ALL_REFUNDED) {
+			order.refundOrderProduct(ORDER_PRODUCT_A, 10_000, APPROVED_AT);
+			order.refundOrderProduct(ORDER_PRODUCT_B, 20_000, APPROVED_AT);
+			order.refundOrderProduct(ORDER_PRODUCT_C, 30_000, APPROVED_AT);
+			order.refundOrderProduct(ORDER_PRODUCT_D, 40_000, APPROVED_AT);
+		}
 		UUID eventId = UUID.randomUUID();
 		stubTarget(eventId, order);
 

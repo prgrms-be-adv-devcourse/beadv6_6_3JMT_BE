@@ -23,6 +23,9 @@ import static com.prompthub.order.fixture.OrderFixture.ORDER_ID;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_ID_1;
 import static com.prompthub.order.fixture.OrderFixture.createPaidOrderWithProducts;
 import static com.prompthub.order.fixture.OrderFixture.createPendingOrderWithProducts;
+import static com.prompthub.order.fixture.OrderFixture.createFailedOrderWithProducts;
+import static com.prompthub.order.fixture.OrderFixture.createCanceledOrderWithProducts;
+import static com.prompthub.order.fixture.OrderFixture.createRefundedOrderWithProducts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -133,8 +136,7 @@ class OrderExpirationServiceTest {
 		@DisplayName("FAILED 상태인 주문은 상태 변경을 하지 않는다")
 		void cancelPendingOrderByTimeout_failedOrder_doNothing() {
 			// given
-			Order order = createPendingOrderWithProducts();
-			order.updateOrderStatus(OrderStatus.FAILED);
+			Order order = createFailedOrderWithProducts();
 
 			given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
 				.willReturn(Optional.of(order));
@@ -151,8 +153,7 @@ class OrderExpirationServiceTest {
 		@DisplayName("CANCELED 상태인 주문은 상태 변경을 하지 않는다")
 		void cancelPendingOrderByTimeout_canceledOrder_doNothing() {
 			// given
-			Order order = createPendingOrderWithProducts();
-			order.updateOrderStatus(OrderStatus.CANCELED);
+			Order order = createCanceledOrderWithProducts();
 
 			given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
 				.willReturn(Optional.of(order));
@@ -169,8 +170,7 @@ class OrderExpirationServiceTest {
 		@DisplayName("REFUNDED 상태인 주문은 상태 변경을 하지 않는다")
 		void cancelPendingOrderByTimeout_refundedOrder_doNothing() {
 			// given
-			Order order = createPendingOrderWithProducts();
-			order.updateOrderStatus(OrderStatus.REFUNDED);
+			Order order = createRefundedOrderWithProducts();
 
 			given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
 				.willReturn(Optional.of(order));
