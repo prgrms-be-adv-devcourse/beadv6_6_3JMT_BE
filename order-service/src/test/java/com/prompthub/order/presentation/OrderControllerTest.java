@@ -9,7 +9,6 @@ import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.GlobalExceptionHandler;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.global.web.AuthHeaders;
-import com.prompthub.order.global.web.OrderServiceAuthInterceptor;
 import com.prompthub.order.presentation.dto.request.OrderPaymentValidationRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
@@ -80,7 +79,6 @@ class OrderControllerTest {
 			createOrderUseCase
 		))
 			.setControllerAdvice(new GlobalExceptionHandler())
-			.addInterceptors(new OrderServiceAuthInterceptor())
 			.setValidator(validator)
 			.build();
 	}
@@ -108,7 +106,6 @@ class OrderControllerTest {
 
 			mockMvc.perform(post("/api/v1/orders/{orderId}/payment-ready", ORDER_ID)
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isOk())
@@ -127,7 +124,6 @@ class OrderControllerTest {
 
 			mockMvc.perform(post("/api/v1/orders/{orderId}/payment-ready", ORDER_ID)
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isConflict())
@@ -156,8 +152,7 @@ class OrderControllerTest {
 
 			// when & then
 			mockMvc.perform(patch("/api/v1/orders/{orderId}/products/{orderProductId}/download", ORDER_ID, ORDER_PRODUCT_ID)
-					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
+					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.message").value("success"))
@@ -200,8 +195,7 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(get("/api/v1/orders/{orderId}/content/{orderProductId}", ORDER_ID, ORDER_PRODUCT_ID)
-						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isOk())
 					.andExpect(jsonPath("$.success").value(true))
 					.andExpect(jsonPath("$.message").value("success"))
@@ -239,8 +233,7 @@ class OrderControllerTest {
 			void getOrderContent_invalidOrderId_badRequest() throws Exception {
 				// when & then
 				mockMvc.perform(get("/api/v1/orders/{orderId}/content/{orderProductId}", "invalid-order-id", ORDER_PRODUCT_ID)
-						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isBadRequest())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
@@ -257,8 +250,7 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(get("/api/v1/orders/{orderId}/content/{orderProductId}", ORDER_ID, ORDER_PRODUCT_ID)
-						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isForbidden())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.ORDER_CONTENT_ACCESS_DENIED.getCode()));
@@ -327,8 +319,7 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(get("/api/v1/orders/{orderId}", ORDER_ID)
-						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isOk())
 					.andExpect(jsonPath("$.success").value(true))
 					.andExpect(jsonPath("$.message").value("success"))
@@ -389,8 +380,7 @@ class OrderControllerTest {
 			void getOrderDetail_invalidOrderId_badRequest() throws Exception {
 				// when & then
 				mockMvc.perform(get("/api/v1/orders/{orderId}", "invalid-order-id")
-						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isBadRequest())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
@@ -407,8 +397,7 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(get("/api/v1/orders/{orderId}", ORDER_ID)
-						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isNotFound())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.ORDER_NOT_FOUND.getCode()));
@@ -423,8 +412,7 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(get("/api/v1/orders/{orderId}", ORDER_ID)
-						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isForbidden())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
@@ -472,7 +460,6 @@ class OrderControllerTest {
 				// when & then
 				mockMvc.perform(get("/api/v1/orders")
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 						.param("page", "1")
 						.param("size", "20")
 						.param("status", "PAID")
@@ -527,8 +514,7 @@ class OrderControllerTest {
 
 				// when & then
 				mockMvc.perform(get("/api/v1/orders")
-						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER))
+						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isOk())
 					.andExpect(jsonPath("$.data[0].rating").doesNotExist());
 			}
@@ -544,7 +530,6 @@ class OrderControllerTest {
 				// when & then
 				mockMvc.perform(get("/api/v1/orders")
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 						.param("from", "2026/06/01"))
 					.andExpect(status().isBadRequest())
 					.andExpect(jsonPath("$.success").value(false))
@@ -559,7 +544,6 @@ class OrderControllerTest {
 				// when & then
 				mockMvc.perform(get("/api/v1/orders")
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 						.param("size", "101"))
 					.andExpect(status().isBadRequest())
 					.andExpect(jsonPath("$.success").value(false))
@@ -574,7 +558,6 @@ class OrderControllerTest {
 				// when & then
 				mockMvc.perform(get("/api/v1/orders")
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-						.header(AuthHeaders.USER_ROLE, AuthHeaders.BUYER)
 						.param("from", "2026-06-30")
 						.param("to", "2026-06-01"))
 					.andExpect(status().isBadRequest())

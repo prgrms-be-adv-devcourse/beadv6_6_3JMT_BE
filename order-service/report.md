@@ -4,9 +4,12 @@
 
 ## 1. 해결 완료된 항목
 
-### 1.1 [P0] 인가 인터셉터 미등록
-* **내용**: `WebConfig`에 인가 인터셉터 등록이 누락되어 인가가 처리되지 않던 문제
-* **해결 요약**: `WebConfig` 내 인가 인터셉터 빈 등록 및 설정 완료.
+### 1.1 [P0] 인가 책임 중복 제거
+* **내용**: Gateway 중앙 인가 이후에도 order-service의 Controller와 웹 계층이 역할 헤더를 직접 요구하고 파싱하던 문제
+* **해결 요약**:
+  - 역할 헤더 파라미터·역할 인터셉터·역할 파서를 제거하고 관리자 API를 역할 헤더 없는 Controller 계약으로 정리.
+  - 주문·장바구니 API의 `X-User-Id` 필수 조건과 애플리케이션 계층의 소유권 검증은 유지.
+  - 역할·계정 상태 인가는 Gateway, 리소스 소유권 검사는 order-service가 담당하도록 책임을 분리.
 
 ### 1.2 [P0] gRPC 어댑터의 ON_SALE 하드코딩
 * **내용**: 상품 서비스 호출 시 `ON_SALE` 상태만 강제하도록 하드코딩되어 있던 문제
@@ -60,15 +63,16 @@
 
 ### 2.2 [P3] 테스트 전략 보강
 * **현재 상태**:
-  - `WebConfig` 등록 여부 및 `BUYER` 권한 차단 등의 인증/인가 시나리오 검증
+  - `OrderWebContractTest`에서 실제 Spring Context의 관리자 무헤더 호출, `X-User-Id` 전용 구매자 호출, v1/v2 경로 계약을 검증
+  - 사용자 ID 누락 401과 리소스 소유권 위반 403을 Controller/Application 테스트에서 검증
   - Redis 만료 큐 보관소, 스케줄러 워커, 도메인 만료 정책에 대한 Mock 단위 테스트 추가 (`RedisOrderExpirationStoreTest`, `OrderExpirationWorkerTest`, `OrderExpirationServiceTest` 등)
   - **임베디드 카프카(EmbeddedKafka) 기반 스프링 부트 통합 테스트 도입**: `PaymentEventConsumerIntegrationTest.java` 를 추가하여, 실제 EmbeddedKafkaBroker 환경에서 결제 이벤트 수신, JSON 파싱 오류 및 payload 누락 시의 DLT 전송 여부 등 메시징 인프라 연동을 통합 검증하도록 보강되었습니다.
 * **남은 문제**:
   - `@SpringBootTest` 기반 실제 데이터베이스(PostgreSQL 등) 통합 테스트는 아직 없음
   - Testcontainers 기반 PostgreSQL + Kafka 실환경 테스트는 아직 없음
-  - Gateway부터 order-service까지 이어지는 역할별 E2E 보안 시나리오 테스트는 아직 없음
+  - Gateway부터 order-service까지 이어지는 역할·계정 상태 E2E 보안 시나리오 테스트는 아직 없음
 * **추가 개선 방안**:
-  1. `@SpringBootTest` + `@AutoConfigureMockMvc` 기반으로 실제 컨텍스트에서 인터셉터, 필터, 예외 핸들러 동작을 검증합니다.
+  1. `@SpringBootTest` + `@AutoConfigureMockMvc` 기반으로 실제 컨텍스트에서 Gateway 인가 결과와 사용자 ID·소유권 예외 응답 연계를 검증합니다.
   2. Testcontainers로 PostgreSQL, Kafka, Redis를 띄워 실제 환경과 유사한 DB 제약 및 이벤트 흐름을 통합 검증합니다.
 
 ---
@@ -134,7 +138,8 @@
 
 ### 3.6 [P3] 보안 인프라 강화
 * **현재 상태**:
-  - Gateway가 전달하는 인증 헤더(`X-User-Id`, `X-User-Role`)를 기반으로 권한을 처리합니다.
+  - Gateway가 인증·역할·계정 상태를 검증한 뒤 전달한 `X-User-Id`를 기반으로 리소스 소유권을 처리합니다.
+  - 관리자 역할 정책은 Gateway에 위임하며 order-service는 관리자 요청에서 역할 헤더를 파싱하지 않습니다.
   - 내부 서비스 간 gRPC 호출에는 plaintext가 그대로 사용되고 있습니다.
 * **남은 문제**:
   - 내부 서비스 포트에 직접 접근할 수 있을 경우 헤더 위조 위험에 노출됩니다.

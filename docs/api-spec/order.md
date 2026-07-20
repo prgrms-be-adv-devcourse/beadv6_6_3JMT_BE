@@ -8,9 +8,10 @@
 ## 공통 사항
 
 - 외부 인증과 토큰 검증은 API Gateway가 담당한다.
-- Order Service는 Gateway가 주입한 trusted header를 읽는다.
+- Gateway는 역할·계정 상태를 검증한 뒤 요청을 라우팅한다.
+- Order Service는 Gateway가 주입한 trusted `X-User-Id`를 구매자 API의 사용자 식별자로 읽고, 애플리케이션 계층에서 소유권을 검증한다.
 - 구매자 API는 `X-User-Id`가 필요하다.
-- 관리자 API는 `X-User-Role: ADMIN`이 필요하다.
+- 관리자 API는 order-service에서 역할 헤더를 요구하지 않는다. 관리자 역할·상태 검증은 Gateway 책임이며, 외부 401·403 응답 설명은 그대로 유지한다.
 - 응답 envelope는 `common-module`의 `ApiResult` 또는 `PageResponse` 형식을 따른다.
 
 ## v2 다건 부분 환불
@@ -20,7 +21,7 @@
 ### POST /api/v2/orders/{orderId}/refund - 주문 상품 다건 부분 환불 요청
 
 - 인증: 필요
-- 필요 헤더: Gateway가 주입한 `X-User-Id`, `X-User-Role: BUYER`
+- 필요 헤더: Gateway가 주입한 `X-User-Id`
 - 클라이언트는 환불 금액을 보내지 않는다. Order Service는 선택한 주문 상품의 금액 스냅샷 합계를 한 번만 환불 요청한다.
 - `order_product_ids`는 비어 있을 수 없다. 선택 상품은 모두 주문에 속하고, 결제와 구매자가 주문에 일치해야 하며, 요청은 전부 성공하거나 전부 거절된다.
 - 정상 접수는 `202 Accepted`를 반환한다. Payment Service의 최종 결과는 비동기로 반영된다.
@@ -745,7 +746,7 @@
 ### GET /admin/orders - 전체 주문 관리 목록 조회
 
 - 인증: 필요
-- 필요 헤더: `X-User-Role: ADMIN`
+- 필요 헤더: 없음 (관리자 역할·상태 검증은 Gateway에서 수행)
 
 #### Query Parameters
 
@@ -810,7 +811,7 @@
 ### GET /admin/orders/month - 이번 달 실제 거래액 조회
 
 - 인증: 필요
-- 필요 헤더: `X-User-Role: ADMIN`
+- 필요 헤더: 없음 (관리자 역할·상태 검증은 Gateway에서 수행)
 
 #### Response
 
@@ -842,7 +843,7 @@
 ### GET /admin/orders/weekend - 최근 7일 거래량 조회
 
 - 인증: 필요
-- 필요 헤더: `X-User-Role: ADMIN`
+- 필요 헤더: 없음 (관리자 역할·상태 검증은 Gateway에서 수행)
 - 현재 구현 경로는 `/weekend`이다. 의미상 `/week`에 가깝지만, 문서는 구현 경로를 우선한다.
 
 #### Response

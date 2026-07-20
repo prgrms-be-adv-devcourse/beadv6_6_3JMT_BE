@@ -153,8 +153,7 @@ public class GlobalExceptionHandler {
     }
 
     private ErrorCode resolveMissingHeaderErrorCode(String headerName) {
-        if (AuthHeaders.USER_ID.equalsIgnoreCase(headerName)
-                || AuthHeaders.USER_ROLE.equalsIgnoreCase(headerName)) {
+        if (AuthHeaders.USER_ID.equalsIgnoreCase(headerName)) {
             return ErrorCode.INVALID_AUTHENTICATION;
         }
 
