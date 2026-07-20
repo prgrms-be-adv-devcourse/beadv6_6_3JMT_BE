@@ -32,10 +32,9 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
     private static final String PG_PROVIDER = "TOSS_PAYMENTS";
     private static final String PAYMENT_METHOD = "CARD";
 
-    // 진행 중(READY·REQUESTED)만 비차단. PAID·FAILED(재결제 영구 차단 정책)·환불·UNKNOWN은 전부 차단.
+    // 진행 중(READY·REQUESTED)만 비차단. PAID(환불 발생 여부와 무관하게 유지)·FAILED(재결제 영구 차단 정책)·UNKNOWN은 전부 차단.
     private static final Set<PaymentStatus> BLOCKING_STATUSES = Set.of(
-        PaymentStatus.PAID, PaymentStatus.FAILED,
-        PaymentStatus.PARTIAL_REFUNDED, PaymentStatus.ALL_REFUNDED, PaymentStatus.UNKNOWN
+        PaymentStatus.PAID, PaymentStatus.FAILED, PaymentStatus.UNKNOWN
     );
 
     private final PaymentRepository paymentRepository;

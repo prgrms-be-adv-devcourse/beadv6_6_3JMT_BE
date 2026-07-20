@@ -28,8 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class RefundService implements RefundUseCase {
 
-    private static final List<PaymentStatus> REFUNDABLE_STATUSES =
-        List.of(PaymentStatus.PAID, PaymentStatus.PARTIAL_REFUNDED);
+    private static final List<PaymentStatus> REFUNDABLE_STATUSES = List.of(PaymentStatus.PAID);
 
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
@@ -55,7 +54,7 @@ public class RefundService implements RefundUseCase {
             return;
         }
 
-        executeGatewayRefund(payment, refund, command.refundAmount(), remainingAmount);
+        executeGatewayRefund(payment, refund, command.refundAmount());
     }
 
     private int calculateRemainingAmount(Payment payment) {
@@ -76,12 +75,10 @@ public class RefundService implements RefundUseCase {
             new PaymentRefundFailedEvent(payment, refund, "환불 가능 잔액을 초과했습니다."));
     }
 
-    private void executeGatewayRefund(Payment payment, Refund refund, int amount, int remainingAmount) {
+    private void executeGatewayRefund(Payment payment, Refund refund, int amount) {
         try {
             RefundResult result = paymentGateway.refund(payment.getPgTxId(), refund.getId(), amount);
             refund.complete(result.refundedAt());
-            payment.applyRefund(result.refundedAt(), amount == remainingAmount);
-            paymentRepository.save(payment);
             refundRepository.save(refund);
             applicationEventPublisher.publishEvent(new PaymentRefundedEvent(payment, refund));
         } catch (PaymentGatewayException e) {
