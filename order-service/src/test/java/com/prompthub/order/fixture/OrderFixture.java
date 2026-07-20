@@ -161,6 +161,20 @@ public final class OrderFixture {
 		return order;
 	}
 
+	public static Order createFailedOrderWithProducts() {
+		Order order = createPendingOrderWithProducts();
+		order.markFailed(CANCELED_AT); // Assuming failure also uses CANCELED_AT in tests
+		return order;
+	}
+
+	public static Order createRefundedOrderWithProducts() {
+		Order order = createPaidOrderWithProducts();
+		order.getOrderProducts().forEach(op ->
+			order.refundOrderProduct(op.getId(), op.getProductAmount(), REFUNDED_AT)
+		);
+		return order;
+	}
+
 	public static OrderProduct createOrderProduct1() {
 		return OrderProduct.create(
 			PRODUCT_ID_1,
