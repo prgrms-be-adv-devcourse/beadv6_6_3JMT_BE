@@ -9,6 +9,7 @@ import com.prompthub.product.domain.model.entity.ProductFamily;
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
+import com.prompthub.product.domain.model.vo.ProductContent;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
@@ -56,22 +57,12 @@ public class ProductSellerService implements ProductSellerUseCase {
 		String fileKey = moveToProductPath(extractKey(request.fileUrl()), productId);
 
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
-		Product product = Product.create(
-			productId,
-			sellerId,
-			productType,
-			request.title(),
-			request.desc(),
-			request.model(),
-			amountType,
-			request.amount(),
-			thumbnailKey,
-			imageKeys,
-			request.content(),
-			fileKey,
-			request.externalUrl(),
-			request.tags()
+		ProductContent content = new ProductContent(
+			productType, request.title(), request.desc(), request.model(),
+			amountType, request.amount(), thumbnailKey, imageKeys,
+			request.content(), fileKey, request.externalUrl(), request.tags()
 		);
+		Product product = Product.create(productId, sellerId, content);
 
 		Product saved = productRepository.save(product);
 
@@ -98,6 +89,11 @@ public class ProductSellerService implements ProductSellerUseCase {
 		String newThumbnailKey = moveToProductPath(extractKey(request.thumbnailUrl()), productId);
 		List<String> newImageKeys = moveToProductPaths(extractKeys(request.imageUrls()), productId);
 		String newFileKey = moveToProductPath(extractKey(request.fileUrl()), productId);
+		ProductContent content = new ProductContent(
+			productType, request.title(), request.desc(), request.model(),
+			amountType, request.amount(), newThumbnailKey, newImageKeys,
+			request.content(), newFileKey, request.externalUrl(), request.tags()
+		);
 
 		UUID familyRootId = anchor.familyRootId();
 		ProductFamily family = ProductFamily.of(familyRootId, productRepository.findAllByFamilyRootIds(List.of(familyRootId)));
@@ -105,11 +101,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 		int previousPrice;
 		if (!family.hasEverBeenOnSale()) {
 			previousPrice = anchor.getAmount();
-			anchor.update(
-				productType, request.title(), request.desc(), request.model(), amountType, request.amount(),
-				newThumbnailKey, newImageKeys, request.content(), newFileKey, request.externalUrl(),
-				request.tags(), request.changeReason(), isMajor
-			);
+			anchor.update(content, request.changeReason(), isMajor);
 			productRepository.save(anchor);
 		} else {
 			Product onSale = family.currentOnSale()
@@ -120,18 +112,10 @@ public class ProductSellerService implements ProductSellerUseCase {
 				if (family.pendingReview().isPresent()) {
 					throw new ProductException(ProductErrorCode.PRODUCT_INVALID_STATUS);
 				}
-				Product next = onSale.nextVersion(
-					true, productType, request.title(), request.desc(), request.model(), amountType, request.amount(),
-					newThumbnailKey, newImageKeys, request.content(), newFileKey, request.externalUrl(),
-					request.tags(), request.changeReason()
-				);
+				Product next = onSale.nextVersion(true, content, request.changeReason());
 				productRepository.save(next);
 			} else {
-				Product next = onSale.nextVersion(
-					false, productType, request.title(), request.desc(), request.model(), amountType, request.amount(),
-					newThumbnailKey, newImageKeys, request.content(), newFileKey, request.externalUrl(),
-					request.tags(), request.changeReason()
-				);
+				Product next = onSale.nextVersion(false, content, request.changeReason());
 				onSale.supersede();
 				productRepository.save(onSale);
 				productRepository.save(next);
