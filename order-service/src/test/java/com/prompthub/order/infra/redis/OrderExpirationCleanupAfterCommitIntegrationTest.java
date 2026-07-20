@@ -1,7 +1,6 @@
 package com.prompthub.order.infra.redis;
 
 import com.prompthub.order.application.client.ProductClient;
-import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.event.order.OrderExpirationCleanupRequestedEvent;
 import com.prompthub.order.application.service.order.OrderExpirationStore;
 import com.prompthub.order.application.service.order.OrderFailureCompensationService;
@@ -69,9 +68,6 @@ class OrderExpirationCleanupAfterCommitIntegrationTest {
 	private ProductClient productClient;
 
 	@MockitoBean
-	private SellerClient sellerClient;
-
-	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;
 
 	@AfterEach
@@ -79,7 +75,7 @@ class OrderExpirationCleanupAfterCommitIntegrationTest {
 		processedEventRepository.deleteAll();
 		orderPersistence.deleteAll();
 		cartPersistence.deleteAll();
-		reset(productClient, sellerClient, orderExpirationStore);
+		reset(productClient, orderExpirationStore);
 	}
 
 	@Test

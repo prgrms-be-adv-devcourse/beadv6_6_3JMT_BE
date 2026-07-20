@@ -1,7 +1,6 @@
 package com.prompthub.order.application.service.event;
 
 import com.prompthub.order.application.client.ProductClient;
-import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.service.order.OrderExpirationStore;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
@@ -93,9 +92,6 @@ class PaymentEventTransactionIntegrationTest {
 
 	@MockitoBean
 	private ProductClient productClient;
-
-	@MockitoBean
-	private SellerClient sellerClient;
 
 	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;

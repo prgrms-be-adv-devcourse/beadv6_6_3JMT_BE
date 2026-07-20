@@ -23,7 +23,7 @@
 - Spring Web MVC, Spring Data JPA, QueryDSL
 - PostgreSQL, H2 테스트 데이터베이스
 - Apache Kafka, Redis
-- REST/OpenFeign, gRPC, Protobuf
+- gRPC, Protobuf
 - Resilience4j CircuitBreaker·Bulkhead
 - springdoc-openapi
 - JUnit 5, Mockito, Embedded Kafka
@@ -97,7 +97,7 @@ com.prompthub.order
     grpc/                 dev/prod gRPC Client와 주문 gRPC Server
   global/
     exception/            서비스 예외와 예외 응답 처리
-    web/                  인증 헤더와 Interceptor
+    web/                  인증 헤더와 웹 공통 설정
 ```
 
 ### 의존성 원칙
@@ -109,7 +109,7 @@ com.prompthub.order
 - 도메인 상태는 `markPaid`, `expirePending`, `markDownloaded`처럼 의미가 드러나는 메서드로 변경한다. 검증을 우회하는 public setter를 추가하지 않는다.
 - JPA Entity를 Controller 응답 DTO나 Kafka payload로 직접 사용하지 않는다.
 
-현재 `domain/model`은 JPA annotation을 사용하는 실용적인 구조다. 이를 JPA 비의존 도메인으로 이미 분리된 것처럼 가정하지 않는다. 다만 새 코드에서 Spring Web, Kafka, Redis, gRPC, Feign 같은 기술 세부사항을 `domain`에 추가하지 않는다.
+현재 `domain/model`은 JPA annotation을 사용하는 실용적인 구조다. 이를 JPA 비의존 도메인으로 이미 분리된 것처럼 가정하지 않는다. 다만 새 코드에서 Spring Web, Kafka, Redis, gRPC 같은 기술 세부사항을 `domain`에 추가하지 않는다.
 
 기존 코드 일부에는 `application`이 presentation DTO 또는 infra Kafka payload를 참조하는 예외가 있다. 관련 리팩터링이 요청되지 않았다면 이를 일괄 수정하지 말고, 새 코드에서는 이런 역방향 의존성을 늘리지 않는다.
 
@@ -125,17 +125,17 @@ com.prompthub.order
 
 ## 6. API, 인증, 응답과 예외
 
-Gateway가 검증해 전달하는 내부 헤더를 사용한다.
+외부 인증과 역할·상태 인가는 API Gateway가 담당하고, order-service는 Gateway가 전달한 신뢰된 사용자 ID를 사용한다.
 
-- `/api/v1/orders/**`, `/api/v1/cart/**`: `X-User-Id` 필수, `X-User-Role=BUYER` 검증
-- `/api/v1/admin/**`: `X-User-Role=ADMIN` 검증
-- CORS preflight인 `OPTIONS` 요청은 현재 Interceptor 정책대로 통과시킨다.
+- `/api/v1/orders/**`, `/api/v2/cart/**`: `X-User-Id` 필수. 애플리케이션 계층에서 주문·장바구니 소유권을 검증한다.
+- `/api/v1/admin/**`: 관리자 역할·상태 검증은 Gateway의 책임이다. order-service 관리자 Controller는 역할 헤더를 읽거나 검증하지 않는다.
+- 관리자 API의 401·403은 Gateway 또는 공통 예외 계약에 따라 외부에 노출될 수 있지만, order-service 내부 계약은 사용자 ID와 소유권 검증에 한정한다.
 
-관련 구현은 `global/web/AuthHeaders`, `OrderServiceAuthInterceptor`, `AdminAuthInterceptor`, `WebConfig`에 있다.
+관련 구현은 `global/web/AuthHeaders`, Controller의 사용자 ID 바인딩, 애플리케이션 서비스의 소유권 검증, `GlobalExceptionHandler`에 있다.
 
 - 비즈니스 서비스에서 JWT를 직접 파싱하거나 JWT 비밀키를 추가하지 않는다.
 - 외부에서 전달된 사용자 ID를 사용하더라도 주문·장바구니 소유권 검증을 생략하지 않는다.
-- 인증 경로나 역할 정책을 변경하면 Interceptor 테스트와 Controller 테스트를 함께 갱신한다.
+- 인증 헤더나 소유권 정책을 변경하면 웹 계약 테스트와 Controller 테스트를 함께 갱신한다.
 - API는 `common-module`의 `ApiResult`, `PageResponse` 형식을 유지한다.
 - 서비스 비즈니스 실패는 `global/exception/ErrorCode`, `OrderException`, `GlobalExceptionHandler` 흐름을 따른다.
 - 도메인 예외에 HTTP 요청·응답 객체를 전달하지 않는다.
@@ -159,11 +159,9 @@ Gateway가 검증해 전달하는 내부 헤더를 사용한다.
 
 | 프로파일 | ProductClient | SellerClient |
 |---|---|---|
-| `default`, `local` | `ProductRestClientAdapter` | `SellerRestFallbackClient` |
-| `dev`, `prod` | `ProductGrpcClientAdapter` | `SellerGrpcClientAdapter` |
+| `default`, `local`, `dev`, `prod` | `ProductGrpcClientAdapter` | `SellerGrpcClientAdapter` |
 
-- `default/local`의 상품 조회는 OpenFeign을 사용한다.
-- `default/local`의 판매자 조회는 현재 batch REST API가 없어 빈 결과를 반환하며, 관리자 조회 서비스가 fallback 표시를 적용한다.
+- 모든 런타임 프로파일의 상품·판매자 조회는 gRPC를 사용한다.
 - `dev/prod`의 gRPC 호출에는 설정된 deadline을 적용한다.
 - 상품 gRPC 호출은 기존 Resilience4j CircuitBreaker·Bulkhead와 gRPC status-to-error 매핑을 유지한다.
 - 호출 실패를 무조건 빈 결과로 바꾸지 않는다. 현재 상품 조회는 서비스 불가 예외를 전달하고, 판매자 닉네임 조회만 빈 결과 fallback을 사용한다.
@@ -230,7 +228,7 @@ Redis는 미결제 주문의 만료 예약과 재시도를 관리한다.
 
 기능 변경 또는 버그 수정에는 정상 경로뿐 아니라 다음 실패 경로를 검토한다.
 
-- 주문 소유자·역할 불일치
+- 주문·장바구니 소유자 불일치 또는 사용자 ID 누락
 - 잘못된 주문 상태 전이
 - 금액·상품 스냅샷 불일치
 - 중복 Kafka 이벤트

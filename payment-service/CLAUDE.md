@@ -12,11 +12,13 @@
 
 Gradle wrapper는 모노레포 루트(`../`)에 있으므로 모든 명령은 **payment-service 디렉터리에서** 실행한다.
 
+asdf 등으로 Java를 관리하는 환경에서 `JAVA_HOME`이 shim 경로(`~/.asdf/shims/java`)를 가리키면 `../gradlew`가 `JAVA_HOME is set to an invalid directory` 에러로 실패한다. 실제 JDK 설치 경로(예: `~/.asdf/installs/java/temurin-21.0.5+11.0.LTS`)로 `JAVA_HOME`을 지정해 실행한다.
+
 ```bash
 ../gradlew :payment-service:build                        # 빌드
 ../gradlew :payment-service:bootRun                      # 실행 (포트 8084)
 ../gradlew :payment-service:test                         # 전체 테스트
-../gradlew :payment-service:test --tests "com.prompthub.paymentservice.PaymentServiceApplicationTests"  # 단일
+../gradlew :payment-service:test --tests "com.prompthub.payment.PaymentServiceApplicationTests"  # 단일
 docker-compose up -d                                     # 로컬 PostgreSQL (호스트 5433) + Kafka (포트 9092)
 ```
 

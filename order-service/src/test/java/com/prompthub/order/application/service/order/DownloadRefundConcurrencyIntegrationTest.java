@@ -1,7 +1,6 @@
 package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.client.ProductClient;
-import com.prompthub.order.application.client.SellerClient;
 import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.service.event.PaymentRefundedProcessor;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
@@ -73,9 +72,6 @@ class DownloadRefundConcurrencyIntegrationTest {
 	private ProductClient productClient;
 
 	@MockitoBean
-	private SellerClient sellerClient;
-
-	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;
 
 	@MockitoBean
@@ -94,7 +90,7 @@ class DownloadRefundConcurrencyIntegrationTest {
 		executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS);
 		processedEventRepository.deleteAll();
 		orderPersistence.deleteAll();
-		reset(productClient, sellerClient, orderExpirationStore, outboxEventAppender);
+		reset(productClient, orderExpirationStore, outboxEventAppender);
 	}
 
 	@Test
