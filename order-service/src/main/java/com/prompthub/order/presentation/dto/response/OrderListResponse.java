@@ -1,5 +1,6 @@
 package com.prompthub.order.presentation.dto.response;
 
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -16,8 +17,12 @@ public record OrderListResponse(
 	UUID productId,
 	@Schema(description = "주문 상태. PENDING, PAID, FAILED, CANCELED, REFUNDED", example = "PAID")
 	OrderStatus orderStatus,
+	@Schema(description = "개별 주문 상품 상태. PENDING, PAID, FAILED, REFUNDED", example = "PAID")
+	OrderProductStatus orderProductStatus,
 	@Schema(description = "환불 가능 여부", example = "true")
 	boolean isRefundable,
+	@Schema(description = "다운로드 여부", example = "true")
+	boolean downloaded,
 	@Schema(description = "상품 유형", example = "PROMPT")
 	String productType,
 	@Schema(description = "상품 제목", example = "면접 준비 프롬프트")

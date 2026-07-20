@@ -5,7 +5,7 @@ spring:
   application:
     name: apigateway
   config:
-    import: ${CONFIG_IMPORT:}
+    import: ${CONFIG_IMPORT:optional:configserver:}
   cloud:
     config:
       fail-fast: true

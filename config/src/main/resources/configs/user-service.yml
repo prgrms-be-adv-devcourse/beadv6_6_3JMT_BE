@@ -24,20 +24,19 @@ spring:
       group-id: user-service
       auto-offset-reset: earliest
       enable-auto-commit: false
+  grpc:
+    server:
+      port: ${USER_GRPC_SERVER_PORT}
+    client:
+      channel:
+        product-service:
+          target: static://product-service:${PRODUCT_GRPC_SERVER_PORT}
 
 jwt:
   private-key: ${JWT_PRIVATE_KEY}
   public-key: ${JWT_PUBLIC_KEY}
   access-token-expire-seconds: 900
   refresh-token-expire-seconds: 604800
-
-grpc:
-  server:
-    port: ${USER_GRPC_SERVER_PORT}
-  client:
-    product-service:
-      address: 'static://product-service:${PRODUCT_GRPC_SERVER_PORT}'
-      negotiation-type: plaintext
 
 user:
   kafka:

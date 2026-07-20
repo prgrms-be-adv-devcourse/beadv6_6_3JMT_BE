@@ -16,14 +16,14 @@ data:
     # 이 스크립트는 Docker entrypoint 실행 시 초기 스키마와 역할을 생성한다.
     # 모든 문장은 멱등하게 작성되어 반복 실행돼도 안전하다.
 
-    set -e
+    set -euo pipefail
 
-    # 환경변수 또는 기본값 설정
-    USER_SERVICE_PASSWORD="${USER_SERVICE_PASSWORD:-user_service_password}"
-    PRODUCT_SERVICE_PASSWORD="${PRODUCT_SERVICE_PASSWORD:-product_service_password}"
-    ORDER_SERVICE_PASSWORD="${ORDER_SERVICE_PASSWORD:-order_service_password}"
-    PAYMENT_SERVICE_PASSWORD="${PAYMENT_SERVICE_PASSWORD:-payment_service_password}"
-    SETTLEMENT_SERVICE_PASSWORD="${SETTLEMENT_SERVICE_PASSWORD:-settlement_service_password}"
+    # 필수 서비스 비밀번호 검증
+    : "${USER_SERVICE_PASSWORD:?USER_SERVICE_PASSWORD must be set and non-empty}"
+    : "${PRODUCT_SERVICE_PASSWORD:?PRODUCT_SERVICE_PASSWORD must be set and non-empty}"
+    : "${ORDER_SERVICE_PASSWORD:?ORDER_SERVICE_PASSWORD must be set and non-empty}"
+    : "${PAYMENT_SERVICE_PASSWORD:?PAYMENT_SERVICE_PASSWORD must be set and non-empty}"
+    : "${SETTLEMENT_SERVICE_PASSWORD:?SETTLEMENT_SERVICE_PASSWORD must be set and non-empty}"
 
     psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
 
