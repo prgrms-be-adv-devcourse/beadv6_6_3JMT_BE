@@ -43,7 +43,7 @@
 **Interfaces:**
 - Produces: `AuthorizationCacheRepository.evict(UUID): void`, `RefreshTokenRepository.deleteByUserId(UUID): void`, `SessionRevocationUseCase.revoke(UUID): void` — Task 3(`UserApplicationService`)과 Task 6(`SellerApplicationService`)이 이 세 포트를 그대로 주입받아 쓴다.
 
-- [ ] **Step 1: admin-service build.gradle에 Redis 의존성 추가**
+- [x] **Step 1: admin-service build.gradle에 Redis 의존성 추가**
 
 `admin-service/build.gradle`의 `dependencies` 블록에 아래 줄을 추가한다(기존 QueryDSL·springdoc 줄은 그대로 둔다):
 
@@ -52,7 +52,7 @@
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 ```
 
-- [ ] **Step 2: config 모듈에 admin-service Redis 접속 정보 추가**
+- [x] **Step 2: config 모듈에 admin-service Redis 접속 정보 추가**
 
 `config/src/main/resources/configs/admin-service.yml`의 `server:` 블록 다음에 추가한다(user-service.yml과 동일한 환경변수 플레이스홀더 — 같은 Redis 인스턴스를 공유):
 
@@ -65,7 +65,7 @@
 
 **남는 범위 밖 선행조건**: 루트 `docker-compose.yml`의 `admin-service` 서비스 `environment` 블록엔 아직 `REDIS_HOST`/`REDIS_PORT`가 없다(user-service 블록엔 이미 있음 — `docker-compose.yml:122`). 위 값을 채워도 컨테이너가 그 환경변수를 실제로 받아야 치환이 값을 갖는다. `docker-compose.yml`은 `user-service`/`admin-service`/`apigateway` 세 모듈 밖의 루트 인프라 파일이라 이 플랜은 손대지 않는다 — 별도로 채워야 한다는 사실만 기록해 둔다.
 
-- [ ] **Step 3: 실패하는 RedisAuthorizationCacheAdapterTest 작성**
+- [x] **Step 3: 실패하는 RedisAuthorizationCacheAdapterTest 작성**
 
 `admin-service/src/test/java/com/prompthub/admin/auth/infrastructure/redis/RedisAuthorizationCacheAdapterTest.java`:
 
@@ -115,12 +115,12 @@ class RedisAuthorizationCacheAdapterTest {
 }
 ```
 
-- [ ] **Step 4: 테스트 실행해서 컴파일 실패 확인**
+- [x] **Step 4: 테스트 실행해서 컴파일 실패 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.auth.infrastructure.redis.RedisAuthorizationCacheAdapterTest"`
 Expected: FAIL — `AuthorizationCacheRepository`, `RedisAuthorizationCacheAdapter` 클래스가 없어 컴파일 에러.
 
-- [ ] **Step 5: AuthorizationCacheRepository 포트 + RedisAuthorizationCacheAdapter 구현**
+- [x] **Step 5: AuthorizationCacheRepository 포트 + RedisAuthorizationCacheAdapter 구현**
 
 `admin-service/src/main/java/com/prompthub/admin/auth/domain/repository/AuthorizationCacheRepository.java`:
 
@@ -174,12 +174,12 @@ public class RedisAuthorizationCacheAdapter implements AuthorizationCacheReposit
 }
 ```
 
-- [ ] **Step 6: 테스트 실행해서 통과 확인**
+- [x] **Step 6: 테스트 실행해서 통과 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.auth.infrastructure.redis.RedisAuthorizationCacheAdapterTest"`
 Expected: PASS
 
-- [ ] **Step 7: 실패하는 RefreshTokenRepositoryAdapterTest 작성**
+- [x] **Step 7: 실패하는 RefreshTokenRepositoryAdapterTest 작성**
 
 `admin-service/src/test/java/com/prompthub/admin/auth/infrastructure/persistence/RefreshTokenRepositoryAdapterTest.java`:
 
@@ -221,12 +221,12 @@ class RefreshTokenRepositoryAdapterTest {
 }
 ```
 
-- [ ] **Step 8: 테스트 실행해서 컴파일 실패 확인**
+- [x] **Step 8: 테스트 실행해서 컴파일 실패 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.auth.infrastructure.persistence.RefreshTokenRepositoryAdapterTest"`
 Expected: FAIL — `RefreshTokenJpaRepository`, `RefreshTokenRepositoryAdapter` 클래스가 없어 컴파일 에러.
 
-- [ ] **Step 9: RefreshToken 엔티티 + 포트 + JpaRepository + Adapter 구현**
+- [x] **Step 9: RefreshToken 엔티티 + 포트 + JpaRepository + Adapter 구현**
 
 `admin-service/src/main/java/com/prompthub/admin/auth/domain/model/RefreshToken.java`:
 
@@ -332,12 +332,12 @@ public class RefreshTokenRepositoryAdapter implements RefreshTokenRepository {
 }
 ```
 
-- [ ] **Step 10: 테스트 실행해서 통과 확인**
+- [x] **Step 10: 테스트 실행해서 통과 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.auth.infrastructure.persistence.RefreshTokenRepositoryAdapterTest"`
 Expected: PASS
 
-- [ ] **Step 11: 실패하는 SessionRevocationApplicationServiceTest 작성**
+- [x] **Step 11: 실패하는 SessionRevocationApplicationServiceTest 작성**
 
 `admin-service/src/test/java/com/prompthub/admin/auth/application/service/SessionRevocationApplicationServiceTest.java`:
 
@@ -388,12 +388,12 @@ class SessionRevocationApplicationServiceTest {
 }
 ```
 
-- [ ] **Step 12: 테스트 실행해서 컴파일 실패 확인**
+- [x] **Step 12: 테스트 실행해서 컴파일 실패 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.auth.application.service.SessionRevocationApplicationServiceTest"`
 Expected: FAIL — `SessionRevocationUseCase`, `SessionRevocationApplicationService` 클래스가 없어 컴파일 에러.
 
-- [ ] **Step 13: SessionRevocationUseCase + SessionRevocationApplicationService 구현**
+- [x] **Step 13: SessionRevocationUseCase + SessionRevocationApplicationService 구현**
 
 `admin-service/src/main/java/com/prompthub/admin/auth/application/usecase/SessionRevocationUseCase.java`:
 
@@ -437,12 +437,12 @@ public class SessionRevocationApplicationService implements SessionRevocationUse
 }
 ```
 
-- [ ] **Step 14: 테스트 실행해서 통과 확인**
+- [x] **Step 14: 테스트 실행해서 통과 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.auth.application.service.SessionRevocationApplicationServiceTest"`
 Expected: PASS
 
-- [ ] **Step 15: 커밋**
+- [x] **Step 15: 커밋**
 
 ```bash
 git add admin-service/build.gradle \
@@ -488,7 +488,7 @@ EOF
 - Produces: `UserRepository.findById(UUID): Optional<User>`, `.save(User): User`, `.findUsers(UserStatus, UserRole, String, int, int): List<User>`, `.countUsers(UserStatus, UserRole, String): long`, `.countCreatedBetween(LocalDateTime, LocalDateTime): long`, `.findAllByIds(List<UUID>): List<User>` — Task 3(`UserApplicationService`)과 Task 6(`SellerApplicationService`)이 이 포트를 그대로 소비한다.
 - Produces: `User`(도메인 메서드 `activate()`, `block()`, `withdraw()`, `addRole(UserRole)`, `getPrimaryRole(): UserRole`, `getRoles(): Set<UserRole>`, `BaseEntity`로부터 `getCreatedAt()`/`getUpdatedAt()`) — Task 3·6이 그대로 참조한다.
 
-- [ ] **Step 1: SQL 픽스처 작성**
+- [x] **Step 1: SQL 픽스처 작성**
 
 `admin-service/src/test/resources/sql/users.sql`:
 
@@ -506,7 +506,7 @@ INSERT INTO user_role (user_id, role) VALUES
 ('11111111-0000-0000-0000-000000000003', 'BUYER');
 ```
 
-- [ ] **Step 2: 실패하는 UserRepositoryAdapterTest 작성**
+- [x] **Step 2: 실패하는 UserRepositoryAdapterTest 작성**
 
 `admin-service/src/test/java/com/prompthub/admin/user/infrastructure/persistence/UserRepositoryAdapterTest.java`:
 
@@ -599,12 +599,12 @@ class UserRepositoryAdapterTest {
 }
 ```
 
-- [ ] **Step 3: 테스트 실행해서 컴파일 실패 확인**
+- [x] **Step 3: 테스트 실행해서 컴파일 실패 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.user.infrastructure.persistence.UserRepositoryAdapterTest"`
 Expected: FAIL — `User`, `UserRepository`, `UserRepositoryAdapter` 클래스가 없어 컴파일 에러.
 
-- [ ] **Step 4: UserRole/UserStatus enum + User 엔티티 작성**
+- [x] **Step 4: UserRole/UserStatus enum + User 엔티티 작성**
 
 `admin-service/src/main/java/com/prompthub/admin/user/domain/model/UserRole.java`:
 
@@ -718,7 +718,7 @@ public class User extends BaseEntity {
 }
 ```
 
-- [ ] **Step 5: UserRepository 포트 + UserSpecifications + UserJpaRepository + UserRepositoryAdapter 작성**
+- [x] **Step 5: UserRepository 포트 + UserSpecifications + UserJpaRepository + UserRepositoryAdapter 작성**
 
 `admin-service/src/main/java/com/prompthub/admin/user/domain/repository/UserRepository.java`:
 
@@ -868,12 +868,12 @@ public class UserRepositoryAdapter implements UserRepository {
 }
 ```
 
-- [ ] **Step 6: 테스트 실행해서 통과 확인**
+- [x] **Step 6: 테스트 실행해서 통과 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.user.infrastructure.persistence.UserRepositoryAdapterTest"`
 Expected: PASS(5개 테스트)
 
-- [ ] **Step 7: 커밋**
+- [x] **Step 7: 커밋**
 
 ```bash
 git add admin-service/src/main/java/com/prompthub/admin/user/domain \
@@ -916,7 +916,7 @@ EOF
 - Consumes: Task 1의 `AuthorizationCacheRepository.evict`, `SessionRevocationUseCase.revoke`. Task 2의 `UserRepository`.
 - Produces: `UserUseCase.listUsers(UserListQuery): UserPageResult`, `.changeUserStatus(ChangeUserStatusCommand): UserStatusResult`, `.getUserStats(): UserStatsResult` — Task 4의 `UserController`가 그대로 주입받아 호출한다. `AdminErrorCode.USER_NOT_FOUND`(A-007) — Task 6도 동일 코드를 재사용한다.
 
-- [ ] **Step 1: AdminErrorCode에 USER_NOT_FOUND 추가**
+- [x] **Step 1: AdminErrorCode에 USER_NOT_FOUND 추가**
 
 `admin-service/src/main/java/com/prompthub/admin/global/exception/AdminErrorCode.java`에서 enum 상수 목록을 다음으로 교체한다(`SETTLEMENT_ALREADY_CANCELLED` 다음에 콤마 유지, 새 상수 2개 추가 — 두 번째는 Task 6에서 씀):
 
@@ -931,7 +931,7 @@ EOF
 	SELLER_REGISTER_NOT_FOUND("A-008", "판매자 등록 신청 내역이 없습니다.", HttpStatus.NOT_FOUND);
 ```
 
-- [ ] **Step 2: 응용 DTO 작성**
+- [x] **Step 2: 응용 DTO 작성**
 
 `admin-service/src/main/java/com/prompthub/admin/user/application/dto/UserListQuery.java`:
 
@@ -1052,7 +1052,7 @@ public record UserStatusResult(
 }
 ```
 
-- [ ] **Step 3: UserUseCase 포트 작성**
+- [x] **Step 3: UserUseCase 포트 작성**
 
 `admin-service/src/main/java/com/prompthub/admin/user/application/usecase/UserUseCase.java`:
 
@@ -1072,7 +1072,7 @@ public interface UserUseCase {
 }
 ```
 
-- [ ] **Step 4: 실패하는 UserApplicationServiceTest 작성**
+- [x] **Step 4: 실패하는 UserApplicationServiceTest 작성**
 
 `admin-service/src/test/java/com/prompthub/admin/user/application/service/UserApplicationServiceTest.java`:
 
@@ -1192,12 +1192,12 @@ class UserApplicationServiceTest {
 }
 ```
 
-- [ ] **Step 5: 테스트 실행해서 컴파일 실패 확인**
+- [x] **Step 5: 테스트 실행해서 컴파일 실패 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.user.application.service.UserApplicationServiceTest"`
 Expected: FAIL — `UserApplicationService` 클래스가 없어 컴파일 에러.
 
-- [ ] **Step 6: UserApplicationService 구현**
+- [x] **Step 6: UserApplicationService 구현**
 
 `admin-service/src/main/java/com/prompthub/admin/user/application/service/UserApplicationService.java`:
 
@@ -1290,12 +1290,12 @@ public class UserApplicationService implements UserUseCase {
 }
 ```
 
-- [ ] **Step 7: 테스트 실행해서 통과 확인**
+- [x] **Step 7: 테스트 실행해서 통과 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.user.application.service.UserApplicationServiceTest"`
 Expected: PASS(4개 테스트)
 
-- [ ] **Step 8: 커밋**
+- [x] **Step 8: 커밋**
 
 ```bash
 git add admin-service/src/main/java/com/prompthub/admin/global/exception/AdminErrorCode.java \
@@ -1329,7 +1329,7 @@ EOF
 - Consumes: Task 3의 `UserUseCase`(`listUsers`, `changeUserStatus`, `getUserStats`), 공통 모듈의 `ApiResult`, `PageResponse`.
 - Produces: `GET ${api.init}/admin/users`, `GET ${api.init}/admin/stats/users`, `PATCH ${api.init}/admin/users/{userId}/status`.
 
-- [ ] **Step 1: 요청/응답 DTO 작성**
+- [x] **Step 1: 요청/응답 DTO 작성**
 
 `admin-service/src/main/java/com/prompthub/admin/user/presentation/dto/request/ChangeUserStatusRequest.java`:
 
@@ -1448,7 +1448,7 @@ public record UserStatusResponse(
 }
 ```
 
-- [ ] **Step 2: 실패하는 UserControllerTest 작성**
+- [x] **Step 2: 실패하는 UserControllerTest 작성**
 
 `admin-service/src/test/java/com/prompthub/admin/user/presentation/controller/UserControllerTest.java`:
 
@@ -1540,12 +1540,12 @@ class UserControllerTest {
 }
 ```
 
-- [ ] **Step 3: 테스트 실행해서 컴파일 실패 확인**
+- [x] **Step 3: 테스트 실행해서 컴파일 실패 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.user.presentation.controller.UserControllerTest"`
 Expected: FAIL — `UserController` 클래스가 없어 컴파일 에러.
 
-- [ ] **Step 4: UserController 구현**
+- [x] **Step 4: UserController 구현**
 
 `admin-service/src/main/java/com/prompthub/admin/user/presentation/controller/UserController.java`:
 
@@ -1701,12 +1701,12 @@ public class UserController {
 }
 ```
 
-- [ ] **Step 5: 테스트 실행해서 통과 확인**
+- [x] **Step 5: 테스트 실행해서 통과 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.user.presentation.controller.UserControllerTest"`
 Expected: PASS(4개 테스트)
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add admin-service/src/main/java/com/prompthub/admin/user/presentation \
@@ -1741,7 +1741,7 @@ EOF
 - Produces: `SellerRegisterRepository.findById(UUID): Optional<SellerRegister>`, `.save(SellerRegister): SellerRegister`, `.findAll(SellerRegisterStatus, int, int): List<SellerRegister>`, `.count(SellerRegisterStatus): long` — Task 6이 그대로 소비한다.
 - Produces: `SellerRegister`(도메인 메서드 `approve()`, `reject(String)`, getter로 `getSellerRegisterId`/`getUserId`/`getStatus`/`getCategories`/`getIntroduction`/`getPortfolioUrl`/`getSubmittedAt`/`getReviewedAt`/`getRejectReason`) — Task 6이 그대로 참조한다.
 
-- [ ] **Step 1: SQL 픽스처 작성**
+- [x] **Step 1: SQL 픽스처 작성**
 
 `admin-service/src/test/resources/sql/seller_registers.sql`:
 
@@ -1756,7 +1756,7 @@ INSERT INTO seller_register_category (seller_register_id, category) VALUES
 ('22222222-0000-0000-0000-000000000002', '이미지 생성');
 ```
 
-- [ ] **Step 2: 실패하는 SellerRegisterRepositoryAdapterTest 작성**
+- [x] **Step 2: 실패하는 SellerRegisterRepositoryAdapterTest 작성**
 
 `admin-service/src/test/java/com/prompthub/admin/seller/infrastructure/persistence/SellerRegisterRepositoryAdapterTest.java`:
 
@@ -1841,12 +1841,12 @@ class SellerRegisterRepositoryAdapterTest {
 }
 ```
 
-- [ ] **Step 3: 테스트 실행해서 컴파일 실패 확인**
+- [x] **Step 3: 테스트 실행해서 컴파일 실패 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.seller.infrastructure.persistence.SellerRegisterRepositoryAdapterTest"`
 Expected: FAIL — `SellerRegister`, `SellerRegisterRepository`, `SellerRegisterRepositoryAdapter` 클래스가 없어 컴파일 에러.
 
-- [ ] **Step 4: SellerRegisterStatus enum + SellerRegister 엔티티 작성**
+- [x] **Step 4: SellerRegisterStatus enum + SellerRegister 엔티티 작성**
 
 `admin-service/src/main/java/com/prompthub/admin/seller/domain/model/SellerRegisterStatus.java`:
 
@@ -1940,7 +1940,7 @@ public class SellerRegister {
 }
 ```
 
-- [ ] **Step 5: SellerRegisterRepository 포트 + JpaRepository + Adapter 작성**
+- [x] **Step 5: SellerRegisterRepository 포트 + JpaRepository + Adapter 작성**
 
 `admin-service/src/main/java/com/prompthub/admin/seller/domain/repository/SellerRegisterRepository.java`:
 
@@ -2033,12 +2033,12 @@ public class SellerRegisterRepositoryAdapter implements SellerRegisterRepository
 }
 ```
 
-- [ ] **Step 6: 테스트 실행해서 통과 확인**
+- [x] **Step 6: 테스트 실행해서 통과 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.seller.infrastructure.persistence.SellerRegisterRepositoryAdapterTest"`
 Expected: PASS(4개 테스트)
 
-- [ ] **Step 7: 커밋**
+- [x] **Step 7: 커밋**
 
 ```bash
 git add admin-service/src/main/java/com/prompthub/admin/seller/domain \
@@ -2075,7 +2075,7 @@ EOF
 - Consumes: Task 1의 `AuthorizationCacheRepository.evict`. Task 2의 `UserRepository`(`findById`, `findAllByIds`, `save`), `User.addRole(UserRole)`. Task 5의 `SellerRegisterRepository`.
 - Produces: `SellerUseCase.listSellerRegisters(SellerRegisterListQuery): SellerRegisterPageResult`, `.approve(ApproveSellerCommand): SellerRegisterReviewResult`, `.reject(RejectSellerCommand): SellerRegisterReviewResult` — Task 7의 `SellerController`가 그대로 주입받아 호출한다.
 
-- [ ] **Step 1: 응용 DTO 작성**
+- [x] **Step 1: 응용 DTO 작성**
 
 `admin-service/src/main/java/com/prompthub/admin/seller/application/dto/SellerRegisterListQuery.java`:
 
@@ -2201,7 +2201,7 @@ public record SellerRegisterReviewResult(
 }
 ```
 
-- [ ] **Step 2: SellerUseCase 포트 작성**
+- [x] **Step 2: SellerUseCase 포트 작성**
 
 `admin-service/src/main/java/com/prompthub/admin/seller/application/usecase/SellerUseCase.java`:
 
@@ -2221,7 +2221,7 @@ public interface SellerUseCase {
 }
 ```
 
-- [ ] **Step 3: 실패하는 SellerApplicationServiceTest 작성**
+- [x] **Step 3: 실패하는 SellerApplicationServiceTest 작성**
 
 `admin-service/src/test/java/com/prompthub/admin/seller/application/service/SellerApplicationServiceTest.java`:
 
@@ -2348,12 +2348,12 @@ class SellerApplicationServiceTest {
 }
 ```
 
-- [ ] **Step 4: 테스트 실행해서 컴파일 실패 확인**
+- [x] **Step 4: 테스트 실행해서 컴파일 실패 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.seller.application.service.SellerApplicationServiceTest"`
 Expected: FAIL — `SellerApplicationService` 클래스가 없어 컴파일 에러.
 
-- [ ] **Step 5: SellerApplicationService 구현**
+- [x] **Step 5: SellerApplicationService 구현**
 
 `admin-service/src/main/java/com/prompthub/admin/seller/application/service/SellerApplicationService.java`:
 
@@ -2463,12 +2463,12 @@ public class SellerApplicationService implements SellerUseCase {
 }
 ```
 
-- [ ] **Step 6: 테스트 실행해서 통과 확인**
+- [x] **Step 6: 테스트 실행해서 통과 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.seller.application.service.SellerApplicationServiceTest"`
 Expected: PASS(4개 테스트)
 
-- [ ] **Step 7: 커밋**
+- [x] **Step 7: 커밋**
 
 ```bash
 git add admin-service/src/main/java/com/prompthub/admin/seller/application \
@@ -2500,7 +2500,7 @@ EOF
 - Consumes: Task 6의 `SellerUseCase`(`listSellerRegisters`, `approve`, `reject`), 공통 모듈의 `ApiResult`, `PageResponse`.
 - Produces: `GET ${api.init}/admin/sellers/register`, `PATCH ${api.init}/admin/sellers/register/{registerId}/approve`, `PATCH ${api.init}/admin/sellers/register/{registerId}/reject` — 이 태스크가 마지막 신규 코드 레이어이며, 이후 태스크는 게이트웨이 라우팅과 user-service 삭제만 다룬다.
 
-- [ ] **Step 1: 요청/응답 DTO 작성**
+- [x] **Step 1: 요청/응답 DTO 작성**
 
 `admin-service/src/main/java/com/prompthub/admin/seller/presentation/dto/request/RejectSellerRegisterRequest.java`:
 
@@ -2619,7 +2619,7 @@ public record SellerRegisterReviewResponse(
 }
 ```
 
-- [ ] **Step 2: 실패하는 SellerControllerTest 작성**
+- [x] **Step 2: 실패하는 SellerControllerTest 작성**
 
 `admin-service/src/test/java/com/prompthub/admin/seller/presentation/controller/SellerControllerTest.java`:
 
@@ -2717,12 +2717,12 @@ class SellerControllerTest {
 }
 ```
 
-- [ ] **Step 3: 테스트 실행해서 컴파일 실패 확인**
+- [x] **Step 3: 테스트 실행해서 컴파일 실패 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.seller.presentation.controller.SellerControllerTest"`
 Expected: FAIL — `SellerController` 클래스가 없어 컴파일 에러.
 
-- [ ] **Step 4: SellerController 구현**
+- [x] **Step 4: SellerController 구현**
 
 `admin-service/src/main/java/com/prompthub/admin/seller/presentation/controller/SellerController.java`:
 
@@ -2856,12 +2856,12 @@ public class SellerController {
 }
 ```
 
-- [ ] **Step 5: 테스트 실행해서 통과 확인**
+- [x] **Step 5: 테스트 실행해서 통과 확인**
 
 Run: `./gradlew :admin-service:test --tests "com.prompthub.admin.seller.presentation.controller.SellerControllerTest"`
 Expected: PASS(4개 테스트)
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add admin-service/src/main/java/com/prompthub/admin/seller/presentation \
@@ -2889,7 +2889,7 @@ EOF
 - Consumes: 없음(순수 라우팅 설정 변경, admin-service/user-service 코드와 컴파일 의존성 없음).
 - Produces: 없음(최종 라우팅 동작 변경).
 
-- [ ] **Step 1: 실패하는 라우트 테스트 추가**
+- [x] **Step 1: 실패하는 라우트 테스트 추가**
 
 `VersionedRouteDefinitionLocatorTest.java`의 마지막 테스트 뒤에 아래 테스트를 추가한다(클래스 닫는 `}` 바로 앞):
 
@@ -2910,12 +2910,12 @@ EOF
 	}
 ```
 
-- [ ] **Step 2: 테스트 실행해서 실패 확인**
+- [x] **Step 2: 테스트 실행해서 실패 확인**
 
 Run: `./gradlew :apigateway:test --tests "com.prompthub.apigateway.route.VersionedRouteDefinitionLocatorTest"`
 Expected: FAIL — `admin-service` 패턴에 아직 `/admin/users`·`/admin/sellers/register`가 없고, `user-service` 패턴엔 여전히 `/admin/**`가 남아있어 assertion 실패.
 
-- [ ] **Step 3: VersionedServiceRoute.java에서 경로 소유권 이전**
+- [x] **Step 3: VersionedServiceRoute.java에서 경로 소유권 이전**
 
 `apigateway/src/main/java/com/prompthub/apigateway/route/VersionedServiceRoute.java`에서 `admin-service`와 `user-service` 항목을 다음으로 교체한다(다른 항목은 그대로 둔다):
 
@@ -2947,12 +2947,12 @@ Expected: FAIL — `admin-service` 패턴에 아직 `/admin/users`·`/admin/sell
 
 (`user-service` 항목에서 `"/admin/**"`만 제거 — 나머지 `pathSuffixes`는 그대로.)
 
-- [ ] **Step 4: 테스트 실행해서 통과 확인**
+- [x] **Step 4: 테스트 실행해서 통과 확인**
 
 Run: `./gradlew :apigateway:test --tests "com.prompthub.apigateway.route.VersionedRouteDefinitionLocatorTest"`
 Expected: PASS(전체 테스트)
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add apigateway/src/main/java/com/prompthub/apigateway/route/VersionedServiceRoute.java \
@@ -2986,19 +2986,19 @@ EOF
 - Consumes: 없음(삭제 전용 태스크, Task 1~8이 admin-service·apigateway에 동등 기능을 이미 제공한 뒤에만 실행).
 - Produces: 없음.
 
-- [ ] **Step 1: user-service 어드민 패키지 전체 삭제**
+- [x] **Step 1: user-service 어드민 패키지 전체 삭제**
 
 ```bash
 rm -rf user-service/src/main/java/com/prompthub/user/admin
 rm -rf user-service/src/test/java/com/prompthub/user/admin
 ```
 
-- [ ] **Step 2: user-service 전체 빌드로 삭제 이후 컴파일·테스트 확인**
+- [x] **Step 2: user-service 전체 빌드로 삭제 이후 컴파일·테스트 확인**
 
 Run: `./gradlew :user-service:build`
 Expected: BUILD SUCCESSFUL — 삭제한 클래스를 참조하는 곳이 남아있지 않고(다른 도메인이 `com.prompthub.user.admin`을 참조하는 곳이 없음은 이 플랜 작성 시점에 grep으로 사전 확인함), 남은 일반 회원/판매자/인증/찜 테스트가 전부 통과한다. 실패하면 에러가 가리키는 참조를 찾아 정리한다(단, 일반 회원/판매자/인증 도메인 코드는 변경하지 않는다).
 
-- [ ] **Step 3: 커밋**
+- [x] **Step 3: 커밋**
 
 ```bash
 git add -A user-service
@@ -3024,11 +3024,11 @@ EOF
 
 모든 태스크 완료 후:
 
-- [ ] `./gradlew :admin-service:test :apigateway:test :user-service:test` 전체 통과 확인
-- [ ] `admin-service/works/user/design.md`의 결정 사항 7개가 실제 구현과 일치하는지 재확인
+- [x] `./gradlew :admin-service:test :apigateway:test :user-service:test` 전체 통과 확인
+- [x] `admin-service/works/user/design.md`의 결정 사항 7개가 실제 구현과 일치하는지 재확인
 - [ ] admin-service가 Redis에 실제로 붙는지 확인 — config 모듈 값은 이 플랜에서 채웠지만(Task 1 Step 2), 루트 `docker-compose.yml`의 admin-service `environment`에 `REDIS_HOST`/`REDIS_PORT`를 추가하는 건 세 모듈(`user-service`/`admin-service`/`apigateway`) 밖의 별도 작업으로 남아있다
-- [ ] 기존 `SellerNickname` 컬럼 매핑 이슈(`user_id` vs 실제 `id`)를 별도로 확인·수정할지 사용자에게 컨펌 — 이 플랜은 손대지 않음
+- [x] 기존 `SellerNickname` 컬럼 매핑 이슈(`user_id` vs 실제 `id`) — Task 2 진행 중 User 엔티티 추가로 H2 테스트가 실제로 깨져(두 엔티티가 같은 `"user"` 테이블에 매핑되며 컬럼이 병합) 드러났다. 사용자 컨펌 후 `SellerNickname.java`의 `@Column(name = "user_id")` → `"id"`로 수정, `seller_nicknames.sql` 픽스처도 갱신(Task 2 커밋에 포함).
 
-## 발견된 기존 이슈 (이 플랜 범위 밖, 참고용)
+## 해결된 이슈
 
-플랜 작성 중 `user-service/src/main/resources/db/migration/V1__baseline.sql`을 확인한 결과, `admin-service`의 기존 `com.prompthub.admin.order.domain.model.SellerNickname`(order 이관 산출물, `@Column(name = "user_id")`로 `"user"` 테이블 PK 매핑)이 실제 컬럼명(`id`)과 다르게 매핑돼 있다. H2 테스트는 `ddl-auto: create-drop`으로 엔티티 기준 스키마를 만들어서 통과하지만, 운영 PostgreSQL(`ddl-auto: none`, 실제 컬럼은 `id`)에서는 `GET /admin/orders`의 판매자 닉네임 enrichment 쿼리가 SQL 오류를 낼 가능성이 있다. 이 플랜은 `order` 패키지를 변경하지 않으므로 고치지 않았다 — 별도 확인·수정이 필요하면 알려달라.
+~~기존 `SellerNickname` 컬럼 매핑 오류~~ — 위 체크리스트 항목 참고, Task 2 커밋에서 수정 완료.
