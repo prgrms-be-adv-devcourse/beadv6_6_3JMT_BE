@@ -93,6 +93,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 			null,
 			product.getDescription(),
 			product.getThumbnailUrl(),
+			product.getImageUrls(),
 			createPreviewContent(product),
 			product.getTags(),
 			toVersionHistory(product.familyRootId()),

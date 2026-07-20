@@ -17,6 +17,7 @@ public record ProductDetailResponse(
 	String badge,
 	String desc,
 	String thumbnail_url,
+	List<String> imageUrls,
 	String content,
 	List<String> tags,
 	List<ProductVersionResponse> versions,
