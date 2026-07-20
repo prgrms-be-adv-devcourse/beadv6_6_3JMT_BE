@@ -1,10 +1,9 @@
 package com.prompthub.product.domain.model.entity;
 
+import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
-import com.prompthub.product.domain.model.enums.ProductType;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -85,11 +84,7 @@ class ProductFamilyTest {
 	}
 
 	private Product product(ProductStatus status, short majorVersion, short patchVersion) {
-		Product product = Product.create(
-			UUID.randomUUID(), UUID.randomUUID(), ProductType.PROMPT,
-			"제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), "content", null, null, List.of()
-		);
+		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
 		ReflectionTestUtils.setField(product, "status", status);
 		ReflectionTestUtils.setField(product, "majorVersion", majorVersion);
 		ReflectionTestUtils.setField(product, "patchVersion", patchVersion);
