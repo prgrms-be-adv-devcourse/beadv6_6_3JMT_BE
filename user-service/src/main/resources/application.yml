@@ -3,7 +3,7 @@ spring:
     name: user-service
   config:
     import:
-      - ${CONFIG_IMPORT:optional:configserver:}
+      - ${CONFIG_IMPORT:}
       - optional:file:.env[.properties]
       - optional:file:../.env[.properties]
       - optional:file:./user-service/.env[.properties]
