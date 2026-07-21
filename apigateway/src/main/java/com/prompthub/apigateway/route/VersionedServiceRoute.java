@@ -36,10 +36,7 @@ public record VersionedServiceRoute(String id, String uri, List<String> pathSuff
         new VersionedServiceRoute(
             "product-service",
             "lb://PRODUCT-SERVICE",
-            List.of(
-                "/products", "/products/**",
-                "/sellers/me/products", "/sellers/me/products/**"
-            ),
+            List.of("/products", "/products/**"),
             2
         ),
         new VersionedServiceRoute(
@@ -57,6 +54,12 @@ public record VersionedServiceRoute(String id, String uri, List<String> pathSuff
                 "/wishlists/**"
             ),
             4
+        ),
+        new VersionedServiceRoute(
+            "notification-service",
+            "lb://NOTIFICATION-SERVICE",
+            List.of("/notifications", "/notifications/**"),
+            5
         )
     );
 
