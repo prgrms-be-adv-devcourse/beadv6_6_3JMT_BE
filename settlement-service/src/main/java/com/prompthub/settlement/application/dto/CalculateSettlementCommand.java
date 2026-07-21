@@ -1,11 +1,11 @@
 package com.prompthub.settlement.application.dto;
 
-import java.time.YearMonth;
+import com.prompthub.settlement.domain.model.SettlementPeriod;
 import java.util.UUID;
 
 public record CalculateSettlementCommand(
         UUID settlementBatchId,
         UUID sellerId,
-        YearMonth period
+        SettlementPeriod period
 ) {
 }

@@ -7,13 +7,12 @@ option java_package = "com.prompthub.product.grpc";
 option java_outer_classname = "ProductQueryProto";
 
 // product-service가 서버로서 제공하는 gRPC 계약을 하나의 서비스로 단일 관리한다.
-// 소유자(서버)=product. 호출자: settlement(GetSellerStats), order(스냅샷/콘텐츠), user(GetProductsByIds).
+// 소유자(서버)=product. 호출자: settlement(GetSellerStats), order(스냅샷/콘텐츠).
 service ProductQueryService {
   rpc GetSellerStats(GetSellerStatsRequest) returns (GetSellerStatsResponse);
   rpc GetOrderSnapshots(GetOrderSnapshotsRequest) returns (GetOrderSnapshotsResponse);
   rpc GetCartSnapshots(GetCartSnapshotsRequest) returns (GetCartSnapshotsResponse);
   rpc GetProductContent(GetProductContentRequest) returns (GetProductContentResponse);
-  rpc GetProductsByIds(GetProductsByIdsRequest) returns (GetProductsByIdsResponse);
 }
 
 // --- 셀러 통계 (settlement 소비) ---
@@ -64,33 +63,44 @@ message ProductCartSnapshotMessage {
   string thumbnail_url = 7;
 }
 
-// --- 상품 콘텐츠 (order 소비) ---
+// --- 상품 콘텐츠 (order 소비) — purpose 기반 통합 진입점 ---
+// GetOrderSnapshots/GetCartSnapshots를 하나의 진입점으로 합치는 전환 1단계.
+// docs/superpowers/specs/2026-07-20-unified-get-product-content-design.md 참고.
+// 전환 기간 동안 GetOrderSnapshots/GetCartSnapshots RPC는 그대로 유지한다.
+enum ProductContentPurpose {
+  PRODUCT_CONTENT_PURPOSE_UNSPECIFIED = 0;
+  ORDER_SNAPSHOT = 1;
+  CART_SNAPSHOT = 2;
+  PURCHASED_CONTENT = 3;
+}
+
 message GetProductContentRequest {
+  // PURCHASED_CONTENT, 구형(UNSPECIFIED) 단건 요청에서 사용한다.
   string product_id = 1;
+
+  // ORDER_SNAPSHOT, CART_SNAPSHOT 배치 요청에서 사용한다.
+  repeated string product_ids = 2;
+
+  ProductContentPurpose purpose = 3;
 }
 
 message GetProductContentResponse {
+  // 구형 콘텐츠 클라이언트 호환용(deprecated). 신규 클라이언트는 results만 사용한다.
+  string product_id = 1 [deprecated = true];
+  string content = 2 [deprecated = true];
+
+  repeated ProductContentResult results = 3;
+}
+
+message ProductContentResult {
+  oneof payload {
+    ProductOrderSnapshot order_snapshot = 1;
+    ProductCartSnapshotMessage cart_snapshot = 2;
+    PurchasedProductContent purchased_content = 3;
+  }
+}
+
+message PurchasedProductContent {
   string product_id = 1;
   string content = 2;
-}
-
-// --- 상품 배치 조회 (user 소비) ---
-message GetProductsByIdsRequest {
-  repeated string product_ids = 1;
-}
-
-message GetProductsByIdsResponse {
-  repeated Product products = 1;
-}
-
-message Product {
-  string product_id = 1;
-  string seller_id = 2;
-  string title = 3;
-  int64 price = 4;
-  string thumbnail_url = 5;
-  string model = 6;
-  int64 sales_count = 7;
-  double average_rating = 8;
-  string status = 9;
 }

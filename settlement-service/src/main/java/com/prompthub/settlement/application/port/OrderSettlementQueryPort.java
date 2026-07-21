@@ -1,7 +1,7 @@
 package com.prompthub.settlement.application.port;
 
 import com.prompthub.settlement.application.dto.SettleableLine;
-import java.time.YearMonth;
+import com.prompthub.settlement.domain.model.SettlementPeriod;
 import java.util.List;
 
 /**
@@ -11,7 +11,7 @@ import java.util.List;
 public interface OrderSettlementQueryPort {
 
     /**
-     * 정산 기준월에 아직 정산되지 않은 결제/환불 라인을 전부 조회한다.
+     * 정산 주차에 아직 정산되지 않은 결제/환불 라인을 전부 조회한다.
      */
-    List<SettleableLine> fetchSettleableLines(YearMonth period);
+    List<SettleableLine> fetchSettleableLines(SettlementPeriod period);
 }

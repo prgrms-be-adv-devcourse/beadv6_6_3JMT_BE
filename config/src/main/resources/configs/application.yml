@@ -14,7 +14,6 @@ management:
 
 gateway:
   api-versions:
-    settlement-service: [ v1, v2 ]
     admin-service: [ v1, v2 ]
     order-service: [ v1, v2 ]
     product-service: [ v1, v2 ]

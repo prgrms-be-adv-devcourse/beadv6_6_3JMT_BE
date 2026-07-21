@@ -7,9 +7,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -19,9 +20,14 @@ public class SettlementOrderQueryService implements SettlementOrderQueryUseCase 
     private final SettlementOrderQueryRepository repository;
 
     @Override
-    public List<SettleableLineResult> getSettleableLines(YearMonth period) {
-        LocalDateTime startInclusive = period.atDay(1).atStartOfDay();
-        LocalDateTime endExclusive = period.plusMonths(1).atDay(1).atStartOfDay();
+    public List<SettleableLineResult> getSettleableLines(LocalDate periodStart, LocalDate periodEnd) {
+        Objects.requireNonNull(periodStart, "정산 시작일은 필수입니다.");
+        Objects.requireNonNull(periodEnd, "정산 종료일은 필수입니다.");
+        if (periodEnd.isBefore(periodStart)) {
+            throw new IllegalArgumentException("정산 종료일은 시작일보다 빠를 수 없습니다.");
+        }
+        LocalDateTime startInclusive = periodStart.atStartOfDay();
+        LocalDateTime endExclusive = periodEnd.plusDays(1).atStartOfDay();
         return repository.findSettleableLines(startInclusive, endExclusive);
     }
 }

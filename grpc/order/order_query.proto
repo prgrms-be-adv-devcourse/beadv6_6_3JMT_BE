@@ -12,7 +12,9 @@ service OrderQueryService {
 }
 
 message GetSettleableLinesRequest {
-  string period = 1;
+  string period = 1 [deprecated = true];
+  string period_start = 2;
+  string period_end = 3;
 }
 
 message GetSettleableLinesResponse {

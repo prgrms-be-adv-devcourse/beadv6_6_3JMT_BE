@@ -3,15 +3,16 @@ package com.prompthub.settlement.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
-import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
 import com.prompthub.settlement.domain.model.Settlement;
+import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
+import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.infrastructure.persistence.SettlementJpaRepository;
 import com.prompthub.settlement.infrastructure.persistence.SettlementSourceLineJpaRepository;
 import com.prompthub.settlement.infrastructure.persistence.outbox.OutboxEventJpaRepository;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +30,9 @@ import tools.jackson.databind.ObjectMapper;
 })
 @ActiveProfiles("test")
 class SettlementOutboxCommitIntegrationTest {
+
+    private static final SettlementPeriod PERIOD = SettlementPeriod.of(
+            LocalDate.of(2026, 6, 15), LocalDate.of(2026, 6, 21));
 
     @Autowired
     private SettlementCalculationApplicationService service;
@@ -68,7 +72,7 @@ class SettlementOutboxCommitIntegrationTest {
 
         // when
         Settlement settlement = service.calculate(
-                new CalculateSettlementCommand(batchId, sellerId, YearMonth.of(2026, 6)));
+                new CalculateSettlementCommand(batchId, sellerId, PERIOD));
 
         // then
         List<SettlementOutboxEvent> outboxEvents = outboxEventJpaRepository.findAll();

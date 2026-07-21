@@ -1,7 +1,5 @@
 package com.prompthub.product.application.service;
 
-import com.prompthub.product.application.client.SellerClient;
-import com.prompthub.product.application.client.SellerInfo;
 import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
@@ -22,7 +20,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
@@ -37,9 +34,6 @@ class ProductInternalServiceTest {
 
 	@Mock
 	private ReviewRepository reviewRepository;
-
-	@Mock
-	private SellerClient sellerClient;
 
 	@Mock
 	private StorageClient storageClient;
@@ -70,13 +64,11 @@ class ProductInternalServiceTest {
 	class GetCartSnapshots {
 
 		@Test
-		@DisplayName("ON_SALE 상품만 조회하여 판매자 닉네임과 함께 반환한다")
+		@DisplayName("ON_SALE 상품만 조회하여 판매자 닉네임 없이 반환한다")
 		void getCartSnapshots_onSaleOnly() {
 			Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
 			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID))).willReturn(List.of(product));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
-			given(sellerClient.getSellerInfo(SELLER_ID))
-				.willReturn(new SellerInfo(SELLER_ID, "프롬프트상점", null, "ACTIVE"));
 
 			List<ProductCartSnapshotResponse> result = productInternalService.getCartSnapshots(List.of(PRODUCT_ID));
 
@@ -84,7 +76,7 @@ class ProductInternalServiceTest {
 			ProductCartSnapshotResponse snapshot = result.get(0);
 			assertThat(snapshot.productId()).isEqualTo(PRODUCT_ID);
 			assertThat(snapshot.sellerId()).isEqualTo(SELLER_ID);
-			assertThat(snapshot.sellerNickname()).isEqualTo("프롬프트상점");
+			assertThat(snapshot.sellerNickname()).isNull();
 			assertThat(snapshot.productTitle()).isEqualTo("면접 답변 프롬프트");
 			assertThat(snapshot.productType()).isEqualTo("PROMPT");
 			assertThat(snapshot.productAmount()).isEqualTo(15000);
@@ -100,28 +92,6 @@ class ProductInternalServiceTest {
 			List<ProductCartSnapshotResponse> result = productInternalService.getCartSnapshots(List.of(PRODUCT_ID));
 
 			assertThat(result).isEmpty();
-			then(sellerClient).shouldHaveNoInteractions();
-		}
-
-		@Test
-		@DisplayName("동일 판매자의 상품이 여러 개일 때 sellerClient를 한 번만 호출한다")
-		void getCartSnapshots_deduplicatesSellerCall() {
-			UUID productId2 = UUID.fromString("22222222-2222-2222-2222-222222222222");
-			Product product1 = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
-			Product product2 = product(productId2, SELLER_ID, ProductStatus.ON_SALE);
-			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID, productId2)))
-				.willReturn(List.of(product1, product2));
-			given(productRepository.findAllByFamilyRootIds(argThat(ids ->
-				ids != null && java.util.Set.copyOf(ids).equals(java.util.Set.of(PRODUCT_ID, productId2)))))
-				.willReturn(List.of(product1, product2));
-			given(sellerClient.getSellerInfo(SELLER_ID))
-				.willReturn(new SellerInfo(SELLER_ID, "프롬프트상점", null, "ACTIVE"));
-
-			List<ProductCartSnapshotResponse> result =
-				productInternalService.getCartSnapshots(List.of(PRODUCT_ID, productId2));
-
-			assertThat(result).hasSize(2);
-			then(sellerClient).should().getSellerInfo(SELLER_ID);
 		}
 
 		@Test
@@ -135,8 +105,6 @@ class ProductInternalServiceTest {
 
 			given(productRepository.findAllByIdIn(List.of(oldId))).willReturn(List.of(old));
 			given(productRepository.findAllByFamilyRootIds(List.of(oldId))).willReturn(List.of(old, current));
-			given(sellerClient.getSellerInfo(SELLER_ID))
-				.willReturn(new SellerInfo(SELLER_ID, "프롬프트상점", null, "ACTIVE"));
 
 			List<ProductCartSnapshotResponse> result = productInternalService.getCartSnapshots(List.of(oldId));
 

@@ -14,8 +14,6 @@ public interface ProductInternalUseCase {
 
 	List<ProductOrderSnapshotResponse> getOrderSnapshots(List<UUID> productIds);
 
-	ProductCartSnapshotResponse getCartSnapshot(UUID productId);
-
 	List<ProductCartSnapshotResponse> getCartSnapshots(List<UUID> productIds);
 
 	ProductContentResponse getProductContent(UUID productId);
