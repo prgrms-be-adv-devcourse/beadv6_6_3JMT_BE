@@ -23,7 +23,7 @@ class WhitelistPathResolverTest {
 
         List<String> whitelist = WhitelistPathResolver.authWhitelist(propertiesOf(config));
 
-        assertThat(whitelist).contains("/api/v1/auth/signup", "/api/v1/auth/login");
+        assertThat(whitelist).contains("/api/v1/auth/oauth/**", "/api/v1/auth/token/refresh");
         assertThat(whitelist).noneMatch(p -> p.contains("/api/v2/"));
         assertThat(whitelist).contains("/actuator/**");
     }
@@ -36,9 +36,19 @@ class WhitelistPathResolverTest {
         List<String> whitelist = WhitelistPathResolver.authWhitelist(propertiesOf(config));
 
         assertThat(whitelist).contains(
-            "/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/oauth/**", "/api/v1/auth/token/refresh",
-            "/api/v2/auth/signup", "/api/v2/auth/login", "/api/v2/auth/oauth/**", "/api/v2/auth/token/refresh"
+            "/api/v1/auth/oauth/**", "/api/v1/auth/token/refresh",
+            "/api/v2/auth/oauth/**", "/api/v2/auth/token/refresh"
         );
+    }
+
+    @Test
+    void oauth_전용_전환으로_signup_login은_화이트리스트에_없다() {
+        Map<String, List<String>> config = new LinkedHashMap<>();
+        config.put("user-service", List.of("v1", "v2"));
+
+        List<String> whitelist = WhitelistPathResolver.authWhitelist(propertiesOf(config));
+
+        assertThat(whitelist).noneMatch(p -> p.contains("/auth/signup") || p.contains("/auth/login"));
     }
 
     @Test
@@ -59,8 +69,8 @@ class WhitelistPathResolverTest {
         List<String> whitelist = WhitelistPathResolver.productReadWhitelist(propertiesOf(config));
 
         assertThat(whitelist).containsExactlyInAnyOrder(
-            "/api/v1/products", "/api/v1/products/**",
-            "/api/v2/products", "/api/v2/products/**"
+            "/api/v1/products", "/api/v1/products/*", "/api/v1/products/*/recommends",
+            "/api/v2/products", "/api/v2/products/*", "/api/v2/products/*/recommends"
         );
     }
 
@@ -71,5 +81,27 @@ class WhitelistPathResolverTest {
         List<String> whitelist = WhitelistPathResolver.productReadWhitelist(propertiesOf(config));
 
         assertThat(whitelist).isEmpty();
+    }
+
+    @Test
+    void products_와일드카드가_판매자_전용_조회_경로까지_permitAll로_잘못_열어주지_않는다() {
+        Map<String, List<String>> config = new LinkedHashMap<>();
+        config.put("product-service", List.of("v2"));
+
+        List<String> whitelist = WhitelistPathResolver.productReadWhitelist(propertiesOf(config));
+
+        assertThat(whitelist).noneMatch(p -> p.contains("/sellers/"));
+    }
+
+    @Test
+    void user_service_v2_활성화면_판매자_조회_경로가_화이트리스트에_포함된다() {
+        Map<String, List<String>> config = new LinkedHashMap<>();
+        config.put("user-service", List.of("v2"));
+
+        List<String> whitelist = WhitelistPathResolver.sellerLookupWhitelist(propertiesOf(config));
+
+        assertThat(whitelist).containsExactlyInAnyOrder(
+            "/api/v2/sellers/product", "/api/v2/sellers/products"
+        );
     }
 }
