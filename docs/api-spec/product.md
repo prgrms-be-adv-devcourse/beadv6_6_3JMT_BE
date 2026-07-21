@@ -717,10 +717,11 @@ cart-snapshot 배열 반환
 
 ---
 
-### GET /internal/products/count — 판매자 등록 상품 수 조회
+### GET /internal/products/count — 판매자 상품 통계 내부 조회
 
-- 호출: settlement-service → product-service
-- 호출 시점: 판매자 정산 요약 조회 시
+- 용도: Product 서비스 내부 판매자 상품 family 수·판매건수 집계
+- 비고: Seller Settlement summary는 #452 이후 이 내부 API나 Product gRPC를 소비하지 않는다.
+- 공개 Seller 통계 API의 경로와 응답은 Product 후속 작업에서 정의한다.
 
 #### Query Parameters
 
@@ -733,7 +734,8 @@ cart-snapshot 배열 반환
 ```json
 {
   "sellerId": "uuid",
-  "productCount": 12
+  "productCount": 12,
+  "salesCount": 1342
 }
 ```
 
@@ -794,11 +796,14 @@ cart-snapshot 배열 반환
 
 product-service가 서버로 구현해 다른 서비스에 노출하는 서비스다.
 
-#### `ProductQueryService` (소비: settlement-service)
+#### `ProductQueryService`
 
 | rpc | 요청 | 응답 |
 |---|---|---|
-| `CountBySeller` | `seller_id` | `seller_id`, `product_count` |
+| `GetSellerStats` | `seller_id` | `seller_id`, `product_count`, `sales_count` |
+
+> #452 이후 user-service `sellersettlement`는 `GetSellerStats`를 소비하지 않는다. RPC 유지·삭제와
+> 공개 Seller 통계 API 전환은 Product 후속 작업에서 결정한다.
 
 #### `ProductInternalService` (소비: order-service)
 
