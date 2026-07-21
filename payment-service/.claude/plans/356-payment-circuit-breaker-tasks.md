@@ -29,7 +29,7 @@
 - Consumes: 없음(기존 `PaymentGatewayException`, `PaymentErrorCode`만 참조)
 - Produces: `TossFailurePredicate implements Predicate<Throwable>` — Task 2의 `CircuitBreakerConfig.recordException(...)`에서 사용
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
 
 ```java
 package com.prompthub.payment.infrastructure.external.toss;
@@ -81,12 +81,12 @@ class TossFailurePredicateTest {
 }
 ```
 
-- [ ] **Step 2: 테스트 실행해서 실패 확인**
+- [x] **Step 2: 테스트 실행해서 실패 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.external.toss.TossFailurePredicateTest"`
 Expected: FAIL — `TossFailurePredicate` 클래스가 없어 컴파일 에러
 
-- [ ] **Step 3: 최소 구현**
+- [x] **Step 3: 최소 구현**
 
 ```java
 package com.prompthub.payment.infrastructure.external.toss;
@@ -114,12 +114,12 @@ public class TossFailurePredicate implements Predicate<Throwable> {
 }
 ```
 
-- [ ] **Step 4: 테스트 실행해서 통과 확인**
+- [x] **Step 4: 테스트 실행해서 통과 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.external.toss.TossFailurePredicateTest"`
 Expected: PASS (4 tests)
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add src/main/java/com/prompthub/payment/infrastructure/external/toss/TossFailurePredicate.java src/test/java/com/prompthub/payment/infrastructure/external/toss/TossFailurePredicateTest.java
