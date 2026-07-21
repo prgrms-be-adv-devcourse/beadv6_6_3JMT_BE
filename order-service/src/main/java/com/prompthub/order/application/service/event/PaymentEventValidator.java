@@ -53,30 +53,34 @@ public class PaymentEventValidator {
 
 	public LocalDateTime validate(PaymentRefundedPayload payload) {
 		if (payload == null
-			|| payload.paymentId() == null
 			|| payload.orderId() == null
-			|| payload.userId() == null
-			|| payload.orderProductId() == null
-			|| payload.amount() <= 0
-			|| payload.paymentStatus() == null
-			|| payload.paymentStatus().isBlank()
-			|| !isRefundedStatus(payload.paymentStatus())
+			|| payload.refundAmount() <= 0
 			|| payload.refundedAt() == null
 			|| payload.refundedAt().isBlank()) {
 			throw invalidInput();
 		}
+		return parseOffsetTimestamp(payload.refundedAt());
+	}
 
+	public LocalDateTime validate(PaymentRefundedEventHandler.RefundFailedPayload payload) {
+		if (payload == null
+			|| payload.orderId() == null
+			|| payload.refundAmount() <= 0
+			|| payload.failedAt() == null
+			|| payload.failedAt().isBlank()) {
+			throw invalidInput();
+		}
+		return parseOffsetTimestamp(payload.failedAt());
+	}
+
+	private LocalDateTime parseOffsetTimestamp(String timestamp) {
 		try {
-			return OffsetDateTime.parse(payload.refundedAt())
+			return OffsetDateTime.parse(timestamp)
 				.withOffsetSameInstant(KOREA_OFFSET)
 				.toLocalDateTime();
 		} catch (DateTimeException exception) {
 			throw invalidInput();
 		}
-	}
-
-	private boolean isRefundedStatus(String paymentStatus) {
-		return paymentStatus.equals("PARTIAL_REFUNDED") || paymentStatus.equals("ALL_REFUNDED");
 	}
 
 	private OrderException invalidInput() {

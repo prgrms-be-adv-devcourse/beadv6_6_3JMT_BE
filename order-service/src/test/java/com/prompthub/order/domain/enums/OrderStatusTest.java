@@ -18,15 +18,19 @@ class OrderStatusTest {
     }
 
     @Test
-    void completed_allowsPartialOrAllRefunded() {
-        assertThat(OrderStatus.COMPLETED.canTransitionTo(OrderStatus.PARTIAL_REFUNDED)).isTrue();
-        assertThat(OrderStatus.COMPLETED.canTransitionTo(OrderStatus.ALL_REFUNDED)).isTrue();
+	void completed_allowsRefundRequested() {
+		assertThat(OrderStatus.COMPLETED.canTransitionTo(OrderStatus.REFUND_REQUESTED)).isTrue();
     }
 
     @Test
-    void partialRefunded_allowsRecalculationAndAllRefunded() {
-        assertThat(OrderStatus.PARTIAL_REFUNDED.canTransitionTo(OrderStatus.PARTIAL_REFUNDED)).isTrue();
-        assertThat(OrderStatus.PARTIAL_REFUNDED.canTransitionTo(OrderStatus.ALL_REFUNDED)).isTrue();
+	void partialRefunded_allowsNextRefundRequest() {
+		assertThat(OrderStatus.PARTIAL_REFUNDED.canTransitionTo(OrderStatus.REFUND_REQUESTED)).isTrue();
+	}
+
+	@Test
+	void refundRequested_allowsPartialOrAllRefunded() {
+		assertThat(OrderStatus.REFUND_REQUESTED.canTransitionTo(OrderStatus.PARTIAL_REFUNDED)).isTrue();
+		assertThat(OrderStatus.REFUND_REQUESTED.canTransitionTo(OrderStatus.ALL_REFUNDED)).isTrue();
     }
 
     @Test

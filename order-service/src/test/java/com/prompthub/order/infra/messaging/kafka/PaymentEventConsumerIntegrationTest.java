@@ -328,18 +328,18 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("PAYMENT_REFUND_FAILED는 미지원 이벤트로 ACK하고 DLT로 보내지 않는다")
-	void consumePaymentRefundFailed_thenAckAsUnsupportedWithoutDlt() throws Exception {
+	@DisplayName("PAYMENT_REFUND_FAILED는 실패 핸들러로 라우팅하고 DLT로 보내지 않는다")
+	void consumePaymentRefundFailed_thenRoutesWithoutDlt() throws Exception {
 		try (Consumer<String, String> dltConsumer = stringConsumer()) {
 			embeddedKafkaBroker.consumeFromAnEmbeddedTopic(dltConsumer, true, PAYMENT_EVENTS_DLT_TOPIC);
 			rawStringKafkaTemplate()
 				.send(PAYMENT_EVENTS_TOPIC, UUID.randomUUID().toString(), ignoredEvent("PAYMENT_REFUND_FAILED"))
 				.get(5, TimeUnit.SECONDS);
 
+			await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
+				verify(paymentRefundedEventHandler).handleFailed(any(EventMessage.class))
+			);
 			assertThat(dltConsumer.poll(Duration.ofSeconds(2)).isEmpty()).isTrue();
-			verify(paymentApprovedEventHandler, never()).handle(any(EventMessage.class));
-			verify(paymentRefundedEventHandler, never()).handle(any(EventMessage.class));
-			verify(paymentFailedEventHandler, never()).handle(any(EventMessage.class));
 		}
 	}
 

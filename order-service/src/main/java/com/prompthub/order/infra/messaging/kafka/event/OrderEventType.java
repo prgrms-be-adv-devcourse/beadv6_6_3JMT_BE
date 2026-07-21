@@ -7,6 +7,7 @@ import java.util.Optional;
 
 public enum OrderEventType implements EventType {
 	ORDER_PAID,
+	ORDER_REFUND_REQUESTED,
 	ORDER_REFUND,
 	ORDER_CANCELED,
 	ORDER_FAILED;

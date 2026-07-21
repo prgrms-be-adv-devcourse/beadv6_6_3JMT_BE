@@ -1,4 +1,4 @@
-package com.prompthub.order.infra.messaging.kafka.consumer.payment;
+package com.prompthub.order.infra.messaging.kafka.event;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +15,7 @@ class PaymentEventTypeTest {
 	void from_returns_enum_when_supported() {
 		assertThat(PaymentEventType.from("PAYMENT_APPROVED")).isEqualTo(PaymentEventType.PAYMENT_APPROVED);
 		assertThat(PaymentEventType.from("PAYMENT_REFUNDED")).isEqualTo(PaymentEventType.PAYMENT_REFUNDED);
+		assertThat(PaymentEventType.from("PAYMENT_REFUND_FAILED")).isEqualTo(PaymentEventType.PAYMENT_REFUND_FAILED);
 		assertThat(PaymentEventType.from("PAYMENT_FAILED")).isEqualTo(PaymentEventType.PAYMENT_FAILED);
 	}
 
