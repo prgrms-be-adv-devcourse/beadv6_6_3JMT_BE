@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "Seller Batch", description = "판매자 이름 배치 조회 (인증 불필요)")
 @RestController
-@RequestMapping("/api/v2/sellers/batch")
+@RequestMapping("/api/v2/sellers/products")
 @RequiredArgsConstructor
 public class SellerBatchController {
 
