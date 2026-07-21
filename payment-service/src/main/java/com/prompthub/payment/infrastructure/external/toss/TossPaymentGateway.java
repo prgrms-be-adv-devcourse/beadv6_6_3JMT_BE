@@ -100,6 +100,7 @@ public class TossPaymentGateway implements PaymentGateway {
         return new ConfirmResult(
             response.method(),
             response.totalAmount(),
+            requestJson,
             toJson(response),
             response.approvedAt()
         );

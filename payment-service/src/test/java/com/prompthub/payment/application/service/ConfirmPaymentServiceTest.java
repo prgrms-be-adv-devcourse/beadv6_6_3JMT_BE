@@ -165,7 +165,7 @@ class ConfirmPaymentServiceTest {
         when(paymentRepository.saveAndFlush(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
         when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
         when(paymentGateway.confirm(eq("toss-key"), eq(orderId), eq(10_000)))
-            .thenReturn(new ConfirmResult("카드", 10_000, "{}", approvedAt));
+            .thenReturn(new ConfirmResult("카드", 10_000, "{\"paymentKey\":\"toss-key\"}", "{}", approvedAt));
         when(paymentRepository.findById(any(UUID.class))).thenAnswer(inv -> {
             Payment p = Payment.create(orderId, userId, "toss-key", "TOSS_PAYMENTS", "CARD", false, 10_000);
             p.markRequested(OffsetDateTime.now());
@@ -181,6 +181,7 @@ class ConfirmPaymentServiceTest {
         verify(applicationEventPublisher).publishEvent(captor.capture());
         assertThat(captor.getValue().payment().getStatus()).isEqualTo(PaymentStatus.PAID);
         assertThat(captor.getValue().payment().getApprovedAmount()).isEqualTo(10_000);
+        assertThat(captor.getValue().payment().getRequestPayload()).isEqualTo("{\"paymentKey\":\"toss-key\"}");
     }
 
     @Test

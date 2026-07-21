@@ -192,7 +192,7 @@ class RefundServiceTest {
         UUID userId = UUID.randomUUID();
         Payment payment = Payment.create(UUID.randomUUID(), userId, "pg-key", "TOSS_PAYMENTS", "CARD", false, amount);
         payment.markRequested(OffsetDateTime.now());
-        payment.approve(amount, "카드", "{}", OffsetDateTime.now());
+        payment.approve(amount, "카드", "{}", "{}", OffsetDateTime.now());
         return payment;
     }
 

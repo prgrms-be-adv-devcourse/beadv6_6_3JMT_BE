@@ -35,11 +35,12 @@ class PaymentTest {
         payment.markRequested(OffsetDateTime.now());
         OffsetDateTime approvedAt = OffsetDateTime.now();
 
-        payment.approve(10_000, "카드", "{}", approvedAt);
+        payment.approve(10_000, "카드", "{\"paymentKey\":\"pg-key-001\"}", "{}", approvedAt);
 
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
         assertThat(payment.getApprovedAmount()).isEqualTo(10_000);
         assertThat(payment.getPaymentMethod()).isEqualTo("카드");
+        assertThat(payment.getRequestPayload()).isEqualTo("{\"paymentKey\":\"pg-key-001\"}");
         assertThat(payment.getApprovedAt()).isEqualTo(approvedAt);
     }
 
@@ -68,7 +69,7 @@ class PaymentTest {
     void REQUESTED_아닌_상태에서_approve_실패() {
         Payment payment = 결제_생성();
 
-        assertThatThrownBy(() -> payment.approve(10_000, "카드", "{}", OffsetDateTime.now()))
+        assertThatThrownBy(() -> payment.approve(10_000, "카드", "{}", "{}", OffsetDateTime.now()))
             .isInstanceOf(IllegalStateException.class);
     }
 
@@ -96,7 +97,7 @@ class PaymentTest {
             "pg-key-002", "TOSS_PAYMENTS", "CARD", false, amount
         );
         payment.markRequested(OffsetDateTime.now());
-        payment.approve(amount, "카드", "{}", OffsetDateTime.now());
+        payment.approve(amount, "카드", "{}", "{}", OffsetDateTime.now());
         return payment;
     }
 

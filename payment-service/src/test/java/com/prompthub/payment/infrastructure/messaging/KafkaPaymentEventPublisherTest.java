@@ -50,7 +50,7 @@ class KafkaPaymentEventPublisherTest {
             UUID.randomUUID(), UUID.randomUUID(), "pgTx-1", "TOSS_PAYMENTS", "CARD", true, 10_000);
         payment.markRequested(OffsetDateTime.now());
         OffsetDateTime approvedAt = OffsetDateTime.now();
-        payment.approve(10_000, "CARD", "{}", approvedAt);
+        payment.approve(10_000, "CARD", "{}", "{}", approvedAt);
 
         publisher.onPaymentApproved(new PaymentApprovedEvent(payment));
 
@@ -103,7 +103,7 @@ class KafkaPaymentEventPublisherTest {
         Payment payment = Payment.create(
             UUID.randomUUID(), UUID.randomUUID(), "pgTx-3", "TOSS_PAYMENTS", "CARD", true, 10_000);
         payment.markRequested(OffsetDateTime.now());
-        payment.approve(10_000, "CARD", "{}", OffsetDateTime.now());
+        payment.approve(10_000, "CARD", "{}", "{}", OffsetDateTime.now());
         com.prompthub.payment.domain.model.Refund refund =
             com.prompthub.payment.domain.model.Refund.create(payment.getId(), UUID.randomUUID(), 4_000, null);
         OffsetDateTime refundedAt = OffsetDateTime.now();
@@ -131,7 +131,7 @@ class KafkaPaymentEventPublisherTest {
         Payment payment = Payment.create(
             UUID.randomUUID(), UUID.randomUUID(), "pgTx-4", "TOSS_PAYMENTS", "CARD", true, 10_000);
         payment.markRequested(OffsetDateTime.now());
-        payment.approve(10_000, "CARD", "{}", OffsetDateTime.now());
+        payment.approve(10_000, "CARD", "{}", "{}", OffsetDateTime.now());
         com.prompthub.payment.domain.model.Refund refund =
             com.prompthub.payment.domain.model.Refund.create(payment.getId(), UUID.randomUUID(), 4_000, null);
         refund.fail("PG 오류");

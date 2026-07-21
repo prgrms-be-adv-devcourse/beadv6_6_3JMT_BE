@@ -53,7 +53,7 @@ class PaymentJpaRepositoryTest extends AbstractJpaTest {
         Payment payment = Payment.create(
             orderId, UUID.randomUUID(), "pg-key", "TOSS_PAYMENTS", "CARD", false, 10_000);
         payment.markRequested(OffsetDateTime.now());
-        payment.approve(10_000, "카드", "{}", OffsetDateTime.now());
+        payment.approve(10_000, "카드", "{}", "{}", OffsetDateTime.now());
         paymentJpaRepository.saveAndFlush(payment);
 
         Optional<Payment> found = paymentJpaRepository.findByOrderIdAndStatusInForUpdate(

@@ -109,7 +109,7 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
             return transactionTemplate.execute(status -> {
                 Payment payment = paymentRepository.findById(paymentId).orElseThrow();
                 payment.approve(result.approvedAmount(), result.paymentMethod(),
-                    result.responsePayload(), result.approvedAt());
+                    result.requestPayload(), result.responsePayload(), result.approvedAt());
                 paymentRepository.save(payment);
                 applicationEventPublisher.publishEvent(new PaymentApprovedEvent(payment));
                 return new PaymentResult(payment.getId());

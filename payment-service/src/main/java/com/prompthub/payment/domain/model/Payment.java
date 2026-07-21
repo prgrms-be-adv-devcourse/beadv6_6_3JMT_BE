@@ -131,13 +131,14 @@ public class Payment {
         this.requestedAt = requestedAt;
     }
 
-    public void approve(int approvedAmount, String paymentMethod, String responsePayload, OffsetDateTime approvedAt) {
+    public void approve(int approvedAmount, String paymentMethod, String requestPayload, String responsePayload, OffsetDateTime approvedAt) {
         if (this.status != PaymentStatus.REQUESTED) {
             throw new IllegalStateException("REQUESTED 상태에서만 PAID로 전환할 수 있습니다.");
         }
         this.status = PaymentStatus.PAID;
         this.approvedAmount = approvedAmount;
         this.paymentMethod = paymentMethod;
+        this.requestPayload = requestPayload;
         this.responsePayload = responsePayload;
         this.approvedAt = approvedAt;
     }
