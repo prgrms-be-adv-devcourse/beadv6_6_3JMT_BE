@@ -3,9 +3,8 @@ spring:
     name: product-service
   config:
     import:
-      - ${CONFIG_IMPORT:optional:configserver:}
+      - ${CONFIG_IMPORT:}
       - optional:file:./.env[.properties]
-      - optional:file:../.env[.properties]
       - optional:file:./product-service/.env[.properties]
   cloud:
     config:

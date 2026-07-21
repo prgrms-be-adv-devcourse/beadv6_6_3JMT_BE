@@ -6,21 +6,17 @@ spring:
     config:
       enabled: false
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:prompthub}?currentSchema=product_service
-    username: ${DB_USERNAME:chan}
-    password: ${DB_PASSWORD:123}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:prompthub_product_dev}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
-  flyway:
-    default-schema: product_service
-    schemas: product_service
-    create-schemas: true
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:update}
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     open-in-view: false
     properties:
       hibernate:
