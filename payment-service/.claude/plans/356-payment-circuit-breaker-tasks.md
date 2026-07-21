@@ -377,7 +377,7 @@ EOF
 - Consumes: `CircuitBreaker` 빈 `"tossConfirmCircuitBreaker"`/`"tossRefundCircuitBreaker"`(Task 2)
 - Produces: `TossPaymentGateway(String, String, ObjectMapper, CircuitBreaker, CircuitBreaker)` 생성자, `PaymentErrorCode.PG_UNAVAILABLE`
 
-- [ ] **Step 1: PaymentErrorCode에 PG_UNAVAILABLE 추가**
+- [x] **Step 1: PaymentErrorCode에 PG_UNAVAILABLE 추가**
 
 `src/main/java/com/prompthub/payment/application/exception/PaymentErrorCode.java`의 `NOT_ORDER_OWNER` 다음 줄에 추가:
 
@@ -388,7 +388,7 @@ EOF
 
 (기존 마지막 항목의 세미콜론 위치가 `NOT_ORDER_OWNER` 뒤에서 `PG_UNAVAILABLE` 뒤로 이동)
 
-- [ ] **Step 2: 실패 테스트 작성 — 기존 TossPaymentGatewayTest 생성자 호출 수정**
+- [x] **Step 2: 실패 테스트 작성 — 기존 TossPaymentGatewayTest 생성자 호출 수정**
 
 `src/test/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGatewayTest.java`의 `refund_호출_시...` 테스트에서 생성자 호출부 교체:
 
@@ -407,7 +407,7 @@ EOF
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 ```
 
-- [ ] **Step 3: 신규 실패 테스트 작성 — CircuitBreaker OPEN 전환 및 즉시 실패**
+- [x] **Step 3: 신규 실패 테스트 작성 — CircuitBreaker OPEN 전환 및 즉시 실패**
 
 ```java
 package com.prompthub.payment.infrastructure.external.toss;
@@ -495,12 +495,12 @@ class TossPaymentGatewayCircuitBreakerTest {
 }
 ```
 
-- [ ] **Step 4: 테스트 실행해서 실패 확인**
+- [x] **Step 4: 테스트 실행해서 실패 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayCircuitBreakerTest" --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayTest"`
 Expected: FAIL — `TossPaymentGateway` 생성자가 아직 3-arg라 컴파일 에러
 
-- [ ] **Step 5: TossPaymentGateway 구현 — CircuitBreaker 통합**
+- [x] **Step 5: TossPaymentGateway 구현 — CircuitBreaker 통합**
 
 `src/main/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGateway.java` 전체를 아래로 교체:
 
@@ -703,17 +703,17 @@ public class TossPaymentGateway implements PaymentGateway {
 }
 ```
 
-- [ ] **Step 6: 테스트 실행해서 통과 확인**
+- [x] **Step 6: 테스트 실행해서 통과 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayCircuitBreakerTest" --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayTest"`
 Expected: PASS
 
-- [ ] **Step 7: 전체 테스트 스위트 실행 — 회귀 확인**
+- [x] **Step 7: 전체 테스트 스위트 실행 — 회귀 확인**
 
 Run: `JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test`
 Expected: BUILD SUCCESSFUL — `ConfirmPaymentIntegrationTest`/`PartialRefundIntegrationTest`는 `@MockitoBean PaymentGateway`라 CB 로직과 무관하게 그대로 통과
 
-- [ ] **Step 8: 커밋**
+- [x] **Step 8: 커밋**
 
 ```bash
 git add src/main/java/com/prompthub/payment/application/exception/PaymentErrorCode.java src/main/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGateway.java src/test/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGatewayTest.java src/test/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGatewayCircuitBreakerTest.java
