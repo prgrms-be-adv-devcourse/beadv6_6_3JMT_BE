@@ -10,7 +10,6 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
@@ -20,7 +19,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import static jakarta.persistence.EnumType.STRING;
 import static lombok.AccessLevel.PROTECTED;
 
-@Slf4j
 @Getter
 @Entity
 @Table(name = "payment")
@@ -82,9 +80,6 @@ public class Payment {
 
     @Column(name = "failed_at")
     private OffsetDateTime failedAt;
-
-    @Column(name = "refunded_at")
-    private OffsetDateTime refundedAt;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false, nullable = false)
@@ -157,15 +152,5 @@ public class Payment {
         this.requestPayload = requestPayload;
         this.responsePayload = responsePayload;
         this.failedAt = failedAt;
-    }
-
-    public void applyRefund(OffsetDateTime refundedAt, boolean isFullyRefunded) {
-        if (this.status != PaymentStatus.PAID && this.status != PaymentStatus.PARTIAL_REFUNDED) {
-            throw new IllegalStateException("PAID/PARTIAL_REFUNDED 상태에서만 환불을 적용할 수 있습니다.");
-        }
-        PaymentStatus previous = this.status;
-        this.status = isFullyRefunded ? PaymentStatus.ALL_REFUNDED : PaymentStatus.PARTIAL_REFUNDED;
-        this.refundedAt = refundedAt;
-        log.debug("Payment 상태 전이 — id={}, {} → {}", id, previous, this.status);
     }
 }

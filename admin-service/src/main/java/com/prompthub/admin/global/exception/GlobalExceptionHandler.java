@@ -53,6 +53,13 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
 	}
 
+	@ExceptionHandler(IllegalStateException.class)
+	public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException exception) {
+		log.warn("상태 전이 충돌 - {}", exception.getMessage());
+		ErrorCode errorCode = AdminErrorCode.PRODUCT_INVALID_STATUS;
+		return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
+	}
+
 	@ExceptionHandler({
 		MethodArgumentNotValidException.class,
 		ConstraintViolationException.class,

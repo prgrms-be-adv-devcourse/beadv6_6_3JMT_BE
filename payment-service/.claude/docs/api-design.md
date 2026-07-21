@@ -38,7 +38,7 @@
 
 **처리 흐름**
 1. paymentKey 중복 확인 → 존재 시 `409(PAY002)`
-2. 주문·상태 중복 확인(`PAID`/`FAILED`/`PARTIAL_REFUNDED`/`ALL_REFUNDED`/`UNKNOWN` 존재) → `409(PAY002)`
+2. 주문·상태 중복 확인(`PAID`/`FAILED`/`UNKNOWN` 존재) → `409(PAY002)`
 3. 주문 정보 gRPC 조회(order 9083, 매 요청 직접 호출) — 조회 불가/타임아웃 → `503(PAY009)`, 주문 없음 → `404(PAY008)`
 4. 본인 검증: 주문 정보 `buyerId != X-User-Id` → `403(PAY010)`
 5. 금액 검증: 요청 `amount != 주문 totalAmount` → `400(PAY012)`. Toss를 호출한 적 없는 순수 입력 검증 실패라 Payment 레코드를 생성하지 않고, `PAYMENT_FAILED`도 발행하지 않는다 — 같은 orderId로 올바른 금액으로 즉시 재시도 가능
@@ -46,7 +46,7 @@
 7. 토스페이먼츠 confirm API 동기 호출(주문 정보 금액) → `PAID` / `FAILED`
 8. Payment 상태 저장 → `200` 반환
 
-> **재결제 차단**: 실제로 Toss confirm까지 시도했다가 `FAILED`로 끝난 주문은 같은 orderId로 다시 결제할 수 없습니다(새 주문으로만 재시도 가능). 중복 판정이 `PAID`/`FAILED`/`PARTIAL_REFUNDED`/`ALL_REFUNDED`/`UNKNOWN` 상태 존재 여부이기 때문입니다. 금액 불일치(`PAY012`)는 Payment 자체가 생성되지 않으므로 이 차단 대상이 아닙니다.
+> **재결제 차단**: 실제로 Toss confirm까지 시도했다가 `FAILED`로 끝난 주문은 같은 orderId로 다시 결제할 수 없습니다(새 주문으로만 재시도 가능). 중복 판정이 `PAID`/`FAILED`/`UNKNOWN` 상태 존재 여부이기 때문입니다. 금액 불일치(`PAY012`)는 Payment 자체가 생성되지 않으므로 이 차단 대상이 아닙니다.
 
 **이후 비동기 흐름**
 - 승인 시 → `PAYMENT_APPROVED` 발행 (Order PAID 전환 + `is_download = true`)
@@ -103,10 +103,10 @@ OrderProduct 단위로만 존재하며, 주문 전체를 환불하려면 order-s
 **처리 흐름**
 1. `OrderEventConsumer`가 `ORDER_REFUND_REQUESTED` 수신
 2. `refundRequestId`로 이미 처리된 요청인지 조회 — 이미 처리됐으면 정상 종료(중복 이벤트, dedup)
-3. 신규 요청이면 `Refund` 생성(`refundRequestId` 저장) 후 `orderId`로 `PAID`/`PARTIAL_REFUNDED` 상태 Payment 조회(락)
+3. 신규 요청이면 `Refund` 생성(`refundRequestId` 저장) 후 `orderId`로 `PAID` 상태 Payment 조회(락)
 4. 누적 환불액이 `total_amount`를 넘으면 `Refund.FAILED` 기록 + `PAYMENT_REFUND_FAILED` 발행(예외 아님, 정상 흐름 — DLT로 가지 않는다)
 5. PG 환불 동기 호출(단일 트랜잭션 안에서 수행 — 중간 상태 커밋 없음)
-6. 성공: 누적액이 `total_amount`에 도달했으면 `ALL_REFUNDED`, 아니면 `PARTIAL_REFUNDED`로 전이 + `payment-events`에 `PAYMENT_REFUNDED` 발행
+6. 성공: `Refund.COMPLETED` 기록 + `payment-events`에 `PAYMENT_REFUNDED` 발행. Payment 상태는 `PAID`를 계속 유지 — 환불 발생 여부·누적액은 `Refund` 테이블로만 판단한다.
 7. 실패(PG 오류): `Refund.FAILED`만 기록, Payment 상태는 그대로 + `payment-events`에 `PAYMENT_REFUND_FAILED` 발행. 재시도 장치 없음(필요 시 order-service가 새 `refundRequestId`로 이벤트 재발행)
 
 **동일 상품 재환불**: dedup 키가 `refundRequestId`이므로 같은 OrderProduct에 대해 여러 차례(예: 부분 하자 추가 발견) 환불을 요청할 수 있다. 같은 `refundRequestId`가 재전송되는 경우(Kafka redelivery)만 중복 처리를 막는다.
@@ -125,6 +125,6 @@ OrderProduct 단위로만 존재하며, 주문 전체를 환불하려면 order-s
 | `REQUESTED` | PG사에 결제 요청 전송 완료 |
 | `PAID` | PG사 결제 승인 완료 |
 | `FAILED` | PG사 결제 실패 |
-| `PARTIAL_REFUNDED` | 일부 OrderProduct 환불 완료, 잔여 환불 가능액 존재 |
-| `ALL_REFUNDED` | 누적 환불액이 결제 총액에 도달 |
 | `UNKNOWN` | PG 응답 불명확, 수동 확인 필요 |
+
+`PAID`는 환불이 몇 번 발생하든 계속 유지된다 — 환불 발생 여부·누적액은 `Refund` 테이블에서만 판단한다.

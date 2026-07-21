@@ -26,6 +26,14 @@ import java.util.UUID;
 import static jakarta.persistence.CascadeType.ALL;
 import static lombok.AccessLevel.PROTECTED;
 
+/**
+ * 주문(Order) 도메인 엔티티.
+ * <p>
+ * 주의: 주문 상태({@link OrderStatus})를 우회하여 직접 변경하는 Setter(예: {@code updateOrderStatus})의 사용을 금지합니다.
+ * 상태 변경 시 반드시 {@code markCompleted}, {@code markFailed}, {@code cancel}, {@code refundOrderProduct} 등
+ * 도메인 규칙이 캡슐화된 상태 전이 메서드를 사용해야 합니다. 이를 통해 주문 상품 상태 동기화 및 유효성 검증을 보장합니다.
+ * </p>
+ */
 @Getter
 @Entity
 @Table(

@@ -16,7 +16,9 @@ public enum AdminErrorCode implements ErrorCode {
 	SETTLEMENT_ALREADY_PAID("A-005", "이미 지급 완료된 정산은 취소할 수 없습니다.", HttpStatus.CONFLICT),
 	SETTLEMENT_ALREADY_CANCELLED("A-006", "이미 취소된 정산입니다.", HttpStatus.CONFLICT),
 	USER_NOT_FOUND("A-007", "사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-	SELLER_REGISTER_NOT_FOUND("A-008", "판매자 등록 신청 내역이 없습니다.", HttpStatus.NOT_FOUND);
+	SELLER_REGISTER_NOT_FOUND("A-008", "판매자 등록 신청 내역이 없습니다.", HttpStatus.NOT_FOUND),
+	PRODUCT_NOT_FOUND("A-009", "상품을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+	PRODUCT_INVALID_STATUS("A-010", "현재 상태에서 수행할 수 없는 작업입니다.", HttpStatus.CONFLICT);
 
 	private final String code;
 	private final String message;
