@@ -15,10 +15,19 @@ public final class WhitelistPathResolver {
     private static final String PRODUCT_SERVICE_KEY = "product-service";
 
     private static final List<String> AUTH_PATH_SUFFIXES = List.of(
-        "/auth/signup",
-        "/auth/login",
         "/auth/oauth/**",
         "/auth/token/refresh"
+    );
+
+    private static final List<String> PRODUCT_READ_PATH_SUFFIXES = List.of(
+        "/products",
+        "/products/*",
+        "/products/*/recommends"
+    );
+
+    private static final List<String> SELLER_LOOKUP_PATH_SUFFIXES = List.of(
+        "/sellers/product",
+        "/sellers/products"
     );
 
     private static final List<String> STATIC_WHITELIST = List.of(
@@ -48,8 +57,20 @@ public final class WhitelistPathResolver {
     public static List<String> productReadWhitelist(GatewayApiVersionProperties apiVersionProperties) {
         List<String> paths = new ArrayList<>();
         for (String version : apiVersionProperties.versionsFor(PRODUCT_SERVICE_KEY)) {
-            paths.add("/api/" + version + "/products");
-            paths.add("/api/" + version + "/products/**");
+            for (String suffix : PRODUCT_READ_PATH_SUFFIXES) {
+                paths.add("/api/" + version + suffix);
+            }
+        }
+        return paths;
+    }
+
+    /** POST로만 permitAll인 판매자 정보 조회 경로(user-service). */
+    public static List<String> sellerLookupWhitelist(GatewayApiVersionProperties apiVersionProperties) {
+        List<String> paths = new ArrayList<>();
+        for (String version : apiVersionProperties.versionsFor(USER_SERVICE_KEY)) {
+            for (String suffix : SELLER_LOOKUP_PATH_SUFFIXES) {
+                paths.add("/api/" + version + suffix);
+            }
         }
         return paths;
     }

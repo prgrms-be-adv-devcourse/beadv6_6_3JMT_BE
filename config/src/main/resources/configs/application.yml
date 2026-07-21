@@ -19,6 +19,7 @@ gateway:
     product-service: [ v1, v2 ]
     payment-service: [ v1, v2 ]
     user-service: [ v1, v2 ]
+    notification-service: [ v2 ]
   # 경로별 최소 role. /admin/**은 코드 기본값(RoutePolicyResolver)이라 여기 안 적어도 ADMIN으로
   # 강제되지만, 명시적으로 남겨도 무해하다. 버전 세그먼트는 실제 요청 경로(/api/{version}/...)에
   # 맞춰 Ant `*`로 흡수한다.

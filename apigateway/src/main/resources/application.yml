@@ -57,6 +57,7 @@ gateway:
     product-service: [ v1, v2 ]
     payment-service: [ v1, v2 ]
     user-service: [ v1, v2 ]
+    notification-service: [ v2 ]
 
 jwt:
   public-key: ${JWT_PUBLIC_KEY}

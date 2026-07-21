@@ -89,7 +89,7 @@ class VersionedRouteDefinitionLocatorTest {
 
         List<RouteDefinition> definitions = VersionedRouteDefinitionLocator.buildRouteDefinitions(propertiesOf(config));
 
-        assertThat(definitions).hasSize(5);
+        assertThat(definitions).hasSize(VersionedServiceRoute.ALL.size());
         assertThat(definitions).extracting(RouteDefinition::getId)
             .doesNotContain("settlement-service");
     }
