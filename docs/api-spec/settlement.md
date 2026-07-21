@@ -129,10 +129,13 @@ Authorization: Bearer {accessToken}
 
 ---
 
-### GET /sellers/me/settlements/summary — 정산 요약 및 기타 정보
+### GET /sellers/me/settlements/summary — 정산 금액 요약 조회
 
 - 인증: 필요
 - 필요 역할: SELLER
+
+등록 프롬프트 수와 누적 판매건수는 Product 공개 API가 소유하며, 프론트가 별도로 조회한다.
+이 엔드포인트는 Seller Settlement가 소유한 누적 거래액과 지급 완료액만 반환한다.
 
 #### Response 200
 
@@ -140,8 +143,6 @@ Authorization: Bearer {accessToken}
 {
   "success": true,
   "data": {
-    "registeredPromptCount": 3,
-    "totalSalesCount": 1342,
     "totalRevenueAmount": 10449800,
     "totalSettlementAmount": 170000
   },
@@ -153,8 +154,6 @@ Authorization: Bearer {accessToken}
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| `registeredPromptCount` | Integer | 등록한 프롬프트 수. Product 서비스 gRPC 조회로 채우며, 조회 실패 시 `0` |
-| `totalSalesCount` | Long | 누적 판매 건수 |
 | `totalRevenueAmount` | BigDecimal | 누적 총 거래액 |
 | `totalSettlementAmount` | BigDecimal | 누적 정산 지급 완료 금액 |
 

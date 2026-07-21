@@ -24,20 +24,20 @@
   ┌───────────────────┐  ─────────────────────────────▶  ┌────────────────────────────┐
   │ settlement-service│  Transactional Outbox              │ user-service               │
   │  (정산 본체)       │  배치 Step flush (#301)             │  sellersettlement (셀러 정산)│
-  └───────┬───────────┘                                    └───────────┬────────────────┘
-          │ gRPC GetSettleableLines (#260)                             │ gRPC GetSellerStats
-          │  → order-service (클라이언트·서버 구현 완료)                  │  → product-service (서버 리네임 대기)
-          ▼                                                            ▼
-   order-service                                               product-service
-   (OrderQueryService 운영 계약 구현)                 (ProductQueryService: CountBySeller→GetSellerStats 리네임 대기)
+  └───────┬───────────┘                                    └────────────────────────────┘
+          │ gRPC GetSettleableLines (#260)
+          │  → order-service (클라이언트·서버 구현 완료)
+          ▼
+   order-service
+   (OrderQueryService 운영 계약 구현)
 
   ┌────────────────────────────┐
   │ admin-service (어드민 정산)  │  ──── DB 직접(JPA read-side) ────▶  정산 테이블
   └────────────────────────────┘       이벤트·gRPC 미경유 (admin-data-access.md)
 ```
 
-핵심: **정산 본체 → 셀러 정산** 은 Kafka 이벤트, **정산 본체·셀러 정산 → order·product** 는 gRPC,
-**어드민 정산** 은 통신 없이 DB 직접 접근이다.
+핵심: **정산 본체 → 셀러 정산** 은 Kafka 이벤트, **정산 본체 → order** 는 gRPC,
+**셀러 정산 요약** 은 자체 저장소만 조회하고, **어드민 정산** 은 통신 없이 DB 직접 접근한다.
 
 ---
 
@@ -46,7 +46,7 @@
 | 도메인 | Kafka 발행 | Kafka 구독 | gRPC 서버 | gRPC 클라이언트 |
 |---|---|---|---|---|
 | **settlement-service** | ✅ Outbox 구현(#301) — `settlement-events` / `SETTLEMENT_CREATED` | ❌ 없음 — `order-events` 수신 제거(#317) | ❌ 없음 | ✅ order 주간 범위 조회 구현 |
-| **user `sellersettlement`** | ❌ 없음 | ✅ 구현(기본 OFF) — `settlement-events` | ❌ 없음(셀러조회 서버는 `seller` 패키지) | ⚠️ product `GetSellerStats`(서버 리네임 대기) |
+| **user `sellersettlement`** | ❌ 없음 | ✅ 구현(기본 OFF) — `settlement-events` | ❌ 없음(셀러조회 서버는 `seller` 패키지) | ❌ 없음 |
 | **admin `settlement`** | ❌ 없음 | ❌ 없음 | ❌ 없음 | ❌ 없음 — DB 직접 접근 |
 
 범례: ✅ 구현·동작 가능(게이트 별개) · ⚠️ 비활성/부분(기본 OFF 또는 상대 부재) · ❌ 없음
@@ -111,17 +111,11 @@
 | 처리 | `eventType == SETTLEMENT_CREATED` → `SeedSellerSettlementUseCase.seed(event)` → `seller_settlement` 시딩 |
 | 이벤트 상세 | 자체 `SettlementCreatedEvent`(정산 본체 발행 DTO 와 필드 미러) |
 
-**gRPC 클라이언트 — 구현됨(상대 서버 리네임 대기)**
+**gRPC 클라이언트 — 없음.**
 
-| 항목 | 값 |
-|---|---|
-| Config | `sellersettlement/infrastructure/grpc/ProductStatsGrpcClientConfig` — `@ImportGrpcClients(target="product-service")` |
-| 어댑터 | `sellersettlement/infrastructure/grpc/ProductStatsGrpcClient` (`ProductStatsClient` 구현) |
-| 호출 | `GetSellerStats(sellerId)` → 셀러 등록 상품 수(`product_count`) + 판매건수(`sales_count`) |
-| 사용처 | 판매자 정산 요약(#267) `registeredPromptCount`·`totalSalesCount` |
-| 실패정책 | `StatusRuntimeException` → `SellerProductStats.empty()`(0) **빈값 폴백**(표시용 참고 데이터라 요약 조회를 막지 않음) |
-| 채널 | `grpc.client.product-service.address` |
-| 상태 | **계약·클라이언트는 `GetSellerStats`. product 서버는 아직 `ProductQueryGrpcService.countBySeller` 라 서버 리네임 전까지 wire 불일치(UNIMPLEMENTED) — 서버 리네임 대기(조율됨).** 응답 `sales_count`(#262)도 서버 확장 대기 |
+- #452에서 판매자 정산 요약의 Product `GetSellerStats` 클라이언트·포트·설정을 제거했다.
+- summary는 `seller_settlement` 저장소의 누적 거래액·지급 완료액만 집계한다.
+- 등록 프롬프트 수와 누적 판매건수는 프론트가 Product 공개 API를 별도로 호출한다.
 
 **gRPC 서버** — `sellersettlement` 패키지 자체엔 없음. (셀러 정보 조회 서버 `SettlementSellerQueryGrpcService`(GetSellers)는 user-service 의 별도 `seller` 패키지에 있고 live 다. §4 참고.)
 
@@ -140,20 +134,15 @@
 
 지금 "한쪽만 준비되어 실제로는 아직 못 붙는" 통신을 명시한다.
 
-1. **user `sellersettlement` → product `GetSellerStats`**
-   - 계약·클라이언트를 `GetSellerStats` 로 리네임했다(규칙 정합). **product 서버는 아직 `CountBySeller` 라, product 팀이 서버를 `GetSellerStats` 로 바꾸기 전까지 wire 불일치(UNIMPLEMENTED) — 서버 리네임 대기(조율됨).**
-   - 응답 `sales_count`(#262 확장 필드)도 서버가 아직 안 채워 0 으로 내려온다 — 필드 확장도 함께 대기.
-
-2. **settlement → user `GetSellers`** (판매자명 조회, 참고 데이터)
+1. **settlement → user `GetSellers`** (판매자명 조회, 참고 데이터)
    - user-service `seller` 패키지에 서버(`SettlementSellerQueryGrpcService`)가 **live** 이나, settlement-service 에 이 스텁을 호출하는 **클라이언트가 아직 없다**(yml `grpc.client.user-service` 채널도 미사용). → 정산측 클라이언트 신설 시 붙는다.
 
-3. **settlement yml 의 `grpc.client.product-service` 채널**
-   - 선언만 있고 이를 쓰는 클라이언트 코드가 settlement-service 에 없다(미사용). 셀러/상품 참고 조회가 셀러 정산(user-service)으로 이관되며 settlement 본체에는 해당 클라이언트가 남지 않았다.
+2. **settlement yml 의 `grpc.client.product-service` 채널**
+   - 선언만 있고 이를 쓰는 클라이언트 코드가 settlement-service 에 없다(미사용). #452 이후 상품 통계는 프론트가 Product 공개 API를 직접 호출하므로 정산 백엔드의 Product 클라이언트가 아니다.
 
-> **왜 §4-2·§4-3처럼 settlement 본체에 seller/product 클라이언트가 없나:** 판매자명·상품수 같은
-> 참고 조회는 **셀러 정산이 user-service 로 이관**되며 그쪽(`sellersettlement`)에서 수행된다. settlement
-> 본체가 직접 조회하던 초기 설계(`integration-catalog.md` §2)는 이관으로 대체됐다. 본체가 order 원천을
-> pull 하는 것(§3-1)만 settlement-service 에 남았다.
+> **왜 §4-1·§4-2처럼 settlement 본체에 seller/product 클라이언트가 없나:** 판매자명 조회는 아직
+> 클라이언트가 도입되지 않았고, 상품 통계는 #452에서 프론트가 Product 공개 API를 직접 호출하는
+> 경계로 바뀌었다. settlement 본체에는 order 원천 pull(§3-1)만 남았다.
 
 ---
 

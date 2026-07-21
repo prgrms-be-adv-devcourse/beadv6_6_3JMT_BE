@@ -1,7 +1,5 @@
 package com.prompthub.user.sellersettlement.application.service;
 
-import com.prompthub.user.sellersettlement.application.client.ProductStatsClient;
-import com.prompthub.user.sellersettlement.application.dto.SellerProductStats;
 import com.prompthub.user.sellersettlement.application.dto.SellerSettlementListQuery;
 import com.prompthub.user.sellersettlement.application.event.SettlementCreatedEvent;
 import com.prompthub.user.sellersettlement.application.usecase.SeedSellerSettlementUseCase;
@@ -24,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class SellerSettlementApplicationService implements SeedSellerSettlementUseCase, SellerSettlementUseCase {
 
     private final SellerSettlementRepository sellerSettlementRepository;
-    private final ProductStatsClient productStatsClient;
 
     @Override
     @Transactional
@@ -51,10 +48,9 @@ public class SellerSettlementApplicationService implements SeedSellerSettlementU
     @Override
     @Transactional(readOnly = true)
     public SellerSettlementSummaryResponse getMySummary(UUID sellerId) {
-        SellerProductStats stats = productStatsClient.getSellerProductStats(sellerId);
         BigDecimal totalRevenueAmount = sellerSettlementRepository.sumTotalAmountBySeller(sellerId);
         BigDecimal totalSettlementAmount = sellerSettlementRepository.sumPaidSettlementAmountBySeller(sellerId);
-        return SellerSettlementSummaryResponse.of(stats, totalRevenueAmount, totalSettlementAmount);
+        return SellerSettlementSummaryResponse.of(totalRevenueAmount, totalSettlementAmount);
     }
 
     @Override
