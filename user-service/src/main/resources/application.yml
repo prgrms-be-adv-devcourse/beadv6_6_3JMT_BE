@@ -2,11 +2,7 @@ spring:
   application:
     name: user-service
   config:
-    import:
-      - ${CONFIG_IMPORT:}
-      - optional:file:.env[.properties]
-      - optional:file:../.env[.properties]
-      - optional:file:./user-service/.env[.properties]
+    import: ${CONFIG_IMPORT:}
   cloud:
     config:
       fail-fast: true
