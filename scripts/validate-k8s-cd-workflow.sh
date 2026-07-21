@@ -31,7 +31,7 @@ required_patterns=(
   'kubectl apply -k k8s/base/infrastructure'
   'kubectl apply -k k8s/addons/nginx-ingress'
   'kubectl apply -f k8s/overlays/ec2-kubeadm/gateway-ingress.yaml'
-  'kubectl apply --server-side --dry-run=server -k "\$runtime_overlay"'
+  'kubectl apply --dry-run=server -k "\$runtime_overlay"'
   'kubectl apply -k "\$runtime_overlay"'
   'snapshot_manifest_deployments'
   'track_manifest_deployment_changes'
@@ -68,6 +68,7 @@ forbidden_patterns=(
   'kubectl create job'
   '--from=cronjob/settlement-weekly'
   'ensure_package settlement-service'
+  'kubectl apply --server-side --dry-run=server -k "$runtime_overlay"'
 )
 
 for pattern in "${forbidden_patterns[@]}"; do
