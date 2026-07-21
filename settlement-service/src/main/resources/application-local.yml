@@ -21,10 +21,10 @@ spring:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
 settlement:
+  execution:
+    mode: service
   manual-api:
     enabled: true
-  scheduler:
-    cron: "0 0 4 1 * *"
 
 eureka:
   client:

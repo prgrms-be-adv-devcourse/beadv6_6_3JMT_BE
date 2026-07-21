@@ -14,7 +14,6 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -73,20 +72,20 @@ public class Settlement extends BaseEntity {
 	@JoinColumn(name = "settlement_id", nullable = false)
 	private List<SettlementDetail> details = new ArrayList<>();
 
-	public static Settlement create(UUID settlementBatchId, UUID sellerId, YearMonth period,
+	public static Settlement create(UUID settlementBatchId, UUID sellerId, SettlementPeriod period,
 		List<SettlementDetail> details) {
 		return new Settlement(settlementBatchId, sellerId, period, details);
 	}
 
-	private Settlement(UUID settlementBatchId, UUID sellerId, YearMonth period,
+	private Settlement(UUID settlementBatchId, UUID sellerId, SettlementPeriod period,
 		List<SettlementDetail> details) {
 		Objects.requireNonNull(sellerId, "sellerId는 필수입니다.");
 		Objects.requireNonNull(period, "정산 기간은 필수입니다.");
 		Objects.requireNonNull(details, "정산 상세는 필수입니다.");
 		this.settlementBatchId = settlementBatchId;
 		this.sellerId = sellerId;
-		this.periodStart = period.atDay(1);
-		this.periodEnd = period.atEndOfMonth();
+		this.periodStart = period.periodStart();
+		this.periodEnd = period.periodEnd();
 		this.details.addAll(details);
 		this.productCount = details.size();
 		this.totalAmount = sum(details, SettlementDetail::getLineAmount);

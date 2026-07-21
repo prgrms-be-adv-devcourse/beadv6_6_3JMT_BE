@@ -46,7 +46,7 @@ public class SettlementBatchController {
 	@PostMapping
 	@ResponseStatus(HttpStatus.ACCEPTED)
 	@Operation(summary = "정산 배치잡 수동 실행(비동기)",
-		description = "로컬 환경에서 정산 대상 월의 미정산 PAID 주문을 처리하는 Batch Job을 "
+		description = "로컬 환경에서 월요일부터 일요일까지의 정산 주차를 처리하는 Batch Job을 "
 			+ "비동기로 실행 접수합니다. 응답의 잡 실행 식별자로 완료 여부를 조회합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "202", description = "실행 접수(비동기 시작)",

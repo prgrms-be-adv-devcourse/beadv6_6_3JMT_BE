@@ -9,8 +9,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,9 +28,11 @@ class SettlementOrderQueryServiceTest {
     private SettlementOrderQueryService service;
 
     @Test
-    void getSettleableLines_convertsPeriodToHalfOpenMonthRange() {
-        LocalDateTime startInclusive = LocalDateTime.of(2026, 7, 1, 0, 0);
-        LocalDateTime endExclusive = LocalDateTime.of(2026, 8, 1, 0, 0);
+    void getSettleableLines_convertsInclusiveDatesToHalfOpenRange() {
+        LocalDate periodStart = LocalDate.of(2026, 7, 13);
+        LocalDate periodEnd = LocalDate.of(2026, 7, 19);
+        LocalDateTime startInclusive = LocalDateTime.of(2026, 7, 13, 0, 0);
+        LocalDateTime endExclusive = LocalDateTime.of(2026, 7, 20, 0, 0);
         SettleableLineResult line = new SettleableLineResult(
             SettlementLineType.PAID,
             UUID.randomUUID(),
@@ -41,7 +43,7 @@ class SettlementOrderQueryServiceTest {
         );
         given(repository.findSettleableLines(startInclusive, endExclusive)).willReturn(List.of(line));
 
-        List<SettleableLineResult> result = service.getSettleableLines(YearMonth.of(2026, 7));
+        List<SettleableLineResult> result = service.getSettleableLines(periodStart, periodEnd);
 
         assertThat(result).containsExactly(line);
         then(repository).should().findSettleableLines(startInclusive, endExclusive);

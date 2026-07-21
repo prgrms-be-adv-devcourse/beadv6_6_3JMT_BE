@@ -1,7 +1,5 @@
 package com.prompthub.product.application.service;
 
-import com.prompthub.product.application.client.SellerClient;
-import com.prompthub.product.application.client.SellerInfo;
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.ProductFamily;
@@ -35,7 +33,6 @@ public class ProductQueryService implements ProductQueryUseCase {
 	private static final int DEFAULT_LIMIT = 4;
 
 	private final ProductRepository productRepository;
-	private final SellerClient sellerClient;
 
 	public PageResponse<ProductListItemResponse> getProducts(
 		String q,
@@ -59,10 +56,6 @@ public class ProductQueryService implements ProductQueryUseCase {
 		long total = productRepository.countPublicProducts(keyword, selectedProductType);
 		boolean hasNext = (long) (normalizedPage - 1) * normalizedSize + products.size() < total;
 
-		Map<UUID, String> sellerNames = products.stream()
-			.map(ProductListProjection::sellerId)
-			.distinct()
-			.collect(Collectors.toMap(id -> id, id -> sellerClient.getSellerInfo(id).sellerName()));
 		Map<UUID, List<String>> tagsByProductId = productRepository
 			.findAllByIdIn(products.stream().map(ProductListProjection::id).toList())
 			.stream()
@@ -70,11 +63,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 
 		return PageResponse.success(
 			products.stream()
-				.map(p -> toListItemResponse(
-					p,
-					sellerNames.getOrDefault(p.sellerId(), ""),
-					tagsByProductId.getOrDefault(p.id(), List.of())
-				))
+				.map(p -> toListItemResponse(p, tagsByProductId.getOrDefault(p.id(), List.of())))
 				.toList(),
 			normalizedPage,
 			normalizedSize,
@@ -89,7 +78,6 @@ public class ProductQueryService implements ProductQueryUseCase {
 		product.incrementViewCount();
 		productRepository.save(product);
 		double rating = productRepository.getAverageRating(product.familyRootId());
-		SellerInfo seller = sellerClient.getSellerInfo(product.getSellerId());
 		int sellerProductCount = (int) productRepository.countOnSaleProductsBySellerId(product.getSellerId());
 
 		return new ProductDetailResponse(
@@ -100,13 +88,12 @@ public class ProductQueryService implements ProductQueryUseCase {
 			product.getAmount(),
 			rating,
 			(int) productRepository.sumSalesCountByFamilyRootId(product.familyRootId()),
-			seller.sellerName(),
 			product.getSellerId(),
-			seller.profileImageUrl(),
 			sellerProductCount,
 			null,
 			product.getDescription(),
 			product.getThumbnailUrl(),
+			product.getImageUrls(),
 			createPreviewContent(product),
 			product.getTags(),
 			toVersionHistory(product.familyRootId()),
@@ -123,21 +110,13 @@ public class ProductQueryService implements ProductQueryUseCase {
 		List<ProductListProjection> related = productRepository.findRelatedProducts(
 			product.getId(), product.getProductType(), normalizedLimit);
 
-		Map<UUID, String> sellerNames = related.stream()
-			.map(ProductListProjection::sellerId)
-			.distinct()
-			.collect(Collectors.toMap(id -> id, id -> sellerClient.getSellerInfo(id).sellerName()));
 		Map<UUID, List<String>> tagsByProductId = productRepository
 			.findAllByIdIn(related.stream().map(ProductListProjection::id).toList())
 			.stream()
 			.collect(Collectors.toMap(Product::getId, Product::getTags));
 
 		return related.stream()
-			.map(p -> toListItemResponse(
-				p,
-				sellerNames.getOrDefault(p.sellerId(), ""),
-				tagsByProductId.getOrDefault(p.id(), List.of())
-			))
+			.map(p -> toListItemResponse(p, tagsByProductId.getOrDefault(p.id(), List.of())))
 			.toList();
 	}
 
@@ -168,7 +147,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 			.toList();
 	}
 
-	private ProductListItemResponse toListItemResponse(ProductListProjection product, String sellerName, List<String> tags) {
+	private ProductListItemResponse toListItemResponse(ProductListProjection product, List<String> tags) {
 		return new ProductListItemResponse(
 			product.id(),
 			product.title(),
@@ -178,7 +157,6 @@ public class ProductQueryService implements ProductQueryUseCase {
 			null,
 			product.rating(),
 			product.salesCount(),
-			sellerName,
 			product.sellerId(),
 			null,
 			product.description(),

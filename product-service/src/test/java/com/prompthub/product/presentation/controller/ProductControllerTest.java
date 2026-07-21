@@ -1,5 +1,6 @@
 package com.prompthub.product.presentation.controller;
 
+import com.prompthub.product.application.usecase.ProductInternalUseCase;
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
@@ -8,6 +9,7 @@ import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
 import com.prompthub.product.presentation.dto.response.ProductVersionResponse;
+import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import com.prompthub.presentation.dto.PageResponse;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,6 +26,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -42,9 +45,12 @@ class ProductControllerTest {
 	@Mock
 	private ProductQueryUseCase productQueryUseCase;
 
+	@Mock
+	private ProductInternalUseCase productInternalUseCase;
+
 	@BeforeEach
 	void setUp() {
-		mockMvc = MockMvcBuilders.standaloneSetup(new ProductController(productQueryUseCase))
+		mockMvc = MockMvcBuilders.standaloneSetup(new ProductController(productQueryUseCase, productInternalUseCase))
 			.setControllerAdvice(new ProductExceptionHandler())
 			.build();
 	}
@@ -94,7 +100,8 @@ class ProductControllerTest {
 				.andExpect(jsonPath("$.data.title").value("리액트 컴포넌트 리팩터링 도우미"))
 				.andExpect(jsonPath("$.data.productType").value("PROMPT"))
 				.andExpect(jsonPath("$.data.tags[0]").value("리액트"))
-				.andExpect(jsonPath("$.data.versions[0].ver").value("v1.3"));
+				.andExpect(jsonPath("$.data.versions[0].ver").value("v1.3"))
+				.andExpect(jsonPath("$.data.imageUrls[0]").value("https://cdn.example.com/images/1.jpg"));
 		}
 
 		@Test
@@ -151,6 +158,32 @@ class ProductControllerTest {
 	}
 
 	@Nested
+	@DisplayName("GET /api/v2/products/by-ids")
+	class GetProductsByIds {
+
+		@Test
+		@DisplayName("ids 파라미터로 여러 상품을 배치 조회한다")
+		void getProductsByIds_success() throws Exception {
+			UUID productId2 = UUID.fromString("55555555-5555-5555-5555-555555555555");
+			ProductsByIdsResponse item = new ProductsByIdsResponse(
+				PRODUCT_ID, SELLER_ID, "리액트 컴포넌트 리팩터링 도우미", 7900, null,
+				"PROMPT", "GPT-4o", 760, 4.7, "ON_SALE"
+			);
+			given(productInternalUseCase.getProductsByIds(List.of(PRODUCT_ID, productId2)))
+				.willReturn(List.of(item));
+
+			mockMvc.perform(get("/api/v2/products/by-ids")
+					.param("ids", PRODUCT_ID + "," + productId2))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data[0].title").value("리액트 컴포넌트 리팩터링 도우미"));
+
+			verify(productInternalUseCase).getProductsByIds(List.of(PRODUCT_ID, productId2));
+		}
+	}
+
+	@Nested
 	@DisplayName("GET /api/v2/products/{productId}/reviews")
 	class GetProductReviews {
 
@@ -186,7 +219,6 @@ class ProductControllerTest {
 			null,
 			4.7,
 			760,
-			"테스트판매자",
 			SELLER_ID,
 			null,
 			"컴포넌트 분리, 상태 정리, 타입 개선",
@@ -206,13 +238,12 @@ class ProductControllerTest {
 			7900,
 			4.7,
 			760,
-			SELLER_ID.toString(),
 			SELLER_ID,
-			null,
 			0,
 			null,
 			"컴포넌트 분리, 상태 정리, 타입 개선",
 			null,
+			List.of("https://cdn.example.com/images/1.jpg"),
 			"[리액트 컴포넌트 리팩터링 도우미]\n\n전체 내용은 구매 후 확인할 수 있습니다.",
 			List.of("리액트", "리팩터링"),
 			List.of(new ProductVersionResponse("v1.3", "2026-06-01", "테스트 개선")),

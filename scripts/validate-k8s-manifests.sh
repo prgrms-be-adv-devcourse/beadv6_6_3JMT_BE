@@ -74,6 +74,58 @@ for package in "${PACKAGES[@]}"; do
     exit 1
   fi
 
+  if [[ "${package}" == "k8s/base/services/settlement" ]]; then
+    required_patterns=(
+      '^kind:[[:space:]]+CronJob$'
+      '^[[:space:]]+name:[[:space:]]+settlement-weekly$'
+      '^[[:space:]]+schedule:[[:space:]]+.*0 0 \* \* 1'
+      '^[[:space:]]+timeZone:[[:space:]]+Asia/Seoul$'
+      '^[[:space:]]+concurrencyPolicy:[[:space:]]+Forbid$'
+      '^[[:space:]]+startingDeadlineSeconds:[[:space:]]+3600$'
+      '^[[:space:]]+successfulJobsHistoryLimit:[[:space:]]+3$'
+      '^[[:space:]]+failedJobsHistoryLimit:[[:space:]]+3$'
+      '^[[:space:]]+backoffLimit:[[:space:]]+1$'
+      '^[[:space:]]+activeDeadlineSeconds:[[:space:]]+7200$'
+      '^[[:space:]]+restartPolicy:[[:space:]]+Never$'
+      '^[[:space:]]+automountServiceAccountToken:[[:space:]]+false$'
+      '^[[:space:]]+enableServiceLinks:[[:space:]]+false$'
+      '^[[:space:]]+prompthub.io/node-pool:[[:space:]]+application$'
+      '^[[:space:]]+- name:[[:space:]]+ghcr-pull-secret$'
+      '^[[:space:]]+allowPrivilegeEscalation:[[:space:]]+false$'
+      '^[[:space:]]+- ALL$'
+      'settlement.execution.mode=cronjob'
+      'spring.main.web-application-type=none'
+      'settlement.manual-api.enabled=false'
+      'eureka.client.enabled=false'
+      'spring.cloud.discovery.enabled=false'
+      'until wget -q -O /dev/null http://config:8888/actuator/health'
+      'until nc -z postgres 5432'
+      'until nc -z kafka 9092'
+      'until nc -z order-service 9083'
+      '^[[:space:]]+- name:[[:space:]]+POSTGRES_HOST$'
+      '^[[:space:]]+- name:[[:space:]]+KAFKA_BOOTSTRAP_SERVERS$'
+      '^[[:space:]]+- name:[[:space:]]+ORDER_GRPC_SERVER_PORT$'
+      '^[[:space:]]+- name:[[:space:]]+JAVA_TOOL_OPTIONS$'
+    )
+
+    for pattern in "${required_patterns[@]}"; do
+      if ! grep -Eq -- "${pattern}" "${rendered}"; then
+        echo "missing settlement CronJob contract: ${pattern}" >&2
+        exit 1
+      fi
+    done
+
+    if grep -Eq '^kind:[[:space:]]+(Deployment|Service)$' "${rendered}"; then
+      echo "settlement package must only expose a CronJob" >&2
+      exit 1
+    fi
+
+    if grep -Eq 'EUREKA_CLIENT|http://discovery|startupProbe:|readinessProbe:|livenessProbe:|containerPort:' "${rendered}"; then
+      echo "settlement CronJob contains an always-on service contract" >&2
+      exit 1
+    fi
+  fi
+
   if [[ "${package}" == "k8s/addons/nginx-ingress" ]]; then
     required_patterns=(
       '^kind:[[:space:]]+DaemonSet$'
@@ -105,10 +157,11 @@ for package in "${PACKAGES[@]}"; do
   if [[ "${package}" == "k8s/overlays/ec2-kubeadm/applications" ]]; then
     deployment_count="$(awk '$1 == "kind:" && $2 == "Deployment" { count++ } END { print count + 0 }' "${rendered}")"
     service_count="$(awk '$1 == "kind:" && $2 == "Service" { count++ } END { print count + 0 }' "${rendered}")"
-    unexpected_kinds="$(awk '$1 == "kind:" && $2 != "Deployment" && $2 != "Service" { print $2 }' "${rendered}" | sort -u)"
+    cronjob_count="$(awk '$1 == "kind:" && $2 == "CronJob" { count++ } END { print count + 0 }' "${rendered}")"
+    unexpected_kinds="$(awk '$1 == "kind:" && $2 != "Deployment" && $2 != "Service" && $2 != "CronJob" { print $2 }' "${rendered}" | sort -u)"
 
-    if [[ "${deployment_count}" -ne 9 || "${service_count}" -ne 9 ]]; then
-      echo "application CD package must render 9 Deployments and 9 Services" >&2
+    if [[ "${deployment_count}" -ne 8 || "${service_count}" -ne 8 || "${cronjob_count}" -ne 1 ]]; then
+      echo "application CD package must render 8 Deployments, 8 Services, and 1 CronJob" >&2
       exit 1
     fi
 
