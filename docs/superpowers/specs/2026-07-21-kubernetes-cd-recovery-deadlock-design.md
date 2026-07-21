@@ -12,7 +12,9 @@
 
 실제 상태 변경과 검증은 기존 `애플리케이션 리소스와 이미지 배포, 실패 시 rollback` 단계가 계속 담당한다. 이 단계가 교정 매니페스트 또는 새 이미지를 먼저 적용한 후 `kubectl rollout status`를 실행하고, 실패하면 이번 실행이 변경한 Pod template만 rollback한다.
 
-상태 저장 인프라와 Config/Discovery의 선행조건은 유지한다. PostgreSQL, Redis, Kafka는 Secret 사전 확인 단계에서 정상 rollout을 요구하고, 최초 생성된 Config와 Discovery는 의존 서비스 생성 전에 준비 완료를 기다린다.
+상태 저장 인프라의 선행조건은 유지한다. PostgreSQL, Redis, Kafka는 Secret 사전 확인 단계에서 정상 rollout을 요구한다. Config와 Discovery를 포함한 애플리케이션 Deployment의 정상 여부는 실제 배포 단계가 선언 상태를 적용한 뒤 배포 순서에 따라 검증한다.
+
+Kubernetes CD 워크플로 자체 변경도 애플리케이션 매니페스트 변경으로 분류한다. 워크플로를 교정하는 PR이 전체 애플리케이션 이미지를 빌드하면서 현재 `applications` overlay까지 다시 적용하므로, 이전 실패로 남은 매니페스트 드리프트를 같은 실행에서 복구할 수 있다.
 
 ## 대안
 
@@ -22,7 +24,7 @@
 ## 검증
 
 - 정적 검증 스크립트가 최초 준비 단계에 애플리케이션 전체 rollout 대기가 다시 추가되면 실패해야 한다.
-- 최초 준비 단계에는 리소스 존재 보장과 Config/Discovery 선행 대기만 남아야 한다.
+- 최초 준비 단계에는 리소스 존재 보장만 남아야 한다.
 - 본 배포 단계의 적용 후 rollout 검증과 rollback 계약은 유지돼야 한다.
 - Kubernetes 아키텍처 문서에 교정 매니페스트가 기존 장애 상태보다 먼저 적용된다는 복구 순서를 명시한다.
 
