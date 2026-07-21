@@ -103,8 +103,8 @@ class PaymentEventRouterTest {
 	}
 
 	@Test
-	@DisplayName("PAYMENT_REFUND_FAILED 이벤트는 지원하지 않는다")
-	void route_paymentRefundFailed_isUnsupported() {
+	@DisplayName("PAYMENT_REFUND_FAILED 이벤트는 실패 핸들러로 라우팅한다")
+	void route_paymentRefundFailed_routesToHandler() {
 		EventMessage<JsonNode> message = new EventMessage<>(
 			UUID.randomUUID(),
 			"PAYMENT_REFUND_FAILED",
@@ -116,8 +116,6 @@ class PaymentEventRouterTest {
 
 		paymentEventRouter.route(message);
 
-		verify(approvedHandler, never()).handle(any());
-		verify(refundedHandler, never()).handle(any());
-		verify(failedHandler, never()).handle(any());
+		verify(refundedHandler).handleFailed(message);
 	}
 }

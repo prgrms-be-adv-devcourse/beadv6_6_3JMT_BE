@@ -1,6 +1,7 @@
 package com.prompthub.order.infra.messaging.kafka.consumer.payment;
 
 import com.prompthub.common.event.EventMessage;
+import com.prompthub.order.infra.messaging.kafka.event.PaymentEventType;
 import com.prompthub.order.infra.messaging.kafka.router.PaymentEventRouter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

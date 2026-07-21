@@ -64,7 +64,7 @@ class PaymentEventConsumerTest {
 	}
 
 	@ParameterizedTest
-	@ValueSource(strings = {"PAYMENT_CANCELED", "PAYMENT_REFUND_FAILED"})
+	@ValueSource(strings = {"PAYMENT_CANCELED"})
 	@DisplayName("미지원 결제 이벤트는 라우터 호출 없이 ACK한다")
 	void consume_unsupportedEvent_acknowledgesWithoutRouting(String eventType) throws Exception {
 		EventMessage<JsonNode> message = new EventMessage<>(

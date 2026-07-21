@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static jakarta.persistence.CascadeType.ALL;
@@ -174,9 +175,52 @@ public class Order extends BaseEntity {
             return Optional.empty();
         }
 
-        target.refund(refundedAt);
-        recalculateRefundStatus(refundedAt);
+        requestRefund(List.of(orderProductId));
+        completeRequestedRefund(refundAmount, refundedAt);
         return Optional.of(target);
+    }
+
+    public void requestRefund(List<UUID> orderProductIds) {
+        if (this.orderStatus != OrderStatus.COMPLETED
+            && this.orderStatus != OrderStatus.PARTIAL_REFUNDED) {
+            throw new OrderException(ErrorCode.ORDER_REFUND_NOT_ALLOWED);
+        }
+
+        Set<UUID> selectedIds = Set.copyOf(orderProductIds);
+        if (selectedIds.size() != orderProductIds.size()) {
+            throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        List<OrderProduct> selectedProducts = findOrderProducts(orderProductIds);
+        if (selectedProducts.stream().anyMatch(product -> !product.isRefundable())) {
+            throw new OrderException(ErrorCode.ORDER_REFUND_NOT_ALLOWED);
+        }
+
+        selectedProducts.forEach(OrderProduct::requestRefund);
+        validateTransition(OrderStatus.REFUND_REQUESTED);
+        this.orderStatus = OrderStatus.REFUND_REQUESTED;
+    }
+
+    public List<OrderProduct> completeRequestedRefund(int refundAmount, LocalDateTime refundedAt) {
+        List<OrderProduct> selectedProducts = requestedRefundProducts();
+        if (this.orderStatus != OrderStatus.REFUND_REQUESTED) {
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+        }
+
+        validateRequestedRefundAmount(refundAmount);
+
+        selectedProducts.forEach(product -> product.completeRefund(refundedAt));
+        recalculateRefundStatus(refundedAt);
+        return List.copyOf(selectedProducts);
+    }
+
+    public void validateRequestedRefundAmount(int refundAmount) {
+        int expectedAmount = requestedRefundProducts().stream()
+            .mapToInt(OrderProduct::getProductAmount)
+            .sum();
+        if (expectedAmount != refundAmount) {
+            throw new OrderException(ErrorCode.ORDER_REFUND_AMOUNT_MISMATCH);
+        }
     }
 
     public void recalculateRefundStatus(LocalDateTime refundedAt) {
@@ -224,7 +268,9 @@ public class Order extends BaseEntity {
     }
 
     public boolean canAccessContent(OrderProduct orderProduct) {
-        return (this.orderStatus == OrderStatus.COMPLETED || this.orderStatus == OrderStatus.PARTIAL_REFUNDED)
+        return (this.orderStatus == OrderStatus.COMPLETED
+            || this.orderStatus == OrderStatus.PARTIAL_REFUNDED
+            || this.orderStatus == OrderStatus.REFUND_REQUESTED)
             && orderProduct.isPaid();
     }
 
@@ -244,5 +290,28 @@ public class Order extends BaseEntity {
         if (!this.orderStatus.canTransitionTo(target)) {
             throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
         }
+    }
+
+    private List<OrderProduct> findOrderProducts(List<UUID> orderProductIds) {
+        List<OrderProduct> selectedProducts = orderProductIds.stream()
+            .map(id -> this.orderProducts.stream()
+                .filter(product -> product.getId().equals(id))
+                .findFirst()
+                .orElseThrow(() -> new OrderException(ErrorCode.ORDER_PRODUCT_NOT_FOUND)))
+            .toList();
+        if (selectedProducts.isEmpty()) {
+            throw new OrderException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return selectedProducts;
+    }
+
+    private List<OrderProduct> requestedRefundProducts() {
+        List<OrderProduct> requestedProducts = this.orderProducts.stream()
+            .filter(product -> product.getOrderStatus() == OrderProductStatus.REFUND_REQUESTED)
+            .toList();
+        if (requestedProducts.isEmpty()) {
+            throw new OrderException(ErrorCode.ORDER_REFUND_REQUEST_NOT_FOUND);
+        }
+        return requestedProducts;
     }
 }
