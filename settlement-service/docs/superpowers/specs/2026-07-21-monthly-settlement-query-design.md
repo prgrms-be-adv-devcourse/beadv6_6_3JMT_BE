@@ -110,12 +110,13 @@ settlementMonth = YearMonth.from(periodStart.plusDays(3))
 | --- | --- | --- |
 | 판매자 목록 | `GET /api/v2/sellers/me/settlements` | 기존 주간 목록 응답을 월별 목록으로 변경 |
 | 판매자 상세 | `GET /api/v2/sellers/me/settlements/months/{settlementMonth}` | 월 안의 주간 정산 상세 추가 |
-| 어드민 목록 | `GET /api/v1/admin/settlements` | 기존 주간 목록 응답을 판매자별 월별 목록으로 변경 |
-| 어드민 상세 | `GET /api/v1/admin/settlements/sellers/{sellerId}/months/{settlementMonth}` | 판매자·월 기준 주간 상세 추가 |
-| 어드민 요약 | `GET /api/v1/admin/settlements/summary` | 선택적 `settlementMonth` 필터 추가 |
+| 어드민 목록 | `GET /api/v2/admin/settlements` | 기존 주간 목록 응답을 판매자별 월별 목록으로 변경 |
+| 어드민 상세 | `GET /api/v2/admin/settlements/sellers/{sellerId}/months/{settlementMonth}` | 판매자·월 기준 주간 상세 추가 |
+| 어드민 요약 | `GET /api/v2/admin/settlements/summary` | 선택적 `settlementMonth` 필터 추가 |
 
 admin-service의 실제 컨트롤러 base path는 `${api.init}/admin/settlements`를 유지하며, 현재 운영
-설정의 `${api.init}` 값인 `/api/v1`을 표에 표시했다.
+설정의 `${api.init}` 값인 `/api/v2`를 표에 표시했다. 정산 API만 별도로 버전을 낮추거나 공통
+`api.init` 값을 변경하지 않는다.
 
 기존 판매자와 어드민의 `PATCH` 엔드포인트는 모두 유지한다. 월별 상세의 `settlementId`를 사용해
 기존 주간 상태 전이 API를 호출한다.
@@ -351,7 +352,7 @@ admin-service의 실제 컨트롤러 base path는 `${api.init}/admin/settlements
 ### 4.6 어드민 상세 응답 예시
 
 요청 예시는
-`GET /api/v1/admin/settlements/sellers/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/months/2026-07`이다.
+`GET /api/v2/admin/settlements/sellers/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/months/2026-07`이다.
 
 ```json
 {
@@ -618,7 +619,7 @@ SUM(CASE WHEN status <> 'CANCELLED' THEN total_amount ELSE 0 END)
 
 ## 8. 어드민 요약
 
-기존 `GET /api/v1/admin/settlements/summary`에 선택적 `settlementMonth=yyyy-MM`을 추가한다.
+기존 `GET /api/v2/admin/settlements/summary`에 선택적 `settlementMonth=yyyy-MM`을 추가한다.
 미지정하면 현재처럼 전체 기간을 집계한다. 지정하면 목요일 기준 월 결정 규칙으로 해당 월의 주간
 행만 집계한다.
 
