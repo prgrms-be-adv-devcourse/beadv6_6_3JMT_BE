@@ -308,6 +308,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}                                          # DB 이름
       POSTGRES_USER: ${POSTGRES_USER}                                      # DB 계정
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}                              # DB 비밀번호
+      REDIS_HOST: redis                                                    # Redis 호스트(인가캐시 evict·세션폐기 — user-service와 동일 인스턴스 공유)
+      REDIS_PORT: "6379"                                                   # Redis 포트
     depends_on:
       postgres:
         condition: service_started
@@ -316,6 +318,8 @@ services:
       config:
         condition: service_healthy
       settlement-service:                                                  # 정산 스키마 소유자, ddl-auto: none
+        condition: service_started
+      redis:
         condition: service_started
     restart: always
     networks: [prompthub]
