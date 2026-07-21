@@ -69,6 +69,16 @@ public class User extends BaseEntity {
 		this.roles.add(role);
 	}
 
+	// buyer<->seller 전환 전용 — seller 지정 시 SELLER를 추가(BUYER는 유지),
+	// buyer 지정 시 SELLER만 회수한다. ADMIN은 이 API의 대상이 아니라 건드리지 않는다.
+	public void changeRole(UserRole role) {
+		if (role == UserRole.SELLER) {
+			roles.add(UserRole.SELLER);
+		} else {
+			roles.remove(UserRole.SELLER);
+		}
+	}
+
 	public void activate() {
 		this.status = UserStatus.ACTIVE;
 	}
