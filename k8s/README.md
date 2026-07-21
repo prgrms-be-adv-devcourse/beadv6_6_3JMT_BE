@@ -255,6 +255,33 @@ kubectl -n prompthub wait --for=condition=Ready pod/kafka-0 --timeout=60s
 
 Kubernetes Pod의 `image:`에 레지스트리 주소와 불변 태그 또는 digest를 지정하면 kubelet이 containerd CRI를 통해 이미지를 pull한다. EC2에서 `docker pull`을 별도로 실행하지 않는다. 기존 Docker daemon의 이미지 namespace와 Kubernetes의 `k8s.io` containerd namespace가 다르므로 Docker에 이미지가 있다는 이유만으로 Kubernetes가 그 이미지를 사용할 수 있다고 가정하지 않는다.
 
+### kubelet 이미지 GC 운영 기준
+
+두 EC2 노드는 containerd 이미지와 Local PV를 같은 루트 디스크에서 사용하므로 kubelet 기본
+이미지 GC 상한 85%를 사용하지 않는다. Control Plane과 Worker의
+`/var/lib/kubelet/config.yaml`에 다음 값을 유지한다.
+
+```yaml
+imageGCHighThresholdPercent: 60
+imageGCLowThresholdPercent: 50
+imageMinimumGCAge: 0s
+imageMaximumGCAge: 0s
+```
+
+`imageMinimumGCAge: 0s`는 kubelet 설정 API 규칙에 따라 기본값 `2m`으로 해석된다. 따라서
+사용하지 않은 지 2분이 지나지 않은 이미지는 디스크 임계값을 넘어도 GC 대상에서 제외된다.
+`imageMaximumGCAge: 0s`는 최대 미사용 기간에 따른 강제 GC를 비활성화한다.
+
+이미지 사용률이 60%를 넘으면 kubelet이 미사용 이미지를 정리해 50% 수준까지 낮춘다.
+기간 기반 강제 삭제와 `crictl rmi --prune`, `ctr images rm` 같은 외부 정리 작업은 사용하지
+않는다. Deployment는 `revisionHistoryLimit: 1`로 직전 ReplicaSet을 보존하고, 로컬 이미지가
+GC된 경우에도 GHCR의 불변 Git SHA 태그를 다시 pull해 롤백한다.
+
+설정은 Worker, Control Plane 순서로 한 노드씩 적용한다. 각 노드에서 기존 설정을 백업하고
+kubelet만 재시작한 뒤 `systemctl is-active kubelet`, `kubectl get nodes`, 전체 Pod 상태를
+검증한다. kubelet이 시작하지 않으면 백업을 복원하고 다음 노드 적용을 중단한다. drain,
+StatefulSet 재시작, PVC/PV와 `/var/lib/prompthub` 삭제는 수행하지 않는다.
+
 ## 삭제와 복구 주의사항
 
 - StatefulSet이나 Pod 삭제는 PVC/PV 삭제와 다르다.
