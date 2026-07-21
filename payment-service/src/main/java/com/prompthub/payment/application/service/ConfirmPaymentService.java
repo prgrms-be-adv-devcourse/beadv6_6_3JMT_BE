@@ -58,7 +58,7 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
 
     @Override
     public PaymentResult confirm(ConfirmPaymentCommand command) {
-        if (paymentRepository.existsByPgTxId(command.paymentKey())) {
+        if (paymentRepository.existsByPaymentKey(command.paymentKey())) {
             throw new BusinessException(PaymentErrorCode.DUPLICATE_PAYMENT);
         }
         if (paymentRepository.existsByOrderIdAndStatusIn(command.orderId(), BLOCKING_STATUSES)) {
@@ -91,7 +91,7 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
                 return payment.getId();
             });
         } catch (DataIntegrityViolationException e) {
-            // pg_tx_id/orderId 사전 체크와 INSERT 사이의 좁은 레이스 — 최종 방어선
+            // payment_key/orderId 사전 체크와 INSERT 사이의 좁은 레이스 — 최종 방어선
             throw new BusinessException(PaymentErrorCode.DUPLICATE_PAYMENT);
         }
 

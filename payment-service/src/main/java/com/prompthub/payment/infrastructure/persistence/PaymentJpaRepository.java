@@ -12,7 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PaymentJpaRepository extends JpaRepository<Payment, UUID> {
-    boolean existsByPgTxId(String pgTxId);
+    boolean existsByPaymentKey(String paymentKey);
 
     boolean existsByOrderIdAndStatusIn(UUID orderId, Collection<PaymentStatus> statuses);
 

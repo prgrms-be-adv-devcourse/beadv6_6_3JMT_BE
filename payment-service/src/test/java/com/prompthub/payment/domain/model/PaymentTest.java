@@ -15,7 +15,7 @@ class PaymentTest {
 
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.READY);
         assertThat(payment.getApprovedAmount()).isNull();
-        assertThat(payment.getPgTxId()).isEqualTo("pg-key-001");
+        assertThat(payment.getPaymentKey()).isEqualTo("pg-key-001");
     }
 
     @Test

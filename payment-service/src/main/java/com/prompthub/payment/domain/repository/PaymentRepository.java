@@ -11,7 +11,7 @@ public interface PaymentRepository {
     Payment saveAndFlush(Payment payment);
     Optional<Payment> findById(UUID id);
     Optional<Payment> findByIdForUpdate(UUID id);
-    boolean existsByPgTxId(String pgTxId);
+    boolean existsByPaymentKey(String paymentKey);
     boolean existsByOrderIdAndStatusIn(UUID orderId, Collection<PaymentStatus> statuses);
     Optional<Payment> findByOrderIdAndStatusInForUpdate(UUID orderId, Collection<PaymentStatus> statuses);
 }

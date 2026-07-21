@@ -38,7 +38,7 @@ class PaymentJpaRepositoryTest extends AbstractJpaTest {
 
         assertThat(found.getId()).isEqualTo(saved.getId());
         assertThat(found.getOrderId()).isEqualTo(orderId);
-        assertThat(found.getPgTxId()).isEqualTo("pg-tx-001");
+        assertThat(found.getPaymentKey()).isEqualTo("pg-tx-001");
         assertThat(found.getTotalAmount()).isEqualTo(9_000);
         assertThat(found.getStatus()).isEqualTo(PaymentStatus.READY);
         assertThat(found.getApprovedAmount()).isNull();
@@ -78,12 +78,12 @@ class PaymentJpaRepositoryTest extends AbstractJpaTest {
     }
 
     @Test
-    void existsByPgTxId_존재_여부_확인() {
+    void existsByPaymentKey_존재_여부_확인() {
         Payment payment = Payment.create(
             UUID.randomUUID(), UUID.randomUUID(), "pg-tx-exists", "TOSS_PAYMENTS", "CARD", 10_000);
         paymentJpaRepository.saveAndFlush(payment);
 
-        assertThat(paymentJpaRepository.existsByPgTxId("pg-tx-exists")).isTrue();
-        assertThat(paymentJpaRepository.existsByPgTxId("pg-tx-missing")).isFalse();
+        assertThat(paymentJpaRepository.existsByPaymentKey("pg-tx-exists")).isTrue();
+        assertThat(paymentJpaRepository.existsByPaymentKey("pg-tx-missing")).isFalse();
     }
 }

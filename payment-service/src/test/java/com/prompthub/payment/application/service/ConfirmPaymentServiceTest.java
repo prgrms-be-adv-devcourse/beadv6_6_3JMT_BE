@@ -73,7 +73,7 @@ class ConfirmPaymentServiceTest {
 
     @Test
     void 이미_존재하는_paymentKey_시_PAY002_예외() {
-        when(paymentRepository.existsByPgTxId("toss-key")).thenReturn(true);
+        when(paymentRepository.existsByPaymentKey("toss-key")).thenReturn(true);
 
         ConfirmPaymentCommand command = new ConfirmPaymentCommand(
             "toss-key", UUID.randomUUID(), UUID.randomUUID(), 10_000);
