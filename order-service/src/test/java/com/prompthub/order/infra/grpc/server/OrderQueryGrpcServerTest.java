@@ -24,8 +24,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 
@@ -140,12 +140,13 @@ class OrderQueryGrpcServerTest {
     }
 
     @Test
-    void getSettleableLines_validPeriod_returnsMappedProductLines() {
+    void getSettleableLines_weeklyPeriod_returnsMappedProductLines() {
         UUID orderId = UUID.randomUUID();
         UUID orderProductId = UUID.randomUUID();
         UUID sellerId = UUID.randomUUID();
         LocalDateTime occurredAt = LocalDateTime.of(2026, 7, 15, 12, 30);
-        given(settlementOrderQueryUseCase.getSettleableLines(YearMonth.of(2026, 7)))
+        given(settlementOrderQueryUseCase.getSettleableLines(
+                LocalDate.of(2026, 7, 13), LocalDate.of(2026, 7, 19)))
                 .willReturn(List.of(new SettleableLineResult(
                         SettlementLineType.REFUND,
                         orderId,
@@ -155,7 +156,8 @@ class OrderQueryGrpcServerTest {
                         occurredAt
                 )));
 
-        GetSettleableLinesResponse response = blockingStub.getSettleableLines(settleableRequest("2026-07"));
+        GetSettleableLinesResponse response = blockingStub.getSettleableLines(
+                weeklyRequest("2026-07-13", "2026-07-19"));
 
         assertThat(response.getLinesList()).singleElement().satisfies(line -> {
             assertThat(line.getLineType()).isEqualTo("REFUND");
@@ -165,34 +167,68 @@ class OrderQueryGrpcServerTest {
             assertThat(line.getLineAmount()).isEqualTo(15_000);
             assertThat(line.getOccurredAt()).isEqualTo(occurredAt.toString());
         });
-        then(settlementOrderQueryUseCase).should().getSettleableLines(YearMonth.of(2026, 7));
+        then(settlementOrderQueryUseCase).should().getSettleableLines(
+                LocalDate.of(2026, 7, 13), LocalDate.of(2026, 7, 19));
     }
 
     @Test
     void getSettleableLines_emptyResult_returnsEmptyResponse() {
-        given(settlementOrderQueryUseCase.getSettleableLines(YearMonth.of(2026, 7)))
+        given(settlementOrderQueryUseCase.getSettleableLines(
+                LocalDate.of(2026, 7, 13), LocalDate.of(2026, 7, 19)))
                 .willReturn(List.of());
 
-        GetSettleableLinesResponse response = blockingStub.getSettleableLines(settleableRequest("2026-07"));
+        GetSettleableLinesResponse response = blockingStub.getSettleableLines(
+                weeklyRequest("2026-07-13", "2026-07-19"));
 
         assertThat(response.getLinesList()).isEmpty();
     }
 
     @Test
-    void getSettleableLines_invalidPeriods_returnInvalidArgument() {
+    void getSettleableLines_invalidWeeklyPeriods_returnInvalidArgument() {
+        List<GetSettleableLinesRequest> invalidRequests = List.of(
+                GetSettleableLinesRequest.newBuilder().setPeriodStart("2026-07-13").build(),
+                GetSettleableLinesRequest.newBuilder().setPeriodEnd("2026-07-19").build(),
+                weeklyRequest("2026/07/13", "2026-07-19"),
+                weeklyRequest("2026-07-14", "2026-07-20"),
+                weeklyRequest("2026-07-13", "2026-07-18"));
+
+        invalidRequests.forEach(request ->
+                assertSettleableStatusCode(request, Status.Code.INVALID_ARGUMENT));
+
+        then(settlementOrderQueryUseCase).should(never())
+                .getSettleableLines(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void getSettleableLines_invalidLegacyPeriods_returnInvalidArgument() {
         for (String period : List.of("", "2026-7", "2026-13")) {
-            assertSettleableStatusCode(period, Status.Code.INVALID_ARGUMENT);
+            assertSettleableStatusCode(settleableRequest(period), Status.Code.INVALID_ARGUMENT);
         }
 
-        then(settlementOrderQueryUseCase).should(never()).getSettleableLines(Mockito.any());
+        then(settlementOrderQueryUseCase).should(never())
+                .getSettleableLines(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void getSettleableLines_legacyMonth_mapsToInclusiveMonthDates() {
+        given(settlementOrderQueryUseCase.getSettleableLines(
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31)))
+                .willReturn(List.of());
+
+        blockingStub.getSettleableLines(settleableRequest("2026-07"));
+
+        then(settlementOrderQueryUseCase).should().getSettleableLines(
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
     }
 
     @Test
     void getSettleableLines_unexpectedFailure_returnsInternalWithoutExposingMessage() {
-        given(settlementOrderQueryUseCase.getSettleableLines(YearMonth.of(2026, 7)))
+        given(settlementOrderQueryUseCase.getSettleableLines(
+                LocalDate.of(2026, 7, 13), LocalDate.of(2026, 7, 19)))
                 .willThrow(new IllegalStateException("database credentials must stay private"));
 
-        assertThatThrownBy(() -> blockingStub.getSettleableLines(settleableRequest("2026-07")))
+        assertThatThrownBy(() -> blockingStub.getSettleableLines(
+                weeklyRequest("2026-07-13", "2026-07-19")))
                 .isInstanceOf(StatusRuntimeException.class)
                 .satisfies(exception -> {
                     StatusRuntimeException statusException = (StatusRuntimeException) exception;
@@ -220,6 +256,13 @@ class OrderQueryGrpcServerTest {
                 .build();
     }
 
+    private GetSettleableLinesRequest weeklyRequest(String periodStart, String periodEnd) {
+        return GetSettleableLinesRequest.newBuilder()
+                .setPeriodStart(periodStart)
+                .setPeriodEnd(periodEnd)
+                .build();
+    }
+
     private void assertStatusCode(GetOrderRequest request, Status.Code expectedCode) {
         assertThatThrownBy(() -> blockingStub.getOrder(request))
                 .isInstanceOf(StatusRuntimeException.class)
@@ -229,8 +272,8 @@ class OrderQueryGrpcServerTest {
                 });
     }
 
-    private void assertSettleableStatusCode(String period, Status.Code expectedCode) {
-        assertThatThrownBy(() -> blockingStub.getSettleableLines(settleableRequest(period)))
+    private void assertSettleableStatusCode(GetSettleableLinesRequest request, Status.Code expectedCode) {
+        assertThatThrownBy(() -> blockingStub.getSettleableLines(request))
                 .isInstanceOf(StatusRuntimeException.class)
                 .satisfies(exception -> {
                     StatusRuntimeException statusException = (StatusRuntimeException) exception;

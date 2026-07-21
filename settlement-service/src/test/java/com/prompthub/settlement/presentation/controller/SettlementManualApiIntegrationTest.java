@@ -14,11 +14,13 @@ import com.prompthub.settlement.application.dto.SettlementJobResult;
 import com.prompthub.settlement.application.dto.SettlementJobStatusResult;
 import com.prompthub.settlement.application.usecase.GetSettlementJobStatusUseCase;
 import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
+import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.enums.TriggerType;
 import com.prompthub.settlement.global.web.AuthHeaders;
 import io.swagger.v3.oas.models.OpenAPI;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,6 +44,8 @@ class SettlementManualApiIntegrationTest {
 
 	private static final UUID ACTOR_ID = UUID.fromString("00000000-0000-0000-0000-000000000394");
 	private static final LocalDateTime START_TIME = LocalDateTime.of(2026, 7, 18, 10, 0);
+	private static final SettlementPeriod PERIOD = SettlementPeriod.of(
+		LocalDate.of(2026, 7, 13), LocalDate.of(2026, 7, 19));
 
 	@Autowired
 	private ApplicationContext applicationContext;
@@ -75,14 +79,14 @@ class SettlementManualApiIntegrationTest {
 				.header(AuthHeaders.USER_ID, ACTOR_ID.toString())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{"period":"2026-06"}
+					{"periodStart":"2026-07-13","periodEnd":"2026-07-19"}
 					"""))
 			.andExpect(status().isAccepted())
 			.andExpect(jsonPath("$.success").value(true))
 			.andExpect(jsonPath("$.data.jobExecutionId").value(1024));
 
 		then(runSettlementBatchUseCase).should().run(argThat(command ->
-			command.period().equals(YearMonth.of(2026, 6))
+			command.period().equals(PERIOD)
 				&& command.actorId().equals(ACTOR_ID)
 				&& command.triggerType() == TriggerType.MANUAL));
 	}
@@ -93,10 +97,29 @@ class SettlementManualApiIntegrationTest {
 		mockMvc.perform(post("/api/v2/admin/settlements/batch")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{"period":"2026-06"}
+					{"periodStart":"2026-07-13","periodEnd":"2026-07-19"}
 					"""))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("S-003"));
+
+		then(runSettlementBatchUseCase).shouldHaveNoInteractions();
+	}
+
+	@Test
+	@DisplayName("월요일부터 일요일까지가 아닌 수동 정산 기간은 400을 반환한다")
+	void run_withInvalidWeeklyPeriod_returnsBadRequest() throws Exception {
+		List<String> invalidBodies = List.of(
+			"{\"periodStart\":\"2026-07-14\",\"periodEnd\":\"2026-07-20\"}",
+			"{\"periodStart\":\"2026-07-13\",\"periodEnd\":\"2026-07-18\"}");
+
+		for (String body : invalidBodies) {
+			mockMvc.perform(post("/api/v2/admin/settlements/batch")
+					.header(AuthHeaders.USER_ID, ACTOR_ID.toString())
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(body))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("S-003"));
+		}
 
 		then(runSettlementBatchUseCase).shouldHaveNoInteractions();
 	}

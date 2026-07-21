@@ -18,6 +18,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.time.DateTimeException;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.UUID;
@@ -54,10 +57,10 @@ public class OrderQueryGrpcServer extends OrderQueryServiceGrpc.OrderQueryServic
             GetSettleableLinesRequest request,
             StreamObserver<GetSettleableLinesResponse> responseObserver
     ) {
-        YearMonth period;
+        SettlementQueryPeriod queryPeriod;
         try {
-            period = parsePeriod(request.getPeriod());
-        } catch (DateTimeParseException exception) {
+            queryPeriod = parseSettlementQueryPeriod(request);
+        } catch (DateTimeException | IllegalArgumentException exception) {
             responseObserver.onError(Status.INVALID_ARGUMENT
                     .withDescription("올바르지 않은 정산 기간 형식입니다.")
                     .asRuntimeException());
@@ -66,14 +69,16 @@ public class OrderQueryGrpcServer extends OrderQueryServiceGrpc.OrderQueryServic
 
         try {
             GetSettleableLinesResponse response = GetSettleableLinesResponse.newBuilder()
-                    .addAllLines(settlementOrderQueryUseCase.getSettleableLines(period).stream()
+                    .addAllLines(settlementOrderQueryUseCase.getSettleableLines(
+                                    queryPeriod.periodStart(), queryPeriod.periodEnd()).stream()
                             .map(this::toSettleableLine)
                             .toList())
                     .build();
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         } catch (Exception exception) {
-            log.error("정산 라인 조회 중 서버 오류가 발생했습니다. period={}", request.getPeriod(), exception);
+            log.error("정산 라인 조회 중 서버 오류가 발생했습니다. period={}, periodStart={}, periodEnd={}",
+                    request.getPeriod(), request.getPeriodStart(), request.getPeriodEnd(), exception);
             responseObserver.onError(internalServerError());
         }
     }
@@ -87,11 +92,34 @@ public class OrderQueryGrpcServer extends OrderQueryServiceGrpc.OrderQueryServic
         }
     }
 
-    private YearMonth parsePeriod(String period) {
+    private SettlementQueryPeriod parseSettlementQueryPeriod(GetSettleableLinesRequest request) {
+        boolean hasStart = !request.getPeriodStart().isBlank();
+        boolean hasEnd = !request.getPeriodEnd().isBlank();
+        if (hasStart != hasEnd) {
+            throw new IllegalArgumentException("정산 시작일과 종료일을 모두 입력해야 합니다.");
+        }
+
+        if (hasStart) {
+            LocalDate start = LocalDate.parse(request.getPeriodStart());
+            LocalDate end = LocalDate.parse(request.getPeriodEnd());
+            if (start.getDayOfWeek() != DayOfWeek.MONDAY || !end.equals(start.plusDays(6))) {
+                throw new IllegalArgumentException("정산 기간은 월요일부터 일요일까지여야 합니다.");
+            }
+            return new SettlementQueryPeriod(start, end);
+        }
+
+        YearMonth legacyPeriod = parseLegacyPeriod(request.getPeriod());
+        return new SettlementQueryPeriod(legacyPeriod.atDay(1), legacyPeriod.atEndOfMonth());
+    }
+
+    private YearMonth parseLegacyPeriod(String period) {
         if (!period.matches("\\d{4}-\\d{2}")) {
             throw new DateTimeParseException("Invalid settlement period", period, 0);
         }
         return YearMonth.parse(period);
+    }
+
+    private record SettlementQueryPeriod(LocalDate periodStart, LocalDate periodEnd) {
     }
 
     private GetOrderResponse toResponse(OrderForPaymentResult result) {

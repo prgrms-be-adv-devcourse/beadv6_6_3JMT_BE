@@ -1,7 +1,5 @@
 package com.prompthub.product.application.service;
 
-import com.prompthub.product.application.client.SellerClient;
-import com.prompthub.product.application.client.SellerInfo;
 import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.application.usecase.ProductSellerUseCase;
 import com.prompthub.product.domain.model.entity.Product;
@@ -38,17 +36,11 @@ public class ProductSellerService implements ProductSellerUseCase {
 	private static final ProductType DEFAULT_PRODUCT_TYPE = ProductType.PROMPT;
 
 	private final ProductRepository productRepository;
-	private final SellerClient sellerClient;
 	private final ProductEventProducer productEventProducer;
 	private final StorageClient storageClient;
 
 	@Override
 	public ProductCreateResponse createProduct(UUID sellerId, ProductCreateRequest request) {
-		SellerInfo seller = sellerClient.getSellerInfo(sellerId);
-		if (!"ACTIVE".equals(seller.status())) {
-			throw new ProductException(ProductErrorCode.SELLER_NOT_ACTIVE);
-		}
-
 		ProductType productType = parseProductType(request.productType());
 
 		UUID productId = UUID.randomUUID();

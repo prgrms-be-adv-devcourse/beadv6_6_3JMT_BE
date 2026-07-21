@@ -1,9 +1,10 @@
 package com.prompthub.settlement.infrastructure.batch.tasklet;
 
 import com.prompthub.settlement.domain.model.SettlementBatch;
+import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.enums.TriggerType;
 import com.prompthub.settlement.domain.repository.SettlementBatchRepository;
-import java.time.YearMonth;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.configuration.annotation.StepScope;
@@ -19,27 +20,29 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class CreateSettlementBatchTasklet implements Tasklet {
 
-    private static final DateTimeFormatter BATCH_NO_MONTH = DateTimeFormatter.ofPattern("yyyyMM");
     private static final String BATCH_ID_KEY = "settlementBatchId";
 
     private final SettlementBatchRepository settlementBatchRepository;
 
-    @Value("#{jobParameters['period']}")
-    private String periodParam;
+    @Value("#{jobParameters['periodStart']}")
+    private String periodStartParam;
+
+    @Value("#{jobParameters['periodEnd']}")
+    private String periodEndParam;
 
     @Value("#{jobParameters['triggerType']}")
     private String triggerTypeParam;
 
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
-        YearMonth period = YearMonth.parse(periodParam);
+        SettlementPeriod period = period();
         TriggerType triggerType = TriggerType.valueOf(triggerTypeParam);
 
         long jobExecutionId = chunkContext.getStepContext().getStepExecution().getJobExecutionId();
         String batchNo = generateBatchNo(period, triggerType, jobExecutionId);
 
         SettlementBatch saved = settlementBatchRepository.save(
-                SettlementBatch.start(batchNo, period.atDay(1), period.atEndOfMonth(), triggerType));
+                SettlementBatch.start(batchNo, period.periodStart(), period.periodEnd(), triggerType));
 
         chunkContext.getStepContext().getStepExecution().getJobExecution()
                 .getExecutionContext().putString(BATCH_ID_KEY, saved.getId().toString());
@@ -47,7 +50,15 @@ public class CreateSettlementBatchTasklet implements Tasklet {
         return RepeatStatus.FINISHED;
     }
 
-    private String generateBatchNo(YearMonth period, TriggerType triggerType, long jobExecutionId) {
-        return "SETTLE-%s-%s-%d".formatted(period.format(BATCH_NO_MONTH), triggerType.name(), jobExecutionId);
+    private SettlementPeriod period() {
+        return SettlementPeriod.of(LocalDate.parse(periodStartParam), LocalDate.parse(periodEndParam));
+    }
+
+    private String generateBatchNo(SettlementPeriod period, TriggerType triggerType, long jobExecutionId) {
+        return "SETTLE-%s-%s-%s-%d".formatted(
+                period.periodStart().format(DateTimeFormatter.BASIC_ISO_DATE),
+                period.periodEnd().format(DateTimeFormatter.BASIC_ISO_DATE),
+                triggerType.name(),
+                jobExecutionId);
     }
 }

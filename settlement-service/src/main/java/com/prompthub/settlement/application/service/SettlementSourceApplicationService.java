@@ -3,11 +3,11 @@ package com.prompthub.settlement.application.service;
 import com.prompthub.settlement.application.dto.SettleableLine;
 import com.prompthub.settlement.application.port.OrderSettlementQueryPort;
 import com.prompthub.settlement.application.usecase.LoadSettlementSourceUseCase;
+import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.model.enums.SettlementSourceLineType;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import java.nio.charset.StandardCharsets;
-import java.time.YearMonth;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,7 +29,7 @@ public class SettlementSourceApplicationService implements LoadSettlementSourceU
 
     @Override
     @Transactional
-    public int load(YearMonth period) {
+    public int load(SettlementPeriod period) {
         List<SettleableLine> lines = orderSettlementQueryPort.fetchSettleableLines(period);
         if (lines.isEmpty()) {
             return 0;

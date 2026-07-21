@@ -1,6 +1,5 @@
 package com.prompthub.product.application.service;
 
-import com.prompthub.product.application.client.SellerClient;
 import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.application.usecase.ProductInternalUseCase;
 import com.prompthub.product.domain.model.entity.Product;
@@ -33,7 +32,6 @@ public class ProductInternalService implements ProductInternalUseCase {
 
 	private final ProductRepository productRepository;
 	private final ReviewRepository reviewRepository;
-	private final SellerClient sellerClient;
 	private final StorageClient storageClient;
 
 	@Override
@@ -69,29 +67,11 @@ public class ProductInternalService implements ProductInternalUseCase {
 	}
 
 	@Override
-	public ProductCartSnapshotResponse getCartSnapshot(UUID productId) {
-		Map<UUID, Product> resolved = resolveFamilyRepresentatives(List.of(productId), ProductFamily::currentOnSale);
-		Product product = resolved.get(productId);
-		if (product == null) {
-			throw new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND);
-		}
-		String sellerNickname = sellerClient.getSellerInfo(product.getSellerId()).sellerName();
-		return ProductCartSnapshotResponse.from(productId, product, sellerNickname);
-	}
-
-	@Override
 	public List<ProductCartSnapshotResponse> getCartSnapshots(List<UUID> productIds) {
 		Map<UUID, Product> resolved = resolveFamilyRepresentatives(productIds, ProductFamily::currentOnSale);
-		Map<UUID, String> sellerNicknames = resolved.values().stream()
-			.map(Product::getSellerId)
-			.distinct()
-			.collect(Collectors.toMap(id -> id, id -> sellerClient.getSellerInfo(id).sellerName()));
 		return productIds.stream()
 			.filter(resolved::containsKey)
-			.map(id -> {
-				Product product = resolved.get(id);
-				return ProductCartSnapshotResponse.from(id, product, sellerNicknames.get(product.getSellerId()));
-			})
+			.map(id -> ProductCartSnapshotResponse.from(id, resolved.get(id), null))
 			.toList();
 	}
 

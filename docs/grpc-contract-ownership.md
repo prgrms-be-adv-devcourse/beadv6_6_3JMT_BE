@@ -66,7 +66,7 @@ a ◀──응답── b
 ```
 beadv6_6_3JMT_BE/
 └── grpc/                      ← 루트 공유 gRPC 계약
-    ├── order/                 ← order-service 가 서버인 계약(서버 미구현 — 정산 클라이언트가 유일본)
+    ├── order/                 ← order-service가 제공하고 settlement-service가 소비하는 공유 계약
     │   └── order_query.proto    ← OrderQueryService.GetSettleableLines
     └── product/
         └── product_query.proto  ← Product 소유 공유 계약. Seller Settlement는 #452 이후 GetSellerStats를 소비하지 않음
@@ -98,7 +98,7 @@ sourceSets {
 
 | 계약(rpc) | 요청자(client) | 서버(owner) | 위치 | 비고 |
 | --- | --- | --- | --- | --- |
-| `GetSettleableLines`(정산 원천) | settlement | **order** | `grpc/order/order_query.proto` | 루트 공유 이관 완료. order 서버 미구현이라 정산 클라이언트가 유일본 |
+| `GetSettleableLines`(정산 원천) | settlement | **order** | `grpc/order/order_query.proto` | settlement 클라이언트와 order 서버 구현 완료 |
 
 > **소비 종료:** `GetSellerStats`는 #452에서 user-service `sellersettlement` 소비자가 제거됐다.
 > `grpc/product/product_query.proto`와 Product 서버의 RPC 유지·삭제는 계약 소유자인 Product 후속
@@ -115,8 +115,8 @@ sourceSets {
 API 전환은 서버 소유자인 Product가 결정한다. user-service는 #452에서 루트 `grpc/product` sourceSet
 참조를 제거한다.
 
-반면 `GetSettleableLines` 는 order 서버가 미구현이라 order-service 에 원본이 없어,
-`grpc/order/order_query.proto` 가 유일본이다(이중 존재 아님). order 팀이 서버를 신설하면 이 계약을 그대로 참조한다.
+`GetSettleableLines`는 settlement-service 클라이언트와 order-service 서버가 모두 루트
+`grpc/order/order_query.proto`를 참조한다. 요청은 주간 `period_start`·`period_end` 계약을 사용한다.
 
 ### `java_package` 네이밍 — 소유자(서버) 기준
 

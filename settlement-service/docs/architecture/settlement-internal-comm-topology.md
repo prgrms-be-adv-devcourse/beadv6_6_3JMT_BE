@@ -26,10 +26,10 @@
   │  (정산 본체)       │  배치 Step flush (#301)             │  sellersettlement (셀러 정산)│
   └───────┬───────────┘                                    └────────────────────────────┘
           │ gRPC GetSettleableLines (#260)
-          │  → order-service (서버 미구현·요청대기)
+          │  → order-service (클라이언트·서버 구현 완료)
           ▼
    order-service
-   (OrderQueryService 신설 요청)
+   (OrderQueryService 운영 계약 구현)
 
   ┌────────────────────────────┐
   │ admin-service (어드민 정산)  │  ──── DB 직접(JPA read-side) ────▶  정산 테이블
@@ -45,7 +45,7 @@
 
 | 도메인 | Kafka 발행 | Kafka 구독 | gRPC 서버 | gRPC 클라이언트 |
 |---|---|---|---|---|
-| **settlement-service** | ✅ Outbox 구현(#301) — `settlement-events` / `SETTLEMENT_CREATED` | ❌ 없음 — `order-events` 수신 제거(#317) | ❌ 없음 | ⚠️ order만 구현·상대 서버 대기 |
+| **settlement-service** | ✅ Outbox 구현(#301) — `settlement-events` / `SETTLEMENT_CREATED` | ❌ 없음 — `order-events` 수신 제거(#317) | ❌ 없음 | ✅ order 주간 범위 조회 구현 |
 | **user `sellersettlement`** | ❌ 없음 | ✅ 구현(기본 OFF) — `settlement-events` | ❌ 없음(셀러조회 서버는 `seller` 패키지) | ❌ 없음 |
 | **admin `settlement`** | ❌ 없음 | ❌ 없음 | ❌ 없음 | ❌ 없음 — DB 직접 접근 |
 
@@ -77,20 +77,21 @@
 `order-events`의 `ORDER_PAID`·`ORDER_REFUNDED` 수신 경로는 gRPC pull로 대체됐고 #317에서 컨슈머,
 수신 DTO, usecase, consumer 설정을 제거했다. settlement-service의 Kafka는 정산 결과 발행에만 사용한다.
 
-**gRPC 클라이언트 — order pull 구현됨(상대 서버 대기)**
+**gRPC 클라이언트 — order pull 구현됨**
 
 | 항목 | 값 |
 |---|---|
 | Config | `infrastructure/client/order/config/OrderGrpcClientConfig` — `@ImportGrpcClients(target="order-service")` |
 | 어댑터 | `infrastructure/client/order/OrderSettlementQueryClient` (`OrderSettlementQueryPort` 구현) |
-| 호출 | `GetSettleableLines(period)` → `settlement_source_line` bulk 적재(멱등키 `orderProductId+eventType` 로컬 파생) |
-| 트리거 | 정산 배치 첫 스텝 `loadSettlementSourceStep` (`LoadSettlementSourceTasklet`) |
+| 호출 | `GetSettleableLines(period_start, period_end)` → `settlement_source_line` bulk 적재(멱등키 `orderProductId+eventType` 로컬 파생) |
+| 기간 | 포함 날짜 월요일~일요일. order는 `[periodStart 00:00, periodEnd + 1일 00:00)`로 조회 |
+| 트리거 | `CronJob/settlement-weekly`(매주 월요일 00:00 `Asia/Seoul`) → `SettlementCronJobRunner` → `settlementJob` 첫 스텝 `loadSettlementSourceStep` |
 | 실패정책 | `StatusRuntimeException` → `SettlementException(SETTLEMENT_SOURCE_QUERY_FAILED)` **throw**(배치 중단, 빈값 폴백 아님 — 조용한 0건 정산 방지) |
 | 채널 | `grpc.client.order-service.address` |
-| 상태 | **정산측 완비, order-service 에 `OrderQueryService` 서버 미구현 → 요청 대기** (계약: #260 이슈 코멘트) |
+| 상태 | **settlement 클라이언트와 order `OrderQueryGrpcServer` 구현 완료.** 레거시 `period(yyyy-MM)`는 order-service 배포 호환 fallback만 제공 |
 
 **gRPC 서버** — 없음. (`grpc.server.port` yml 선언은 있으나 등록된 비즈니스 서비스 없음.
-`grpc/order/order_query.proto`(루트 공유) 는 서버 계약이 아니라 정산 클라이언트 스텁 생성용 — order 서버 미구현이라 유일본.)
+`grpc/order/order_query.proto`는 루트 공유 계약이며 서버 구현은 order-service에 있다.)
 
 > **미사용 채널:** yml 에 `grpc.client.user-service`·`grpc.client.product-service` 채널이 선언돼 있으나,
 > 이를 호출하는 클라이언트 코드는 settlement-service 에 **없다**(선언만 남은 상태 — §4-2 참고).
@@ -133,18 +134,13 @@
 
 지금 "한쪽만 준비되어 실제로는 아직 못 붙는" 통신을 명시한다.
 
-1. **settlement → order `GetSettleableLines`** (#260)
-   - settlement 클라이언트·포트·배치 스텝 완비. **order-service 에 `OrderQueryService` 서버가 없어 요청 대기.**
-   - order 팀 필요 작업: `order_product.paidAt` 추가 + `GetSettleableLines` gRPC 서버 신설(계약: #260 이슈 코멘트).
-   - Kafka 폴백은 #317에서 제거되어 서버 구현 전에는 정산 원천 수급 경로가 없다.
-
-2. **settlement → user `GetSellers`** (판매자명 조회, 참고 데이터)
+1. **settlement → user `GetSellers`** (판매자명 조회, 참고 데이터)
    - user-service `seller` 패키지에 서버(`SettlementSellerQueryGrpcService`)가 **live** 이나, settlement-service 에 이 스텁을 호출하는 **클라이언트가 아직 없다**(yml `grpc.client.user-service` 채널도 미사용). → 정산측 클라이언트 신설 시 붙는다.
 
-3. **settlement yml 의 `grpc.client.product-service` 채널**
+2. **settlement yml 의 `grpc.client.product-service` 채널**
    - 선언만 있고 이를 쓰는 클라이언트 코드가 settlement-service 에 없다(미사용). #452 이후 상품 통계는 프론트가 Product 공개 API를 직접 호출하므로 정산 백엔드의 Product 클라이언트가 아니다.
 
-> **왜 §4-2·§4-3처럼 settlement 본체에 seller/product 클라이언트가 없나:** 판매자명 조회는 아직
+> **왜 §4-1·§4-2처럼 settlement 본체에 seller/product 클라이언트가 없나:** 판매자명 조회는 아직
 > 클라이언트가 도입되지 않았고, 상품 통계는 #452에서 프론트가 Product 공개 API를 직접 호출하는
 > 경계로 바뀌었다. settlement 본체에는 order 원천 pull(§3-1)만 남았다.
 

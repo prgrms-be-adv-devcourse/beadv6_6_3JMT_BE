@@ -35,6 +35,15 @@ required_patterns=(
   'kubectl apply -k "\$runtime_overlay"'
   'snapshot_manifest_deployments'
   'track_manifest_deployment_changes'
+  'ensure_settlement_cronjob'
+  'settlement_cronjob="settlement-weekly"'
+  'release_order=\('
+  'snapshot_settlement_cronjob'
+  'rollback_settlement_cronjob'
+  'kubectl set image cronjob/'
+  'kubectl get cronjob "\$settlement_cronjob"'
+  'kubectl delete deployment/settlement-service'
+  'kubectl delete service/settlement-service'
   'kubectl set image deployment/'
   'kubectl rollout status deployment/'
   'kubectl rollout undo deployment/'
@@ -56,6 +65,9 @@ forbidden_patterns=(
   '- k8s/base/infrastructure/**'
   '- k8s/base/storage/**'
   '- k8s/addons/nginx-ingress/**'
+  'kubectl create job'
+  '--from=cronjob/settlement-weekly'
+  'ensure_package settlement-service'
 )
 
 for pattern in "${forbidden_patterns[@]}"; do
@@ -63,6 +75,22 @@ for pattern in "${forbidden_patterns[@]}"; do
     fail "forbidden command: ${pattern}"
   fi
 done
+
+deployment_order_block="$(sed -n '/deployment_order=(/,/)/p' "${WORKFLOW}")"
+config_consumers_block="$(sed -n '/config_consumers=(/,/)/p' "${WORKFLOW}")"
+release_order_block="$(sed -n '/release_order=(/,/)/p' "${WORKFLOW}")"
+
+if grep -Eq '^[[:space:]]+settlement-service$' <<< "${deployment_order_block}"; then
+  fail "settlement-service must not be managed as a Deployment"
+fi
+
+if grep -Eq '^[[:space:]]+settlement-service$' <<< "${config_consumers_block}"; then
+  fail "settlement-service must not be restarted as a config consumer Deployment"
+fi
+
+if ! grep -Eq '^[[:space:]]+settlement-service$' <<< "${release_order_block}"; then
+  fail "release_order must retain settlement-service image delivery"
+fi
 
 if grep -Eq '^  push:$' "${COMPOSE_WORKFLOW}"; then
   fail "Compose CD develop push trigger must stay disabled"
