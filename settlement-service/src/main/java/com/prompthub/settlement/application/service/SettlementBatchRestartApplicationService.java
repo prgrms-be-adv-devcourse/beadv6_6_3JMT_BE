@@ -5,6 +5,8 @@ import com.prompthub.settlement.application.dto.SettlementJobResult;
 import com.prompthub.settlement.application.port.SettlementJobRestarter;
 import com.prompthub.settlement.application.usecase.RestartSettlementBatchUseCase;
 import com.prompthub.settlement.domain.model.SettlementBatch;
+import com.prompthub.settlement.global.exception.SettlementErrorCode;
+import com.prompthub.settlement.global.exception.SettlementException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,7 +26,7 @@ public class SettlementBatchRestartApplicationService implements RestartSettleme
         SettlementBatch batch = retryStateService.requireRetryRequested(command.batchId());
 
         try {
-            return settlementJobRestarter.restart(batch.getId(), batch.getJobInstanceId());
+            return settlementJobRestarter.restart(batch.getId(), requireJobInstanceId(batch));
         } catch (RuntimeException restartFailure) {
             restoreFailed(command, restartFailure);
             throw restartFailure;
@@ -53,5 +55,13 @@ public class SettlementBatchRestartApplicationService implements RestartSettleme
             return DEFAULT_FAILURE_REASON;
         }
         return failure.getMessage();
+    }
+
+    private long requireJobInstanceId(SettlementBatch batch) {
+        if (batch.getJobInstanceId() == null) {
+            throw new SettlementException(
+                    SettlementErrorCode.SETTLEMENT_BATCH_JOB_INSTANCE_NOT_LINKED);
+        }
+        return batch.getJobInstanceId();
     }
 }

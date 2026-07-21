@@ -14,6 +14,8 @@ import com.prompthub.settlement.application.dto.SettlementJobResult;
 import com.prompthub.settlement.application.port.SettlementJobRestarter;
 import com.prompthub.settlement.domain.model.SettlementBatch;
 import com.prompthub.settlement.domain.model.enums.TriggerType;
+import com.prompthub.settlement.global.exception.SettlementErrorCode;
+import com.prompthub.settlement.global.exception.SettlementException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -69,6 +71,25 @@ class SettlementBatchRestartApplicationServiceTest {
 
         then(jobRestarter).shouldHaveNoInteractions();
         then(retryStateService).should(never()).restoreFailed(any(), any());
+    }
+
+    @Test
+    @DisplayName("RETRY_REQUESTED 레거시 배치의 실행 이력 미연결 오류는 FAILED 복원 대상이다")
+    void restart_unlinkedLegacyBatch_restoresFailedAndThrowsLinkError() {
+        SettlementBatch batch = retryRequestedBatch();
+        ReflectionTestUtils.setField(batch, "jobInstanceId", null);
+        RestartSettlementBatchCommand command = command(batch.getId());
+        given(retryStateService.requireRetryRequested(batch.getId())).willReturn(batch);
+
+        assertThatThrownBy(() -> service.restart(command))
+                .isInstanceOfSatisfying(SettlementException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(
+                                SettlementErrorCode.SETTLEMENT_BATCH_JOB_INSTANCE_NOT_LINKED));
+
+        then(jobRestarter).shouldHaveNoInteractions();
+        then(retryStateService).should().restoreFailed(
+                batch.getId(),
+                SettlementErrorCode.SETTLEMENT_BATCH_JOB_INSTANCE_NOT_LINKED.getMessage());
     }
 
     @Test

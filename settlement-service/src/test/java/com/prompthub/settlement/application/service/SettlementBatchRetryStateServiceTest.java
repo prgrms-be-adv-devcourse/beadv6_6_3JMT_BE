@@ -69,16 +69,15 @@ class SettlementBatchRetryStateServiceTest {
     }
 
     @Test
-    @DisplayName("JobInstance가 연결되지 않은 레거시 배치는 재시작할 수 없다")
-    void requireRetryRequested_unlinkedLegacyBatch_throwsException() {
+    @DisplayName("RETRY_REQUESTED 레거시 배치는 실행 이력 검증을 위해 반환한다")
+    void requireRetryRequested_unlinkedLegacyBatch_returnsBatch() {
         SettlementBatch batch = retryRequestedBatch();
         ReflectionTestUtils.setField(batch, "jobInstanceId", null);
         given(repository.findById(batch.getId())).willReturn(Optional.of(batch));
 
-        assertThatThrownBy(() -> service.requireRetryRequested(batch.getId()))
-                .isInstanceOfSatisfying(SettlementException.class, exception ->
-                        assertThat(exception.getErrorCode())
-                                .isEqualTo(SettlementErrorCode.SETTLEMENT_BATCH_JOB_INSTANCE_NOT_LINKED));
+        SettlementBatch result = service.requireRetryRequested(batch.getId());
+
+        assertThat(result).isSameAs(batch);
     }
 
     @Test

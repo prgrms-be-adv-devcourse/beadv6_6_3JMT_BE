@@ -26,10 +26,6 @@ public class SettlementBatchRetryStateService {
                     SettlementBatchStatus.RETRY_REQUESTED,
                     batch.getStatus());
         }
-        if (batch.getJobInstanceId() == null) {
-            throw new SettlementException(
-                    SettlementErrorCode.SETTLEMENT_BATCH_JOB_INSTANCE_NOT_LINKED);
-        }
         return batch;
     }
 
