@@ -94,7 +94,7 @@ class PaymentTest {
     private Payment 결제_생성_후_승인(int amount) {
         Payment payment = Payment.create(
             UUID.randomUUID(), UUID.randomUUID(),
-            "pg-key-002", "TOSS_PAYMENTS", "CARD", false, amount
+            "pg-key-002", "TOSS_PAYMENTS", "CARD", amount
         );
         payment.markRequested(OffsetDateTime.now());
         payment.approve(amount, "카드", "{}", "{}", OffsetDateTime.now());
@@ -104,7 +104,7 @@ class PaymentTest {
     private Payment 결제_생성() {
         return Payment.create(
             UUID.randomUUID(), UUID.randomUUID(),
-            "pg-key-001", "TOSS_PAYMENTS", "UNKNOWN", false,
+            "pg-key-001", "TOSS_PAYMENTS", "UNKNOWN",
             10_000
         );
     }

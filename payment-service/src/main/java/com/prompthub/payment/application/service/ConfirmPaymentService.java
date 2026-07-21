@@ -19,7 +19,6 @@ import java.time.OffsetDateTime;
 import java.util.Set;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -42,22 +41,19 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
     private final PaymentGateway paymentGateway;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final TransactionTemplate transactionTemplate;
-    private final boolean testMode;
 
     public ConfirmPaymentService(
         PaymentRepository paymentRepository,
         OrderGateway orderGateway,
         PaymentGateway paymentGateway,
         ApplicationEventPublisher applicationEventPublisher,
-        TransactionTemplate transactionTemplate,
-        @Value("${payment.toss.test-mode:false}") boolean testMode
+        TransactionTemplate transactionTemplate
     ) {
         this.paymentRepository = paymentRepository;
         this.orderGateway = orderGateway;
         this.paymentGateway = paymentGateway;
         this.applicationEventPublisher = applicationEventPublisher;
         this.transactionTemplate = transactionTemplate;
-        this.testMode = testMode;
     }
 
     @Override
@@ -86,7 +82,7 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
             paymentId = transactionTemplate.execute(status -> {
                 Payment payment = Payment.create(
                     command.orderId(), command.userId(),
-                    command.paymentKey(), PG_PROVIDER, PAYMENT_METHOD, testMode,
+                    command.paymentKey(), PG_PROVIDER, PAYMENT_METHOD,
                     orderInfo.totalAmount()
                 );
                 paymentRepository.saveAndFlush(payment);

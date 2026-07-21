@@ -49,9 +49,6 @@ public class Payment {
     @Column(name = "provider", length = 30, nullable = false)
     private String provider;
 
-    @Column(name = "is_test", nullable = false)
-    private boolean isTest;
-
     @Column(name = "total_amount", nullable = false)
     private int totalAmount;
 
@@ -92,7 +89,7 @@ public class Payment {
     private Payment(
         UUID id, UUID orderId, UUID userId,
         String pgTxId, PaymentStatus status,
-        String paymentMethod, String provider, boolean isTest,
+        String paymentMethod, String provider,
         int totalAmount,
         Integer approvedAmount
     ) {
@@ -103,7 +100,6 @@ public class Payment {
         this.status = status;
         this.paymentMethod = paymentMethod;
         this.provider = provider;
-        this.isTest = isTest;
         this.totalAmount = totalAmount;
         this.approvedAmount = approvedAmount;
     }
@@ -111,13 +107,13 @@ public class Payment {
     // pgTxId(=Toss paymentKey)가 멱등키 역할을 겸한다(pg_tx_id UNIQUE). 별도 idempotency_key 컬럼 없음(D8).
     public static Payment create(
         UUID orderId, UUID userId,
-        String pgTxId, String provider, String paymentMethod, boolean isTest,
+        String pgTxId, String provider, String paymentMethod,
         int totalAmount
     ) {
         return new Payment(
             UUID.randomUUID(), orderId, userId,
             pgTxId, PaymentStatus.READY,
-            paymentMethod, provider, isTest,
+            paymentMethod, provider,
             totalAmount,
             null
         );

@@ -47,7 +47,7 @@ class KafkaPaymentEventPublisherTest {
     void 결제_승인_시_EventMessage_봉투로_발행한다() {
         stubSendSuccess();
         Payment payment = Payment.create(
-            UUID.randomUUID(), UUID.randomUUID(), "pgTx-1", "TOSS_PAYMENTS", "CARD", true, 10_000);
+            UUID.randomUUID(), UUID.randomUUID(), "pgTx-1", "TOSS_PAYMENTS", "CARD", 10_000);
         payment.markRequested(OffsetDateTime.now());
         OffsetDateTime approvedAt = OffsetDateTime.now();
         payment.approve(10_000, "CARD", "{}", "{}", approvedAt);
@@ -74,7 +74,7 @@ class KafkaPaymentEventPublisherTest {
     void 결제_실패_시_EventMessage_봉투로_발행한다() {
         stubSendSuccess();
         Payment payment = Payment.create(
-            UUID.randomUUID(), UUID.randomUUID(), "pgTx-2", "TOSS_PAYMENTS", "CARD", true, 10_000);
+            UUID.randomUUID(), UUID.randomUUID(), "pgTx-2", "TOSS_PAYMENTS", "CARD", 10_000);
         payment.markRequested(OffsetDateTime.now());
         OffsetDateTime failedAt = OffsetDateTime.now();
         payment.fail("REJECT", "카드 거절", "{}", "{}", failedAt);
@@ -101,7 +101,7 @@ class KafkaPaymentEventPublisherTest {
     void 환불_성공_시_축소된_페이로드로_발행한다() {
         stubSendSuccess();
         Payment payment = Payment.create(
-            UUID.randomUUID(), UUID.randomUUID(), "pgTx-3", "TOSS_PAYMENTS", "CARD", true, 10_000);
+            UUID.randomUUID(), UUID.randomUUID(), "pgTx-3", "TOSS_PAYMENTS", "CARD", 10_000);
         payment.markRequested(OffsetDateTime.now());
         payment.approve(10_000, "CARD", "{}", "{}", OffsetDateTime.now());
         com.prompthub.payment.domain.model.Refund refund =
@@ -129,7 +129,7 @@ class KafkaPaymentEventPublisherTest {
     void 환불_실패_시_축소된_페이로드로_발행한다() {
         stubSendSuccess();
         Payment payment = Payment.create(
-            UUID.randomUUID(), UUID.randomUUID(), "pgTx-4", "TOSS_PAYMENTS", "CARD", true, 10_000);
+            UUID.randomUUID(), UUID.randomUUID(), "pgTx-4", "TOSS_PAYMENTS", "CARD", 10_000);
         payment.markRequested(OffsetDateTime.now());
         payment.approve(10_000, "CARD", "{}", "{}", OffsetDateTime.now());
         com.prompthub.payment.domain.model.Refund refund =

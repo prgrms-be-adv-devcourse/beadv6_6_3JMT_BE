@@ -27,7 +27,7 @@ class PaymentJpaRepositoryTest extends AbstractJpaTest {
 
         Payment payment = Payment.create(
             orderId, userId,
-            "pg-tx-001", "TOSS_PAYMENTS", "CARD", true,
+            "pg-tx-001", "TOSS_PAYMENTS", "CARD",
             9_000
         );
 
@@ -51,7 +51,7 @@ class PaymentJpaRepositoryTest extends AbstractJpaTest {
     void findByOrderIdAndStatusInForUpdate_PAID_상태_조회() {
         UUID orderId = UUID.randomUUID();
         Payment payment = Payment.create(
-            orderId, UUID.randomUUID(), "pg-key", "TOSS_PAYMENTS", "CARD", false, 10_000);
+            orderId, UUID.randomUUID(), "pg-key", "TOSS_PAYMENTS", "CARD", 10_000);
         payment.markRequested(OffsetDateTime.now());
         payment.approve(10_000, "카드", "{}", "{}", OffsetDateTime.now());
         paymentJpaRepository.saveAndFlush(payment);
@@ -68,7 +68,7 @@ class PaymentJpaRepositoryTest extends AbstractJpaTest {
     void findByOrderIdAndStatusInForUpdate_대상_상태_아니면_빈값() {
         UUID orderId = UUID.randomUUID();
         Payment payment = Payment.create(
-            orderId, UUID.randomUUID(), "pg-key2", "TOSS_PAYMENTS", "CARD", false, 10_000);
+            orderId, UUID.randomUUID(), "pg-key2", "TOSS_PAYMENTS", "CARD", 10_000);
         paymentJpaRepository.saveAndFlush(payment); // READY 상태
 
         Optional<Payment> found = paymentJpaRepository.findByOrderIdAndStatusInForUpdate(
@@ -80,7 +80,7 @@ class PaymentJpaRepositoryTest extends AbstractJpaTest {
     @Test
     void existsByPgTxId_존재_여부_확인() {
         Payment payment = Payment.create(
-            UUID.randomUUID(), UUID.randomUUID(), "pg-tx-exists", "TOSS_PAYMENTS", "CARD", false, 10_000);
+            UUID.randomUUID(), UUID.randomUUID(), "pg-tx-exists", "TOSS_PAYMENTS", "CARD", 10_000);
         paymentJpaRepository.saveAndFlush(payment);
 
         assertThat(paymentJpaRepository.existsByPgTxId("pg-tx-exists")).isTrue();

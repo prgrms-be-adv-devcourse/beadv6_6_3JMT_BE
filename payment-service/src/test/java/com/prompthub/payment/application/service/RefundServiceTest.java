@@ -190,7 +190,7 @@ class RefundServiceTest {
 
     private Payment 결제_생성_후_승인(int amount) {
         UUID userId = UUID.randomUUID();
-        Payment payment = Payment.create(UUID.randomUUID(), userId, "pg-key", "TOSS_PAYMENTS", "CARD", false, amount);
+        Payment payment = Payment.create(UUID.randomUUID(), userId, "pg-key", "TOSS_PAYMENTS", "CARD", amount);
         payment.markRequested(OffsetDateTime.now());
         payment.approve(amount, "카드", "{}", "{}", OffsetDateTime.now());
         return payment;

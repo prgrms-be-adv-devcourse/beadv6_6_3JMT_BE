@@ -67,7 +67,7 @@ class ConfirmPaymentServiceTest {
             public void rollback(TransactionStatus status) {}
         });
         service = new ConfirmPaymentService(
-            paymentRepository, orderGateway, paymentGateway, applicationEventPublisher, transactionTemplate, false
+            paymentRepository, orderGateway, paymentGateway, applicationEventPublisher, transactionTemplate
         );
     }
 
@@ -167,7 +167,7 @@ class ConfirmPaymentServiceTest {
         when(paymentGateway.confirm(eq("toss-key"), eq(orderId), eq(10_000)))
             .thenReturn(new ConfirmResult("카드", 10_000, "{\"paymentKey\":\"toss-key\"}", "{}", approvedAt));
         when(paymentRepository.findById(any(UUID.class))).thenAnswer(inv -> {
-            Payment p = Payment.create(orderId, userId, "toss-key", "TOSS_PAYMENTS", "CARD", false, 10_000);
+            Payment p = Payment.create(orderId, userId, "toss-key", "TOSS_PAYMENTS", "CARD", 10_000);
             p.markRequested(OffsetDateTime.now());
             return Optional.of(p);
         });
@@ -197,7 +197,7 @@ class ConfirmPaymentServiceTest {
             .thenThrow(new PaymentGatewayException(
                 PaymentErrorCode.PG_INVALID_REQUEST, "INVALID_REQUEST", "잘못된 요청입니다.", null, "{}"));
         when(paymentRepository.findById(any(UUID.class))).thenAnswer(inv -> {
-            Payment p = Payment.create(orderId, userId, "toss-key", "TOSS_PAYMENTS", "CARD", false, 10_000);
+            Payment p = Payment.create(orderId, userId, "toss-key", "TOSS_PAYMENTS", "CARD", 10_000);
             p.markRequested(OffsetDateTime.now());
             return Optional.of(p);
         });
@@ -230,7 +230,7 @@ class ConfirmPaymentServiceTest {
             .thenThrow(new PaymentGatewayException(
                 PaymentErrorCode.PAYMENT_FAILED, "REJECT", "카드 거절", null, "{}"));
         when(paymentRepository.findById(any(UUID.class))).thenAnswer(inv -> {
-            Payment p = Payment.create(orderId, userId, "toss-key", "TOSS_PAYMENTS", "CARD", false, 10_000);
+            Payment p = Payment.create(orderId, userId, "toss-key", "TOSS_PAYMENTS", "CARD", 10_000);
             p.markRequested(OffsetDateTime.now());
             return Optional.of(p);
         });

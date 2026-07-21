@@ -53,7 +53,7 @@ class OrderEventConsumerIntegrationTest extends AbstractIntegrationTest {
         UUID userId = UUID.randomUUID();
         OffsetDateTime refundedAt = OffsetDateTime.now();
 
-        Payment payment = Payment.create(orderId, userId, "pg-key-refund-1", "TOSS_PAYMENTS", "CARD", false, 10_000);
+        Payment payment = Payment.create(orderId, userId, "pg-key-refund-1", "TOSS_PAYMENTS", "CARD", 10_000);
         payment.markRequested(OffsetDateTime.now());
         payment.approve(10_000, "카드", "{}", "{}", OffsetDateTime.now());
         paymentJpaRepository.saveAndFlush(payment);
@@ -81,7 +81,7 @@ class OrderEventConsumerIntegrationTest extends AbstractIntegrationTest {
         UUID buyerId = UUID.randomUUID();
 
         UUID orderId = UUID.randomUUID();
-        Payment payment = Payment.create(orderId, buyerId, "pg-key-refund-2", "TOSS_PAYMENTS", "CARD", false, 10_000);
+        Payment payment = Payment.create(orderId, buyerId, "pg-key-refund-2", "TOSS_PAYMENTS", "CARD", 10_000);
         payment.markRequested(OffsetDateTime.now());
         payment.approve(10_000, "카드", "{}", "{}", OffsetDateTime.now());
         paymentJpaRepository.saveAndFlush(payment);
