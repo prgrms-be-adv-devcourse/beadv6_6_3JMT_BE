@@ -55,7 +55,7 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void 두번의_부분환불_누적으로_ALL_REFUNDED_도달_및_Kafka_발행() {
+    void 두번의_부분환불_누적으로_전액_소진_및_Kafka_발행() {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         Payment payment = Payment.create(orderId, userId, "pg-key-cumulative", "TOSS_PAYMENTS", "CARD", false, 10_000);
@@ -76,19 +76,18 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
 
         await().atMost(Duration.ofSeconds(15))
             .pollInterval(Duration.ofMillis(300))
-            .untilAsserted(() -> {
-                Payment updated = paymentJpaRepository.findById(payment.getId()).orElseThrow();
-                assertThat(updated.getStatus()).isEqualTo(PaymentStatus.PARTIAL_REFUNDED);
-            });
+            .untilAsserted(() -> assertThat(refundJpaRepository.count()).isEqualTo(1));
 
         send(orderId.toString(), json(orderId, UUID.randomUUID(), 4_000));
 
         await().atMost(Duration.ofSeconds(15))
             .pollInterval(Duration.ofMillis(300))
-            .untilAsserted(() -> {
-                Payment updated = paymentJpaRepository.findById(payment.getId()).orElseThrow();
-                assertThat(updated.getStatus()).isEqualTo(PaymentStatus.ALL_REFUNDED);
-            });
+            .untilAsserted(() -> assertThat(refundJpaRepository.count()).isEqualTo(2));
+
+        Payment updated = paymentJpaRepository.findById(payment.getId()).orElseThrow();
+        assertThat(updated.getStatus()).isEqualTo(PaymentStatus.PAID);
+        int totalRefunded = refundJpaRepository.findAll().stream().mapToInt(r -> r.getRefundAmount()).sum();
+        assertThat(totalRefunded).isEqualTo(10_000);
 
         try {
             long deadline = System.currentTimeMillis() + 10_000;
@@ -132,7 +131,7 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
             .untilAsserted(() -> assertThat(refundJpaRepository.count()).isEqualTo(2));
 
         Payment updated = paymentJpaRepository.findById(payment.getId()).orElseThrow();
-        assertThat(updated.getStatus()).isEqualTo(PaymentStatus.PARTIAL_REFUNDED);
+        assertThat(updated.getStatus()).isEqualTo(PaymentStatus.PAID);
     }
 
     @Test
@@ -154,10 +153,7 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
 
         await().atMost(Duration.ofSeconds(15))
             .pollInterval(Duration.ofMillis(300))
-            .untilAsserted(() -> {
-                Payment updated = paymentJpaRepository.findById(payment.getId()).orElseThrow();
-                assertThat(updated.getStatus()).isEqualTo(PaymentStatus.PARTIAL_REFUNDED);
-            });
+            .untilAsserted(() -> assertThat(refundJpaRepository.count()).isEqualTo(1));
 
         // 두 메시지가 모두 소비될 시간을 확보한 뒤 refund row가 1건만 있는지 확인
         await().pollDelay(Duration.ofSeconds(3)).atMost(Duration.ofSeconds(10))

@@ -16,7 +16,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 
 @Configuration
-@Profile({"dev", "prod", "test"})
+@Profile({"default", "local", "dev", "prod", "test"})
 public class ProductGrpcResilienceConfig {
 
 	@Bean

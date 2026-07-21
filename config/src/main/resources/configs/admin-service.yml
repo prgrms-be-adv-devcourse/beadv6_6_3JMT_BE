@@ -12,6 +12,10 @@ spring:
       #  어드민은 절대 스키마를 만들거나 바꾸지 않는다
       ddl-auto: none
     open-in-view: false
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
 
 management:
   endpoints:
