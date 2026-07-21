@@ -149,13 +149,15 @@ public class ProductSellerService implements ProductSellerUseCase {
 		List<Product> all = productRepository.findBySellerId(sellerId);
 		Map<UUID, List<Product>> byFamily = all.stream()
 			.collect(Collectors.groupingBy(Product::familyRootId));
+		Map<UUID, Double> averageRatings = productRepository.getAverageRatings(List.copyOf(byFamily.keySet()));
 		return byFamily.entrySet().stream()
 			.map(entry -> {
 				ProductFamily family = ProductFamily.of(entry.getKey(), entry.getValue());
 				Product representative = family.currentForSeller()
 					.orElseThrow(() -> new IllegalStateException("family에 대표 row가 없습니다. familyRootId=" + entry.getKey()));
 				int familySalesCount = entry.getValue().stream().mapToInt(Product::getSalesCount).sum();
-				return SellerProductListItemResponse.from(representative, familySalesCount, storageClient);
+				double averageRating = averageRatings.getOrDefault(entry.getKey(), 0.0);
+				return SellerProductListItemResponse.from(representative, familySalesCount, averageRating, storageClient);
 			})
 			.sorted(Comparator.comparing(SellerProductListItemResponse::updatedAt).reversed())
 			.toList();
@@ -177,7 +179,8 @@ public class ProductSellerService implements ProductSellerUseCase {
 		ProductFamily family = ProductFamily.of(familyRootId, members);
 		Product representative = family.currentForSeller().orElse(anchor);
 		Product liveOnSale = family.currentOnSale().orElse(null);
-		return SellerProductDetailResponse.from(representative, liveOnSale, family.sellerHistory(), storageClient);
+		double averageRating = productRepository.getAverageRating(familyRootId);
+		return SellerProductDetailResponse.from(representative, liveOnSale, family.sellerHistory(), averageRating, storageClient);
 	}
 
 	private ProductType parseProductType(String productType) {

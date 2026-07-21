@@ -13,12 +13,18 @@ public record SellerProductListItemResponse(
 	int amount,
 	String status,
 	int salesCount,
+	double averageRating,
 	String thumbnailUrl,
 	String rejectionReason,
 	LocalDateTime createdAt,
 	LocalDateTime updatedAt
 ) {
-	public static SellerProductListItemResponse from(Product product, int familySalesCount, StorageClient storageClient) {
+	public static SellerProductListItemResponse from(
+		Product product,
+		int familySalesCount,
+		double averageRating,
+		StorageClient storageClient
+	) {
 		return new SellerProductListItemResponse(
 			product.getId(),
 			product.getName(),
@@ -27,6 +33,7 @@ public record SellerProductListItemResponse(
 			product.getAmount(),
 			product.getStatus().name(),
 			familySalesCount,
+			averageRating,
 			toUrl(product.getThumbnailUrl(), storageClient),
 			product.getRejectionReason(),
 			product.getCreatedAt(),

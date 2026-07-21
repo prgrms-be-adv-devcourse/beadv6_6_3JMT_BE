@@ -541,6 +541,7 @@
       "amount": 5000,
       "status": "DRAFT",
       "salesCount": 0,
+      "averageRating": 0,
       "thumbnailUrl": null,
       "rejectionReason": null,
       "createdAt": "2024-01-01T00:00:00",
@@ -560,6 +561,7 @@
 | amount | integer | 가격 |
 | status | string | `DRAFT` \| `PENDING_REVIEW` \| `ON_SALE` \| `REJECTED` \| `STOPPED` |
 | salesCount | integer | 누적 판매 수 |
+| averageRating | number | family(버전군) 전체 리뷰 평균 별점. 리뷰 없으면 0 |
 | thumbnailUrl | string \| null | 썸네일 이미지 URL |
 | rejectionReason | string \| null | 반려 사유 (REJECTED 상태일 때) |
 | createdAt | string | 생성일시 |
@@ -592,6 +594,7 @@
     "externalUrl": null,
     "status": "DRAFT",
     "version": "1.0",
+    "averageRating": 0,
     "thumbnailUrl": null,
     "tags": ["태그1", "태그2"],
     "liveVersion": "1.0",
@@ -613,6 +616,7 @@
 |------|------|------|
 | fileUrl | string \| null | 산출물 파일 presigned 다운로드 URL (PPT/EXCEL). 없으면 null |
 | externalUrl | string \| null | 외부 노션 링크 (NOTION). 없으면 null |
+| averageRating | number | family(버전군) 전체 리뷰 평균 별점. 리뷰 없으면 0 |
 | liveVersion | string \| null | 현재 판매중(ON_SALE) 버전 표기(`major.patch`). 판매중 버전이 없으면 null |
 | versions | array | 이 상품의 버전 이력 목록 |
 | versions[].version | string | 버전 표기(`major.patch`) |

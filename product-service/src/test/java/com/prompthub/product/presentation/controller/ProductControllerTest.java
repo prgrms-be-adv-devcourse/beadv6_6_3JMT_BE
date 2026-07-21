@@ -134,7 +134,7 @@ class ProductControllerTest {
 		void getMyProducts_success() throws Exception {
 			SellerProductListItemResponse item = new SellerProductListItemResponse(
 				PRODUCT_ID, "리액트 컴포넌트 리팩터링 도우미", "PROMPT", "GPT-4o", 7900,
-				"ON_SALE", 760, "https://cdn.example.com/images/thumb.jpg", null, CREATED_AT, UPDATED_AT
+				"ON_SALE", 760, 4.5, "https://cdn.example.com/images/thumb.jpg", null, CREATED_AT, UPDATED_AT
 			);
 			given(productSellerUseCase.getMyProducts(SELLER_ID)).willReturn(List.of(item));
 
@@ -142,7 +142,8 @@ class ProductControllerTest {
 					.header("X-User-Id", SELLER_ID.toString()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
-				.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID.toString()));
+				.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data[0].averageRating").value(4.5));
 		}
 	}
 
@@ -337,7 +338,7 @@ class ProductControllerTest {
 		void getMyProduct_success() throws Exception {
 			SellerProductDetailResponse response = new SellerProductDetailResponse(
 				PRODUCT_ID, "리액트 컴포넌트 리팩터링 도우미", "PROMPT", "GPT-4o", 7900,
-				"컴포넌트 분리, 상태 정리, 타입 개선", "본문 내용", null, null, "DRAFT", "1.0",
+				"컴포넌트 분리, 상태 정리, 타입 개선", "본문 내용", null, null, "DRAFT", "1.0", 4.5,
 				"https://cdn.example.com/images/thumb.jpg", List.of(), List.of("리액트"), null, List.of()
 			);
 			given(productSellerUseCase.getMyProduct(SELLER_ID, PRODUCT_ID)).willReturn(response);
@@ -346,7 +347,8 @@ class ProductControllerTest {
 					.header("X-User-Id", SELLER_ID.toString()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
-				.andExpect(jsonPath("$.data.productId").value(PRODUCT_ID.toString()));
+				.andExpect(jsonPath("$.data.productId").value(PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data.averageRating").value(4.5));
 		}
 	}
 
