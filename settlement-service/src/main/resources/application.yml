@@ -19,5 +19,7 @@ api:
   init: /api/v2
 
 settlement:
+  execution:
+    mode: service
   manual-api:
     enabled: false

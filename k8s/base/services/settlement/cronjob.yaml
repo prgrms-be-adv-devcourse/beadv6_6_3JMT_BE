@@ -1,0 +1,128 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: settlement-weekly
+  labels:
+    app.kubernetes.io/name: settlement-service
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: batch
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  schedule: "0 0 * * 1"
+  timeZone: Asia/Seoul
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 7200
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: settlement-service
+            app.kubernetes.io/part-of: prompthub
+            app.kubernetes.io/component: batch
+            app.kubernetes.io/managed-by: kustomize
+        spec:
+          automountServiceAccountToken: false
+          enableServiceLinks: false
+          terminationGracePeriodSeconds: 30
+          restartPolicy: Never
+          nodeSelector:
+            prompthub.io/node-pool: application
+          imagePullSecrets:
+            - name: ghcr-pull-secret
+          initContainers:
+            - name: wait-for-dependencies
+              image: busybox:1.37.0
+              imagePullPolicy: IfNotPresent
+              command:
+                - sh
+                - -ec
+                - |
+                  until wget -q -O /dev/null http://config:8888/actuator/health; do sleep 2; done
+                  until nc -z postgres 5432; do sleep 2; done
+                  until nc -z kafka 9092; do sleep 2; done
+                  until nc -z order-service 9083; do sleep 2; done
+              resources:
+                requests:
+                  cpu: 5m
+                  memory: 8Mi
+                limits:
+                  cpu: 50m
+                  memory: 32Mi
+          containers:
+            - name: settlement-service
+              image: ghcr.io/prgrms-be-adv-devcourse/prompthub-settlement-service@sha256:b49d482d2cae85707e70b7a970878d6197e874806a46f3151c67acd385976222
+              imagePullPolicy: IfNotPresent
+              args:
+                - --spring.main.web-application-type=none
+                - --settlement.execution.mode=cronjob
+                - --settlement.manual-api.enabled=false
+                - --eureka.client.enabled=false
+                - --spring.cloud.discovery.enabled=false
+                - --spring.grpc.client.channel.order-service.target=static://order-service:$(ORDER_GRPC_SERVER_PORT)
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              env:
+                - name: SPRING_CONFIG_IMPORT
+                  valueFrom:
+                    secretKeyRef:
+                      name: runtime-secret
+                      key: SPRING_CONFIG_IMPORT
+                - name: POSTGRES_HOST
+                  valueFrom:
+                    secretKeyRef:
+                      name: runtime-secret
+                      key: POSTGRES_HOST
+                - name: POSTGRES_PORT
+                  valueFrom:
+                    secretKeyRef:
+                      name: runtime-secret
+                      key: POSTGRES_PORT
+                - name: POSTGRES_DB
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: POSTGRES_DB
+                - name: POSTGRES_USER
+                  value: settlement_service
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: SETTLEMENT_SERVICE_PASSWORD
+                - name: KAFKA_BOOTSTRAP_SERVERS
+                  valueFrom:
+                    secretKeyRef:
+                      name: runtime-secret
+                      key: KAFKA_BOOTSTRAP_SERVERS
+                - name: USER_GRPC_SERVER_PORT
+                  valueFrom:
+                    secretKeyRef:
+                      name: runtime-secret
+                      key: USER_GRPC_SERVER_PORT
+                - name: PRODUCT_GRPC_SERVER_PORT
+                  valueFrom:
+                    secretKeyRef:
+                      name: runtime-secret
+                      key: PRODUCT_GRPC_SERVER_PORT
+                - name: ORDER_GRPC_SERVER_PORT
+                  valueFrom:
+                    secretKeyRef:
+                      name: runtime-secret
+                      key: ORDER_GRPC_SERVER_PORT
+                - name: JAVA_TOOL_OPTIONS
+                  value: -XX:InitialRAMPercentage=25.0 -XX:MaxRAMPercentage=70.0 -XX:+ExitOnOutOfMemoryError
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
