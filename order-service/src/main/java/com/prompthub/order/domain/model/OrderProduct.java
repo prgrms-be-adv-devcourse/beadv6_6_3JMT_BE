@@ -169,6 +169,17 @@ public class OrderProduct {
     }
 
     public void refund(LocalDateTime refundedAt) {
+        if (this.orderStatus == OrderProductStatus.PAID) {
+            requestRefund();
+        }
+        completeRefund(refundedAt);
+    }
+
+    public void requestRefund() {
+        transitionTo(OrderProductStatus.REFUND_REQUESTED);
+    }
+
+    public void completeRefund(LocalDateTime refundedAt) {
         transitionTo(OrderProductStatus.REFUNDED);
         this.refundedAt = refundedAt;
     }
