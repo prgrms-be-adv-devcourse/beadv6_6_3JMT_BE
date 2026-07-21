@@ -1,8 +1,10 @@
 package com.prompthub.order.presentation;
 
+import com.prompthub.order.application.dto.RefundResult;
 import com.prompthub.order.application.usecase.ConfirmDownloadUseCase;
 import com.prompthub.order.application.usecase.CreateOrderUseCase;
 import com.prompthub.order.application.usecase.OrderQueryUseCase;
+import com.prompthub.order.application.service.refund.OrderRefundService;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -68,6 +70,9 @@ class OrderControllerTest {
 	@Mock
 	private CreateOrderUseCase createOrderUseCase;
 
+	@Mock
+	private OrderRefundService orderRefundService;
+
 	@BeforeEach
 	void setUp() {
 		LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
@@ -76,7 +81,8 @@ class OrderControllerTest {
 		mockMvc = MockMvcBuilders.standaloneSetup(new OrderController(
 			confirmDownloadUseCase,
 			orderQueryUseCase,
-			createOrderUseCase
+			createOrderUseCase,
+			orderRefundService
 		))
 			.setControllerAdvice(new GlobalExceptionHandler())
 			.setValidator(validator)
@@ -570,6 +576,57 @@ class OrderControllerTest {
 
 				verifyNoInteractions(orderQueryUseCase);
 			}
+		}
+	}
+
+	@Nested
+	@DisplayName("주문 상품 다건 부분 환불 요청")
+	class RequestRefund {
+
+		@Test
+		void requestRefund_returnsAcceptedResult() throws Exception {
+			UUID secondProductId = UUID.randomUUID();
+			UUID refundRequestId = UUID.randomUUID();
+			when(orderRefundService.requestRefund(
+				eq(BUYER_ID),
+				eq(ORDER_ID),
+				eq(List.of(ORDER_PRODUCT_ID, secondProductId))
+			)).thenReturn(new RefundResult(
+				refundRequestId,
+				ORDER_ID,
+				List.of(ORDER_PRODUCT_ID, secondProductId),
+				30_000,
+				"REQUESTED"
+			));
+
+			mockMvc.perform(post("/api/v2/orders/{orderId}/refund", ORDER_ID)
+					.header(AuthHeaders.USER_ID, BUYER_ID)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("""
+						{"orderProductIds":["%s","%s"]}
+						""".formatted(ORDER_PRODUCT_ID, secondProductId)))
+				.andExpect(status().isAccepted())
+				.andExpect(jsonPath("$.data.refundRequestId").value(refundRequestId.toString()))
+				.andExpect(jsonPath("$.data.orderProductIds.length()").value(2))
+				.andExpect(jsonPath("$.data.refundAmount").value(30_000))
+				.andExpect(jsonPath("$.data.status").value("REQUESTED"));
+
+			verify(orderRefundService).requestRefund(
+				BUYER_ID,
+				ORDER_ID,
+				List.of(ORDER_PRODUCT_ID, secondProductId)
+			);
+		}
+
+		@Test
+		void requestRefund_rejectsEmptyProducts() throws Exception {
+			mockMvc.perform(post("/api/v2/orders/{orderId}/refund", ORDER_ID)
+					.header(AuthHeaders.USER_ID, BUYER_ID)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("{\"orderProductIds\":[]}"))
+				.andExpect(status().isBadRequest());
+
+			verifyNoInteractions(orderRefundService);
 		}
 	}
 }

@@ -12,6 +12,14 @@ import java.util.UUID;
 @Component
 public class OrderEventMessageFactory {
 
+    public record RefundRequestedPayload(
+            UUID orderId,
+            UUID refundRequestId,
+            int refundAmount,
+            LocalDateTime requestedAt
+    ) {
+    }
+
     public EventMessage<OrderPaidPayload> createOrderPaidMessage(
             UUID orderId,
             OrderPaidPayload payload
@@ -34,6 +42,20 @@ public class OrderEventMessageFactory {
                 UUID.randomUUID(),
                 OrderEventType.ORDER_REFUND.code(),
                 LocalDateTime.now(),
+                "ORDER",
+                orderId,
+                payload
+        );
+    }
+
+    public EventMessage<RefundRequestedPayload> createOrderRefundRequestedMessage(
+            UUID orderId,
+            RefundRequestedPayload payload
+    ) {
+        return new EventMessage<>(
+                UUID.randomUUID(),
+                OrderEventType.ORDER_REFUND_REQUESTED.code(),
+                payload.requestedAt(),
                 "ORDER",
                 orderId,
                 payload

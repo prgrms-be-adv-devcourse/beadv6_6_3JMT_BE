@@ -4,6 +4,7 @@ import com.prompthub.order.application.dto.CreateOrderCommand;
 import com.prompthub.order.application.usecase.ConfirmDownloadUseCase;
 import com.prompthub.order.application.usecase.CreateOrderUseCase;
 import com.prompthub.order.application.usecase.OrderQueryUseCase;
+import com.prompthub.order.application.service.refund.OrderRefundService;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.GlobalExceptionHandler;
 import com.prompthub.order.global.web.AuthHeaders;
@@ -62,6 +63,9 @@ class OrderControllerCreateTest {
 	@Mock
 	private OrderQueryUseCase orderQueryUseCase;
 
+	@Mock
+	private OrderRefundService orderRefundService;
+
 	@BeforeEach
 	void setUp() {
 		LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
@@ -70,7 +74,8 @@ class OrderControllerCreateTest {
 		mockMvc = MockMvcBuilders.standaloneSetup(new OrderController(
 			confirmDownloadUseCase,
 			orderQueryUseCase,
-			createOrderUseCase
+			createOrderUseCase,
+			orderRefundService
 		))
 			.setControllerAdvice(new GlobalExceptionHandler())
 			.setValidator(validator)

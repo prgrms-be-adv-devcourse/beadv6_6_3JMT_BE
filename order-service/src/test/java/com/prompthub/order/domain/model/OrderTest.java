@@ -8,17 +8,21 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
 import static com.prompthub.order.fixture.OrderFixture.CANCELED_AT;
 import static com.prompthub.order.fixture.OrderFixture.ORDER_NUMBER;
 import static com.prompthub.order.fixture.OrderFixture.PAID_AT;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_AMOUNT_1;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_AMOUNT_2;
 import static com.prompthub.order.fixture.OrderFixture.REFUNDED_AT;
 import static com.prompthub.order.fixture.OrderFixture.TOTAL_AMOUNT;
 import static com.prompthub.order.fixture.OrderFixture.createOrderProduct1;
 import static com.prompthub.order.fixture.OrderFixture.createOrderProduct2;
 import static com.prompthub.order.fixture.OrderFixture.createPendingOrder;
+import static com.prompthub.order.fixture.OrderFixture.createPaidOrderWithProducts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -140,7 +144,7 @@ class OrderTest {
 
         assertThatThrownBy(() -> order.markFailed(CANCELED_AT))
             .isInstanceOf(OrderException.class)
-            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
 
         assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
         assertThat(order.getCompletedAt()).isEqualTo(PAID_AT);
@@ -238,13 +242,13 @@ class OrderTest {
             REFUNDED_AT
         ))
             .isInstanceOf(OrderException.class)
-            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_REFUND_NOT_ALLOWED);
         assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
         assertThat(product.getOrderStatus()).isEqualTo(OrderProductStatus.PENDING);
     }
 
     @Test
-    void refundOrderProduct_duplicateRefund_isIdempotent() {
+	void refundOrderProduct_duplicateRefund_isIdempotent() {
         Order order = createPendingOrder();
         OrderProduct product = createOrderProduct1();
         order.addOrderProduct(product);
@@ -260,6 +264,38 @@ class OrderTest {
         assertThat(duplicate).isEmpty();
         assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.ALL_REFUNDED);
         assertThat(order.getRefundedAt()).isEqualTo(REFUNDED_AT);
-        assertThat(product.getRefundedAt()).isEqualTo(REFUNDED_AT);
-    }
+		assertThat(product.getRefundedAt()).isEqualTo(REFUNDED_AT);
+	}
+
+	@Test
+	void requestRefund_marksOrderAndSelectedProductsOnly() {
+		Order order = createPaidOrderWithProducts();
+		OrderProduct first = order.getOrderProducts().getFirst();
+		OrderProduct second = order.getOrderProducts().getLast();
+
+		order.requestRefund(List.of(first.getId()));
+
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.REFUND_REQUESTED);
+		assertThat(first.getOrderStatus()).isEqualTo(OrderProductStatus.REFUND_REQUESTED);
+		assertThat(second.getOrderStatus()).isEqualTo(OrderProductStatus.PAID);
+		assertThat(order.canAccessContent(first)).isFalse();
+		assertThat(order.canAccessContent(second)).isTrue();
+	}
+
+	@Test
+	void completeRefund_refundsAllSelectedProductsAndRecalculatesPartialStatus() {
+		Order order = createPaidOrderWithProducts();
+		List<OrderProduct> selected = List.copyOf(order.getOrderProducts());
+		order.requestRefund(selected.stream().map(OrderProduct::getId).toList());
+
+		List<OrderProduct> refunded = order.completeRequestedRefund(
+			PRODUCT_AMOUNT_1 + PRODUCT_AMOUNT_2,
+			REFUNDED_AT
+		);
+
+		assertThat(refunded).containsExactlyElementsOf(selected);
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.ALL_REFUNDED);
+		assertThat(order.getRefundedAt()).isEqualTo(REFUNDED_AT);
+		assertThat(selected).allMatch(product -> product.getOrderStatus() == OrderProductStatus.REFUNDED);
+	}
 }

@@ -36,6 +36,8 @@ public enum ErrorCode implements com.prompthub.exception.ErrorCode {
     ORDER_PAYMENT_AMOUNT_MISMATCH(HttpStatus.BAD_REQUEST, "O014", "주문 금액과 결제 승인 금액이 일치하지 않습니다."),
     ORDER_EXPIRED(HttpStatus.CONFLICT, "O015", "만료된 주문입니다."),
     ORDER_REFUND_AMOUNT_MISMATCH(HttpStatus.BAD_REQUEST, "O016", "주문 상품 금액과 환불 금액이 일치하지 않습니다."),
+    ORDER_REFUND_NOT_ALLOWED(HttpStatus.CONFLICT, "O017", "환불할 수 없는 주문 또는 주문 상품 상태입니다."),
+    ORDER_REFUND_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "O019", "처리 중인 환불 요청을 찾을 수 없습니다."),
     ORDER_CONTENT_ACCESS_DENIED(HttpStatus.FORBIDDEN, "E001", "구매 콘텐츠를 열람할 수 없습니다."),
     ORDER_REVIEW_ACCESS_DENIED(HttpStatus.FORBIDDEN, "E002", "구매한 상품에만 리뷰를 작성할 수 있습니다."),
     CART_ITEM_DUPLICATED(HttpStatus.CONFLICT, "C001", "이미 장바구니에 담긴 상품입니다."),

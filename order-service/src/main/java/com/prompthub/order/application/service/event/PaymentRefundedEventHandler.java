@@ -24,4 +24,21 @@ public class PaymentRefundedEventHandler {
 			payload
 		);
 	}
+
+	public void handleFailed(EventMessage<JsonNode> message) {
+		RefundFailedPayload payload = eventPayloadMapper.convert(message, RefundFailedPayload.class);
+		paymentRefundedProcessor.processFailed(
+			message.eventId(),
+			message.eventType(),
+			message.occurredAt(),
+			payload
+		);
+	}
+
+	public record RefundFailedPayload(
+		java.util.UUID orderId,
+		int refundAmount,
+		String failedAt
+	) {
+	}
 }
