@@ -25,8 +25,11 @@ public final class WhitelistPathResolver {
         "/products/*/recommends"
     );
 
-    private static final List<String> SELLER_LOOKUP_PATH_SUFFIXES = List.of(
-        "/sellers/product",
+    private static final List<String> SELLER_SINGLE_LOOKUP_PATH_SUFFIXES = List.of(
+        "/sellers/product"
+    );
+
+    private static final List<String> SELLER_BATCH_LOOKUP_PATH_SUFFIXES = List.of(
         "/sellers/products"
     );
 
@@ -45,30 +48,30 @@ public final class WhitelistPathResolver {
     /** 버전과 무관하게 항상 인증을 우회하는 경로 + 버전별 auth 경로(user-service). */
     public static List<String> authWhitelist(GatewayApiVersionProperties apiVersionProperties) {
         List<String> paths = new ArrayList<>(STATIC_WHITELIST);
-        for (String version : apiVersionProperties.versionsFor(USER_SERVICE_KEY)) {
-            for (String suffix : AUTH_PATH_SUFFIXES) {
-                paths.add("/api/" + version + suffix);
-            }
-        }
+        paths.addAll(resolve(apiVersionProperties, USER_SERVICE_KEY, AUTH_PATH_SUFFIXES));
         return paths;
     }
 
     /** GET으로만 permitAll인 상품 조회 경로(product-service). */
     public static List<String> productReadWhitelist(GatewayApiVersionProperties apiVersionProperties) {
-        List<String> paths = new ArrayList<>();
-        for (String version : apiVersionProperties.versionsFor(PRODUCT_SERVICE_KEY)) {
-            for (String suffix : PRODUCT_READ_PATH_SUFFIXES) {
-                paths.add("/api/" + version + suffix);
-            }
-        }
-        return paths;
+        return resolve(apiVersionProperties, PRODUCT_SERVICE_KEY, PRODUCT_READ_PATH_SUFFIXES);
     }
 
-    /** POST로만 permitAll인 판매자 정보 조회 경로(user-service). */
+    /** GET으로만 permitAll인 판매자 단건 조회 경로(user-service, sellerId 쿼리파라미터). */
+    public static List<String> sellerSingleLookupWhitelist(GatewayApiVersionProperties apiVersionProperties) {
+        return resolve(apiVersionProperties, USER_SERVICE_KEY, SELLER_SINGLE_LOOKUP_PATH_SUFFIXES);
+    }
+
+    /** POST로만 permitAll인 판매자 배치 조회 경로(user-service). */
     public static List<String> sellerLookupWhitelist(GatewayApiVersionProperties apiVersionProperties) {
+        return resolve(apiVersionProperties, USER_SERVICE_KEY, SELLER_BATCH_LOOKUP_PATH_SUFFIXES);
+    }
+
+    private static List<String> resolve(
+            GatewayApiVersionProperties apiVersionProperties, String serviceKey, List<String> suffixes) {
         List<String> paths = new ArrayList<>();
-        for (String version : apiVersionProperties.versionsFor(USER_SERVICE_KEY)) {
-            for (String suffix : SELLER_LOOKUP_PATH_SUFFIXES) {
+        for (String version : apiVersionProperties.versionsFor(serviceKey)) {
+            for (String suffix : suffixes) {
                 paths.add("/api/" + version + suffix);
             }
         }
