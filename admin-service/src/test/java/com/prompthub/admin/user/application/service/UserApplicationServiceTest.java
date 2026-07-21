@@ -3,11 +3,14 @@ package com.prompthub.admin.user.application.service;
 import com.prompthub.admin.auth.application.usecase.SessionRevocationUseCase;
 import com.prompthub.admin.auth.domain.repository.AuthorizationCacheRepository;
 import com.prompthub.admin.global.exception.AdminException;
+import com.prompthub.admin.user.application.dto.ChangeUserRoleCommand;
 import com.prompthub.admin.user.application.dto.ChangeUserStatusCommand;
 import com.prompthub.admin.user.application.dto.UserListQuery;
 import com.prompthub.admin.user.application.dto.UserPageResult;
+import com.prompthub.admin.user.application.dto.UserRoleResult;
 import com.prompthub.admin.user.application.dto.UserStatusResult;
 import com.prompthub.admin.user.domain.model.User;
+import com.prompthub.admin.user.domain.model.UserRole;
 import com.prompthub.admin.user.domain.model.UserStatus;
 import com.prompthub.admin.user.domain.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -90,6 +93,48 @@ class UserApplicationServiceTest {
 
 		assertThatThrownBy(() ->
 			userApplicationService.changeUserStatus(new ChangeUserStatusCommand(userId, UserStatus.BLOCKED)))
+			.isInstanceOf(AdminException.class);
+	}
+
+	@Test
+	void seller로_바꾸면_SELLER_역할을_추가하고_인가캐시를_무효화한다() throws Exception {
+		UUID userId = UUID.randomUUID();
+		User user = newUser(userId, UserStatus.ACTIVE);
+		user.addRole(UserRole.BUYER);
+		given(userRepository.findById(userId)).willReturn(Optional.of(user));
+		given(userRepository.save(user)).willReturn(user);
+
+		UserRoleResult result = userApplicationService.changeUserRole(
+			new ChangeUserRoleCommand(userId, UserRole.SELLER));
+
+		assertThat(result.role()).isEqualTo(UserRole.SELLER);
+		assertThat(user.getRoles()).contains(UserRole.BUYER, UserRole.SELLER);
+		then(authorizationCacheRepository).should().evict(userId);
+	}
+
+	@Test
+	void buyer로_바꾸면_SELLER_역할만_회수한다() throws Exception {
+		UUID userId = UUID.randomUUID();
+		User user = newUser(userId, UserStatus.ACTIVE);
+		user.addRole(UserRole.BUYER);
+		user.addRole(UserRole.SELLER);
+		given(userRepository.findById(userId)).willReturn(Optional.of(user));
+		given(userRepository.save(user)).willReturn(user);
+
+		UserRoleResult result = userApplicationService.changeUserRole(
+			new ChangeUserRoleCommand(userId, UserRole.BUYER));
+
+		assertThat(result.role()).isEqualTo(UserRole.BUYER);
+		assertThat(user.getRoles()).containsExactly(UserRole.BUYER);
+	}
+
+	@Test
+	void 역할변경_대상_사용자가_없으면_USER_NOT_FOUND를_던진다() {
+		UUID userId = UUID.randomUUID();
+		given(userRepository.findById(userId)).willReturn(Optional.empty());
+
+		assertThatThrownBy(() ->
+			userApplicationService.changeUserRole(new ChangeUserRoleCommand(userId, UserRole.SELLER)))
 			.isInstanceOf(AdminException.class);
 	}
 
