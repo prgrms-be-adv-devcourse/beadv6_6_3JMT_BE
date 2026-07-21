@@ -7,24 +7,22 @@ import java.util.List;
  * 버전 프리픽스(/api/v1, /api/v2 ...)만 {@link com.prompthub.apigateway.config.GatewayApiVersionProperties}
  * 설정에서 읽어 조합한다.
  * <p>
- * order는 낮을수록 우선순위가 높다. settlement-service의 배치 경로가
- * admin-service의 상위 경로(/admin/settlements/**)보다 먼저 매칭되어야 하므로
- * 명시적으로 order를 부여해 Map/YAML 순회 순서와 무관하게 우선순위를 보존한다.
+ * order는 낮을수록 우선순위가 높다. 명시적인 order로 Map/YAML 순회 순서와
+ * 무관하게 서비스 라우트 우선순위를 보존한다.
  */
 public record VersionedServiceRoute(String id, String uri, List<String> pathSuffixes, int order) {
 
     public static final List<VersionedServiceRoute> ALL = List.of(
         new VersionedServiceRoute(
-            "settlement-service",
-            "lb://SETTLEMENT-SERVICE",
-            List.of("/admin/settlements/batch/**"),
-            0
-        ),
-        new VersionedServiceRoute(
             "admin-service",
             "lb://ADMIN-SERVICE",
-            List.of("/admin/settlements/**", "/admin/orders", "/admin/orders/**", "/admin/products", "/admin/products/**"),
-            1
+            List.of(
+                "/admin/settlements/**", "/admin/orders", "/admin/orders/**",
+                "/admin/users", "/admin/users/**", "/admin/stats/users",
+                "/admin/sellers/register", "/admin/sellers/register/**",
+                "/admin/products", "/admin/products/**"
+            ),
+            0
         ),
         new VersionedServiceRoute(
             "order-service",
@@ -33,7 +31,7 @@ public record VersionedServiceRoute(String id, String uri, List<String> pathSuff
                 "/orders", "/orders/**",
                 "/cart", "/cart/**"
             ),
-            2
+            1
         ),
         new VersionedServiceRoute(
             "product-service",
@@ -42,13 +40,13 @@ public record VersionedServiceRoute(String id, String uri, List<String> pathSuff
                 "/products", "/products/**",
                 "/sellers/me/products", "/sellers/me/products/**"
             ),
-            3
+            2
         ),
         new VersionedServiceRoute(
             "payment-service",
             "lb://PAYMENT-SERVICE",
             List.of("/payments/**"),
-            4
+            3
         ),
         new VersionedServiceRoute(
             "user-service",
@@ -56,9 +54,9 @@ public record VersionedServiceRoute(String id, String uri, List<String> pathSuff
             List.of(
                 "/auth/**", "/users/**",
                 "/seller/**", "/sellers/**",
-                "/wishlists/**", "/admin/**"
+                "/wishlists/**"
             ),
-            5
+            4
         )
     );
 

@@ -11,6 +11,3 @@ spring:
         initial-interval: 1000
         max-interval: 2000
         multiplier: 1.1
-
-api:
-  init: /api/v2

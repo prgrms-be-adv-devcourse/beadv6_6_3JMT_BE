@@ -28,7 +28,7 @@ kubectl kustomize k8s/overlays/ec2-kubeadm
 bash scripts/validate-k8s-manifests.sh
 ```
 
-스크립트는 모든 패키지가 렌더링되는지, `latest` 이미지나 미정 placeholder가 없는지, 실제 Secret이 base에 포함되지 않는지를 확인한다. 자동 CD용 `applications` 패키지가 Deployment 9개와 Service 9개만 포함하는지도 검사한다. Ingress Controller의 host network·이미지 digest·필수 인자와 EC2 kubeadm overlay의 Gateway Ingress를 검사하고 NodePort·LoadBalancer 회귀를 차단한다. 또한 Kubernetes CD의 자동·수동 배포 경계, rollback 명령과 기존 Compose CD의 자동 trigger 비활성 상태를 검사한다.
+스크립트는 모든 패키지가 렌더링되는지, `latest` 이미지나 미정 placeholder가 없는지, 실제 Secret이 base에 포함되지 않는지를 확인한다. 자동 CD용 `applications` 패키지가 Deployment 8개, Service 8개와 `CronJob/settlement-weekly` 1개만 포함하는지도 검사한다. Ingress Controller의 host network·이미지 digest·필수 인자와 EC2 kubeadm overlay의 Gateway Ingress를 검사하고 NodePort·LoadBalancer 회귀를 차단한다. 또한 Kubernetes CD의 자동·수동 배포 경계, rollback 명령과 기존 Compose CD의 자동 trigger 비활성 상태를 검사한다.
 
 Kafka Pod는 `enableServiceLinks: false`를 유지한다. 이 값을 제거하면 Kubernetes가 `kafka` Service에서 `KAFKA_PORT=tcp://...`를 자동 생성하고, Confluent 이미지가 이를 레거시 설정으로 해석해 시작 단계에서 종료한다.
 
@@ -78,9 +78,9 @@ jq
 KUBECONFIG=/home/ubuntu/.kube/config
 ```
 
-`develop`에 push 또는 merge되면 변경된 애플리케이션 이미지를 빌드해 GHCR에 짧은 Git SHA tag로 push하고 Deployment를 순차 갱신한다. Kubernetes 플랫폼·서비스·Gateway 매니페스트 변경도 별도로 감지하며, 변경 시 `k8s/overlays/ec2-kubeadm/applications`를 새 image tag와 함께 server-side dry-run 후 자동 적용한다. 공통 빌드 파일, 애플리케이션 매니페스트 또는 Kubernetes CD 워크플로가 바뀌면 애플리케이션 전체를 대상으로 한다.
+`develop`에 push 또는 merge되면 변경된 애플리케이션 이미지를 빌드해 GHCR에 짧은 Git SHA tag로 push한다. 상시 서비스는 Deployment를 순차 갱신하고, settlement-service는 `CronJob/settlement-weekly`의 Job template 이미지만 갱신한다. Kubernetes 플랫폼·서비스·Gateway 매니페스트 변경도 별도로 감지하며, 변경 시 `k8s/overlays/ec2-kubeadm/applications`를 새 image tag와 함께 server-side dry-run 후 자동 적용한다. 공통 빌드 파일, 애플리케이션 매니페스트 또는 Kubernetes CD 워크플로가 바뀌면 애플리케이션 전체를 대상으로 한다.
 
-자동 매니페스트 적용 범위에는 Config, Discovery, 비즈니스 서비스 6개와 API Gateway의 Deployment·Service만 포함한다. StorageClass, PV/PVC, PostgreSQL, Redis, Kafka, Ingress Controller와 Gateway Ingress는 기존 수동 배포 경계를 유지한다. 별도의 활성화 변수는 사용하지 않으므로 Secret, kubeconfig, 기존 Docker 중지와 cutover 준비가 끝난 뒤에만 Kubernetes CD가 포함된 PR을 `develop`에 머지한다.
+자동 매니페스트 적용 범위에는 Config, Discovery, 상시 비즈니스 서비스 5개와 API Gateway의 Deployment·Service, 그리고 settlement 주간 CronJob이 포함된다. StorageClass, PV/PVC, PostgreSQL, Redis, Kafka, Ingress Controller와 Gateway Ingress는 기존 수동 배포 경계를 유지한다. 별도의 활성화 변수는 사용하지 않으므로 Secret, kubeconfig, 기존 Docker 중지와 cutover 준비가 끝난 뒤에만 Kubernetes CD가 포함된 PR을 `develop`에 머지한다.
 
 상태 저장 인프라와 Ingress는 코드 push로 자동 적용하지 않는다. GitHub의 `Actions > CD - Self-hosted Kubernetes > Run workflow`에서 다음 target과 확인 문자열 `DEPLOY`를 사용한다.
 
@@ -89,7 +89,23 @@ KUBECONFIG=/home/ubuntu/.kube/config
 | `infrastructure` | Namespace, StorageClass, PV/PVC, PostgreSQL, Redis, Kafka | Local PV 디렉터리와 `postgres-secret` 준비 |
 | `ingress` | F5 NGINX Ingress Controller, Gateway Ingress | Docker Gateway 중지, Gateway Ready, 80·443·18080·18081 listener 반환 |
 
-워크플로는 Docker 컨테이너를 자동으로 중지하거나 삭제하지 않는다. 애플리케이션 rollout이 실패하면 적용 전 Pod template과 비교해 이번 실행에서 바뀐 기존 Deployment만 `kubectl rollout undo`로 복구하고, 이번 실행에서 처음 생성한 Deployment는 삭제한다. Service 선언 복구가 필요하면 원인 커밋을 되돌린 뒤 CD를 다시 실행한다.
+워크플로는 Docker 컨테이너를 자동으로 중지하거나 삭제하지 않는다. 애플리케이션 rollout이 실패하면 적용 전 Pod template과 비교해 이번 실행에서 바뀐 기존 Deployment만 `kubectl rollout undo`로 복구하고, 이번 실행에서 처음 생성한 Deployment는 삭제한다. settlement CronJob은 적용 전 이미지를 별도로 기록해 실패 시 복구하며, 이번 실행에서 처음 생성했다면 CronJob만 삭제한다. Service 선언 복구가 필요하면 원인 커밋을 되돌린 뒤 CD를 다시 실행한다.
+
+## 정산 주간 CronJob 확인
+
+`settlement-weekly`는 매주 월요일 00:00 `Asia/Seoul`에 실행되며 이전 주 월요일~일요일을 정산한다.
+동시 실행은 금지(`Forbid`)되고, 성공·실패 Job 이력은 각각 3개까지 남긴다.
+
+```bash
+kubectl get cronjob settlement-weekly -n prompthub
+kubectl get jobs -n prompthub -l app.kubernetes.io/name=settlement-service
+kubectl logs -n prompthub job/settlement-weekly-29123456 -c settlement-service
+```
+
+마지막 명령의 `settlement-weekly-29123456`은 예시다. 두 번째 명령에서 실제 생성된 Job 이름을
+확인해 바꿔 실행한다. CD는 CronJob의 Job template 이미지만 갱신하며 정산 Job을 즉시 생성하지 않는다.
+`kubectl create job --from=cronjob/settlement-weekly ...`를 이용한 수동 실행은 별도 운영 승인을 받은
+경우에만 수행한다. 완료된 과거 주차의 누락 보정은 이 주간 CronJob의 범위 밖이다.
 
 ## Local PV 호스트 디렉터리
 
@@ -254,6 +270,33 @@ kubectl -n prompthub wait --for=condition=Ready pod/kafka-0 --timeout=60s
 ## 이미지가 내려오는 방식
 
 Kubernetes Pod의 `image:`에 레지스트리 주소와 불변 태그 또는 digest를 지정하면 kubelet이 containerd CRI를 통해 이미지를 pull한다. EC2에서 `docker pull`을 별도로 실행하지 않는다. 기존 Docker daemon의 이미지 namespace와 Kubernetes의 `k8s.io` containerd namespace가 다르므로 Docker에 이미지가 있다는 이유만으로 Kubernetes가 그 이미지를 사용할 수 있다고 가정하지 않는다.
+
+### kubelet 이미지 GC 운영 기준
+
+두 EC2 노드는 containerd 이미지와 Local PV를 같은 루트 디스크에서 사용하므로 kubelet 기본
+이미지 GC 상한 85%를 사용하지 않는다. Control Plane과 Worker의
+`/var/lib/kubelet/config.yaml`에 다음 값을 유지한다.
+
+```yaml
+imageGCHighThresholdPercent: 60
+imageGCLowThresholdPercent: 50
+imageMinimumGCAge: 0s
+imageMaximumGCAge: 0s
+```
+
+`imageMinimumGCAge: 0s`는 kubelet 설정 API 규칙에 따라 기본값 `2m`으로 해석된다. 따라서
+사용하지 않은 지 2분이 지나지 않은 이미지는 디스크 임계값을 넘어도 GC 대상에서 제외된다.
+`imageMaximumGCAge: 0s`는 최대 미사용 기간에 따른 강제 GC를 비활성화한다.
+
+이미지 사용률이 60%를 넘으면 kubelet이 미사용 이미지를 정리해 50% 수준까지 낮춘다.
+기간 기반 강제 삭제와 `crictl rmi --prune`, `ctr images rm` 같은 외부 정리 작업은 사용하지
+않는다. Deployment는 `revisionHistoryLimit: 1`로 직전 ReplicaSet을 보존하고, 로컬 이미지가
+GC된 경우에도 GHCR의 불변 Git SHA 태그를 다시 pull해 롤백한다.
+
+설정은 Worker, Control Plane 순서로 한 노드씩 적용한다. 각 노드에서 기존 설정을 백업하고
+kubelet만 재시작한 뒤 `systemctl is-active kubelet`, `kubectl get nodes`, 전체 Pod 상태를
+검증한다. kubelet이 시작하지 않으면 백업을 복원하고 다음 노드 적용을 중단한다. drain,
+StatefulSet 재시작, PVC/PV와 `/var/lib/prompthub` 삭제는 수행하지 않는다.
 
 ## 삭제와 복구 주의사항
 

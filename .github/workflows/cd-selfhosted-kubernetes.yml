@@ -206,6 +206,12 @@ jobs:
             fi
           }
 
+          ensure_settlement_cronjob() {
+            if ! kubectl get cronjob settlement-weekly -n "$NAMESPACE" >/dev/null 2>&1; then
+              kubectl apply -k k8s/base/services/settlement
+            fi
+          }
+
           ensure_package config config k8s/base/platform/config
           ensure_package discovery discovery k8s/base/platform/discovery
 
@@ -216,7 +222,7 @@ jobs:
           ensure_package product-service product-service k8s/base/services/product
           ensure_package order-service order-service k8s/base/services/order
           ensure_package payment-service payment-service k8s/base/services/payment
-          ensure_package settlement-service settlement-service k8s/base/services/settlement
+          ensure_settlement_cronjob
           ensure_package admin-service admin-service k8s/base/services/admin
           ensure_package apigateway apigateway k8s/base/gateway
 
@@ -225,7 +231,6 @@ jobs:
             product-service
             order-service
             payment-service
-            settlement-service
             admin-service
             apigateway
           )
@@ -233,6 +238,8 @@ jobs:
           for deployment in "${application_deployments[@]}"; do
             kubectl rollout status deployment/"$deployment" -n "$NAMESPACE" --timeout=10m
           done
+
+          kubectl get cronjob settlement-weekly -n "$NAMESPACE" >/dev/null
 
       - name: 애플리케이션 리소스와 이미지 배포, 실패 시 rollback
         shell: bash
@@ -246,7 +253,7 @@ jobs:
           short_sha="${GITHUB_SHA::7}"
           runtime_overlay=""
           manifest_snapshot_dir=""
-          deployment_order=(
+          release_order=(
             config
             discovery
             user-service
@@ -257,18 +264,32 @@ jobs:
             admin-service
             apigateway
           )
+          deployment_order=(
+            config
+            discovery
+            user-service
+            product-service
+            order-service
+            payment-service
+            admin-service
+            apigateway
+          )
           config_consumers=(
             user-service
             product-service
             order-service
             payment-service
-            settlement-service
             admin-service
             apigateway
           )
           updated_deployments=()
           created_deployments=()
           config_updated="false"
+          settlement_cronjob="settlement-weekly"
+          settlement_cronjob_previous_image=""
+          settlement_cronjob_existed="false"
+          settlement_cronjob_updated="false"
+          settlement_cronjob_snapshot_taken="false"
 
           cleanup_runtime_overlay() {
             if [ -n "$runtime_overlay" ]; then
@@ -305,6 +326,39 @@ jobs:
             done
 
             return 1
+          }
+
+          snapshot_settlement_cronjob() {
+            if [ "$settlement_cronjob_snapshot_taken" = "true" ]; then
+              return
+            fi
+
+            if settlement_cronjob_previous_image="$(kubectl get cronjob "$settlement_cronjob" -n "$NAMESPACE" \
+              -o jsonpath="{.spec.jobTemplate.spec.template.spec.containers[?(@.name=='settlement-service')].image}" 2>/dev/null)"; then
+              if [ -z "$settlement_cronjob_previous_image" ]; then
+                echo "CronJob/$settlement_cronjob 에 settlement-service 컨테이너 이미지가 없습니다." >&2
+                return 1
+              fi
+              settlement_cronjob_existed="true"
+            else
+              settlement_cronjob_previous_image=""
+              settlement_cronjob_existed="false"
+            fi
+
+            settlement_cronjob_snapshot_taken="true"
+          }
+
+          rollback_settlement_cronjob() {
+            if [ "$settlement_cronjob_updated" != "true" ]; then
+              return
+            fi
+
+            if [ "$settlement_cronjob_existed" = "true" ]; then
+              kubectl set image cronjob/"$settlement_cronjob" \
+                settlement-service="$settlement_cronjob_previous_image" -n "$NAMESPACE"
+            else
+              kubectl delete cronjob/"$settlement_cronjob" -n "$NAMESPACE" --ignore-not-found
+            fi
           }
 
           snapshot_manifest_deployments() {
@@ -363,6 +417,8 @@ jobs:
             set +e
             track_manifest_deployment_changes
             echo "배포 실패: 이번 실행에서 변경한 이미지 또는 Pod template을 rollback 합니다."
+
+            rollback_settlement_cronjob
 
             for ((index=${#updated_deployments[@]} - 1; index >= 0; index--)); do
               deployment="${updated_deployments[$index]}"
@@ -434,8 +490,18 @@ jobs:
             kubectl apply --server-side --dry-run=server -k "$runtime_overlay"
 
             snapshot_manifest_deployments
+            snapshot_settlement_cronjob
             kubectl apply -k "$runtime_overlay"
+            settlement_cronjob_updated="true"
             track_manifest_deployment_changes
+
+            expected_settlement_image="ghcr.io/$owner_lc/prompthub-settlement-service:$short_sha"
+            current_settlement_image="$(kubectl get cronjob "$settlement_cronjob" -n "$NAMESPACE" \
+              -o jsonpath="{.spec.jobTemplate.spec.template.spec.containers[?(@.name=='settlement-service')].image}")"
+            if [ "$current_settlement_image" != "$expected_settlement_image" ]; then
+              echo "CronJob 이미지 검증 실패: $current_settlement_image" >&2
+              exit 1
+            fi
 
             for deployment in "${deployment_order[@]}"; do
               kubectl rollout status deployment/"$deployment" -n "$NAMESPACE" --timeout=10m
@@ -444,12 +510,37 @@ jobs:
             config_updated="true"
           fi
 
-          for service in "${deployment_order[@]}"; do
+          for service in "${release_order[@]}"; do
             if ! jq -e --arg service "$service" 'index($service) != null' <<< "$BUILD_MATRIX" >/dev/null; then
               continue
             fi
 
             image="ghcr.io/$owner_lc/prompthub-$service:$short_sha"
+
+            if [ "$service" = "settlement-service" ]; then
+              snapshot_settlement_cronjob
+              current_image="$(kubectl get cronjob "$settlement_cronjob" -n "$NAMESPACE" \
+                -o jsonpath="{.spec.jobTemplate.spec.template.spec.containers[?(@.name=='settlement-service')].image}")"
+
+              if [ "$current_image" = "$image" ]; then
+                echo "이미 배포된 이미지이므로 건너뜁니다: settlement-service -> $image"
+                continue
+              fi
+
+              kubectl set image cronjob/"$settlement_cronjob" settlement-service="$image" -n "$NAMESPACE"
+              settlement_cronjob_updated="true"
+              kubectl annotate cronjob/"$settlement_cronjob" \
+                kubernetes.io/change-cause="GitHub Actions $GITHUB_SHA" -n "$NAMESPACE" --overwrite
+
+              deployed_image="$(kubectl get cronjob "$settlement_cronjob" -n "$NAMESPACE" \
+                -o jsonpath="{.spec.jobTemplate.spec.template.spec.containers[?(@.name=='settlement-service')].image}")"
+              if [ "$deployed_image" != "$image" ]; then
+                echo "CronJob 이미지 갱신 실패: $deployed_image" >&2
+                exit 1
+              fi
+              continue
+            fi
+
             current_image="$(kubectl get deployment "$service" -n "$NAMESPACE" -o jsonpath="{.spec.template.spec.containers[?(@.name=='$service')].image}")"
 
             if [ "$current_image" = "$image" ]; then
@@ -480,8 +571,16 @@ jobs:
             done
           fi
 
+          # CronJob 전환 이후에는 legacy 리소스 정리 실패가 새 CronJob까지 rollback하지 않게 한다.
           trap - ERR
+
+          if [ "$APPLICATION_MANIFESTS_CHANGED" = "true" ]; then
+            kubectl delete deployment/settlement-service -n "$NAMESPACE" --ignore-not-found
+            kubectl delete service/settlement-service -n "$NAMESPACE" --ignore-not-found
+          fi
+
           kubectl get deployment -n "$NAMESPACE" -o custom-columns=NAME:.metadata.name,READY:.status.readyReplicas,IMAGE:.spec.template.spec.containers[0].image
+          kubectl get cronjob "$settlement_cronjob" -n "$NAMESPACE" -o custom-columns=NAME:.metadata.name,SCHEDULE:.spec.schedule,IMAGE:.spec.jobTemplate.spec.template.spec.containers[0].image
 
   deploy-infrastructure:
     name: Manually Deploy Infrastructure

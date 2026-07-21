@@ -9,13 +9,14 @@ import static org.mockito.Mockito.verify;
 
 import com.prompthub.settlement.application.dto.SettleableLine;
 import com.prompthub.settlement.application.port.OrderSettlementQueryPort;
+import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.model.enums.SettlementSourceLineType;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +30,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class SettlementSourceLoadServiceTest {
+
+    private static final SettlementPeriod PERIOD = SettlementPeriod.of(
+            LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 7));
 
     @Mock
     private SettlementSourceRepository settlementSourceRepository;
@@ -51,7 +55,6 @@ class SettlementSourceLoadServiceTest {
     @DisplayName("정산 대상 라인을 gRPC로 bulk 조회해 이미 적재된 멱등키는 건너뛰고 신규만 저장한다")
     void load_savesOnlyNewLines() {
         // given
-        YearMonth period = YearMonth.of(2026, 6);
         UUID orderId = UUID.randomUUID();
         UUID seller = UUID.randomUUID();
         LocalDateTime occurredAt = LocalDateTime.of(2026, 6, 3, 10, 15);
@@ -66,12 +69,12 @@ class SettlementSourceLoadServiceTest {
                         newPaidOrderProductId, seller, new BigDecimal("2000"), occurredAt),
                 new SettleableLine(SettlementSourceLineType.REFUND, orderId,
                         newRefundOrderProductId, seller, new BigDecimal("500"), occurredAt));
-        given(orderSettlementQueryPort.fetchSettleableLines(period)).willReturn(lines);
+        given(orderSettlementQueryPort.fetchSettleableLines(PERIOD)).willReturn(lines);
         given(settlementSourceRepository.findExistingEventIds(anyCollection()))
                 .willReturn(List.of(eventId(existingOrderProductId, SettlementSourceLineType.PAID)));
 
         // when
-        int saved = service.load(period);
+        int saved = service.load(PERIOD);
 
         // then
         assertThat(saved).isEqualTo(2);
@@ -91,11 +94,10 @@ class SettlementSourceLoadServiceTest {
     @DisplayName("조회 결과가 비면 저장을 호출하지 않고 0을 반환한다")
     void load_empty_noSave() {
         // given
-        YearMonth period = YearMonth.of(2026, 6);
-        given(orderSettlementQueryPort.fetchSettleableLines(period)).willReturn(List.of());
+        given(orderSettlementQueryPort.fetchSettleableLines(PERIOD)).willReturn(List.of());
 
         // when
-        int saved = service.load(period);
+        int saved = service.load(PERIOD);
 
         // then
         assertThat(saved).isZero();

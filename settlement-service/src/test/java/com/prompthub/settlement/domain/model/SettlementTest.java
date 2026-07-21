@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +13,8 @@ import org.junit.jupiter.api.Test;
 class SettlementTest {
 
     private static final LocalDateTime OCCURRED_AT = LocalDateTime.of(2026, 6, 15, 10, 0);
+    private static final SettlementPeriod PERIOD = SettlementPeriod.of(
+            LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 7));
 
     private SettlementDetail detail(String lineAmount, String feeRate) {
         return SettlementDetail.sale(UUID.randomUUID(),
@@ -28,7 +29,7 @@ class SettlementTest {
 
         // when
         Settlement settlement = Settlement.create(
-                UUID.randomUUID(), UUID.randomUUID(), YearMonth.of(2026, 6), details);
+                UUID.randomUUID(), UUID.randomUUID(), PERIOD, details);
 
         // then
         assertThat(settlement.getProductCount()).isEqualTo(2);
@@ -45,7 +46,7 @@ class SettlementTest {
 
         // when
         Settlement settlement = Settlement.create(
-                UUID.randomUUID(), UUID.randomUUID(), YearMonth.of(2026, 6), details);
+                UUID.randomUUID(), UUID.randomUUID(), PERIOD, details);
 
         // then
         assertThat(settlement.getRefundAmount()).isEqualByComparingTo(BigDecimal.ZERO);
@@ -53,16 +54,16 @@ class SettlementTest {
     }
 
     @Test
-    @DisplayName("정산 기간은 정산 월의 1일부터 말일까지로 설정된다")
-    void create_setsPeriodFromYearMonth() {
+    @DisplayName("정산 기간은 주간 포함 시작일과 종료일로 설정된다")
+    void create_setsPeriodFromWeeklyPeriod() {
         // when
         Settlement settlement = Settlement.create(
-                UUID.randomUUID(), UUID.randomUUID(), YearMonth.of(2026, 6),
+                UUID.randomUUID(), UUID.randomUUID(), PERIOD,
                 List.of(detail("100.00", "0.15")));
 
         // then
         assertThat(settlement.getPeriodStart()).isEqualTo(LocalDate.of(2026, 6, 1));
-        assertThat(settlement.getPeriodEnd()).isEqualTo(LocalDate.of(2026, 6, 30));
+        assertThat(settlement.getPeriodEnd()).isEqualTo(LocalDate.of(2026, 6, 7));
     }
 
     @Test
@@ -70,7 +71,7 @@ class SettlementTest {
     void create_emptyDetails_zeroTotals() {
         // when
         Settlement settlement = Settlement.create(
-                UUID.randomUUID(), UUID.randomUUID(), YearMonth.of(2026, 6), List.of());
+                UUID.randomUUID(), UUID.randomUUID(), PERIOD, List.of());
 
         // then
         assertThat(settlement.getProductCount()).isZero();

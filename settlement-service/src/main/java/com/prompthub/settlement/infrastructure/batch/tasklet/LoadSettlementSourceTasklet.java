@@ -1,7 +1,8 @@
 package com.prompthub.settlement.infrastructure.batch.tasklet;
 
 import com.prompthub.settlement.application.usecase.LoadSettlementSourceUseCase;
-import java.time.YearMonth;
+import com.prompthub.settlement.domain.model.SettlementPeriod;
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.configuration.annotation.StepScope;
@@ -24,14 +25,21 @@ public class LoadSettlementSourceTasklet implements Tasklet {
 
     private final LoadSettlementSourceUseCase loadSettlementSourceUseCase;
 
-    @Value("#{jobParameters['period']}")
-    private String periodParam;
+    @Value("#{jobParameters['periodStart']}")
+    private String periodStartParam;
+
+    @Value("#{jobParameters['periodEnd']}")
+    private String periodEndParam;
 
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
-        YearMonth period = YearMonth.parse(periodParam);
+        SettlementPeriod period = period();
         int loaded = loadSettlementSourceUseCase.load(period);
         log.info("정산 대상 라인 적재 스텝 완료. period={}, 신규적재={}", period, loaded);
         return RepeatStatus.FINISHED;
+    }
+
+    private SettlementPeriod period() {
+        return SettlementPeriod.of(LocalDate.parse(periodStartParam), LocalDate.parse(periodEndParam));
     }
 }

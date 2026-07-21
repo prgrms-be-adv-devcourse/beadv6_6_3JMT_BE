@@ -11,12 +11,13 @@ import static org.mockito.Mockito.verify;
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
 import com.prompthub.settlement.application.port.OutboxEventAppender;
 import com.prompthub.settlement.domain.model.Settlement;
+import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.repository.SettlementRepository;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +30,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class SettlementCalculationApplicationServiceTest {
+
+    private static final SettlementPeriod PERIOD = SettlementPeriod.of(
+            LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 7));
 
     @Mock
     private SettlementSourceRepository settlementSourceRepository;
@@ -65,9 +69,8 @@ class SettlementCalculationApplicationServiceTest {
     void calculate_paidAndRefund_netsAmount() {
         // given
         UUID sellerId = UUID.randomUUID();
-        YearMonth period = YearMonth.of(2026, 6);
-        CalculateSettlementCommand command = new CalculateSettlementCommand(UUID.randomUUID(), sellerId, period);
-        given(settlementSourceRepository.findSettleableLines(sellerId, period))
+        CalculateSettlementCommand command = new CalculateSettlementCommand(UUID.randomUUID(), sellerId, PERIOD);
+        given(settlementSourceRepository.findSettleableLines(sellerId, PERIOD))
                 .willReturn(List.of(paidLine(sellerId, "300.00"), refundLine(sellerId, "100.00")));
         stubSaveAssigningId();
 
@@ -79,6 +82,8 @@ class SettlementCalculationApplicationServiceTest {
         assertThat(settlement.getTotalAmount()).isEqualByComparingTo("200.00");
         assertThat(settlement.getFeeTotalAmount()).isEqualByComparingTo("30.00");
         assertThat(settlement.getSettlementTotalAmount()).isEqualByComparingTo("170.00");
+        assertThat(settlement.getPeriodStart()).isEqualTo(PERIOD.periodStart());
+        assertThat(settlement.getPeriodEnd()).isEqualTo(PERIOD.periodEnd());
         verify(settlementRepository).save(settlement);
     }
 
@@ -87,10 +92,9 @@ class SettlementCalculationApplicationServiceTest {
     void calculate_marksSourceLinesSettled() {
         // given
         UUID sellerId = UUID.randomUUID();
-        YearMonth period = YearMonth.of(2026, 6);
-        CalculateSettlementCommand command = new CalculateSettlementCommand(UUID.randomUUID(), sellerId, period);
+        CalculateSettlementCommand command = new CalculateSettlementCommand(UUID.randomUUID(), sellerId, PERIOD);
         SettlementSourceLine line = paidLine(sellerId, "100.00");
-        given(settlementSourceRepository.findSettleableLines(sellerId, period)).willReturn(List.of(line));
+        given(settlementSourceRepository.findSettleableLines(sellerId, PERIOD)).willReturn(List.of(line));
         stubSaveAssigningId();
 
         // when
@@ -106,9 +110,8 @@ class SettlementCalculationApplicationServiceTest {
     void calculate_noLines_doesNotSave() {
         // given
         UUID sellerId = UUID.randomUUID();
-        YearMonth period = YearMonth.of(2026, 6);
-        CalculateSettlementCommand command = new CalculateSettlementCommand(UUID.randomUUID(), sellerId, period);
-        given(settlementSourceRepository.findSettleableLines(sellerId, period)).willReturn(List.of());
+        CalculateSettlementCommand command = new CalculateSettlementCommand(UUID.randomUUID(), sellerId, PERIOD);
+        given(settlementSourceRepository.findSettleableLines(sellerId, PERIOD)).willReturn(List.of());
 
         // when
         Settlement settlement = service.calculate(command);
@@ -124,9 +127,8 @@ class SettlementCalculationApplicationServiceTest {
     void calculate_appendsSettlementCreatedToOutboxAfterSave() {
         // given
         UUID sellerId = UUID.randomUUID();
-        YearMonth period = YearMonth.of(2026, 6);
-        CalculateSettlementCommand command = new CalculateSettlementCommand(UUID.randomUUID(), sellerId, period);
-        given(settlementSourceRepository.findSettleableLines(sellerId, period))
+        CalculateSettlementCommand command = new CalculateSettlementCommand(UUID.randomUUID(), sellerId, PERIOD);
+        given(settlementSourceRepository.findSettleableLines(sellerId, PERIOD))
                 .willReturn(List.of(paidLine(sellerId, "100.00")));
         stubSaveAssigningId();
 

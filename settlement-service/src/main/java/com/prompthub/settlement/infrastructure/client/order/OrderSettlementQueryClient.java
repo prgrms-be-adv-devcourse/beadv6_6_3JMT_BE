@@ -2,6 +2,7 @@ package com.prompthub.settlement.infrastructure.client.order;
 
 import com.prompthub.settlement.application.dto.SettleableLine;
 import com.prompthub.settlement.application.port.OrderSettlementQueryPort;
+import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.enums.SettlementSourceLineType;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
 import com.prompthub.settlement.global.exception.SettlementException;
@@ -11,7 +12,6 @@ import com.prompthub.order.grpc.GetSettleableLinesResponse;
 import io.grpc.StatusRuntimeException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -30,10 +30,13 @@ public class OrderSettlementQueryClient implements OrderSettlementQueryPort {
     private final OrderQueryServiceBlockingStub orderSettlementQueryStub;
 
     @Override
-    public List<SettleableLine> fetchSettleableLines(YearMonth period) {
+    public List<SettleableLine> fetchSettleableLines(SettlementPeriod period) {
         try {
             GetSettleableLinesResponse response = orderSettlementQueryStub.getSettleableLines(
-                    GetSettleableLinesRequest.newBuilder().setPeriod(period.toString()).build());
+                    GetSettleableLinesRequest.newBuilder()
+                            .setPeriodStart(period.periodStart().toString())
+                            .setPeriodEnd(period.periodEnd().toString())
+                            .build());
             return response.getLinesList().stream()
                     .map(this::toSettleableLine)
                     .toList();

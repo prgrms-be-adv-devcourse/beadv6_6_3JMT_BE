@@ -240,6 +240,52 @@
 
 ---
 
+### POST /sellers/batch — 판매자 이름 배치 조회
+
+- 인증: 불필요 (`/browse` 비로그인 접근 대응)
+- 필요 역할: 없음
+- `/browse`(상품 목록)에서 `GET /products` 응답의 `sellerId` 목록을 받아 순차 호출(2차 조회)로 사용
+
+#### Request
+
+**Body**
+
+```json
+{
+  "sellerIds": ["3f1b1b0e-...", "..."]
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| sellerIds | string(UUID)[] | Y | 조회할 판매자 ID 목록. 최대 30개, 빈 배열/형식 오류 시 400. 중복은 서버가 dedupe |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sellers": [
+      { "sellerId": "3f1b1b0e-...", "sellerName": "김철수" },
+      { "sellerId": "9c2a...", "sellerName": null }
+    ]
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| sellers[].sellerId | string(UUID) | 요청한 sellerId |
+| sellers[].sellerName | string \| null | 판매자 이름. 존재하지 않는 sellerId(탈퇴/삭제 등)는 null — 이 경우도 전체 요청은 실패 처리하지 않음 |
+
+**400 Bad Request** — 빈 배열, 잘못된 UUID 형식, 30개 초과 (`VALIDATION_FAILED`, V001)
+
+---
+
 ## 찜 (Wishlist)
 
 ### POST /wishlists — 찜 등록
