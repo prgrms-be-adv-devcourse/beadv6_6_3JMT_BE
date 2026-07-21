@@ -1,9 +1,11 @@
 package com.prompthub.product.presentation.controller;
 
+import com.prompthub.product.application.usecase.ProductInternalUseCase;
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
+import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import com.prompthub.presentation.dto.PageResponse;
 import com.prompthub.presentation.dto.ApiResult;
 import java.util.List;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProductController {
 
 	private final ProductQueryUseCase productQueryUseCase;
+	private final ProductInternalUseCase productInternalUseCase;
 
 	@GetMapping("/products")
 	public PageResponse<ProductListItemResponse> getProducts(
@@ -31,6 +34,11 @@ public class ProductController {
 		@RequestParam(defaultValue = "20") int size
 	) {
 		return productQueryUseCase.getProducts(q, productType, sort, page, size);
+	}
+
+	@GetMapping("/products/by-ids")
+	public ApiResult<List<ProductsByIdsResponse>> getProductsByIds(@RequestParam List<UUID> ids) {
+		return ApiResult.success(productInternalUseCase.getProductsByIds(ids));
 	}
 
 	@GetMapping("/products/{productId}")

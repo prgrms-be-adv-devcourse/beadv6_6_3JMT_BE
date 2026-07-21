@@ -4,7 +4,8 @@
 
 > 최종 프로젝트 전환에 따라 product-service 외부 API는 `/api/v2`로 서빙한다(#273).
 > 게이트웨이는 경로를 rewrite하지 않으므로(ADR-0007) 각 서비스가 해당 버전 경로를 직접 서빙한다.
-> 내부 통신(`/internal/**`)은 버전 없이 유지한다.
+> 서비스 간 내부 통신은 REST(`/internal/**`)가 아니라 gRPC로 통일되어 있다(#413, #431) — 남은
+> `/internal/**` REST 엔드포인트는 없다.
 
 ## 공통 사항
 
@@ -48,7 +49,6 @@
       "originalAmount": null,
       "rating": 4.9,
       "salesCount": 1240,
-      "seller": "비주얼랩",
       "sellerId": "uuid",
       "badge": "신규",
       "desc": "상품 설명",
@@ -78,7 +78,6 @@
 | originalAmount | integer \| null | 할인 전 원래 가격 (할인 없으면 null) |
 | rating | number | 평균 별점 |
 | salesCount | integer | 누적 판매 수 |
-| seller | string | 판매자 이름 |
 | sellerId | string | 판매자 ID |
 | badge | string | 뱃지 (`신규` 등) |
 | desc | string | 상품 설명 |
@@ -90,6 +89,62 @@
 | meta.size | integer | 페이지당 항목 수 |
 | meta.total | integer | 전체 항목 수 |
 | meta.hasNext | boolean | 다음 페이지 존재 여부 |
+
+> `seller`(판매자 이름) 필드는 더 이상 내려주지 않는다(#440) — 프론트가 `sellerId`로
+> user-service 배치 조회 API를 직접 호출해 렌더링한다.
+
+---
+
+### GET /products/by-ids — 상품 배치 조회
+
+- 인증: 불필요
+- 용도: 찜 목록 등 productId 목록만 갖고 있는 화면에서 카드 표시 정보를 한 번에 조회
+
+#### Query Parameters
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| ids | string (comma-separated UUID) | Y | 조회할 상품 ID 목록. 예: `ids=uuid1,uuid2` |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "productId": "uuid",
+      "sellerId": "uuid",
+      "title": "사진 같은 제품 목업 생성기",
+      "amount": 5900,
+      "thumbnailUrl": null,
+      "productType": "PROMPT",
+      "model": "Midjourney v6",
+      "salesCount": 1240,
+      "averageRating": 4.9,
+      "status": "ON_SALE"
+    }
+  ],
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| productId | string | 상품 ID |
+| sellerId | string | 판매자 ID |
+| title | string | 상품명 |
+| amount | integer | 현재 가격 |
+| thumbnailUrl | string \| null | 썸네일 이미지 URL |
+| productType | string | 상품 유형 |
+| model | string | 대상 AI 모델 |
+| salesCount | integer | 누적 판매 수 |
+| averageRating | number | 평균 별점 |
+| status | string | 상품 상태 |
+
+요청한 productId 중 존재하지 않거나 현재 판매 중인 버전이 없는 상품은 응답 배열에서 제외된다.
 
 ---
 
@@ -118,13 +173,12 @@
     "amount": 5900,
     "rating": 4.9,
     "salesCount": 1240,
-    "seller": "비주얼랩",
     "sellerId": "uuid",
-    "sellerProfileImageUrl": "https://...",
     "sellerProductCount": 12,
     "badge": "신규",
     "desc": "상품 설명",
     "thumbnail_url": null,
+    "imageUrls": [],
     "content": "[상품명]\n\n전체 내용은 구매 후 확인...",
     "tags": ["이미지생성", "목업"],
     "versions": [
@@ -138,6 +192,24 @@
   "message": "success"
 }
 ```
+
+> `seller`(판매자 이름)·`sellerProfileImageUrl` 필드는 더 이상 내려주지 않는다(#440) — 프론트가
+> `sellerId`로 user-service 배치 조회 API를 직접 호출해 렌더링한다. `sellerProductCount`는
+> product-service 자체 집계(로컬 DB 조회)라 그대로 유지한다.
+>
+> `imageUrls`(상품 등록 시 올린 소개 이미지 목록)는 신규 노출 필드다(#447) — `thumbnail_url`(대표
+> 썸네일 1장)과는 별개 필드다. 캐러셀은 `thumbnail_url` + `imageUrls`를 순서대로 이어붙여 보여주면
+> 된다. 개수 제한은 백엔드에 별도 검증(예: `@Size`)이 없다 — 등록 폼에서 몇 장까지 받을지는 FE
+> 업로드 UI 정책의 문제이고, 이 API는 저장된 값을 그대로 반환할 뿐이다. 그동안 `Product` 엔티티에
+> 저장은 되고 있었지만 공개 상세 응답엔 필드 자체가 없어서 상세 페이지 이미지 캐러셀이 항상
+> placeholder만 보여주고 있었다.
+>
+> **알려진 한계(고치지 않고 문서화만, 이번 이슈 범위 밖)**: `thumbnail_url`/`imageUrls`는 상품
+> 등록/수정 시 presigned PUT URL로 업로드된 뒤 쿼리스트링을 제거한 S3 **key**로 저장된다
+> (`ProductSellerService.extractKey`). `content`(`fileUrl`)와 달리 조회 시점에 presigned GET URL로
+> 변환하는 과정이 없다 — 즉 현재 이 두 필드는 브라우저에서 바로 열리는 `https://` URL이 아니라
+> S3 key 문자열을 그대로 반환할 가능성이 높다. 이 갭은 `thumbnail_url`이 이미 갖고 있던 기존
+> 동작이고 이번 변경(`imageUrls` 노출)과 무관하게 존재했다 — 별도 확인/수정이 필요하다.
 
 ---
 
@@ -602,140 +674,39 @@
 
 ### POST /products/{productId}/reviews — 별점 작성
 
-- UC: UC-PRODUCT-09
-- 인증: 필요
-- 필요 역할: USER
-- 1상품 1리뷰 제약
-- 미구현 (이슈 #93)
-
----
-
-## 내부 API (Internal)
-
-내부 서비스 간 호출 전용. Gateway를 거치지 않음.
-
-### POST /internal/products/order-snapshots — 주문 스냅샷 조회
-
-- 호출: order-service → product-service
-- 호출 시점: 주문 생성 시
+- 인증: 필요 (`X-User-Id` 헤더)
+- 1상품 1리뷰 제약 — 이미 남긴 별점이 있으면 upsert(수정)로 처리
+- 구매 여부는 서버에서 검증하지 않는다(알려진 한계, #440)
 
 #### Request
 
-```json
-["uuid1", "uuid2"]
-```
-
-#### Response
-
-```json
-[
-  {
-    "productId": "uuid",
-    "sellerId": "uuid",
-    "title": "상품명",
-    "productType": "PROMPT",
-    "model": "GPT-4o",
-    "amount": 5000
-  }
-]
-```
-
----
-
-### GET /internal/products/{productId}/cart-snapshot — 장바구니 단건 스냅샷
-
-- 호출: order-service → product-service
-
-#### Response
+**Body**
 
 ```json
 {
-  "productId": "uuid",
-  "title": "상품명",
-  "productType": "PROMPT",
-  "model": "GPT-4o",
-  "amount": 5000,
-  "thumbnailUrl": "https://...",
-  "sellerId": "uuid",
-  "sellerNickname": "판매자명",
-  "status": "ON_SALE"
-}
-```
-
----
-
-### POST /internal/products/cart-snapshots — 장바구니 목록 스냅샷
-
-- 호출: order-service → product-service
-
-#### Request
-
-```json
-["uuid1", "uuid2"]
-```
-
-#### Response
-
-cart-snapshot 배열 반환
-
----
-
-### GET /internal/products/{productId}/content — 구매자 산출물 조회 (유형별)
-
-- 호출: order-service → product-service
-- 호출 시점: 구매 후 콘텐츠 다운로드
-- `content`는 상품 유형별 산출물을 담는다: **PROMPT**=본문 텍스트, **PPT·EXCEL**=파일
-  presigned 다운로드 URL, **NOTION**=외부 링크. 응답 구조(`{productId, content}`, gRPC
-  `GetProductContentResponse`)는 유형과 무관하게 동일하며, 소비자는 자신이 아는 productType에
-  따라 렌더링한다.
-
-#### Response
-
-```json
-{
-  "productId": "uuid",
-  "content": "프롬프트 원문 | 파일 presigned URL | 외부 링크"
-}
-```
-
----
-
-### POST /internal/products/reviews — 리뷰 upsert
-
-- 호출: order-service → product-service
-- 호출 시점: 구매 후 리뷰 작성
-
-#### Request
-
-```json
-{
-  "buyerId": "uuid",
-  "productId": "uuid",
   "rating": 5
 }
 ```
 
----
-
-### GET /internal/products/count — 판매자 등록 상품 수 조회
-
-- 호출: settlement-service → product-service
-- 호출 시점: 판매자 정산 요약 조회 시
-
-#### Query Parameters
-
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| sellerId | UUID | Y | 판매자 ID |
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| rating | integer | Y | 1~5 |
 
 #### Response
 
+**200 OK**
+
 ```json
 {
-  "sellerId": "uuid",
-  "productCount": 12
+  "success": true,
+  "data": null,
+  "message": "success"
 }
 ```
+
+**400 Bad Request** — rating이 1~5 범위 밖 (`VALIDATION_FAILED`, V001)
+
+---
 
 ## Kafka 이벤트
 
@@ -792,38 +763,56 @@ cart-snapshot 배열 반환
 
 ### 제공 (Server)
 
-product-service가 서버로 구현해 다른 서비스에 노출하는 서비스다.
+product-service가 서버로 구현해 다른 서비스에 노출하는 서비스다. 계약은 루트
+`grpc/product/product_query.proto`의 단일 `ProductQueryService`로 관리한다(소유자=product).
 
-#### `ProductQueryService` (소비: settlement-service)
-
-| rpc | 요청 | 응답 |
-|---|---|---|
-| `CountBySeller` | `seller_id` | `seller_id`, `product_count` |
-
-#### `ProductInternalService` (소비: order-service)
+#### `ProductQueryService` (소비: settlement-service, order-service)
 
 | rpc | 요청 | 응답 |
 |---|---|---|
+| `GetSellerStats` | `seller_id` | `seller_id`, `product_count`, `sales_count` |
 | `GetOrderSnapshots` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `title`, `product_type`, `amount`, `model` |
 | `GetCartSnapshots` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `seller_nickname`, `title`, `product_type`, `amount`, `thumbnail_url` |
-| `GetProductContent` | `product_id` | `product_id`, `content` |
+| `GetProductContent` | `product_id`, `product_ids[]`, `purpose` | `product_id`, `content`(구형), `results[]` |
 
-#### `ProductService` (소비: user-service)
+`GetProductContent`는 주문 스냅샷·장바구니 스냅샷·구매 콘텐츠 조회를 하나의 진입점으로
+통합하는 전환 1단계다(전체 설계:
+`docs/superpowers/specs/2026-07-20-unified-get-product-content-design.md`). `purpose`
+(`ProductContentPurpose`: `ORDER_SNAPSHOT` / `CART_SNAPSHOT` / `PURCHASED_CONTENT` /
+구형 `UNSPECIFIED`)로 요청 목적을 구분하고, 응답 `results[]`(`oneof`: `order_snapshot` /
+`cart_snapshot` / `purchased_content`)로 목적별 payload를 분리한다.
 
-| rpc | 요청 | 응답 |
-|---|---|---|
-| `GetProductsByIds` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `title`, `price`, `thumbnail_url`, `category`, `model`, `sales_count`, `average_rating`, `status` |
+| purpose | `product_id` | `product_ids` | 응답 |
+|---|---:|---:|---|
+| `ORDER_SNAPSHOT` | 비어 있어야 함 | 1개 이상 | `results[]`가 전부 `order_snapshot` |
+| `CART_SNAPSHOT` | 비어 있어야 함 | 1개 이상 | `results[]`가 전부 `cart_snapshot` |
+| `PURCHASED_CONTENT` | 필수 | 비어 있어야 함 | `results`가 1건, `purchased_content` |
+| 구형 `UNSPECIFIED` | 필수 | 비어 있어야 함 | 구형 `product_id`/`content` + `results`의 `purchased_content` |
+
+그 외 조합, 빈 문자열, UUID 형식 오류는 `INVALID_ARGUMENT`. 단건 콘텐츠 대상 없음은
+`NOT_FOUND`. `GetOrderSnapshots`/`GetCartSnapshots` RPC는 order-service 소비자 전환이
+끝날 때까지 하위 호환을 위해 그대로 유지한다(전환 완료 후 별도로 제거 예정).
+
+> `GetProductsByIds`(옛 user-service 소비용)는 실제 호출자가 없어 제거했다(#431) — 정확히는,
+> user-service wishlist가 부르는 gRPC(`user.product.ProductService.GetProductsByIds`, user-service
+> 로컬 proto)가 이 canonical RPC와 이름만 같을 뿐 완전히 다른 계약이었고, product-service는 그
+> local 계약을 구현한 적이 없어 wishlist 쪽에서 항상 `UNIMPLEMENTED`로 실패하고 있었다(#447에서
+> 발견). 대체 용도로 공개 REST `GET /products/by-ids`를 새로 노출했다 — user-service wishlist가
+> 이 REST(또는 동등한 신규 gRPC)를 호출하도록 고치는 작업은 user-service 담당 범위라 이번
+> product-service 브랜치에서는 다루지 않는다(#447은 이 REST 신설까지만 반영, 나머지는 열어둠).
+>
+> `GetSellerStats` 제거는 이번 브랜치 범위에서 보류한다 — 정산 요약(등록 상품 수·판매건수)이
+> 실제로 이 gRPC로 채워지고 있는 살아있는 기능이라, settlement/product 담당자 간 별도 협의가
+> 필요하다고 판단해 원래 계획대로 별도 이슈로 분리했다(#431 논의 중 재확인).
 
 ### 소비 (Client)
 
-product-service가 클라이언트로 호출하는, 다른 서비스가 제공하는 서비스다.
+product-service는 현재 다른 서비스의 gRPC를 소비하지 않는다.
 
-#### `SellerQueryService` (제공: user-service)
-
-| rpc | 요청 | 응답 |
-|---|---|---|
-| `FindSellers` | `seller_ids[]` | `sellers[]`: `SellerInfo` |
-| `GetSeller` | `seller_id` | `SellerInfo`(`seller_id`, `seller_name`, `profile_image_url`, `status`) |
-
-> `FindSellers`는 이 문서 상단 gRPC 네이밍 컨벤션(`Get{Entity}`)과 다르지만, user-service가
-> 소유한 계약이라 product-service 쪽에서 리네임 후 적용한다.
+> 판매자 닉네임 조회용 `SellerQueryService`(`FindSellers`/`GetSeller`, 제공: user-service)를
+> 호출하던 `SellerClient`/`GrpcSellerClientAdapter`와 product-service 쪽 로컬 계약 사본
+> (`product-service/src/main/proto/seller_query.proto`)을 제거했다(#440) — 목록/상세/
+> 관련상품 응답의 `seller`(이름) 필드가 없어지고, 장바구니 스냅샷의 `sellerNickname`도 빈
+> 값으로 나간다(프론트가 직접 user-service 배치 조회로 채움). user-service 쪽 서버 구현
+> (`ProductSellerQueryGrpcService`)과 그쪽 로컬 계약 사본은 product-service 담당이 아니라
+> 손대지 않았다 — 호출자가 없어졌어도 정리 여부는 user-service 담당자가 판단한다.

@@ -13,7 +13,6 @@ public record ProductListItemResponse(
 	Integer originalAmount,
 	double rating,
 	int salesCount,
-	String seller,
 	UUID sellerId,
 	String badge,
 	String desc,
