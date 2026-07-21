@@ -149,7 +149,7 @@ EOF
 - Consumes: `TossFailurePredicate`(Task 1)
 - Produces: `TossCircuitBreakerConfig`의 빈 3개 — `CircuitBreakerRegistry tossCircuitBreakerRegistry(...)`, `CircuitBreaker tossConfirmCircuitBreaker(CircuitBreakerRegistry)`(빈 이름 `"tossConfirmCircuitBreaker"`), `CircuitBreaker tossRefundCircuitBreaker(CircuitBreakerRegistry)`(빈 이름 `"tossRefundCircuitBreaker"`) — Task 3의 `TossPaymentGateway` 생성자가 `@Qualifier`로 주입받아 사용
 
-- [ ] **Step 1: build.gradle에 의존성 추가**
+- [x] **Step 1: build.gradle에 의존성 추가**
 
 `build.gradle`의 `dependencies` 블록 맨 앞에 추가:
 
@@ -164,12 +164,12 @@ dependencies {
     ...(이하 기존 내용 동일, 변경 없음)
 ```
 
-- [ ] **Step 2: 빌드 확인**
+- [x] **Step 2: 빌드 확인**
 
 Run: `../gradlew :payment-service:compileJava`
 Expected: BUILD SUCCESSFUL (새 의존성이 정상적으로 resolve됨)
 
-- [ ] **Step 3: 실패 테스트 작성**
+- [x] **Step 3: 실패 테스트 작성**
 
 ```java
 package com.prompthub.payment.infrastructure.external.toss;
@@ -211,12 +211,12 @@ class TossCircuitBreakerConfigTest {
 }
 ```
 
-- [ ] **Step 4: 테스트 실행해서 실패 확인**
+- [x] **Step 4: 테스트 실행해서 실패 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.external.toss.TossCircuitBreakerConfigTest"`
 Expected: FAIL — `TossCircuitBreakerConfig` 클래스가 없어 컴파일 에러
 
-- [ ] **Step 5: 최소 구현**
+- [x] **Step 5: 최소 구현**
 
 ```java
 package com.prompthub.payment.infrastructure.external.toss;
@@ -284,12 +284,12 @@ public class TossCircuitBreakerConfig {
 }
 ```
 
-- [ ] **Step 6: 테스트 실행해서 통과 확인**
+- [x] **Step 6: 테스트 실행해서 통과 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.external.toss.TossCircuitBreakerConfigTest"`
 Expected: PASS
 
-- [ ] **Step 7: yml 3곳에 설정값 명시**
+- [x] **Step 7: yml 3곳에 설정값 명시**
 
 `src/main/resources/application-local.yml` 끝에 추가(`eureka:` 섹션 앞):
 
@@ -342,12 +342,12 @@ resilience4j:
         permitted-number-of-calls-in-half-open-state: 3
 ```
 
-- [ ] **Step 8: 전체 테스트 스위트 실행해서 기존 테스트 회귀 없는지 확인**
+- [x] **Step 8: 전체 테스트 스위트 실행해서 기존 테스트 회귀 없는지 확인**
 
 Run: `JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test`
 Expected: BUILD SUCCESSFUL (기존 통합 테스트가 `TossCircuitBreakerConfig` 빈을 추가로 로드하지만, 이 시점엔 아직 `TossPaymentGateway`가 이 빈들을 사용하지 않으므로 영향 없음 — 다음 Task에서 실제 연결)
 
-- [ ] **Step 9: 커밋**
+- [x] **Step 9: 커밋**
 
 ```bash
 git add build.gradle src/main/java/com/prompthub/payment/infrastructure/external/toss/TossCircuitBreakerConfig.java src/test/java/com/prompthub/payment/infrastructure/external/toss/TossCircuitBreakerConfigTest.java src/main/resources/application-local.yml src/test/resources/application-test.yml ../config/src/main/resources/configs/payment-service.yml
