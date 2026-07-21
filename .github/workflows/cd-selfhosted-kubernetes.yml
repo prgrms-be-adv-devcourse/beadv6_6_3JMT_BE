@@ -487,7 +487,7 @@ jobs:
           EOF
 
             kubectl kustomize "$runtime_overlay" >/dev/null
-            kubectl apply --server-side --dry-run=server -k "$runtime_overlay"
+            kubectl apply --dry-run=server -k "$runtime_overlay"
 
             snapshot_manifest_deployments
             snapshot_settlement_cronjob
