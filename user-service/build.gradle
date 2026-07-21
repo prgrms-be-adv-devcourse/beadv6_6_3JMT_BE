@@ -44,17 +44,6 @@ protobuf {
     }
 }
 
-// 루트 공유 gRPC 계약을 이 모듈 proto 소스에 더한다.
-// - grpc/product: 소유 product(이 모듈은 소비자 미러).
-// docs/grpc-contract-ownership.md 참고.
-sourceSets {
-    main {
-        proto {
-            srcDir "${rootProject.projectDir}/grpc/product"
-        }
-    }
-}
-
 tasks.named('test') {
     jvmArgs = ['-Dspring.profiles.active=test']
     def envFile = file('.env')

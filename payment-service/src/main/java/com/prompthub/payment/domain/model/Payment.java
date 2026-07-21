@@ -36,8 +36,8 @@ public class Payment {
     @Column(name = "user_id", columnDefinition = "uuid", nullable = false)
     private UUID userId;
 
-    @Column(name = "pg_tx_id", length = 255, nullable = false)
-    private String pgTxId;
+    @Column(name = "payment_key", length = 255, nullable = false)
+    private String paymentKey;
 
     @Enumerated(STRING)
     @Column(name = "status", columnDefinition = "varchar(20)", nullable = false)
@@ -48,9 +48,6 @@ public class Payment {
 
     @Column(name = "provider", length = 30, nullable = false)
     private String provider;
-
-    @Column(name = "is_test", nullable = false)
-    private boolean isTest;
 
     @Column(name = "total_amount", nullable = false)
     private int totalAmount;
@@ -91,33 +88,32 @@ public class Payment {
 
     private Payment(
         UUID id, UUID orderId, UUID userId,
-        String pgTxId, PaymentStatus status,
-        String paymentMethod, String provider, boolean isTest,
+        String paymentKey, PaymentStatus status,
+        String paymentMethod, String provider,
         int totalAmount,
         Integer approvedAmount
     ) {
         this.id = id;
         this.orderId = orderId;
         this.userId = userId;
-        this.pgTxId = pgTxId;
+        this.paymentKey = paymentKey;
         this.status = status;
         this.paymentMethod = paymentMethod;
         this.provider = provider;
-        this.isTest = isTest;
         this.totalAmount = totalAmount;
         this.approvedAmount = approvedAmount;
     }
 
-    // pgTxId(=Toss paymentKey)가 멱등키 역할을 겸한다(pg_tx_id UNIQUE). 별도 idempotency_key 컬럼 없음(D8).
+    // paymentKey(=Toss paymentKey)가 멱등키 역할을 겸한다(payment_key UNIQUE). 별도 idempotency_key 컬럼 없음(D8).
     public static Payment create(
         UUID orderId, UUID userId,
-        String pgTxId, String provider, String paymentMethod, boolean isTest,
+        String paymentKey, String provider, String paymentMethod,
         int totalAmount
     ) {
         return new Payment(
             UUID.randomUUID(), orderId, userId,
-            pgTxId, PaymentStatus.READY,
-            paymentMethod, provider, isTest,
+            paymentKey, PaymentStatus.READY,
+            paymentMethod, provider,
             totalAmount,
             null
         );
@@ -131,13 +127,14 @@ public class Payment {
         this.requestedAt = requestedAt;
     }
 
-    public void approve(int approvedAmount, String paymentMethod, String responsePayload, OffsetDateTime approvedAt) {
+    public void approve(int approvedAmount, String paymentMethod, String requestPayload, String responsePayload, OffsetDateTime approvedAt) {
         if (this.status != PaymentStatus.REQUESTED) {
             throw new IllegalStateException("REQUESTED 상태에서만 PAID로 전환할 수 있습니다.");
         }
         this.status = PaymentStatus.PAID;
         this.approvedAmount = approvedAmount;
         this.paymentMethod = paymentMethod;
+        this.requestPayload = requestPayload;
         this.responsePayload = responsePayload;
         this.approvedAt = approvedAt;
     }

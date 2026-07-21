@@ -58,9 +58,9 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
     void 두번의_부분환불_누적으로_전액_소진_및_Kafka_발행() {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        Payment payment = Payment.create(orderId, userId, "pg-key-cumulative", "TOSS_PAYMENTS", "CARD", false, 10_000);
+        Payment payment = Payment.create(orderId, userId, "pg-key-cumulative", "TOSS_PAYMENTS", "CARD", 10_000);
         payment.markRequested(OffsetDateTime.now());
-        payment.approve(10_000, "카드", "{}", OffsetDateTime.now());
+        payment.approve(10_000, "카드", "{}", "{}", OffsetDateTime.now());
         paymentJpaRepository.saveAndFlush(payment);
 
         when(paymentGateway.refund(anyString(), any(), anyInt()))
@@ -110,9 +110,9 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
     void 동일_상품_재환불_두_refundRequestId_모두_성공() {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        Payment payment = Payment.create(orderId, userId, "pg-key-re-refund", "TOSS_PAYMENTS", "CARD", false, 10_000);
+        Payment payment = Payment.create(orderId, userId, "pg-key-re-refund", "TOSS_PAYMENTS", "CARD", 10_000);
         payment.markRequested(OffsetDateTime.now());
-        payment.approve(10_000, "카드", "{}", OffsetDateTime.now());
+        payment.approve(10_000, "카드", "{}", "{}", OffsetDateTime.now());
         paymentJpaRepository.saveAndFlush(payment);
 
         when(paymentGateway.refund(anyString(), any(), anyInt()))
@@ -139,9 +139,9 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         UUID refundRequestId = UUID.randomUUID();
-        Payment payment = Payment.create(orderId, userId, "pg-key-dedup", "TOSS_PAYMENTS", "CARD", false, 10_000);
+        Payment payment = Payment.create(orderId, userId, "pg-key-dedup", "TOSS_PAYMENTS", "CARD", 10_000);
         payment.markRequested(OffsetDateTime.now());
-        payment.approve(10_000, "카드", "{}", OffsetDateTime.now());
+        payment.approve(10_000, "카드", "{}", "{}", OffsetDateTime.now());
         paymentJpaRepository.saveAndFlush(payment);
 
         when(paymentGateway.refund(anyString(), any(), anyInt()))
@@ -164,9 +164,9 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
     void 과환불_시도_시_예외_없이_FAILED_기록_및_실패_이벤트_발행() {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        Payment payment = Payment.create(orderId, userId, "pg-key-over-refund", "TOSS_PAYMENTS", "CARD", false, 10_000);
+        Payment payment = Payment.create(orderId, userId, "pg-key-over-refund", "TOSS_PAYMENTS", "CARD", 10_000);
         payment.markRequested(OffsetDateTime.now());
-        payment.approve(10_000, "카드", "{}", OffsetDateTime.now());
+        payment.approve(10_000, "카드", "{}", "{}", OffsetDateTime.now());
         paymentJpaRepository.saveAndFlush(payment);
 
         KafkaConsumer<String, String> consumer = 컨슈머_생성("partial-refund-over-test-group");
@@ -203,9 +203,9 @@ class PartialRefundIntegrationTest extends AbstractIntegrationTest {
     void PG_환불_실패_시_Payment_상태_불변_및_실패_이벤트_발행() {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        Payment payment = Payment.create(orderId, userId, "pg-key-fail", "TOSS_PAYMENTS", "CARD", false, 10_000);
+        Payment payment = Payment.create(orderId, userId, "pg-key-fail", "TOSS_PAYMENTS", "CARD", 10_000);
         payment.markRequested(OffsetDateTime.now());
-        payment.approve(10_000, "카드", "{}", OffsetDateTime.now());
+        payment.approve(10_000, "카드", "{}", "{}", OffsetDateTime.now());
         paymentJpaRepository.saveAndFlush(payment);
 
         when(paymentGateway.refund(anyString(), any(), anyInt()))
