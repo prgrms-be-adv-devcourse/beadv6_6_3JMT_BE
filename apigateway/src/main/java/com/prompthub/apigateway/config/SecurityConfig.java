@@ -28,6 +28,8 @@ public class SecurityConfig {
         List<String> authWhitelist = WhitelistPathResolver.authWhitelist(apiVersionProperties);
         List<String> productReadWhitelist = WhitelistPathResolver.productReadWhitelist(apiVersionProperties);
         List<String> sellerLookupWhitelist = WhitelistPathResolver.sellerLookupWhitelist(apiVersionProperties);
+        List<String> sellerSingleLookupWhitelist =
+            WhitelistPathResolver.sellerSingleLookupWhitelist(apiVersionProperties);
 
         return http
             .cors(Customizer.withDefaults())
@@ -36,6 +38,9 @@ public class SecurityConfig {
                 ex.pathMatchers(authWhitelist.toArray(String[]::new)).permitAll();
                 if (!productReadWhitelist.isEmpty()) {
                     ex.pathMatchers(HttpMethod.GET, productReadWhitelist.toArray(String[]::new)).permitAll();
+                }
+                if (!sellerSingleLookupWhitelist.isEmpty()) {
+                    ex.pathMatchers(HttpMethod.GET, sellerSingleLookupWhitelist.toArray(String[]::new)).permitAll();
                 }
                 if (!sellerLookupWhitelist.isEmpty()) {
                     ex.pathMatchers(HttpMethod.POST, sellerLookupWhitelist.toArray(String[]::new)).permitAll();

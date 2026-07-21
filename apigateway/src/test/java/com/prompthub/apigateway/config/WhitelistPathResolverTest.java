@@ -94,14 +94,22 @@ class WhitelistPathResolverTest {
     }
 
     @Test
-    void user_service_v2_활성화면_판매자_조회_경로가_화이트리스트에_포함된다() {
+    void user_service_v2_활성화면_판매자_배치_조회_경로가_화이트리스트에_포함된다() {
         Map<String, List<String>> config = new LinkedHashMap<>();
         config.put("user-service", List.of("v2"));
 
         List<String> whitelist = WhitelistPathResolver.sellerLookupWhitelist(propertiesOf(config));
 
-        assertThat(whitelist).containsExactlyInAnyOrder(
-            "/api/v2/sellers/product", "/api/v2/sellers/products"
-        );
+        assertThat(whitelist).containsExactlyInAnyOrder("/api/v2/sellers/products");
+    }
+
+    @Test
+    void user_service_v2_활성화면_판매자_단건_조회_경로가_화이트리스트에_포함된다() {
+        Map<String, List<String>> config = new LinkedHashMap<>();
+        config.put("user-service", List.of("v2"));
+
+        List<String> whitelist = WhitelistPathResolver.sellerSingleLookupWhitelist(propertiesOf(config));
+
+        assertThat(whitelist).containsExactlyInAnyOrder("/api/v2/sellers/product");
     }
 }
