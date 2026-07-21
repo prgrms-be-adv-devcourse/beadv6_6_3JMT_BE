@@ -155,7 +155,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 				Product representative = family.currentForSeller()
 					.orElseThrow(() -> new IllegalStateException("family에 대표 row가 없습니다. familyRootId=" + entry.getKey()));
 				int familySalesCount = entry.getValue().stream().mapToInt(Product::getSalesCount).sum();
-				return SellerProductListItemResponse.from(representative, familySalesCount);
+				return SellerProductListItemResponse.from(representative, familySalesCount, storageClient);
 			})
 			.sorted(Comparator.comparing(SellerProductListItemResponse::updatedAt).reversed())
 			.toList();
