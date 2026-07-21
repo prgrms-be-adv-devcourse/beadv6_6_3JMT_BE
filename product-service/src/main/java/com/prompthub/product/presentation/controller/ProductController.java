@@ -6,6 +6,7 @@ import com.prompthub.product.application.usecase.ProductSellerUseCase;
 import com.prompthub.product.presentation.dto.request.ProductCreateRequest;
 import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
 import com.prompthub.product.presentation.dto.request.ProductsByIdsRequest;
+import com.prompthub.product.presentation.dto.response.ProductCountResponse;
 import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
 import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
@@ -71,6 +72,13 @@ public class ProductController {
 		@RequestHeader("X-User-Id") UUID sellerId
 	) {
 		return ApiResult.success(productSellerUseCase.getMyProducts(sellerId));
+	}
+
+	@GetMapping("/products/sellers/me/summary")
+	public ApiResult<ProductCountResponse> getMyProductSummary(
+		@RequestHeader("X-User-Id") UUID sellerId
+	) {
+		return ApiResult.success(productInternalUseCase.getProductCount(sellerId));
 	}
 
 	@GetMapping("/products/{productId}")

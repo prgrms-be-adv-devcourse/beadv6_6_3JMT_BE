@@ -8,8 +8,6 @@ import com.prompthub.product.grpc.GetOrderSnapshotsRequest;
 import com.prompthub.product.grpc.GetOrderSnapshotsResponse;
 import com.prompthub.product.grpc.GetProductContentRequest;
 import com.prompthub.product.grpc.GetProductContentResponse;
-import com.prompthub.product.grpc.GetSellerStatsRequest;
-import com.prompthub.product.grpc.GetSellerStatsResponse;
 import com.prompthub.product.grpc.ProductCartSnapshotMessage;
 import com.prompthub.product.grpc.ProductContentResult;
 import com.prompthub.product.grpc.ProductOrderSnapshot;
@@ -28,7 +26,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * product-service가 서버로서 제공하는 gRPC 계약(루트 grpc/product/product_query.proto)의 단일 구현.
- * settlement(GetSellerStats)·order(스냅샷/콘텐츠) 호출을 하나의 서비스로 서빙한다.
+ * order(스냅샷/콘텐츠) 호출을 서빙한다.
  */
 @Slf4j
 @Component
@@ -36,28 +34,6 @@ import org.springframework.stereotype.Component;
 public class ProductQueryGrpcService extends ProductQueryServiceGrpc.ProductQueryServiceImplBase {
 
 	private final ProductInternalUseCase productInternalUseCase;
-
-	@Override
-	public void getSellerStats(GetSellerStatsRequest request, StreamObserver<GetSellerStatsResponse> responseObserver) {
-		try {
-			UUID sellerId = UUID.fromString(request.getSellerId());
-			var result = productInternalUseCase.getProductCount(sellerId);
-			responseObserver.onNext(GetSellerStatsResponse.newBuilder()
-				.setSellerId(result.sellerId().toString())
-				.setProductCount((int) result.productCount())
-				.setSalesCount(result.salesCount())
-				.build());
-			responseObserver.onCompleted();
-		} catch (Exception e) {
-			log.error("GetSellerStats failed: sellerId={}", request.getSellerId(), e);
-			responseObserver.onNext(GetSellerStatsResponse.newBuilder()
-				.setSellerId(request.getSellerId())
-				.setProductCount(0)
-				.setSalesCount(0)
-				.build());
-			responseObserver.onCompleted();
-		}
-	}
 
 	@Override
 	public void getOrderSnapshots(GetOrderSnapshotsRequest request, StreamObserver<GetOrderSnapshotsResponse> responseObserver) {

@@ -148,6 +148,25 @@ class ProductControllerTest {
 	}
 
 	@Nested
+	@DisplayName("GET /api/v2/products/sellers/me/summary")
+	class GetMyProductSummary {
+
+		@Test
+		@DisplayName("등록 상품 수와 누적 판매 수를 반환한다")
+		void getMyProductSummary_success() throws Exception {
+			given(productInternalUseCase.getProductCount(SELLER_ID))
+				.willReturn(new com.prompthub.product.presentation.dto.response.ProductCountResponse(SELLER_ID, 3, 42));
+
+			mockMvc.perform(get("/api/v2/products/sellers/me/summary")
+					.header("X-User-Id", SELLER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data.productCount").value(3))
+				.andExpect(jsonPath("$.data.salesCount").value(42));
+		}
+	}
+
+	@Nested
 	@DisplayName("POST /api/v2/products/wishlists")
 	class GetProductsByIds {
 
