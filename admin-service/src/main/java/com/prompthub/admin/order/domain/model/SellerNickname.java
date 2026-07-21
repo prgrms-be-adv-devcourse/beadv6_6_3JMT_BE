@@ -12,8 +12,7 @@ import java.util.UUID;
 
 /**
  * user-service 소유 "user" 테이블의 읽기 전용 재매핑. 판매자 닉네임(user.name)만 조회한다.
- * 판매자 식별자는 user-service 도메인 컨벤션에 따라 user.user_id 를 그대로 쓴다
- * (별도 seller 테이블 없음 — docs/domain-glossary/user.md 참고).
+ * PK 컬럼명은 실제 DDL 기준 "id"(user-service V1__baseline.sql 확인).
  */
 @Entity
 @Table(name = "\"user\"")
@@ -22,7 +21,7 @@ import java.util.UUID;
 public class SellerNickname {
 
 	@Id
-	@Column(name = "user_id", columnDefinition = "uuid")
+	@Column(name = "id", columnDefinition = "uuid")
 	private UUID sellerId;
 
 	@Column(name = "name", length = 100, nullable = false)

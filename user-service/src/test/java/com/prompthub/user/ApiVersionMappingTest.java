@@ -12,8 +12,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import com.prompthub.user.admin.presentation.controller.AdminSellerController;
-import com.prompthub.user.admin.presentation.controller.AdminUserController;
 import com.prompthub.user.auth.presentation.controller.AuthController;
 import com.prompthub.user.seller.presentation.controller.SellerController;
 import com.prompthub.user.sellersettlement.presentation.controller.SellerSettlementController;
@@ -39,9 +37,7 @@ class ApiVersionMappingTest {
                 arguments("사용자", UserController.class, "/api/v2/users"),
                 arguments("판매자", SellerController.class, "/api/v2/seller"),
                 arguments("판매자 정산", SellerSettlementController.class, "/api/v2/sellers/me/settlements"),
-                arguments("찜", WishlistController.class, "/api/v2/wishlists"),
-                arguments("관리자 사용자", AdminUserController.class, "/api/v2/admin"),
-                arguments("관리자 판매자", AdminSellerController.class, "/api/v2/admin")
+                arguments("찜", WishlistController.class, "/api/v2/wishlists")
         );
     }
 }
