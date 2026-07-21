@@ -139,49 +139,16 @@ message SettleableLine {
 
 ---
 
-## 2. 참고 데이터 조회 (gRPC 동기 조회)
+## 2. 참고 데이터와 화면 조합 경계
 
-> **이관 노트(현재 상태):** 아래 판매자명·상품수 참고 조회는 셀러 정산이 user-service 로 이관되며
-> **`user-service` 의 `sellersettlement` 패키지에서 수행**된다. settlement 본체에는 이 클라이언트가
-> 남아 있지 않다. 상품 수 조회는 `ProductStatsGrpcClient`(→ product `GetSellerStats`)로 구현되어 있으나,
-> **product 서버는 아직 `CountBySeller` 라 서버 리네임 전까지 wire 불일치**(product 팀 리네임 대기, 조율됨). `sales_count` 필드도 서버 확장 대기. 판매자명 조회 서버
-> (`GetSellers`)는 user-service `seller` 패키지에 live 이나 이를 호출하는 정산측 클라이언트는 아직 없다.
-> 실제 구현/대기 상태는 `settlement-internal-comm-topology.md` §3-2·§4 를 본다. 아래 proto 는 계약 상세다.
+정산 금액과 대상을 결정하는 order 원천 라인은 settlement-service가 내부 gRPC로 조회한다(§1).
+판매자 화면의 부가 정보는 각 소유 서비스의 경계를 따른다.
 
-판매자명과 상품 수는 **다른 서비스가 소유한 참고 데이터**다. 정산은 이를 복제(읽기모델)하지 않고,
-**필요한 시점에 동기 조회**한다. (§1 의 원천 데이터와 달리 정산 DB 에 소유하지 않는다.)
-(판매자 정산 계좌 정보는 아직 범위가 아니다 — 추후 지급 실행을 붙일 때 함께 정한다.)
-
-**왜 복제하지 않는가**
-
-- 판매자명·상품 수는 **표시용**이라 실시간 정확도가 중요하지 않다. 정산 조회 시 한 번 물으면 충분하다.
-- 복제(읽기모델)는 저장소·정합성 재동기화 비용을 늘린다. 성능/장애 격리가 실제로 필요해질 때
-  도입하면 되고, 시작 단계에는 동기 조회가 단순하고 안전하다.
-
-| 데이터 | 조회 시점 | 호출 대상 |
-|--------|----------|----------|
-| 판매자 이름(상점명) — 다건 | 정산 목록 조회 시(판매자 여러 명) | User gRPC: `SellerQueryService.GetSellers` (§2-1) |
-| 판매자 등록 상품 수 | 정산 요약 조회 시 | Product gRPC: `ProductQueryService.GetSellerStats` (§2-2) |
-
-> **정산 목록은 다건(batch)이 기본 경로다.** 어드민 판매자별 정산 목록은 한 페이지에 판매자가
-> 여러 명 나오므로, 행마다 단건 조회를 부르면 N+1 이 된다. 목록에 등장하는 `sellerId` 를 모아
-> **한 번에** `GetSellers` 로 조회해 `sellerId → sellerName` 으로 매핑한다.
-> 단건(정산 단건/요약)도 같은 rpc 에 `sellerIds` 1건을 담아 호출한다(단건 전용 rpc 를 따로 두지 않는다).
-
-- **통신 방식: gRPC.** (REST/OpenFeign 아님 — 전환됨.) **단, 이 참고 조회의 proto·클라이언트는
-  정산 본체(settlement-service)에 더 이상 없다** — 셀러 정산이 user-service 로 이관되며 그쪽에서
-  계약·구현을 소유한다(§2-1·§2-2). 아래 서술은 이관 전 "정산 본체 직접 조회" 기준 설계 배경이다.
-- 채널은 게이트웨이를 거치지 않고 서비스 간 직접 호출한다. 채널 주소는 `grpc.client.{user,product}-service.address`
-  로 주입한다(서비스 디스커버리 연동은 상대 서버 연동 시 확정). 평문(`usePlaintext`) 기본, 보안(TLS)은 추후.
-- **(현재)** 상품 수 조회 클라이언트는 셀러 정산(user-service `sellersettlement`)의 `ProductStatsGrpcClient`
-  로 구현되어 있으나 product 서버는 아직 `CountBySeller` 라 서버 리네임 전까지 wire 불일치(조율됨). 판매자명 조회(`GetSellers`) 서버는
-  user-service `seller` 패키지에 live 이나 이를 부르는 정산측 클라이언트는 아직 없다(요청 대기).
-- 정산 요약 응답의 `registeredPromptCount`(= 등록 상품 수)는 §2-2 조회값으로 채운다.
-
-> **§1(원천)과 §2(참고)의 실패 정책은 다르다.** §2 참고 조회(판매자명·상품수)는 표시용이라 실패
-> 시 빈값으로 폴백해 정산 조회를 살린다. 그러나 §1 원천 조회(order 정산 라인)는 **정산 금액·대상에
-> 직접 영향**을 주므로 실패를 삼키면 안 된다 — 배치가 멈추고 재시도해야 한다. (장식은 비우고, 돈은
-> 멈춘다 — `internal-sync-transport.md`.)
+- 판매자명 `GetSellers` 서버는 user-service `seller` 패키지에 있지만, 이를 호출하는 정산측
+  클라이언트는 아직 없다(§2-1).
+- 등록 프롬프트 수와 누적 판매건수는 #452 이후 Seller Settlement가 조회하거나 합치지 않는다.
+  Product가 공개 API를 소유하고 프론트가 Seller Settlement summary와 별도로 호출한다(§2-2).
+- 판매자 정산 계좌 정보는 아직 범위가 아니다. 지급 실행을 붙일 때 별도로 정한다.
 
 ### 2-1. User — 판매자 정보 조회 (`GetSellers`)
 
@@ -193,16 +160,14 @@ message SettleableLine {
 > `seller_query.proto`·클라이언트는 **존재하지 않는다.** 계약 전문(proto·필드)은 서버를 소유한
 > user-service `seller` 쪽에서 관리한다. (정산 계좌 정보는 여기 없다 — 지급 실행 붙일 때 별도로 정한다.)
 
-### 2-2. Product — 판매자 등록 상품 수·판매건수 조회 (`GetSellerStats`)
+### 2-2. Product — 판매자 상품 통계 조합 경계
 
-셀러 정산 요약의 등록 상품 수(`registeredPromptCount`)·판매건수를 채운다.
+#452 이후 Seller Settlement 백엔드는 등록 상품 수와 판매건수를 조회하지 않는다. user-service
+`sellersettlement`의 Product 통계 gRPC 클라이언트와 `GetSellerStats` 소비 계약은 제거된다.
 
-> **현황:** 이 조회는 셀러 정산이 user-service 로 이관되며 **`sellersettlement` 의
-> `ProductStatsGrpcClient`(→ product `GetSellerStats`)로 구현된다.** product 서버는 live 이나 아직
-> `CountBySeller` 라, 서버를 `GetSellerStats` 로 리네임하기 전까지 wire 불일치다(리네임 조율됨).
-> `sales_count`(#262 확장) 필드도 서버 채움 대기다(실패 시 `SellerProductStats.empty()`(0) 폴백).
-> 정산 본체엔 `product_query.proto` 클라이언트가 **없다.** 계약(proto)은 루트 `grpc/product/product_query.proto`
-> 에 두고 소비자는 user-service `sellersettlement` 다(서버 원본은 product-service 잔존). 집계 기준(판매 중만 vs 전체)은 Product 팀과 확정한다.
+Product는 등록 프롬프트 수와 누적 판매건수를 제공하는 공개 API를 별도 작업에서 정의한다. 프론트
+`/shop`은 Product 통계 API와 Seller Settlement summary를 독립적으로 호출하며, Seller Settlement
+summary는 `totalRevenueAmount`, `totalSettlementAmount`만 반환한다.
 
 ---
 
@@ -290,7 +255,7 @@ message SettleableLine {
 | order 원천 수급 | **gRPC pull 로 전환 — 정산측 구현 완료(#260).** `OrderSettlementQueryClient`·`OrderSettlementQueryPort`·`LoadSettlementSourceTasklet`(배치 첫 스텝) 커밋됨. Order 서버(`GetSettleableLines`)는 미구현 — Order 에 `paidAt` 추가 + 서버 신설 요청 필요(계약은 #260 이슈 코멘트) |
 | 기존 `OrderEventConsumer`(`order-events`) | **#317에서 제거 완료.** 컨슈머·수신 DTO·usecase·consumer 설정이 삭제됐으며, Order gRPC 서버 구현 전에는 정산 원천 수급 경로가 없음 |
 | 판매자 이름(다건/단건) | 동기 조회 — **gRPC** `SellerQueryService.GetSellers`. **user-service `seller` 패키지에 서버 live**, 그러나 이를 호출하는 정산측 클라이언트는 아직 없음(요청 대기). 계좌는 추후 |
-| 등록 상품 수 / 판매건수 | 동기 조회 — **gRPC** `ProductQueryService.GetSellerStats`. **셀러 정산(user-service `sellersettlement`)의 `ProductStatsGrpcClient` 구현.** product 서버는 아직 `CountBySeller` — 서버 리네임(조율됨)·`sales_count`(#262) 확장 대기 |
+| 등록 상품 수 / 판매건수 | **Seller Settlement 내부 조회 제거(#452).** Product 공개 API를 프론트가 직접 호출하는 구조로 전환. 정확한 Product API 계약은 Product 후속 작업 |
 | gRPC 의존성 | 추가됨 (`grpc-stub`·`grpc-protobuf`·`protobuf` + `protobuf-gradle-plugin`), proto 는 루트 `grpc/<소유서버>/` 공유 |
 | `SETTLEMENT_CREATED` 발행 | **✅ Transactional Outbox 구현(#301)** — Settlement별 같은 트랜잭션 적재, 시작/마지막 배치 flush, 3회 실패 `FAILED`, `outboxRedriveJob(eventId)`. `settlement-events` 토픽, 셀러 정산 seed 용(§3-1) |
 | `settlement.payout.completed` 발행 | **추후(파이널)** — 현재 범위 아님. 발행은 Kafka 유지 |

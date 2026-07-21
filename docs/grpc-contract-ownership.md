@@ -68,8 +68,8 @@ beadv6_6_3JMT_BE/
 └── grpc/                      ← 루트 공유 gRPC 계약
     ├── order/                 ← order-service 가 서버인 계약(서버 미구현 — 정산 클라이언트가 유일본)
     │   └── order_query.proto    ← OrderQueryService.GetSettleableLines
-    └── product/               ← product-service 가 서버인 계약(서버 원본은 product-service 에 잔존)
-        └── product_query.proto  ← ProductQueryService.GetSellerStats
+    └── product/
+        └── product_query.proto  ← Product 소유 공유 계약. Seller Settlement는 #452 이후 GetSellerStats를 소비하지 않음
 ```
 
 기능이 늘면 서버 모듈명으로 하위 디렉토리를 추가한다(`grpc/order/`, `grpc/product/` …).
@@ -99,23 +99,21 @@ sourceSets {
 | 계약(rpc) | 요청자(client) | 서버(owner) | 위치 | 비고 |
 | --- | --- | --- | --- | --- |
 | `GetSettleableLines`(정산 원천) | settlement | **order** | `grpc/order/order_query.proto` | 루트 공유 이관 완료. order 서버 미구현이라 정산 클라이언트가 유일본 |
-| `GetSellerStats`(셀러 상품·판매수) | user(sellersettlement) | **product** | `grpc/product/product_query.proto` | 루트 공유 이관(소비자 user 미러). product 서버 원본은 product-service 에 잔존(범위 밖) |
+
+> **소비 종료:** `GetSellerStats`는 #452에서 user-service `sellersettlement` 소비자가 제거됐다.
+> `grpc/product/product_query.proto`와 Product 서버의 RPC 유지·삭제는 계약 소유자인 Product 후속
+> 작업에서 결정한다. Seller Settlement는 더 이상 이 계약의 클라이언트가 아니다.
 
 > **제거됨:** `GetSellers`(셀러 정보, 서버 user, `grpc/user/seller_query.proto`)는 settlement 클라이언트가
 > 끝내 도입되지 않은 채 REST `POST /api/v2/sellers/batch`가 같은 용도로 생겨 계약과 user-service 서버
 > 구현을 삭제했다(#444).
 
-### product 서버 원본이 잔존하는 이유 (예외)
+### Product 계약 후속 정리
 
-세 계약을 모두 `grpc/` 로 이관했다. 다만 `GetSellerStats` 는 서버 원본이
-`product-service/src/main/proto/product_query.proto` 에 **살아있다.** product 는 정산 담당 범위 밖이라
-그 원본을 제거하지 못한다. 그래서 `grpc/product/product_query.proto` 는 소비자(user) 미러를 옮긴 것이고,
-product 원본과 같은 wire(`package settlement.product`·service·message·필드 번호)로 **이중 존재**한다.
-product 팀이 공유 `grpc/` 에 참여하면 서버 원본을 이 파일로 통합해 이중 관리를 없앤다.
-
-**진행 중 wire 불일치 주의:** 이 계약의 메서드명을 규칙에 맞춰 `CountBySeller`→`GetSellerStats` 로 바꿨다.
-product 서버 원본은 아직 `CountBySeller` 라, product 팀이 서버를 `GetSellerStats` 로 리네임하기 전까지
-user↔product 호출이 wire 불일치(UNIMPLEMENTED)다. 서버 리네임은 조율됐으며, 서버 반영과 타이밍을 맞춰 머지한다.
+루트 `grpc/product/product_query.proto`에는 Product가 제공하는 다른 RPC도 함께 있으므로 파일 전체를
+이번 작업에서 삭제하지 않는다. `GetSellerStats` RPC와 Product 서버 구현의 유지·삭제, 공개 Seller 통계
+API 전환은 서버 소유자인 Product가 결정한다. user-service는 #452에서 루트 `grpc/product` sourceSet
+참조를 제거한다.
 
 반면 `GetSettleableLines` 는 order 서버가 미구현이라 order-service 에 원본이 없어,
 `grpc/order/order_query.proto` 가 유일본이다(이중 존재 아님). order 팀이 서버를 신설하면 이 계약을 그대로 참조한다.
