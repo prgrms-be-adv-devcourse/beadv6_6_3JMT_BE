@@ -8,9 +8,9 @@ import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.user.seller.application.dto.SellerInfoResult;
 import com.prompthub.user.seller.application.usecase.SellerQueryUseCase;
 import com.prompthub.user.seller.application.usecase.SellerUseCase;
-import com.prompthub.user.seller.presentation.dto.request.SellerBatchRequest;
+import com.prompthub.user.seller.presentation.dto.request.SellerIdsRequest;
 import com.prompthub.user.seller.presentation.dto.request.SellerRegisterRequest;
-import com.prompthub.user.seller.presentation.dto.response.SellerBatchResponse;
+import com.prompthub.user.seller.presentation.dto.response.SellerNamesResponse;
 import com.prompthub.user.seller.presentation.dto.response.SellerProfileResponse;
 import com.prompthub.user.seller.presentation.dto.response.SellerRegisterResponse;
 
@@ -79,18 +79,18 @@ public class SellerController {
         return ApiResult.success(SellerProfileResponse.from(result));
     }
 
-    @Operation(summary = "판매자 이름 배치 조회",
+    @Operation(summary = "판매자 이름 다건 조회",
             description = "sellerId(UUID) 목록으로 판매자 이름을 조회한다(인증 불필요). 중복은 서버가 제거하며,"
                     + " 존재하지 않는 sellerId는 실패 처리하지 않고 sellerName: null로 포함한다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 성공",
-                    content = @Content(schema = @Schema(implementation = SellerBatchResponse.class))),
+                    content = @Content(schema = @Schema(implementation = SellerNamesResponse.class))),
             @ApiResponse(responseCode = "400", description = "빈 배열, 30개 초과, 잘못된 UUID 형식 (V001)",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PostMapping("/api/v2/sellers/products")
-    public ApiResult<SellerBatchResponse> batch(@Valid @RequestBody SellerBatchRequest request) {
+    public ApiResult<SellerNamesResponse> getSellers(@Valid @RequestBody SellerIdsRequest request) {
         List<SellerInfoResult> results = sellerQueryUseCase.findSellers(request.sellerIdStrings());
-        return ApiResult.success(SellerBatchResponse.of(request.sellerIds(), results));
+        return ApiResult.success(SellerNamesResponse.of(request.sellerIds(), results));
     }
 }
