@@ -33,6 +33,7 @@ public class PaymentEventRouter {
             case PAYMENT_APPROVED -> approvedHandler.handle(message);
             case PAYMENT_REFUNDED -> refundedHandler.handle(message);
             case PAYMENT_FAILED -> failedHandler.handle(message);
+            case PAYMENT_REFUND_FAILED -> refundedHandler.handleFailed(message);
         }
     }
 }

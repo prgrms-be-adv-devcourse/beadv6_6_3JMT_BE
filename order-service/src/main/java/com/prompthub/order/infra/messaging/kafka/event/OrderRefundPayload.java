@@ -19,12 +19,20 @@ public record OrderRefundPayload(
         OrderProduct refundedProduct,
         LocalDateTime refundedAt
     ) {
+		return from(order, List.of(refundedProduct), refundedAt);
+	}
+
+	public static OrderRefundPayload from(
+		Order order,
+		List<OrderProduct> refundedProducts,
+		LocalDateTime refundedAt
+	) {
         return new OrderRefundPayload(
                 order.getId(),
                 order.getBuyerId(),
                 order.getTotalOrderAmount(),
                 refundedAt,
-				List.of(OrderPaidProductPayload.from(refundedProduct))
+				refundedProducts.stream().map(OrderPaidProductPayload::from).toList()
         );
     }
 }

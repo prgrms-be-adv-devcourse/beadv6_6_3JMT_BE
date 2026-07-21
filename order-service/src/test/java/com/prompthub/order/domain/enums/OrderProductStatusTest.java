@@ -18,8 +18,13 @@ class OrderProductStatusTest {
     }
 
     @Test
-    void paid_allowsRefunded() {
-        assertThat(OrderProductStatus.PAID.canTransitionTo(OrderProductStatus.REFUNDED)).isTrue();
+	void paid_allowsRefundRequested() {
+		assertThat(OrderProductStatus.PAID.canTransitionTo(OrderProductStatus.REFUND_REQUESTED)).isTrue();
+	}
+
+	@Test
+	void refundRequested_allowsRefunded() {
+		assertThat(OrderProductStatus.REFUND_REQUESTED.canTransitionTo(OrderProductStatus.REFUNDED)).isTrue();
     }
 
     @Test

@@ -1,9 +1,12 @@
 package com.prompthub.order.presentation;
 
 import com.prompthub.order.application.dto.CreateOrderResult;
+import com.prompthub.order.application.dto.RefundResult;
+import com.prompthub.order.application.service.refund.OrderRefundService;
 import com.prompthub.order.application.usecase.ConfirmDownloadUseCase;
 import com.prompthub.order.application.usecase.CreateOrderUseCase;
 import com.prompthub.order.application.usecase.OrderQueryUseCase;
+import com.prompthub.order.presentation.dto.RefundOrderRequest;
 import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import com.prompthub.order.presentation.dto.request.OrderPaymentValidationRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
@@ -25,6 +28,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -32,6 +36,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
@@ -39,6 +45,7 @@ import java.util.UUID;
 
 import static com.prompthub.order.global.web.AuthHeaders.USER_ID;
 
+@RequestMapping("/api/v2/orders")
 @RestController
 @RequiredArgsConstructor
 @Tag(name = "Order", description = "주문 생성, 조회, 구매 콘텐츠, 리뷰 API")
@@ -48,8 +55,9 @@ public class OrderController {
 	private final ConfirmDownloadUseCase confirmDownloadUseCase;
 	private final OrderQueryUseCase orderQueryUseCase;
 	private final CreateOrderUseCase createOrderUseCase;
+	private final OrderRefundService orderRefundService;
 
-	@PostMapping("/api/v2/orders")
+	@PostMapping
 	@Operation(summary = "단일 주문 생성", description = "요청 상품을 하나의 주문으로 생성하고 주문 상품별 판매자 정보를 제공합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "주문 생성 성공"),
@@ -67,7 +75,7 @@ public class OrderController {
 		return ApiResult.success(CreateOrderResponse.from(result));
 	}
 
-	@GetMapping("/api/v2/orders/{orderId}")
+	@GetMapping("/{orderId}")
 	@Operation(summary = "주문 상세 조회", description = "구매자 본인의 주문 상세와 주문 상품 목록을 조회합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "주문 상세 조회 성공"),
@@ -85,7 +93,7 @@ public class OrderController {
 	}
 
 	@Operation(summary = "결제 승인 전 유효성 검사", description = "PG 승인 요청 전에 주문 소유자, 상태, 만료 시간, 결제 금액을 검증합니다.")
-	@PostMapping("/api/v2/orders/{orderId}/payment-ready")
+	@PostMapping("/{orderId}/payment-ready")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "결제 가능 주문"),
 		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패, O014 주문 금액 불일치"),
@@ -109,7 +117,7 @@ public class OrderController {
 		));
 	}
 
-	@GetMapping("/api/v2/orders/{orderId}/content/{orderProductId}")
+	@GetMapping("/{orderId}/content/{orderProductId}")
 	@Operation(summary = "구매 콘텐츠 열람", description = "결제 완료된 주문 상품의 구매 콘텐츠를 조회합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "구매 콘텐츠 열람 성공"),
@@ -128,7 +136,7 @@ public class OrderController {
 		return ApiResult.success(orderQueryUseCase.getOrderContent(buyerId, orderId, orderProductId));
 	}
 
-	@GetMapping("/api/v2/orders")
+	@GetMapping
 	@Operation(summary = "주문 목록 조회", description = "구매자 본인의 주문 목록을 페이지 조건으로 조회합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "주문 목록 조회 성공"),
@@ -152,7 +160,7 @@ public class OrderController {
 		);
 	}
 
-	@PatchMapping("/api/v2/orders/{orderId}/products/{orderProductId}/download")
+	@PatchMapping("/{orderId}/products/{orderProductId}/download")
 	@Operation(summary = "주문상품 다운로드 확정", description = "구매자가 다운로드 버튼을 클릭했음을 기록하고 환불 가능 여부를 반환합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "주문상품 다운로드 확정 성공"),
@@ -169,5 +177,24 @@ public class OrderController {
 		@PathVariable UUID orderProductId
 	) {
 		return ApiResult.success(confirmDownloadUseCase.confirmDownload(buyerId, orderId, orderProductId));
+	}
+
+	@PostMapping("/{orderId}/refund")
+	@ResponseStatus(HttpStatus.ACCEPTED)
+	@Operation(summary = "주문 상품 다건 부분 환불 요청", description = "결제 완료된 미다운로드 주문 상품을 비동기로 환불 접수합니다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "202", description = "환불 요청 접수 성공"),
+		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
+		@ApiResponse(responseCode = "403", description = "O008 주문 접근 불가"),
+		@ApiResponse(responseCode = "404", description = "O001 주문 없음, O012 주문 상품 없음"),
+		@ApiResponse(responseCode = "409", description = "O017 환불 불가")
+	})
+	public ApiResult<RefundResult> requestRefund(
+		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@RequestHeader(USER_ID) UUID buyerId,
+		@PathVariable UUID orderId,
+		@Valid @RequestBody RefundOrderRequest request
+	) {
+		return ApiResult.success(orderRefundService.requestRefund(buyerId, orderId, request.orderProductIds()));
 	}
 }
