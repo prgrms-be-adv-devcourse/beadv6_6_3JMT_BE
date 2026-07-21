@@ -467,7 +467,7 @@ SETTLEMENT_JOB_BATCH_MISMATCH(
 
 - 없는 배치: `SETTLEMENT_BATCH_NOT_FOUND`, restarter 미호출, 상태 복원 미호출
 - FAILED/PROCESSING 배치: `SettlementBatchInvalidStateException`, 미호출
-- `jobInstanceId == null` 레거시 배치: `S-020`, 미호출
+- `jobInstanceId == null` 레거시 배치: `S-020`, restarter 미호출, 배치 `FAILED` 복원
 - 정상 RETRY_REQUESTED: restarter에 배치 ID와 JobInstance ID 전달
 - restarter가 시작 전 예외: `SettlementBatchRetryStateService.restoreFailed(batchId, reason)` 호출 후 원래 예외 재던짐
 - 복원도 실패: 원래 예외를 재던지고 복원 예외가 suppressed에 포함됨
@@ -488,7 +488,10 @@ public SettlementBatch requireRetryRequested(UUID batchId);
 public void restoreFailed(UUID batchId, String reason);
 ```
 
-첫 메서드는 배치 존재, `RETRY_REQUESTED`, 연결된 JobInstance ID를 검증한다. 복원 메서드는 다시 조회한 상태가 아직 `RETRY_REQUESTED`일 때만 `restoreFailed`하고, 이미 `PROCESSING`이면 새 실행이 시작된 것이므로 변경하지 않는다.
+첫 메서드는 배치 존재와 `RETRY_REQUESTED` 상태를 검증한다. `SettlementBatchRestartApplicationService`가
+복원 대상 경계 안에서 JobInstance ID 연결 여부를 검증해, 미연결 레거시 배치도 `S-020`을 던진 뒤
+`FAILED`로 복원한다. 복원 메서드는 다시 조회한 상태가 아직 `RETRY_REQUESTED`일 때만
+`restoreFailed`하고, 이미 `PROCESSING`이면 새 실행이 시작된 것이므로 변경하지 않는다.
 
 `SettlementBatchRestartApplicationService`에는 긴 트랜잭션을 걸지 않는다. 검증 후 restarter를 호출하고 예외일 때 별도 트랜잭션 복원을 호출한다. 복원 실패는 로그와 suppressed 예외에 남기고 원래 예외를 던진다.
 
