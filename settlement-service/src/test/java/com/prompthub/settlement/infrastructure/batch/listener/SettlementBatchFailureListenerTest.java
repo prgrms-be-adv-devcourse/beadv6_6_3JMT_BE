@@ -85,6 +85,7 @@ class SettlementBatchFailureListenerTest {
     private SettlementBatch batch() {
         SettlementBatch batch = SettlementBatch.start(
                 "SETTLE-202606-SCHEDULED-1",
+                1L,
                 LocalDate.of(2026, 6, 1),
                 LocalDate.of(2026, 6, 30),
                 TriggerType.SCHEDULED);
