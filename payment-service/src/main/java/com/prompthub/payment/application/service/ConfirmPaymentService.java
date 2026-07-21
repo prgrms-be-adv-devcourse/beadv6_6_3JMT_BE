@@ -19,7 +19,6 @@ import java.time.OffsetDateTime;
 import java.util.Set;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -42,27 +41,24 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
     private final PaymentGateway paymentGateway;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final TransactionTemplate transactionTemplate;
-    private final boolean testMode;
 
     public ConfirmPaymentService(
         PaymentRepository paymentRepository,
         OrderGateway orderGateway,
         PaymentGateway paymentGateway,
         ApplicationEventPublisher applicationEventPublisher,
-        TransactionTemplate transactionTemplate,
-        @Value("${payment.toss.test-mode:false}") boolean testMode
+        TransactionTemplate transactionTemplate
     ) {
         this.paymentRepository = paymentRepository;
         this.orderGateway = orderGateway;
         this.paymentGateway = paymentGateway;
         this.applicationEventPublisher = applicationEventPublisher;
         this.transactionTemplate = transactionTemplate;
-        this.testMode = testMode;
     }
 
     @Override
     public PaymentResult confirm(ConfirmPaymentCommand command) {
-        if (paymentRepository.existsByPgTxId(command.paymentKey())) {
+        if (paymentRepository.existsByPaymentKey(command.paymentKey())) {
             throw new BusinessException(PaymentErrorCode.DUPLICATE_PAYMENT);
         }
         if (paymentRepository.existsByOrderIdAndStatusIn(command.orderId(), BLOCKING_STATUSES)) {
@@ -86,7 +82,7 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
             paymentId = transactionTemplate.execute(status -> {
                 Payment payment = Payment.create(
                     command.orderId(), command.userId(),
-                    command.paymentKey(), PG_PROVIDER, PAYMENT_METHOD, testMode,
+                    command.paymentKey(), PG_PROVIDER, PAYMENT_METHOD,
                     orderInfo.totalAmount()
                 );
                 paymentRepository.saveAndFlush(payment);
@@ -95,7 +91,7 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
                 return payment.getId();
             });
         } catch (DataIntegrityViolationException e) {
-            // pg_tx_id/orderId 사전 체크와 INSERT 사이의 좁은 레이스 — 최종 방어선
+            // payment_key/orderId 사전 체크와 INSERT 사이의 좁은 레이스 — 최종 방어선
             throw new BusinessException(PaymentErrorCode.DUPLICATE_PAYMENT);
         }
 
@@ -109,7 +105,7 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
             return transactionTemplate.execute(status -> {
                 Payment payment = paymentRepository.findById(paymentId).orElseThrow();
                 payment.approve(result.approvedAmount(), result.paymentMethod(),
-                    result.responsePayload(), result.approvedAt());
+                    result.requestPayload(), result.responsePayload(), result.approvedAt());
                 paymentRepository.save(payment);
                 applicationEventPublisher.publishEvent(new PaymentApprovedEvent(payment));
                 return new PaymentResult(payment.getId());

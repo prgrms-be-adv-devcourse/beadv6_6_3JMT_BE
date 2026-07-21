@@ -42,7 +42,7 @@
 3. 주문 정보 gRPC 조회(order 9083, 매 요청 직접 호출) — 조회 불가/타임아웃 → `503(PAY009)`, 주문 없음 → `404(PAY008)`
 4. 본인 검증: 주문 정보 `buyerId != X-User-Id` → `403(PAY010)`
 5. 금액 검증: 요청 `amount != 주문 totalAmount` → `400(PAY012)`. Toss를 호출한 적 없는 순수 입력 검증 실패라 Payment 레코드를 생성하지 않고, `PAYMENT_FAILED`도 발행하지 않는다 — 같은 orderId로 올바른 금액으로 즉시 재시도 가능
-6. Payment 레코드 생성(`READY` → `REQUESTED`), `pg_tx_id`(=paymentKey) 멱등키 겸용
+6. Payment 레코드 생성(`READY` → `REQUESTED`), `payment_key`(=paymentKey) 멱등키 겸용
 7. 토스페이먼츠 confirm API 동기 호출(주문 정보 금액) → `PAID` / `FAILED`
 8. Payment 상태 저장 → `200` 반환
 

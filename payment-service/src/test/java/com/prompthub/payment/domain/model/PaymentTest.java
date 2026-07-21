@@ -15,7 +15,7 @@ class PaymentTest {
 
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.READY);
         assertThat(payment.getApprovedAmount()).isNull();
-        assertThat(payment.getPgTxId()).isEqualTo("pg-key-001");
+        assertThat(payment.getPaymentKey()).isEqualTo("pg-key-001");
     }
 
     @Test
@@ -35,11 +35,12 @@ class PaymentTest {
         payment.markRequested(OffsetDateTime.now());
         OffsetDateTime approvedAt = OffsetDateTime.now();
 
-        payment.approve(10_000, "카드", "{}", approvedAt);
+        payment.approve(10_000, "카드", "{\"paymentKey\":\"pg-key-001\"}", "{}", approvedAt);
 
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
         assertThat(payment.getApprovedAmount()).isEqualTo(10_000);
         assertThat(payment.getPaymentMethod()).isEqualTo("카드");
+        assertThat(payment.getRequestPayload()).isEqualTo("{\"paymentKey\":\"pg-key-001\"}");
         assertThat(payment.getApprovedAt()).isEqualTo(approvedAt);
     }
 
@@ -68,7 +69,7 @@ class PaymentTest {
     void REQUESTED_아닌_상태에서_approve_실패() {
         Payment payment = 결제_생성();
 
-        assertThatThrownBy(() -> payment.approve(10_000, "카드", "{}", OffsetDateTime.now()))
+        assertThatThrownBy(() -> payment.approve(10_000, "카드", "{}", "{}", OffsetDateTime.now()))
             .isInstanceOf(IllegalStateException.class);
     }
 
@@ -93,17 +94,17 @@ class PaymentTest {
     private Payment 결제_생성_후_승인(int amount) {
         Payment payment = Payment.create(
             UUID.randomUUID(), UUID.randomUUID(),
-            "pg-key-002", "TOSS_PAYMENTS", "CARD", false, amount
+            "pg-key-002", "TOSS_PAYMENTS", "CARD", amount
         );
         payment.markRequested(OffsetDateTime.now());
-        payment.approve(amount, "카드", "{}", OffsetDateTime.now());
+        payment.approve(amount, "카드", "{}", "{}", OffsetDateTime.now());
         return payment;
     }
 
     private Payment 결제_생성() {
         return Payment.create(
             UUID.randomUUID(), UUID.randomUUID(),
-            "pg-key-001", "TOSS_PAYMENTS", "UNKNOWN", false,
+            "pg-key-001", "TOSS_PAYMENTS", "UNKNOWN",
             10_000
         );
     }

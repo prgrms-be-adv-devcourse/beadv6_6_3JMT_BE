@@ -97,7 +97,7 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         when(orderGateway.getOrderPaymentInfo(orderId))
             .thenReturn(new OrderPaymentInfo(orderId, userId, 10_000, OffsetDateTime.now()));
         when(paymentGateway.confirm(anyString(), eq(orderId), eq(10_000)))
-            .thenReturn(new ConfirmResult("카드", 10_000, "{}", approvedAt));
+            .thenReturn(new ConfirmResult("카드", 10_000, "{}", "{}", approvedAt));
 
         Map<String, Object> consumerProps = buildConsumerProps(kafka.getBootstrapServers(), "integration-test-group");
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProps);
@@ -215,7 +215,7 @@ class ConfirmPaymentIntegrationTest extends AbstractIntegrationTest {
         when(orderGateway.getOrderPaymentInfo(orderId))
             .thenReturn(new OrderPaymentInfo(orderId, userId, 10_000, OffsetDateTime.now()));
         when(paymentGateway.confirm(anyString(), eq(orderId), eq(10_000)))
-            .thenReturn(new ConfirmResult("카드", 10_000, "{}", approvedAt));
+            .thenReturn(new ConfirmResult("카드", 10_000, "{}", "{}", approvedAt));
 
         ResponseEntity<Map> mismatch = confirm(orderId, userId, "toss-mismatch-retry-key-1", 9_000);
         assertThat(mismatch.getStatusCode().value()).isEqualTo(400);

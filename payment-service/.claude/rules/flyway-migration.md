@@ -4,7 +4,6 @@ payment-service DB 마이그레이션 규칙. `@Entity` 추가/변경, DB 스키
 
 `payment-service/src/main/resources/db/migration/V{n}__설명_스네이크케이스.sql`
 
-- 현재 최신 버전은 `V2__update_payment_status_and_refund_constraints.sql`. 다음 마이그레이션은 `V3`부터 시작한다.
 - `n`은 이 폴더에서 가장 큰 버전 번호 다음 값.
 
 ## PR 동반 필수

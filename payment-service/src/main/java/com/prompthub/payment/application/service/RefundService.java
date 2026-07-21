@@ -77,7 +77,7 @@ public class RefundService implements RefundUseCase {
 
     private void executeGatewayRefund(Payment payment, Refund refund, int amount) {
         try {
-            RefundResult result = paymentGateway.refund(payment.getPgTxId(), refund.getId(), amount);
+            RefundResult result = paymentGateway.refund(payment.getPaymentKey(), refund.getId(), amount);
             refund.complete(result.refundedAt());
             refundRepository.save(refund);
             applicationEventPublisher.publishEvent(new PaymentRefundedEvent(payment, refund));
