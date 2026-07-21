@@ -107,11 +107,11 @@ public class TossPaymentGateway implements PaymentGateway {
     }
 
     @Override
-    public RefundResult refund(String pgTxId, UUID refundId, int amount) {
+    public RefundResult refund(String paymentKey, UUID refundId, int amount) {
         TossRefundRequest request = new TossRefundRequest("구매자 환불 요청", amount);
 
         TossRefundResponse response = restClient.post()
-            .uri("/payments/{paymentKey}/cancel", pgTxId)
+            .uri("/payments/{paymentKey}/cancel", paymentKey)
             .header("Idempotency-Key", "refund-" + refundId)
             .contentType(MediaType.APPLICATION_JSON)
             .body(request)
