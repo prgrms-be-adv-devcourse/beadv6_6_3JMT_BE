@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v2/admin/orders")
+@RequestMapping("${api.init}/admin/orders")
 @RequiredArgsConstructor
 @Tag(name = "Admin Order", description = "관리자 주문 관리 API (order-service 에서 이관)")
 @SecurityRequirement(name = "gatewayHeaders")

@@ -6,14 +6,10 @@ spring:
     config:
       enabled: false
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:prompthub}?currentSchema=payment_service
-    username: ${DB_USERNAME:chan}
-    password: ${DB_PASSWORD:123}
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
-  flyway:
-    default-schema: payment_service
-    schemas: payment_service
-    create-schemas: true
   jpa:
     hibernate:
       ddl-auto: validate                    # 스키마는 Flyway(V{n} 마이그레이션)가 만든다
@@ -23,7 +19,7 @@ spring:
         format_sql: true
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    bootstrap-servers: localhost:9092
     admin:
       auto-create: false
     producer:
