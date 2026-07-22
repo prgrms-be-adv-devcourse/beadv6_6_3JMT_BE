@@ -327,6 +327,44 @@
 
 ---
 
+### POST /sellers/wishlists — Wishlist 판매자 이름 다건 조회
+
+- 인증: 필요
+- 필요 역할: BUYER / SELLER
+- `POST /products/wishlists` 응답의 `sellerId` 목록을 받아 Wishlist 카드의 판매자명을 채운다.
+- Wishlist 전용 요청·응답 DTO를 사용하며 JSON 스키마, 최대 30개, 중복 제거와 누락 판매자 `null` 정책은 `POST /sellers/products`와 동일하다.
+
+#### Request
+
+**Body**
+
+```json
+{
+  "sellerIds": ["3f1b1b0e-...", "..."]
+}
+```
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sellers": [
+      { "sellerId": "3f1b1b0e-...", "sellerName": "김철수" },
+      { "sellerId": "9c2a...", "sellerName": null }
+    ]
+  },
+  "message": "success"
+}
+```
+
+**400 Bad Request** — 빈 배열, 잘못된 UUID 형식, 30개 초과 (`VALIDATION_FAILED`, V001)
+
+---
+
 ## 찜 (Wishlist)
 
 ### POST /wishlists — 찜 등록
@@ -412,14 +450,7 @@
     {
       "wishlistId": "uuid",
       "productId": "uuid",
-      "title": "GPT 마케팅 카피 프롬프트",
-      "thumbnailUrl": "https://cdn.example.com/images/thumb.jpg",
-      "price": 3900,
-      "sellerNickname": "프롬작가",
-      "averageRating": 4.7,
-      "salesCount": 128,
-      "model": "GPT-4",
-      "addedAt": "2025-03-01T12:00:00Z"
+      "addedAt": "2026-07-22T12:00:00"
     }
   ],
   "message": "success",
@@ -436,18 +467,14 @@
 |------|------|------|
 | wishlistId | string | 찜 ID |
 | productId | string | 상품 ID |
-| title | string | 상품명 |
-| thumbnailUrl | string \| null | 썸네일 이미지 URL |
-| price | integer | 가격 |
-| sellerNickname | string | 판매자 닉네임 |
-| averageRating | number | 평균 별점 |
-| salesCount | integer | 판매 수량 (UI PromptCard 표시용) |
-| model | string | AI 모델 (UI PromptCard 표시용) |
 | addedAt | string | 찜 등록일시 (ISO 8601) |
 | meta.page | integer | 현재 페이지 번호 |
 | meta.size | integer | 페이지당 항목 수 |
 | meta.total | integer | 전체 항목 수 |
 | meta.hasNext | boolean | 다음 페이지 존재 여부 |
+
+상품·판매자 카드 정보는 Client가 Product `POST /products/wishlists`와
+User `POST /sellers/wishlists`를 순차 호출해 조합한다.
 
 ---
 

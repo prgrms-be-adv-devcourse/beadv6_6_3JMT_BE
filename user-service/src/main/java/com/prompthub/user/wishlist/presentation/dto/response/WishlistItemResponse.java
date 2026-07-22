@@ -8,13 +8,6 @@ import java.util.UUID;
 public record WishlistItemResponse(
         UUID wishlistId,
         UUID productId,
-        String title,
-        String thumbnailUrl,
-        long price,
-        String sellerNickname,
-        double averageRating,
-        long salesCount,
-        String model,
         LocalDateTime addedAt
 ) {
 
@@ -22,13 +15,6 @@ public record WishlistItemResponse(
         return new WishlistItemResponse(
                 result.wishlistId(),
                 result.productId(),
-                result.title(),
-                result.thumbnailUrl(),
-                result.price(),
-                result.sellerNickname(),
-                result.averageRating(),
-                result.salesCount(),
-                result.model(),
                 result.addedAt()
         );
     }
