@@ -5,10 +5,12 @@
 #500 (이슈)은 정산 도메인이 `settlement-service`, user-service의 `sellersettlement`,
 admin-service의 `admin.settlement`로 분리된 뒤 남은 gRPC와 Kafka 연동 잔재를 정리한다.
 
-현재 세 모듈의 main·test 소스와 proto를 역참조한 결과, 실제 호출자가 사라진 코드는 두 묶음이다.
+현재 세 모듈의 main·test 소스와 proto를 역참조한 결과, 실제 호출자가 사라진 코드는 한 묶음이다.
 
 - user-service의 `ProductSellerQueryGrpcService`와 전용 proto·테스트·서버 설정
-- settlement-service의 선언만 남은 `SettlementEventType`
+
+settlement-service의 `SettlementEventType`은 코드상 참조가 없었지만, Kafka 규칙이 도메인별 enum과
+`code()` 사용을 요구한다. 따라서 삭제 대상이 아니라 Outbox 이벤트 생성에 연결할 대상이다.
 
 반면 settlement-service의 Order gRPC 클라이언트와 `SETTLEMENT_CREATED` Kafka Outbox 발행,
 user-service의 정산 이벤트 소비는 현재 데이터 흐름에 필요하다. admin-service의 정산 패키지는
@@ -16,7 +18,8 @@ Kafka나 gRPC를 사용하지 않고 JPA로 운영 테이블을 직접 접근한
 
 ## 목표
 
-- 세 모듈 안에서 호출자가 없는 gRPC 서버와 이벤트 타입을 제거한다.
+- 세 모듈 안에서 호출자가 없는 gRPC 서버를 제거한다.
+- settlement Kafka 이벤트 타입을 도메인 enum의 `code()`로 생성하도록 규칙에 맞춘다.
 - 마지막 gRPC 서버 제거에 따라 user-service 내부의 전용 빌드·보안·로컬 설정도 함께 정리한다.
 - 동작 중인 settlement → order gRPC와 settlement → user Kafka seed 흐름을 보존한다.
 - admin settlement의 JPA 직접 접근에 회귀가 없음을 검증한다.
@@ -72,12 +75,14 @@ Product 측 Seller gRPC 호출자는 #440 (이슈)에서 제거됐다. 저장소
 
 ### settlement-service 이벤트 타입
 
-`application/event/SettlementEventType`은 main·test 어디에서도 참조되지 않는다.
-`JsonOutboxEventAppender`는 현재 `SETTLEMENT_CREATED` 문자열을 직접 사용해 `EventMessage`를 만들므로
-이 enum 삭제는 발행 payload나 토픽에 영향을 주지 않는다.
+`application/event/SettlementEventType`은 처음 조사 시 main·test 어디에서도 참조되지 않았고,
+`JsonOutboxEventAppender`는 `SETTLEMENT_CREATED` 문자열을 직접 사용했다. 그러나
+`.claude/rules/kafka-event.md`는 도메인별 `EventType` enum을 `application/event`에 두고 producer가
+`code()`를 사용하도록 요구한다.
 
-이번 작업은 미사용 enum만 제거한다. enum 상수 사용으로 발행 코드를 재구성하는 리팩터링은 범위에 넣지
-않는다.
+따라서 enum을 유지하고 `JsonOutboxEventAppender`의 EventMessage와 Outbox 엔티티 저장에 동일한
+`SettlementEventType.SETTLEMENT_CREATED.code()` 값을 사용한다. 발행 payload·토픽·eventType 문자열은
+기존과 동일하므로 런타임 계약은 바뀌지 않는다.
 
 ### 유지할 통신 경로
 
@@ -103,8 +108,8 @@ admin settlement는 `@KafkaListener`, `KafkaTemplate`, `@GrpcService`, gRPC stub
   `SettlementSellerQueryGrpcService` 네이밍 백로그와 gRPC 서버 배치 설명을 제거한다.
 - `settlement-service/docs/architecture/settlement-internal-comm-topology.md`에서 user-service Seller gRPC
   서버가 live라는 설명을 제거하고 공개 REST Seller 조회 경계로 현행화한다.
-- `settlement-service/docs/architecture/kafka-messaging-design.md`의 구현 트리에서 미사용
-  `SettlementEventType`을 제거한다.
+- `settlement-service/docs/architecture/kafka-messaging-design.md`의 구현 트리에
+  `SettlementEventType`과 실제 사용 관계를 유지한다.
 - 과거 `docs/superpowers/specs/`와 `docs/superpowers/plans/`, user-service의 날짜 기반 설계 문서는 당시
   기록이므로 소급 수정하지 않는다.
 
@@ -112,7 +117,7 @@ admin settlement는 `@KafkaListener`, `KafkaTemplate`, `@GrpcService`, gRPC stub
 
 ## 구현 원칙
 
-- 새 기능이나 대체 추상화를 추가하지 않는다.
+- 새 기능이나 대체 추상화를 추가하지 않는다. 기존 Kafka 이벤트 타입 규칙을 현재 Outbox 구현에 연결한다.
 - 삭제 대상의 마지막 main 사용처가 실제로 없는지 정적 검색으로 다시 확인한 뒤 제거한다.
 - generated protobuf 산출물이 빌드 캐시에 남지 않도록 user-service 검증은 `clean`부터 시작한다.
 - 범위 밖 참조를 없애기 위해 루트나 다른 서비스 파일을 수정하지 않는다.
@@ -126,7 +131,8 @@ admin settlement는 `@KafkaListener`, `KafkaTemplate`, `@GrpcService`, gRPC stub
 - user-service main·test·proto에서 `ProductSellerQueryGrpcService`,
   `com.prompthub.product.grpc.seller`, `product_seller_query.proto`, `GrpcSecurityConfig` 참조가 0건이어야 한다.
 - user-service `build.gradle`에 gRPC server·stub·protobuf 의존성과 protobuf 코드 생성 블록이 없어야 한다.
-- settlement-service main·test에서 `SettlementEventType` 참조가 0건이어야 한다.
+- settlement-service main·test에서 `SettlementEventType` 선언, Outbox 사용과 계약 테스트가 확인돼야 한다.
+- `JsonOutboxEventAppender`에 `SETTLEMENT_CREATED` 문자열 상수를 중복 선언하지 않는다.
 - `SettlementEventConsumer`, `KafkaSettlementEventPublisher`, `OrderSettlementQueryClient`는 그대로 남아 있어야 한다.
 - admin settlement main·test에는 변경 diff가 없어야 한다.
 
@@ -140,7 +146,8 @@ admin settlement는 `@KafkaListener`, `KafkaTemplate`, `@GrpcService`, gRPC stub
 
 ## 완료 조건
 
-- 세 모듈 안의 확정된 고아 gRPC 서버 묶음과 미사용 이벤트 enum이 제거된다.
+- 세 모듈 안의 확정된 고아 gRPC 서버 묶음이 제거된다.
+- settlement 이벤트 타입 enum이 Outbox 생성에 실제 사용되고 `SETTLEMENT_CREATED` 계약이 유지된다.
 - user-service가 protobuf 생성 없이 컴파일·테스트된다.
 - settlement Kafka Outbox와 user Kafka consumer가 기존 구조로 유지된다.
 - settlement → order gRPC 테스트가 통과한다.
