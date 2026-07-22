@@ -131,7 +131,7 @@ public class KafkaPaymentEventPublisher {
     public void onPaymentRefundFailed(PaymentRefundFailedEvent event) {
         Payment payment = event.payment();
         Refund refund = event.refund();
-        OffsetDateTime failedAt = OffsetDateTime.now();
+        OffsetDateTime failedAt = refund.getFailedAt();
         PaymentRefundFailedMessage payload = new PaymentRefundFailedMessage(
             payment.getOrderId(),
             refund.getRefundAmount(),

@@ -1,8 +1,6 @@
 package com.prompthub.order.application.service.event;
 
-import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.application.event.order.OrderExpirationCleanupRequestedEvent;
-import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -10,7 +8,6 @@ import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.infra.messaging.kafka.event.OrderPaidPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,8 +29,7 @@ public class PaymentApprovedProcessor {
 	private final ProcessedEventService processedEventService;
 	private final OrderRepository orderRepository;
 	private final CartRepository cartRepository;
-	private final OrderEventMessageFactory orderEventMessageFactory;
-	private final OutboxEventAppender outboxEventAppender;
+	private final OrderPaidOutboxAppender orderPaidOutboxAppender;
 	private final PaymentEventValidator validator;
 	private final ApplicationEventPublisher applicationEventPublisher;
 
@@ -66,11 +62,7 @@ public class PaymentApprovedProcessor {
 		if (transitioned) {
 			order.markCompleted(approvedAt);
 			removePurchasedProductsFromCart(order.getBuyerId(), order);
-			EventMessage<OrderPaidPayload> message = orderEventMessageFactory.createOrderPaidMessage(
-				order.getId(),
-				OrderPaidPayload.from(order)
-			);
-			outboxEventAppender.append(message);
+			orderPaidOutboxAppender.append(order);
 		}
 
 		processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);

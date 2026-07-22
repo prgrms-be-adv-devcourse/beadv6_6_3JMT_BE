@@ -14,6 +14,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @Slf4j
@@ -136,6 +137,11 @@ public class GlobalExceptionHandler {
                 .status(errorCode.getStatus())
                 .headers(exception.getHeaders())
                 .body(ErrorResponse.of(errorCode));
+    }
+
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public ResponseEntity<Void> handleNoHandlerFoundException(NoHandlerFoundException exception) {
+        return ResponseEntity.notFound().build();
     }
 
     @ExceptionHandler(Exception.class)

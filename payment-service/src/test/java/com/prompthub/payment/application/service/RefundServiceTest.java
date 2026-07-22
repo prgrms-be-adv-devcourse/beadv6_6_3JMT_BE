@@ -104,7 +104,7 @@ class RefundServiceTest {
         ArgumentCaptor<Refund> refundCaptor = ArgumentCaptor.forClass(Refund.class);
         verify(refundRepository).save(refundCaptor.capture());
         assertThat(refundCaptor.getValue().getStatus()).isEqualTo(RefundStatus.FAILED);
-        assertThat(refundCaptor.getValue().getReason()).isNotBlank();
+        assertThat(refundCaptor.getValue().getFailureReason()).isNotBlank();
 
         ArgumentCaptor<PaymentRefundFailedEvent> eventCaptor = ArgumentCaptor.forClass(PaymentRefundFailedEvent.class);
         verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
@@ -181,7 +181,7 @@ class RefundServiceTest {
         ArgumentCaptor<Refund> refundCaptor = ArgumentCaptor.forClass(Refund.class);
         verify(refundRepository).save(refundCaptor.capture());
         assertThat(refundCaptor.getValue().getStatus()).isEqualTo(RefundStatus.FAILED);
-        assertThat(refundCaptor.getValue().getReason()).isEqualTo("환불 실패");
+        assertThat(refundCaptor.getValue().getFailureReason()).isEqualTo("환불 실패");
 
         ArgumentCaptor<PaymentRefundFailedEvent> eventCaptor = ArgumentCaptor.forClass(PaymentRefundFailedEvent.class);
         verify(applicationEventPublisher).publishEvent(eventCaptor.capture());

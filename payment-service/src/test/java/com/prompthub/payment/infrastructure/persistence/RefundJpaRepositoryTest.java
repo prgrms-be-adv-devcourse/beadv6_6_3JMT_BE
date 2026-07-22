@@ -3,6 +3,7 @@ package com.prompthub.payment.infrastructure.persistence;
 import com.prompthub.payment.domain.model.Refund;
 import com.prompthub.payment.domain.model.RefundStatus;
 import com.prompthub.payment.support.AbstractJpaTest;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -93,5 +94,23 @@ class RefundJpaRepositoryTest extends AbstractJpaTest {
     @Test
     void existsByRefundRequestId_없으면_false() {
         assertThat(refundJpaRepository.existsByRefundRequestId(UUID.randomUUID())).isFalse();
+    }
+
+    @Test
+    void 환불_실패_시_failure_reason과_failed_at이_저장되고_사용자_사유는_보존된다() {
+        UUID paymentId = UUID.randomUUID();
+        Refund refund = Refund.create(paymentId, UUID.randomUUID(), 5_000, "단순 변심");
+        OffsetDateTime failedAt = OffsetDateTime.now();
+
+        refund.fail("PG 오류", failedAt);
+        Refund saved = refundJpaRepository.saveAndFlush(refund);
+
+        Refund found = refundJpaRepository.findById(saved.getId())
+            .orElseThrow(() -> new AssertionError("Refund not found"));
+
+        assertThat(found.getReason()).isEqualTo("단순 변심");
+        assertThat(found.getFailureReason()).isEqualTo("PG 오류");
+        assertThat(found.getFailedAt()).isNotNull();
+        assertThat(found.getStatus()).isEqualTo(RefundStatus.FAILED);
     }
 }

@@ -67,6 +67,26 @@ sequenceDiagram
     K->>STL: consume → 정산 원천 기록 (리스너 활성화 시)
 ```
 
+### 0원 주문 즉시 완료
+
+`POST /api/v2/orders`에서 상품 금액 합계가 0이면 Order Service가 주문을 즉시 `COMPLETED`, 주문상품을 `PAID`로 전이하고 기존 Outbox에 `ORDER_PAID`를 저장한다. 별도 topic, key, payload, eventType은 만들지 않는다.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant ORD as Order
+    participant K as Kafka
+    participant PRD as Product
+
+    Client->>ORD: POST /api/v2/orders (총액 0)
+    ORD->>ORD: COMPLETED/PAID 저장, 장바구니 제거
+    ORD->>ORD: OutboxEvent(ORDER_PAID) 저장
+    ORD->>K: order-events ORDER_PAID (OutboxRelay)
+    K->>PRD: consume → 판매 수 증가
+```
+
+0원 주문은 Redis 만료 예약과 Payment Service 승인·환불 요청을 만들지 않는다. Settlement는 기존 주문 조회 경로에서 금액 0의 `PAID` 라인으로 조회한다.
+
 ### 환불
 
 ```mermaid

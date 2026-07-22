@@ -103,15 +103,17 @@ public class OrderPolicyService {
 	public boolean isRefundable(
 		OrderStatus orderStatus,
 		OrderProductStatus orderProductStatus,
+		int productAmount,
 		boolean downloaded
 	) {
 		return (orderStatus == OrderStatus.COMPLETED || orderStatus == OrderStatus.PARTIAL_REFUNDED)
 			&& orderProductStatus == OrderProductStatus.PAID
+			&& productAmount > 0
 			&& !downloaded;
 	}
 
 	public boolean isRefundable(Order order) {
-		return order.isPaid() && order.getOrderProducts().stream().noneMatch(OrderProduct::isDownloaded);
+		return order.isPaid() && order.getOrderProducts().stream().allMatch(OrderProduct::isRefundable);
 	}
 
 	public void validateNoDownloadedProduct(Order order) {

@@ -75,4 +75,12 @@ class OrderProductTest {
         assertThat(pending.isDownloaded()).isTrue();
         assertThat(pending.isRefundable()).isFalse();
     }
+
+	@Test
+	void paidFreeProduct_isNotRefundable() {
+		OrderProduct product = OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, 0);
+		product.markPaid();
+
+		assertThat(product.isRefundable()).isFalse();
+	}
 }

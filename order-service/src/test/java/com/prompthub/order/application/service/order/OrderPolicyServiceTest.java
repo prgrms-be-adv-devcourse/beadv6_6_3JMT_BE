@@ -140,8 +140,8 @@ class OrderPolicyServiceTest {
 		}
 
 		@Test
-		@DisplayName("상품 금액이 0이면 입력값 검증 예외가 발생한다")
-		void zeroProductAmount_throwsStableOrderException() {
+		@DisplayName("상품 금액이 0이면 스냅샷 검증에 성공한다")
+		void zeroProductAmount_success() {
 			List<ProductOrderSnapshot> snapshots = List.of(
 				new ProductOrderSnapshot(
 					PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1,
@@ -149,9 +149,7 @@ class OrderPolicyServiceTest {
 				)
 			);
 
-			assertThatThrownBy(() -> orderPolicyService.validateProductSnapshots(List.of(PRODUCT_ID_1), snapshots))
-				.isInstanceOf(OrderException.class)
-				.hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+			orderPolicyService.validateProductSnapshots(List.of(PRODUCT_ID_1), snapshots);
 		}
 
 		@Test
@@ -259,19 +257,25 @@ class OrderPolicyServiceTest {
 		@Test
 		@DisplayName("주문과 주문 상품이 PAID이고 다운로드하지 않았으면 환불 가능하다")
 		void isRefundable_paidAndNotDownloaded_returnsTrue() {
-			assertThat(orderPolicyService.isRefundable(OrderStatus.COMPLETED, OrderProductStatus.PAID, false)).isTrue();
+			assertThat(orderPolicyService.isRefundable(OrderStatus.COMPLETED, OrderProductStatus.PAID, PRODUCT_AMOUNT_1, false)).isTrue();
 		}
 
 		@Test
 		@DisplayName("다운로드한 상품은 환불 가능하지 않다")
 		void isRefundable_downloaded_returnsFalse() {
-			assertThat(orderPolicyService.isRefundable(OrderStatus.COMPLETED, OrderProductStatus.PAID, true)).isFalse();
+			assertThat(orderPolicyService.isRefundable(OrderStatus.COMPLETED, OrderProductStatus.PAID, PRODUCT_AMOUNT_1, true)).isFalse();
 		}
 
 		@Test
 		@DisplayName("PAID가 아닌 주문은 환불 가능하지 않다")
 		void isRefundable_notPaidOrder_returnsFalse() {
-			assertThat(orderPolicyService.isRefundable(OrderStatus.FAILED, OrderProductStatus.PAID, false)).isFalse();
+			assertThat(orderPolicyService.isRefundable(OrderStatus.FAILED, OrderProductStatus.PAID, PRODUCT_AMOUNT_1, false)).isFalse();
+		}
+
+		@Test
+		@DisplayName("0원 상품은 환불 가능하지 않다")
+		void isRefundable_freeProduct_returnsFalse() {
+			assertThat(orderPolicyService.isRefundable(OrderStatus.COMPLETED, OrderProductStatus.PAID, 0, false)).isFalse();
 		}
 	}
 
