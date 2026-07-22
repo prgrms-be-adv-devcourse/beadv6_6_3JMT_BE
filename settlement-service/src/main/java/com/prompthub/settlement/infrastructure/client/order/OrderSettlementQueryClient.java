@@ -1,7 +1,7 @@
 package com.prompthub.settlement.infrastructure.client.order;
 
 import com.prompthub.settlement.application.dto.SettleableLine;
-import com.prompthub.settlement.application.port.OrderSettlementQueryPort;
+import com.prompthub.settlement.application.port.OrderSettlementQuery;
 import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.enums.SettlementSourceLineType;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class OrderSettlementQueryClient implements OrderSettlementQueryPort {
+public class OrderSettlementQueryClient implements OrderSettlementQuery {
 
     private final OrderQueryServiceBlockingStub orderSettlementQueryStub;
 

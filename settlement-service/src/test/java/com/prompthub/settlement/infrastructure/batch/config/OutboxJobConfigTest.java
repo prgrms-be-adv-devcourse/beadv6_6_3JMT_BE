@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
-import com.prompthub.settlement.infrastructure.batch.listener.SettlementBatchExecutionListener;
+import com.prompthub.settlement.infrastructure.batch.listener.SettlementBatchStateJobExecutionListener;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.job.AbstractJob;
@@ -28,7 +28,7 @@ class OutboxJobConfigTest {
                 step("settlementStep"),
                 step("completeSettlementBatchStep"),
                 step("flushCurrentBatchOutboxStep"),
-                mock(SettlementBatchExecutionListener.class));
+                mock(SettlementBatchStateJobExecutionListener.class));
 
         // then
         assertThat(((AbstractJob) job).getStepNames()).containsExactly(

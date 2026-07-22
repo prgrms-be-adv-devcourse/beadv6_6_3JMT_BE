@@ -5,12 +5,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
+import com.prompthub.admin.order.domain.model.SellerNickname;
+import com.prompthub.admin.order.infrastructure.persistence.SellerNicknameRepository;
 import com.prompthub.admin.product.domain.exception.ProductException;
 import com.prompthub.admin.product.domain.model.entity.Product;
 import com.prompthub.admin.product.domain.model.enums.AmountType;
 import com.prompthub.admin.product.domain.model.enums.ProductStatus;
 import com.prompthub.admin.product.domain.model.enums.ProductType;
 import com.prompthub.admin.product.domain.repository.ProductRepository;
+import com.prompthub.admin.product.presentation.dto.response.AdminProductListItemResponse;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -32,8 +36,44 @@ class ProductServiceTest {
 	@Mock
 	private ProductRepository productRepository;
 
+	@Mock
+	private SellerNicknameRepository sellerNicknameRepository;
+
 	@InjectMocks
 	private ProductService productAdminService;
+
+	@Nested
+	@DisplayName("검수 대기 목록 조회")
+	class GetPendingReviewProducts {
+
+		@Test
+		@DisplayName("판매자 닉네임을 함께 채워서 반환한다")
+		void getPendingReviewProducts_fillsSellerNickname() {
+			Product pending = product(FAMILY_ROOT_ID, null, ProductStatus.PENDING_REVIEW, (short) 1, (short) 0);
+			given(productRepository.findPendingReviewProducts()).willReturn(List.of(pending));
+			SellerNickname nickname = Mockito.mock(SellerNickname.class);
+			given(nickname.getSellerId()).willReturn(SELLER_ID);
+			given(nickname.getNickname()).willReturn("판매자A");
+			given(sellerNicknameRepository.findAllById(List.of(SELLER_ID))).willReturn(List.of(nickname));
+
+			List<AdminProductListItemResponse> result = productAdminService.getPendingReviewProducts();
+
+			assertThat(result).hasSize(1);
+			assertThat(result.get(0).sellerNickname()).isEqualTo("판매자A");
+		}
+
+		@Test
+		@DisplayName("닉네임을 찾을 수 없으면 '알 수 없음'으로 채운다")
+		void getPendingReviewProducts_unknownSeller_fallsBack() {
+			Product pending = product(FAMILY_ROOT_ID, null, ProductStatus.PENDING_REVIEW, (short) 1, (short) 0);
+			given(productRepository.findPendingReviewProducts()).willReturn(List.of(pending));
+			given(sellerNicknameRepository.findAllById(List.of(SELLER_ID))).willReturn(List.of());
+
+			List<AdminProductListItemResponse> result = productAdminService.getPendingReviewProducts();
+
+			assertThat(result.get(0).sellerNickname()).isEqualTo("알 수 없음");
+		}
+	}
 
 	@Nested
 	@DisplayName("상품 승인")

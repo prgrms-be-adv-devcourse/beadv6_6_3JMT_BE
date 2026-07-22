@@ -2,7 +2,7 @@ package com.prompthub.settlement.infrastructure.batch.reader;
 
 import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
-import com.prompthub.settlement.infrastructure.batch.model.SettlementItem;
+import com.prompthub.settlement.infrastructure.batch.model.SettlementTarget;
 import java.time.LocalDate;
 import java.util.Iterator;
 import java.util.UUID;
@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 @Component
 @StepScope
 @RequiredArgsConstructor
-public class SettlementTargetReader implements ItemReader<SettlementItem> {
+public class SettlementTargetReader implements ItemReader<SettlementTarget> {
 
     private final SettlementSourceRepository settlementSourceRepository;
 
@@ -31,7 +31,7 @@ public class SettlementTargetReader implements ItemReader<SettlementItem> {
     private Iterator<UUID> sellerIdIterator;
 
     @Override
-    public SettlementItem read() {
+    public SettlementTarget read() {
         SettlementPeriod period = period();
 
         if (sellerIdIterator == null) {
@@ -42,7 +42,7 @@ public class SettlementTargetReader implements ItemReader<SettlementItem> {
             return null;
         }
 
-        return new SettlementItem(sellerIdIterator.next(), period, UUID.fromString(settlementBatchIdParam));
+        return new SettlementTarget(sellerIdIterator.next(), period, UUID.fromString(settlementBatchIdParam));
     }
 
     private SettlementPeriod period() {

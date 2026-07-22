@@ -134,7 +134,7 @@ class KafkaPaymentEventPublisherTest {
         payment.approve(10_000, "CARD", "{}", "{}", OffsetDateTime.now());
         com.prompthub.payment.domain.model.Refund refund =
             com.prompthub.payment.domain.model.Refund.create(payment.getId(), UUID.randomUUID(), 4_000, null);
-        refund.fail("PG 오류");
+        refund.fail("PG 오류", OffsetDateTime.now());
 
         publisher.onPaymentRefundFailed(
             new com.prompthub.payment.domain.event.PaymentRefundFailedEvent(payment, refund, "PG 오류"));
