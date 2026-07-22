@@ -415,7 +415,7 @@
 |------|------|------|------|
 | title | string | Y | 상품명 |
 | productType | string | N | 상품 유형 (`PROMPT` \| `NOTION` \| `PPT` \| `EXCEL`, 기본값 `PROMPT`) |
-| model | string | Y | 대상 AI 모델 |
+| model | string | N | 대상 AI 모델 (PROMPT 타입일 때만 필수, 그 외 타입은 null) |
 | desc | string | Y | 상품 설명 |
 | amount | integer | Y | 가격 |
 | content | string | 유형별 | 프롬프트 원문 (PROMPT 필수) |
@@ -486,7 +486,7 @@
 |------|------|------|------|
 | title | string | Y | 상품명 |
 | productType | string | N | 상품 유형 (`PROMPT` \| `NOTION` \| `PPT` \| `EXCEL`, 기본값 `PROMPT`) |
-| model | string | Y | 대상 AI 모델 |
+| model | string | N | 대상 AI 모델 (PROMPT 타입일 때만 필수, 그 외 타입은 null) |
 | desc | string | Y | 상품 설명 |
 | amount | integer | Y | 가격 |
 | content | string | 유형별 | 프롬프트 원문 (PROMPT 필수) |
