@@ -109,6 +109,10 @@ sourceSets {
 > 끝내 도입되지 않은 채 REST `POST /api/v2/sellers/batch`가 같은 용도로 생겨 계약과 user-service 서버
 > 구현을 삭제했다(#444).
 
+> **제거됨:** user-service Wishlist가 보유하던 로컬 `user.product.ProductService/GetProductsByIds`
+> 계약과 client는 #485에서 삭제했다. Product 서버에 구현되지 않았던 계약이며, Wishlist 상품 조회는
+> Client가 Product REST `POST /api/v2/products/wishlists`를 직접 호출한다.
+
 ### Product 계약 후속 정리
 
 루트 `grpc/product/product_query.proto`에는 Product가 제공하는 다른 RPC도 함께 있으므로 파일 전체를

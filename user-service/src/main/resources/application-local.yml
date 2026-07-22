@@ -37,10 +37,6 @@ jwt:
 grpc:
   server:
     port: 9081
-  client:
-    product-service:
-      address: 'static://localhost:9082'
-      negotiation-type: plaintext
 
 eureka:
   client:
