@@ -7,18 +7,18 @@ import java.util.UUID;
 public record AdminProductListItemResponse(
 	UUID productId,
 	String title,
-	UUID sellerId,
+	String sellerNickname,
 	String productType,
 	String model,
 	int amount,
 	String status,
 	LocalDateTime createdAt
 ) {
-	public static AdminProductListItemResponse from(Product product) {
+	public static AdminProductListItemResponse from(Product product, String sellerNickname) {
 		return new AdminProductListItemResponse(
 			product.getId(),
 			product.getName(),
-			product.getSellerId(),
+			sellerNickname,
 			product.getProductType().name(),
 			product.getModel(),
 			product.getAmount(),

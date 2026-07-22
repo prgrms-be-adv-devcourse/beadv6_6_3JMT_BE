@@ -677,7 +677,7 @@
     {
       "productId": "uuid",
       "title": "상품명",
-      "sellerId": "uuid",
+      "sellerNickname": "김철수",
       "productType": "PROMPT",
       "model": "Claude 3.5",
       "amount": 5000,
