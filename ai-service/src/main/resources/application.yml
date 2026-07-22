@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: ai-service
+  config:
+    import: ${CONFIG_IMPORT:}
+  data:
+    redis:
+      database: 1
+  ai:
+    tools:
+      throw-exception-on-error: true
+      observations:
+        include-content: false
+    chat:
+      observations:
+        log-prompt: false
+        log-completion: false
+        include-error-logging: false
+
+server:
+  port: 8087

@@ -1,0 +1,19 @@
+{
+  "eventId": "0f6edb38-73be-4f65-9cc4-20889b0b8461",
+  "eventType": "SETTLEMENT_CREATED",
+  "occurredAt": "2026-07-20T01:12:03",
+  "aggregateType": "SETTLEMENT",
+  "aggregateId": "92fa7fd2-cd34-4ce3-89db-8381096e837b",
+  "payload": {
+    "settlementId": "92fa7fd2-cd34-4ce3-89db-8381096e837b",
+    "sellerId": "7c0ae024-86fa-4497-8be1-1440ce8f65de",
+    "periodStart": "2026-07-13",
+    "periodEnd": "2026-07-19",
+    "productCount": 1,
+    "totalAmount": 100.00,
+    "settlementTotalAmount": 85.00,
+    "feeTotalAmount": 15.00,
+    "refundAmount": 0.00,
+    "calculatedAt": "2026-07-20T01:12:02"
+  }
+}

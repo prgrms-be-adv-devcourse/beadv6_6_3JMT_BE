@@ -39,6 +39,35 @@ class SettlementTest {
     }
 
     @Test
+    @DisplayName("판매와 환불을 분리해 순수수료와 지급액을 계산한다")
+    void create_calculatesSaleRefundAndNetFee() {
+        // given
+        UUID orderProductId = UUID.randomUUID();
+        List<SettlementDetail> details = List.of(
+                SettlementDetail.sale(
+                        orderProductId,
+                        new BigDecimal("100.00"),
+                        new BigDecimal("0.1500"),
+                        LocalDateTime.of(2026, 7, 14, 13, 10)),
+                SettlementDetail.refund(
+                        orderProductId,
+                        new BigDecimal("40.00"),
+                        new BigDecimal("0.1500"),
+                        LocalDateTime.of(2026, 7, 17, 9, 20)));
+
+        // when
+        Settlement settlement = Settlement.create(
+                UUID.randomUUID(), UUID.randomUUID(), PERIOD, details);
+
+        // then
+        assertThat(settlement.getProductCount()).isEqualTo(1);
+        assertThat(settlement.getTotalAmount()).isEqualByComparingTo("100.00");
+        assertThat(settlement.getRefundAmount()).isEqualByComparingTo("40.00");
+        assertThat(settlement.getFeeTotalAmount()).isEqualByComparingTo("9.00");
+        assertThat(settlement.getSettlementTotalAmount()).isEqualByComparingTo("51.00");
+    }
+
+    @Test
     @DisplayName("정산 생성 시 환불액 0과 계산 시각이 강제된다")
     void create_forcesRefundZeroAndCalculatedAt() {
         // given

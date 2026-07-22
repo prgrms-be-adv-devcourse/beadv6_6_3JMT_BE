@@ -2,7 +2,8 @@ package com.prompthub.user.sellersettlement.infrastructure.messaging.kafka.consu
 
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.user.global.exception.SettlementEventDeserializeException;
-import com.prompthub.user.sellersettlement.application.event.SettlementCreatedEvent;
+import com.prompthub.user.sellersettlement.application.event.SettlementCreatedEventV1;
+import com.prompthub.user.sellersettlement.application.event.SettlementCreatedEventV2;
 import com.prompthub.user.sellersettlement.application.usecase.SeedSellerSettlementUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,19 +31,44 @@ public class SettlementEventConsumer {
     )
     public void consume(String message, Acknowledgment acknowledgment) {
         JsonNode root = readTree(message);
-        String eventTypeStr = root.path("eventType").stringValue(null);
+        String eventTypeStr = resolveEventType(root);
         SettlementEventType eventType = SettlementEventType.from(eventTypeStr);
 
         switch (eventType) {
-            case SETTLEMENT_CREATED -> {
-                EventMessage<SettlementCreatedEvent> eventMessage =
-                        toEventMessage(root, SettlementCreatedEvent.class);
-                seedSellerSettlementUseCase.seed(eventMessage.payload());
-            }
+            case SETTLEMENT_CREATED -> consumeSettlementCreated(root);
             case UNKNOWN -> log.warn("지원하지 않는 정산 이벤트 타입입니다. eventType={}", eventTypeStr);
         }
 
         acknowledgment.acknowledge();
+    }
+
+    private String resolveEventType(JsonNode root) {
+        JsonNode eventTypeNode = root.path("eventType");
+        if (!eventTypeNode.isString() || eventTypeNode.stringValue().isBlank()) {
+            throw deserializeException("정산 eventType 형식이 올바르지 않습니다.");
+        }
+        return eventTypeNode.stringValue();
+    }
+
+    private void consumeSettlementCreated(JsonNode root) {
+        switch (resolvePayloadVersion(root)) {
+            case 1 -> seedSellerSettlementUseCase.seed(
+                    toEventMessage(root, SettlementCreatedEventV1.class).payload());
+            case 2 -> seedSellerSettlementUseCase.seed(
+                    toEventMessage(root, SettlementCreatedEventV2.class).payload());
+            default -> throw deserializeException("지원하지 않는 정산 payload version입니다.");
+        }
+    }
+
+    private int resolvePayloadVersion(JsonNode root) {
+        JsonNode versionNode = root.path("payload").path("payloadVersion");
+        if (versionNode.isMissingNode() || versionNode.isNull()) {
+            return 1;
+        }
+        if (!versionNode.isIntegralNumber() || !versionNode.canConvertToInt()) {
+            throw deserializeException("정산 payload version 형식이 올바르지 않습니다.");
+        }
+        return versionNode.intValue();
     }
 
     private JsonNode readTree(String message) {
@@ -61,5 +87,9 @@ public class SettlementEventConsumer {
         } catch (JacksonException exception) {
             throw new SettlementEventDeserializeException("정산 이벤트 페이로드 역직렬화에 실패했습니다.", exception);
         }
+    }
+
+    private SettlementEventDeserializeException deserializeException(String message) {
+        return new SettlementEventDeserializeException(message, new IllegalArgumentException(message));
     }
 }

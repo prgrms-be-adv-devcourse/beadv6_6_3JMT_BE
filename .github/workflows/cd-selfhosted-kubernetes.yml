@@ -51,6 +51,10 @@ jobs:
           files_yaml: |
             user_service:
               - user-service/**
+              - grpc/user/**
+            ai_service:
+              - ai-service/**
+              - grpc/user/**
             product_service:
               - product-service/**
             order_service:
@@ -97,7 +101,7 @@ jobs:
 
           if [ "${{ steps.changed.outputs.all_applications_any_changed }}" = "true" ] ||
             [ "$application_manifests_changed" = "true" ]; then
-            services_json='["config","discovery","user-service","product-service","order-service","payment-service","settlement-service","admin-service","apigateway"]'
+            services_json='["config","discovery","user-service","product-service","order-service","payment-service","settlement-service","admin-service","ai-service","apigateway"]'
           else
             services=()
             [ "${{ steps.changed.outputs.config_any_changed }}" = "true" ] && services+=("config")
@@ -108,6 +112,7 @@ jobs:
             [ "${{ steps.changed.outputs.payment_service_any_changed }}" = "true" ] && services+=("payment-service")
             [ "${{ steps.changed.outputs.settlement_service_any_changed }}" = "true" ] && services+=("settlement-service")
             [ "${{ steps.changed.outputs.admin_service_any_changed }}" = "true" ] && services+=("admin-service")
+            [ "${{ steps.changed.outputs.ai_service_any_changed }}" = "true" ] && services+=("ai-service")
             [ "${{ steps.changed.outputs.apigateway_any_changed }}" = "true" ] && services+=("apigateway")
 
             if [ ${#services[@]} -eq 0 ]; then
@@ -183,6 +188,7 @@ jobs:
             jwt-secret
             payment-secret
             product-secret
+            ai-secret
             ghcr-pull-secret
           )
 
@@ -222,6 +228,7 @@ jobs:
           ensure_package payment-service payment-service k8s/base/services/payment
           ensure_settlement_cronjob
           ensure_package admin-service admin-service k8s/base/services/admin
+          ensure_package ai-service ai-service k8s/base/services/ai
           ensure_package apigateway apigateway k8s/base/gateway
 
           kubectl get cronjob settlement-weekly -n "$NAMESPACE" >/dev/null
@@ -247,6 +254,7 @@ jobs:
             payment-service
             settlement-service
             admin-service
+            ai-service
             apigateway
           )
           deployment_order=(
@@ -257,6 +265,7 @@ jobs:
             order-service
             payment-service
             admin-service
+            ai-service
             apigateway
           )
           config_consumers=(
@@ -265,6 +274,7 @@ jobs:
             order-service
             payment-service
             admin-service
+            ai-service
             apigateway
           )
           updated_deployments=()
@@ -465,6 +475,9 @@ jobs:
               newTag: $short_sha
             - name: ghcr.io/prgrms-be-adv-devcourse/prompthub-admin-service
               newName: ghcr.io/$owner_lc/prompthub-admin-service
+              newTag: $short_sha
+            - name: ghcr.io/prgrms-be-adv-devcourse/prompthub-ai-service
+              newName: ghcr.io/$owner_lc/prompthub-ai-service
               newTag: $short_sha
             - name: ghcr.io/prgrms-be-adv-devcourse/prompthub-apigateway
               newName: ghcr.io/$owner_lc/prompthub-apigateway

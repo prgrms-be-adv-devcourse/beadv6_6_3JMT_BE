@@ -48,6 +48,13 @@ spring:
               filters:
                 - RewritePath=/payment-service/v3/api-docs, /v3/api-docs
 
+            - id: ai-service-docs
+              uri: lb://AI-SERVICE
+              predicates:
+                - Path=/ai-service/v3/api-docs
+              filters:
+                - RewritePath=/ai-service/v3/api-docs, /v3/api-docs
+
 gateway:
   # 서비스별 활성 API 버전 리스트. 병행 서빙이 필요해지면 [v1, v2]로 바꾼다.
   # 리스트를 비우거나 서비스 키를 지우면 해당 서비스의 라우트/화이트리스트는 사라지고 404가 된다. (ADR-0007)
@@ -57,7 +64,11 @@ gateway:
     product-service: [ v1, v2 ]
     payment-service: [ v1, v2 ]
     user-service: [ v1, v2 ]
+    ai-service: [ v2 ]
     notification-service: [ v2 ]
+  route-policies:
+    /api/*/sellers/me/**: SELLER
+    /api/*/ai/settlement/**: SELLER
 
 jwt:
   public-key: ${JWT_PUBLIC_KEY}
@@ -73,6 +84,8 @@ springdoc:
         url: /order-service/v3/api-docs
       - name: payment-service
         url: /payment-service/v3/api-docs
+      - name: ai-service
+        url: /ai-service/v3/api-docs
   api-docs:
     enabled: true
 

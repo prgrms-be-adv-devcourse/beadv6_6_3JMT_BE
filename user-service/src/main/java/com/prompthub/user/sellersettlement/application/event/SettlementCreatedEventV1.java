@@ -5,7 +5,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public record SettlementCreatedEvent(
+public record SettlementCreatedEventV1(
+        Integer payloadVersion,
         UUID settlementId,
         UUID sellerId,
         LocalDate periodStart,
@@ -17,4 +18,10 @@ public record SettlementCreatedEvent(
         BigDecimal refundAmount,
         LocalDateTime calculatedAt
 ) {
+
+    public SettlementCreatedEventV1 {
+        if (payloadVersion != null && payloadVersion != 1) {
+            throw new IllegalArgumentException("V1 payloadVersion은 없거나 1이어야 합니다.");
+        }
+    }
 }

@@ -1,6 +1,11 @@
 server:
   port: 8081
 
+grpc:
+  server:
+    enabled: true
+    port: ${USER_GRPC_SERVER_PORT:9081}
+
 spring:
   cloud:
     config:
@@ -12,7 +17,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
@@ -44,7 +49,13 @@ cors:
   allowed-origins: "http://localhost:3000"
 
 user:
+  grpc:
+    seller-settlement:
+      internal-token: ${AI_USER_GRPC_TOKEN:local-ai-user-token}
   kafka:
+    dlt:
+      slack:
+        webhook-url: ${SETTLEMENT_DLT_SLACK_WEBHOOK_URL:}
     consumer:
       settlement:
         topic: settlement-events

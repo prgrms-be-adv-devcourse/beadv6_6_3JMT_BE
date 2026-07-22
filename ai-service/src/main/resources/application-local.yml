@@ -1,0 +1,42 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: 1
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+    retry:
+      max-attempts: 1
+  grpc:
+    client:
+      channel:
+        user-service:
+          target: static://${USER_GRPC_HOST:localhost}:${USER_GRPC_PORT:9081}
+
+eureka:
+  client:
+    enabled: false
+
+ai:
+  model: ${OPENAI_MODEL:gpt-5.6-luna}
+  reasoning-effort: ${OPENAI_REASONING_EFFORT:low}
+  max-completion-tokens: ${OPENAI_MAX_COMPLETION_TOKENS:2000}
+  history-max-tokens: ${AI_CHAT_HISTORY_MAX_TOKENS:8000}
+  run-timeout: ${AI_RUN_TIMEOUT:90s}
+  user-grpc-deadline: ${AI_USER_GRPC_DEADLINE:3s}
+  user-grpc-internal-token: ${AI_USER_GRPC_TOKEN}
+  execution:
+    max-concurrent-runs: ${AI_MAX_CONCURRENT_RUNS:4}
+  conversation:
+    ttl: 24h
+    max-pairs: 20
+  sse:
+    heartbeat: 15s
+  settlement:
+    chat:
+      enabled: ${AI_SETTLEMENT_CHAT_ENABLED:false}

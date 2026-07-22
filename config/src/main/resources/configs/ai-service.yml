@@ -1,0 +1,56 @@
+server:
+  port: 18087
+
+spring:
+  grpc:
+    client:
+      channel:
+        user-service:
+          target: static://user-service:${USER_GRPC_SERVER_PORT}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      database: 1
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+    retry:
+      max-attempts: 1
+    chat:
+      observations:
+        log-prompt: false
+        log-completion: false
+        include-error-logging: false
+
+ai:
+  model: ${OPENAI_MODEL:gpt-5.6-luna}
+  reasoning-effort: ${OPENAI_REASONING_EFFORT:low}
+  max-completion-tokens: ${OPENAI_MAX_COMPLETION_TOKENS:2000}
+  history-max-tokens: ${AI_CHAT_HISTORY_MAX_TOKENS:8000}
+  run-timeout: ${AI_RUN_TIMEOUT:90s}
+  user-grpc-deadline: ${AI_USER_GRPC_DEADLINE:3s}
+  user-grpc-internal-token: ${AI_USER_GRPC_TOKEN}
+  execution:
+    max-concurrent-runs: ${AI_MAX_CONCURRENT_RUNS:4}
+  conversation:
+    ttl: 24h
+    max-pairs: 20
+  sse:
+    heartbeat: 15s
+  settlement:
+    chat:
+      enabled: ${AI_SETTLEMENT_CHAT_ENABLED:false}
+
+management:
+  endpoint:
+    health:
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,redis
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

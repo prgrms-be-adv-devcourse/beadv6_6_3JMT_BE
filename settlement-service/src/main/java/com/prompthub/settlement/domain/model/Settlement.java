@@ -1,5 +1,6 @@
 package com.prompthub.settlement.domain.model;
 
+import com.prompthub.settlement.domain.model.enums.SettlementLineType;
 import com.prompthub.settlement.global.common.BaseEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -87,11 +88,17 @@ public class Settlement extends BaseEntity {
 		this.periodStart = period.periodStart();
 		this.periodEnd = period.periodEnd();
 		this.details.addAll(details);
-		this.productCount = details.size();
-		this.totalAmount = sum(details, SettlementDetail::getLineAmount);
+		List<SettlementDetail> sales = details.stream()
+			.filter(detail -> detail.getLineType() == SettlementLineType.SALE)
+			.toList();
+		List<SettlementDetail> refunds = details.stream()
+			.filter(detail -> detail.getLineType() == SettlementLineType.REFUND)
+			.toList();
+		this.productCount = sales.size();
+		this.totalAmount = sum(sales, SettlementDetail::getLineAmount);
 		this.feeTotalAmount = sum(details, SettlementDetail::getFeeAmount);
 		this.settlementTotalAmount = sum(details, SettlementDetail::getLineSettlementAmount);
-		this.refundAmount = BigDecimal.ZERO;
+		this.refundAmount = sum(refunds, SettlementDetail::getLineAmount).abs();
 		this.calculatedAt = LocalDateTime.now();
 	}
 

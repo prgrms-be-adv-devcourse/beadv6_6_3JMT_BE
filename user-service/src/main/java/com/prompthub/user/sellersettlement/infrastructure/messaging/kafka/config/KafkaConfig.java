@@ -1,5 +1,6 @@
 package com.prompthub.user.sellersettlement.infrastructure.messaging.kafka.config;
 
+import com.prompthub.user.sellersettlement.infrastructure.messaging.kafka.consumer.settlement.dlt.SettlementDltSlackProperties;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -8,6 +9,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
@@ -25,6 +27,7 @@ import org.springframework.util.backoff.FixedBackOff;
 
 @EnableKafka
 @Configuration
+@EnableConfigurationProperties(SettlementDltSlackProperties.class)
 public class KafkaConfig {
 
     private static final long RETRY_INTERVAL_MS = 1_000L;
@@ -83,6 +86,16 @@ public class KafkaConfig {
         factory.setConsumerFactory(settlementEventConsumerFactory);
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
         factory.setCommonErrorHandler(settlementKafkaErrorHandler);
+        return factory;
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, String> settlementDltKafkaListenerContainerFactory(
+            ConsumerFactory<String, String> settlementEventConsumerFactory) {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(settlementEventConsumerFactory);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);
         return factory;
     }
 
