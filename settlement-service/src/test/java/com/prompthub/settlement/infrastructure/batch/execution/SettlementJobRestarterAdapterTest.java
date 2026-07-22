@@ -1,4 +1,4 @@
-package com.prompthub.settlement.infrastructure.batch.launcher;
+package com.prompthub.settlement.infrastructure.batch.execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -22,7 +22,7 @@ import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.batch.core.launch.JobRestartException;
 import org.springframework.batch.core.repository.JobRepository;
 
-class SettlementJobRestartAdapterTest {
+class SettlementJobRestarterAdapterTest {
 
     private static final UUID BATCH_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000801");
@@ -30,13 +30,13 @@ class SettlementJobRestartAdapterTest {
 
     private JobRepository jobRepository;
     private JobOperator jobOperator;
-    private SettlementJobRestartAdapter adapter;
+    private SettlementJobRestarterAdapter adapter;
 
     @BeforeEach
     void setUp() {
         jobRepository = mock(JobRepository.class);
         jobOperator = mock(JobOperator.class);
-        adapter = new SettlementJobRestartAdapter(jobRepository, jobOperator);
+        adapter = new SettlementJobRestarterAdapter(jobRepository, jobOperator);
     }
 
     @Test
