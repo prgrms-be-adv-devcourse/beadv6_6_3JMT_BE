@@ -70,12 +70,11 @@ application/
     OutboxEventPublishService.java         ← 이벤트별 REQUIRES_NEW 발행·상태 전이   ✅
   event/
     SettlementCreatedEvent.java            ← SETTLEMENT_CREATED 이벤트 상세 DTO     ✅
-    SettlementEventType.java               ← 도메인 EventType enum(code()=name())   ✅
     PayoutCompletedEvent.java              ← settlement.payout.completed 이벤트 상세 DTO (추후)
 
 infrastructure/messaging/kafka/
   config/
-    KafkaConfig.java                       ← DLT Object + Outbox String producer     ✅
+    KafkaConfig.java                       ← Outbox String producer 설정             ✅
   producer/
     KafkaSettlementEventPublisher.java     ← 저장 JSON 발행 후 broker ack 대기       ✅
 
