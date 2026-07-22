@@ -1,6 +1,6 @@
 package com.prompthub.product.infra.grpc;
 
-import com.prompthub.product.application.usecase.ProductInternalUseCase;
+import com.prompthub.product.application.usecase.ProductGrpcUseCase;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.grpc.GetCartSnapshotsRequest;
 import com.prompthub.product.grpc.GetCartSnapshotsResponse;
@@ -33,7 +33,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ProductQueryGrpcService extends ProductQueryServiceGrpc.ProductQueryServiceImplBase {
 
-	private final ProductInternalUseCase productInternalUseCase;
+	private final ProductGrpcUseCase productGrpcUseCase;
 
 	@Override
 	public void getOrderSnapshots(GetOrderSnapshotsRequest request, StreamObserver<GetOrderSnapshotsResponse> responseObserver) {
@@ -41,7 +41,7 @@ public class ProductQueryGrpcService extends ProductQueryServiceGrpc.ProductQuer
 			List<UUID> productIds = request.getProductIdsList().stream()
 				.map(UUID::fromString)
 				.toList();
-			List<ProductOrderSnapshot> snapshots = productInternalUseCase.getOrderSnapshots(productIds).stream()
+			List<ProductOrderSnapshot> snapshots = productGrpcUseCase.getOrderSnapshots(productIds).stream()
 				.map(s -> ProductOrderSnapshot.newBuilder()
 					.setProductId(s.productId().toString())
 					.setSellerId(s.sellerId().toString())
@@ -67,7 +67,7 @@ public class ProductQueryGrpcService extends ProductQueryServiceGrpc.ProductQuer
 			List<UUID> productIds = request.getProductIdsList().stream()
 				.map(UUID::fromString)
 				.toList();
-			var dtoList = productInternalUseCase.getCartSnapshots(productIds);
+			var dtoList = productGrpcUseCase.getCartSnapshots(productIds);
 			List<ProductCartSnapshotMessage> snapshots = dtoList.stream()
 				.map(s -> ProductCartSnapshotMessage.newBuilder()
 					.setProductId(s.productId().toString())
@@ -117,7 +117,7 @@ public class ProductQueryGrpcService extends ProductQueryServiceGrpc.ProductQuer
 
 	private GetProductContentResponse orderSnapshotResponse(GetProductContentRequest request) {
 		List<UUID> productIds = requireBatchProductIds(request);
-		List<ProductContentResult> results = productInternalUseCase.getOrderSnapshots(productIds).stream()
+		List<ProductContentResult> results = productGrpcUseCase.getOrderSnapshots(productIds).stream()
 			.map(this::toOrderSnapshotResult)
 			.toList();
 		return GetProductContentResponse.newBuilder().addAllResults(results).build();
@@ -125,21 +125,21 @@ public class ProductQueryGrpcService extends ProductQueryServiceGrpc.ProductQuer
 
 	private GetProductContentResponse cartSnapshotResponse(GetProductContentRequest request) {
 		List<UUID> productIds = requireBatchProductIds(request);
-		List<ProductContentResult> results = productInternalUseCase.getCartSnapshots(productIds).stream()
+		List<ProductContentResult> results = productGrpcUseCase.getCartSnapshots(productIds).stream()
 			.map(this::toCartSnapshotResult)
 			.toList();
 		return GetProductContentResponse.newBuilder().addAllResults(results).build();
 	}
 
 	private GetProductContentResponse purchasedContentResponse(UUID productId) {
-		ProductContentResponse result = productInternalUseCase.getProductContent(productId);
+		ProductContentResponse result = productGrpcUseCase.getProductContent(productId);
 		return GetProductContentResponse.newBuilder()
 			.addResults(ProductContentResult.newBuilder().setPurchasedContent(toPurchasedContent(result)).build())
 			.build();
 	}
 
 	private GetProductContentResponse legacyContentResponse(UUID productId) {
-		ProductContentResponse result = productInternalUseCase.getProductContent(productId);
+		ProductContentResponse result = productGrpcUseCase.getProductContent(productId);
 		String content = result.content() != null ? result.content() : "";
 		return GetProductContentResponse.newBuilder()
 			.setProductId(result.productId().toString())

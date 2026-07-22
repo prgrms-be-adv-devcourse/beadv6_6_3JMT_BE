@@ -14,6 +14,7 @@ import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
 import com.prompthub.product.presentation.dto.response.ProductVersionResponse;
+import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import com.prompthub.presentation.dto.PageResponse;
 import java.util.List;
 import java.util.Locale;
@@ -35,6 +36,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 
 	private final ProductRepository productRepository;
 	private final StorageClient storageClient;
+	private final ProductFamilyResolver productFamilyResolver;
 
 	public PageResponse<ProductListItemResponse> getProducts(
 		String q,
@@ -128,6 +130,29 @@ public class ProductQueryService implements ProductQueryUseCase {
 		return productRepository.findActiveReviews(product.familyRootId())
 			.stream()
 			.map(this::toReviewResponse)
+			.toList();
+	}
+
+	@Override
+	public List<ProductsByIdsResponse> getProductsByIds(List<UUID> productIds) {
+		Map<UUID, Product> resolved = productFamilyResolver.resolveFamilyRepresentatives(productIds, ProductFamily::currentForWishlist);
+		return productIds.stream()
+			.filter(resolved::containsKey)
+			.map(id -> {
+				Product p = resolved.get(id);
+				return new ProductsByIdsResponse(
+					id,
+					p.getSellerId(),
+					p.getName(),
+					p.getAmount(),
+					toUrl(p.getThumbnailUrl()),
+					p.getProductType().name(),
+					p.getModel() != null ? p.getModel() : "",
+					(int) productRepository.sumSalesCountByFamilyRootId(p.familyRootId()),
+					productRepository.getAverageRating(p.familyRootId()),
+					p.getStatus().name()
+				);
+			})
 			.toList();
 	}
 

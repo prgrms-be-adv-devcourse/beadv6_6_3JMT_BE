@@ -14,6 +14,7 @@ import com.prompthub.product.exception.enums.ProductErrorCode;
 import com.prompthub.product.infra.messaging.producer.ProductEventProducer;
 import com.prompthub.product.presentation.dto.request.ProductCreateRequest;
 import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
+import com.prompthub.product.presentation.dto.response.ProductCountResponse;
 import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductListItemResponse;
@@ -181,6 +182,15 @@ public class ProductSellerService implements ProductSellerUseCase {
 		Product liveOnSale = family.currentOnSale().orElse(null);
 		double averageRating = productRepository.getAverageRating(familyRootId);
 		return SellerProductDetailResponse.from(representative, liveOnSale, family.sellerHistory(), averageRating, storageClient);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public ProductCountResponse getProductCount(UUID sellerId) {
+		return new ProductCountResponse(
+			sellerId,
+			productRepository.countFamiliesBySellerId(sellerId),
+			productRepository.sumSalesCountBySellerId(sellerId));
 	}
 
 	private ProductType parseProductType(String productType) {
