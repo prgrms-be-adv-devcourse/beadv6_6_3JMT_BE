@@ -4,6 +4,7 @@ dependencies {
     // Resilience4j - Toss REST 호출 장애 격리
     implementation 'io.github.resilience4j:resilience4j-circuitbreaker:2.4.0'
     implementation 'io.github.resilience4j:resilience4j-micrometer:2.4.0'
+    implementation 'io.github.resilience4j:resilience4j-bulkhead:2.4.0'
 
     // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
