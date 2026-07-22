@@ -78,13 +78,15 @@ class OpenApiContractTest {
         JsonNode openApi = objectMapper.readTree(document);
 
         assertUsesBearerAndHidesUserId(openApi, "/api/v2/orders", "post");
-        assertUsesBearerAndHidesUserId(openApi, "/api/v2/cart/products", "get");
+        assertUsesBearerAndHidesUserId(openApi, "/api/v2/cart", "get");
     }
 
     private void assertUsesBearerAndHidesUserId(JsonNode openApi, String path, String method) {
         JsonNode operation = openApi.path("paths").path(path).path(method);
 
-        assertThat(operation.isMissingNode()).isFalse();
+        assertThat(operation.isMissingNode())
+            .as("OpenAPI operation is missing: %s %s", method, path)
+            .isFalse();
         assertThat(operation.path("security").get(0).has("Bearer")).isTrue();
 
         List<String> parameterNames = new ArrayList<>();
