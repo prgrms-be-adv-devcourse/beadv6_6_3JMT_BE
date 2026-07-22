@@ -82,7 +82,7 @@
 | 항목 | 값 |
 |---|---|
 | Config | `infrastructure/client/order/config/OrderGrpcClientConfig` — `@ImportGrpcClients(target="order-service")` |
-| 어댑터 | `infrastructure/client/order/OrderSettlementQueryClient` (`OrderSettlementQueryPort` 구현) |
+| 어댑터 | `infrastructure/client/order/OrderSettlementQueryClient` (`OrderSettlementQuery` 구현) |
 | 호출 | `GetSettleableLines(period_start, period_end)` → `settlement_source_line` bulk 적재(멱등키 `orderProductId+eventType` 로컬 파생) |
 | 기간 | 포함 날짜 월요일~일요일. order는 `[periodStart 00:00, periodEnd + 1일 00:00)`로 조회 |
 | 트리거 | `CronJob/settlement-weekly`(매주 월요일 00:00 `Asia/Seoul`) → `SettlementCronJobRunner` → `settlementJob` 첫 스텝 `loadSettlementSourceStep` |
