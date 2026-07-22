@@ -229,39 +229,14 @@ DB 컬럼은 현재 `timestamp without time zone`이므로 계산된 KST 로컬 
 
 기존 `/admin/stats/users`, `/admin/orders/month`, `/admin/orders/weekend` 라우트와 컨트롤러는 유지한다.
 
-## 테스트 전략
+## 검증 전략
 
-### 애플리케이션 서비스
+어드민 홈은 별도 테스트를 추가하지 않고 기존 프로젝트 검증을 사용한다.
 
-- 고정 `Clock`으로 KST 자정, 월말·월초, 최근 7일 경계 검증
-- 각 프로젝션이 응답에 정확히 조합되는지 검증
-- 저장소 예외가 0으로 변환되지 않고 전파되는지 검증
-- 정산 승인 대기 상태 범위와 상품 네 건 제한 검증
+- 백엔드: `./gradlew :admin-service:check :apigateway:check`
+- 프론트엔드: TypeScript 검사, 변경 파일 ESLint, Next.js 프로덕션 빌드
 
-### 저장소 통합 테스트
-
-`admin-service`에 PostgreSQL Testcontainers 테스트 의존성을 추가하고 실제 PostgreSQL에 `user_service`, `order_service`, `product_service` 스키마와 최소 fixture를 구성한다.
-
-- 전체·오늘 가입자 집계
-- 완료 주문과 환불을 반영한 월간·일별 금액
-- 거래 없는 날짜의 0 채움
-- `WAITING + APPROVAL_ON_HOLD` 정산 합계
-- 삭제 상품 제외, 검수 대기 전체 count, 오래된 순 네 건
-- 판매자 누락 시 fallback
-
-H2만으로 교차 스키마 이름, PostgreSQL 날짜 처리, 반복 읽기 동작을 검증하지 않는다.
-
-### 컨트롤러와 게이트웨이
-
-- `HomeControllerTest`에서 응답 필드, 중첩 구조, 금액과 날짜 직렬화를 고정한다.
-- 게이트웨이 테스트에서 `/api/v2/admin/home`이 `admin-service`에만 포함되는지 검증한다.
-
-### 프론트엔드
-
-- `/admin/home` 클라이언트 계약 매핑 테스트
-- 홈 진입 시 기존 다섯 API가 아니라 통합 API 한 번만 호출되는지 검증
-- 로딩, 정상값 0, 실패 후 재시도 상태를 구분해 검증
-- 상품 미리보기와 전체 대기 건수가 독립적으로 표시되는지 검증
+교차 스키마 SQL은 배포 후 어드민 홈 스모크 테스트로 실제 데이터 집계값과 응답 시간을 확인한다.
 
 ## 배포 순서
 
