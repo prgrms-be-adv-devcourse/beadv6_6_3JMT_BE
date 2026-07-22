@@ -240,7 +240,48 @@
 
 ---
 
-### POST /sellers/batch — 판매자 이름 배치 조회
+### GET /sellers/product — 판매자 단건 조회
+
+- 인증: 불필요 (`/detail/[id]` 비로그인 접근 대응)
+- 필요 역할: 없음
+- 상품 상세 페이지의 판매자 카드 표시용. Client는 `GET /products/{productId}` 응답의 `sellerId`를 그대로 전달해 호출한다.
+- 단건 조회라 같은 `sellerId`는 항상 같은 응답을 내므로 HTTP 캐싱 이득이 있다 — 다건 조회(`/sellers/products`)와는 목적이 다르다.
+
+#### Request
+
+**Query Parameters**
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| sellerId | string(UUID) | Y | 조회할 판매자 ID |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sellerName": "김철수",
+    "profileImageUrl": "https://.../profile.png"
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| sellerName | string | 판매자 이름 |
+| profileImageUrl | string \| null | 프로필 이미지 URL. 미등록 시 null |
+
+**400 Bad Request** — `sellerId` 누락 또는 잘못된 UUID 형식 (`VALIDATION_FAILED`, V001)
+
+**404 Not Found** — 형식은 유효하나 존재하지 않는 sellerId (`AUTH_NOT_FOUND`, A001)
+
+---
+
+### POST /sellers/products — 판매자 이름 다건 조회
 
 - 인증: 불필요 (`/browse` 비로그인 접근 대응)
 - 필요 역할: 없음

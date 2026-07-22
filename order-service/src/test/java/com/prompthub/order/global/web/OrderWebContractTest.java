@@ -65,7 +65,7 @@ class OrderWebContractTest {
 				0
 			));
 
-		mockMvc.perform(get("/api/v2/cart/products")
+		mockMvc.perform(get("/api/v2/cart")
 				.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.success").value(true));
