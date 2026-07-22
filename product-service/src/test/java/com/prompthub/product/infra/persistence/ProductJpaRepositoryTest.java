@@ -9,6 +9,7 @@ import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ReviewStatus;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +43,29 @@ class ProductJpaRepositoryTest {
 
 		assertThat(result).hasSize(1);
 		assertThat(result.get(0).rating()).isEqualTo(5.0);
+	}
+
+	@Test
+	void getAverageRatings_aggregatesPerFamilyRoot_andOmitsFamiliesWithoutReviews() {
+		Product familyA = product(null, ProductStatus.ON_SALE, (short) 1, (short) 0);
+		Product familyB = product(null, ProductStatus.ON_SALE, (short) 1, (short) 0);
+		productJpaRepository.saveAll(List.of(familyA, familyB));
+
+		reviewJpaRepository.save(Review.create(UUID.randomUUID(), familyA, (short) 4));
+		reviewJpaRepository.save(Review.create(UUID.randomUUID(), familyA, (short) 2));
+
+		Map<UUID, Double> result =
+			productJpaRepository.getAverageRatings(List.of(familyA.getId(), familyB.getId()));
+
+		assertThat(result).containsEntry(familyA.getId(), 3.0);
+		assertThat(result).doesNotContainKey(familyB.getId());
+	}
+
+	@Test
+	void getAverageRatings_emptyIds_returnsEmptyMapWithoutQuerying() {
+		Map<UUID, Double> result = productJpaRepository.getAverageRatings(List.of());
+
+		assertThat(result).isEmpty();
 	}
 
 	@Test

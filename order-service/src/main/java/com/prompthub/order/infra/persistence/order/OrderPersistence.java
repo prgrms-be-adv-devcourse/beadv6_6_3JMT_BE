@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface OrderPersistence extends JpaRepository<Order, UUID>, OrderPersistenceCustom {
@@ -39,13 +40,28 @@ public interface OrderPersistence extends JpaRepository<Order, UUID>, OrderPersi
       and op.productId = :productId
       and o.orderStatus in (
         com.prompthub.order.domain.enums.OrderStatus.COMPLETED,
-        com.prompthub.order.domain.enums.OrderStatus.PARTIAL_REFUNDED
+        com.prompthub.order.domain.enums.OrderStatus.PARTIAL_REFUNDED,
+        com.prompthub.order.domain.enums.OrderStatus.REFUND_REQUESTED
       )
       and op.orderStatus = com.prompthub.order.domain.enums.OrderProductStatus.PAID
 """)
-	boolean existsPaidOrderProductByBuyerIdAndProductId(
+	boolean existsAccessiblePaidOrderProductByBuyerIdAndProductId(
 		@Param("buyerId") UUID buyerId,
 		@Param("productId") UUID productId
 	);
+
+	@Query("""
+    select distinct op.productId
+    from Order o
+    join o.orderProducts op
+    where o.buyerId = :buyerId
+      and o.orderStatus in (
+        com.prompthub.order.domain.enums.OrderStatus.COMPLETED,
+        com.prompthub.order.domain.enums.OrderStatus.PARTIAL_REFUNDED,
+        com.prompthub.order.domain.enums.OrderStatus.REFUND_REQUESTED
+      )
+      and op.orderStatus = com.prompthub.order.domain.enums.OrderProductStatus.PAID
+""")
+	List<UUID> findAccessiblePaidProductIdsByBuyerId(@Param("buyerId") UUID buyerId);
 
 }

@@ -1,5 +1,6 @@
 package com.prompthub.product.application.service;
 
+import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.ProductFamily;
@@ -33,6 +34,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 	private static final int DEFAULT_LIMIT = 4;
 
 	private final ProductRepository productRepository;
+	private final StorageClient storageClient;
 
 	public PageResponse<ProductListItemResponse> getProducts(
 		String q,
@@ -92,8 +94,8 @@ public class ProductQueryService implements ProductQueryUseCase {
 			sellerProductCount,
 			null,
 			product.getDescription(),
-			product.getThumbnailUrl(),
-			product.getImageUrls(),
+			toUrl(product.getThumbnailUrl()),
+			toUrls(product.getImageUrls()),
 			createPreviewContent(product),
 			product.getTags(),
 			toVersionHistory(product.familyRootId()),
@@ -160,7 +162,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 			product.sellerId(),
 			null,
 			product.description(),
-			product.thumbnailUrl(),
+			toUrl(product.thumbnailUrl()),
 			tags,
 			product.createdAt(),
 			product.updatedAt()
@@ -188,6 +190,22 @@ public class ProductQueryService implements ProductQueryUseCase {
 
 	private String createPreviewContent(Product product) {
 		return "[" + product.getName() + "]\n\n전체 내용은 구매 후 확인할 수 있습니다.";
+	}
+
+	private String toUrl(String key) {
+		if (key == null || key.isBlank()) {
+			return null;
+		}
+		return storageClient.generatePresignedDownloadUrl(key);
+	}
+
+	private List<String> toUrls(List<String> keys) {
+		if (keys == null || keys.isEmpty()) {
+			return List.of();
+		}
+		return keys.stream()
+			.map(storageClient::generatePresignedDownloadUrl)
+			.toList();
 	}
 
 	private int normalizePositive(int value) {

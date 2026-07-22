@@ -46,7 +46,7 @@ public class ProductInternalService implements ProductInternalUseCase {
 					p.getSellerId(),
 					p.getName(),
 					p.getAmount(),
-					p.getThumbnailUrl(),
+					presignIfPresent(p.getThumbnailUrl()),
 					p.getProductType().name(),
 					p.getModel() != null ? p.getModel() : "",
 					(int) productRepository.sumSalesCountByFamilyRootId(p.familyRootId()),

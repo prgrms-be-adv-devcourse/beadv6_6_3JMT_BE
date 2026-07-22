@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v2/sellers/me/products")
+@RequestMapping("/api/v2/products")
 @RequiredArgsConstructor
 public class FileUploadController {
 
@@ -43,7 +43,7 @@ public class FileUploadController {
 
     private final StorageClient storageClient;
 
-    @PostMapping("/uploads")
+    @PostMapping("/uploads/presigned-urls")
     public ApiResult<UploadUrlResponse> createUploadUrl(
         @RequestHeader("X-User-Id") UUID sellerId,
         @Valid @RequestBody UploadUrlRequest request

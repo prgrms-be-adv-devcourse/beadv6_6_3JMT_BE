@@ -4,14 +4,9 @@ import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
 import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.YearMonth;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -36,24 +31,13 @@ public class SellerSettlementRepositoryAdapter implements SellerSettlementReposi
     }
 
     @Override
-    public SellerSettlementPage findPageBySeller(
-            UUID sellerId, SettlementDisplayStatus status, YearMonth period, int page, int size) {
-        LocalDate periodStart = period == null ? null : period.atDay(1);
-        LocalDate periodEnd = period == null ? null : period.atEndOfMonth();
-        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "periodStart")
-                .and(Sort.by(Sort.Direction.ASC, "sellerSettlementId")));
-        Page<SellerSettlement> result = jpaRepository.findPageBySeller(
-                sellerId, status, periodStart, periodEnd, pageable);
-        return new SellerSettlementPage(result.getContent(), result.getTotalElements());
-    }
-
-    @Override
     public BigDecimal sumTotalAmountBySeller(UUID sellerId) {
         return jpaRepository.sumTotalAmountBySeller(sellerId);
     }
 
     @Override
     public BigDecimal sumPaidSettlementAmountBySeller(UUID sellerId) {
-        return jpaRepository.sumSettlementTotalAmountBySellerAndStatus(sellerId, SettlementDisplayStatus.PAID);
+        return jpaRepository.sumSettlementTotalAmountBySellerAndStatus(
+                sellerId, SettlementDisplayStatus.PAID);
     }
 }
