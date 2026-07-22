@@ -26,15 +26,15 @@ import org.springframework.batch.core.job.JobInstance;
 import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.test.util.ReflectionTestUtils;
 
-class SettlementBatchExecutionListenerTest {
+class SettlementBatchStateJobExecutionListenerTest {
 
     private SettlementBatchRepository repository;
-    private SettlementBatchExecutionListener listener;
+    private SettlementBatchStateJobExecutionListener listener;
 
     @BeforeEach
     void setUp() {
         repository = mock(SettlementBatchRepository.class);
-        listener = new SettlementBatchExecutionListener(repository);
+        listener = new SettlementBatchStateJobExecutionListener(repository);
     }
 
     @Test

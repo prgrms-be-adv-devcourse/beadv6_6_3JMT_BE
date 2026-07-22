@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
-public class SettlementBatchExecutionListener implements JobExecutionListener {
+public class SettlementBatchStateJobExecutionListener implements JobExecutionListener {
 
     private static final String BATCH_ID_KEY = "settlementBatchId";
 

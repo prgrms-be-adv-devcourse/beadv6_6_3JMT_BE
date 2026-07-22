@@ -7,7 +7,7 @@ import static org.mockito.Mockito.mock;
 
 import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
-import com.prompthub.settlement.infrastructure.batch.model.SettlementItem;
+import com.prompthub.settlement.infrastructure.batch.model.SettlementTarget;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -32,10 +32,10 @@ class SettlementTargetReaderTest {
         ReflectionTestUtils.setField(reader, "periodEndParam", "2026-07-19");
         ReflectionTestUtils.setField(reader, "settlementBatchIdParam", BATCH_ID.toString());
 
-        SettlementItem first = reader.read();
-        SettlementItem exhausted = reader.read();
+        SettlementTarget first = reader.read();
+        SettlementTarget exhausted = reader.read();
 
-        assertThat(first).isEqualTo(new SettlementItem(SELLER_ID, PERIOD, BATCH_ID));
+        assertThat(first).isEqualTo(new SettlementTarget(SELLER_ID, PERIOD, BATCH_ID));
         assertThat(exhausted).isNull();
         then(repository).should().findSettleableSellerIds(PERIOD);
     }

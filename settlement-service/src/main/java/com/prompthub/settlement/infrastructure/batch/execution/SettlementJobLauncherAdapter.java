@@ -3,7 +3,7 @@ package com.prompthub.settlement.infrastructure.batch.execution;
 import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
 import com.prompthub.settlement.application.dto.SettlementJobResult;
 import com.prompthub.settlement.application.port.SettlementJobLauncher;
-import com.prompthub.settlement.infrastructure.batch.config.SettlementBatchConfig;
+import com.prompthub.settlement.infrastructure.batch.config.SpringBatchInfrastructureConfig;
 import com.prompthub.settlement.infrastructure.batch.config.SettlementJobConfig;
 import com.prompthub.settlement.domain.model.enums.TriggerType;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
@@ -25,7 +25,7 @@ public class SettlementJobLauncherAdapter implements SettlementJobLauncher {
 
     public SettlementJobLauncherAdapter(
             JobOperator jobOperator,
-            @Qualifier(SettlementBatchConfig.ASYNC_JOB_OPERATOR) JobOperator asyncJobOperator,
+            @Qualifier(SpringBatchInfrastructureConfig.ASYNC_JOB_OPERATOR) JobOperator asyncJobOperator,
             @Qualifier(SettlementJobConfig.SETTLEMENT_JOB_NAME) Job settlementJob,
             SettlementJobParametersFactory settlementJobParametersFactory) {
         this.jobOperator = jobOperator;
