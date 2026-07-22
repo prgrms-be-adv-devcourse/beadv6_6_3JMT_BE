@@ -99,6 +99,7 @@ public class SellerController {
     @Operation(summary = "Wishlist 판매자 이름 다건 조회",
             description = "Wishlist 상품 응답의 sellerId(UUID) 목록으로 판매자 이름을 조회한다. "
                     + "중복은 서버가 제거하며 존재하지 않는 sellerId는 sellerName: null로 포함한다.")
+    @SecurityRequirement(name = "Bearer")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 성공",
                     content = @Content(schema = @Schema(implementation = WishlistSellerNamesResponse.class))),

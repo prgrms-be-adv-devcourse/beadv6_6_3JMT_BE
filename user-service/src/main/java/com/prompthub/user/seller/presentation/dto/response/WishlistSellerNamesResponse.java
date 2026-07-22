@@ -30,8 +30,10 @@ public record WishlistSellerNamesResponse(
 
     @Schema(description = "Wishlist 판매자 이름 항목")
     public record Item(
+            @Schema(description = "판매자 ID(UUID)", example = "3f1b1b0e-5e3a-4c7f-8d9a-1b2c3d4e5f60")
             UUID sellerId,
-            @Schema(nullable = true) String sellerName
+            @Schema(description = "판매자 이름, 존재하지 않는 판매자면 null", nullable = true)
+            String sellerName
     ) {
     }
 }

@@ -9,7 +9,8 @@ import jakarta.validation.constraints.Size;
 
 @Schema(description = "Wishlist 판매자 이름 다건 조회 요청")
 public record WishlistSellerIdsRequest(
-        @Schema(description = "조회할 판매자 ID(UUID) 목록, 최대 30개")
+        @Schema(description = "조회할 판매자 ID(UUID) 목록, 최대 30개",
+                example = "[\"3f1b1b0e-5e3a-4c7f-8d9a-1b2c3d4e5f60\"]")
         @NotEmpty @Size(max = 30) List<UUID> sellerIds
 ) {
     public List<String> sellerIdStrings() {
