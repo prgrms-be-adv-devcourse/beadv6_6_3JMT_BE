@@ -327,6 +327,62 @@
 
 ---
 
+### POST /users/order-products — 구매 상품 판매자 이름 다건 조회
+
+- 인증: 필요
+- 필요 역할: BUYER / SELLER
+- `/mypage?tab=purchased`에서 Order와 Product 응답을 조합한 뒤 Product의 `sellerId` 목록으로 판매자 이름을 조회한다.
+- 기존 `/sellers/products`와 조회 UseCase는 같지만 요청·응답 DTO는 구매 상품 화면 전용 계약으로 분리한다.
+
+#### Request
+
+**Body**
+
+```json
+{
+  "sellerIds": [
+    "3f1b1b0e-1111-2222-3333-444444444444",
+    "9a2c2c1f-5555-6666-7777-888888888888"
+  ]
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|:----:|------|
+| sellerIds | string(UUID)[] | Y | 조회할 판매자 ID 목록. 최대 30개, 빈 배열 금지, 중복은 첫 등장 기준으로 제거 |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sellers": [
+      {
+        "sellerId": "3f1b1b0e-1111-2222-3333-444444444444",
+        "sellerName": "김철수"
+      },
+      {
+        "sellerId": "9a2c2c1f-5555-6666-7777-888888888888",
+        "sellerName": null
+      }
+    ]
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| sellers[].sellerId | string(UUID) | 요청한 판매자 ID |
+| sellers[].sellerName | string \| null | 판매자 이름. 조회되지 않은 판매자는 null이며 전체 요청은 성공 처리 |
+
+**400 Bad Request** — 빈 배열, 잘못된 UUID 형식, 30개 초과 (`VALIDATION_FAILED`, V001)
+
+---
+
 ## 찜 (Wishlist)
 
 ### POST /wishlists — 찜 등록

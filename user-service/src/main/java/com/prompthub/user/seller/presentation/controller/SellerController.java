@@ -8,8 +8,10 @@ import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.user.seller.application.dto.SellerInfoResult;
 import com.prompthub.user.seller.application.usecase.SellerQueryUseCase;
 import com.prompthub.user.seller.application.usecase.SellerUseCase;
+import com.prompthub.user.seller.presentation.dto.request.OrderProductSellerIdsRequest;
 import com.prompthub.user.seller.presentation.dto.request.SellerIdsRequest;
 import com.prompthub.user.seller.presentation.dto.request.SellerRegisterRequest;
+import com.prompthub.user.seller.presentation.dto.response.OrderProductSellerNamesResponse;
 import com.prompthub.user.seller.presentation.dto.response.SellerNamesResponse;
 import com.prompthub.user.seller.presentation.dto.response.SellerProfileResponse;
 import com.prompthub.user.seller.presentation.dto.response.SellerRegisterResponse;
@@ -92,5 +94,25 @@ public class SellerController {
     public ApiResult<SellerNamesResponse> getSellers(@Valid @RequestBody SellerIdsRequest request) {
         List<SellerInfoResult> results = sellerQueryUseCase.findSellers(request.sellerIdStrings());
         return ApiResult.success(SellerNamesResponse.of(request.sellerIds(), results));
+    }
+
+    @Operation(summary = "구매 상품 판매자 이름 다건 조회",
+            description = "구매한 상품 응답의 sellerId(UUID) 목록으로 판매자 이름을 조회한다. "
+                    + "중복은 제거하며 조회되지 않은 sellerId는 sellerName: null로 포함한다.")
+    @SecurityRequirement(name = "Bearer")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공",
+                    content = @Content(schema = @Schema(
+                            implementation = OrderProductSellerNamesResponse.class))),
+            @ApiResponse(responseCode = "400",
+                    description = "빈 배열, 30개 초과, 잘못된 UUID 형식 (V001)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PostMapping("/api/v2/users/order-products")
+    public ApiResult<OrderProductSellerNamesResponse> getOrderProductSellers(
+            @Valid @RequestBody OrderProductSellerIdsRequest request
+    ) {
+        List<SellerInfoResult> results = sellerQueryUseCase.findSellers(request.sellerIdStrings());
+        return ApiResult.success(OrderProductSellerNamesResponse.of(request.sellerIds(), results));
     }
 }
