@@ -7,6 +7,7 @@ import com.prompthub.settlement.domain.repository.SettlementBatchRepository;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.StepContribution;
@@ -38,14 +39,20 @@ public class CreateSettlementBatchTasklet implements Tasklet {
         SettlementPeriod period = period();
         TriggerType triggerType = TriggerType.valueOf(triggerTypeParam);
 
-        long jobExecutionId = chunkContext.getStepContext().getStepExecution().getJobExecutionId();
+        JobExecution jobExecution = chunkContext.getStepContext().getStepExecution().getJobExecution();
+        long jobExecutionId = jobExecution.getId();
+        long jobInstanceId = jobExecution.getJobInstance().getInstanceId();
         String batchNo = generateBatchNo(period, triggerType, jobExecutionId);
 
         SettlementBatch saved = settlementBatchRepository.save(
-                SettlementBatch.start(batchNo, period.periodStart(), period.periodEnd(), triggerType));
+                SettlementBatch.start(
+                        batchNo,
+                        jobInstanceId,
+                        period.periodStart(),
+                        period.periodEnd(),
+                        triggerType));
 
-        chunkContext.getStepContext().getStepExecution().getJobExecution()
-                .getExecutionContext().putString(BATCH_ID_KEY, saved.getId().toString());
+        jobExecution.getExecutionContext().putString(BATCH_ID_KEY, saved.getId().toString());
 
         return RepeatStatus.FINISHED;
     }

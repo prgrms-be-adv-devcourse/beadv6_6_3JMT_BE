@@ -21,5 +21,10 @@ api:
 settlement:
   execution:
     mode: service
+  restart:
+    batch-id: ${SETTLEMENT_RESTART_BATCH_ID:}
+    actor-id: ${SETTLEMENT_RESTART_ACTOR_ID:}
+  batch:
+    chunk-size: ${SETTLEMENT_BATCH_CHUNK_SIZE:100}
   manual-api:
     enabled: false
