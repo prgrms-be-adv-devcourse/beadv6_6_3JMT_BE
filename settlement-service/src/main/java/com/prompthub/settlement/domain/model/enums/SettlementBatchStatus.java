@@ -5,5 +5,6 @@ public enum SettlementBatchStatus {
 	PROCESSING,
 	COMPLETED,
 	FAILED,
+	RETRY_REQUESTED,
 	CANCELLED
 }

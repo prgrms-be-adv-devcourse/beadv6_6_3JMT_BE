@@ -7,23 +7,11 @@ option java_package = "com.prompthub.product.grpc";
 option java_outer_classname = "ProductQueryProto";
 
 // product-service가 서버로서 제공하는 gRPC 계약을 하나의 서비스로 단일 관리한다.
-// 소유자(서버)=product. 호출자: settlement(GetSellerStats), order(스냅샷/콘텐츠).
+// 소유자(서버)=product. 호출자: order(스냅샷/콘텐츠).
 service ProductQueryService {
-  rpc GetSellerStats(GetSellerStatsRequest) returns (GetSellerStatsResponse);
   rpc GetOrderSnapshots(GetOrderSnapshotsRequest) returns (GetOrderSnapshotsResponse);
   rpc GetCartSnapshots(GetCartSnapshotsRequest) returns (GetCartSnapshotsResponse);
   rpc GetProductContent(GetProductContentRequest) returns (GetProductContentResponse);
-}
-
-// --- 셀러 통계 (settlement 소비) ---
-message GetSellerStatsRequest {
-  string seller_id = 1;
-}
-
-message GetSellerStatsResponse {
-  string seller_id = 1;
-  int32 product_count = 2;
-  int64 sales_count = 3;
 }
 
 // --- 주문 스냅샷 (order 소비) ---

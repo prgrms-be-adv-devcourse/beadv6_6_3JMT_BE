@@ -14,6 +14,7 @@ import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.infra.messaging.producer.ProductEventProducer;
 import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -194,6 +195,35 @@ class ProductSellerServiceTest {
 			assertThat(result).hasSize(1);
 			assertThat(result.get(0).productId()).isEqualTo(stopped.getId());
 		}
+
+		@Test
+		@DisplayName("family root 기준으로 배치 조회한 평균 리뷰 평점을 대표 row에 채운다")
+		void getMyProducts_fillsAverageRatingFromBatchLookup() {
+			Product onSale = product(UUID.randomUUID(), null, ProductStatus.ON_SALE, (short) 1, (short) 0);
+			Product nextVersion = product(UUID.randomUUID(), onSale.getId(), ProductStatus.ON_SALE, (short) 1, (short) 1);
+			UUID familyRootId = onSale.getId();
+			given(productRepository.findBySellerId(SELLER_ID)).willReturn(List.of(onSale, nextVersion));
+			given(productRepository.getAverageRatings(List.of(familyRootId))).willReturn(Map.of(familyRootId, 4.5));
+
+			List<com.prompthub.product.presentation.dto.response.SellerProductListItemResponse> result =
+				productSellerService.getMyProducts(SELLER_ID);
+
+			assertThat(result).hasSize(1);
+			assertThat(result.get(0).averageRating()).isEqualTo(4.5);
+		}
+
+		@Test
+		@DisplayName("리뷰가 없는 family는 배치 조회 결과에 없어도 0.0으로 채운다")
+		void getMyProducts_familyWithoutReviews_defaultsToZero() {
+			Product stopped = product(UUID.randomUUID(), null, ProductStatus.STOPPED, (short) 1, (short) 0);
+			given(productRepository.findBySellerId(SELLER_ID)).willReturn(List.of(stopped));
+			given(productRepository.getAverageRatings(List.of(stopped.getId()))).willReturn(Map.of());
+
+			List<com.prompthub.product.presentation.dto.response.SellerProductListItemResponse> result =
+				productSellerService.getMyProducts(SELLER_ID);
+
+			assertThat(result.get(0).averageRating()).isEqualTo(0.0);
+		}
 	}
 
 	@Nested
@@ -231,6 +261,20 @@ class ProductSellerServiceTest {
 
 			assertThat(result.fileUrl()).isEqualTo("https://s3/presigned-file");
 			assertThat(result.externalUrl()).isNull();
+		}
+
+		@Test
+		@DisplayName("family root 기준으로 조회한 평균 리뷰 평점을 반환한다")
+		void getMyProduct_fillsAverageRating() {
+			Product onSale = product(PRODUCT_ID, null, ProductStatus.ON_SALE, (short) 1, (short) 0);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(onSale));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(onSale));
+			given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(3.5);
+
+			com.prompthub.product.presentation.dto.response.SellerProductDetailResponse result =
+				productSellerService.getMyProduct(SELLER_ID, PRODUCT_ID);
+
+			assertThat(result.averageRating()).isEqualTo(3.5);
 		}
 	}
 
