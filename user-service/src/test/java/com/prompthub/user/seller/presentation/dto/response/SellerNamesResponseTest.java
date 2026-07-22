@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-class SellerBatchResponseTest {
+class SellerNamesResponseTest {
 
     @Test
     void of_존재하지_않는_sellerId는_sellerName이_null이다() {
@@ -15,11 +15,11 @@ class SellerBatchResponseTest {
         UUID missing = UUID.randomUUID();
         SellerInfoResult result = new SellerInfoResult(found.toString(), "김철수", "", "ACTIVE");
 
-        SellerBatchResponse response = SellerBatchResponse.of(List.of(found, missing), List.of(result));
+        SellerNamesResponse response = SellerNamesResponse.of(List.of(found, missing), List.of(result));
 
-        assertThat(response.sellers()).extracting(SellerBatchResponse.Item::sellerId)
+        assertThat(response.sellers()).extracting(SellerNamesResponse.Item::sellerId)
                 .containsExactly(found, missing);
-        assertThat(response.sellers()).extracting(SellerBatchResponse.Item::sellerName)
+        assertThat(response.sellers()).extracting(SellerNamesResponse.Item::sellerName)
                 .containsExactly("김철수", null);
     }
 
@@ -29,10 +29,10 @@ class SellerBatchResponseTest {
         UUID b = UUID.randomUUID();
         UUID c = UUID.randomUUID();
 
-        SellerBatchResponse response = SellerBatchResponse.of(List.of(a, b, c), List.of());
+        SellerNamesResponse response = SellerNamesResponse.of(List.of(a, b, c), List.of());
 
         assertThat(response.sellers()).hasSize(3);
-        assertThat(response.sellers()).extracting(SellerBatchResponse.Item::sellerName)
+        assertThat(response.sellers()).extracting(SellerNamesResponse.Item::sellerName)
                 .containsOnlyNulls();
     }
 
@@ -41,9 +41,9 @@ class SellerBatchResponseTest {
         UUID id = UUID.randomUUID();
         SellerInfoResult result = new SellerInfoResult(id.toString(), "김철수", "", "ACTIVE");
 
-        SellerBatchResponse response = SellerBatchResponse.of(List.of(id, id, id), List.of(result));
+        SellerNamesResponse response = SellerNamesResponse.of(List.of(id, id, id), List.of(result));
 
-        assertThat(response.sellers()).extracting(SellerBatchResponse.Item::sellerId)
+        assertThat(response.sellers()).extracting(SellerNamesResponse.Item::sellerId)
                 .containsExactly(id);
     }
 }

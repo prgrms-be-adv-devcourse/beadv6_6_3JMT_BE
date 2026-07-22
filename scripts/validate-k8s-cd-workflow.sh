@@ -80,6 +80,16 @@ done
 deployment_order_block="$(sed -n '/deployment_order=(/,/)/p' "${WORKFLOW}")"
 config_consumers_block="$(sed -n '/config_consumers=(/,/)/p' "${WORKFLOW}")"
 release_order_block="$(sed -n '/release_order=(/,/)/p' "${WORKFLOW}")"
+application_manifests_block="$(sed -n '/^[[:space:]]*application_manifests:/,/^[[:space:]]*all_applications:/p' "${WORKFLOW}")"
+initial_application_prepare_block="$(sed -n '/- name: 최초 애플리케이션 리소스 준비/,/- name: 애플리케이션 리소스와 이미지 배포/p' "${WORKFLOW}")"
+
+if ! grep -Eq '^[[:space:]]+- \.github/workflows/cd-selfhosted-kubernetes\.yml$' <<< "${application_manifests_block}"; then
+  fail "Kubernetes CD workflow changes must reconcile application manifests"
+fi
+
+if grep -Fq 'kubectl rollout status deployment/' <<< "${initial_application_prepare_block}"; then
+  fail "initial application preparation must not block manifest recovery on an existing failed rollout"
+fi
 
 if grep -Eq '^[[:space:]]+settlement-service$' <<< "${deployment_order_block}"; then
   fail "settlement-service must not be managed as a Deployment"
