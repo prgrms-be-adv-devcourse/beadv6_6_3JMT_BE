@@ -34,10 +34,6 @@ jwt:
   access-token-expire-seconds: 900
   refresh-token-expire-seconds: 604800
 
-grpc:
-  server:
-    port: 9081
-
 eureka:
   client:
     enabled: false

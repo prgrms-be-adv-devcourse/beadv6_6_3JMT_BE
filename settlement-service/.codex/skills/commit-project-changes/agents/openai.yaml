@@ -1,0 +1,6 @@
+interface:
+  display_name: "Commit Project Changes"
+  short_description: "담당 범위 변경을 경로별 규칙에 맞춰 안전하게 커밋"
+  default_prompt: "Use $commit-project-changes to inspect and commit changes within the assigned project scope."
+policy:
+  allow_implicit_invocation: true
