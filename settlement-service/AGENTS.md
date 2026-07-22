@@ -18,16 +18,15 @@
 이 저장소는 여러 모듈로 구성되어 있다. 다음 범위는 작업 요청에 따라 읽고 쓸 수 있다.
 
 - `settlement-service/` 전체
-- `user-service/src/main/java/com/prompthub/user/sellersettlement/`
-- `user-service/src/test/java/com/prompthub/user/sellersettlement/`
+- `user-service/` 전체
 - `admin-service/src/main/java/com/prompthub/admin/settlement/`
 - `admin-service/src/test/java/com/prompthub/admin/settlement/`
 
 위 경로 밖의 다른 모듈·패키지는 참고 목적으로만 읽는다. 범위 밖 파일 생성·수정·삭제가 필요하면 직접 변경하지 말고 필요한 변경과 이유를 사용자에게 알린다.
 
-- `user-service`는 `sellersettlement` 패키지만 쓰기 가능하며 기존 `seller` 패키지나 모듈 전체로 확대하지 않는다.
+- `user-service`는 인증, 사용자, 판매자, Wishlist, Seller Settlement를 포함한 모듈 전체가 담당 범위다.
 - `admin-service`는 `admin.settlement` 패키지만 쓰기 가능하며 admin 모듈 전체로 확대하지 않는다.
-- 공통 설정, 리소스, 마이그레이션, 루트 문서는 위 쓰기 경로에 포함되지 않는다. 변경이 필요하면 먼저 사용자에게 알린다.
+- `user-service`와 `settlement-service` 내부 설정, 리소스, 마이그레이션, 문서는 담당 범위에 포함된다. `common-module`, 저장소 루트 설정·문서와 admin 정산 패키지 밖의 변경이 필요하면 먼저 사용자에게 알린다.
 - 기존 사용자 변경과 관련 없는 파일을 수정하거나 stage하지 않는다.
 
 ## 생성물 위치
@@ -64,7 +63,7 @@
 
 ## 프로젝트 맥락
 
-- `user-service`는 2026-07-08부터 사용자 담당 도메인이다. `sellersettlement`는 정산 컨벤션에 맞춘 상태이며 관련 작업은 `#236 (이슈)`을 참고한다. 기존 `seller` 패키지 정리는 백로그다.
+- `user-service`는 사용자 담당 모듈 전체다. `sellersettlement`는 2026-07-08부터 정산 컨벤션에 맞춘 상태이며 관련 작업은 `#236 (이슈)`을 참고한다. 기존 `seller` 패키지 정리는 백로그다.
 - `admin-service`에서는 2026-07-09부터 `admin.settlement` 패키지만 사용자 담당 범위다. admin 모듈 전체가 담당 범위인 것은 아니다.
 - 정산 어드민·셀러 분리는 3개 브랜치 계획이다.
   1. 어드민 이관: 완료
@@ -72,7 +71,7 @@
   3. 기존 정산 기능 삭제: `#234 (이슈)`
 - 역할 기준은 `settlement`가 정산 로그, `seller_settlement`가 운영 데이터의 단일 진실 공급원이다.
 - Kafka 이벤트 규칙은 2026-07-09 팀 확정 사항이다. 공통 `EventMessage<T>`, `~Event`, UPPER_SNAKE `eventType`, `{domain}-events` 토픽, `eventId + consumerGroup` 멱등키를 사용한다. 세부 규칙의 원본은 `settlement-service/.claude/rules/kafka-event.md`다.
-- 위 담당 도메인의 main/test 패키지는 작업 요청에 따라 직접 수정할 수 있다. 그 밖의 user/admin 영역으로 범위를 넓혀야 하면 사용자에게 먼저 알린다.
+- `settlement-service`와 `user-service` 전체, `admin-service`의 `admin.settlement` main/test 패키지는 작업 요청에 따라 직접 수정할 수 있다. 그 밖의 admin 영역이나 공통 영역으로 범위를 넓혀야 하면 사용자에게 먼저 알린다.
 
 ## Codex skill 라우팅
 
