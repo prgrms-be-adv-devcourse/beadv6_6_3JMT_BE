@@ -1,5 +1,6 @@
 package com.prompthub.product.application.service;
 
+import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
@@ -44,6 +45,9 @@ class ProductQueryServiceTest {
 
 	@Mock
 	private ProductRepository productRepository;
+
+	@Mock
+	private StorageClient storageClient;
 
 	@InjectMocks
 	private ProductQueryService productQueryService;
@@ -125,6 +129,8 @@ class ProductQueryServiceTest {
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
 			given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(4.5);
+			given(storageClient.generatePresignedDownloadUrl("https://cdn.example.com/images/1.jpg"))
+				.willReturn("https://cdn.example.com/images/1.jpg?presigned");
 
 			ProductDetailResponse response = productQueryService.getProduct(PRODUCT_ID);
 
@@ -135,7 +141,7 @@ class ProductQueryServiceTest {
 			assertThat(response.rating()).isEqualTo(4.5);
 			assertThat(response.content()).contains("전체 내용은 구매 후 확인");
 			assertThat(response.versions()).hasSize(1);
-			assertThat(response.imageUrls()).containsExactly("https://cdn.example.com/images/1.jpg");
+			assertThat(response.imageUrls()).containsExactly("https://cdn.example.com/images/1.jpg?presigned");
 		}
 
 		@Test

@@ -17,6 +17,7 @@ public record SellerProductDetailResponse(
 	String externalUrl,
 	String status,
 	String version,
+	double averageRating,
 	String thumbnailUrl,
 	List<String> imageUrls,
 	List<String> tags,
@@ -27,6 +28,7 @@ public record SellerProductDetailResponse(
 		Product product,
 		Product liveOnSale,
 		List<Product> historyMembers,
+		double averageRating,
 		StorageClient storageClient
 	) {
 		return new SellerProductDetailResponse(
@@ -41,6 +43,7 @@ public record SellerProductDetailResponse(
 			product.getExternalUrl(),
 			product.getStatus().name(),
 			product.getMajorVersion() + "." + product.getPatchVersion(),
+			averageRating,
 			toUrl(product.getThumbnailUrl(), storageClient),
 			toUrls(product.getImageUrls(), storageClient),
 			product.getTags(),
