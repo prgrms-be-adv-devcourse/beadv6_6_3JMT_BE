@@ -54,6 +54,20 @@ public class KafkaConfig {
 	}
 
 	@Bean
+	public ProducerFactory<String, String> stringProducerFactory() {
+		Map<String, Object> config = new HashMap<>();
+		config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+		config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+		config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+		return new DefaultKafkaProducerFactory<>(config);
+	}
+
+	@Bean
+	public KafkaTemplate<String, String> stringKafkaTemplate(ProducerFactory<String, String> stringProducerFactory) {
+		return new KafkaTemplate<>(stringProducerFactory);
+	}
+
+	@Bean
 	public ConsumerFactory<String, String> orderEventConsumerFactory() {
 		Map<String, Object> config = new HashMap<>();
 		config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);

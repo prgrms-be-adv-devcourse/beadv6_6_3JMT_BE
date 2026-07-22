@@ -46,6 +46,13 @@ eureka:
   client:
     enabled: false
 
+prompthub:
+  outbox-relay:
+    enabled: true
+    fixed-delay-ms: 5000
+    batch-size: 100
+    max-retry-count: 3
+
 logging:
   level:
     com.prompthub.product: INFO
