@@ -1,6 +1,9 @@
 package com.prompthub.settlement.infrastructure.batch.listener;
 
+import com.prompthub.settlement.domain.model.SettlementBatch;
 import com.prompthub.settlement.domain.repository.SettlementBatchRepository;
+import com.prompthub.settlement.global.exception.SettlementErrorCode;
+import com.prompthub.settlement.global.exception.SettlementException;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.BatchStatus;
@@ -11,11 +14,26 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
-public class SettlementBatchFailureListener implements JobExecutionListener {
+public class SettlementBatchExecutionListener implements JobExecutionListener {
 
     private static final String BATCH_ID_KEY = "settlementBatchId";
 
     private final SettlementBatchRepository settlementBatchRepository;
+
+    @Override
+    @Transactional
+    public void beforeJob(JobExecution jobExecution) {
+        String batchId = jobExecution.getExecutionContext().getString(BATCH_ID_KEY, null);
+        if (batchId == null) {
+            return;
+        }
+
+        SettlementBatch batch = settlementBatchRepository.findById(UUID.fromString(batchId))
+                .orElseThrow(() -> new SettlementException(
+                        SettlementErrorCode.SETTLEMENT_BATCH_NOT_FOUND));
+        batch.startRetry();
+        settlementBatchRepository.save(batch);
+    }
 
     @Override
     @Transactional

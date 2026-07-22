@@ -22,7 +22,13 @@ public enum SettlementErrorCode implements ErrorCode {
 	SETTLEMENT_EVENT_PUBLISH_FAILED("S-015", "정산 이벤트 발행에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 	SETTLEMENT_SOURCE_QUERY_FAILED("S-017", "정산 대상 라인 조회에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 	OUTBOX_EVENT_SERIALIZE_FAILED("S-018", "정산 아웃박스 이벤트 직렬화에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
-	OUTBOX_EVENT_NOT_FOUND("S-019", "정산 아웃박스 이벤트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND);
+	OUTBOX_EVENT_NOT_FOUND("S-019", "정산 아웃박스 이벤트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+	SETTLEMENT_BATCH_JOB_INSTANCE_NOT_LINKED(
+		"S-020", "정산 배치와 잡 실행 이력이 연결되지 않았습니다.", HttpStatus.CONFLICT),
+	SETTLEMENT_JOB_NOT_RESTARTABLE(
+		"S-021", "정산 배치 잡을 재시작할 수 없는 상태입니다.", HttpStatus.CONFLICT),
+	SETTLEMENT_JOB_BATCH_MISMATCH(
+		"S-022", "정산 배치와 잡 실행 이력이 일치하지 않습니다.", HttpStatus.CONFLICT);
 
 	private final String code;
 	private final String message;

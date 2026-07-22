@@ -7,11 +7,19 @@ import com.prompthub.user.sellersettlement.application.usecase.SellerSettlementU
 import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementAccessDeniedException;
 import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementNotFoundException;
 import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyAggregate;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyKey;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyPage;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyStatusCount;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
+import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementDetailResponse;
 import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementListResponse;
 import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementStatusResponse;
 import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementSummaryResponse;
 import java.math.BigDecimal;
+import java.time.YearMonth;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SellerSettlementApplicationService implements SeedSellerSettlementUseCase, SellerSettlementUseCase {
 
     private final SellerSettlementRepository sellerSettlementRepository;
+    private final SellerSettlementQueryRepository sellerSettlementQueryRepository;
 
     @Override
     @Transactional
@@ -40,9 +49,30 @@ public class SellerSettlementApplicationService implements SeedSellerSettlementU
     @Override
     @Transactional(readOnly = true)
     public SellerSettlementListResponse getMySettlements(SellerSettlementListQuery query) {
-        SellerSettlementRepository.SellerSettlementPage page = sellerSettlementRepository.findPageBySeller(
-                query.sellerId(), query.status(), query.period(), query.page(), query.size());
-        return SellerSettlementListResponse.from(page, query.page(), query.size());
+        MonthlyPage page = sellerSettlementQueryRepository.findMonthlyPage(
+                query.sellerId(), query.status(), query.settlementMonth(),
+                query.page(), query.size());
+        List<MonthlyKey> keys = page.content().stream()
+                .map(MonthlyAggregate::key)
+                .toList();
+        List<MonthlyStatusCount> counts =
+                sellerSettlementQueryRepository.findStatusCounts(keys);
+        return SellerSettlementListResponse.from(page, counts, query.page(), query.size());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SellerSettlementDetailResponse getMySettlementMonth(
+            UUID sellerId, YearMonth settlementMonth) {
+        MonthlyAggregate aggregate = sellerSettlementQueryRepository
+                .findMonthlyAggregate(sellerId, settlementMonth)
+                .orElseThrow(SellerSettlementNotFoundException::new);
+        List<MonthlyStatusCount> counts = sellerSettlementQueryRepository
+                .findStatusCounts(List.of(aggregate.key()));
+        List<SellerSettlement> weeklySettlements = sellerSettlementQueryRepository
+                .findWeeklySettlements(sellerId, settlementMonth);
+        return SellerSettlementDetailResponse.from(
+                aggregate, counts, weeklySettlements);
     }
 
     @Override

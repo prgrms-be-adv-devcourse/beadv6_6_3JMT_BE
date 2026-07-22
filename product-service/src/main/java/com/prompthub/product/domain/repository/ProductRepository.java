@@ -5,6 +5,7 @@ import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +21,8 @@ public interface ProductRepository {
 	long countPublicProducts(String keyword, String productType);
 
 	double getAverageRating(UUID productId);
+
+	Map<UUID, Double> getAverageRatings(List<UUID> familyRootIds);
 
 	long sumSalesCountByFamilyRootId(UUID familyRootId);
 
