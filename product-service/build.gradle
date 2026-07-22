@@ -14,9 +14,17 @@ dependencies {
     implementation 'com.google.protobuf:protobuf-java'
     compileOnly 'org.apache.tomcat:annotations-api:6.0.53'
 
+    // Elasticsearch (검색 색인 파이프라인, #376) — 정확한 patch 버전은 ES 서버(9.4.3)와
+    // 맞춰 Maven Central에서 확인 후 고정한다.
+    implementation 'co.elastic.clients:elasticsearch-java:9.0.2'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
     testImplementation 'org.testcontainers:testcontainers-postgresql'
+    // org.testcontainers:elasticsearch 전용 모듈은 testcontainers-core 2.x 라인에 맞는
+    // 릴리스가 아직 없어(Maven Central 최신 1.21.4, core는 2.0.5) 쓰지 않는다.
+    // testcontainers-junit-jupiter가 이미 가져오는 core의 GenericContainer로 직접 띄운다.
     // Root build.gradle에서 상속되지 않는 경우 대비
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'com.h2database:h2'

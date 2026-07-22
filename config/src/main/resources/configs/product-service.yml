@@ -36,6 +36,9 @@ cloud:
     s3:
       bucket: ${AWS_S3_BUCKET}
 
+elasticsearch:
+  uris: ${ES_URIS}
+
 prompthub:
   outbox-relay:
     enabled: true

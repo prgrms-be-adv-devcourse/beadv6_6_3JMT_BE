@@ -42,6 +42,9 @@ cloud:
     s3:
       bucket: ${AWS_S3_BUCKET:3jmt-prompthub-bucket}
 
+elasticsearch:
+  uris: ${ES_URIS:http://localhost:9200}
+
 eureka:
   client:
     enabled: false
