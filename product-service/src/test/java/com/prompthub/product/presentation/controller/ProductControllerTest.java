@@ -119,6 +119,28 @@ class ProductControllerTest {
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.data.productId").value(PRODUCT_ID.toString()));
 		}
+
+		@Test
+		@DisplayName("PROMPT가 아닌 상품은 model 없이도 등록된다")
+		void createProduct_nonPromptWithoutModel_success() throws Exception {
+			ProductCreateResponse response = new ProductCreateResponse(
+				PRODUCT_ID, SELLER_ID, "분기별 실적 정리 엑셀", "EXCEL", null,
+				"분기 실적을 자동으로 표로 정리", 5900, "DRAFT", CREATED_AT
+			);
+			given(productSellerUseCase.createProduct(eq(SELLER_ID), org.mockito.ArgumentMatchers.any()))
+				.willReturn(response);
+
+			mockMvc.perform(post("/api/v2/products")
+						.contentType(MediaType.APPLICATION_JSON)
+						.header("X-User-Id", SELLER_ID.toString())
+						.content("""
+							{"title":"분기별 실적 정리 엑셀","productType":"EXCEL","model":null,
+							"desc":"분기 실적을 자동으로 표로 정리","amount":5900}
+							"""))
+					.andExpect(status().isCreated())
+					.andExpect(jsonPath("$.success").value(true))
+					.andExpect(jsonPath("$.data.productId").value(PRODUCT_ID.toString()));
+		}
 	}
 
 	@Nested
@@ -281,6 +303,22 @@ class ProductControllerTest {
 						"""))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
+
+			verify(productSellerUseCase).updateProduct(eq(SELLER_ID), eq(PRODUCT_ID), org.mockito.ArgumentMatchers.any());
+		}
+
+		@Test
+		@DisplayName("PROMPT가 아닌 상품은 model 없이도 수정된다")
+		void updateProduct_nonPromptWithoutModel_success() throws Exception {
+			mockMvc.perform(patch("/api/v2/products/{productId}", PRODUCT_ID)
+						.contentType(MediaType.APPLICATION_JSON)
+						.header("X-User-Id", SELLER_ID.toString())
+						.content("""
+							{"title":"분기별 실적 정리 엑셀","productType":"EXCEL","model":null,
+							"desc":"분기 실적을 자동으로 표로 정리","amount":5900}
+							"""))
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.success").value(true));
 
 			verify(productSellerUseCase).updateProduct(eq(SELLER_ID), eq(PRODUCT_ID), org.mockito.ArgumentMatchers.any());
 		}
