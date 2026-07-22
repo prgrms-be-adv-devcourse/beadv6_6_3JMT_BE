@@ -1,6 +1,7 @@
 package com.prompthub.order.fixture;
 
 import com.prompthub.order.application.dto.OrderListProjection;
+import com.prompthub.order.application.dto.OrderListProductProjection;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
@@ -202,25 +203,34 @@ public final class OrderFixture {
 	}
 
 	public static OrderListProjection orderListProjection(
-		OrderStatus orderStatus,
+		OrderStatus orderStatus
+	) {
+		return new OrderListProjection(
+			ORDER_ID,
+			ORDER_NUMBER,
+			orderStatus,
+			TOTAL_AMOUNT,
+			PAID_AT,
+			CREATED_AT
+		);
+	}
+
+	public static OrderListProductProjection orderListProductProjection(
 		OrderProductStatus orderProductStatus,
 		boolean downloaded,
 		Double rating
 	) {
-		return new OrderListProjection(
+		return new OrderListProductProjection(
 			ORDER_ID,
 			ORDER_PRODUCT_ID,
 			PRODUCT_ID_1,
-			orderStatus,
 			orderProductStatus,
 			PRODUCT_AMOUNT_1,
 			downloaded,
 			PRODUCT_TYPE_PROMPT,
 			PRODUCT_TITLE_1,
 			PRODUCT_MODEL,
-			rating,
-			PAID_AT,
-			CREATED_AT
+			rating
 		);
 	}
 }

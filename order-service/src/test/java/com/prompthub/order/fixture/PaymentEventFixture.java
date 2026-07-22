@@ -55,10 +55,7 @@ public final class PaymentEventFixture {
 
 	public static PaymentApprovedPayload approvedPayload(Order order) {
 		return new PaymentApprovedPayload(
-			PAYMENT_ID,
 			order.getId(),
-			order.getBuyerId(),
-			order.getTotalOrderAmount(),
 			APPROVED_AT_OFFSET
 		);
 	}

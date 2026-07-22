@@ -18,7 +18,6 @@ import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.presentation.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -47,7 +46,7 @@ import static com.prompthub.order.global.web.AuthHeaders.USER_ID;
 @RestController
 @RequiredArgsConstructor
 @Tag(name = "Order", description = "주문 생성, 조회, 구매 콘텐츠, 리뷰 API")
-@SecurityRequirement(name = "gatewayHeaders")
+@SecurityRequirement(name = "Bearer")
 public class OrderController {
 
 	private final ConfirmDownloadUseCase confirmDownloadUseCase;
@@ -65,7 +64,7 @@ public class OrderController {
 		@ApiResponse(responseCode = "503", description = "SYS002 상품 서비스 사용 불가")
 	})
 	public ApiResult<CreateOrderResponse> createOrder(
-		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@Parameter(hidden = true)
 		@RequestHeader(USER_ID) UUID buyerId,
 		@Valid @RequestBody CreateOrderRequest request
 	) {
@@ -81,7 +80,7 @@ public class OrderController {
 		@ApiResponse(responseCode = "401", description = "A003 인증 정보 누락")
 	})
 	public ApiResult<Boolean> hasAccessiblePaidProduct(
-		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@Parameter(hidden = true)
 		@RequestHeader(USER_ID) UUID buyerId,
 		@Parameter(description = "상품 ID") @PathVariable UUID productId
 	) {
@@ -95,7 +94,7 @@ public class OrderController {
 		@ApiResponse(responseCode = "401", description = "A003 인증 정보 누락")
 	})
 	public ApiResult<List<UUID>> getAccessiblePaidProductIds(
-		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@Parameter(hidden = true)
 		@RequestHeader(USER_ID) UUID buyerId
 	) {
 		return ApiResult.success(orderQueryUseCase.getAccessiblePaidProductIds(buyerId));
@@ -110,7 +109,7 @@ public class OrderController {
 		@ApiResponse(responseCode = "404", description = "O001 주문 없음")
 	})
 	public ApiResult<OrderDetailResponse> getOrderDetail(
-		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@Parameter(hidden = true)
 		@RequestHeader(USER_ID) UUID buyerId,
 		@Parameter(description = "주문 ID", example = "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111")
 		@PathVariable UUID orderId
@@ -127,7 +126,7 @@ public class OrderController {
 		@ApiResponse(responseCode = "404", description = "O001 주문 없음, O012 주문 상품 없음")
 	})
 	public ApiResult<OrderContentResponse> getOrderContent(
-		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@Parameter(hidden = true)
 		@RequestHeader(USER_ID) UUID buyerId,
 		@Parameter(description = "주문 ID", example = "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111")
 		@PathVariable UUID orderId,
@@ -138,14 +137,14 @@ public class OrderController {
 	}
 
 	@GetMapping
-	@Operation(summary = "주문 목록 조회", description = "구매자 본인의 주문 목록을 페이지 조건으로 조회합니다.")
+	@Operation(summary = "주문 목록 조회", description = "구매자 본인의 주문을 주문 단위로 페이지 조회하고 각 주문의 주문상품 목록을 함께 반환합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "주문 목록 조회 성공"),
 		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
 		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음")
 	})
 	public PageResponse<OrderListResponse> getOrders(
-		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@Parameter(hidden = true)
 		@RequestHeader(USER_ID) UUID buyerId,
 		@ModelAttribute PageRequestParams request
 	) {
@@ -170,7 +169,7 @@ public class OrderController {
 		@ApiResponse(responseCode = "404", description = "O001 주문 없음, O012 주문 상품 없음")
 	})
 	public ApiResult<OrderProductDownloadResponse> confirmDownload(
-		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@Parameter(hidden = true)
 		@RequestHeader(USER_ID) UUID buyerId,
 		@Parameter(description = "주문 ID", example = "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111")
 		@PathVariable UUID orderId,
@@ -191,7 +190,7 @@ public class OrderController {
 		@ApiResponse(responseCode = "409", description = "O017 환불 불가")
 	})
 	public ApiResult<RefundResult> requestRefund(
-		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@Parameter(hidden = true)
 		@RequestHeader(USER_ID) UUID buyerId,
 		@PathVariable UUID orderId,
 		@Valid @RequestBody RefundOrderRequest request

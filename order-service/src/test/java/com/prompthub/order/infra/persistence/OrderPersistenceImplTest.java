@@ -1,6 +1,7 @@
 package com.prompthub.order.infra.persistence;
 
 import com.prompthub.order.application.dto.OrderListProjection;
+import com.prompthub.order.application.dto.OrderListProductProjection;
 import com.prompthub.order.config.TestJpaConfig;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
@@ -19,6 +20,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,27 +48,51 @@ class OrderPersistenceImplTest {
 	private OrderPersistence orderPersistence;
 
 	@Test
-	@DisplayName("주문 목록은 주문 생성일 최신순, 주문상품 ID 오름차순으로 조회한다")
-	void searchOrderProducts_ordersByCreatedAtDescAndOrderProductIdAsc() {
-		Order oldOrder = createPaidOrder("ORD-20260619-0001", LocalDateTime.of(2026, 6, 19, 10, 0));
-		Order newOrder = createPaidOrder("ORD-20260620-0001", LocalDateTime.of(2026, 6, 20, 10, 0));
+	@DisplayName("주문 목록은 주문 단위로 페이지하고 전체 주문 수를 반환한다")
+	void searchOrders_pagesAndCountsByOrder() {
+		Order oldOrder = createPaidOrder("ORD-20260619-0001", LocalDateTime.of(2026, 6, 19, 10, 0), false);
+		Order newOrder = createPaidOrder("ORD-20260620-0001", LocalDateTime.of(2026, 6, 20, 10, 0), true);
 
 		entityManager.persist(oldOrder);
 		entityManager.persist(newOrder);
 		entityManager.flush();
 		entityManager.clear();
 
-		Page<OrderListProjection> result = orderPersistence.searchOrderProducts(
+		Page<OrderListProjection> result = orderPersistence.searchOrders(
 			BUYER_ID,
 			OrderStatus.PAID,
 			null,
 			null,
-			PageRequest.of(0, 20)
+			PageRequest.of(0, 1)
 		);
 
-		assertThat(result.getContent())
-			.extracting(OrderListProjection::orderId)
-			.containsExactly(newOrder.getId(), oldOrder.getId());
+		assertThat(result.getContent()).hasSize(1);
+		assertThat(result.getTotalElements()).isEqualTo(2);
+		assertThat(result.getContent().getFirst().orderId()).isEqualTo(newOrder.getId());
+		assertThat(result.getContent().getFirst().orderNumber()).isEqualTo(newOrder.getOrderNumber());
+		assertThat(result.getContent().getFirst().totalAmount()).isEqualTo(PRODUCT_AMOUNT_1 + PRODUCT_AMOUNT_2);
+	}
+
+	@Test
+	@DisplayName("선택한 주문들의 모든 주문상품을 주문상품 ID 오름차순으로 조회한다")
+	void findOrderProductsByOrderIds_returnsAllProductsInStableOrder() {
+		Order order = createPaidOrder("ORD-20260620-0002", LocalDateTime.of(2026, 6, 20, 10, 0), true);
+		entityManager.persist(order);
+		entityManager.flush();
+		entityManager.clear();
+
+		List<OrderListProductProjection> products = orderPersistence.findOrderProductsByOrderIds(List.of(order.getId()));
+		List<UUID> expectedProductIds = order.getOrderProducts().stream()
+			.map(OrderProduct::getId)
+			.sorted(Comparator.comparing(UUID::toString))
+			.toList();
+
+		assertThat(products).hasSize(2);
+		assertThat(products).extracting(OrderListProductProjection::orderId).containsOnly(order.getId());
+		assertThat(products).extracting(OrderListProductProjection::orderProductId)
+			.containsExactlyElementsOf(expectedProductIds);
+		assertThat(products).extracting(OrderListProductProjection::productAmount)
+			.containsExactlyInAnyOrder(PRODUCT_AMOUNT_1, PRODUCT_AMOUNT_2);
 	}
 
 	@Test
@@ -95,16 +121,26 @@ class OrderPersistenceImplTest {
 			.containsExactly(PRODUCT_ID_2);
 	}
 
-	private Order createPaidOrder(String orderNumber, LocalDateTime createdAt) {
+	private Order createPaidOrder(String orderNumber, LocalDateTime createdAt, boolean includeSecondProduct) {
 		Order order = Order.create(
 			BUYER_ID,
 			orderNumber,
-			PRODUCT_AMOUNT_1
+			includeSecondProduct ? PRODUCT_AMOUNT_1 + PRODUCT_AMOUNT_2 : PRODUCT_AMOUNT_1
 		);
 		order.addOrderProduct(OrderProduct.create(PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, PRODUCT_TYPE_PROMPT,
 			"GPT-4",
 			PRODUCT_AMOUNT_1
 		));
+		if (includeSecondProduct) {
+			order.addOrderProduct(OrderProduct.create(
+				PRODUCT_ID_2,
+				SELLER_ID_2,
+				PRODUCT_TITLE_2,
+				PRODUCT_TYPE_PROMPT,
+				"Claude-3",
+				PRODUCT_AMOUNT_2
+			));
+		}
 		order.markPaid(createdAt.plusMinutes(1));
 		ReflectionTestUtils.setField(order, "id", UUID.randomUUID());
 		ReflectionTestUtils.setField(order, "createdAt", createdAt);

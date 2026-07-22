@@ -1,6 +1,7 @@
 package com.prompthub.order.domain.repository;
 
 import com.prompthub.order.application.dto.OrderListProjection;
+import com.prompthub.order.application.dto.OrderListProductProjection;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import org.springframework.data.domain.Page;
@@ -24,11 +25,13 @@ public interface OrderRepository {
 
 	List<UUID> findAccessiblePaidProductIdsByBuyerId(UUID buyerId);
 
-	Page<OrderListProjection> searchOrderproducts(
+	Page<OrderListProjection> searchOrders(
 		UUID buyerId,
 		OrderStatus status,
 		LocalDateTime from,
 		LocalDateTime to,
 		Pageable pageable
 	);
+
+	List<OrderListProductProjection> findOrderProductsByOrderIds(List<UUID> orderIds);
 }

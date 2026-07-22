@@ -8,7 +8,6 @@ import com.prompthub.order.presentation.dto.response.CartResponse;
 import com.prompthub.presentation.dto.ApiResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -23,7 +22,7 @@ import java.util.UUID;
 @RequestMapping("/api/v2/cart")
 @RequiredArgsConstructor
 @Tag(name = "Cart", description = "장바구니 조회, 상품 추가, 상품 삭제 API")
-@SecurityRequirement(name = "gatewayHeaders")
+@SecurityRequirement(name = "Bearer")
 public class CartController {
 
 	private final CartUseCase cartUseCase;
@@ -36,7 +35,7 @@ public class CartController {
 		@ApiResponse(responseCode = "404", description = "O005 장바구니 없음")
 	})
 	public ApiResult<CartResponse> getCart(
-		@Parameter(in = ParameterIn.HEADER, name = AuthHeaders.USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@Parameter(hidden = true)
 		@RequestHeader(AuthHeaders.USER_ID) UUID buyerId
 	) {
 		return ApiResult.success(cartUseCase.getCart(buyerId));
@@ -51,7 +50,7 @@ public class CartController {
 		@ApiResponse(responseCode = "409", description = "C001 이미 장바구니에 담긴 상품")
 	})
 	public ApiResult<AddCartProductResponse> addCartProduct(
-		@Parameter(in = ParameterIn.HEADER, name = AuthHeaders.USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@Parameter(hidden = true)
 		@RequestHeader(AuthHeaders.USER_ID) UUID buyerId,
 		@Valid @RequestBody AddCartProductRequest request
 	) {
@@ -68,7 +67,7 @@ public class CartController {
 		@ApiResponse(responseCode = "404", description = "O006 장바구니 상품 없음")
 	})
 	public ApiResult<Void> deleteCartProduct(
-		@Parameter(in = ParameterIn.HEADER, name = AuthHeaders.USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@Parameter(hidden = true)
 		@RequestHeader(AuthHeaders.USER_ID) UUID buyerId,
 		@Parameter(description = "장바구니 상품 ID", example = "00000000-0000-0000-0000-000000000701")
 		@PathVariable UUID cartProductId
