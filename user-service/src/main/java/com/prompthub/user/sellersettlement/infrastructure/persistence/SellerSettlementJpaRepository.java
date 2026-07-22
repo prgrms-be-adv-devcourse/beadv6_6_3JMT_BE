@@ -4,10 +4,9 @@ import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
 import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -21,16 +20,14 @@ public interface SellerSettlementJpaRepository extends JpaRepository<SellerSettl
     @Query("""
             select s from SellerSettlement s
             where s.sellerId = :sellerId
-              and (:status is null or s.status = :status)
-              and (:periodStart is null or s.periodStart >= :periodStart)
-              and (:periodEnd is null or s.periodStart <= :periodEnd)
+              and s.periodStart >= :periodStart
+              and s.periodStart < :periodEnd
+            order by s.periodStart asc, s.sellerSettlementId asc
             """)
-    Page<SellerSettlement> findPageBySeller(
+    List<SellerSettlement> findWeeklySettlements(
             @Param("sellerId") UUID sellerId,
-            @Param("status") SettlementDisplayStatus status,
             @Param("periodStart") LocalDate periodStart,
-            @Param("periodEnd") LocalDate periodEnd,
-            Pageable pageable);
+            @Param("periodEnd") LocalDate periodEnd);
 
     @Query("select coalesce(sum(s.totalAmount), 0) from SellerSettlement s where s.sellerId = :sellerId")
     BigDecimal sumTotalAmountBySeller(@Param("sellerId") UUID sellerId);

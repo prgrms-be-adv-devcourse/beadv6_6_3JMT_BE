@@ -1,7 +1,9 @@
 package com.prompthub.admin.settlement.presentation.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -9,9 +11,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.global.exception.AdminException;
+import com.prompthub.admin.settlement.application.dto.SettlementListQuery;
 import com.prompthub.admin.settlement.application.usecase.SettlementUseCase;
 import com.prompthub.admin.settlement.domain.exception.SettlementInvalidStateException;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
+import com.prompthub.admin.settlement.presentation.dto.response.SettlementDetailResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementListResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementStatusResponse;
@@ -19,9 +23,13 @@ import com.prompthub.admin.settlement.presentation.dto.response.SettlementSummar
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementSummaryResponse.Card;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -38,17 +46,41 @@ class SettlementControllerTest {
 	@MockitoBean
 	private SettlementUseCase settlementUseCase;
 
+	private static final UUID SELLER_ID =
+		UUID.fromString("22222222-2222-2222-2222-222222222222");
+
 	@Test
-	void 정산_목록을_페이징으로_내려준다() throws Exception {
+	void 어드민_월별목록은_v2경로와_기본20을_유지한다() throws Exception {
 		when(settlementUseCase.getList(any()))
 			.thenReturn(new SettlementListResponse(List.of(), 0L, 0, 20));
 
-		mockMvc.perform(get("/api/v2/admin/settlements"))
+		mockMvc.perform(get("/api/v2/admin/settlements")
+				.param("settlementMonth", "2026-07"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.success").value(true))
 			.andExpect(jsonPath("$.data.totalElements").value(0))
 			.andExpect(jsonPath("$.data.page").value(0))
 			.andExpect(jsonPath("$.data.size").value(20));
+
+		ArgumentCaptor<SettlementListQuery> queryCaptor =
+			ArgumentCaptor.forClass(SettlementListQuery.class);
+		verify(settlementUseCase).getList(queryCaptor.capture());
+		assertThat(queryCaptor.getValue().settlementMonth())
+			.isEqualTo(YearMonth.of(2026, 7));
+		assertThat(queryCaptor.getValue().size()).isEqualTo(20);
+	}
+
+	@Test
+	void 어드민_판매자월_상세를_조회한다() throws Exception {
+		when(settlementUseCase.getDetail(SELLER_ID, YearMonth.of(2026, 7)))
+			.thenReturn(emptyDetail(SELLER_ID, "2026-07"));
+
+		mockMvc.perform(get(
+				"/api/v2/admin/settlements/sellers/{sellerId}/months/2026-07",
+				SELLER_ID))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.sellerId").value(SELLER_ID.toString()))
+			.andExpect(jsonPath("$.data.settlementMonth").value("2026-07"));
 	}
 
 	@Test
@@ -59,16 +91,25 @@ class SettlementControllerTest {
 	}
 
 	@Test
-	void 정산_요약_카드를_내려준다() throws Exception {
-		when(settlementUseCase.getSummary())
+	void 어드민_summary는_선택월을_받는다() throws Exception {
+		when(settlementUseCase.getSummary(YearMonth.of(2026, 7)))
 			.thenReturn(new SettlementSummaryResponse(
 				List.of(new Card(SettlementDisplayStatus.WAITING.name(), BigDecimal.TEN, 4L))));
 
-		mockMvc.perform(get("/api/v2/admin/settlements/summary"))
+		mockMvc.perform(get("/api/v2/admin/settlements/summary")
+				.param("settlementMonth", "2026-07"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.success").value(true))
 			.andExpect(jsonPath("$.data.cards").isArray())
 			.andExpect(jsonPath("$.data.cards[0].status").value("WAITING"));
+	}
+
+	@ParameterizedTest
+	@CsvSource({"page,-1", "size,0", "size,101"})
+	void 잘못된_페이지요청은_400이다(String name, String value) throws Exception {
+		mockMvc.perform(get("/api/v2/admin/settlements").param(name, value))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("A-001"));
 	}
 
 	@Test
@@ -128,5 +169,13 @@ class SettlementControllerTest {
 				.header("X-User-Id", actorId.toString()))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("A-004"));
+	}
+
+	private static SettlementDetailResponse emptyDetail(
+		UUID sellerId, String settlementMonth) {
+		return new SettlementDetailResponse(
+			sellerId, null, settlementMonth, 0, 0, 0,
+			BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+			List.of(), List.of());
 	}
 }

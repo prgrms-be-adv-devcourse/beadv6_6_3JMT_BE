@@ -8,8 +8,6 @@
 ### [서비스별 역할]
 ###   product.seller.SellerQueryService    → product-service가 user-service에 판매자 정보 조회
 ###   settlement.seller.SellerQueryService → settlement-service가 user-service에 판매자 정보 조회
-###   user.product.ProductService          → user-service가 product-service에 상품 정보 조회
-###                                           (product-service가 9082 포트로 떠 있어야 함)
 ### ============================================================
 
 ### [product-service → user-service] 판매자 단건 조회
@@ -35,14 +33,4 @@ GRPC localhost:9081/settlement.seller.SellerQueryService/FindSellers
 
 {
   "seller_ids": ["{{sellerId}}"]
-}
-
-###
-
-### [user-service → product-service] 위시리스트 상품 정보 조회
-### product-service가 localhost:9082 포트로 떠 있어야 함
-GRPC localhost:9082/user.product.ProductService/GetProductsByIds
-
-{
-  "product_ids": ["{{productId}}"]
 }

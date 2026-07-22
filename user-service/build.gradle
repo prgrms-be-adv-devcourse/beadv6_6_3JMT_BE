@@ -4,11 +4,10 @@ dependencies {
     // JWT (RSA 서명/검증 — NimbusJwtEncoder 포함)
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
 
-    // gRPC 서버 (Spring Boot 4.1 내장)
+    // gRPC 서버 (Seller 조회 제공)
     implementation 'org.springframework.boot:spring-boot-starter-grpc-server'
 
-    // gRPC 클라이언트 (product-service 호출용)
-    implementation 'org.springframework.boot:spring-boot-starter-grpc-client'
+    // protobuf로 생성되는 gRPC 서버 코드 컴파일
     implementation 'io.grpc:grpc-stub'
     implementation 'io.grpc:grpc-protobuf'
 

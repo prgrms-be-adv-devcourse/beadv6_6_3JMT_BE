@@ -28,3 +28,15 @@ eureka:
 payment:
   toss:
     secret-key: mock_secret_key_for_test
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      toss-payment-default:
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 20000ms
+        slow-call-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3

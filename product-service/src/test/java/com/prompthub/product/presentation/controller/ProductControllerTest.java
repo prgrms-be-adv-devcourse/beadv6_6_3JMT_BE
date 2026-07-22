@@ -1,15 +1,20 @@
 package com.prompthub.product.presentation.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prompthub.product.application.usecase.ProductInternalUseCase;
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
+import com.prompthub.product.application.usecase.ProductSellerUseCase;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
 import com.prompthub.product.exception.ProductExceptionHandler;
+import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
 import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
 import com.prompthub.product.presentation.dto.response.ProductVersionResponse;
 import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
+import com.prompthub.product.presentation.dto.response.SellerProductDetailResponse;
+import com.prompthub.product.presentation.dto.response.SellerProductListItemResponse;
 import com.prompthub.presentation.dto.PageResponse;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -28,7 +34,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -41,6 +50,7 @@ class ProductControllerTest {
 	private static final LocalDateTime UPDATED_AT = LocalDateTime.of(2026, 6, 1, 0, 0);
 
 	private MockMvc mockMvc;
+	private ObjectMapper objectMapper;
 
 	@Mock
 	private ProductQueryUseCase productQueryUseCase;
@@ -48,11 +58,16 @@ class ProductControllerTest {
 	@Mock
 	private ProductInternalUseCase productInternalUseCase;
 
+	@Mock
+	private ProductSellerUseCase productSellerUseCase;
+
 	@BeforeEach
 	void setUp() {
-		mockMvc = MockMvcBuilders.standaloneSetup(new ProductController(productQueryUseCase, productInternalUseCase))
+		mockMvc = MockMvcBuilders.standaloneSetup(
+				new ProductController(productQueryUseCase, productInternalUseCase, productSellerUseCase))
 			.setControllerAdvice(new ProductExceptionHandler())
 			.build();
+		objectMapper = new ObjectMapper();
 	}
 
 	@Nested
@@ -80,6 +95,103 @@ class ProductControllerTest {
 				.andExpect(jsonPath("$.data[0].tags[0]").value("리액트"))
 				.andExpect(jsonPath("$.meta.page").value(1))
 				.andExpect(jsonPath("$.meta.size").value(8));
+		}
+	}
+
+	@Nested
+	@DisplayName("POST /api/v2/products")
+	class CreateProduct {
+
+		@Test
+		@DisplayName("판매자가 상품을 등록한다")
+		void createProduct_success() throws Exception {
+			ProductCreateResponse response = new ProductCreateResponse(
+				PRODUCT_ID, SELLER_ID, "리액트 컴포넌트 리팩터링 도우미", "PROMPT", "GPT-4o",
+				"컴포넌트 분리, 상태 정리, 타입 개선", 7900, "DRAFT", CREATED_AT
+			);
+			given(productSellerUseCase.createProduct(eq(SELLER_ID), org.mockito.ArgumentMatchers.any()))
+				.willReturn(response);
+
+			mockMvc.perform(post("/api/v2/products")
+					.contentType(MediaType.APPLICATION_JSON)
+					.header("X-User-Id", SELLER_ID.toString())
+					.content("""
+						{"title":"리액트 컴포넌트 리팩터링 도우미","productType":"PROMPT","model":"GPT-4o",
+						"desc":"컴포넌트 분리, 상태 정리, 타입 개선","amount":7900}
+						"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data.productId").value(PRODUCT_ID.toString()));
+		}
+	}
+
+	@Nested
+	@DisplayName("GET /api/v2/products/sellers/me")
+	class GetMyProducts {
+
+		@Test
+		@DisplayName("판매자 본인 상품 목록을 조회한다")
+		void getMyProducts_success() throws Exception {
+			SellerProductListItemResponse item = new SellerProductListItemResponse(
+				PRODUCT_ID, "리액트 컴포넌트 리팩터링 도우미", "PROMPT", "GPT-4o", 7900,
+				"ON_SALE", 760, 4.5, "https://cdn.example.com/images/thumb.jpg", null, CREATED_AT, UPDATED_AT
+			);
+			given(productSellerUseCase.getMyProducts(SELLER_ID)).willReturn(List.of(item));
+
+			mockMvc.perform(get("/api/v2/products/sellers/me")
+					.header("X-User-Id", SELLER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data[0].averageRating").value(4.5));
+		}
+	}
+
+	@Nested
+	@DisplayName("GET /api/v2/products/sellers/me/summary")
+	class GetMyProductSummary {
+
+		@Test
+		@DisplayName("등록 상품 수와 누적 판매 수를 반환한다")
+		void getMyProductSummary_success() throws Exception {
+			given(productInternalUseCase.getProductCount(SELLER_ID))
+				.willReturn(new com.prompthub.product.presentation.dto.response.ProductCountResponse(SELLER_ID, 3, 42));
+
+			mockMvc.perform(get("/api/v2/products/sellers/me/summary")
+					.header("X-User-Id", SELLER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data.productCount").value(3))
+				.andExpect(jsonPath("$.data.salesCount").value(42));
+		}
+	}
+
+	@Nested
+	@DisplayName("POST /api/v2/products/wishlists")
+	class GetProductsByIds {
+
+		@Test
+		@DisplayName("productId 목록으로 여러 상품을 배치 조회한다")
+		void getProductsByIds_success() throws Exception {
+			UUID productId2 = UUID.fromString("55555555-5555-5555-5555-555555555555");
+			ProductsByIdsResponse item = new ProductsByIdsResponse(
+				PRODUCT_ID, SELLER_ID, "리액트 컴포넌트 리팩터링 도우미", 7900, null,
+				"PROMPT", "GPT-4o", 760, 4.7, "ON_SALE"
+			);
+			given(productInternalUseCase.getProductsByIds(List.of(PRODUCT_ID, productId2)))
+				.willReturn(List.of(item));
+
+			mockMvc.perform(post("/api/v2/products/wishlists")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(
+						new com.prompthub.product.presentation.dto.request.ProductsByIdsRequest(
+							List.of(PRODUCT_ID, productId2)))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data[0].title").value("리액트 컴포넌트 리팩터링 도우미"));
+
+			verify(productInternalUseCase).getProductsByIds(List.of(PRODUCT_ID, productId2));
 		}
 	}
 
@@ -129,7 +241,44 @@ class ProductControllerTest {
 	}
 
 	@Nested
-	@DisplayName("GET /api/v2/products/{productId}/related")
+	@DisplayName("PATCH /api/v2/products/{productId}")
+	class UpdateProduct {
+
+		@Test
+		@DisplayName("판매자가 상품을 수정한다")
+		void updateProduct_success() throws Exception {
+			mockMvc.perform(patch("/api/v2/products/{productId}", PRODUCT_ID)
+					.contentType(MediaType.APPLICATION_JSON)
+					.header("X-User-Id", SELLER_ID.toString())
+					.content("""
+						{"title":"리액트 컴포넌트 리팩터링 도우미","productType":"PROMPT","model":"GPT-4o",
+						"desc":"컴포넌트 분리, 상태 정리, 타입 개선","amount":7900}
+						"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true));
+
+			verify(productSellerUseCase).updateProduct(eq(SELLER_ID), eq(PRODUCT_ID), org.mockito.ArgumentMatchers.any());
+		}
+	}
+
+	@Nested
+	@DisplayName("DELETE /api/v2/products/{productId}")
+	class DeleteProduct {
+
+		@Test
+		@DisplayName("판매자가 상품을 삭제/판매중단한다")
+		void deleteProduct_success() throws Exception {
+			mockMvc.perform(delete("/api/v2/products/{productId}", PRODUCT_ID)
+					.header("X-User-Id", SELLER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true));
+
+			verify(productSellerUseCase).deleteProduct(SELLER_ID, PRODUCT_ID);
+		}
+	}
+
+	@Nested
+	@DisplayName("GET /api/v2/products/{productId}/recommends")
 	class GetRelatedProducts {
 
 		@Test
@@ -138,7 +287,7 @@ class ProductControllerTest {
 			ProductListItemResponse item = productListItemResponse(PRODUCT_ID, "PROMPT");
 			given(productQueryUseCase.getRelatedProducts(PRODUCT_ID, 4)).willReturn(List.of(item));
 
-			mockMvc.perform(get("/api/v2/products/{productId}/related", PRODUCT_ID))
+			mockMvc.perform(get("/api/v2/products/{productId}/recommends", PRODUCT_ID))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.data[0].id").value(PRODUCT_ID.toString()));
@@ -149,37 +298,11 @@ class ProductControllerTest {
 		void getRelatedProducts_withLimit() throws Exception {
 			given(productQueryUseCase.getRelatedProducts(PRODUCT_ID, 2)).willReturn(List.of());
 
-			mockMvc.perform(get("/api/v2/products/{productId}/related", PRODUCT_ID)
+			mockMvc.perform(get("/api/v2/products/{productId}/recommends", PRODUCT_ID)
 					.param("limit", "2"))
 				.andExpect(status().isOk());
 
 			org.mockito.Mockito.verify(productQueryUseCase).getRelatedProducts(eq(PRODUCT_ID), eq(2));
-		}
-	}
-
-	@Nested
-	@DisplayName("GET /api/v2/products/by-ids")
-	class GetProductsByIds {
-
-		@Test
-		@DisplayName("ids 파라미터로 여러 상품을 배치 조회한다")
-		void getProductsByIds_success() throws Exception {
-			UUID productId2 = UUID.fromString("55555555-5555-5555-5555-555555555555");
-			ProductsByIdsResponse item = new ProductsByIdsResponse(
-				PRODUCT_ID, SELLER_ID, "리액트 컴포넌트 리팩터링 도우미", 7900, null,
-				"PROMPT", "GPT-4o", 760, 4.7, "ON_SALE"
-			);
-			given(productInternalUseCase.getProductsByIds(List.of(PRODUCT_ID, productId2)))
-				.willReturn(List.of(item));
-
-			mockMvc.perform(get("/api/v2/products/by-ids")
-					.param("ids", PRODUCT_ID + "," + productId2))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.success").value(true))
-				.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID.toString()))
-				.andExpect(jsonPath("$.data[0].title").value("리액트 컴포넌트 리팩터링 도우미"));
-
-			verify(productInternalUseCase).getProductsByIds(List.of(PRODUCT_ID, productId2));
 		}
 	}
 
@@ -206,6 +329,45 @@ class ProductControllerTest {
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.data[0].id").value(reviewId.toString()))
 				.andExpect(jsonPath("$.data[0].rating").value(5));
+		}
+	}
+
+	@Nested
+	@DisplayName("PATCH /api/v2/products/{productId}/inspection")
+	class SubmitForReview {
+
+		@Test
+		@DisplayName("판매자가 검수를 요청한다")
+		void submitForReview_success() throws Exception {
+			mockMvc.perform(patch("/api/v2/products/{productId}/inspection", PRODUCT_ID)
+					.header("X-User-Id", SELLER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true));
+
+			verify(productSellerUseCase).submitForReview(SELLER_ID, PRODUCT_ID);
+		}
+	}
+
+	@Nested
+	@DisplayName("GET /api/v2/products/{productId}/sellers/me")
+	class GetMyProduct {
+
+		@Test
+		@DisplayName("판매자 본인 상품 상세를 조회한다")
+		void getMyProduct_success() throws Exception {
+			SellerProductDetailResponse response = new SellerProductDetailResponse(
+				PRODUCT_ID, "리액트 컴포넌트 리팩터링 도우미", "PROMPT", "GPT-4o", 7900,
+				"컴포넌트 분리, 상태 정리, 타입 개선", "본문 내용", null, null, "DRAFT", "1.0", 4.5,
+				"https://cdn.example.com/images/thumb.jpg", List.of(), List.of("리액트"), null, List.of()
+			);
+			given(productSellerUseCase.getMyProduct(SELLER_ID, PRODUCT_ID)).willReturn(response);
+
+			mockMvc.perform(get("/api/v2/products/{productId}/sellers/me", PRODUCT_ID)
+					.header("X-User-Id", SELLER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data.productId").value(PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data.averageRating").value(4.5));
 		}
 	}
 

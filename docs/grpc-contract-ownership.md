@@ -100,20 +100,24 @@ sourceSets {
 | --- | --- | --- | --- | --- |
 | `GetSettleableLines`(정산 원천) | settlement | **order** | `grpc/order/order_query.proto` | settlement 클라이언트와 order 서버 구현 완료 |
 
-> **소비 종료:** `GetSellerStats`는 #452에서 user-service `sellersettlement` 소비자가 제거됐다.
-> `grpc/product/product_query.proto`와 Product 서버의 RPC 유지·삭제는 계약 소유자인 Product 후속
-> 작업에서 결정한다. Seller Settlement는 더 이상 이 계약의 클라이언트가 아니다.
+> **제거됨:** `GetSellerStats`는 #452에서 user-service `sellersettlement` 소비자가 먼저 제거됐고,
+> 이후 계약 소유자인 Product가 공개 REST `GET /api/v2/products/sellers/me/summary`(#483)로 대체하며
+> `grpc/product/product_query.proto`의 RPC·메시지와 Product 서버 구현을 삭제했다. Seller Settlement는
+> 더 이상 이 계약의 클라이언트가 아니다.
 
 > **제거됨:** `GetSellers`(셀러 정보, 서버 user, `grpc/user/seller_query.proto`)는 settlement 클라이언트가
 > 끝내 도입되지 않은 채 REST `POST /api/v2/sellers/batch`가 같은 용도로 생겨 계약과 user-service 서버
 > 구현을 삭제했다(#444).
 
+> **제거됨:** user-service Wishlist가 보유하던 로컬 `user.product.ProductService/GetProductsByIds`
+> 계약과 client는 #485에서 삭제했다. Product 서버에 구현되지 않았던 계약이며, Wishlist 상품 조회는
+> Client가 Product REST `POST /api/v2/products/wishlists`를 직접 호출한다.
+
 ### Product 계약 후속 정리
 
 루트 `grpc/product/product_query.proto`에는 Product가 제공하는 다른 RPC도 함께 있으므로 파일 전체를
-이번 작업에서 삭제하지 않는다. `GetSellerStats` RPC와 Product 서버 구현의 유지·삭제, 공개 Seller 통계
-API 전환은 서버 소유자인 Product가 결정한다. user-service는 #452에서 루트 `grpc/product` sourceSet
-참조를 제거한다.
+삭제하지 않는다. `GetSellerStats`는 #483에서 제거됐다(공개 REST 전환). user-service는 #452에서 루트
+`grpc/product` sourceSet 참조를 제거했다.
 
 `GetSettleableLines`는 settlement-service 클라이언트와 order-service 서버가 모두 루트
 `grpc/order/order_query.proto`를 참조한다. 요청은 주간 `period_start`·`period_end` 계약을 사용한다.

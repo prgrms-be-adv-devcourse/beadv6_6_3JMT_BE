@@ -1,104 +1,81 @@
 package com.prompthub.user.sellersettlement.presentation.dto.response;
 
-import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
-import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyAggregate;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyPage;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyStatusCount;
+import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementMonthlyResponse.StatusCount;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.YearMonth;
 import java.util.List;
-import java.util.UUID;
 
-@Schema(description = "판매자 정산 내역(페이징) 응답")
+@Schema(description = "판매자 월별 정산 목록 응답")
 public record SellerSettlementListResponse(
-        @Schema(description = "정산 내역 항목")
+        @Schema(description = "월별 정산 항목")
         List<Item> items,
 
-        @Schema(description = "전체 항목 수", example = "4")
+        @Schema(description = "전체 월 수", example = "4")
         long totalElements,
 
         @Schema(description = "0-base 페이지 번호", example = "0")
         int page,
 
         @Schema(description = "페이지 크기", example = "10")
-        int size
-) {
+        int size) {
 
     public static SellerSettlementListResponse from(
-            SellerSettlementRepository.SellerSettlementPage page, int pageNo, int size) {
-        List<Item> items = page.content().stream().map(Item::from).toList();
-        return new SellerSettlementListResponse(items, page.totalElements(), pageNo, size);
+            MonthlyPage monthlyPage,
+            List<MonthlyStatusCount> counts,
+            int page,
+            int size) {
+        List<Item> items = monthlyPage.content().stream()
+                .map(aggregate -> Item.from(aggregate, counts))
+                .toList();
+        return new SellerSettlementListResponse(
+                items, monthlyPage.totalElements(), page, size);
     }
 
-    @Schema(description = "판매자 정산 내역 항목")
+    @Schema(description = "판매자 월별 정산 항목")
     public record Item(
-            @Schema(description = "정산 ID(UUID)")
-            UUID settlementId,
+            @Schema(description = "정산 월(YYYY-MM)", example = "2026-07")
+            String settlementMonth,
 
-            @Schema(description = "정산 기준 월(YYYY-MM)", example = "2026-06")
-            String period,
+            @Schema(description = "월에 포함된 전체 주간 정산 건수", example = "4")
+            long weeklySettlementCount,
 
-            @Schema(description = "정산 기간 시작", example = "2026-06-01")
-            LocalDate periodStart,
+            @Schema(description = "합계에 반영된 비취소 주간 정산 건수", example = "3")
+            long aggregatedSettlementCount,
 
-            @Schema(description = "정산 기간 종료", example = "2026-06-30")
-            LocalDate periodEnd,
+            @Schema(description = "비취소 판매 건수 합계", example = "22")
+            long salesCount,
 
-            @Schema(description = "판매 건수", example = "22")
-            int salesCount,
-
-            @Schema(description = "총 거래액", example = "320000.00")
+            @Schema(description = "비취소 총 거래액", example = "2200000.00")
             BigDecimal grossAmount,
 
-            @Schema(description = "판매 수수료", example = "48000.00")
+            @Schema(description = "비취소 판매 수수료", example = "330000.00")
             BigDecimal feeAmount,
 
-            @Schema(description = "환불 차감액", example = "0.00")
+            @Schema(description = "비취소 환불 차감액", example = "100000.00")
             BigDecimal refundAmount,
 
-            @Schema(description = "최종 지급 예정/완료 금액", example = "260000.00")
+            @Schema(description = "비취소 지급 예정 또는 완료 금액", example = "1770000.00")
             BigDecimal payoutAmount,
 
-            @Schema(description = "표시 상태 코드", example = "APPROVED")
-            String status,
+            @Schema(description = "주간 정산 상태별 건수")
+            List<StatusCount> statusCounts) {
 
-            @Schema(description = "표시 상태 라벨(한글)", example = "승인")
-            String statusLabel,
-
-            @Schema(description = "현재 상태에서 수행 가능한 액션")
-            List<Action> availableActions
-    ) {
-
-        public static Item from(SellerSettlement settlement) {
-            List<Action> actions = settlement.canRequestPayout()
-                    ? List.of(Action.requestPayout()) : List.of();
+        static Item from(
+                MonthlyAggregate aggregate, List<MonthlyStatusCount> allCounts) {
             return new Item(
-                    settlement.getSettlementId(),
-                    YearMonth.from(settlement.getPeriodStart()).toString(),
-                    settlement.getPeriodStart(),
-                    settlement.getPeriodEnd(),
-                    settlement.getProductCount(),
-                    settlement.getTotalAmount(),
-                    settlement.getFeeTotalAmount(),
-                    settlement.getRefundAmount(),
-                    settlement.getSettlementTotalAmount(),
-                    settlement.getStatus().name(),
-                    settlement.getStatus().getLabel(),
-                    actions);
-        }
-    }
-
-    @Schema(description = "정산 항목에서 수행 가능한 액션")
-    public record Action(
-            @Schema(description = "액션 타입", example = "REQUEST_PAYOUT")
-            String type,
-
-            @Schema(description = "액션 라벨", example = "지급 신청하기")
-            String label
-    ) {
-
-        public static Action requestPayout() {
-            return new Action("REQUEST_PAYOUT", "지급 신청하기");
+                    aggregate.key().settlementMonth().toString(),
+                    aggregate.weeklySettlementCount(),
+                    aggregate.aggregatedSettlementCount(),
+                    aggregate.salesCount(),
+                    aggregate.grossAmount(),
+                    aggregate.feeAmount(),
+                    aggregate.refundAmount(),
+                    aggregate.payoutAmount(),
+                    SellerSettlementMonthlyResponse.statusCounts(
+                            aggregate.key(), allCounts));
         }
     }
 }

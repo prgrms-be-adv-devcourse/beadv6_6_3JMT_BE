@@ -12,6 +12,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -26,6 +27,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SettlementBatch extends BaseEntity {
+	private static final int FAILURE_REASON_MAX_LENGTH = 1_000;
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
@@ -34,6 +36,9 @@ public class SettlementBatch extends BaseEntity {
 
 	@Column(name = "batch_no", nullable = false, unique = true, length = 100)
 	private String batchNo;
+
+	@Column(name = "job_instance_id", unique = true)
+	private Long jobInstanceId;
 
 	@Column(name = "period_start", nullable = false)
 	private LocalDate periodStart;
@@ -55,13 +60,22 @@ public class SettlementBatch extends BaseEntity {
 	@Column(name = "executed_at")
 	private LocalDateTime executedAt;
 
+	@Version
+	@Column(name = "version", nullable = false)
+	private Long version;
+
 	private SettlementBatch(
 		String batchNo,
+		long jobInstanceId,
 		LocalDate periodStart,
 		LocalDate periodEnd,
 		TriggerType triggerType
 	) {
+		if (jobInstanceId <= 0) {
+			throw new IllegalArgumentException("jobInstanceId는 양수여야 합니다.");
+		}
 		this.batchNo = batchNo;
+		this.jobInstanceId = jobInstanceId;
 		this.periodStart = periodStart;
 		this.periodEnd = periodEnd;
 		this.triggerType = triggerType;
@@ -70,23 +84,43 @@ public class SettlementBatch extends BaseEntity {
 
 	public static SettlementBatch start(
 		String batchNo,
+		long jobInstanceId,
 		LocalDate periodStart,
 		LocalDate periodEnd,
 		TriggerType triggerType
 	) {
-		return new SettlementBatch(batchNo, periodStart, periodEnd, triggerType);
+		return new SettlementBatch(batchNo, jobInstanceId, periodStart, periodEnd, triggerType);
 	}
 
 	public void complete() {
-		verifyProcessing();
+		verifyStatus(SettlementBatchStatus.PROCESSING);
 		this.status = SettlementBatchStatus.COMPLETED;
 		this.executedAt = LocalDateTime.now();
 	}
 
 	public void fail(String failureReason) {
-		verifyProcessing();
+		verifyStatus(SettlementBatchStatus.PROCESSING);
 		this.status = SettlementBatchStatus.FAILED;
-		this.failureReason = failureReason;
+		this.failureReason = truncate(failureReason);
+		this.executedAt = LocalDateTime.now();
+	}
+
+	public void requestRetry() {
+		verifyStatus(SettlementBatchStatus.FAILED);
+		this.status = SettlementBatchStatus.RETRY_REQUESTED;
+	}
+
+	public void startRetry() {
+		verifyStatus(SettlementBatchStatus.RETRY_REQUESTED);
+		this.status = SettlementBatchStatus.PROCESSING;
+		this.failureReason = null;
+		this.executedAt = null;
+	}
+
+	public void restoreFailed(String failureReason) {
+		verifyStatus(SettlementBatchStatus.RETRY_REQUESTED);
+		this.status = SettlementBatchStatus.FAILED;
+		this.failureReason = truncate(failureReason);
 		this.executedAt = LocalDateTime.now();
 	}
 
@@ -94,9 +128,21 @@ public class SettlementBatch extends BaseEntity {
 		return this.status == SettlementBatchStatus.PROCESSING;
 	}
 
-	private void verifyProcessing() {
-		if (!isProcessing()) {
-			throw new SettlementBatchInvalidStateException(this.status);
+	public boolean isRetryRequested() {
+		return this.status == SettlementBatchStatus.RETRY_REQUESTED;
+	}
+
+	private void verifyStatus(SettlementBatchStatus expected) {
+		if (this.status != expected) {
+			throw new SettlementBatchInvalidStateException(expected, this.status);
 		}
 	}
+
+	private String truncate(String reason) {
+		if (reason == null || reason.length() <= FAILURE_REASON_MAX_LENGTH) {
+			return reason;
+		}
+		return reason.substring(0, FAILURE_REASON_MAX_LENGTH);
+	}
+
 }

@@ -34,10 +34,6 @@ jwt:
 grpc:
   server:
     port: ${USER_GRPC_SERVER_PORT}
-  client:
-    product-service:
-      address: 'static://product-service:${PRODUCT_GRPC_SERVER_PORT}'
-      negotiation-type: plaintext
 
 user:
   kafka:

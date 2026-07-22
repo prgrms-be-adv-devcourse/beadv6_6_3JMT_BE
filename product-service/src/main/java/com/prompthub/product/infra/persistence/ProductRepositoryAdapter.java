@@ -8,6 +8,7 @@ import com.prompthub.product.domain.model.projection.ProductReviewProjection;
 import com.prompthub.product.domain.repository.ProductRepository;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,11 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	@Override
 	public double getAverageRating(UUID productId) {
 		return productJpaRepository.getAverageRating(productId);
+	}
+
+	@Override
+	public Map<UUID, Double> getAverageRatings(List<UUID> familyRootIds) {
+		return productJpaRepository.getAverageRatings(familyRootIds);
 	}
 
 	@Override

@@ -8,6 +8,7 @@ import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.domain.repository.ReviewRepository;
 import com.prompthub.product.presentation.dto.response.ProductCartSnapshotResponse;
 import com.prompthub.product.presentation.dto.response.ProductContentResponse;
+import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -111,6 +112,44 @@ class ProductInternalServiceTest {
 			assertThat(result).hasSize(1);
 			assertThat(result.get(0).productId()).isEqualTo(oldId);
 			assertThat(result.get(0).productTitle()).isEqualTo("면접 답변 프롬프트");
+		}
+	}
+
+	@Nested
+	@DisplayName("찜 상품 배치 조회")
+	class GetProductsByIds {
+
+		@Test
+		@DisplayName("thumbnailUrl을 presigned 다운로드 URL로 변환해 반환한다")
+		void getProductsByIds_presignsThumbnailUrl() {
+			Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
+			ReflectionTestUtils.setField(product, "thumbnailUrl", "products/1/thumbnail/uuid.jpg");
+			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRepository.sumSalesCountByFamilyRootId(PRODUCT_ID)).willReturn(0L);
+			given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(0.0);
+			given(storageClient.generatePresignedDownloadUrl("products/1/thumbnail/uuid.jpg"))
+				.willReturn("https://s3/presigned-thumbnail");
+
+			List<ProductsByIdsResponse> result = productInternalService.getProductsByIds(List.of(PRODUCT_ID));
+
+			assertThat(result).hasSize(1);
+			assertThat(result.get(0).thumbnailUrl()).isEqualTo("https://s3/presigned-thumbnail");
+		}
+
+		@Test
+		@DisplayName("thumbnailUrl이 없으면 presign을 시도하지 않는다")
+		void getProductsByIds_noThumbnail_skipsPresign() {
+			Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
+			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRepository.sumSalesCountByFamilyRootId(PRODUCT_ID)).willReturn(0L);
+			given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(0.0);
+
+			List<ProductsByIdsResponse> result = productInternalService.getProductsByIds(List.of(PRODUCT_ID));
+
+			assertThat(result.get(0).thumbnailUrl()).isNull();
+			then(storageClient).shouldHaveNoInteractions();
 		}
 	}
 

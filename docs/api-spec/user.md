@@ -240,7 +240,48 @@
 
 ---
 
-### POST /sellers/batch — 판매자 이름 배치 조회
+### GET /sellers/product — 판매자 단건 조회
+
+- 인증: 불필요 (`/detail/[id]` 비로그인 접근 대응)
+- 필요 역할: 없음
+- 상품 상세 페이지의 판매자 카드 표시용. Client는 `GET /products/{productId}` 응답의 `sellerId`를 그대로 전달해 호출한다.
+- 단건 조회라 같은 `sellerId`는 항상 같은 응답을 내므로 HTTP 캐싱 이득이 있다 — 다건 조회(`/sellers/products`)와는 목적이 다르다.
+
+#### Request
+
+**Query Parameters**
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| sellerId | string(UUID) | Y | 조회할 판매자 ID |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sellerName": "김철수",
+    "profileImageUrl": "https://.../profile.png"
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| sellerName | string | 판매자 이름 |
+| profileImageUrl | string \| null | 프로필 이미지 URL. 미등록 시 null |
+
+**400 Bad Request** — `sellerId` 누락 또는 잘못된 UUID 형식 (`VALIDATION_FAILED`, V001)
+
+**404 Not Found** — 형식은 유효하나 존재하지 않는 sellerId (`AUTH_NOT_FOUND`, A001)
+
+---
+
+### POST /sellers/products — 판매자 이름 다건 조회
 
 - 인증: 불필요 (`/browse` 비로그인 접근 대응)
 - 필요 역할: 없음
@@ -281,6 +322,100 @@
 |------|------|------|
 | sellers[].sellerId | string(UUID) | 요청한 sellerId |
 | sellers[].sellerName | string \| null | 판매자 이름. 존재하지 않는 sellerId(탈퇴/삭제 등)는 null — 이 경우도 전체 요청은 실패 처리하지 않음 |
+
+**400 Bad Request** — 빈 배열, 잘못된 UUID 형식, 30개 초과 (`VALIDATION_FAILED`, V001)
+
+---
+
+### POST /users/order-products — 구매 상품 판매자 이름 다건 조회
+
+- 인증: 필요
+- 필요 역할: BUYER / SELLER
+- `/mypage?tab=purchased`에서 Order와 Product 응답을 조합한 뒤 Product의 `sellerId` 목록으로 판매자 이름을 조회한다.
+- 기존 `/sellers/products`와 조회 UseCase는 같지만 요청·응답 DTO는 구매 상품 화면 전용 계약으로 분리한다.
+
+#### Request
+
+**Body**
+
+```json
+{
+  "sellerIds": [
+    "3f1b1b0e-1111-2222-3333-444444444444",
+    "9a2c2c1f-5555-6666-7777-888888888888"
+  ]
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|:----:|------|
+| sellerIds | string(UUID)[] | Y | 조회할 판매자 ID 목록. 최대 30개, 빈 배열 금지, 중복은 첫 등장 기준으로 제거 |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sellers": [
+      {
+        "sellerId": "3f1b1b0e-1111-2222-3333-444444444444",
+        "sellerName": "김철수"
+      },
+      {
+        "sellerId": "9a2c2c1f-5555-6666-7777-888888888888",
+        "sellerName": null
+      }
+    ]
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| sellers[].sellerId | string(UUID) | 요청한 판매자 ID |
+| sellers[].sellerName | string \| null | 판매자 이름. 조회되지 않은 판매자는 null이며 전체 요청은 성공 처리 |
+
+**400 Bad Request** — 빈 배열, 잘못된 UUID 형식, 30개 초과 (`VALIDATION_FAILED`, V001)
+
+---
+
+### POST /sellers/wishlists — Wishlist 판매자 이름 다건 조회
+
+- 인증: 필요
+- 필요 역할: BUYER / SELLER
+- `POST /products/wishlists` 응답의 `sellerId` 목록을 받아 Wishlist 카드의 판매자명을 채운다.
+- Wishlist 전용 요청·응답 DTO를 사용하며 JSON 스키마, 최대 30개, 중복 제거와 누락 판매자 `null` 정책은 `POST /sellers/products`와 동일하다.
+
+#### Request
+
+**Body**
+
+```json
+{
+  "sellerIds": ["3f1b1b0e-...", "..."]
+}
+```
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sellers": [
+      { "sellerId": "3f1b1b0e-...", "sellerName": "김철수" },
+      { "sellerId": "9c2a...", "sellerName": null }
+    ]
+  },
+  "message": "success"
+}
+```
 
 **400 Bad Request** — 빈 배열, 잘못된 UUID 형식, 30개 초과 (`VALIDATION_FAILED`, V001)
 
@@ -371,14 +506,7 @@
     {
       "wishlistId": "uuid",
       "productId": "uuid",
-      "title": "GPT 마케팅 카피 프롬프트",
-      "thumbnailUrl": "https://cdn.example.com/images/thumb.jpg",
-      "price": 3900,
-      "sellerNickname": "프롬작가",
-      "averageRating": 4.7,
-      "salesCount": 128,
-      "model": "GPT-4",
-      "addedAt": "2025-03-01T12:00:00Z"
+      "addedAt": "2026-07-22T12:00:00"
     }
   ],
   "message": "success",
@@ -395,18 +523,14 @@
 |------|------|------|
 | wishlistId | string | 찜 ID |
 | productId | string | 상품 ID |
-| title | string | 상품명 |
-| thumbnailUrl | string \| null | 썸네일 이미지 URL |
-| price | integer | 가격 |
-| sellerNickname | string | 판매자 닉네임 |
-| averageRating | number | 평균 별점 |
-| salesCount | integer | 판매 수량 (UI PromptCard 표시용) |
-| model | string | AI 모델 (UI PromptCard 표시용) |
 | addedAt | string | 찜 등록일시 (ISO 8601) |
 | meta.page | integer | 현재 페이지 번호 |
 | meta.size | integer | 페이지당 항목 수 |
 | meta.total | integer | 전체 항목 수 |
 | meta.hasNext | boolean | 다음 페이지 존재 여부 |
+
+상품·판매자 카드 정보는 Client가 Product `POST /products/wishlists`와
+User `POST /sellers/wishlists`를 순차 호출해 조합한다.
 
 ---
 
