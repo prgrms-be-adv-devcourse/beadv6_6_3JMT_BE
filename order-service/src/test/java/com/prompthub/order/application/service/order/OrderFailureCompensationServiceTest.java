@@ -168,6 +168,54 @@ class OrderFailureCompensationServiceTest {
 	}
 
 	@Test
+	@DisplayName("식별자 필드가 없는 축소형 실패 이벤트도 주문 소유 정보로 보상한다")
+	void compensatePaymentFailure_reducedPaymentContract_restoresProducts() {
+		Order order = createdOrder();
+		PaymentFailedPayload payload = new PaymentFailedPayload(
+			null,
+			ORDER_A,
+			null,
+			order.getTotalOrderAmount(),
+			null,
+			null,
+			"2026-07-17T01:00:05Z"
+		);
+		stubUnprocessedOrder(order);
+		given(cartRepository.findByBuyerIdForUpdateWithCartProducts(BUYER_ID))
+			.willReturn(Optional.empty());
+
+		service.compensatePaymentFailure(EVENT_ID, EVENT_TYPE, FAILED_AT, payload);
+
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.FAILED);
+		then(cartRepository).should().save(any(Cart.class));
+	}
+
+	@Test
+	@DisplayName("축소형 실패 이벤트의 금액이 주문 금액과 다르면 보상을 거부한다")
+	void compensatePaymentFailure_reducedPaymentContractRejectsAmountMismatch() {
+		Order order = createdOrder();
+		PaymentFailedPayload payload = new PaymentFailedPayload(
+			null,
+			ORDER_A,
+			null,
+			order.getTotalOrderAmount() - 1,
+			null,
+			null,
+			"2026-07-17T01:00:05Z"
+		);
+		stubUnprocessedOrder(order);
+
+		assertThatThrownBy(() -> service.compensatePaymentFailure(
+			EVENT_ID, EVENT_TYPE, FAILED_AT, payload
+		))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
+
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
+		then(cartRepository).shouldHaveNoInteractions();
+	}
+
+	@Test
 	@DisplayName("이미 처리한 eventId면 Order와 Cart를 조회하지 않고 Redis 정리만 요청한다")
 	void compensatePaymentFailure_duplicateBeforeLock_publishesCleanupOnly() {
 		given(processedEventService.isProcessed(EVENT_ID, CONSUMER_GROUP)).willReturn(true);

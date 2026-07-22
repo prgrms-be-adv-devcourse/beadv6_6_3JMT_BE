@@ -28,11 +28,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.PaymentEventFixture.APPROVED_AT;
-import static com.prompthub.order.fixture.PaymentEventFixture.APPROVED_AT_OFFSET;
 import static com.prompthub.order.fixture.PaymentEventFixture.BUYER_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
-import static com.prompthub.order.fixture.PaymentEventFixture.OTHER_BUYER_ID;
-import static com.prompthub.order.fixture.PaymentEventFixture.PAYMENT_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.approvedPayload;
 import static com.prompthub.order.fixture.PaymentEventFixture.createdOrder;
 import static com.prompthub.order.fixture.PaymentEventFixture.productIds;
@@ -154,6 +151,24 @@ class PaymentApprovedProcessorTest {
 			.publishEvent(new OrderExpirationCleanupRequestedEvent(ORDER_A));
 	}
 
+	@Test
+	@DisplayName("주문 ID와 승인 시각만 있는 승인 이벤트로 주문을 완료 처리한다")
+	void process_minimalPaymentContract_completesOrder() {
+		Order order = createdOrder();
+		UUID eventId = UUID.randomUUID();
+		PaymentApprovedPayload payload = new PaymentApprovedPayload(
+			ORDER_A,
+			"2026-07-17T10:00:05+09:00"
+		);
+		stubTarget(eventId, order);
+		given(cartRepository.findByBuyerIdForUpdateWithCartProducts(BUYER_ID)).willReturn(Optional.empty());
+
+		processor.process(eventId, EVENT_TYPE, APPROVED_AT, payload);
+
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
+		then(orderPaidOutboxAppender).should().append(order);
+	}
+
 	@ParameterizedTest
 	@EnumSource(value = OrderStatus.class, names = {"COMPLETED", "PARTIAL_REFUNDED", "ALL_REFUNDED"})
 	@DisplayName("완료·환불 주문의 늦은 승인은 상태·Cart·Outbox를 바꾸지 않고 처리 이력과 cleanup만 남긴다")
@@ -171,46 +186,6 @@ class PaymentApprovedProcessorTest {
 		then(applicationEventPublisher).should()
 			.publishEvent(new OrderExpirationCleanupRequestedEvent(ORDER_A));
 		assertThat(order.getOrderStatus()).isEqualTo(status);
-	}
-
-	@Test
-	@DisplayName("구매자가 다르면 상태·Cart·Outbox·처리 이력·cleanup을 변경하지 않는다")
-	void process_buyerMismatch_rejectsWithoutMutation() {
-		Order order = createdOrder();
-		PaymentApprovedPayload payload = new PaymentApprovedPayload(
-			PAYMENT_ID,
-			ORDER_A,
-			OTHER_BUYER_ID,
-			order.getTotalOrderAmount(),
-			APPROVED_AT_OFFSET
-		);
-		UUID eventId = UUID.randomUUID();
-		stubTarget(eventId, order);
-
-		assertThatThrownBy(() -> processor.process(eventId, EVENT_TYPE, APPROVED_AT, payload))
-			.isInstanceOf(OrderException.class)
-			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_ACCESS_DENIED);
-		assertUnchanged(order);
-	}
-
-	@Test
-	@DisplayName("승인 금액이 다르면 상태·Cart·Outbox·처리 이력·cleanup을 변경하지 않는다")
-	void process_amountMismatch_rejectsWithoutMutation() {
-		Order order = createdOrder();
-		PaymentApprovedPayload payload = new PaymentApprovedPayload(
-			PAYMENT_ID,
-			ORDER_A,
-			BUYER_ID,
-			order.getTotalOrderAmount() - 1,
-			APPROVED_AT_OFFSET
-		);
-		UUID eventId = UUID.randomUUID();
-		stubTarget(eventId, order);
-
-		assertThatThrownBy(() -> processor.process(eventId, EVENT_TYPE, APPROVED_AT, payload))
-			.isInstanceOf(OrderException.class)
-			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
-		assertUnchanged(order);
 	}
 
 	@Test
@@ -293,17 +268,6 @@ class PaymentApprovedProcessorTest {
 			default -> throw new IllegalArgumentException("refunded status is required");
 		}
 		return order;
-	}
-
-	private void assertUnchanged(Order order) {
-		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
-		assertThat(order.getOrderProducts())
-			.extracting(OrderProduct::getOrderStatus)
-			.containsOnly(OrderProductStatus.PENDING);
-		then(orderPaidOutboxAppender).shouldHaveNoInteractions();
-		then(cartRepository).shouldHaveNoInteractions();
-		then(applicationEventPublisher).shouldHaveNoInteractions();
-		then(processedEventService).should(never()).markProcessed(any(), any(), any(), any());
 	}
 
 	private void stubTarget(UUID eventId, Order order) {

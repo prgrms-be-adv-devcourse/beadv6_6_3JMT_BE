@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.PaymentEventFixture.APPROVED_AT;
-import static com.prompthub.order.fixture.PaymentEventFixture.APPROVED_AT_OFFSET;
 import static com.prompthub.order.fixture.PaymentEventFixture.BUYER_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.FAILED_AT;
 import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
@@ -203,56 +202,6 @@ class PaymentEventTransactionIntegrationTest {
 		assertThat(processedEventRepository.count()).isEqualTo(2);
 		then(orderExpirationStore).should(times(2)).removeExpiration(ORDER_A);
 		then(orderExpirationStore).should(times(2)).clearRetryCount(ORDER_A);
-	}
-
-	@Test
-	void approvedEvent_amountMismatch_rollsBackWithoutSideEffects() {
-		Order order = saveScenario();
-		PaymentApprovedPayload payload = new PaymentApprovedPayload(
-			PAYMENT_ID,
-			ORDER_A,
-			BUYER_ID,
-			order.getTotalOrderAmount() - 1,
-			APPROVED_AT_OFFSET
-		);
-
-		assertThatThrownBy(() -> approvedProcessor.process(
-			UUID.randomUUID(),
-			"PAYMENT_APPROVED",
-			APPROVED_AT,
-			payload
-		))
-			.isInstanceOf(OrderException.class)
-			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
-
-		entityManager.clear();
-		assertCreatedStateAndNoSideEffects();
-		then(orderExpirationStore).shouldHaveNoInteractions();
-	}
-
-	@Test
-	void approvedEvent_buyerMismatch_rollsBackWithoutSideEffects() {
-		Order order = saveScenario();
-		PaymentApprovedPayload payload = new PaymentApprovedPayload(
-			PAYMENT_ID,
-			ORDER_A,
-			OTHER_BUYER_ID,
-			order.getTotalOrderAmount(),
-			APPROVED_AT_OFFSET
-		);
-
-		assertThatThrownBy(() -> approvedProcessor.process(
-			UUID.randomUUID(),
-			"PAYMENT_APPROVED",
-			APPROVED_AT,
-			payload
-		))
-			.isInstanceOf(OrderException.class)
-			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_ACCESS_DENIED);
-
-		entityManager.clear();
-		assertCreatedStateAndNoSideEffects();
-		then(orderExpirationStore).shouldHaveNoInteractions();
 	}
 
 	@Test
