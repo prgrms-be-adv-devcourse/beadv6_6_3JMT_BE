@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SettlementBatchRestartApplicationService implements RestartSettlementBatchUseCase {
+public class RestartSettlementBatchApplicationService implements RestartSettlementBatchUseCase {
 
     private static final String DEFAULT_FAILURE_REASON = "정산 배치 재시작 실행 실패";
 

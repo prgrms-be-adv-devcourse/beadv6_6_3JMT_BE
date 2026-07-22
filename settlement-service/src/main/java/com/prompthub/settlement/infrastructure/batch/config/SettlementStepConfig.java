@@ -1,7 +1,7 @@
 package com.prompthub.settlement.infrastructure.batch.config;
 
 import com.prompthub.settlement.domain.model.Settlement;
-import com.prompthub.settlement.infrastructure.batch.model.SettlementItem;
+import com.prompthub.settlement.infrastructure.batch.model.SettlementTarget;
 import com.prompthub.settlement.infrastructure.batch.processor.SettlementProcessor;
 import com.prompthub.settlement.infrastructure.batch.reader.SettlementTargetReader;
 import com.prompthub.settlement.infrastructure.batch.tasklet.CompleteSettlementBatchTasklet;
@@ -67,7 +67,7 @@ public class SettlementStepConfig {
 		SettlementWriter settlementWriter
 	) {
 		return new StepBuilder("settlementStep", jobRepository)
-			.<SettlementItem, Settlement>chunk(chunkSize)
+			.<SettlementTarget, Settlement>chunk(chunkSize)
 			.reader(settlementTargetReader)
 			.processor(settlementProcessor)
 			.writer(settlementWriter)

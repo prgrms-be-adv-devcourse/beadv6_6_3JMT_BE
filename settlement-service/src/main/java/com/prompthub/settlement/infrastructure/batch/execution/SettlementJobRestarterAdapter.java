@@ -1,4 +1,4 @@
-package com.prompthub.settlement.infrastructure.batch.launcher;
+package com.prompthub.settlement.infrastructure.batch.execution;
 
 import com.prompthub.settlement.application.dto.SettlementJobResult;
 import com.prompthub.settlement.application.port.SettlementJobRestarter;
@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class SettlementJobRestartAdapter implements SettlementJobRestarter {
+public class SettlementJobRestarterAdapter implements SettlementJobRestarter {
 
     private static final String BATCH_ID_KEY = "settlementBatchId";
 

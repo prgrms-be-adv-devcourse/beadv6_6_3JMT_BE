@@ -1,7 +1,7 @@
 package com.prompthub.settlement.application.service;
 
 import com.prompthub.settlement.application.dto.SettleableLine;
-import com.prompthub.settlement.application.port.OrderSettlementQueryPort;
+import com.prompthub.settlement.application.port.OrderSettlementQuery;
 import com.prompthub.settlement.application.usecase.LoadSettlementSourceUseCase;
 import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
@@ -22,15 +22,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SettlementSourceApplicationService implements LoadSettlementSourceUseCase {
+public class LoadSettlementSourceApplicationService implements LoadSettlementSourceUseCase {
 
     private final SettlementSourceRepository settlementSourceRepository;
-    private final OrderSettlementQueryPort orderSettlementQueryPort;
+    private final OrderSettlementQuery orderSettlementQuery;
 
     @Override
     @Transactional
     public int load(SettlementPeriod period) {
-        List<SettleableLine> lines = orderSettlementQueryPort.fetchSettleableLines(period);
+        List<SettleableLine> lines = orderSettlementQuery.fetchSettleableLines(period);
         if (lines.isEmpty()) {
             return 0;
         }

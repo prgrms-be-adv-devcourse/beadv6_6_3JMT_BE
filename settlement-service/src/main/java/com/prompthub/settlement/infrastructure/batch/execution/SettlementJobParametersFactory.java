@@ -1,6 +1,6 @@
-package com.prompthub.settlement.infrastructure.batch.launcher;
+package com.prompthub.settlement.infrastructure.batch.execution;
 
-import com.prompthub.settlement.application.dto.RunSettlementJobCommand;
+import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
 import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
 import org.springframework.stereotype.Component;
@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class SettlementJobParametersFactory {
 
-    public JobParameters create(RunSettlementJobCommand command) {
+    public JobParameters create(RunSettlementBatchCommand command) {
         JobParametersBuilder builder = new JobParametersBuilder()
                 .addString("periodStart", command.period().periodStart().toString(), true)
                 .addString("periodEnd", command.period().periodEnd().toString(), true)

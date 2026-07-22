@@ -16,19 +16,19 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
 
-class OutboxApplicationServiceTest {
+class OutboxEventApplicationServiceTest {
 
     private static final int PAGE_SIZE = 2;
 
     private OutboxEventRepository repository;
     private OutboxEventPublishService publishService;
-    private OutboxApplicationService service;
+    private OutboxEventApplicationService service;
 
     @BeforeEach
     void setUp() {
         repository = Mockito.mock(OutboxEventRepository.class);
         publishService = Mockito.mock(OutboxEventPublishService.class);
-        service = new OutboxApplicationService(repository, publishService, PAGE_SIZE);
+        service = new OutboxEventApplicationService(repository, publishService, PAGE_SIZE);
     }
 
     @Test

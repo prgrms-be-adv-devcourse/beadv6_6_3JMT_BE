@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class SettlementJobStatusApplicationService implements GetSettlementJobStatusUseCase {
+public class GetSettlementJobStatusApplicationService implements GetSettlementJobStatusUseCase {
 
     private final SettlementJobQuery settlementJobQuery;
 

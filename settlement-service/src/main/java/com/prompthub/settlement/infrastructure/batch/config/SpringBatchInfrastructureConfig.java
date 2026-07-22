@@ -19,7 +19,7 @@ import javax.sql.DataSource;
 @Configuration
 @EnableBatchProcessing
 @EnableJdbcJobRepository(dataSourceRef = "dataSource", transactionManagerRef = "transactionManager")
-public class SettlementBatchConfig {
+public class SpringBatchInfrastructureConfig {
 
     public static final String ASYNC_JOB_OPERATOR = "asyncSettlementJobOperator";
 

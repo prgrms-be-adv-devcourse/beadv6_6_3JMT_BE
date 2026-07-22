@@ -1,7 +1,7 @@
 package com.prompthub.settlement.presentation.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.prompthub.settlement.application.dto.RunSettlementJobCommand;
+import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
 import com.prompthub.settlement.domain.model.SettlementPeriod;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
@@ -12,7 +12,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 @Schema(description = "정산 배치잡 실행 요청")
-public record RunSettlementJobRequest(
+public record RunSettlementBatchRequest(
 	@Schema(description = "정산 포함 시작일인 월요일", example = "2026-07-13")
 	@NotNull LocalDate periodStart,
 	@Schema(description = "정산 포함 종료일인 일요일", example = "2026-07-19")
@@ -29,7 +29,7 @@ public record RunSettlementJobRequest(
 			&& periodEnd.equals(periodStart.plusDays(6));
 	}
 
-	public RunSettlementJobCommand toCommand(UUID actorId) {
-		return RunSettlementJobCommand.manual(SettlementPeriod.of(periodStart, periodEnd), actorId);
+	public RunSettlementBatchCommand toCommand(UUID actorId) {
+		return RunSettlementBatchCommand.manual(SettlementPeriod.of(periodStart, periodEnd), actorId);
 	}
 }
