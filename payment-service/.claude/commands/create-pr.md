@@ -62,9 +62,32 @@ git diff --name-only HEAD...origin/develop
 
 커밋 로그와 변경 파일 목록을 종합해 한국어로 간결한 설명을 작성한다.
 
+## 4-2단계: 설계 문서 링크 조회
+
+`.claude/plans/` 에서 3단계 추출한 이슈번호로 시작하는 계획 문서를 찾는다.
+
+```bash
+ls payment-service/.claude/plans/ | grep "^<이슈번호>-"
+```
+
+- `<이슈번호>-<slug>.md` (계획 문서) 와 `<이슈번호>-<slug>-tasks.md` (태스크 목록 문서)가 있으면 각각 GitHub blob 링크를 만든다.
+  - URL 형식: `https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/blob/<브랜치명 URL인코딩>/payment-service/.claude/plans/<파일명>`
+  - 브랜치명 URL인코딩: `#` → `%23` (예: `feat/#490-toss-payments-bulkhead` → `feat/%23490-toss-payments-bulkhead`)
+  - 링크 텍스트: 계획 문서의 `# {작업명} 구현 계획` 제목에서 `구현 계획`을 떼어낸 `{작업명}`을 기준으로 만든다.
+    - 계획 문서(`.md`): `{작업명} 설계 문서`
+    - 태스크 목록 문서(`-tasks.md`): `{작업명} 구현 계획 문서`
+- 두 파일 모두 없으면 이 단계를 건너뛰고 5단계 템플릿의 안내 문구를 그대로 둔다.
+
 ## 5단계: PR 본문 생성
 
-아래 팀 정식 PR 템플릿 구조를 채운다. 커밋 로그와 변경 파일 통계를 근거로 작성하고, 알 수 없는 항목은 안내 문구를 유지한다.
+아래 팀 정식 PR 템플릿 구조를 채운다. 커밋 로그와 변경 파일 통계를 근거로 작성하고, 알 수 없는 항목은 안내 문구를 유지한다. `설계 문서` 섹션은 4-2단계에서 찾은 링크가 있으면 아래 예시처럼 불릿으로 채운다.
+
+```markdown
+## 📄 설계 문서 (Design Document)
+
+- [Toss 결제 승인 Bulkhead 설계 문서](https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/blob/feat/%23490-toss-payments-bulkhead/payment-service/.claude/plans/490-toss-payments-bulkhead.md)
+- [Toss 결제 승인 Bulkhead 구현 계획 문서](https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/blob/feat/%23490-toss-payments-bulkhead/payment-service/.claude/plans/490-toss-payments-bulkhead-tasks.md)
+```
 
 ```markdown
 ## 🛠️ 설명 (Description)
