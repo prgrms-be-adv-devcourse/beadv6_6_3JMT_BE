@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.batch.launcher;
 
-import com.prompthub.settlement.application.dto.RunSettlementJobCommand;
+import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
 import com.prompthub.settlement.application.dto.SettlementJobResult;
 import com.prompthub.settlement.application.port.SettlementJobLauncher;
 import com.prompthub.settlement.infrastructure.batch.config.SettlementBatchConfig;
@@ -35,7 +35,7 @@ public class SettlementJobLauncherAdapter implements SettlementJobLauncher {
     }
 
     @Override
-    public SettlementJobResult launch(RunSettlementJobCommand command) {
+    public SettlementJobResult launch(RunSettlementBatchCommand command) {
         JobParameters parameters = settlementJobParametersFactory.create(command);
 
         // 수동 실행은 비동기로 띄워 요청 스레드를 즉시 돌려준다. 스케줄은 동기로 끝까지 기다린다.

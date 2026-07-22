@@ -9,7 +9,7 @@ import static org.mockito.Mockito.times;
 
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
 import com.prompthub.settlement.application.dto.RestartSettlementBatchCommand;
-import com.prompthub.settlement.application.dto.RunSettlementJobCommand;
+import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
 import com.prompthub.settlement.application.dto.SettlementJobResult;
 import com.prompthub.settlement.application.port.SettlementEventPublisher;
 import com.prompthub.settlement.application.service.SettlementCalculationApplicationService;
@@ -124,7 +124,7 @@ class SettlementBatchRestartIntegrationTest {
         }).when(calculationService).calculate(any(CalculateSettlementCommand.class));
 
         SettlementJobResult firstResult = runSettlementBatchUseCase.run(
-                RunSettlementJobCommand.scheduled(SETTLEMENT_FAILURE_PERIOD));
+                RunSettlementBatchCommand.scheduled(SETTLEMENT_FAILURE_PERIOD));
 
         entityManager.clear();
         SettlementBatch failedBatch = onlyBatch();
@@ -187,7 +187,7 @@ class SettlementBatchRestartIntegrationTest {
                 .willReturn(0);
 
         SettlementJobResult firstResult = runSettlementBatchUseCase.run(
-                RunSettlementJobCommand.scheduled(SOURCE_LOAD_FAILURE_PERIOD));
+                RunSettlementBatchCommand.scheduled(SOURCE_LOAD_FAILURE_PERIOD));
 
         entityManager.clear();
         SettlementBatch failedBatch = onlyBatch();

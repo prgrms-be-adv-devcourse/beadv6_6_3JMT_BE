@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.batch.runner;
 
-import com.prompthub.settlement.application.dto.RunSettlementJobCommand;
+import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
 import com.prompthub.settlement.application.dto.SettlementJobResult;
 import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
 import com.prompthub.settlement.domain.model.SettlementPeriod;
@@ -29,7 +29,7 @@ public class SettlementCronJobRunner implements ApplicationRunner, ExitCodeGener
         SettlementPeriod period = SettlementPeriod.previousWeek(LocalDate.now(clock));
         try {
             SettlementJobResult result = runSettlementBatchUseCase.run(
-                    RunSettlementJobCommand.scheduled(period));
+                    RunSettlementBatchCommand.scheduled(period));
             exitCode = "COMPLETED".equals(result.status()) ? 0 : 1;
             log.info("주간 정산 CronJob 종료. periodStart={}, periodEnd={}, jobExecutionId={}, status={}",
                     period.periodStart(), period.periodEnd(), result.jobExecutionId(), result.status());
