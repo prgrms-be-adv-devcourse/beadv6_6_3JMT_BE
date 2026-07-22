@@ -105,7 +105,7 @@ public class ProductController {
 		return ApiResult.success(null);
 	}
 
-	@GetMapping("/products/{productId}/related")
+	@GetMapping("/products/{productId}/recommends")
 	public ApiResult<List<ProductListItemResponse>> getRelatedProducts(
 		@PathVariable UUID productId,
 		@RequestParam(defaultValue = "4") int limit

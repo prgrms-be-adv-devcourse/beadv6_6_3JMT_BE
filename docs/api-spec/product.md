@@ -214,7 +214,7 @@
 
 ---
 
-### GET /products/{productId}/related — 연관 상품 조회
+### GET /products/{productId}/recommends — 연관 상품 조회
 
 - 인증: 불필요
 - 동일 productType 상품 배열 반환
