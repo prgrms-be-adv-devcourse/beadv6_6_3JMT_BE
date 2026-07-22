@@ -378,7 +378,7 @@ EOF
 - Consumes: `AuditLogRepository.save(AuditLog): AuditLog` (Task 1), `AuditLog.forPaymentApproved/forPaymentFailed/forPaymentRefunded/forPaymentRefundFailed` (Task 1), 기존 `PaymentApprovedEvent.payment(): Payment`, `PaymentFailedEvent.payment(): Payment`, `PaymentRefundedEvent.payment(): Payment` / `.refund(): Refund`, `PaymentRefundFailedEvent.payment(): Payment` / `.refund(): Refund` / `.failureReason(): String`
 - Produces: `AuditLogEventListener(AuditLogRepository)` 생성자, `onPaymentApproved/onPaymentFailed/onPaymentRefunded/onPaymentRefundFailed(...)` public 메서드 — Spring 컨텍스트가 `@TransactionalEventListener`로 자동 구독하므로 다른 프로덕션 코드가 직접 호출하지 않는다.
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 `src/test/java/com/prompthub/payment/infrastructure/persistence/AuditLogEventListenerTest.java`:
 
@@ -504,12 +504,12 @@ class AuditLogEventListenerTest {
 }
 ```
 
-- [ ] **Step 2: 테스트 실패 확인**
+- [x] **Step 2: 테스트 실패 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.persistence.AuditLogEventListenerTest"`
 Expected: FAIL — `AuditLogEventListener` 심볼을 찾을 수 없어 컴파일 실패.
 
-- [ ] **Step 3: `AuditLogEventListener` 구현**
+- [x] **Step 3: `AuditLogEventListener` 구현**
 
 `src/main/java/com/prompthub/payment/infrastructure/persistence/AuditLogEventListener.java`:
 
@@ -570,17 +570,17 @@ public class AuditLogEventListener {
 }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
+- [x] **Step 4: 테스트 통과 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.persistence.AuditLogEventListenerTest"`
 Expected: PASS
 
-- [ ] **Step 5: 전체 테스트 실행**
+- [x] **Step 5: 전체 테스트 실행**
 
 Run: `../gradlew :payment-service:test`
 Expected: BUILD SUCCESSFUL, 기존 테스트(`KafkaPaymentEventPublisherTest`, `ConfirmPaymentIntegrationTest` 등) 회귀 없음.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/main/java/com/prompthub/payment/infrastructure/persistence/AuditLogEventListener.java \
