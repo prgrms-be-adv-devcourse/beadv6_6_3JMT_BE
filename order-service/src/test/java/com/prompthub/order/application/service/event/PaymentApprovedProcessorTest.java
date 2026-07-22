@@ -154,6 +154,27 @@ class PaymentApprovedProcessorTest {
 			.publishEvent(new OrderExpirationCleanupRequestedEvent(ORDER_A));
 	}
 
+	@Test
+	@DisplayName("식별자 필드가 없는 축소형 승인 이벤트도 주문 소유 정보로 완료 처리한다")
+	void process_reducedPaymentContract_completesOrder() {
+		Order order = createdOrder();
+		UUID eventId = UUID.randomUUID();
+		PaymentApprovedPayload payload = new PaymentApprovedPayload(
+			null,
+			ORDER_A,
+			null,
+			order.getTotalOrderAmount(),
+			APPROVED_AT_OFFSET
+		);
+		stubTarget(eventId, order);
+		given(cartRepository.findByBuyerIdForUpdateWithCartProducts(BUYER_ID)).willReturn(Optional.empty());
+
+		processor.process(eventId, EVENT_TYPE, APPROVED_AT, payload);
+
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
+		then(orderPaidOutboxAppender).should().append(order);
+	}
+
 	@ParameterizedTest
 	@EnumSource(value = OrderStatus.class, names = {"COMPLETED", "PARTIAL_REFUNDED", "ALL_REFUNDED"})
 	@DisplayName("완료·환불 주문의 늦은 승인은 상태·Cart·Outbox를 바꾸지 않고 처리 이력과 cleanup만 남긴다")

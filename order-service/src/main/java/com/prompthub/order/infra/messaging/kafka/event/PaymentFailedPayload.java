@@ -10,13 +10,25 @@ public record PaymentFailedPayload(
 	UUID paymentId,
 	UUID orderId,
 	@JsonAlias("userId") UUID buyerId,
+	@JsonAlias("amount") int failedAmount,
 	String failureCode,
 	String failureReason,
 	@JsonProperty("failedAt") String failedAtValue
 ) {
 
 	public PaymentFailedPayload(UUID paymentId, UUID orderId, UUID buyerId) {
-		this(paymentId, orderId, buyerId, null, null, null);
+		this(paymentId, orderId, buyerId, 0, null, null, null);
+	}
+
+	public PaymentFailedPayload(
+		UUID paymentId,
+		UUID orderId,
+		UUID buyerId,
+		String failureCode,
+		String failureReason,
+		String failedAtValue
+	) {
+		this(paymentId, orderId, buyerId, 0, failureCode, failureReason, failedAtValue);
 	}
 
 	public UUID userId() {

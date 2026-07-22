@@ -84,7 +84,7 @@ public class PaymentApprovedProcessor {
 	}
 
 	private void validateBuyer(PaymentApprovedPayload payload, Order order) {
-		if (!order.getBuyerId().equals(payload.buyerId())) {
+		if (payload.buyerId() != null && !order.getBuyerId().equals(payload.buyerId())) {
 			throw new OrderException(ErrorCode.ORDER_ACCESS_DENIED);
 		}
 	}

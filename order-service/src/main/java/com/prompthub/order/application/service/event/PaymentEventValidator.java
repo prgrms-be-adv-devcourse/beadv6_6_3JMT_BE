@@ -26,18 +26,15 @@ public class PaymentEventValidator {
 
 	public void validate(PaymentFailedPayload payload) {
 		if (payload == null
-			|| payload.paymentId() == null
 			|| payload.orderId() == null
-			|| payload.userId() == null) {
+			|| payload.failedAmount() < 0) {
 			throw invalidInput();
 		}
 	}
 
 	public LocalDateTime validate(PaymentApprovedPayload payload) {
 		if (payload == null
-			|| payload.paymentId() == null
 			|| payload.orderId() == null
-			|| payload.buyerId() == null
 			|| payload.approvedAmount() <= 0
 			|| payload.approvedAtValue() == null
 			|| payload.approvedAtValue().isBlank()) {
