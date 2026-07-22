@@ -1,0 +1,6 @@
+interface:
+  display_name: "Create Project Branch"
+  short_description: "담당 범위 이슈의 작업 브랜치를 규칙에 맞춰 안전하게 생성"
+  default_prompt: "Use $create-project-branch to create a branch for an issue within the assigned project scope."
+policy:
+  allow_implicit_invocation: true

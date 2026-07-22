@@ -2,6 +2,7 @@ package com.prompthub.settlement.infrastructure.persistence.outbox;
 
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.settlement.application.event.SettlementCreatedEvent;
+import com.prompthub.settlement.application.event.SettlementEventType;
 import com.prompthub.settlement.application.port.OutboxEventAppender;
 import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
 import com.prompthub.settlement.domain.repository.OutboxEventRepository;
@@ -18,7 +19,6 @@ import tools.jackson.databind.ObjectMapper;
 public class JsonOutboxEventAppender implements OutboxEventAppender {
 
     private static final String AGGREGATE_TYPE = "SETTLEMENT";
-    private static final String EVENT_TYPE = "SETTLEMENT_CREATED";
 
     private final ObjectMapper objectMapper;
     private final OutboxEventRepository repository;
@@ -37,9 +37,10 @@ public class JsonOutboxEventAppender implements OutboxEventAppender {
     public void appendSettlementCreated(UUID settlementBatchId, SettlementCreatedEvent event) {
         UUID eventId = UUID.randomUUID();
         LocalDateTime occurredAt = LocalDateTime.now();
+        String eventType = SettlementEventType.SETTLEMENT_CREATED.code();
         EventMessage<SettlementCreatedEvent> message = new EventMessage<>(
                 eventId,
-                EVENT_TYPE,
+                eventType,
                 occurredAt,
                 AGGREGATE_TYPE,
                 event.settlementId(),
@@ -50,7 +51,7 @@ public class JsonOutboxEventAppender implements OutboxEventAppender {
                 settlementBatchId,
                 AGGREGATE_TYPE,
                 event.settlementId(),
-                EVENT_TYPE,
+                eventType,
                 topic,
                 serialize(message),
                 occurredAt));
