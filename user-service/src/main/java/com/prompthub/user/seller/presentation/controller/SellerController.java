@@ -11,10 +11,12 @@ import com.prompthub.user.seller.application.usecase.SellerUseCase;
 import com.prompthub.user.seller.presentation.dto.request.OrderProductSellerIdsRequest;
 import com.prompthub.user.seller.presentation.dto.request.SellerIdsRequest;
 import com.prompthub.user.seller.presentation.dto.request.SellerRegisterRequest;
+import com.prompthub.user.seller.presentation.dto.request.WishlistSellerIdsRequest;
 import com.prompthub.user.seller.presentation.dto.response.OrderProductSellerNamesResponse;
 import com.prompthub.user.seller.presentation.dto.response.SellerNamesResponse;
 import com.prompthub.user.seller.presentation.dto.response.SellerProfileResponse;
 import com.prompthub.user.seller.presentation.dto.response.SellerRegisterResponse;
+import com.prompthub.user.seller.presentation.dto.response.WishlistSellerNamesResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -114,5 +116,22 @@ public class SellerController {
     ) {
         List<SellerInfoResult> results = sellerQueryUseCase.findSellers(request.sellerIdStrings());
         return ApiResult.success(OrderProductSellerNamesResponse.of(request.sellerIds(), results));
+    }
+
+    @Operation(summary = "Wishlist 판매자 이름 다건 조회",
+            description = "Wishlist 상품 응답의 sellerId(UUID) 목록으로 판매자 이름을 조회한다. "
+                    + "중복은 서버가 제거하며 존재하지 않는 sellerId는 sellerName: null로 포함한다.")
+    @SecurityRequirement(name = "Bearer")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공",
+                    content = @Content(schema = @Schema(implementation = WishlistSellerNamesResponse.class))),
+            @ApiResponse(responseCode = "400", description = "빈 배열, 30개 초과, 잘못된 UUID 형식 (V001)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PostMapping("/api/v2/sellers/wishlists")
+    public ApiResult<WishlistSellerNamesResponse> getWishlistSellers(
+            @Valid @RequestBody WishlistSellerIdsRequest request) {
+        List<SellerInfoResult> results = sellerQueryUseCase.findSellers(request.sellerIdStrings());
+        return ApiResult.success(WishlistSellerNamesResponse.of(request.sellerIds(), results));
     }
 }
