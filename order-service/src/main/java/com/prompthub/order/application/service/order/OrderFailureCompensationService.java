@@ -56,8 +56,11 @@ public class OrderFailureCompensationService {
 			publishCleanup(order.getId());
 			return;
 		}
-		if (!order.getBuyerId().equals(payload.buyerId())) {
+		if (payload.buyerId() != null && !order.getBuyerId().equals(payload.buyerId())) {
 			throw new OrderException(ErrorCode.ORDER_ACCESS_DENIED);
+		}
+		if (payload.failedAmount() > 0 && order.getTotalOrderAmount() != payload.failedAmount()) {
+			throw new OrderException(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
 		}
 
 		CompensationResult result = compensateCreatedOrder(order, failedAt);
@@ -131,9 +134,8 @@ public class OrderFailureCompensationService {
 			|| eventType.isBlank()
 			|| occurredAt == null
 			|| payload == null
-			|| payload.paymentId() == null
 			|| payload.orderId() == null
-			|| payload.buyerId() == null) {
+			|| payload.failedAmount() < 0) {
 			throw invalidInput();
 		}
 

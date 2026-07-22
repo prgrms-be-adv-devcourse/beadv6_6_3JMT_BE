@@ -3,8 +3,10 @@ package com.prompthub.order.application.service.order;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.OrderForPaymentResult;
 import com.prompthub.order.application.dto.OrderListProjection;
+import com.prompthub.order.application.dto.OrderListProductProjection;
 import com.prompthub.order.application.dto.ProductContent;
 import com.prompthub.order.application.usecase.OrderQueryUseCase;
+import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.OrderRepository;
@@ -15,6 +17,7 @@ import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
+import com.prompthub.order.presentation.dto.response.OrderListProductResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -24,7 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -122,7 +127,7 @@ public class OrderQueryService implements OrderQueryUseCase {
 			Sort.by(Sort.Direction.DESC, "createdAt")
 		);
 
-		Page<OrderListProjection> orders = orderRepository.searchOrderproducts(
+		Page<OrderListProjection> orders = orderRepository.searchOrders(
 			buyerId,
 			request.status(),
 			from,
@@ -130,7 +135,22 @@ public class OrderQueryService implements OrderQueryUseCase {
 			pageable
 		);
 
-		return orders.map(this::toOrderListResponse);
+		if (orders.isEmpty()) {
+			return orders.map(order -> toOrderListResponse(order, List.of()));
+		}
+
+		List<UUID> orderIds = orders.getContent().stream()
+			.map(OrderListProjection::orderId)
+			.toList();
+		Map<UUID, List<OrderListProductProjection>> productsByOrderId = orderRepository
+			.findOrderProductsByOrderIds(orderIds)
+			.stream()
+			.collect(Collectors.groupingBy(OrderListProductProjection::orderId));
+
+		return orders.map(order -> toOrderListResponse(
+			order,
+			productsByOrderId.getOrDefault(order.orderId(), List.of())
+		));
 	}
 
 	@Override
@@ -143,15 +163,34 @@ public class OrderQueryService implements OrderQueryUseCase {
 		return orderRepository.findAccessiblePaidProductIdsByBuyerId(buyerId);
 	}
 
-	private OrderListResponse toOrderListResponse(OrderListProjection projection) {
+	private OrderListResponse toOrderListResponse(
+		OrderListProjection projection,
+		List<OrderListProductProjection> products
+	) {
 		return new OrderListResponse(
 			projection.orderId(),
+			projection.orderNumber(),
+			projection.orderStatus(),
+			projection.totalAmount(),
+			products.stream()
+				.map(product -> toOrderListProductResponse(projection.orderStatus(), product))
+				.toList(),
+			projection.paidAt(),
+			projection.createdAt()
+		);
+	}
+
+	private OrderListProductResponse toOrderListProductResponse(
+		OrderStatus orderStatus,
+		OrderListProductProjection projection
+	) {
+		return new OrderListProductResponse(
 			projection.orderProductId(),
 			projection.productId(),
-			projection.orderStatus(),
 			projection.orderProductStatus(),
+			projection.productAmount(),
 			orderPolicyService.isRefundable(
-				projection.orderStatus(),
+				orderStatus,
 				projection.orderProductStatus(),
 				projection.productAmount(),
 				projection.downloaded()
@@ -160,9 +199,7 @@ public class OrderQueryService implements OrderQueryUseCase {
 			projection.productType(),
 			projection.title(),
 			projection.model(),
-			projection.rating(),
-			projection.paidAt(),
-			projection.createdAt()
+			projection.rating()
 		);
 	}
 

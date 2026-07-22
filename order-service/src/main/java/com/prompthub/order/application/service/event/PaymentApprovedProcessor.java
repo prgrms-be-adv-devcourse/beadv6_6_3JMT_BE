@@ -54,9 +54,6 @@ public class PaymentApprovedProcessor {
 			publishCleanup(order.getId());
 			return;
 		}
-		validateBuyer(payload, order);
-		validateAmount(payload, order);
-
 		boolean transitioned = order.getOrderStatus() == OrderStatus.CREATED
 			|| order.getOrderStatus() == OrderStatus.FAILED;
 		if (transitioned) {
@@ -69,9 +66,8 @@ public class PaymentApprovedProcessor {
 		publishCleanup(order.getId());
 
 		log.info(
-			"결제 승인 이벤트 처리 완료. eventId={}, paymentId={}, orderId={}, status={}, transitioned={}, consumerGroup={}",
+			"결제 승인 이벤트 처리 완료. eventId={}, orderId={}, status={}, transitioned={}, consumerGroup={}",
 			eventId,
-			payload.paymentId(),
 			order.getId(),
 			order.getOrderStatus(),
 			transitioned,
@@ -81,18 +77,6 @@ public class PaymentApprovedProcessor {
 
 	private void publishCleanup(UUID orderId) {
 		applicationEventPublisher.publishEvent(new OrderExpirationCleanupRequestedEvent(orderId));
-	}
-
-	private void validateBuyer(PaymentApprovedPayload payload, Order order) {
-		if (!order.getBuyerId().equals(payload.buyerId())) {
-			throw new OrderException(ErrorCode.ORDER_ACCESS_DENIED);
-		}
-	}
-
-	private void validateAmount(PaymentApprovedPayload payload, Order order) {
-		if (order.getTotalOrderAmount() != payload.approvedAmount()) {
-			throw new OrderException(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
-		}
 	}
 
 	private void removePurchasedProductsFromCart(UUID buyerId, Order order) {

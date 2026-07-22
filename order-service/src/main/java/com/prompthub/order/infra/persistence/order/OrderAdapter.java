@@ -1,6 +1,7 @@
 package com.prompthub.order.infra.persistence.order;
 
 import com.prompthub.order.application.dto.OrderListProjection;
+import com.prompthub.order.application.dto.OrderListProductProjection;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.repository.OrderRepository;
@@ -55,13 +56,18 @@ public class OrderAdapter implements OrderRepository {
 	}
 
 	@Override
-	public Page<OrderListProjection> searchOrderproducts(
+	public Page<OrderListProjection> searchOrders(
 		UUID buyerId,
 		OrderStatus status,
 		LocalDateTime from,
 		LocalDateTime to,
 		Pageable pageable
 	) {
-		return orderPersistence.searchOrderProducts(buyerId, status, from, to, pageable);
+		return orderPersistence.searchOrders(buyerId, status, from, to, pageable);
+	}
+
+	@Override
+	public List<OrderListProductProjection> findOrderProductsByOrderIds(List<UUID> orderIds) {
+		return orderPersistence.findOrderProductsByOrderIds(orderIds);
 	}
 }

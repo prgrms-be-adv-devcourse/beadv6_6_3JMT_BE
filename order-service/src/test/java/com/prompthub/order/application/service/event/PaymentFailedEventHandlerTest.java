@@ -42,15 +42,15 @@ class PaymentFailedEventHandlerTest {
 	}
 
 	@Test
-	void handle_mapsPaymentServiceSingleOrderFailureAndDelegates() throws Exception {
+	void handle_mapsCurrentReducedPaymentContractAndDelegates() throws Exception {
 		UUID eventId = UUID.randomUUID();
 		JsonNode payload = objectMapper.readTree("""
 			{
-			  "paymentId": "%s",
 			  "orderId": "%s",
-			  "userId": "%s"
+			  "failedAmount": 30000,
+			  "failedAt": "2026-07-17T10:00:05+09:00"
 			}
-			""".formatted(PAYMENT_ID, ORDER_A, BUYER_ID));
+			""".formatted(ORDER_A));
 		EventMessage<JsonNode> message = new EventMessage<>(
 			eventId,
 			"PAYMENT_FAILED",
@@ -64,10 +64,11 @@ class PaymentFailedEventHandlerTest {
 
 		ArgumentCaptor<PaymentFailedPayload> captor = ArgumentCaptor.forClass(PaymentFailedPayload.class);
 		then(processor).should().process(eq(eventId), eq("PAYMENT_FAILED"), eq(FAILED_AT), captor.capture());
-		assertThat(captor.getValue().paymentId()).isEqualTo(PAYMENT_ID);
+		assertThat(captor.getValue().paymentId()).isNull();
 		assertThat(captor.getValue().orderId()).isEqualTo(ORDER_A);
-		assertThat(captor.getValue().buyerId()).isEqualTo(BUYER_ID);
-		assertThat(captor.getValue().userId()).isEqualTo(BUYER_ID);
+		assertThat(captor.getValue().buyerId()).isNull();
+		assertThat(captor.getValue().failedAmount()).isEqualTo(30_000);
+		assertThat(captor.getValue().failedAtValue()).isEqualTo("2026-07-17T10:00:05+09:00");
 	}
 
 	@Test

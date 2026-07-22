@@ -17,9 +17,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.PaymentEventFixture.APPROVED_AT;
-import static com.prompthub.order.fixture.PaymentEventFixture.BUYER_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
-import static com.prompthub.order.fixture.PaymentEventFixture.PAYMENT_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
@@ -46,20 +44,18 @@ class PaymentApprovedEventHandlerTest {
 		UUID eventId = UUID.randomUUID();
 		String payloadJson = """
 			{
-			  "paymentId": "%s",
 			  "orderId": "%s",
-			  "userId": "%s",
-			  "amount": 30000,
+			  "approvedAmount": 30000,
 			  "approvedAt": "2026-07-17T10:00:05+09:00"
 			}
-			""".formatted(PAYMENT_ID, ORDER_A, BUYER_ID);
+			""".formatted(ORDER_A);
 		JsonNode payloadNode = objectMapper.readTree(payloadJson);
 		EventMessage<JsonNode> message = new EventMessage<>(
 			eventId,
 			"PAYMENT_APPROVED",
 			APPROVED_AT,
-			"PAYMENT",
-			PAYMENT_ID,
+			"ORDER",
+			ORDER_A,
 			payloadNode
 		);
 
@@ -68,12 +64,7 @@ class PaymentApprovedEventHandlerTest {
 		ArgumentCaptor<PaymentApprovedPayload> captor = ArgumentCaptor.forClass(PaymentApprovedPayload.class);
 		then(processor).should().process(eq(eventId), eq("PAYMENT_APPROVED"), eq(APPROVED_AT), captor.capture());
 		PaymentApprovedPayload payload = captor.getValue();
-		assertThat(payload.paymentId()).isEqualTo(PAYMENT_ID);
 		assertThat(payload.orderId()).isEqualTo(ORDER_A);
-		assertThat(payload.buyerId()).isEqualTo(BUYER_ID);
-		assertThat(payload.userId()).isEqualTo(BUYER_ID);
-		assertThat(payload.approvedAmount()).isEqualTo(30_000);
-		assertThat(payload.amount()).isEqualTo(30_000);
 		assertThat(payload.approvedAtValue()).isEqualTo("2026-07-17T10:00:05+09:00");
 		assertThat(payload.approvedAt()).isEqualTo(APPROVED_AT);
 	}
@@ -82,19 +73,16 @@ class PaymentApprovedEventHandlerTest {
 	void handle_invalidUuid_doesNotCallProcessor() throws Exception {
 		JsonNode payloadNode = objectMapper.readTree("""
 			{
-			  "paymentId": "not-a-uuid",
-			  "orderId": "%s",
-			  "userId": "%s",
-			  "amount": 30000,
+			  "orderId": "not-a-uuid",
 			  "approvedAt": "2026-07-17T10:00:05+09:00"
 			}
-			""".formatted(ORDER_A, BUYER_ID));
+			""");
 		EventMessage<JsonNode> message = new EventMessage<>(
 			UUID.randomUUID(),
 			"PAYMENT_APPROVED",
 			APPROVED_AT,
-			"PAYMENT",
-			PAYMENT_ID,
+			"ORDER",
+			ORDER_A,
 			payloadNode
 		);
 
