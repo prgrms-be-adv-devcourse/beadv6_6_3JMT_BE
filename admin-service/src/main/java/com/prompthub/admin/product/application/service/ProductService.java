@@ -1,6 +1,8 @@
 package com.prompthub.admin.product.application.service;
 
 import com.prompthub.admin.global.exception.AdminErrorCode;
+import com.prompthub.admin.order.domain.model.SellerNickname;
+import com.prompthub.admin.order.infrastructure.persistence.SellerNicknameRepository;
 import com.prompthub.admin.product.application.usecase.ProductUseCase;
 import com.prompthub.admin.product.domain.exception.ProductException;
 import com.prompthub.admin.product.domain.model.entity.Product;
@@ -9,7 +11,9 @@ import com.prompthub.admin.product.domain.model.enums.ProductStatus;
 import com.prompthub.admin.product.domain.repository.ProductRepository;
 import com.prompthub.admin.product.presentation.dto.response.AdminProductListItemResponse;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,13 +23,34 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class ProductService implements ProductUseCase {
 
+	private static final String UNKNOWN_SELLER_NICKNAME = "알 수 없음";
+
 	private final ProductRepository productRepository;
+	private final SellerNicknameRepository sellerNicknameRepository;
 
 	@Override
 	@Transactional(readOnly = true)
 	public List<AdminProductListItemResponse> getPendingReviewProducts() {
-		return productRepository.findPendingReviewProducts().stream()
-			.map(AdminProductListItemResponse::from)
+		List<Product> products = productRepository.findPendingReviewProducts();
+
+		List<UUID> sellerIds = products.stream()
+			.map(Product::getSellerId)
+			.distinct()
+			.toList();
+		Map<UUID, String> sellerNicknames = sellerIds.isEmpty()
+			? Map.of()
+			: sellerNicknameRepository.findAllById(sellerIds).stream()
+				.collect(Collectors.toMap(
+					SellerNickname::getSellerId,
+					SellerNickname::getNickname,
+					(existing, ignored) -> existing
+				));
+
+		return products.stream()
+			.map(product -> AdminProductListItemResponse.from(
+				product,
+				sellerNicknames.getOrDefault(product.getSellerId(), UNKNOWN_SELLER_NICKNAME)
+			))
 			.toList();
 	}
 
