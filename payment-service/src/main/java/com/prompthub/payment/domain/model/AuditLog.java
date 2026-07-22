@@ -92,7 +92,7 @@ public class AuditLog {
     public static AuditLog forPaymentRefundFailed(Payment payment, Refund refund, String failureReason) {
         return new AuditLog(
             UUID.randomUUID(), AuditEntityType.REFUND, refund.getId(), AuditEventType.PAYMENT_REFUND_FAILED,
-            payment.getUserId(), refund.getStatus().name(), failureReason, OffsetDateTime.now()
+            payment.getUserId(), refund.getStatus().name(), failureReason, refund.getFailedAt()
         );
     }
 }
