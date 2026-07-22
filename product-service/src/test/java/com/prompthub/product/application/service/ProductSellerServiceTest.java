@@ -102,6 +102,7 @@ class ProductSellerServiceTest {
 				assertThat(p.getStatus()).isEqualTo(ProductStatus.ON_SALE);
 				assertThat(p.getPatchVersion()).isEqualTo((short) 1);
 			});
+			then(productEventProducer).should().publishOnSaleChanged(PRODUCT_ID);
 		}
 
 		@Test

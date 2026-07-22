@@ -112,6 +112,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 				onSale.supersede();
 				productRepository.save(onSale);
 				productRepository.save(next);
+				productEventProducer.publishOnSaleChanged(familyRootId);
 			}
 		}
 
