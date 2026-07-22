@@ -35,7 +35,7 @@ class SettlementOutboxTransactionIntegrationTest {
             LocalDate.of(2026, 6, 15), LocalDate.of(2026, 6, 21));
 
     @Autowired
-    private SettlementCalculationApplicationService service;
+    private CalculateSettlementApplicationService service;
 
     @Autowired
     private SettlementJpaRepository settlementJpaRepository;

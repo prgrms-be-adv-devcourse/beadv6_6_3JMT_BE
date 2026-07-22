@@ -24,20 +24,20 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
-class SettlementBatchRestartApplicationServiceTest {
+class RestartSettlementBatchApplicationServiceTest {
 
     private static final UUID ACTOR_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000901");
 
     private SettlementBatchRetryStateService retryStateService;
     private SettlementJobRestarter jobRestarter;
-    private SettlementBatchRestartApplicationService service;
+    private RestartSettlementBatchApplicationService service;
 
     @BeforeEach
     void setUp() {
         retryStateService = mock(SettlementBatchRetryStateService.class);
         jobRestarter = mock(SettlementJobRestarter.class);
-        service = new SettlementBatchRestartApplicationService(retryStateService, jobRestarter);
+        service = new RestartSettlementBatchApplicationService(retryStateService, jobRestarter);
     }
 
     @Test

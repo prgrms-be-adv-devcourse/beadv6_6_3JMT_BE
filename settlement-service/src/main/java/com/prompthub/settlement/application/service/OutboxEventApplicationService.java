@@ -10,13 +10,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
-public class OutboxApplicationService implements OutboxEventUseCase {
+public class OutboxEventApplicationService implements OutboxEventUseCase {
 
     private final OutboxEventRepository repository;
     private final OutboxEventPublishService publishService;
     private final int pageSize;
 
-    public OutboxApplicationService(
+    public OutboxEventApplicationService(
             OutboxEventRepository repository,
             OutboxEventPublishService publishService,
             @Value("${settlement.outbox.page-size:100}") int pageSize) {

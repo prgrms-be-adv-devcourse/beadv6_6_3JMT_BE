@@ -12,7 +12,7 @@ import com.prompthub.settlement.application.dto.RestartSettlementBatchCommand;
 import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
 import com.prompthub.settlement.application.dto.SettlementJobResult;
 import com.prompthub.settlement.application.port.SettlementEventPublisher;
-import com.prompthub.settlement.application.service.SettlementCalculationApplicationService;
+import com.prompthub.settlement.application.service.CalculateSettlementApplicationService;
 import com.prompthub.settlement.application.usecase.LoadSettlementSourceUseCase;
 import com.prompthub.settlement.application.usecase.RestartSettlementBatchUseCase;
 import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
@@ -99,7 +99,7 @@ class SettlementBatchRestartIntegrationTest {
     private SettlementEventPublisher settlementEventPublisher;
 
     @MockitoSpyBean
-    private SettlementCalculationApplicationService calculationService;
+    private CalculateSettlementApplicationService calculationService;
 
     @BeforeEach
     void setUp() {

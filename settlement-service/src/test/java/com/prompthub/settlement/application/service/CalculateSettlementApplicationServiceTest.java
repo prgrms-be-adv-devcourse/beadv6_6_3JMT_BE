@@ -29,7 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
-class SettlementCalculationApplicationServiceTest {
+class CalculateSettlementApplicationServiceTest {
 
     private static final SettlementPeriod PERIOD = SettlementPeriod.of(
             LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 7));
@@ -44,7 +44,7 @@ class SettlementCalculationApplicationServiceTest {
     private OutboxEventAppender outboxEventAppender;
 
     @InjectMocks
-    private SettlementCalculationApplicationService service;
+    private CalculateSettlementApplicationService service;
 
     private SettlementSourceLine paidLine(UUID sellerId, String amount) {
         return SettlementSourceLine.paid(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),

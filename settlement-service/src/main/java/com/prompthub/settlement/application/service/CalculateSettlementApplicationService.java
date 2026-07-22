@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class SettlementCalculationApplicationService implements CalculateSettlementUseCase {
+public class CalculateSettlementApplicationService implements CalculateSettlementUseCase {
 
     private static final BigDecimal DEFAULT_FEE_RATE = new BigDecimal("0.15");
 
