@@ -278,7 +278,7 @@ class ProductControllerTest {
 	}
 
 	@Nested
-	@DisplayName("GET /api/v2/products/{productId}/related")
+	@DisplayName("GET /api/v2/products/{productId}/recommends")
 	class GetRelatedProducts {
 
 		@Test
@@ -287,7 +287,7 @@ class ProductControllerTest {
 			ProductListItemResponse item = productListItemResponse(PRODUCT_ID, "PROMPT");
 			given(productQueryUseCase.getRelatedProducts(PRODUCT_ID, 4)).willReturn(List.of(item));
 
-			mockMvc.perform(get("/api/v2/products/{productId}/related", PRODUCT_ID))
+			mockMvc.perform(get("/api/v2/products/{productId}/recommends", PRODUCT_ID))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.data[0].id").value(PRODUCT_ID.toString()));
@@ -298,7 +298,7 @@ class ProductControllerTest {
 		void getRelatedProducts_withLimit() throws Exception {
 			given(productQueryUseCase.getRelatedProducts(PRODUCT_ID, 2)).willReturn(List.of());
 
-			mockMvc.perform(get("/api/v2/products/{productId}/related", PRODUCT_ID)
+			mockMvc.perform(get("/api/v2/products/{productId}/recommends", PRODUCT_ID)
 					.param("limit", "2"))
 				.andExpect(status().isOk());
 
