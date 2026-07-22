@@ -83,6 +83,26 @@ public class SellerController {
         return ApiResult.success(SellerProfileResponse.from(result));
     }
 
+    @Operation(summary = "구매한 프롬프트 리더용 판매자 단건 조회",
+            description = "sellerId(UUID)로 판매자 이름과 프로필 이미지를 조회한다. /reader 페이지 전용이라 인증이 필요하다. "
+                    + "응답이 /sellers/product와 동일한 비민감 공개 정보이고 구매 여부는 앞단 Order 조회에서 이미 걸러지므로, "
+                    + "sellerId에 대한 소유권 검증은 하지 않는다.")
+    @SecurityRequirement(name = "Bearer")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공",
+                    content = @Content(schema = @Schema(implementation = SellerProfileResponse.class))),
+            @ApiResponse(responseCode = "400", description = "sellerId 누락 또는 잘못된 UUID 형식 (V001)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 sellerId (A001)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/api/v2/users/order-product")
+    public ApiResult<SellerProfileResponse> getOrderProductSeller(
+            @Parameter(description = "조회할 판매자 ID(UUID)") @RequestParam UUID sellerId) {
+        SellerInfoResult result = sellerQueryUseCase.findSeller(sellerId.toString());
+        return ApiResult.success(SellerProfileResponse.from(result));
+    }
+
     @Operation(summary = "판매자 이름 다건 조회",
             description = "sellerId(UUID) 목록으로 판매자 이름을 조회한다(인증 불필요). 중복은 서버가 제거하며,"
                     + " 존재하지 않는 sellerId는 실패 처리하지 않고 sellerName: null로 포함한다.")
