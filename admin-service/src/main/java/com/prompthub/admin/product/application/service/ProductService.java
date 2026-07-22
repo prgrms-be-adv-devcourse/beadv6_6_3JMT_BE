@@ -5,9 +5,11 @@ import com.prompthub.admin.order.domain.model.SellerNickname;
 import com.prompthub.admin.order.infrastructure.persistence.SellerNicknameRepository;
 import com.prompthub.admin.product.application.usecase.ProductUseCase;
 import com.prompthub.admin.product.domain.exception.ProductException;
+import com.prompthub.admin.product.domain.model.entity.OutboxEvent;
 import com.prompthub.admin.product.domain.model.entity.Product;
 import com.prompthub.admin.product.domain.model.entity.ProductFamily;
 import com.prompthub.admin.product.domain.model.enums.ProductStatus;
+import com.prompthub.admin.product.domain.repository.OutboxEventRepository;
 import com.prompthub.admin.product.domain.repository.ProductRepository;
 import com.prompthub.admin.product.presentation.dto.response.AdminProductListItemResponse;
 import java.util.List;
@@ -27,6 +29,8 @@ public class ProductService implements ProductUseCase {
 
 	private final ProductRepository productRepository;
 	private final SellerNicknameRepository sellerNicknameRepository;
+	private final OutboxEventRepository outboxEventRepository;
+	private final ProductOnSaleChangedEventFactory eventFactory;
 
 	@Override
 	@Transactional(readOnly = true)
@@ -68,6 +72,10 @@ public class ProductService implements ProductUseCase {
 		});
 		target.approve();
 		productRepository.save(target);
+
+		outboxEventRepository.append(
+			OutboxEvent.create(familyRootId, "PRODUCT_ON_SALE_CHANGED", eventFactory.createEnvelopeJson(familyRootId))
+		);
 	}
 
 	@Override
@@ -85,8 +93,10 @@ public class ProductService implements ProductUseCase {
 			throw new ProductException(AdminErrorCode.PRODUCT_INVALID_STATUS);
 		}
 
-		if (target.getStatus() == ProductStatus.ON_SALE) {
-			UUID familyRootId = target.familyRootId();
+		boolean wasOnSale = target.getStatus() == ProductStatus.ON_SALE;
+		UUID familyRootId = target.familyRootId();
+
+		if (wasOnSale) {
 			ProductFamily family = ProductFamily.of(
 				familyRootId,
 				productRepository.findAllByFamilyRootIds(List.of(familyRootId))
@@ -99,6 +109,12 @@ public class ProductService implements ProductUseCase {
 
 		target.revertToPendingReview();
 		productRepository.save(target);
+
+		if (wasOnSale) {
+			outboxEventRepository.append(
+				OutboxEvent.create(familyRootId, "PRODUCT_ON_SALE_CHANGED", eventFactory.createEnvelopeJson(familyRootId))
+			);
+		}
 	}
 
 	private Product getProductInPendingReview(UUID productId) {
