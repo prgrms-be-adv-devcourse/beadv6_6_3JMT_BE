@@ -89,7 +89,7 @@ class CartControllerTest {
 			);
 			when(cartUseCase.getCart(BUYER_ID)).thenReturn(response);
 
-			mockMvc.perform(get("/api/v2/cart/products")
+			mockMvc.perform(get("/api/v2/cart")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
@@ -107,7 +107,7 @@ class CartControllerTest {
 		@Test
 		@DisplayName("X-User-Id 헤더가 없으면 401 Unauthorized")
 		void getCart_withoutUserIdHeader_unauthorized() throws Exception {
-			mockMvc.perform(get("/api/v2/cart/products"))
+			mockMvc.perform(get("/api/v2/cart"))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
@@ -118,7 +118,7 @@ class CartControllerTest {
 	}
 
 	@Nested
-	@DisplayName("장바구니 상품 추가 (POST /api/v2/cart/products)")
+	@DisplayName("장바구니 상품 추가 (POST /api/v2/cart)")
 	class AddCartProduct {
 
 		@Test
@@ -139,7 +139,7 @@ class CartControllerTest {
 			);
 			when(cartUseCase.addCartProduct(BUYER_ID, request)).thenReturn(response);
 
-			mockMvc.perform(post("/api/v2/cart/products")
+			mockMvc.perform(post("/api/v2/cart")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
@@ -156,7 +156,7 @@ class CartControllerTest {
 		@Test
 		@DisplayName("productId가 없으면 400 Bad Request")
 		void addCartProduct_withoutProductId_badRequest() throws Exception {
-			mockMvc.perform(post("/api/v2/cart/products")
+			mockMvc.perform(post("/api/v2/cart")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
 					.contentType(MediaType.APPLICATION_JSON)
 					.content("{}"))
@@ -174,7 +174,7 @@ class CartControllerTest {
 			doThrow(new CartException(ErrorCode.CART_ITEM_DUPLICATED))
 				.when(cartUseCase).addCartProduct(eq(BUYER_ID), eq(request));
 
-			mockMvc.perform(post("/api/v2/cart/products")
+			mockMvc.perform(post("/api/v2/cart")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
@@ -190,7 +190,7 @@ class CartControllerTest {
 			doThrow(new CartException(ErrorCode.PRODUCT_NOT_ON_SALE))
 				.when(cartUseCase).addCartProduct(eq(BUYER_ID), eq(request));
 
-			mockMvc.perform(post("/api/v2/cart/products")
+			mockMvc.perform(post("/api/v2/cart")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
@@ -201,13 +201,13 @@ class CartControllerTest {
 	}
 
 	@Nested
-	@DisplayName("장바구니 상품 삭제 (DELETE /api/v2/cart/products/{cartProductId})")
+	@DisplayName("장바구니 상품 삭제 (DELETE /api/v2/cart/{cartProductId})")
 	class DeleteCartProduct {
 
 		@Test
 		@DisplayName("장바구니 상품 삭제 성공")
 		void deleteCartProduct_success() throws Exception {
-			mockMvc.perform(delete("/api/v2/cart/products/{cartProductId}", CART_PRODUCT_ID)
+			mockMvc.perform(delete("/api/v2/cart/{cartProductId}", CART_PRODUCT_ID)
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
@@ -220,7 +220,7 @@ class CartControllerTest {
 		@Test
 		@DisplayName("cartProductId가 UUID가 아니면 400 Bad Request")
 		void deleteCartProduct_invalidCartProductId_badRequest() throws Exception {
-			mockMvc.perform(delete("/api/v2/cart/products/not-a-uuid")
+			mockMvc.perform(delete("/api/v2/cart/not-a-uuid")
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false))
@@ -232,7 +232,7 @@ class CartControllerTest {
 		@Test
 		@DisplayName("X-User-Id 헤더가 없으면 401 Unauthorized")
 		void deleteCartProduct_withoutUserIdHeader_unauthorized() throws Exception {
-			mockMvc.perform(delete("/api/v2/cart/products/{cartProductId}", CART_PRODUCT_ID))
+			mockMvc.perform(delete("/api/v2/cart/{cartProductId}", CART_PRODUCT_ID))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
@@ -246,7 +246,7 @@ class CartControllerTest {
 			doThrow(new CartException(ErrorCode.CART_ITEM_FORBIDDEN))
 				.when(cartUseCase).deleteCartProduct(BUYER_ID, CART_PRODUCT_ID);
 
-			mockMvc.perform(delete("/api/v2/cart/products/{cartProductId}", CART_PRODUCT_ID)
+			mockMvc.perform(delete("/api/v2/cart/{cartProductId}", CART_PRODUCT_ID)
 					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 				.andExpect(status().isForbidden())
 				.andExpect(jsonPath("$.success").value(false))
