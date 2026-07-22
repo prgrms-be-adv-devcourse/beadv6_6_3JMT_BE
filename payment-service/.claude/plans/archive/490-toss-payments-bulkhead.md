@@ -76,13 +76,13 @@ resilience4j:
 PG_BUSY(HttpStatus.SERVICE_UNAVAILABLE, "PAY013", "결제 승인 요청이 많아 일시적으로 처리할 수 없습니다. 잠시 후 다시 시도해주세요.")
 ```
 
-**의존성 추가** (`payment-service/build.gradle`):
+**의존성 추가** (`../../../build.gradle`):
 
 ```gradle
 implementation 'io.github.resilience4j:resilience4j-bulkhead:2.4.0'
 ```
 
-기존 `resilience4j-circuitbreaker`와 동일 버전(2.4.0)으로 맞춘다. 루트 `build.gradle`에는 이 의존성이 없음을 확인했다.
+기존 `resilience4j-circuitbreaker`와 동일 버전(2.4.0)으로 맞춘다. 루트 `../../../../build.gradle`에는 이 의존성이 없음을 확인했다.
 
 ## 테스트 계획
 

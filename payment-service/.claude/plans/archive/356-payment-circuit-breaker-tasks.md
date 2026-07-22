@@ -12,7 +12,7 @@
 
 - 테스트 메서드명은 한국어로 작성한다(CLAUDE.md 언어 정책).
 - 단언은 AssertJ(`assertThat`, `assertThatThrownBy`)만 사용한다.
-- 신규 의존성은 `payment-service/build.gradle`에만 추가한다(루트 `build.gradle`에 resilience4j 없음 — 중복 확인 완료).
+- 신규 의존성은 `../../../build.gradle`에만 추가한다(루트 `../../../../build.gradle`에 resilience4j 없음 — 중복 확인 완료).
 - 커밋 메시지는 `type: 한국어 설명` 형식, AI 협업 트레일러 `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` 포함(git-conventions.md).
 - 브랜치는 이미 존재(`feat/#356-payment-circuit-breaker`) — 새로 만들지 않는다.
 - 설계 근거는 `.claude/plans/356-payment-circuit-breaker.md` 참조.
@@ -151,7 +151,7 @@ EOF
 
 - [x] **Step 1: build.gradle에 의존성 추가**
 
-`build.gradle`의 `dependencies` 블록 맨 앞에 추가:
+`../../../../build.gradle`의 `dependencies` 블록 맨 앞에 추가:
 
 ```groovy
 dependencies {

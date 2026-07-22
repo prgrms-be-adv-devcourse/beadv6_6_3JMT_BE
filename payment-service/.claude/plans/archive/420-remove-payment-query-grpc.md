@@ -19,7 +19,7 @@ order-service가 Kafka 결제 이벤트 유실 시 쓰던 gRPC 폴백 조회(`Ge
 - `PaymentQueryGrpcService`(`infrastructure.grpc`)가 유일한 gRPC 서버 구현체였고, `GetPaymentUseCase`/`GetPaymentService`/`GetPaymentCommand`/`PaymentQueryResult`는 전부 이 기능 전용으로 다른 호출자가 없었다.
 - `PaymentRepository.findLatestByOrderId` → `PaymentJpaRepository.findTopByOrderIdOrderByCreatedAtDesc`도 `GetPaymentService` 외 호출자가 없어 함께 제거 대상이었다.
 - `PaymentErrorCode.PAYMENT_NOT_FOUND`는 `RefundService`도 던지는 예외라 **삭제하지 않고 유지**했다(조사 없이 지웠다면 환불 흐름이 깨졌을 것).
-- `build.gradle`의 `io.grpc:grpc-inprocess`는 처음엔 `PaymentQueryGrpcServiceTest` 전용으로 보여 제거 대상으로 잡았으나, 빌드 시 `OrderGrpcClientAdapterTest`(order gRPC 클라이언트 테스트)도 in-process 서버로 이 의존성을 쓰는 게 확인되어 제거 계획을 취소하고 유지했다. `spring-boot-starter-grpc-server`와 `grpc/payment` proto srcDir만 제거했다.
+- `../../../../build.gradle`의 `io.grpc:grpc-inprocess`는 처음엔 `PaymentQueryGrpcServiceTest` 전용으로 보여 제거 대상으로 잡았으나, 빌드 시 `OrderGrpcClientAdapterTest`(order gRPC 클라이언트 테스트)도 in-process 서버로 이 의존성을 쓰는 게 확인되어 제거 계획을 취소하고 유지했다. `spring-boot-starter-grpc-server`와 `grpc/payment` proto srcDir만 제거했다.
 - `../k8s/base/services/payment/deployment.yaml`, `service.yaml`, `../docs/architecture/kubernetes.md`도 원래 계획에는 포함돼 있었으나, 사용자가 작업 중 "쿠버네티스 관련 수정은 하지마"라고 범위를 좁혀 최종적으로는 손대지 않았다(`kubernetes.md`는 한 차례 수정했다가 되돌림).
 
 ## 제거/수정 파일
@@ -37,7 +37,7 @@ order-service가 Kafka 결제 이벤트 유실 시 쓰던 gRPC 폴백 조회(`Ge
 **부분 수정**
 - `domain/repository/PaymentRepository.java`, `infrastructure/persistence/PaymentRepositoryAdapter.java`, `infrastructure/persistence/PaymentJpaRepository.java` — `findLatestByOrderId`/`findTopByOrderIdOrderByCreatedAtDesc` 제거
 - `src/test/.../persistence/PaymentJpaRepositoryTest.java` — 관련 테스트 2개(`findLatestByOrderId_여러건_중_최신_반환`, `findLatestByOrderId_없으면_empty`) 제거
-- `build.gradle` — `spring-boot-starter-grpc-server`, `grpc/payment` proto srcDir 제거 (`grpc-inprocess`, `grpc-client`, `grpc/order` srcDir은 order 클라이언트용이라 유지)
+- `../../../../build.gradle` — `spring-boot-starter-grpc-server`, `grpc/payment` proto srcDir 제거 (`grpc-inprocess`, `grpc-client`, `../../../../grpc/order` srcDir은 order 클라이언트용이라 유지)
 - `src/main/resources/application-local.yml` — `spring.grpc.server.port` 제거 (`grpc.client.channel.order`는 유지)
 - `.claude/docs/events.md`, `../docs/architecture/overview.md` — gRPC 폴백 조회 서술 삭제
 

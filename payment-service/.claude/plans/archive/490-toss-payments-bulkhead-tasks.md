@@ -12,7 +12,7 @@
 
 - 테스트 메서드명은 한국어로 작성한다(CLAUDE.md 언어 정책).
 - 단언은 AssertJ(`assertThat`)만 사용한다.
-- 신규 의존성은 `payment-service/build.gradle`에만 추가한다(루트 `build.gradle`에 resilience4j 없음 — 중복 확인 완료).
+- 신규 의존성은 `../../../build.gradle`에만 추가한다(루트 `../../../../build.gradle`에 resilience4j 없음 — 중복 확인 완료).
 - 커밋 메시지는 `type: 한국어 설명` 형식, AI 협업 트레일러 `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` 포함(git-conventions.md).
 - 브랜치는 이미 존재(`feat/#490-toss-payments-bulkhead`, worktree 생성 없이 현재 브랜치에서 진행) — 새로 만들지 않는다.
 - 설계 근거는 `.claude/plans/490-toss-payments-bulkhead.md` 참조.
@@ -23,7 +23,7 @@
 ### Task 1: TossBulkheadConfig — Bulkhead 빈 + 설정값
 
 **Files:**
-- Modify: `build.gradle`(dependencies 블록에 resilience4j-bulkhead 추가)
+- Modify: `../../../../build.gradle`(dependencies 블록에 resilience4j-bulkhead 추가)
 - Create: `src/main/java/com/prompthub/payment/infrastructure/external/toss/TossBulkheadConfig.java`
 - Test: `src/test/java/com/prompthub/payment/infrastructure/external/toss/TossBulkheadConfigTest.java`
 - Modify: `src/main/resources/application-local.yml`(bulkhead 설정 + CB ignore-exceptions 추가)
@@ -36,7 +36,7 @@
 
 - [x] **Step 1: build.gradle에 의존성 추가**
 
-`build.gradle`의 `dependencies` 블록에서 기존 resilience4j 줄 바로 아래에 추가:
+`../../../../build.gradle`의 `dependencies` 블록에서 기존 resilience4j 줄 바로 아래에 추가:
 
 ```groovy
     implementation 'io.github.resilience4j:resilience4j-circuitbreaker:2.4.0'
