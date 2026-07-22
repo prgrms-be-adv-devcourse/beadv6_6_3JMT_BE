@@ -15,7 +15,6 @@ import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
-import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -32,7 +31,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OrderQueryService implements OrderQueryUseCase {
 
-	private final OrderExpirationPolicy expirationPolicy;
 	private final OrderRepository orderRepository;
 	private final ProductClient productClient;
 	private final OrderPolicyService orderPolicyService;
@@ -110,41 +108,6 @@ public class OrderQueryService implements OrderQueryUseCase {
 			orderProduct.isDownloaded(),
 			orderProduct.getProductTitle(),
 			productContent.content()
-		);
-	}
-
-	@Override
-	public OrderPaymentValidationResponse validatePaymentReady(
-		UUID buyerId,
-		UUID orderId,
-		int amount,
-		LocalDateTime now
-	) {
-		Order order = orderRepository.findByIdWithOrderProducts(orderId)
-			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
-
-		if (!order.getBuyerId().equals(buyerId)) {
-			throw new OrderException(ErrorCode.FORBIDDEN);
-		}
-
-		if (!order.isPending()) {
-			throw new OrderException(ErrorCode.ORDER_ALREADY_PROCESSED);
-		}
-
-		if (order.isExpired(now, expirationPolicy.paymentTimeoutMinutes())) {
-			throw new OrderException(ErrorCode.ORDER_EXPIRED);
-		}
-
-		if (order.getTotalOrderAmount() != amount) {
-			throw new OrderException(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
-		}
-
-		return new OrderPaymentValidationResponse(
-			true,
-			order.getId(),
-			order.getBuyerId(),
-			order.getTotalOrderAmount(),
-			order.getCreatedAt().plusMinutes(expirationPolicy.paymentTimeoutMinutes())
 		);
 	}
 
