@@ -75,7 +75,7 @@ application/
 
 infrastructure/messaging/kafka/
   config/
-    KafkaConfig.java                       ← DLT Object + Outbox String producer     ✅
+    KafkaConfig.java                       ← Outbox String producer 설정             ✅
   producer/
     KafkaSettlementEventPublisher.java     ← 저장 JSON 발행 후 broker ack 대기       ✅
 

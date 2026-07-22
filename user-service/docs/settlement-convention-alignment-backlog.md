@@ -5,7 +5,7 @@
 
 > 이미 완료된 것: #236에서 `sellersettlement`(셀러 정산) 패키지 코드·문서 정렬 완료. 이 문서는 **남은 것**만 다룬다.
 
-## A. `seller` 패키지 정렬 (정산 외 셀러 등록·조회·gRPC) — 우선 진행 대상
+## A. `seller` 패키지 정렬 (정산 외 셀러 등록·조회) — 우선 진행 대상
 
 `seller` 패키지는 셀러 등록/조회를 담당하며, `sellersettlement`와 같은 이탈이 남아 있다.
 
@@ -13,10 +13,6 @@
 | --- | --- | --- | --- |
 | A-1 | `seller/presentation/controller/dto/{request,response}/` | `seller/presentation/dto/{request,response}/` | `SellerRegisterRequest`, `SellerRegisterResponse` |
 | A-2 | 컨트롤러 반환 타입이 모듈 내에서 혼재(`ResponseEntity<ApiResult<T>>`) | `ApiResult<T>` 직접 반환 | `SellerController` |
-| A-3 | gRPC 서비스 클래스명 `SettlementSellerQueryGrpcService`가 접두 `Settlement`라 오해 소지 | `SellerQueryGrpcService` 등 대상(seller)을 드러내는 이름 | `seller/presentation/grpc/` |
-
-> gRPC 서버 어댑터의 배치(`seller/presentation/grpc`)는 settlement 컨벤션에 규정이 없고(settlement은 호출측
-> `infrastructure/client`만 규정), user가 gRPC 제공 측이라 위치 자체는 유지 타당. 네이밍(A-3)만 정리 대상.
 
 ## B. user 모듈 전역 표준이라 보류 — 모듈 차원 결정 필요
 
