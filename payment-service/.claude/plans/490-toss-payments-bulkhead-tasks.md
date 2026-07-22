@@ -239,7 +239,7 @@ EOF
 - Consumes: `Bulkhead` 빈 `"tossConfirmBulkhead"`(Task 1)
 - Produces: `TossPaymentGateway(String, String, ObjectMapper, CircuitBreaker, CircuitBreaker, Bulkhead)` 생성자, `PaymentErrorCode.PG_BUSY`
 
-- [ ] **Step 1: PaymentErrorCode에 PG_BUSY 추가**
+- [x] **Step 1: PaymentErrorCode에 PG_BUSY 추가**
 
 `src/main/java/com/prompthub/payment/application/exception/PaymentErrorCode.java`의 `PG_UNAVAILABLE` 다음 줄에 추가(세미콜론을 `PG_BUSY` 뒤로 이동):
 
@@ -248,7 +248,7 @@ EOF
     PG_BUSY(HttpStatus.SERVICE_UNAVAILABLE, "PAY013", "결제 승인 요청이 많아 일시적으로 처리할 수 없습니다. 잠시 후 다시 시도해주세요.");
 ```
 
-- [ ] **Step 2: 기존 테스트 생성자 호출부 수정 — TossPaymentGatewayTest**
+- [x] **Step 2: 기존 테스트 생성자 호출부 수정 — TossPaymentGatewayTest**
 
 `src/test/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGatewayTest.java`의 `refund_호출_시...` 테스트에서 생성자 호출부 교체:
 
@@ -268,7 +268,7 @@ EOF
 import io.github.resilience4j.bulkhead.Bulkhead;
 ```
 
-- [ ] **Step 3: 기존 테스트 생성자 호출부 수정 — TossPaymentGatewayCircuitBreakerTest**
+- [x] **Step 3: 기존 테스트 생성자 호출부 수정 — TossPaymentGatewayCircuitBreakerTest**
 
 `src/test/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGatewayCircuitBreakerTest.java`의 `confirm_반복_5xx...` 테스트에서 생성자 호출부 교체:
 
@@ -287,7 +287,7 @@ import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.bulkhead.Bulkhead;
 ```
 
-- [ ] **Step 4: 신규 실패 테스트 작성 — Bulkhead 포화 시 즉시 PG_BUSY**
+- [x] **Step 4: 신규 실패 테스트 작성 — Bulkhead 포화 시 즉시 PG_BUSY**
 
 ```java
 package com.prompthub.payment.infrastructure.external.toss;
@@ -403,12 +403,12 @@ class TossPaymentGatewayBulkheadTest {
 }
 ```
 
-- [ ] **Step 5: 테스트 실행해서 실패 확인**
+- [x] **Step 5: 테스트 실행해서 실패 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayBulkheadTest" --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayTest" --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayCircuitBreakerTest"`
 Expected: FAIL — `TossPaymentGateway` 생성자가 아직 5-arg라 컴파일 에러
 
-- [ ] **Step 6: TossPaymentGateway 구현 — Bulkhead 통합**
+- [x] **Step 6: TossPaymentGateway 구현 — Bulkhead 통합**
 
 `src/main/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGateway.java` 전체를 아래로 교체:
 
@@ -635,17 +635,17 @@ public class TossPaymentGateway implements PaymentGateway {
 }
 ```
 
-- [ ] **Step 7: 테스트 실행해서 통과 확인**
+- [x] **Step 7: 테스트 실행해서 통과 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayBulkheadTest" --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayTest" --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayCircuitBreakerTest"`
 Expected: PASS
 
-- [ ] **Step 8: 전체 테스트 스위트 실행 — 회귀 확인**
+- [x] **Step 8: 전체 테스트 스위트 실행 — 회귀 확인**
 
 Run: `JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test`
 Expected: BUILD SUCCESSFUL — `ConfirmPaymentIntegrationTest`는 `@MockitoBean PaymentGateway`라 Bulkhead 로직과 무관하게 그대로 통과
 
-- [ ] **Step 9: 커밋**
+- [x] **Step 9: 커밋**
 
 ```bash
 git add src/main/java/com/prompthub/payment/application/exception/PaymentErrorCode.java src/main/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGateway.java src/test/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGatewayTest.java src/test/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGatewayCircuitBreakerTest.java src/test/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGatewayBulkheadTest.java
