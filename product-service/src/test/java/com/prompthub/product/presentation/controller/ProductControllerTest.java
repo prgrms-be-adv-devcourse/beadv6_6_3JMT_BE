@@ -196,6 +196,35 @@ class ProductControllerTest {
 	}
 
 	@Nested
+	@DisplayName("POST /api/v2/products/orders")
+	class GetProductsForOrders {
+
+		@Test
+		@DisplayName("productId 목록으로 구매 상품 카드용 상품 정보를 배치 조회한다")
+		void getProductsForOrders_success() throws Exception {
+			UUID productId2 = UUID.fromString("55555555-5555-5555-5555-555555555555");
+			ProductsByIdsResponse item = new ProductsByIdsResponse(
+				PRODUCT_ID, SELLER_ID, "리액트 컴포넌트 리팩터링 도우미", 7900, null,
+				"PROMPT", "GPT-4o", 760, 4.7, "ON_SALE"
+			);
+			given(productInternalUseCase.getProductsByIds(List.of(PRODUCT_ID, productId2)))
+				.willReturn(List.of(item));
+
+			mockMvc.perform(post("/api/v2/products/orders")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(
+						new com.prompthub.product.presentation.dto.request.ProductsByIdsRequest(
+							List.of(PRODUCT_ID, productId2)))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data[0].sellerId").value(SELLER_ID.toString()));
+
+			verify(productInternalUseCase).getProductsByIds(List.of(PRODUCT_ID, productId2));
+		}
+	}
+
+	@Nested
 	@DisplayName("GET /api/v2/products/{productId}")
 	class GetProduct {
 

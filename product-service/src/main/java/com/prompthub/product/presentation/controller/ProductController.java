@@ -67,6 +67,11 @@ public class ProductController {
 		return ApiResult.success(productInternalUseCase.getProductsByIds(request.productIds()));
 	}
 
+	@PostMapping("/products/orders")
+	public ApiResult<List<ProductsByIdsResponse>> getProductsForOrders(@Valid @RequestBody ProductsByIdsRequest request) {
+		return ApiResult.success(productInternalUseCase.getProductsByIds(request.productIds()));
+	}
+
 	@GetMapping("/products/sellers/me")
 	public ApiResult<List<SellerProductListItemResponse>> getMyProducts(
 		@RequestHeader("X-User-Id") UUID sellerId
