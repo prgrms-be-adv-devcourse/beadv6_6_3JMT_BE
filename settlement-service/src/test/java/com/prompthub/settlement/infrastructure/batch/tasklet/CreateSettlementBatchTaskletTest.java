@@ -49,6 +49,7 @@ class CreateSettlementBatchTaskletTest {
         then(repository).should().save(captor.capture());
         SettlementBatch batch = captor.getValue();
         assertThat(batch.getBatchNo()).isEqualTo("SETTLE-20260713-20260719-SCHEDULED-42");
+        assertThat(batch.getJobInstanceId()).isEqualTo(1L);
         assertThat(batch.getPeriodStart()).isEqualTo(LocalDate.of(2026, 7, 13));
         assertThat(batch.getPeriodEnd()).isEqualTo(LocalDate.of(2026, 7, 19));
         assertThat(batch.getTriggerType()).isEqualTo(TriggerType.SCHEDULED);

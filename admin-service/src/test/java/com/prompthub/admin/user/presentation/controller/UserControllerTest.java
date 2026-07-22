@@ -1,6 +1,7 @@
 package com.prompthub.admin.user.presentation.controller;
 
 import com.prompthub.admin.user.application.dto.UserPageResult;
+import com.prompthub.admin.user.application.dto.UserRoleResult;
 import com.prompthub.admin.user.application.dto.UserStatsResult;
 import com.prompthub.admin.user.application.dto.UserStatusResult;
 import com.prompthub.admin.user.application.dto.UserSummaryResult;
@@ -79,6 +80,30 @@ class UserControllerTest {
 		mockMvc.perform(patch("/api/v2/admin/users/{userId}/status", userId)
 				.contentType("application/json")
 				.content("{\"status\":\"ALL\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("A-001"));
+	}
+
+	@Test
+	void 사용자_역할을_변경한다() throws Exception {
+		UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000004");
+		when(userUseCase.changeUserRole(any())).thenReturn(
+			new UserRoleResult(userId, UserRole.SELLER, LocalDateTime.of(2026, 7, 21, 10, 0)));
+
+		mockMvc.perform(patch("/api/v2/admin/users/{userId}/role", userId)
+				.contentType("application/json")
+				.content("{\"role\":\"seller\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.role").value("seller"));
+	}
+
+	@Test
+	void 알수없는_역할_문자열은_400을_내려준다() throws Exception {
+		UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000005");
+
+		mockMvc.perform(patch("/api/v2/admin/users/{userId}/role", userId)
+				.contentType("application/json")
+				.content("{\"role\":\"ALL\"}"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("A-001"));
 	}

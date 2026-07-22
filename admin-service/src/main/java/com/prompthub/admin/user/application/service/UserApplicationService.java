@@ -4,9 +4,11 @@ import com.prompthub.admin.auth.application.usecase.SessionRevocationUseCase;
 import com.prompthub.admin.auth.domain.repository.AuthorizationCacheRepository;
 import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.global.exception.AdminException;
+import com.prompthub.admin.user.application.dto.ChangeUserRoleCommand;
 import com.prompthub.admin.user.application.dto.ChangeUserStatusCommand;
 import com.prompthub.admin.user.application.dto.UserListQuery;
 import com.prompthub.admin.user.application.dto.UserPageResult;
+import com.prompthub.admin.user.application.dto.UserRoleResult;
 import com.prompthub.admin.user.application.dto.UserStatsResult;
 import com.prompthub.admin.user.application.dto.UserStatusResult;
 import com.prompthub.admin.user.application.dto.UserSummaryResult;
@@ -63,6 +65,19 @@ public class UserApplicationService implements UserUseCase {
 			authorizationCacheRepository.evict(user.getUserId());
 		}
 		return UserStatusResult.from(user);
+	}
+
+	@Override
+	@Transactional
+	public UserRoleResult changeUserRole(ChangeUserRoleCommand command) {
+		User user = userRepository.findById(command.userId())
+			.orElseThrow(() -> new AdminException(AdminErrorCode.USER_NOT_FOUND));
+
+		user.changeRole(command.role());
+
+		userRepository.save(user);
+		authorizationCacheRepository.evict(user.getUserId());
+		return UserRoleResult.from(user);
 	}
 
 	@Override

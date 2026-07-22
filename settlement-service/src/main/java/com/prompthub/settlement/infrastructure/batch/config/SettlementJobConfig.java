@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.batch.config;
 
-import com.prompthub.settlement.infrastructure.batch.listener.SettlementBatchFailureListener;
+import com.prompthub.settlement.infrastructure.batch.listener.SettlementBatchExecutionListener;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -25,13 +25,13 @@ public class SettlementJobConfig {
 		Step settlementStep,
 		Step completeSettlementBatchStep,
 		Step flushCurrentBatchOutboxStep,
-		SettlementBatchFailureListener settlementBatchFailureListener
+		SettlementBatchExecutionListener settlementBatchExecutionListener
 	) {
 		return new JobBuilder(SETTLEMENT_JOB_NAME, jobRepository)
-			.listener(settlementBatchFailureListener)
-			.start(retryPendingOutboxStep)
+			.listener(settlementBatchExecutionListener)
+			.start(createSettlementBatchStep)
+			.next(retryPendingOutboxStep)
 			.next(loadSettlementSourceStep)
-			.next(createSettlementBatchStep)
 			.next(settlementStep)
 			.next(completeSettlementBatchStep)
 			.next(flushCurrentBatchOutboxStep)
