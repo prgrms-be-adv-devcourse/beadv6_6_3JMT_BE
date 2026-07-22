@@ -138,7 +138,7 @@ public class OrderController {
 	}
 
 	@GetMapping
-	@Operation(summary = "주문 목록 조회", description = "구매자 본인의 주문 목록을 페이지 조건으로 조회합니다.")
+	@Operation(summary = "주문 목록 조회", description = "구매자 본인의 주문을 주문 단위로 페이지 조회하고 각 주문의 주문상품 목록을 함께 반환합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "주문 목록 조회 성공"),
 		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
