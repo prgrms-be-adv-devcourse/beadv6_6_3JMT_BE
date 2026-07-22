@@ -13,7 +13,6 @@ import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.prompthub.user.auth.presentation.controller.AuthController;
-import com.prompthub.user.seller.presentation.controller.SellerController;
 import com.prompthub.user.sellersettlement.presentation.controller.SellerSettlementController;
 import com.prompthub.user.user.presentation.controller.UserController;
 import com.prompthub.user.wishlist.presentation.controller.WishlistController;
@@ -35,7 +34,6 @@ class ApiVersionMappingTest {
         return Stream.of(
                 arguments("인증", AuthController.class, "/api/v2/auth"),
                 arguments("사용자", UserController.class, "/api/v2/users"),
-                arguments("판매자", SellerController.class, "/api/v2/seller"),
                 arguments("판매자 정산", SellerSettlementController.class, "/api/v2/sellers/me/settlements"),
                 arguments("찜", WishlistController.class, "/api/v2/wishlists")
         );
