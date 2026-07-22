@@ -28,7 +28,7 @@ public class CartController {
 
 	private final CartUseCase cartUseCase;
 
-	@GetMapping("/products")
+	@GetMapping
 	@Operation(summary = "장바구니 조회", description = "인증된 구매자의 장바구니 상품 목록과 합계 금액을 조회합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "장바구니 조회 성공"),
@@ -42,7 +42,7 @@ public class CartController {
 		return ApiResult.success(cartUseCase.getCart(buyerId));
 	}
 
-	@PostMapping("/products")
+	@PostMapping
 	@Operation(summary = "장바구니 상품 추가", description = "인증된 구매자의 장바구니에 상품을 추가합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "장바구니 상품 추가 성공"),
@@ -58,7 +58,7 @@ public class CartController {
 		return ApiResult.success(cartUseCase.addCartProduct(buyerId, request));
 	}
 
-	@DeleteMapping("/products/{cartProductId}")
+	@DeleteMapping("/{cartProductId}")
 	@Operation(summary = "장바구니 상품 삭제", description = "인증된 구매자의 장바구니에서 상품을 삭제합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "장바구니 상품 삭제 성공"),

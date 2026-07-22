@@ -2,16 +2,20 @@ package com.prompthub.admin.user.presentation.controller;
 
 import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.global.exception.AdminException;
+import com.prompthub.admin.user.application.dto.ChangeUserRoleCommand;
 import com.prompthub.admin.user.application.dto.ChangeUserStatusCommand;
 import com.prompthub.admin.user.application.dto.UserListQuery;
 import com.prompthub.admin.user.application.dto.UserPageResult;
+import com.prompthub.admin.user.application.dto.UserRoleResult;
 import com.prompthub.admin.user.application.dto.UserStatsResult;
 import com.prompthub.admin.user.application.dto.UserStatusResult;
 import com.prompthub.admin.user.application.usecase.UserUseCase;
 import com.prompthub.admin.user.domain.model.UserRole;
 import com.prompthub.admin.user.domain.model.UserStatus;
+import com.prompthub.admin.user.presentation.dto.request.ChangeUserRoleRequest;
 import com.prompthub.admin.user.presentation.dto.request.ChangeUserStatusRequest;
 import com.prompthub.admin.user.presentation.dto.response.UserResponse;
+import com.prompthub.admin.user.presentation.dto.response.UserRoleResponse;
 import com.prompthub.admin.user.presentation.dto.response.UserStatsResponse;
 import com.prompthub.admin.user.presentation.dto.response.UserStatusResponse;
 import com.prompthub.exception.response.ErrorResponse;
@@ -116,6 +120,30 @@ public class UserController {
 		return ApiResult.success(UserStatusResponse.from(result));
 	}
 
+	@PatchMapping("/users/{userId}/role")
+	@Operation(summary = "사용자 역할 변경", description = "buyer | seller 로 변경. 역할: ADMIN")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "변경 성공"),
+		@ApiResponse(responseCode = "400", description = "요청 값 오류",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "401", description = "인증 정보 없음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "403", description = "ADMIN 권한 없음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	})
+	public ApiResult<UserRoleResponse> changeUserRole(
+		@Parameter(description = "대상 사용자 ID") @PathVariable UUID userId,
+		@Valid @RequestBody ChangeUserRoleRequest request
+	) {
+		UserRole targetRole = parseRoleCommand(request.role());
+		ChangeUserRoleCommand command = new ChangeUserRoleCommand(userId, targetRole);
+
+		UserRoleResult result = userUseCase.changeUserRole(command);
+		return ApiResult.success(UserRoleResponse.from(result));
+	}
+
 	// 목록 필터용 — "ALL"은 필터 없음(null)으로 취급.
 	private static UserStatus parseStatusFilter(String statusParam) {
 		return switch (statusParam) {
@@ -143,6 +171,15 @@ public class UserController {
 			case "buyer" -> UserRole.BUYER;
 			case "seller" -> UserRole.SELLER;
 			case "ALL" -> null;
+			default -> throw new AdminException(AdminErrorCode.INVALID_INPUT_VALUE);
+		};
+	}
+
+	// 역할변경 커맨드용 — "ALL"/미인식 값은 400.
+	private static UserRole parseRoleCommand(String roleParam) {
+		return switch (roleParam) {
+			case "buyer" -> UserRole.BUYER;
+			case "seller" -> UserRole.SELLER;
 			default -> throw new AdminException(AdminErrorCode.INVALID_INPUT_VALUE);
 		};
 	}
