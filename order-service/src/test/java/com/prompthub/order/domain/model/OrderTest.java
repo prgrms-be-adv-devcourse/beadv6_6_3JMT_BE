@@ -51,6 +51,28 @@ class OrderTest {
         assertThat(product.getOrderStatus()).isEqualTo(OrderProductStatus.PAID);
     }
 
+	@Test
+	void completeFreeOrder_changesOrderAndProductsAtomically() {
+		Order order = Order.create(BUYER_ID, ORDER_NUMBER, 0);
+		OrderProduct product = createOrderProduct1();
+		order.addOrderProduct(product);
+
+		order.completeFreeOrder();
+
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
+		assertThat(order.getCompletedAt()).isNotNull();
+		assertThat(product.getOrderStatus()).isEqualTo(OrderProductStatus.PAID);
+	}
+
+	@Test
+	void completeFreeOrder_rejectsPositiveOrder() {
+		Order order = createPendingOrder();
+
+		assertThatThrownBy(order::completeFreeOrder)
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+	}
+
     @Test
     void canAccessContent_completedOrderPaidProduct_returnsTrue() {
         Order order = createPendingOrder();

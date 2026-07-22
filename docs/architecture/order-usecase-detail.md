@@ -119,9 +119,9 @@ sequenceDiagram
 | 주 액터 | 구매자 |
 | 보조 액터 | Product Service |
 | API | `POST /api/v1/orders` |
-| 목표 | 상품 ID 목록으로 결제 대기 주문을 생성한다. |
+| 목표 | 상품 ID 목록으로 주문을 생성하며 총액 0 주문은 즉시 구매 완료한다. |
 | 사전조건 | `productIds`가 비어 있지 않다. |
-| 완료 조건 | `PENDING` 주문과 주문 상품이 생성되고 `CreateOrderResponse`가 반환된다. |
+| 완료 조건 | 총액 0이면 `COMPLETED/PAID`, 양수면 `CREATED/PENDING` 주문이 생성되고 `CreateOrderResponse`가 반환된다. |
 
 ```mermaid
 sequenceDiagram
@@ -138,7 +138,13 @@ sequenceDiagram
     Product-->>Order: 판매자, 상품명, 유형, 모델, 가격
     Order->>Order: 응답 수와 요청 수 검증
     Order->>Order: 주문번호, 총 금액, 총 상품 수 계산
-    Order->>DB: order PENDING 저장
+    alt 총액 0
+        Order->>Order: COMPLETED/PAID 전이
+        Order->>DB: order와 order_product 저장, 장바구니 제거
+        Order->>Order: OutboxEvent(ORDER_PAID) 저장
+    else 총액 양수
+        Order->>DB: order CREATED 저장
+    end
     loop 상품 스냅샷별
         Order->>DB: order_product PENDING 저장
     end
@@ -149,6 +155,8 @@ sequenceDiagram
 
 - `productIds`가 비어 있거나 null 항목이 있으면 `V001`로 응답한다.
 - Product Service 스냅샷이 요청 상품 수와 맞지 않으면 주문 생성을 중단한다.
+- 0원 상품이 이미 접근 가능한 상태면 `O018`로 거부한다.
+- 0원 주문은 Redis 만료 예약 없이 즉시 콘텐츠 접근 권한을 부여하며 환불할 수 없다.
 - 주문 생성 응답에는 주문 상품 스냅샷 필드와 `totalAmount`, `createdAt`, `canceledAt`이 포함된다.
 
 ## UC-ORDER-02 내 주문 목록 조회

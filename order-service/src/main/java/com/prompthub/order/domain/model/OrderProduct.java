@@ -201,7 +201,7 @@ public class OrderProduct {
     }
 
     public boolean isRefundable() {
-        return isPaid() && !this.downloaded;
+        return this.productAmount > 0 && isPaid() && !this.downloaded;
     }
 
     public String getProductType() {

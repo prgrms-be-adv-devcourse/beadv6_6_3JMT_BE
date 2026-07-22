@@ -22,14 +22,9 @@
   - `OrderExpirationWorker` 스케줄러가 주기적으로 만료 대상을 조회하여 만료 처리(`expirePending`)를 진행하고, 장바구니 상품 복원(`restoreCart`)을 수행하도록 구현.
   - 처리 실패 시 최대 3회 재시도 및 초과 시 DLQ(`order:expiration:dlq`)로 이동하도록 하여 시스템 복원력을 높임.
 
-### 1.4 [P1] 결제 승인 전 주문 금액/만료 여부 동기 검증 API(validatePaymentReady) 도입
-* **내용**: 결제 완료 처리를 할 때 금액이 일치하지 않거나 이미 만료된 주문이 결제되는 문제
-* **해결 요약**:
-  - PG사 결제 요청/승인 직전, 주문의 소유자, 상태, 만료 여부 및 요청 금액 일치 여부를 동기식으로 상호 검증하는 API `/api/v1/orders/{orderId}/payment-ready` 구현.
-  - 금액 불일치 결제 승인을 사전에 방어함.
 <<<<<<< HEAD
 
-### 1.5 [P1] 결제 이벤트 Kafka 메시징 표준화 및 스키마 변경
+### 1.4 [P1] 결제 이벤트 Kafka 메시징 표준화 및 스키마 변경
 * **내용**: 개별 결제 토픽들(`payment.approved`, `payment.refunded`)을 따로 리스닝하며 파싱 방식이 파편화되어 있던 문제
 * **해결 요약**:
   - 단일 통합 토픽인 `payment-events`를 구독하는 구조로 단일화 및 표준화.
@@ -37,7 +32,7 @@
   - 대문자 ENUM 표준 명명 규격(`PAYMENT_APPROVED`, `PAYMENT_REFUNDED`, `PAYMENT_FAILED`, `PAYMENT_CANCELED`) 매핑 적용.
   - 처리가 필요 없거나 무관한 이벤트 타입(`PAYMENT_FAILED`, `PAYMENT_CANCELED`)은 DLT로 보내지 않고 Graceful하게 무시(`shouldIgnore`)하도록 필터링 적용.
 
-### 1.6 [P2] gRPC 연동 메서드명 표준화 및 규격 준수
+### 1.5 [P2] gRPC 연동 메서드명 표준화 및 규격 준수
 * **내용**: 판매자 다건 조회 시 proto 규격과 어댑터의 메서드명이 다른 곳과 일관되지 않던 문제
 * **해결 요약**:
   - `seller_query.proto` 파일 및 `SellerGrpcClientAdapter.java` 에서 판매자 조회 메서드명을 `findSellers` 에서 표준 네이밍인 `getSellers` 로 변경 및 통일 완료.
@@ -49,7 +44,6 @@
 
 ### 2.1 [P1] 결제-주문 불일치 비동기 보상 흐름 부재
 * **현재 상태**: 
-  - `validatePaymentReady` API를 통해 결제 승인 직전에 유효성 동기 검증을 수행하여, 비정상 결제가 진행되는 것을 1차적으로 사전에 차단합니다.
   - Kafka `DefaultErrorHandler`가 실패 메시지를 원본 토픽의 `.DLT`로 보내도록 설계되어 있습니다.
   - 이번 Kafka 메시징 표준화를 통해 잘못된 JSON 형식이나 payload 누락 등 유효하지 않은 결제 메시지가 `payment-events.DLT` 토픽으로 안전하게 이동하도록 처리 흐름을 보완했습니다.
 * **남은 문제 (사후 비동기 검증 및 실패 대응)**:
@@ -114,7 +108,6 @@
 
 ### 3.4 [P2] 죽은 코드·문서 불일치 정리
 * **현재 상태**:
-  - 주문 만료 에러 코드인 `ErrorCode.ORDER_EXPIRED(O015)`가 새로 추가되었습니다.
 * **남은 문제**:
   - `ErrorCode.CART_EMPTY(O004)`, `ErrorCode.ORDER_PRICE_CHANGED(O011)`: 코드상 던져지는(throw) 지점 없음
   - `OrderReviewRequest`: 미사용 DTO

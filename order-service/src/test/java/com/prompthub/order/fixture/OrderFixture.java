@@ -213,6 +213,7 @@ public final class OrderFixture {
 			PRODUCT_ID_1,
 			orderStatus,
 			orderProductStatus,
+			PRODUCT_AMOUNT_1,
 			downloaded,
 			PRODUCT_TYPE_PROMPT,
 			PRODUCT_TITLE_1,
