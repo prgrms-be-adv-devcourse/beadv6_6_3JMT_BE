@@ -629,4 +629,49 @@ class OrderControllerTest {
 			verifyNoInteractions(orderRefundService);
 		}
 	}
+
+	@Nested
+	@DisplayName("열람 가능한 구매 상품 조회")
+	class GetAccessiblePaidProducts {
+
+		@Test
+		@DisplayName("상품 상세 페이지용 구매 여부를 boolean으로 반환한다")
+		void hasAccessiblePaidProduct_success() throws Exception {
+			when(orderQueryUseCase.hasAccessiblePaidProduct(BUYER_ID, PRODUCT_ID_1)).thenReturn(true);
+
+			mockMvc.perform(get("/api/v2/orders/product/{productId}/paid", PRODUCT_ID_1)
+					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data").value(true));
+
+			verify(orderQueryUseCase).hasAccessiblePaidProduct(BUYER_ID, PRODUCT_ID_1);
+		}
+
+		@Test
+		@DisplayName("마이페이지용 구매 상품 ID 목록을 반환한다")
+		void getAccessiblePaidProductIds_success() throws Exception {
+			when(orderQueryUseCase.getAccessiblePaidProductIds(BUYER_ID))
+				.thenReturn(List.of(PRODUCT_ID_1, PRODUCT_ID_2));
+
+			mockMvc.perform(get("/api/v2/orders/users")
+					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data[0]").value(PRODUCT_ID_1.toString()))
+				.andExpect(jsonPath("$.data[1]").value(PRODUCT_ID_2.toString()));
+
+			verify(orderQueryUseCase).getAccessiblePaidProductIds(BUYER_ID);
+		}
+
+		@Test
+		@DisplayName("사용자 ID 헤더가 없으면 401을 반환한다")
+		void hasAccessiblePaidProduct_missingUserId_unauthorized() throws Exception {
+			mockMvc.perform(get("/api/v2/orders/product/{productId}/paid", PRODUCT_ID_1))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
+
+			verifyNoInteractions(orderQueryUseCase);
+		}
+	}
 }

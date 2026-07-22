@@ -9,6 +9,7 @@ import com.prompthub.order.presentation.dto.response.OrderPaymentValidationRespo
 import org.springframework.data.domain.Page;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public interface OrderQueryUseCase {
@@ -22,5 +23,9 @@ public interface OrderQueryUseCase {
 	OrderPaymentValidationResponse validatePaymentReady(UUID buyerId, UUID orderId, int amount, LocalDateTime now);
 
 	Page<OrderListResponse> getOrders(UUID buyerId, PageRequestParams request);
+
+	boolean hasAccessiblePaidProduct(UUID buyerId, UUID productId);
+
+	List<UUID> getAccessiblePaidProductIds(UUID buyerId);
 
 }
