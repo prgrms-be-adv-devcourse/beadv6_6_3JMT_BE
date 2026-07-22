@@ -1,16 +1,6 @@
-apply plugin: 'com.google.protobuf'
-
 dependencies {
     // JWT (RSA 서명/검증 — NimbusJwtEncoder 포함)
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
-
-    // gRPC 서버 (Spring Boot 4.1 내장)
-    implementation 'org.springframework.boot:spring-boot-starter-grpc-server'
-
-    // gRPC 클라이언트 (product-service 호출용)
-    implementation 'org.springframework.boot:spring-boot-starter-grpc-client'
-    implementation 'io.grpc:grpc-stub'
-    implementation 'io.grpc:grpc-protobuf'
 
     // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
@@ -24,24 +14,6 @@ dependencies {
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'com.h2database:h2'
-}
-
-protobuf {
-    protoc {
-        artifact = "com.google.protobuf:protoc:${protobufVersion}"
-    }
-    plugins {
-        grpc {
-            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
-        }
-    }
-    generateProtoTasks {
-        all().each { task ->
-            task.plugins {
-                grpc {}
-            }
-        }
-    }
 }
 
 tasks.named('test') {

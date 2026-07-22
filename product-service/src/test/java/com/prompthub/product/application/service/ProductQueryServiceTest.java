@@ -1,5 +1,6 @@
 package com.prompthub.product.application.service;
 
+import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
@@ -11,17 +12,18 @@ import com.prompthub.product.exception.enums.ProductErrorCode;
 import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
+import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import com.prompthub.presentation.dto.PageResponse;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
@@ -45,8 +47,15 @@ class ProductQueryServiceTest {
 	@Mock
 	private ProductRepository productRepository;
 
-	@InjectMocks
+	@Mock
+	private StorageClient storageClient;
+
 	private ProductQueryService productQueryService;
+
+	@BeforeEach
+	void setUp() {
+		productQueryService = new ProductQueryService(productRepository, storageClient, new ProductFamilyResolver(productRepository));
+	}
 
 	@Nested
 	@DisplayName("상품 목록 조회")
@@ -125,6 +134,8 @@ class ProductQueryServiceTest {
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
 			given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(4.5);
+			given(storageClient.generatePresignedDownloadUrl("https://cdn.example.com/images/1.jpg"))
+				.willReturn("https://cdn.example.com/images/1.jpg?presigned");
 
 			ProductDetailResponse response = productQueryService.getProduct(PRODUCT_ID);
 
@@ -135,7 +146,7 @@ class ProductQueryServiceTest {
 			assertThat(response.rating()).isEqualTo(4.5);
 			assertThat(response.content()).contains("전체 내용은 구매 후 확인");
 			assertThat(response.versions()).hasSize(1);
-			assertThat(response.imageUrls()).containsExactly("https://cdn.example.com/images/1.jpg");
+			assertThat(response.imageUrls()).containsExactly("https://cdn.example.com/images/1.jpg?presigned");
 		}
 
 		@Test
@@ -277,6 +288,44 @@ class ProductQueryServiceTest {
 			assertThat(response).hasSize(1);
 			assertThat(response.getFirst().id()).isEqualTo(reviewId);
 			assertThat(response.getFirst().rating()).isEqualTo((short) 5);
+		}
+	}
+
+	@Nested
+	@DisplayName("찜 상품 배치 조회")
+	class GetProductsByIds {
+
+		@Test
+		@DisplayName("thumbnailUrl을 presigned 다운로드 URL로 변환해 반환한다")
+		void getProductsByIds_presignsThumbnailUrl() {
+			Product product = product(ProductStatus.ON_SALE, null);
+			ReflectionTestUtils.setField(product, "thumbnailUrl", "products/1/thumbnail/uuid.jpg");
+			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRepository.sumSalesCountByFamilyRootId(PRODUCT_ID)).willReturn(0L);
+			given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(0.0);
+			given(storageClient.generatePresignedDownloadUrl("products/1/thumbnail/uuid.jpg"))
+				.willReturn("https://s3/presigned-thumbnail");
+
+			List<ProductsByIdsResponse> result = productQueryService.getProductsByIds(List.of(PRODUCT_ID));
+
+			assertThat(result).hasSize(1);
+			assertThat(result.get(0).thumbnailUrl()).isEqualTo("https://s3/presigned-thumbnail");
+		}
+
+		@Test
+		@DisplayName("thumbnailUrl이 없으면 presign을 시도하지 않는다")
+		void getProductsByIds_noThumbnail_skipsPresign() {
+			Product product = product(ProductStatus.ON_SALE, null);
+			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRepository.sumSalesCountByFamilyRootId(PRODUCT_ID)).willReturn(0L);
+			given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(0.0);
+
+			List<ProductsByIdsResponse> result = productQueryService.getProductsByIds(List.of(PRODUCT_ID));
+
+			assertThat(result.get(0).thumbnailUrl()).isNull();
+			then(storageClient).shouldHaveNoInteractions();
 		}
 	}
 

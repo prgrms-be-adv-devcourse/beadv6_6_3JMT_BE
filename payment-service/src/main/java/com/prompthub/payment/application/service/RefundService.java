@@ -15,6 +15,7 @@ import com.prompthub.payment.domain.model.Refund;
 import com.prompthub.payment.domain.model.RefundStatus;
 import com.prompthub.payment.domain.repository.PaymentRepository;
 import com.prompthub.payment.domain.repository.RefundRepository;
+import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -69,7 +70,7 @@ public class RefundService implements RefundUseCase {
     private void failByExceedingLimit(Payment payment, Refund refund, int remainingAmount, int requestedAmount) {
         log.warn("환불 가능 잔액 초과 — paymentId={}, remainingAmount={}, requestedAmount={}",
             payment.getId(), remainingAmount, requestedAmount);
-        refund.fail("환불 가능 잔액을 초과했습니다.");
+        refund.fail("환불 가능 잔액을 초과했습니다.", OffsetDateTime.now());
         refundRepository.save(refund);
         applicationEventPublisher.publishEvent(
             new PaymentRefundFailedEvent(payment, refund, "환불 가능 잔액을 초과했습니다."));
@@ -84,7 +85,7 @@ public class RefundService implements RefundUseCase {
         } catch (PaymentGatewayException e) {
             log.error("PG 환불 실패 — paymentId={}, refundRequestId={}, code={}, reason={}",
                 payment.getId(), refund.getRefundRequestId(), e.getFailureCode(), e.getFailureReason());
-            refund.fail(e.getFailureReason());
+            refund.fail(e.getFailureReason(), OffsetDateTime.now());
             refundRepository.save(refund);
             applicationEventPublisher.publishEvent(
                 new PaymentRefundFailedEvent(payment, refund, e.getFailureReason()));

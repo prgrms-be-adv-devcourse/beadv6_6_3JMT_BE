@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
-import com.prompthub.settlement.infrastructure.batch.listener.SettlementBatchFailureListener;
+import com.prompthub.settlement.infrastructure.batch.listener.SettlementBatchStateJobExecutionListener;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.job.AbstractJob;
@@ -15,7 +15,7 @@ import org.springframework.batch.core.step.Step;
 class OutboxJobConfigTest {
 
     @Test
-    @DisplayName("settlementJob은 과거 retry부터 현재 배치 flush까지 정해진 순서로 실행한다")
+    @DisplayName("settlementJob은 배치를 먼저 생성한 뒤 과거 retry부터 현재 배치 flush까지 실행한다")
     void settlementJob_hasExpectedStepOrder() {
         // given
         SettlementJobConfig config = new SettlementJobConfig(mock(JobRepository.class));
@@ -28,13 +28,13 @@ class OutboxJobConfigTest {
                 step("settlementStep"),
                 step("completeSettlementBatchStep"),
                 step("flushCurrentBatchOutboxStep"),
-                mock(SettlementBatchFailureListener.class));
+                mock(SettlementBatchStateJobExecutionListener.class));
 
         // then
         assertThat(((AbstractJob) job).getStepNames()).containsExactly(
+                "createSettlementBatchStep",
                 "retryPendingOutboxStep",
                 "loadSettlementSourceStep",
-                "createSettlementBatchStep",
                 "settlementStep",
                 "completeSettlementBatchStep",
                 "flushCurrentBatchOutboxStep");

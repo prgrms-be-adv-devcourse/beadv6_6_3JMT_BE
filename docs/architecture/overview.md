@@ -31,7 +31,6 @@ flowchart LR
     GW --> PAY[Payment :8084]
     GW --> SS[Settlement :8085]
 
-    US -.->|gRPC :9082 상품| PS
     PS -.->|gRPC :9081 판매자| US
     OS -.->|gRPC :9082 상품| PS
     OS -.->|gRPC :9081 판매자| US
@@ -60,11 +59,13 @@ flowchart LR
 
 `lb://`는 Eureka에 등록된 인스턴스를 조회해 로드밸런싱한다.
 
+Wishlist 화면은 Client가 User `GET /wishlists`, Product `POST /products/wishlists`,
+User `POST /sellers/wishlists`를 순차 호출해 조합한다. User 서비스는 Product gRPC를 호출하지 않는다.
+
 ### 2) 내부 동기 통신 (gRPC)
 
 | 호출자 → 대상 | 포트 | 용도 | 근거 |
 |---|---|---|---|
-| user → product | 9082 | 찜 상품 정보 조회 | `user-service` `application.yml` `grpc.client.product-service`, `wishlist/infrastructure/grpc/GrpcClientConfig.java` |
 | product → user | 9081 | 판매자 정보 조회 | `product-service` `application.yml` `grpc.client.user-service` |
 | order → product | 9082 | 상품 정보 조회 | `order-service/.../infra/grpc/client/product/ProductGrpcClientConfig.java` |
 | order → user | 9081 | 판매자 정보 조회 | `order-service/.../infra/grpc/client/seller/SellerGrpcClientConfig.java` |

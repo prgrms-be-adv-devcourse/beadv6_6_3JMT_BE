@@ -15,6 +15,7 @@ class SettlementBatchTest {
     private SettlementBatch processingBatch() {
         return SettlementBatch.start(
                 "B-001",
+                41L,
                 LocalDate.of(2026, 6, 1),
                 LocalDate.of(2026, 6, 30),
                 TriggerType.SCHEDULED);
@@ -29,6 +30,7 @@ class SettlementBatchTest {
         // then
         assertThat(batch.getStatus()).isEqualTo(SettlementBatchStatus.PROCESSING);
         assertThat(batch.getBatchNo()).isEqualTo("B-001");
+        assertThat(batch.getJobInstanceId()).isEqualTo(41L);
         assertThat(batch.getTriggerType()).isEqualTo(TriggerType.SCHEDULED);
         assertThat(batch.getExecutedAt()).isNull();
         assertThat(batch.isProcessing()).isTrue();
@@ -86,5 +88,113 @@ class SettlementBatchTest {
         // when & then
         assertThatThrownBy(() -> batch.fail("뒤늦은 실패"))
                 .isInstanceOf(SettlementBatchInvalidStateException.class);
+    }
+
+    @Test
+    @DisplayName("FAILED 배치에 재시작을 요청하면 RETRY_REQUESTED가 된다")
+    void requestRetry_fromFailed_becomesRetryRequested() {
+        // given
+        SettlementBatch batch = processingBatch();
+        batch.fail("첫 실행 실패");
+
+        // when
+        batch.requestRetry();
+
+        // then
+        assertThat(batch.getStatus()).isEqualTo(SettlementBatchStatus.RETRY_REQUESTED);
+        assertThat(batch.isRetryRequested()).isTrue();
+    }
+
+    @Test
+    @DisplayName("재시작을 시작하면 PROCESSING이 되고 이전 실패 정보를 비운다")
+    void startRetry_fromRetryRequested_clearsPreviousFailure() {
+        // given
+        SettlementBatch batch = processingBatch();
+        batch.fail("첫 실행 실패");
+        batch.requestRetry();
+
+        // when
+        batch.startRetry();
+
+        // then
+        assertThat(batch.getStatus()).isEqualTo(SettlementBatchStatus.PROCESSING);
+        assertThat(batch.getFailureReason()).isNull();
+        assertThat(batch.getExecutedAt()).isNull();
+        assertThat(batch.getJobInstanceId()).isEqualTo(41L);
+    }
+
+    @Test
+    @DisplayName("재시작 시작 전 오류가 나면 FAILED로 복원하고 새 사유를 기록한다")
+    void restoreFailed_fromRetryRequested_recordsNewFailure() {
+        // given
+        SettlementBatch batch = processingBatch();
+        batch.fail("첫 실행 실패");
+        batch.requestRetry();
+
+        // when
+        batch.restoreFailed("재시작 실행 오류");
+
+        // then
+        assertThat(batch.getStatus()).isEqualTo(SettlementBatchStatus.FAILED);
+        assertThat(batch.getFailureReason()).isEqualTo("재시작 실행 오류");
+        assertThat(batch.getExecutedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("FAILED가 아닌 배치에는 재시작을 요청할 수 없다")
+    void requestRetry_notFailed_throwsException() {
+        SettlementBatch batch = processingBatch();
+
+        assertThatThrownBy(batch::requestRetry)
+                .isInstanceOf(SettlementBatchInvalidStateException.class)
+                .hasMessageContaining("expected=FAILED")
+                .hasMessageContaining("current=PROCESSING");
+    }
+
+    @Test
+    @DisplayName("RETRY_REQUESTED가 아닌 배치는 재시작을 시작할 수 없다")
+    void startRetry_notRetryRequested_throwsException() {
+        SettlementBatch batch = processingBatch();
+        batch.fail("첫 실행 실패");
+
+        assertThatThrownBy(batch::startRetry)
+                .isInstanceOf(SettlementBatchInvalidStateException.class)
+                .hasMessageContaining("expected=RETRY_REQUESTED")
+                .hasMessageContaining("current=FAILED");
+    }
+
+    @Test
+    @DisplayName("RETRY_REQUESTED가 아닌 배치는 FAILED로 복원할 수 없다")
+    void restoreFailed_notRetryRequested_throwsException() {
+        SettlementBatch batch = processingBatch();
+        batch.fail("첫 실행 실패");
+
+        assertThatThrownBy(() -> batch.restoreFailed("재시작 실행 오류"))
+                .isInstanceOf(SettlementBatchInvalidStateException.class)
+                .hasMessageContaining("expected=RETRY_REQUESTED")
+                .hasMessageContaining("current=FAILED");
+    }
+
+    @Test
+    @DisplayName("JobInstance ID는 양수여야 한다")
+    void start_nonPositiveJobInstanceId_throwsException() {
+        assertThatThrownBy(() -> SettlementBatch.start(
+                "B-001",
+                0L,
+                LocalDate.of(2026, 6, 1),
+                LocalDate.of(2026, 6, 30),
+                TriggerType.SCHEDULED))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("jobInstanceId");
+    }
+
+    @Test
+    @DisplayName("실패 사유는 DB 컬럼 길이인 1000자로 제한한다")
+    void fail_longReason_truncatesToColumnLength() {
+        SettlementBatch batch = processingBatch();
+
+        batch.fail("실".repeat(1_001));
+
+        assertThat(batch.getFailureReason()).hasSize(1_000);
     }
 }

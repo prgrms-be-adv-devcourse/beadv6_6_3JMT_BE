@@ -7,7 +7,9 @@ import com.prompthub.product.domain.model.enums.ReviewStatus;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -100,6 +102,27 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 
 	default double getAverageRating(UUID productId) {
 		return getAverageRating(productId, ReviewStatus.ACTIVE);
+	}
+
+	@Query("""
+		select r.product.id, coalesce(avg(r.rating), 0.0)
+		from Review r
+		where r.product.id in :familyRootIds
+			and r.status = :activeReviewStatus
+			and r.deletedAt is null
+		group by r.product.id
+		""")
+	List<Object[]> findAverageRatingsByFamilyRootIds(
+		@Param("familyRootIds") List<UUID> familyRootIds,
+		@Param("activeReviewStatus") ReviewStatus activeReviewStatus
+	);
+
+	default Map<UUID, Double> getAverageRatings(List<UUID> familyRootIds) {
+		if (familyRootIds.isEmpty()) {
+			return Map.of();
+		}
+		return findAverageRatingsByFamilyRootIds(familyRootIds, ReviewStatus.ACTIVE).stream()
+			.collect(Collectors.toMap(row -> (UUID) row[0], row -> (Double) row[1]));
 	}
 
 	@Query("""

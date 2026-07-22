@@ -3,6 +3,7 @@ package com.prompthub.admin.settlement.presentation.controller;
 import com.prompthub.admin.settlement.application.dto.SettlementListQuery;
 import com.prompthub.admin.settlement.application.usecase.SettlementUseCase;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
+import com.prompthub.admin.settlement.presentation.dto.response.SettlementDetailResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementListResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementStatusResponse;
@@ -17,9 +18,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import java.time.YearMonth;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,6 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("${api.init}/admin/settlements")
 @RequiredArgsConstructor
 @Tag(name = "Admin Settlement", description = "어드민 정산 관리 API (settlement-service 에서 이관)")
+@Validated
 public class SettlementController {
 
 	private final SettlementUseCase settlementUseCase;
@@ -43,18 +50,24 @@ public class SettlementController {
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
 			content = @Content(schema = @Schema(implementation = SettlementSummaryResponse.class))),
+		@ApiResponse(responseCode = "400", description = "요청 값 오류",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
 		@ApiResponse(responseCode = "401", description = "인증 정보 없음",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
 		@ApiResponse(responseCode = "403", description = "ADMIN 권한 없음",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	})
-	public ApiResult<SettlementSummaryResponse> getSummary() {
-		return ApiResult.success(settlementUseCase.getSummary());
+	public ApiResult<SettlementSummaryResponse> getSummary(
+		@Parameter(description = "정산 월(YYYY-MM, 미지정 시 전체)", example = "2026-07")
+		@RequestParam(required = false)
+		@DateTimeFormat(pattern = "yyyy-MM") YearMonth settlementMonth
+	) {
+		return ApiResult.success(settlementUseCase.getSummary(settlementMonth));
 	}
 
 	@GetMapping
-	@Operation(summary = "정산 목록 조회",
-		description = "정산 목록을 표시 상태 필터·페이징으로 조회합니다. ADMIN 권한이 필요합니다.")
+	@Operation(summary = "판매자 월별 정산 목록 조회",
+		description = "정산을 판매자·월별로 집계하고 상태·정산 월로 필터링해 조회합니다. ADMIN 권한이 필요합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
 			content = @Content(schema = @Schema(implementation = SettlementListResponse.class))),
@@ -68,10 +81,40 @@ public class SettlementController {
 	public ApiResult<SettlementListResponse> getList(
 		@Parameter(description = "표시 상태 필터(미지정 시 전체)")
 		@RequestParam(required = false) SettlementDisplayStatus status,
-		@Parameter(description = "0-base 페이지 번호") @RequestParam(defaultValue = "0") int page,
-		@Parameter(description = "페이지 크기") @RequestParam(defaultValue = "20") int size
+		@Parameter(description = "정산 월(YYYY-MM)", example = "2026-07")
+		@RequestParam(required = false)
+		@DateTimeFormat(pattern = "yyyy-MM") YearMonth settlementMonth,
+		@Parameter(description = "0-base 페이지 번호")
+		@RequestParam(defaultValue = "0") @Min(0) int page,
+		@Parameter(description = "페이지 크기")
+		@RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
 	) {
-		return ApiResult.success(settlementUseCase.getList(new SettlementListQuery(status, page, size)));
+		return ApiResult.success(settlementUseCase.getList(
+			new SettlementListQuery(status, settlementMonth, page, size)));
+	}
+
+	@GetMapping("/sellers/{sellerId}/months/{settlementMonth}")
+	@Operation(summary = "판매자 월별 정산 상세 조회",
+		description = "판매자와 정산 월에 포함된 주간 정산과 가능한 액션을 조회합니다. ADMIN 권한이 필요합니다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공",
+			content = @Content(schema = @Schema(implementation = SettlementDetailResponse.class))),
+		@ApiResponse(responseCode = "400", description = "요청 값 오류",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "401", description = "인증 정보 없음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "403", description = "ADMIN 권한 없음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "404", description = "정산 월 없음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	})
+	public ApiResult<SettlementDetailResponse> getDetail(
+		@Parameter(description = "판매자 ID(UUID)") @PathVariable UUID sellerId,
+		@Parameter(description = "정산 월(YYYY-MM)", example = "2026-07")
+		@PathVariable @DateTimeFormat(pattern = "yyyy-MM") YearMonth settlementMonth
+	) {
+		return ApiResult.success(
+			settlementUseCase.getDetail(sellerId, settlementMonth));
 	}
 
 	@PatchMapping("/{settlementId}/approve")

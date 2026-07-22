@@ -3,6 +3,7 @@ package com.prompthub.product.application.usecase;
 import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
+import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import com.prompthub.presentation.dto.PageResponse;
 import java.util.List;
 import java.util.UUID;
@@ -16,4 +17,6 @@ public interface ProductQueryUseCase {
 	List<ProductListItemResponse> getRelatedProducts(UUID productId, int limit);
 
 	List<ProductReviewResponse> getProductReviews(UUID productId);
+
+	List<ProductsByIdsResponse> getProductsByIds(List<UUID> productIds);
 }

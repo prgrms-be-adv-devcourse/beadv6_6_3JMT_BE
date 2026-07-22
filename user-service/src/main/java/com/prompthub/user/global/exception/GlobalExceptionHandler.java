@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -97,6 +98,24 @@ public class GlobalExceptionHandler {
         UserErrorCode errorCode = UserErrorCode.VALIDATION_FAILED;
 
         log.warn("[{}] 요청 본문을 읽을 수 없습니다. reason={}", getRequestId(request), exception.getMessage());
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ErrorResponse.of(errorCode));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingServletRequestParameterException(
+            MissingServletRequestParameterException exception,
+            HttpServletRequest request
+    ) {
+        UserErrorCode errorCode = UserErrorCode.VALIDATION_FAILED;
+
+        log.warn(
+                "[{}] 필수 요청 파라미터가 누락되었습니다. parameterName={}",
+                getRequestId(request),
+                exception.getParameterName()
+        );
 
         return ResponseEntity
                 .status(errorCode.getStatus())

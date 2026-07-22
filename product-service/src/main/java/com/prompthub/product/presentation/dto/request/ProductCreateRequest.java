@@ -8,7 +8,7 @@ import java.util.List;
 public record ProductCreateRequest(
 	@NotBlank String title,
 	String productType,
-	@NotBlank String model,
+	String model,
 	@NotBlank String desc,
 	@NotNull @Min(0) Integer amount,
 	String content,

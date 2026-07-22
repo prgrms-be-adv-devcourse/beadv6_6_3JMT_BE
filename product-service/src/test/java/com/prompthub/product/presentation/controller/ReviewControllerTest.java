@@ -1,6 +1,6 @@
 package com.prompthub.product.presentation.controller;
 
-import com.prompthub.product.application.usecase.ProductInternalUseCase;
+import com.prompthub.product.application.usecase.ProductReviewUseCase;
 import com.prompthub.product.exception.ProductExceptionHandler;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,11 +28,11 @@ class ReviewControllerTest {
 	private MockMvc mockMvc;
 
 	@Mock
-	private ProductInternalUseCase productInternalUseCase;
+	private ProductReviewUseCase productReviewUseCase;
 
 	@BeforeEach
 	void setUp() {
-		mockMvc = MockMvcBuilders.standaloneSetup(new ReviewController(productInternalUseCase))
+		mockMvc = MockMvcBuilders.standaloneSetup(new ReviewController(productReviewUseCase))
 			.setControllerAdvice(new ProductExceptionHandler())
 			.build();
 	}
@@ -47,7 +47,7 @@ class ReviewControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.success").value(true));
 
-		verify(productInternalUseCase).upsertReview(BUYER_ID, PRODUCT_ID, 5);
+		verify(productReviewUseCase).upsertReview(BUYER_ID, PRODUCT_ID, 5);
 	}
 
 	@Test
@@ -61,7 +61,7 @@ class ReviewControllerTest {
 			.andExpect(jsonPath("$.success").value(false))
 			.andExpect(jsonPath("$.code").value("V001"));
 
-		verifyNoInteractions(productInternalUseCase);
+		verifyNoInteractions(productReviewUseCase);
 	}
 
 	@Test
@@ -75,7 +75,7 @@ class ReviewControllerTest {
 			.andExpect(jsonPath("$.success").value(false))
 			.andExpect(jsonPath("$.code").value("V001"));
 
-		verifyNoInteractions(productInternalUseCase);
+		verifyNoInteractions(productReviewUseCase);
 	}
 
 	@Test
@@ -88,6 +88,6 @@ class ReviewControllerTest {
 			.andExpect(jsonPath("$.success").value(false))
 			.andExpect(jsonPath("$.code").value("SYS001"));
 
-		verifyNoInteractions(productInternalUseCase);
+		verifyNoInteractions(productReviewUseCase);
 	}
 }

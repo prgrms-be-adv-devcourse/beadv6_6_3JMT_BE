@@ -126,6 +126,22 @@ for package in "${PACKAGES[@]}"; do
     fi
   fi
 
+  if [[ "${package}" == "k8s/base/services/admin" ]]; then
+    required_patterns=(
+      '^[[:space:]]+- name:[[:space:]]+REDIS_HOST$'
+      '^[[:space:]]+key:[[:space:]]+REDIS_HOST$'
+      '^[[:space:]]+- name:[[:space:]]+REDIS_PORT$'
+      '^[[:space:]]+key:[[:space:]]+REDIS_PORT$'
+    )
+
+    for pattern in "${required_patterns[@]}"; do
+      if ! grep -Eq -- "${pattern}" "${rendered}"; then
+        echo "missing admin Redis configuration contract: ${pattern}" >&2
+        exit 1
+      fi
+    done
+  fi
+
   if [[ "${package}" == "k8s/addons/nginx-ingress" ]]; then
     required_patterns=(
       '^kind:[[:space:]]+DaemonSet$'

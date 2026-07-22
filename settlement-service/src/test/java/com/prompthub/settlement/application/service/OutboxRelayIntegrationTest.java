@@ -8,11 +8,15 @@ import static org.mockito.BDDMockito.willThrow;
 
 import com.prompthub.settlement.application.port.SettlementEventPublisher;
 import com.prompthub.settlement.application.usecase.OutboxEventUseCase;
+import com.prompthub.settlement.domain.model.SettlementBatch;
 import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
 import com.prompthub.settlement.domain.model.enums.OutboxEventStatus;
+import com.prompthub.settlement.domain.model.enums.TriggerType;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
 import com.prompthub.settlement.global.exception.SettlementException;
+import com.prompthub.settlement.infrastructure.persistence.SettlementBatchJpaRepository;
 import com.prompthub.settlement.infrastructure.persistence.outbox.OutboxEventJpaRepository;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,19 +40,27 @@ class OutboxRelayIntegrationTest {
     @Autowired
     private OutboxEventJpaRepository repository;
 
+    @Autowired
+    private SettlementBatchJpaRepository settlementBatchJpaRepository;
+
     @MockitoBean
     private SettlementEventPublisher publisher;
 
     @BeforeEach
     void setUp() {
         repository.deleteAll();
+        settlementBatchJpaRepository.deleteAll();
     }
 
     @Test
     @DisplayName("다음 배치 시작 flush는 이전 실패 이벤트의 동일 JSON과 eventId를 재발행한다")
     void flushPendingBefore_retriesPreviousPendingEvent() {
         // given
-        SettlementOutboxEvent event = event(1, LocalDateTime.now().minusHours(2));
+        SettlementBatch completedBatch = completedBatch();
+        SettlementOutboxEvent event = event(
+                1,
+                completedBatch.getId(),
+                LocalDateTime.now().minusHours(2));
         event.recordPublishFailure("previous failure", LocalDateTime.now().minusHours(1), 3);
         repository.saveAndFlush(event);
 
@@ -128,5 +140,16 @@ class OutboxRelayIntegrationTest {
                 "settlement-events",
                 "{\"eventId\":\"" + eventId + "\"}",
                 occurredAt);
+    }
+
+    private SettlementBatch completedBatch() {
+        SettlementBatch batch = SettlementBatch.start(
+                "SETTLE-20260713-20260719-SCHEDULED-501",
+                501L,
+                LocalDate.of(2026, 7, 13),
+                LocalDate.of(2026, 7, 19),
+                TriggerType.SCHEDULED);
+        batch.complete();
+        return settlementBatchJpaRepository.saveAndFlush(batch);
     }
 }

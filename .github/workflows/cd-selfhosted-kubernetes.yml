@@ -72,6 +72,7 @@ jobs:
               - k8s/base/services/**
               - k8s/base/gateway/**
               - k8s/overlays/ec2-kubeadm/applications/**
+              - .github/workflows/cd-selfhosted-kubernetes.yml
             all_applications:
               - common-module/**
               - Dockerfile
@@ -215,9 +216,6 @@ jobs:
           ensure_package config config k8s/base/platform/config
           ensure_package discovery discovery k8s/base/platform/discovery
 
-          kubectl rollout status deployment/config -n "$NAMESPACE" --timeout=10m
-          kubectl rollout status deployment/discovery -n "$NAMESPACE" --timeout=10m
-
           ensure_package user-service user-service k8s/base/services/user
           ensure_package product-service product-service k8s/base/services/product
           ensure_package order-service order-service k8s/base/services/order
@@ -225,19 +223,6 @@ jobs:
           ensure_settlement_cronjob
           ensure_package admin-service admin-service k8s/base/services/admin
           ensure_package apigateway apigateway k8s/base/gateway
-
-          application_deployments=(
-            user-service
-            product-service
-            order-service
-            payment-service
-            admin-service
-            apigateway
-          )
-
-          for deployment in "${application_deployments[@]}"; do
-            kubectl rollout status deployment/"$deployment" -n "$NAMESPACE" --timeout=10m
-          done
 
           kubectl get cronjob settlement-weekly -n "$NAMESPACE" >/dev/null
 
@@ -487,7 +472,7 @@ jobs:
           EOF
 
             kubectl kustomize "$runtime_overlay" >/dev/null
-            kubectl apply --server-side --dry-run=server -k "$runtime_overlay"
+            kubectl apply --dry-run=server -k "$runtime_overlay"
 
             snapshot_manifest_deployments
             snapshot_settlement_cronjob

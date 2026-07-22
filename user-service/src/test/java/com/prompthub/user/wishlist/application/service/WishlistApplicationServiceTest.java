@@ -1,12 +1,7 @@
 package com.prompthub.user.wishlist.application.service;
 
-import com.prompthub.user.user.domain.model.User;
-import com.prompthub.user.user.domain.model.UserRole;
-import com.prompthub.user.user.domain.repository.UserRepository;
-import com.prompthub.user.wishlist.application.client.ProductClient;
 import com.prompthub.user.wishlist.application.dto.AddWishlistCommand;
 import com.prompthub.user.wishlist.application.dto.AddWishlistResult;
-import com.prompthub.user.wishlist.application.dto.ProductSummaryDto;
 import com.prompthub.user.wishlist.application.dto.WishlistItemResult;
 import com.prompthub.user.wishlist.domain.exception.WishlistDuplicatedException;
 import com.prompthub.user.wishlist.domain.exception.WishlistForbiddenException;
@@ -19,6 +14,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.lang.reflect.RecordComponent;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,30 +31,11 @@ class WishlistApplicationServiceTest {
     @Mock
     private WishlistRepository wishlistRepository;
 
-    @Mock
-    private ProductClient productClient;
-
-    @Mock
-    private UserRepository userRepository;
-
     @InjectMocks
     private WishlistApplicationService wishlistApplicationService;
 
     private static final UUID USER_ID = UUID.randomUUID();
     private static final UUID PRODUCT_ID = UUID.randomUUID();
-    private static final UUID SELLER_ID = UUID.randomUUID();
-
-    private ProductSummaryDto productSummary() {
-        return new ProductSummaryDto(
-                PRODUCT_ID, SELLER_ID, "테스트 상품", 9900L,
-                "https://cdn.example.com/thumb.jpg", "GPT-4",
-                100L, 4.5, "ACTIVE"
-        );
-    }
-
-    private User seller() {
-        return User.create("판매자A", "seller@example.com", null, UserRole.SELLER, true);
-    }
 
     @Test
     void add_정상_찜_등록_결과_반환() {
@@ -114,32 +91,26 @@ class WishlistApplicationServiceTest {
     }
 
     @Test
-    void getWishlists_상품_정보_포함해_결과_반환() {
-        Wishlist wishlist = Wishlist.create(USER_ID, PRODUCT_ID);
-        User sellerUser = seller();
-        given(wishlistRepository.findByUserId(USER_ID, 0, 20)).willReturn(List.of(wishlist));
-        given(productClient.getProductsByIds(List.of(PRODUCT_ID))).willReturn(List.of(productSummary()));
-        given(userRepository.findAllByIds(List.of(SELLER_ID))).willReturn(List.of(sellerUser));
-
-        List<WishlistItemResult> results = wishlistApplicationService.getWishlists(USER_ID, 0, 20);
-
-        assertThat(results).hasSize(1);
-        assertThat(results.get(0).title()).isEqualTo("테스트 상품");
-        assertThat(results.get(0).price()).isEqualTo(9900L);
+    void wishlist_item_result는_위시리스트_소유_필드만_노출한다() {
+        assertThat(WishlistItemResult.class.getRecordComponents())
+                .extracting(RecordComponent::getName)
+                .containsExactly("wishlistId", "productId", "addedAt");
     }
 
     @Test
-    void getWishlists_product_service_응답_없으면_fallback_반환() {
+    void getWishlists_위시리스트_식별자와_등록일만_반환한다() {
         Wishlist wishlist = Wishlist.create(USER_ID, PRODUCT_ID);
         given(wishlistRepository.findByUserId(USER_ID, 0, 20)).willReturn(List.of(wishlist));
-        given(productClient.getProductsByIds(any())).willReturn(List.of());
-        given(userRepository.findAllByIds(List.of())).willReturn(List.of());
 
         List<WishlistItemResult> results = wishlistApplicationService.getWishlists(USER_ID, 0, 20);
 
-        assertThat(results).hasSize(1);
-        assertThat(results.get(0).title()).isEqualTo("상품 정보 없음");
-        assertThat(results.get(0).price()).isEqualTo(0L);
+        assertThat(results).containsExactly(
+                new WishlistItemResult(
+                        wishlist.getWishlistId(),
+                        wishlist.getProductId(),
+                        wishlist.getCreatedAt()
+                )
+        );
     }
 
     @Test
@@ -149,7 +120,8 @@ class WishlistApplicationServiceTest {
         List<WishlistItemResult> results = wishlistApplicationService.getWishlists(USER_ID, 0, 20);
 
         assertThat(results).isEmpty();
-        then(productClient).shouldHaveNoInteractions();
+        then(wishlistRepository).should().findByUserId(USER_ID, 0, 20);
+        then(wishlistRepository).shouldHaveNoMoreInteractions();
     }
 
     @Test

@@ -46,7 +46,7 @@
 | 도메인 | Kafka 발행 | Kafka 구독 | gRPC 서버 | gRPC 클라이언트 |
 |---|---|---|---|---|
 | **settlement-service** | ✅ Outbox 구현(#301) — `settlement-events` / `SETTLEMENT_CREATED` | ❌ 없음 — `order-events` 수신 제거(#317) | ❌ 없음 | ✅ order 주간 범위 조회 구현 |
-| **user `sellersettlement`** | ❌ 없음 | ✅ 구현(기본 OFF) — `settlement-events` | ❌ 없음(셀러조회 서버는 `seller` 패키지) | ❌ 없음 |
+| **user `sellersettlement`** | ❌ 없음 | ✅ 구현(기본 OFF) — `settlement-events` | ❌ 없음 | ❌ 없음 |
 | **admin `settlement`** | ❌ 없음 | ❌ 없음 | ❌ 없음 | ❌ 없음 — DB 직접 접근 |
 
 범례: ✅ 구현·동작 가능(게이트 별개) · ⚠️ 비활성/부분(기본 OFF 또는 상대 부재) · ❌ 없음
@@ -82,7 +82,7 @@
 | 항목 | 값 |
 |---|---|
 | Config | `infrastructure/client/order/config/OrderGrpcClientConfig` — `@ImportGrpcClients(target="order-service")` |
-| 어댑터 | `infrastructure/client/order/OrderSettlementQueryClient` (`OrderSettlementQueryPort` 구현) |
+| 어댑터 | `infrastructure/client/order/OrderSettlementQueryClient` (`OrderSettlementQuery` 구현) |
 | 호출 | `GetSettleableLines(period_start, period_end)` → `settlement_source_line` bulk 적재(멱등키 `orderProductId+eventType` 로컬 파생) |
 | 기간 | 포함 날짜 월요일~일요일. order는 `[periodStart 00:00, periodEnd + 1일 00:00)`로 조회 |
 | 트리거 | `CronJob/settlement-weekly`(매주 월요일 00:00 `Asia/Seoul`) → `SettlementCronJobRunner` → `settlementJob` 첫 스텝 `loadSettlementSourceStep` |
@@ -90,11 +90,11 @@
 | 채널 | `grpc.client.order-service.address` |
 | 상태 | **settlement 클라이언트와 order `OrderQueryGrpcServer` 구현 완료.** 레거시 `period(yyyy-MM)`는 order-service 배포 호환 fallback만 제공 |
 
-**gRPC 서버** — 없음. (`grpc.server.port` yml 선언은 있으나 등록된 비즈니스 서비스 없음.
-`grpc/order/order_query.proto`는 루트 공유 계약이며 서버 구현은 order-service에 있다.)
+**gRPC 서버** — 없음. settlement-service에는 gRPC server starter, 비즈니스 서비스와 서버 proto가 없다.
+루트 인프라에 남은 settlement gRPC 포트 선언은 이번 모듈 내부 코드 정리 범위 밖이다.
 
 > **미사용 채널:** yml 에 `grpc.client.user-service`·`grpc.client.product-service` 채널이 선언돼 있으나,
-> 이를 호출하는 클라이언트 코드는 settlement-service 에 **없다**(선언만 남은 상태 — §4-2 참고).
+> 이를 호출하는 클라이언트 코드는 settlement-service 에 **없다**(선언만 남은 상태 — §4 참고).
 
 ### 3-2. user-service `sellersettlement` (셀러 정산)
 
@@ -117,7 +117,9 @@
 - summary는 `seller_settlement` 저장소의 누적 거래액·지급 완료액만 집계한다.
 - 등록 프롬프트 수와 누적 판매건수는 프론트가 Product 공개 API를 별도로 호출한다.
 
-**gRPC 서버** — `sellersettlement` 패키지 자체엔 없음. (셀러 정보 조회 서버 `SettlementSellerQueryGrpcService`(GetSellers)는 user-service 의 별도 `seller` 패키지에 있고 live 다. §4 참고.)
+**gRPC 서버** — 없음. Product용 `ProductSellerQueryGrpcService`와 정산용
+`SettlementSellerQueryGrpcService`는 호출자가 사라져 제거됐다. 판매자 정보 화면 조합은
+user-service가 소유한 REST Seller 조회 API를 사용한다.
 
 ### 3-3. admin-service `settlement` (어드민 정산)
 
@@ -130,19 +132,15 @@
 
 ---
 
-## 4. 요청 대기 · 미완 항목
+## 4. 범위 밖 설정 잔재
 
-지금 "한쪽만 준비되어 실제로는 아직 못 붙는" 통신을 명시한다.
+루트 Config Server 설정에는 settlement의 `grpc.client.user-service`와
+`grpc.client.product-service` 채널 선언이 남아 있다. settlement-service에는 두 채널을 사용하는
+클라이언트가 없으며, 이번 #500 작업은 모듈 내부 코드 정리만 수행하므로 루트 설정은 변경하지 않는다.
 
-1. **settlement → user `GetSellers`** (판매자명 조회, 참고 데이터)
-   - user-service `seller` 패키지에 서버(`SettlementSellerQueryGrpcService`)가 **live** 이나, settlement-service 에 이 스텁을 호출하는 **클라이언트가 아직 없다**(yml `grpc.client.user-service` 채널도 미사용). → 정산측 클라이언트 신설 시 붙는다.
-
-2. **settlement yml 의 `grpc.client.product-service` 채널**
-   - 선언만 있고 이를 쓰는 클라이언트 코드가 settlement-service 에 없다(미사용). #452 이후 상품 통계는 프론트가 Product 공개 API를 직접 호출하므로 정산 백엔드의 Product 클라이언트가 아니다.
-
-> **왜 §4-1·§4-2처럼 settlement 본체에 seller/product 클라이언트가 없나:** 판매자명 조회는 아직
-> 클라이언트가 도입되지 않았고, 상품 통계는 #452에서 프론트가 Product 공개 API를 직접 호출하는
-> 경계로 바뀌었다. settlement 본체에는 order 원천 pull(§3-1)만 남았다.
+- 판매자 정보 화면 조합은 user-service REST API를 사용한다.
+- 상품 통계는 #452 이후 프론트가 Product 공개 API를 직접 호출한다.
+- settlement-service에 남는 동기 통신은 order 원천 조회용 gRPC뿐이다.
 
 ---
 

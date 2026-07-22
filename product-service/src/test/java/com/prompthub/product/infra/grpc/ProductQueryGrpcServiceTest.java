@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
-import com.prompthub.product.application.usecase.ProductInternalUseCase;
+import com.prompthub.product.application.usecase.ProductGrpcUseCase;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
 import com.prompthub.product.grpc.GetCartSnapshotsRequest;
@@ -39,7 +39,7 @@ class ProductQueryGrpcServiceTest {
 	private static final UUID SELLER_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
 	@Mock
-	private ProductInternalUseCase productInternalUseCase;
+	private ProductGrpcUseCase productGrpcUseCase;
 
 	@Mock
 	private StreamObserver<GetOrderSnapshotsResponse> orderSnapshotsObserver;
@@ -56,7 +56,7 @@ class ProductQueryGrpcServiceTest {
 	@Test
 	@DisplayName("GetOrderSnapshots는 기존 매핑을 그대로 유지한다")
 	void getOrderSnapshots_mapsResponse() {
-		given(productInternalUseCase.getOrderSnapshots(List.of(PRODUCT_ID)))
+		given(productGrpcUseCase.getOrderSnapshots(List.of(PRODUCT_ID)))
 			.willReturn(List.of(new ProductOrderSnapshotResponse(PRODUCT_ID, SELLER_ID, "제목", "PROMPT", 5000, "GPT-4o")));
 
 		GetOrderSnapshotsRequest request = GetOrderSnapshotsRequest.newBuilder()
@@ -73,7 +73,7 @@ class ProductQueryGrpcServiceTest {
 	@Test
 	@DisplayName("GetCartSnapshots는 기존 매핑을 그대로 유지한다")
 	void getCartSnapshots_mapsResponse() {
-		given(productInternalUseCase.getCartSnapshots(List.of(PRODUCT_ID)))
+		given(productGrpcUseCase.getCartSnapshots(List.of(PRODUCT_ID)))
 			.willReturn(List.of(new ProductCartSnapshotResponse(
 				PRODUCT_ID, SELLER_ID, "제목", "PROMPT", 5000, "https://thumb", "닉네임", "ON_SALE")));
 
@@ -95,7 +95,7 @@ class ProductQueryGrpcServiceTest {
 		@Test
 		@DisplayName("ORDER_SNAPSHOT 요청은 order_snapshot 결과만 반환한다")
 		void orderSnapshotPurpose_returnsOnlyOrderSnapshotResults() {
-			given(productInternalUseCase.getOrderSnapshots(List.of(PRODUCT_ID)))
+			given(productGrpcUseCase.getOrderSnapshots(List.of(PRODUCT_ID)))
 				.willReturn(List.of(new ProductOrderSnapshotResponse(PRODUCT_ID, SELLER_ID, "제목", "PROMPT", 5000, "GPT-4o")));
 
 			GetProductContentRequest request = GetProductContentRequest.newBuilder()
@@ -115,7 +115,7 @@ class ProductQueryGrpcServiceTest {
 		@Test
 		@DisplayName("CART_SNAPSHOT 요청은 cart_snapshot 결과만 반환한다")
 		void cartSnapshotPurpose_returnsOnlyCartSnapshotResults() {
-			given(productInternalUseCase.getCartSnapshots(List.of(PRODUCT_ID)))
+			given(productGrpcUseCase.getCartSnapshots(List.of(PRODUCT_ID)))
 				.willReturn(List.of(new ProductCartSnapshotResponse(
 					PRODUCT_ID, SELLER_ID, "제목", "PROMPT", 5000, "https://thumb", "닉네임", "ON_SALE")));
 
@@ -134,7 +134,7 @@ class ProductQueryGrpcServiceTest {
 		@Test
 		@DisplayName("PURCHASED_CONTENT 요청은 purchased_content 결과 1건만 반환한다")
 		void purchasedContentPurpose_returnsSinglePurchasedContentResult() {
-			given(productInternalUseCase.getProductContent(PRODUCT_ID))
+			given(productGrpcUseCase.getProductContent(PRODUCT_ID))
 				.willReturn(new ProductContentResponse(PRODUCT_ID, "프롬프트 본문"));
 
 			GetProductContentRequest request = GetProductContentRequest.newBuilder()
@@ -154,7 +154,7 @@ class ProductQueryGrpcServiceTest {
 		@Test
 		@DisplayName("purpose 없이(구형 UNSPECIFIED) product_id로 요청하면 구형 필드와 purchased_content를 함께 채운다")
 		void unspecifiedPurposeWithProductId_legacyCompat_fillsOldFieldsAndPurchasedContent() {
-			given(productInternalUseCase.getProductContent(PRODUCT_ID))
+			given(productGrpcUseCase.getProductContent(PRODUCT_ID))
 				.willReturn(new ProductContentResponse(PRODUCT_ID, "프롬프트 본문"));
 
 			GetProductContentRequest request = GetProductContentRequest.newBuilder()
@@ -209,7 +209,7 @@ class ProductQueryGrpcServiceTest {
 		@Test
 		@DisplayName("구매 콘텐츠 대상이 없으면 NOT_FOUND")
 		void purchasedContentNotFound_notFound() {
-			given(productInternalUseCase.getProductContent(PRODUCT_ID))
+			given(productGrpcUseCase.getProductContent(PRODUCT_ID))
 				.willThrow(new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
 
 			GetProductContentRequest request = GetProductContentRequest.newBuilder()
@@ -224,7 +224,7 @@ class ProductQueryGrpcServiceTest {
 		@Test
 		@DisplayName("주문/장바구니 결과에는 content나 purchased_content가 채워지지 않는다")
 		void orderAndCartResults_neverPopulateContentOrPurchasedContent() {
-			given(productInternalUseCase.getOrderSnapshots(List.of(PRODUCT_ID)))
+			given(productGrpcUseCase.getOrderSnapshots(List.of(PRODUCT_ID)))
 				.willReturn(List.of(new ProductOrderSnapshotResponse(PRODUCT_ID, SELLER_ID, "제목", "PROMPT", 5000, "GPT-4o")));
 
 			GetProductContentRequest request = GetProductContentRequest.newBuilder()

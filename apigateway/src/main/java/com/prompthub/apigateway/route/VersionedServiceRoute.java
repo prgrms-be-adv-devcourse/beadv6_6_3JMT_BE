@@ -20,7 +20,7 @@ public record VersionedServiceRoute(String id, String uri, List<String> pathSuff
                 "/admin/settlements/**", "/admin/orders", "/admin/orders/**",
                 "/admin/users", "/admin/users/**", "/admin/stats/users",
                 "/admin/sellers/register", "/admin/sellers/register/**",
-                "/admin/products", "/admin/products/**"
+                "/admin/products", "/admin/products/**", "/admin/home"
             ),
             0
         ),
