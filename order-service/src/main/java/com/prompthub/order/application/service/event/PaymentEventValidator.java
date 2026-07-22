@@ -35,7 +35,6 @@ public class PaymentEventValidator {
 	public LocalDateTime validate(PaymentApprovedPayload payload) {
 		if (payload == null
 			|| payload.orderId() == null
-			|| payload.approvedAmount() <= 0
 			|| payload.approvedAtValue() == null
 			|| payload.approvedAtValue().isBlank()) {
 			throw invalidInput();

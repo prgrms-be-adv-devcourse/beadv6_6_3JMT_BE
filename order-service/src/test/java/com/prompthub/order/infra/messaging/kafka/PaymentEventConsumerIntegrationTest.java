@@ -81,32 +81,36 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	@DisplayName("결제 승인 이벤트를 수신하면 PaymentApprovedEventHandler가 호출된다")
 	void consumePaymentApprovedEvent() {
 		// given
-		UUID paymentId = UUID.randomUUID();
-		UUID userId = UUID.randomUUID();
 		UUID orderId = UUID.randomUUID();
 
 		Map<String, Object> payload = new HashMap<>();
-		payload.put("paymentId", paymentId.toString());
 		payload.put("orderId", orderId.toString());
-		payload.put("userId", userId.toString());
-		payload.put("amount", 30000);
+		payload.put("approvedAmount", 30000);
 		payload.put("approvedAt", "2026-07-17T10:00:05+09:00");
 
 		Map<String, Object> message = new HashMap<>();
 		message.put("eventId", UUID.randomUUID().toString());
 		message.put("eventType", "PAYMENT_APPROVED");
 		message.put("occurredAt", LocalDateTime.now().toString());
-		message.put("aggregateType", "PAYMENT");
-		message.put("aggregateId", paymentId.toString());
+		message.put("aggregateType", "ORDER");
+		message.put("aggregateId", orderId.toString());
 		message.put("payload", payload);
 
 		// when
-		kafkaTemplate.send(PAYMENT_EVENTS_TOPIC, paymentId.toString(), message);
+		kafkaTemplate.send(PAYMENT_EVENTS_TOPIC, orderId.toString(), message);
 
 		// then
-		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> 
-			verify(paymentApprovedEventHandler).handle(any(EventMessage.class))
+		ArgumentCaptor<EventMessage<JsonNode>> captor = eventMessageCaptor();
+		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
+			verify(paymentApprovedEventHandler).handle(captor.capture())
 		);
+		EventMessage<JsonNode> capturedMessage = captor.getValue();
+		assertThat(capturedMessage.aggregateType()).isEqualTo("ORDER");
+		assertThat(capturedMessage.aggregateId()).isEqualTo(orderId);
+		assertThat(capturedMessage.payload().path("orderId").asText()).isEqualTo(orderId.toString());
+		assertThat(capturedMessage.payload().path("approvedAmount").asInt()).isEqualTo(30_000);
+		assertThat(capturedMessage.payload().path("approvedAt").asText())
+			.isEqualTo("2026-07-17T10:00:05+09:00");
 	}
 
 	@Test
@@ -278,8 +282,6 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	@Test
 	@DisplayName("핸들러 예외는 3회 재시도 후 payment-events.DLT로 이동한다")
 	void consumePaymentApproved_whenHandlerFails_thenRetryAndSendToDlt() throws Exception {
-		UUID paymentId = UUID.randomUUID();
-		UUID userId = UUID.randomUUID();
 		UUID orderId = UUID.randomUUID();
 		willThrow(new OrderException(ErrorCode.INVALID_INPUT_VALUE))
 			.given(paymentApprovedEventHandler)
@@ -290,12 +292,8 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 			rawStringKafkaTemplate()
 				.send(
 					PAYMENT_EVENTS_TOPIC,
-					paymentId.toString(),
-					paymentApprovedEvent(
-						paymentId,
-						orderId,
-						userId
-					)
+					orderId.toString(),
+					paymentApprovedEvent(orderId)
 				)
 				.get(5, TimeUnit.SECONDS);
 
@@ -306,8 +304,8 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 			);
 
 			verify(paymentApprovedEventHandler, times(4)).handle(any(EventMessage.class));
-			assertThat(dltRecord.key()).isEqualTo(paymentId.toString());
-			assertThat(dltRecord.value()).contains("PAYMENT_APPROVED", paymentId.toString());
+			assertThat(dltRecord.key()).isEqualTo(orderId.toString());
+			assertThat(dltRecord.value()).contains("PAYMENT_APPROVED", orderId.toString());
 		}
 	}
 
@@ -399,32 +397,24 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 			""".formatted(UUID.randomUUID(), eventType, UUID.randomUUID());
 	}
 
-	private String paymentApprovedEvent(
-		UUID paymentId,
-		UUID orderId,
-		UUID userId
-	) {
+	private String paymentApprovedEvent(UUID orderId) {
 		return """
 			{
 			  "eventId": "%s",
 			  "eventType": "PAYMENT_APPROVED",
 			  "occurredAt": "2026-06-19T12:00:00",
-			  "aggregateType": "PAYMENT",
+			  "aggregateType": "ORDER",
 			  "aggregateId": "%s",
 			  "payload": {
-			    "paymentId": "%s",
 			    "orderId": "%s",
-			    "userId": "%s",
-			    "amount": 30000,
+			    "approvedAmount": 30000,
 			    "approvedAt": "2026-07-17T10:00:05+09:00"
 			  }
 			}
 			""".formatted(
 			UUID.randomUUID(),
-			paymentId,
-			paymentId,
 			orderId,
-			userId
+			orderId
 		);
 	}
 
