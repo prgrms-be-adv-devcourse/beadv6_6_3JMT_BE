@@ -34,7 +34,7 @@
 - Consumes: 없음
 - Produces: `TossRateLimiterConfig`의 빈 2개 — `RateLimiterRegistry tossRateLimiterRegistry(int, Duration, Duration)`, `RateLimiter tossConfirmRateLimiter(RateLimiterRegistry)`(빈 이름 `"tossConfirmRateLimiter"`) — Task 2의 `TossPaymentGateway` 생성자가 주입받아 사용
 
-- [ ] **Step 1: build.gradle에 의존성 추가**
+- [x] **Step 1: build.gradle에 의존성 추가**
 
 `build.gradle`의 `dependencies` 블록에서 기존 resilience4j 줄 바로 아래에 추가:
 
@@ -45,12 +45,12 @@
     implementation 'io.github.resilience4j:resilience4j-ratelimiter:2.4.0'
 ```
 
-- [ ] **Step 2: 빌드 확인**
+- [x] **Step 2: 빌드 확인**
 
 Run: `../gradlew :payment-service:compileJava`
 Expected: BUILD SUCCESSFUL (새 의존성이 정상적으로 resolve됨)
 
-- [ ] **Step 3: 실패 테스트 작성**
+- [x] **Step 3: 실패 테스트 작성**
 
 ```java
 package com.prompthub.payment.infrastructure.external.toss;
@@ -81,12 +81,12 @@ class TossRateLimiterConfigTest {
 }
 ```
 
-- [ ] **Step 4: 테스트 실행해서 실패 확인**
+- [x] **Step 4: 테스트 실행해서 실패 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.external.toss.TossRateLimiterConfigTest"`
 Expected: FAIL — `TossRateLimiterConfig` 클래스가 없어 컴파일 에러
 
-- [ ] **Step 5: 최소 구현**
+- [x] **Step 5: 최소 구현**
 
 ```java
 package com.prompthub.payment.infrastructure.external.toss;
@@ -133,12 +133,12 @@ public class TossRateLimiterConfig {
 }
 ```
 
-- [ ] **Step 6: 테스트 실행해서 통과 확인**
+- [x] **Step 6: 테스트 실행해서 통과 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.external.toss.TossRateLimiterConfigTest"`
 Expected: PASS
 
-- [ ] **Step 7: yml 3곳에 설정값 반영**
+- [x] **Step 7: yml 3곳에 설정값 반영**
 
 `src/main/resources/application-local.yml`의 기존 `resilience4j:` 블록을 아래로 교체(`ignore-exceptions`에 `RequestNotPermitted` 추가 + `ratelimiter` 섹션 신설):
 
@@ -230,12 +230,12 @@ resilience4j:
         timeout-duration: 0ms
 ```
 
-- [ ] **Step 8: 전체 테스트 스위트 실행 — 회귀 확인**
+- [x] **Step 8: 전체 테스트 스위트 실행 — 회귀 확인**
 
 Run: `JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test`
 Expected: BUILD SUCCESSFUL (이 시점엔 아직 `TossPaymentGateway`가 `TossRateLimiterConfig`의 빈을 쓰지 않으므로 기존 테스트에 영향 없음 — 다음 Task에서 실제 연결)
 
-- [ ] **Step 9: 커밋**
+- [x] **Step 9: 커밋**
 
 ```bash
 git add build.gradle src/main/java/com/prompthub/payment/infrastructure/external/toss/TossRateLimiterConfig.java src/test/java/com/prompthub/payment/infrastructure/external/toss/TossRateLimiterConfigTest.java src/main/resources/application-local.yml src/test/resources/application-test.yml ../config/src/main/resources/configs/payment-service.yml
@@ -267,7 +267,7 @@ EOF
 - Consumes: `RateLimiter` 빈 `"tossConfirmRateLimiter"`(Task 1)
 - Produces: `TossPaymentGateway(String, String, ObjectMapper, CircuitBreaker, CircuitBreaker, Bulkhead, RateLimiter)` 생성자, `PaymentErrorCode.PG_RATE_LIMITED`
 
-- [ ] **Step 1: PaymentErrorCode에 PG_RATE_LIMITED 추가**
+- [x] **Step 1: PaymentErrorCode에 PG_RATE_LIMITED 추가**
 
 `src/main/java/com/prompthub/payment/application/exception/PaymentErrorCode.java`의 `PG_BUSY` 다음 줄에 추가(세미콜론을 `PG_RATE_LIMITED` 뒤로 이동):
 
@@ -276,7 +276,7 @@ EOF
     PG_RATE_LIMITED(HttpStatus.SERVICE_UNAVAILABLE, "PAY014", "결제 승인 요청이 많아 일시적으로 제한되었습니다. 잠시 후 다시 시도해주세요.");
 ```
 
-- [ ] **Step 2: 기존 테스트 생성자 호출부 수정 — TossPaymentGatewayTest**
+- [x] **Step 2: 기존 테스트 생성자 호출부 수정 — TossPaymentGatewayTest**
 
 `src/test/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGatewayTest.java`의 생성자 호출부 교체:
 
@@ -296,7 +296,7 @@ EOF
 import io.github.resilience4j.ratelimiter.RateLimiter;
 ```
 
-- [ ] **Step 3: 기존 테스트 생성자 호출부 수정 — TossPaymentGatewayCircuitBreakerTest**
+- [x] **Step 3: 기존 테스트 생성자 호출부 수정 — TossPaymentGatewayCircuitBreakerTest**
 
 `src/test/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGatewayCircuitBreakerTest.java`의 생성자 호출부 교체:
 
@@ -316,7 +316,7 @@ import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 ```
 
-- [ ] **Step 4: 기존 테스트 생성자 호출부 수정 — TossPaymentGatewayBulkheadTest**
+- [x] **Step 4: 기존 테스트 생성자 호출부 수정 — TossPaymentGatewayBulkheadTest**
 
 `src/test/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGatewayBulkheadTest.java`의 생성자 호출부 교체:
 
@@ -336,7 +336,7 @@ import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 ```
 
-- [ ] **Step 5: 신규 실패 테스트 작성 — 유량 상한 초과 시 즉시 PG_RATE_LIMITED**
+- [x] **Step 5: 신규 실패 테스트 작성 — 유량 상한 초과 시 즉시 PG_RATE_LIMITED**
 
 ```java
 package com.prompthub.payment.infrastructure.external.toss;
@@ -422,12 +422,12 @@ class TossPaymentGatewayRateLimiterTest {
 }
 ```
 
-- [ ] **Step 6: 테스트 실행해서 실패 확인**
+- [x] **Step 6: 테스트 실행해서 실패 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayRateLimiterTest" --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayTest" --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayCircuitBreakerTest" --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayBulkheadTest"`
 Expected: FAIL — `TossPaymentGateway` 생성자가 아직 6-arg라 컴파일 에러
 
-- [ ] **Step 7: TossPaymentGateway 구현 — RateLimiter 통합**
+- [x] **Step 7: TossPaymentGateway 구현 — RateLimiter 통합**
 
 `src/main/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGateway.java` 전체를 아래로 교체:
 
@@ -666,17 +666,17 @@ public class TossPaymentGateway implements PaymentGateway {
 }
 ```
 
-- [ ] **Step 8: 테스트 실행해서 통과 확인**
+- [x] **Step 8: 테스트 실행해서 통과 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayRateLimiterTest" --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayTest" --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayCircuitBreakerTest" --tests "com.prompthub.payment.infrastructure.external.toss.TossPaymentGatewayBulkheadTest"`
 Expected: PASS
 
-- [ ] **Step 9: 전체 테스트 스위트 실행 — 회귀 확인**
+- [x] **Step 9: 전체 테스트 스위트 실행 — 회귀 확인**
 
 Run: `JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test`
 Expected: BUILD SUCCESSFUL — `ConfirmPaymentIntegrationTest`는 `@MockitoBean PaymentGateway`라 RateLimiter 로직과 무관하게 그대로 통과
 
-- [ ] **Step 10: 커밋**
+- [x] **Step 10: 커밋**
 
 ```bash
 git add src/main/java/com/prompthub/payment/application/exception/PaymentErrorCode.java src/main/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGateway.java src/test/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGatewayTest.java src/test/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGatewayCircuitBreakerTest.java src/test/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGatewayBulkheadTest.java src/test/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGatewayRateLimiterTest.java
