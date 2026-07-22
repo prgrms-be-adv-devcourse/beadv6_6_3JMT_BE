@@ -2,6 +2,7 @@ package com.prompthub.settlement.infrastructure.persistence.outbox;
 
 import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
 import com.prompthub.settlement.domain.model.enums.OutboxEventStatus;
+import com.prompthub.settlement.domain.model.enums.SettlementBatchStatus;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -17,11 +18,18 @@ public interface OutboxEventJpaRepository extends JpaRepository<SettlementOutbox
             from SettlementOutboxEvent e
             where e.status = :status
               and (e.lastAttemptedAt is null or e.lastAttemptedAt < :attemptedBefore)
+              and exists (
+                  select b.id
+                  from SettlementBatch b
+                  where b.id = e.settlementBatchId
+                    and b.status = :batchStatus
+              )
             order by e.occurredAt asc, e.eventId asc
             """)
     List<SettlementOutboxEvent> findPendingBefore(
             @Param("status") OutboxEventStatus status,
             @Param("attemptedBefore") LocalDateTime attemptedBefore,
+            @Param("batchStatus") SettlementBatchStatus batchStatus,
             Pageable pageable);
 
     @Query("""
@@ -29,6 +37,12 @@ public interface OutboxEventJpaRepository extends JpaRepository<SettlementOutbox
             from SettlementOutboxEvent e
             where e.status = :status
               and (e.lastAttemptedAt is null or e.lastAttemptedAt < :attemptedBefore)
+              and exists (
+                  select b.id
+                  from SettlementBatch b
+                  where b.id = e.settlementBatchId
+                    and b.status = :batchStatus
+              )
               and (e.occurredAt > :cursorOccurredAt
                    or (e.occurredAt = :cursorOccurredAt and e.eventId > :cursorEventId))
             order by e.occurredAt asc, e.eventId asc
@@ -36,6 +50,7 @@ public interface OutboxEventJpaRepository extends JpaRepository<SettlementOutbox
     List<SettlementOutboxEvent> findPendingBeforeAfterCursor(
             @Param("status") OutboxEventStatus status,
             @Param("attemptedBefore") LocalDateTime attemptedBefore,
+            @Param("batchStatus") SettlementBatchStatus batchStatus,
             @Param("cursorOccurredAt") LocalDateTime cursorOccurredAt,
             @Param("cursorEventId") UUID cursorEventId,
             Pageable pageable);

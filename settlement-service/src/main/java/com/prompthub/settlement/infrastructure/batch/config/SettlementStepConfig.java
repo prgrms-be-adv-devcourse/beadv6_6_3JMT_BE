@@ -11,22 +11,33 @@ import com.prompthub.settlement.infrastructure.batch.tasklet.LoadSettlementSourc
 import com.prompthub.settlement.infrastructure.batch.tasklet.RedriveOutboxTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.RetryPendingOutboxTasklet;
 import com.prompthub.settlement.infrastructure.batch.writer.SettlementWriter;
-import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
 @Configuration
-@RequiredArgsConstructor
 public class SettlementStepConfig {
-
-	private static final int CHUNK_SIZE = 100;
 
 	private final JobRepository jobRepository;
 	private final PlatformTransactionManager transactionManager;
+	private final int chunkSize;
+
+	public SettlementStepConfig(
+		JobRepository jobRepository,
+		PlatformTransactionManager transactionManager,
+		@Value("${settlement.batch.chunk-size:100}") int chunkSize
+	) {
+		if (chunkSize <= 0) {
+			throw new IllegalArgumentException("settlement.batch.chunk-size는 1 이상이어야 합니다.");
+		}
+		this.jobRepository = jobRepository;
+		this.transactionManager = transactionManager;
+		this.chunkSize = chunkSize;
+	}
 
 	@Bean
 	public Step retryPendingOutboxStep(RetryPendingOutboxTasklet retryPendingOutboxTasklet) {
@@ -56,7 +67,7 @@ public class SettlementStepConfig {
 		SettlementWriter settlementWriter
 	) {
 		return new StepBuilder("settlementStep", jobRepository)
-			.<SettlementItem, Settlement>chunk(CHUNK_SIZE)
+			.<SettlementItem, Settlement>chunk(chunkSize)
 			.reader(settlementTargetReader)
 			.processor(settlementProcessor)
 			.writer(settlementWriter)

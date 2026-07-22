@@ -777,4 +777,34 @@ class OrderQueryServiceTest {
 				.containsExactly(true, false, false);
 		}
     }
+
+    @Nested
+    @DisplayName("열람 가능한 구매 상품 조회")
+    class GetAccessiblePaidProducts {
+
+        @Test
+        @DisplayName("열람 가능한 결제 상품이면 true를 반환한다")
+        void hasAccessiblePaidProduct_accessibleProduct_returnsTrue() {
+            given(orderRepository.existsAccessiblePaidOrderProductByBuyerIdAndProductId(BUYER_ID, PRODUCT_ID_1))
+                .willReturn(true);
+
+            assertThat(orderQueryService.hasAccessiblePaidProduct(BUYER_ID, PRODUCT_ID_1)).isTrue();
+
+            then(orderRepository).should().existsAccessiblePaidOrderProductByBuyerIdAndProductId(BUYER_ID, PRODUCT_ID_1);
+            then(productClient).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("열람 가능한 구매 상품 ID 목록을 그대로 반환한다")
+        void getAccessiblePaidProductIds_returnsProductIds() {
+            given(orderRepository.findAccessiblePaidProductIdsByBuyerId(BUYER_ID))
+                .willReturn(List.of(PRODUCT_ID_1, PRODUCT_ID_2));
+
+            assertThat(orderQueryService.getAccessiblePaidProductIds(BUYER_ID))
+                .containsExactly(PRODUCT_ID_1, PRODUCT_ID_2);
+
+            then(orderRepository).should().findAccessiblePaidProductIdsByBuyerId(BUYER_ID);
+            then(productClient).shouldHaveNoInteractions();
+        }
+    }
 }

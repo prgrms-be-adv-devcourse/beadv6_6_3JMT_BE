@@ -41,6 +41,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static com.prompthub.order.global.web.AuthHeaders.USER_ID;
@@ -73,6 +74,34 @@ public class OrderController {
 	) {
 		CreateOrderResult result = createOrderUseCase.createOrder(buyerId, request.toCommand());
 		return ApiResult.success(CreateOrderResponse.from(result));
+	}
+
+	@GetMapping("/product/{productId}/paid")
+	@Operation(summary = "상품 구매 여부 조회", description = "구매자가 현재 상품 콘텐츠를 열람할 수 있는 결제 상태인지 반환합니다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "구매 여부 조회 성공"),
+		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
+		@ApiResponse(responseCode = "401", description = "A003 인증 정보 누락")
+	})
+	public ApiResult<Boolean> hasAccessiblePaidProduct(
+		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@RequestHeader(USER_ID) UUID buyerId,
+		@Parameter(description = "상품 ID") @PathVariable UUID productId
+	) {
+		return ApiResult.success(orderQueryUseCase.hasAccessiblePaidProduct(buyerId, productId));
+	}
+
+	@GetMapping("/users")
+	@Operation(summary = "구매 상품 ID 목록 조회", description = "구매자가 현재 열람할 수 있는 상품 ID 목록을 중복 없이 반환합니다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "구매 상품 ID 목록 조회 성공"),
+		@ApiResponse(responseCode = "401", description = "A003 인증 정보 누락")
+	})
+	public ApiResult<List<UUID>> getAccessiblePaidProductIds(
+		@Parameter(in = ParameterIn.HEADER, name = USER_ID, description = "Gateway가 주입하는 구매자 ID", required = true)
+		@RequestHeader(USER_ID) UUID buyerId
+	) {
+		return ApiResult.success(orderQueryUseCase.getAccessiblePaidProductIds(buyerId));
 	}
 
 	@GetMapping("/{orderId}")

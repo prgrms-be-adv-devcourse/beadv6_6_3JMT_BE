@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,7 +20,9 @@ public interface OrderRepository {
 
 	Optional<Order> findByOrderNumber(String orderNumber);
 
-	boolean existsPaidOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId);
+	boolean existsAccessiblePaidOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId);
+
+	List<UUID> findAccessiblePaidProductIdsByBuyerId(UUID buyerId);
 
 	Page<OrderListProjection> searchOrderproducts(
 		UUID buyerId,

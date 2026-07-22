@@ -9,10 +9,14 @@ public class SettlementApplication {
 
 	public static void main(String[] args) {
 		ConfigurableApplicationContext context = SpringApplication.run(SettlementApplication.class, args);
-		if ("cronjob".equalsIgnoreCase(
-			context.getEnvironment().getProperty("settlement.execution.mode"))) {
+		String executionMode = context.getEnvironment().getProperty("settlement.execution.mode");
+		if (isOneShotMode(executionMode)) {
 			System.exit(SpringApplication.exit(context));
 		}
 	}
 
+	static boolean isOneShotMode(String executionMode) {
+		return "cronjob".equalsIgnoreCase(executionMode)
+			|| "restart".equalsIgnoreCase(executionMode);
+	}
 }

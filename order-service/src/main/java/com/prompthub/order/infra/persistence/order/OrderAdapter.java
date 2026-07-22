@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -44,8 +45,13 @@ public class OrderAdapter implements OrderRepository {
 	}
 
 	@Override
-	public boolean existsPaidOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId) {
-		return orderPersistence.existsPaidOrderProductByBuyerIdAndProductId(buyerId, productId);
+	public boolean existsAccessiblePaidOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId) {
+		return orderPersistence.existsAccessiblePaidOrderProductByBuyerIdAndProductId(buyerId, productId);
+	}
+
+	@Override
+	public List<UUID> findAccessiblePaidProductIdsByBuyerId(UUID buyerId) {
+		return orderPersistence.findAccessiblePaidProductIdsByBuyerId(buyerId);
 	}
 
 	@Override
