@@ -95,4 +95,9 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	public List<Product> findAllByFamilyRootIds(List<UUID> familyRootIds) {
 		return productJpaRepository.findAllByFamilyRootIds(familyRootIds);
 	}
+
+	@Override
+	public List<Product> findAllByStatus(ProductStatus productStatus) {
+		return productJpaRepository.findByStatusAndDeletedAtIsNull(productStatus);
+	}
 }

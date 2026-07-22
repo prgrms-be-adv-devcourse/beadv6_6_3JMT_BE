@@ -238,4 +238,6 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			or p.parentId in :familyRootIds
 		""")
 	List<Product> findAllByFamilyRootIds(@Param("familyRootIds") List<UUID> familyRootIds);
+
+	List<Product> findByStatusAndDeletedAtIsNull(ProductStatus status);
 }
