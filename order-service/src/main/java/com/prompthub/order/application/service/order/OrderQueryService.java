@@ -190,6 +190,7 @@ public class OrderQueryService implements OrderQueryUseCase {
 			orderPolicyService.isRefundable(
 				projection.orderStatus(),
 				projection.orderProductStatus(),
+				projection.productAmount(),
 				projection.downloaded()
 			),
 			projection.downloaded(),
