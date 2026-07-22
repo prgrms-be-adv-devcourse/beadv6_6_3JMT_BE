@@ -154,6 +154,32 @@
 
 ---
 
+### POST /products/orders — 구매 상품 배치 상세 조회
+
+- 인증: 불필요
+- 용도: 마이페이지 "구매한 프롬프트" 목록 등 주문에서 얻은 productId 목록으로 카드 표시 정보를 한 번에 조회. 응답의 `sellerId`로 user-service `POST /users/order-products`를 이어서 호출해 판매자 이름을 채운다.
+- `POST /products/wishlists`와 요청/응답 계약이 동일하다(내부적으로 같은 조회를 재사용).
+
+#### Request
+
+**Body**
+
+```json
+{ "productIds": ["uuid1", "uuid2"] }
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| productIds | string(UUID)[] | Y | 조회할 상품 ID 목록 |
+
+#### Response
+
+**200 OK** — `POST /products/wishlists`와 동일한 item 구조(`productId`, `sellerId`, `title`, `amount`, `thumbnailUrl`, `productType`, `model`, `salesCount`, `averageRating`, `status`)
+
+요청한 productId 중 존재하지 않거나 현재 판매 중인 버전이 없는 상품은 응답 배열에서 제외된다.
+
+---
+
 ### GET /products/{productId} — 상품 상세 조회
 
 - 인증: 불필요

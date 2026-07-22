@@ -1,7 +1,7 @@
 package com.prompthub.product.presentation.controller;
 
 import com.prompthub.presentation.dto.ApiResult;
-import com.prompthub.product.application.usecase.ProductInternalUseCase;
+import com.prompthub.product.application.usecase.ProductReviewUseCase;
 import com.prompthub.product.presentation.dto.request.ReviewUpsertRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class ReviewController {
 
-	private final ProductInternalUseCase productInternalUseCase;
+	private final ProductReviewUseCase productReviewUseCase;
 
 	@PostMapping("/products/{productId}/reviews")
 	public ApiResult<Void> upsertReview(
@@ -26,7 +26,7 @@ public class ReviewController {
 		@PathVariable UUID productId,
 		@Valid @RequestBody ReviewUpsertRequest request
 	) {
-		productInternalUseCase.upsertReview(buyerId, productId, request.rating());
+		productReviewUseCase.upsertReview(buyerId, productId, request.rating());
 		return ApiResult.success();
 	}
 }
