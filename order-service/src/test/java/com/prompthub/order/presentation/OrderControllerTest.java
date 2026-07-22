@@ -1,6 +1,7 @@
 package com.prompthub.order.presentation;
 
 import com.prompthub.order.application.dto.RefundResult;
+import com.prompthub.order.application.dto.CreateOrderResult;
 import com.prompthub.order.application.usecase.ConfirmDownloadUseCase;
 import com.prompthub.order.application.usecase.CreateOrderUseCase;
 import com.prompthub.order.application.usecase.OrderQueryUseCase;
@@ -11,19 +12,18 @@ import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.GlobalExceptionHandler;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.global.web.AuthHeaders;
-import com.prompthub.order.presentation.dto.request.OrderPaymentValidationRequest;
 import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
-import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -33,10 +33,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
-import tools.jackson.databind.ObjectMapper;
-
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -52,14 +49,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import org.mockito.ArgumentMatchers;
 
 @ExtendWith(MockitoExtension.class)
 class OrderControllerTest {
 
 	private MockMvc mockMvc;
-
-	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@Mock
 	private ConfirmDownloadUseCase confirmDownloadUseCase;
@@ -90,52 +84,56 @@ class OrderControllerTest {
 	}
 
 
+	@Test
+	@DisplayName("payment-ready 경로는 더 이상 노출하지 않는다")
+	void paymentReadyRoute_returnsNotFound() throws Exception {
+		mockMvc.perform(post("/api/v2/orders/{orderId}/payment-ready", ORDER_ID)
+				.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
+			.andExpect(status().isNotFound());
 
-	@Nested
-	@DisplayName("결제 전 주문 검증 (POST /api/v1/orders/{orderId}/payment-ready)")
-	class ValidatePaymentReady {
+		verifyNoInteractions(orderQueryUseCase);
+	}
 
-		@Test
-		@DisplayName("결제 가능 주문이면 payable true를 반환한다")
-		void validatePaymentReady_success() throws Exception {
-			OrderPaymentValidationRequest request = new OrderPaymentValidationRequest(TOTAL_AMOUNT);
-			OrderPaymentValidationResponse response = new OrderPaymentValidationResponse(
-				true,
-				ORDER_ID,
-				BUYER_ID,
-				TOTAL_AMOUNT,
-				CREATED_AT.plusMinutes(20)
-			);
+	@Test
+	@DisplayName("무료 주문은 기존 응답 계약으로 완료 상태를 반환한다")
+	void createOrder_freeOrder_returnsCompletedResponse() throws Exception {
+		com.prompthub.order.domain.model.Order order =
+			com.prompthub.order.domain.model.Order.create(BUYER_ID, ORDER_NUMBER, 0);
+		order.addOrderProduct(com.prompthub.order.domain.model.OrderProduct.create(
+			PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, 0
+		));
+		order.completeFreeOrder();
+		when(createOrderUseCase.createOrder(eq(BUYER_ID), ArgumentMatchers.any()))
+			.thenReturn(CreateOrderResult.from(order));
 
-			when(orderQueryUseCase.validatePaymentReady(eq(BUYER_ID), eq(ORDER_ID), eq(TOTAL_AMOUNT), ArgumentMatchers.any(LocalDateTime.class)))
-				.thenReturn(response);
+		mockMvc.perform(post("/api/v2/orders")
+				.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"products":[{"productId":"%s","productTitle":"무료 상품"}]}
+					""".formatted(PRODUCT_ID_1)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.totalAmount").value(0))
+			.andExpect(jsonPath("$.data.order.orderStatus").value("COMPLETED"))
+			.andExpect(jsonPath("$.data.order.products[0].orderProductStatus").value("PAID"));
+	}
 
-			mockMvc.perform(post("/api/v2/orders/{orderId}/payment-ready", ORDER_ID)
-					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.contentType(MediaType.APPLICATION_JSON)
-					.content(objectMapper.writeValueAsString(request)))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.success").value(true))
-				.andExpect(jsonPath("$.data.payable").value(true))
-				.andExpect(jsonPath("$.data.orderId").value(ORDER_ID.toString()))
-				.andExpect(jsonPath("$.data.totalAmount").value(TOTAL_AMOUNT));
-		}
+	@Test
+	@DisplayName("중복 무료 구매는 O018과 409를 반환한다")
+	void createOrder_duplicateFreeProduct_returnsConflict() throws Exception {
+		when(createOrderUseCase.createOrder(eq(BUYER_ID), ArgumentMatchers.any()))
+			.thenThrow(new OrderException(ErrorCode.ORDER_PRODUCT_ALREADY_OWNED));
 
-		@Test
-		@DisplayName("만료된 주문이면 O015를 반환한다")
-		void validatePaymentReady_expiredOrder_conflict() throws Exception {
-			OrderPaymentValidationRequest request = new OrderPaymentValidationRequest(TOTAL_AMOUNT);
-			when(orderQueryUseCase.validatePaymentReady(eq(BUYER_ID), eq(ORDER_ID), eq(TOTAL_AMOUNT), ArgumentMatchers.any(LocalDateTime.class)))
-				.thenThrow(new OrderException(ErrorCode.ORDER_EXPIRED));
-
-			mockMvc.perform(post("/api/v2/orders/{orderId}/payment-ready", ORDER_ID)
-					.header(AuthHeaders.USER_ID, BUYER_ID.toString())
-					.contentType(MediaType.APPLICATION_JSON)
-					.content(objectMapper.writeValueAsString(request)))
-				.andExpect(status().isConflict())
-				.andExpect(jsonPath("$.success").value(false))
-				.andExpect(jsonPath("$.code").value(ErrorCode.ORDER_EXPIRED.getCode()));
-		}
+		mockMvc.perform(post("/api/v2/orders")
+				.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"products":[{"productId":"%s","productTitle":"무료 상품"}]}
+					""".formatted(PRODUCT_ID_1)))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value(ErrorCode.ORDER_PRODUCT_ALREADY_OWNED.getCode()));
 	}
 
 	@Nested

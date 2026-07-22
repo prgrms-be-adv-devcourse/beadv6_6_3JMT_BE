@@ -130,6 +130,31 @@ class SettlementOrderQueryRepositoryImplTest {
         );
     }
 
+	@Test
+	void findSettleableLines_includesCompletedFreeProductAsZeroPaidLine() {
+		UUID freeOrderId = UUID.fromString("00000000-0000-0000-0000-000000000104");
+		UUID freeProductId = UUID.fromString("00000000-0000-0000-0000-000000000204");
+		LocalDateTime completedAt = JULY_START.plusDays(3);
+		Order freeOrder = Order.create(BUYER_ID, "ORD-FREE", 0);
+		setId(freeOrder, freeOrderId);
+		freeOrder.addOrderProduct(product(freeProductId, SELLER_A_ID, 0));
+		freeOrder.markCompleted(completedAt);
+
+		entityManager.persist(freeOrder);
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(repository.findSettleableLines(JULY_START, AUGUST_START))
+			.containsExactly(line(
+				SettlementLineType.PAID,
+				freeOrderId,
+				freeProductId,
+				SELLER_A_ID,
+				0,
+				completedAt
+			));
+	}
+
     private OrderProduct product(UUID orderProductId, UUID sellerId, int amount) {
         OrderProduct product = OrderProduct.create(UUID.randomUUID(), sellerId, "상품 " + orderProductId, amount);
         setId(product, orderProductId);

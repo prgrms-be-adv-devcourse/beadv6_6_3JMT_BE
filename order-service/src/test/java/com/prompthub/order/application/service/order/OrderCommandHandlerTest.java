@@ -156,6 +156,24 @@ class OrderCommandHandlerTest {
 	}
 
 	@Test
+	@DisplayName("0원 snapshot은 주문 생성에 전달한다")
+	@SuppressWarnings("unchecked")
+	void zeroAmountSnapshotIsAccepted() {
+		CreateOrderResult expected = result();
+		given(productClient.getOrderSnapshots(requestedProductIds())).willReturn(zeroAmountSnapshots());
+		given(orderCreator.create(eq(BUYER_ID), anyList())).willReturn(expected);
+
+		CreateOrderResult actual = orderCommandHandler.createOrder(BUYER_ID, command());
+
+		assertThat(actual).isSameAs(expected);
+		ArgumentCaptor<List<OrderItem>> itemsCaptor = ArgumentCaptor.forClass(List.class);
+		then(orderCreator).should().create(eq(BUYER_ID), itemsCaptor.capture());
+		assertThat(itemsCaptor.getValue())
+			.extracting(OrderItem::amount)
+			.contains(0);
+	}
+
+	@Test
 	@DisplayName("Product Service 장애는 원본 예외를 보존하고 저장하지 않는다")
 	void productServiceFailureIsPreserved() {
 		BusinessException failure = new BusinessException(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE);
@@ -210,20 +228,21 @@ class OrderCommandHandlerTest {
 			shuffledSnapshots().get(1),
 			shuffledSnapshots().get(2)
 		);
-		List<ProductOrderSnapshot> zeroAmount = List.of(
-			snapshot(PRODUCT_A1, SELLER_A, "서버-A1", 0),
-			shuffledSnapshots().get(0),
-			shuffledSnapshots().get(1),
-			shuffledSnapshots().get(2)
-		);
-
 		return Stream.of(
 			Arguments.of("snapshot count mismatch", missing),
 			Arguments.of("unknown product id", unknown),
 			Arguments.of("duplicate snapshot", duplicated),
 			Arguments.of("null seller", nullSeller),
-			Arguments.of("negative amount", negativeAmount),
-			Arguments.of("zero amount", zeroAmount)
+			Arguments.of("negative amount", negativeAmount)
+		);
+	}
+
+	private static List<ProductOrderSnapshot> zeroAmountSnapshots() {
+		return List.of(
+			snapshot(PRODUCT_A1, SELLER_A, "서버-A1", 0),
+			shuffledSnapshots().get(0),
+			shuffledSnapshots().get(1),
+			shuffledSnapshots().get(2)
 		);
 	}
 

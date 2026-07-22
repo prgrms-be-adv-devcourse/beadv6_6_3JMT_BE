@@ -1,7 +1,6 @@
 package com.prompthub.product.presentation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.prompthub.product.application.usecase.ProductInternalUseCase;
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.application.usecase.ProductSellerUseCase;
 import com.prompthub.product.exception.ProductException;
@@ -56,15 +55,12 @@ class ProductControllerTest {
 	private ProductQueryUseCase productQueryUseCase;
 
 	@Mock
-	private ProductInternalUseCase productInternalUseCase;
-
-	@Mock
 	private ProductSellerUseCase productSellerUseCase;
 
 	@BeforeEach
 	void setUp() {
 		mockMvc = MockMvcBuilders.standaloneSetup(
-				new ProductController(productQueryUseCase, productInternalUseCase, productSellerUseCase))
+				new ProductController(productQueryUseCase, productSellerUseCase))
 			.setControllerAdvice(new ProductExceptionHandler())
 			.build();
 		objectMapper = new ObjectMapper();
@@ -154,7 +150,7 @@ class ProductControllerTest {
 		@Test
 		@DisplayName("등록 상품 수와 누적 판매 수를 반환한다")
 		void getMyProductSummary_success() throws Exception {
-			given(productInternalUseCase.getProductCount(SELLER_ID))
+			given(productSellerUseCase.getProductCount(SELLER_ID))
 				.willReturn(new com.prompthub.product.presentation.dto.response.ProductCountResponse(SELLER_ID, 3, 42));
 
 			mockMvc.perform(get("/api/v2/products/sellers/me/summary")
@@ -178,7 +174,7 @@ class ProductControllerTest {
 				PRODUCT_ID, SELLER_ID, "리액트 컴포넌트 리팩터링 도우미", 7900, null,
 				"PROMPT", "GPT-4o", 760, 4.7, "ON_SALE"
 			);
-			given(productInternalUseCase.getProductsByIds(List.of(PRODUCT_ID, productId2)))
+			given(productQueryUseCase.getProductsByIds(List.of(PRODUCT_ID, productId2)))
 				.willReturn(List.of(item));
 
 			mockMvc.perform(post("/api/v2/products/wishlists")
@@ -191,7 +187,36 @@ class ProductControllerTest {
 				.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID.toString()))
 				.andExpect(jsonPath("$.data[0].title").value("리액트 컴포넌트 리팩터링 도우미"));
 
-			verify(productInternalUseCase).getProductsByIds(List.of(PRODUCT_ID, productId2));
+			verify(productQueryUseCase).getProductsByIds(List.of(PRODUCT_ID, productId2));
+		}
+	}
+
+	@Nested
+	@DisplayName("POST /api/v2/products/orders")
+	class GetProductsForOrders {
+
+		@Test
+		@DisplayName("productId 목록으로 구매 상품 카드용 상품 정보를 배치 조회한다")
+		void getProductsForOrders_success() throws Exception {
+			UUID productId2 = UUID.fromString("55555555-5555-5555-5555-555555555555");
+			ProductsByIdsResponse item = new ProductsByIdsResponse(
+				PRODUCT_ID, SELLER_ID, "리액트 컴포넌트 리팩터링 도우미", 7900, null,
+				"PROMPT", "GPT-4o", 760, 4.7, "ON_SALE"
+			);
+			given(productQueryUseCase.getProductsByIds(List.of(PRODUCT_ID, productId2)))
+				.willReturn(List.of(item));
+
+			mockMvc.perform(post("/api/v2/products/orders")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(
+						new com.prompthub.product.presentation.dto.request.ProductsByIdsRequest(
+							List.of(PRODUCT_ID, productId2)))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data[0].sellerId").value(SELLER_ID.toString()));
+
+			verify(productQueryUseCase).getProductsByIds(List.of(PRODUCT_ID, productId2));
 		}
 	}
 

@@ -278,6 +278,24 @@ class ProductSellerServiceTest {
 		}
 	}
 
+	@Nested
+	@DisplayName("셀러 상품 수/판매수 조회")
+	class GetProductCount {
+
+		@Test
+		@DisplayName("product_count는 family 수, sales_count는 셀러 판매수 합으로 반환한다")
+		void getProductCount_returnsFamilyCountAndSalesSum() {
+			given(productRepository.countFamiliesBySellerId(SELLER_ID)).willReturn(3L);
+			given(productRepository.sumSalesCountBySellerId(SELLER_ID)).willReturn(1240L);
+
+			var response = productSellerService.getProductCount(SELLER_ID);
+
+			assertThat(response.sellerId()).isEqualTo(SELLER_ID);
+			assertThat(response.productCount()).isEqualTo(3L);
+			assertThat(response.salesCount()).isEqualTo(1240L);
+		}
+	}
+
 	private ProductUpdateRequest request(String versionType) {
 		return new ProductUpdateRequest(
 			"새 제목", "PROMPT", "model2", "새 설명", 2000, "content2",

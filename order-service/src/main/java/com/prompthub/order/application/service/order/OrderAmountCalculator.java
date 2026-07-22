@@ -23,7 +23,7 @@ final class OrderAmountCalculator {
 			}
 
 			int itemAmount = amountExtractor.applyAsInt(item);
-			if (itemAmount <= 0) {
+			if (itemAmount < 0) {
 				throw invalidInput();
 			}
 

@@ -15,7 +15,6 @@ import com.prompthub.order.presentation.dto.request.PageRequestParams;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
-import com.prompthub.order.presentation.dto.response.OrderPaymentValidationResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -54,9 +53,6 @@ class OrderQueryServiceTest {
     @Spy
     private OrderPolicyService orderPolicyService;
 
-    @Mock
-    private OrderExpirationPolicy expirationPolicy;
-
     @InjectMocks
     private OrderQueryService orderQueryService;
 
@@ -94,96 +90,6 @@ class OrderQueryServiceTest {
                 );
         }
     }
-
-
-    @Nested
-    @DisplayName("결제 전 주문 검증")
-    class ValidatePaymentReady {
-
-        @Test
-        @DisplayName("PENDING 상태이고 만료 전이며 금액이 일치하면 결제 가능 응답을 반환한다")
-		void validatePaymentReady_pendingNotExpiredAndAmountMatched_success() {
-            Order order = createPendingOrderWithProducts();
-            given(orderRepository.findByIdWithOrderProducts(order.getId()))
-                .willReturn(Optional.of(order));
-            given(expirationPolicy.paymentTimeoutMinutes()).willReturn(20);
-
-            OrderPaymentValidationResponse response = orderQueryService.validatePaymentReady(
-                BUYER_ID,
-                order.getId(),
-                TOTAL_AMOUNT,
-                CREATED_AT.plusMinutes(19)
-            );
-
-            assertThat(response.payable()).isTrue();
-            assertThat(response.orderId()).isEqualTo(order.getId());
-            assertThat(response.buyerId()).isEqualTo(BUYER_ID);
-            assertThat(response.totalAmount()).isEqualTo(TOTAL_AMOUNT);
-            assertThat(response.expiresAt()).isEqualTo(CREATED_AT.plusMinutes(20));
-		}
-
-		@Test
-		@DisplayName("한 주문의 네 주문상품이 서로 다른 판매자여도 단일 주문 총액으로 결제 가능 여부를 검증한다")
-		void validatePaymentReady_fourSellerProducts_usesSingleOrderTotalAmount() {
-			Order order = com.prompthub.order.fixture.PaymentEventFixture.createdOrder();
-			ReflectionTestUtils.setField(order, "createdAt", CREATED_AT);
-			given(orderRepository.findByIdWithOrderProducts(order.getId()))
-				.willReturn(Optional.of(order));
-			given(expirationPolicy.paymentTimeoutMinutes()).willReturn(20);
-
-			OrderPaymentValidationResponse response = orderQueryService.validatePaymentReady(
-				BUYER_ID,
-				order.getId(),
-				order.getTotalOrderAmount(),
-				CREATED_AT.plusMinutes(19)
-			);
-
-			assertThat(order.getOrderProducts()).hasSize(4);
-			assertThat(response.orderId()).isEqualTo(order.getId());
-			assertThat(response.totalAmount()).isEqualTo(order.getTotalOrderAmount());
-		}
-
-        @Test
-        @DisplayName("PENDING 상태여도 만료 시간이 지났으면 O015 예외가 발생한다")
-        void validatePaymentReady_expiredOrder_throwsException() {
-            Order order = createPendingOrderWithProducts();
-            given(orderRepository.findByIdWithOrderProducts(order.getId()))
-                .willReturn(Optional.of(order));
-            given(expirationPolicy.paymentTimeoutMinutes()).willReturn(20);
-
-            assertThatThrownBy(() -> orderQueryService.validatePaymentReady(
-                BUYER_ID,
-                order.getId(),
-                TOTAL_AMOUNT,
-                CREATED_AT.plusMinutes(20)
-            ))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.ORDER_EXPIRED)
-                );
-        }
-
-        @Test
-        @DisplayName("결제 요청 금액이 주문 금액과 다르면 O014 예외가 발생한다")
-        void validatePaymentReady_amountMismatch_throwsException() {
-            Order order = createPendingOrderWithProducts();
-            given(orderRepository.findByIdWithOrderProducts(order.getId()))
-                .willReturn(Optional.of(order));
-            given(expirationPolicy.paymentTimeoutMinutes()).willReturn(20);
-
-            assertThatThrownBy(() -> orderQueryService.validatePaymentReady(
-                BUYER_ID,
-                order.getId(),
-                PRODUCT_AMOUNT_1,
-                CREATED_AT.plusMinutes(19)
-            ))
-                .isInstanceOf(OrderException.class)
-                .satisfies(exception ->
-                    assertThat(((OrderException) exception).getErrorCode()).isEqualTo(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH)
-                );
-        }
-    }
-
     @Nested
     @DisplayName("구매 상품 콘텐츠 열람")
     class GetOrderContent {
@@ -758,11 +664,11 @@ class OrderQueryServiceTest {
 			OrderListProjection refundable = orderListProjection(OrderStatus.COMPLETED, OrderProductStatus.PAID, false, null);
 			OrderListProjection downloaded = new OrderListProjection(
 				ORDER_ID, UUID.randomUUID(), PRODUCT_ID_2, OrderStatus.COMPLETED, OrderProductStatus.PAID,
-				true, PRODUCT_TYPE_PROMPT, PRODUCT_TITLE_2, PRODUCT_MODEL, null, PAID_AT, CREATED_AT
+				PRODUCT_AMOUNT_2, true, PRODUCT_TYPE_PROMPT, PRODUCT_TITLE_2, PRODUCT_MODEL, null, PAID_AT, CREATED_AT
 			);
 			OrderListProjection refunded = new OrderListProjection(
 				ORDER_ID, UUID.randomUUID(), UUID.randomUUID(), OrderStatus.PARTIAL_REFUNDED, OrderProductStatus.REFUNDED,
-				false, PRODUCT_TYPE_PROMPT, "환불 상품", PRODUCT_MODEL, null, PAID_AT, CREATED_AT
+				PRODUCT_AMOUNT_1, false, PRODUCT_TYPE_PROMPT, "환불 상품", PRODUCT_MODEL, null, PAID_AT, CREATED_AT
 			);
 			given(orderRepository.searchOrderproducts(BUYER_ID, null, null, null, pageable))
 				.willReturn(new PageImpl<>(List.of(refundable, downloaded, refunded), pageable, 3));

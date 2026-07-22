@@ -2,6 +2,7 @@ package com.prompthub.product.application.usecase;
 
 import com.prompthub.product.presentation.dto.request.ProductCreateRequest;
 import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
+import com.prompthub.product.presentation.dto.response.ProductCountResponse;
 import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductListItemResponse;
@@ -21,4 +22,6 @@ public interface ProductSellerUseCase {
 	SellerProductDetailResponse getMyProduct(UUID sellerId, UUID productId);
 
 	void submitForReview(UUID sellerId, UUID productId);
+
+	ProductCountResponse getProductCount(UUID sellerId);
 }

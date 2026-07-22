@@ -91,9 +91,12 @@
 
 - 인증: 필요
 - 필요 헤더: `X-User-Id`
-- 요청 상품 목록으로 `PENDING` 주문과 주문 상품을 생성한다.
+- 요청 상품 목록과 상품 금액 스냅샷으로 주문을 생성한다. 개별 금액 0은 허용하고 음수는 거부한다.
+- 총액 0이면 주문은 즉시 `COMPLETED`, 주문상품은 `PAID`가 되며 기존 `ORDER_PAID` 이벤트를 발행한다.
+- 총액이 양수인 유료·혼합 주문은 주문 `CREATED`, 주문상품 `PENDING`을 유지하고 기존 결제 승인 흐름을 따른다.
+- 이미 접근 가능한 무료 상품을 다시 요청하면 `O018`로 거부한다.
 - 주문 생성 트랜잭션에서 요청 상품만 구매자 장바구니에서 제거한다.
-- DB 커밋 이후 Redis Sorted Set `order:expiration`에 만료 후보를 등록한다.
+- 유료·혼합 주문만 DB 커밋 이후 Redis Sorted Set `order:expiration`에 만료 후보를 등록한다.
 - 만료 기준은 `createdAt + 20분`이며, 결제 완료 전까지 `PENDING` 상태로 유지된다.
 
 #### Request
@@ -120,7 +123,7 @@
 | orderId | UUID | 생성된 주문 ID |
 | orderNumber | String | 사용자 노출 주문 번호 |
 | buyerId | UUID | 구매자 ID |
-| orderStatus | Enum | 주문 상태. 생성 직후 `PENDING` |
+| orderStatus | Enum | 주문 상태. 양수 주문은 생성 직후 `CREATED`, 0원 주문은 즉시 `COMPLETED` |
 | products[].orderProductId | UUID | 주문 상품 ID |
 | products[].productId | UUID | 상품 ID |
 | products[].sellerId | UUID | 판매자 ID |
@@ -128,7 +131,7 @@
 | products[].productTypeSnapshot | String | 주문 시점 상품 유형 스냅샷 |
 | products[].productModelSnapshot | String \| null | 주문 시점 상품 모델명/분류 스냅샷 |
 | products[].productAmountSnapshot | Integer | 주문 시점 상품 금액 스냅샷 |
-| products[].orderStatus | Enum | 주문 상품 상태. 생성 직후 `PENDING` |
+| products[].orderStatus | Enum | 주문 상품 상태. 양수 주문은 생성 직후 `PENDING`, 0원 주문은 즉시 `PAID` |
 | totalAmount | Integer | 총 주문 금액 |
 | createdAt | DateTime | 주문 생성 시각 |
 | canceledAt | DateTime \| null | 주문 취소 시각. 생성 직후 `null` |
@@ -140,7 +143,7 @@
     "orderId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
     "orderNumber": "ORD-20260618-000001",
     "buyerId": "7c2f6e91-2c1b-4a3b-9f99-3f527f7d1234",
-    "orderStatus": "PENDING",
+    "orderStatus": "CREATED",
     "products": [
       {
         "orderProductId": "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa",
@@ -168,73 +171,8 @@
 | 400 | V001 | 입력값 검증 실패 |
 | 401 | A003 | 인증 실패 |
 | 403 | A004 | 권한 없음 |
+| 409 | O018 | 이미 접근 가능한 무료 상품 중복 구매 |
 | 503 | SYS002 | 상품 서비스 사용 불가 |
-
----
-
-### POST /orders/{orderId}/payment-ready - 결제 승인 전 주문 검증
-
-- 인증: 필요
-- 필요 헤더: `X-User-Id`
-- Payment Service가 PG 승인 요청 전에 호출할 수 있는 주문 검증 API이다.
-- Order Service는 주문 존재 여부, 구매자 일치, 주문 상태, 만료 시간, 결제 금액을 DB 기준으로 검증한다.
-- `payment-service` 구현은 이 문서 범위에서 수정하지 않는다.
-
-#### Path Parameters
-
-| 파라미터 | 타입 | 설명 |
-|---------|------|------|
-| orderId | UUID | 결제하려는 주문 ID |
-
-#### Request
-
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|:----:|------|
-| amount | Integer | O | PG 승인 요청 예정 금액 |
-
-```json
-{
-  "amount": 30000
-}
-```
-
-#### Response
-
-`200 OK`
-
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| payable | Boolean | 결제 가능 여부. 성공 응답에서는 `true` |
-| orderId | UUID | 주문 ID |
-| buyerId | UUID | 구매자 ID |
-| totalAmount | Integer | 주문 총 금액 |
-| expiresAt | DateTime | 결제 가능 만료 시각 |
-
-```json
-{
-  "success": true,
-  "data": {
-    "payable": true,
-    "orderId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
-    "buyerId": "7c2f6e91-2c1b-4a3b-9f99-3f527f7d1234",
-    "totalAmount": 30000,
-    "expiresAt": "2026-06-18T14:50:00"
-  },
-  "message": "success"
-}
-```
-
-#### Error
-
-| Status Code | Error Code | 설명 |
-|-------------|------------|------|
-| 400 | V001 | 입력값 검증 실패 |
-| 400 | O014 | 주문 금액과 결제 요청 금액 불일치 |
-| 401 | A003 | 인증 실패 |
-| 403 | A004 | 구매자 불일치 |
-| 404 | O001 | 주문 없음 |
-| 409 | O010 | 주문 상태가 `PENDING`이 아님 |
-| 409 | O015 | 결제 가능 시간이 만료됨 |
 
 ---
 

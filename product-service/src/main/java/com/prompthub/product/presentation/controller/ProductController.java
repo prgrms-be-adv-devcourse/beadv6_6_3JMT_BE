@@ -1,6 +1,5 @@
 package com.prompthub.product.presentation.controller;
 
-import com.prompthub.product.application.usecase.ProductInternalUseCase;
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.application.usecase.ProductSellerUseCase;
 import com.prompthub.product.presentation.dto.request.ProductCreateRequest;
@@ -39,7 +38,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProductController {
 
 	private final ProductQueryUseCase productQueryUseCase;
-	private final ProductInternalUseCase productInternalUseCase;
 	private final ProductSellerUseCase productSellerUseCase;
 
 	@GetMapping("/products")
@@ -64,7 +62,12 @@ public class ProductController {
 
 	@PostMapping("/products/wishlists")
 	public ApiResult<List<ProductsByIdsResponse>> getProductsByIds(@Valid @RequestBody ProductsByIdsRequest request) {
-		return ApiResult.success(productInternalUseCase.getProductsByIds(request.productIds()));
+		return ApiResult.success(productQueryUseCase.getProductsByIds(request.productIds()));
+	}
+
+	@PostMapping("/products/orders")
+	public ApiResult<List<ProductsByIdsResponse>> getProductsForOrders(@Valid @RequestBody ProductsByIdsRequest request) {
+		return ApiResult.success(productQueryUseCase.getProductsByIds(request.productIds()));
 	}
 
 	@GetMapping("/products/sellers/me")
@@ -78,7 +81,7 @@ public class ProductController {
 	public ApiResult<ProductCountResponse> getMyProductSummary(
 		@RequestHeader("X-User-Id") UUID sellerId
 	) {
-		return ApiResult.success(productInternalUseCase.getProductCount(sellerId));
+		return ApiResult.success(productSellerUseCase.getProductCount(sellerId));
 	}
 
 	@GetMapping("/products/{productId}")
