@@ -25,7 +25,7 @@ class AiSettlementPropertiesTest {
 
             AiSettlementProperties properties = context.getBean(AiSettlementProperties.class);
             assertThat(properties.model()).isEqualTo("gpt-5.6-luna");
-            assertThat(properties.reasoningEffort()).isEqualTo("none");
+            assertThat(properties.reasoningEffort()).isEqualTo("low");
             assertThat(properties.maxCompletionTokens()).isEqualTo(2_000);
             assertThat(properties.historyMaxTokens()).isEqualTo(8_000);
             assertThat(properties.runTimeout()).isEqualTo(Duration.ofSeconds(90));

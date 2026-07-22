@@ -15,7 +15,7 @@ import java.util.Set;
 @ConfigurationProperties(prefix = "ai")
 public record AiSettlementProperties(
         @DefaultValue("gpt-5.6-luna") @NotBlank String model,
-        @DefaultValue("none") @NotBlank String reasoningEffort,
+        @DefaultValue("low") @NotBlank String reasoningEffort,
         @DefaultValue("2000") @Min(1) int maxCompletionTokens,
         @DefaultValue("8000") @Min(1) int historyMaxTokens,
         @DefaultValue("90s") @NotNull Duration runTimeout,

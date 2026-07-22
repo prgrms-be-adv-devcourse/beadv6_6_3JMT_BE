@@ -519,7 +519,7 @@ System prompt와 애플리케이션 검증은 다음 규칙을 고정한다.
 | 설정 | 값 |
 | --- | --- |
 | 모델 | `${OPENAI_MODEL:gpt-5.6-luna}` |
-| reasoning effort | `${OPENAI_REASONING_EFFORT:none}` |
+| reasoning effort | `${OPENAI_REASONING_EFFORT:low}` |
 | 최대 completion | `${OPENAI_MAX_COMPLETION_TOKENS:2000}` |
 | 대화 문맥 | `${AI_CHAT_HISTORY_MAX_TOKENS:8000}` |
 | OpenAI 저장 | `store=false` |
@@ -1014,7 +1014,7 @@ ai:
     chat:
       enabled: ${AI_SETTLEMENT_CHAT_ENABLED:false}
   model: ${OPENAI_MODEL:gpt-5.6-luna}
-  reasoning-effort: ${OPENAI_REASONING_EFFORT:none}
+  reasoning-effort: ${OPENAI_REASONING_EFFORT:low}
   max-completion-tokens: ${OPENAI_MAX_COMPLETION_TOKENS:2000}
   history-max-tokens: ${AI_CHAT_HISTORY_MAX_TOKENS:8000}
   run-timeout: ${AI_RUN_TIMEOUT:90s}
@@ -1172,7 +1172,7 @@ consumer offset을 운영 runbook에 따라 정리한다. 애플리케이션 mig
 - User V3와 Settlement V3가 합의된 정산 데이터만 초기화하고 schema를 관리한다.
 - 공유 User proto와 네 개 RPC가 생성되고 actor metadata와 내부 token을 검증한다.
 - 네 개 Tool이 ID가 아닌 기간을 입력받아 User의 집계만 반환한다.
-- AI 서비스가 수동 최대 4라운드 loop와 Luna none 설정으로 답한다.
+- AI 서비스가 수동 최대 4라운드 loop와 Luna low 설정으로 답한다.
 - 대화 20 pair, 24시간 TTL, actor당 run 1개와 Pod당 초기 4개 제한이 동작한다.
 - SSE가 fetch Bearer 인증, heartbeat, reconnect, terminal full answer와 cancel을 지원한다.
 - partial 답변, 원본 Detail·ID·개인정보와 hidden reasoning이 저장·노출되지 않는다.

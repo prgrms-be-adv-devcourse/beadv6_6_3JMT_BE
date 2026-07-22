@@ -134,7 +134,7 @@ Redis, Spring MVC `SseEmitter`, Kubernetes
 - `scripts/smoke-ai-settlement.sh`
 
 - [x] `/api/{version}/ai/**`를 AI로 라우팅하고 현재 Gateway 정책은 SELLER로 고정한다.
-- [x] Luna none, 90초, 재시도 1회, 8,000 token, 동시 실행 4와 기능 flag 설정을 추가한다.
+- [x] Luna low, 90초, 재시도 1회, 8,000 token, 동시 실행 4와 기능 flag 설정을 추가한다.
 - [x] AI와 User가 공유하는 production gRPC target을 Config에 명시한다.
 - [x] CI 변경 감지와 AI build job, CD release order와 smoke 문서를 추가한다.
 - [x] 전체 Config/Gateway/워크플로 계약 검증을 다시 통과시킨다.
