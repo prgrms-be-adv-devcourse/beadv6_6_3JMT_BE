@@ -57,6 +57,13 @@ resilience4j:
         slow-call-rate-threshold: 50
         wait-duration-in-open-state: 30s
         permitted-number-of-calls-in-half-open-state: 3
+        ignore-exceptions:
+          - io.github.resilience4j.bulkhead.BulkheadFullException
+  bulkhead:
+    instances:
+      toss-confirm-bulkhead:
+        max-concurrent-calls: 20
+        max-wait-duration: 200ms
 
 eureka:
   client:

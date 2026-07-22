@@ -34,7 +34,7 @@
 - Consumes: 없음
 - Produces: `TossBulkheadConfig`의 빈 2개 — `BulkheadRegistry tossBulkheadRegistry(int, Duration)`, `Bulkhead tossConfirmBulkhead(BulkheadRegistry)`(빈 이름 `"tossConfirmBulkhead"`) — Task 2의 `TossPaymentGateway` 생성자가 주입받아 사용
 
-- [ ] **Step 1: build.gradle에 의존성 추가**
+- [x] **Step 1: build.gradle에 의존성 추가**
 
 `build.gradle`의 `dependencies` 블록에서 기존 resilience4j 줄 바로 아래에 추가:
 
@@ -44,12 +44,12 @@
     implementation 'io.github.resilience4j:resilience4j-bulkhead:2.4.0'
 ```
 
-- [ ] **Step 2: 빌드 확인**
+- [x] **Step 2: 빌드 확인**
 
 Run: `../gradlew :payment-service:compileJava`
 Expected: BUILD SUCCESSFUL (새 의존성이 정상적으로 resolve됨)
 
-- [ ] **Step 3: 실패 테스트 작성**
+- [x] **Step 3: 실패 테스트 작성**
 
 ```java
 package com.prompthub.payment.infrastructure.external.toss;
@@ -78,12 +78,12 @@ class TossBulkheadConfigTest {
 }
 ```
 
-- [ ] **Step 4: 테스트 실행해서 실패 확인**
+- [x] **Step 4: 테스트 실행해서 실패 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.external.toss.TossBulkheadConfigTest"`
 Expected: FAIL — `TossBulkheadConfig` 클래스가 없어 컴파일 에러
 
-- [ ] **Step 5: 최소 구현**
+- [x] **Step 5: 최소 구현**
 
 ```java
 package com.prompthub.payment.infrastructure.external.toss;
@@ -127,12 +127,12 @@ public class TossBulkheadConfig {
 }
 ```
 
-- [ ] **Step 6: 테스트 실행해서 통과 확인**
+- [x] **Step 6: 테스트 실행해서 통과 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.external.toss.TossBulkheadConfigTest"`
 Expected: PASS
 
-- [ ] **Step 7: yml 3곳에 설정값 반영**
+- [x] **Step 7: yml 3곳에 설정값 반영**
 
 `src/main/resources/application-local.yml`의 기존 `resilience4j:` 블록을 아래로 교체(`ignore-exceptions` 추가 + `bulkhead` 섹션 신설):
 
@@ -203,12 +203,12 @@ resilience4j:
         max-wait-duration: 200ms
 ```
 
-- [ ] **Step 8: 전체 테스트 스위트 실행 — 회귀 확인**
+- [x] **Step 8: 전체 테스트 스위트 실행 — 회귀 확인**
 
 Run: `JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test`
 Expected: BUILD SUCCESSFUL (이 시점엔 아직 `TossPaymentGateway`가 `TossBulkheadConfig`의 빈을 쓰지 않으므로 기존 테스트에 영향 없음 — 다음 Task에서 실제 연결)
 
-- [ ] **Step 9: 커밋**
+- [x] **Step 9: 커밋**
 
 ```bash
 git add build.gradle src/main/java/com/prompthub/payment/infrastructure/external/toss/TossBulkheadConfig.java src/test/java/com/prompthub/payment/infrastructure/external/toss/TossBulkheadConfigTest.java src/main/resources/application-local.yml src/test/resources/application-test.yml ../config/src/main/resources/configs/payment-service.yml
