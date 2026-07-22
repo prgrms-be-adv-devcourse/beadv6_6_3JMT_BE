@@ -3,6 +3,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if ! grep -Fxq 'ENV TZ=Asia/Seoul' "${ROOT_DIR}/Dockerfile" \
+  || ! grep -Fxq 'ENTRYPOINT ["java", "-Duser.timezone=Asia/Seoul", "-jar", "/app/app.jar"]' "${ROOT_DIR}/Dockerfile"; then
+  echo "application Docker image must use the Asia/Seoul JVM time zone" >&2
+  exit 1
+fi
+
 PACKAGES=(
   "k8s/addons/nginx-ingress"
   "k8s/base/storage"
@@ -72,6 +79,22 @@ for package in "${PACKAGES[@]}"; do
     && ! grep -Eq '^[[:space:]]+enableServiceLinks:[[:space:]]+false$' "${rendered}"; then
     echo "Kafka must disable Kubernetes Service environment links" >&2
     exit 1
+  fi
+
+  if [[ "${package}" == "k8s/base/infrastructure/postgres" ]]; then
+    required_patterns=(
+      '^[[:space:]]+- -c$'
+      '^[[:space:]]+- timezone=Asia/Seoul$'
+      '^[[:space:]]+- name:[[:space:]]+TZ$'
+      '^[[:space:]]+value:[[:space:]]+Asia/Seoul$'
+    )
+
+    for pattern in "${required_patterns[@]}"; do
+      if ! grep -Eq -- "${pattern}" "${rendered}"; then
+        echo "missing PostgreSQL KST contract: ${pattern}" >&2
+        exit 1
+      fi
+    done
   fi
 
   if [[ "${package}" == "k8s/base/services/settlement" ]]; then

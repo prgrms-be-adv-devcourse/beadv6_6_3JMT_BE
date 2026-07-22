@@ -6,9 +6,9 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
 import com.prompthub.settlement.application.usecase.OutboxEventUseCase;
+import com.prompthub.settlement.global.config.SettlementClockConfig;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -38,7 +38,7 @@ class OutboxTaskletTest {
 
         // then
         LocalDateTime cutoff = LocalDateTime.ofInstant(
-                Instant.ofEpochMilli(requestedAt), ZoneId.systemDefault());
+                Instant.ofEpochMilli(requestedAt), SettlementClockConfig.SETTLEMENT_ZONE);
         then(useCase).should().flushPendingBefore(cutoff);
         assertThat(result).isEqualTo(RepeatStatus.FINISHED);
     }
