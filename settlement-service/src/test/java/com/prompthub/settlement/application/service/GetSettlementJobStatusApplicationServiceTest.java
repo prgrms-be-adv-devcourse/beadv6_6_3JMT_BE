@@ -18,13 +18,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class SettlementJobStatusApplicationServiceTest {
+class GetSettlementJobStatusApplicationServiceTest {
 
     @Mock
     private SettlementJobQuery settlementJobQuery;
 
     @InjectMocks
-    private SettlementJobStatusApplicationService service;
+    private GetSettlementJobStatusApplicationService service;
 
     @Test
     @DisplayName("잡 실행 이력이 있으면 상태 결과를 반환한다")

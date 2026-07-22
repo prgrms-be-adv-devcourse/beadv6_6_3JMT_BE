@@ -1,8 +1,8 @@
-package com.prompthub.settlement.infrastructure.batch.launcher;
+package com.prompthub.settlement.infrastructure.batch.execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.prompthub.settlement.application.dto.RunSettlementJobCommand;
+import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
 import com.prompthub.settlement.domain.model.SettlementPeriod;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -21,7 +21,7 @@ class SettlementJobParametersFactoryTest {
     @Test
     void create_usesOnlyPeriodDatesAsIdentifyingParameters() {
         JobParameters parameters = factory.create(
-                RunSettlementJobCommand.manual(PERIOD, ACTOR_ID));
+                RunSettlementBatchCommand.manual(PERIOD, ACTOR_ID));
 
         assertThat(parameters.getString("periodStart")).isEqualTo("2026-07-13");
         assertThat(parameters.getString("periodEnd")).isEqualTo("2026-07-19");
@@ -34,7 +34,7 @@ class SettlementJobParametersFactoryTest {
 
     @Test
     void create_omitsActorIdForScheduledExecution() {
-        JobParameters parameters = factory.create(RunSettlementJobCommand.scheduled(PERIOD));
+        JobParameters parameters = factory.create(RunSettlementBatchCommand.scheduled(PERIOD));
 
         assertThat(parameters.getParameter("actorId")).isNull();
         assertThat(parameters.getString("triggerType")).isEqualTo("SCHEDULED");

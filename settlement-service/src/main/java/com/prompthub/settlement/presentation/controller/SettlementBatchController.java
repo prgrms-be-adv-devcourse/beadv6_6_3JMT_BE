@@ -7,7 +7,7 @@ import com.prompthub.settlement.application.dto.SettlementJobStatusResult;
 import com.prompthub.settlement.application.usecase.GetSettlementJobStatusUseCase;
 import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
 import com.prompthub.settlement.global.web.AuthHeaders;
-import com.prompthub.settlement.presentation.dto.request.RunSettlementJobRequest;
+import com.prompthub.settlement.presentation.dto.request.RunSettlementBatchRequest;
 import com.prompthub.settlement.presentation.dto.response.SettlementJobResponse;
 import com.prompthub.settlement.presentation.dto.response.SettlementJobStatusResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -58,7 +58,7 @@ public class SettlementBatchController {
 	})
 	public ApiResult<SettlementJobResponse> run(
 		@Parameter(hidden = true) @RequestHeader(AuthHeaders.USER_ID) UUID actorId,
-		@Valid @RequestBody RunSettlementJobRequest request
+		@Valid @RequestBody RunSettlementBatchRequest request
 	) {
 		SettlementJobResult result = runSettlementBatchUseCase.run(request.toCommand(actorId));
 		return ApiResult.success(SettlementJobResponse.from(result));

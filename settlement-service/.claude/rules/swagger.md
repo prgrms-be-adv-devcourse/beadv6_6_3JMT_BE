@@ -51,7 +51,7 @@ public class SettlementBatchController {
     @Operation(summary = "정산 배치잡 실행",
             description = "정산 기준일의 미정산 PAID 주문을 정산하는 Batch Job을 실행합니다.")
     public ResponseEntity<SettlementJobResponse> run(
-            @Valid @RequestBody RunSettlementJobRequest request) {
+            @Valid @RequestBody RunSettlementBatchRequest request) {
         ...
     }
 }
@@ -72,7 +72,7 @@ public class SettlementBatchController {
 
 ```java
 @Schema(description = "정산 배치잡 실행 요청")
-public record RunSettlementJobRequest(
+public record RunSettlementBatchRequest(
         @Schema(description = "정산 기준일", example = "2026-06-03")
         LocalDate settlementDate,
 

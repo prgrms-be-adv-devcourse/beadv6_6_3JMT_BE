@@ -7,7 +7,7 @@ import java.util.UUID;
 
 /**
  * order-service 에서 gRPC 로 조회한 정산 대상 라인 1건.
- * OrderSettlementQueryPort 가 반환하며, 멱등키(orderProductId + lineType)는 적재 시 정산이 파생한다.
+ * OrderSettlementQuery 가 반환하며, 멱등키(orderProductId + lineType)는 적재 시 정산이 파생한다.
  */
 public record SettleableLine(
         SettlementSourceLineType lineType,

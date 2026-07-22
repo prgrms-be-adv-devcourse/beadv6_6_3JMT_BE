@@ -8,7 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.prompthub.settlement.application.dto.SettleableLine;
-import com.prompthub.settlement.application.port.OrderSettlementQueryPort;
+import com.prompthub.settlement.application.port.OrderSettlementQuery;
 import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.model.enums.SettlementSourceLineType;
@@ -29,7 +29,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class SettlementSourceLoadServiceTest {
+class LoadSettlementSourceApplicationServiceTest {
 
     private static final SettlementPeriod PERIOD = SettlementPeriod.of(
             LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 7));
@@ -38,10 +38,10 @@ class SettlementSourceLoadServiceTest {
     private SettlementSourceRepository settlementSourceRepository;
 
     @Mock
-    private OrderSettlementQueryPort orderSettlementQueryPort;
+    private OrderSettlementQuery orderSettlementQuery;
 
     @InjectMocks
-    private SettlementSourceApplicationService service;
+    private LoadSettlementSourceApplicationService service;
 
     @Captor
     private ArgumentCaptor<List<SettlementSourceLine>> savedLinesCaptor;
@@ -69,7 +69,7 @@ class SettlementSourceLoadServiceTest {
                         newPaidOrderProductId, seller, new BigDecimal("2000"), occurredAt),
                 new SettleableLine(SettlementSourceLineType.REFUND, orderId,
                         newRefundOrderProductId, seller, new BigDecimal("500"), occurredAt));
-        given(orderSettlementQueryPort.fetchSettleableLines(PERIOD)).willReturn(lines);
+        given(orderSettlementQuery.fetchSettleableLines(PERIOD)).willReturn(lines);
         given(settlementSourceRepository.findExistingEventIds(anyCollection()))
                 .willReturn(List.of(eventId(existingOrderProductId, SettlementSourceLineType.PAID)));
 
@@ -94,7 +94,7 @@ class SettlementSourceLoadServiceTest {
     @DisplayName("조회 결과가 비면 저장을 호출하지 않고 0을 반환한다")
     void load_empty_noSave() {
         // given
-        given(orderSettlementQueryPort.fetchSettleableLines(PERIOD)).willReturn(List.of());
+        given(orderSettlementQuery.fetchSettleableLines(PERIOD)).willReturn(List.of());
 
         // when
         int saved = service.load(PERIOD);
