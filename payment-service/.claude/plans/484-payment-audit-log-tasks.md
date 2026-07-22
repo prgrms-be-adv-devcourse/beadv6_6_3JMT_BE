@@ -39,7 +39,7 @@
 - Produces: `AuditLogRepository.save(AuditLog auditLog): AuditLog` — Task 2가 사용
 - Produces: `AuditLog` getter — `getId()`, `getEntityType()`, `getEntityId()`, `getEventType()`, `getActorId()`, `getNewStatus()`, `getDetail()`, `getOccurredAt()`, `getCreatedAt()` (Lombok `@Getter`)
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 `src/test/java/com/prompthub/payment/infrastructure/persistence/AuditLogJpaRepositoryTest.java`:
 
@@ -89,12 +89,12 @@ class AuditLogJpaRepositoryTest extends AbstractJpaTest {
 }
 ```
 
-- [ ] **Step 2: 테스트 실패 확인**
+- [x] **Step 2: 테스트 실패 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.persistence.AuditLogJpaRepositoryTest"`
 Expected: FAIL — `AuditEntityType`, `AuditEventType`, `AuditLog`, `AuditLogJpaRepository` 심볼을 찾을 수 없어 컴파일 자체가 실패한다.
 
-- [ ] **Step 3: enum 두 개 작성**
+- [x] **Step 3: enum 두 개 작성**
 
 `src/main/java/com/prompthub/payment/domain/model/AuditEntityType.java`:
 
@@ -120,7 +120,7 @@ public enum AuditEventType {
 }
 ```
 
-- [ ] **Step 4: `AuditLog` 도메인 엔티티 작성**
+- [x] **Step 4: `AuditLog` 도메인 엔티티 작성**
 
 `src/main/java/com/prompthub/payment/domain/model/AuditLog.java`:
 
@@ -227,7 +227,7 @@ public class AuditLog {
 
 `occurred_at`의 소스는 이벤트별로 다르다 — `PAYMENT_APPROVED`는 `payment.getApprovedAt()`, `PAYMENT_FAILED`는 `payment.getFailedAt()`, `PAYMENT_REFUNDED`는 `refund.getCompletedAt()`(모두 엔티티에 이미 존재하는 정확한 값). `PAYMENT_REFUND_FAILED`만 `Refund`에 `failedAt` 컬럼이 없어 `OffsetDateTime.now()` 근사치를 쓴다 — 이 근사치를 정확한 값으로 교체하는 후속 작업은 `.claude/plans/TBD-refund-reason-split.md`에 별도로 정리되어 있다.
 
-- [ ] **Step 5: domain repository 인터페이스 작성**
+- [x] **Step 5: domain repository 인터페이스 작성**
 
 `src/main/java/com/prompthub/payment/domain/repository/AuditLogRepository.java`:
 
@@ -241,7 +241,7 @@ public interface AuditLogRepository {
 }
 ```
 
-- [ ] **Step 6: JPA repository + adapter 작성**
+- [x] **Step 6: JPA repository + adapter 작성**
 
 `src/main/java/com/prompthub/payment/infrastructure/persistence/AuditLogJpaRepository.java`:
 
@@ -279,7 +279,7 @@ public class AuditLogRepositoryAdapter implements AuditLogRepository {
 }
 ```
 
-- [ ] **Step 7: Flyway V8 마이그레이션 작성**
+- [x] **Step 7: Flyway V8 마이그레이션 작성**
 
 `src/main/resources/db/migration/V8__create_audit_log.sql`:
 
@@ -304,12 +304,12 @@ CREATE TABLE audit_log (
 CREATE INDEX idx_audit_log_entity ON audit_log (entity_type, entity_id);
 ```
 
-- [ ] **Step 8: 테스트 통과 확인**
+- [x] **Step 8: 테스트 통과 확인**
 
 Run: `../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.persistence.AuditLogJpaRepositoryTest"`
 Expected: PASS
 
-- [ ] **Step 9: `db-schema.md`에 `audit_log` 테이블 문서 추가**
+- [x] **Step 9: `db-schema.md`에 `audit_log` 테이블 문서 추가**
 
 `.claude/docs/db-schema.md` 파일 끝(86행, `refund` 테이블 섹션 뒤)에 아래 섹션을 추가:
 
@@ -342,7 +342,7 @@ Expected: PASS
 | `idx_audit_log_entity` | (`entity_type`, `entity_id`) | 엔티티별 이력 조회 |
 ```
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add src/main/java/com/prompthub/payment/domain/model/AuditEntityType.java \
