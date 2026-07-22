@@ -24,7 +24,7 @@ eureka:
 
 ai:
   model: ${OPENAI_MODEL:gpt-5.6-luna}
-  reasoning-effort: ${OPENAI_REASONING_EFFORT:low}
+  reasoning-effort: ${OPENAI_REASONING_EFFORT:none}
   max-completion-tokens: ${OPENAI_MAX_COMPLETION_TOKENS:2000}
   history-max-tokens: ${AI_CHAT_HISTORY_MAX_TOKENS:8000}
   run-timeout: ${AI_RUN_TIMEOUT:90s}

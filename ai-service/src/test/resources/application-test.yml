@@ -24,7 +24,7 @@ management:
 
 ai:
   model: gpt-5.6-luna
-  reasoning-effort: low
+  reasoning-effort: none
   max-completion-tokens: 2000
   history-max-tokens: 8000
   run-timeout: 90s
