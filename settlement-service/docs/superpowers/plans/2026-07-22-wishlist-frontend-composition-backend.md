@@ -4,7 +4,7 @@
 
 **Goal:** User 서비스의 Wishlist 응답을 소유 데이터로 축소하고, Wishlist 화면용 판매자 다건 조회 경로를 기존 Seller 조회 로직 위에 추가한다.
 
-**Architecture:** `GET /api/v2/wishlists`는 Wishlist Repository 결과만 반환하고 Product gRPC와 판매자 Repository를 호출하지 않는다. Product 정보는 `#478 (PR)`의 `POST /api/v2/products/wishlists`, 판매자 이름은 새 `POST /api/v2/sellers/wishlists`가 제공하며 프론트가 세 응답을 조합한다. Seller 새 경로는 기존 `SellerIdsRequest`, `SellerNamesResponse`, `SellerQueryUseCase.findSellers()`를 재사용한다.
+**Architecture:** `GET /api/v2/wishlists`는 Wishlist Repository 결과만 반환하고 Product gRPC와 판매자 Repository를 호출하지 않는다. Product 정보는 `#478 (PR)`의 `POST /api/v2/products/wishlists`, 판매자 이름은 새 `POST /api/v2/sellers/wishlists`가 제공하며 프론트가 세 응답을 조합한다. Seller 새 경로는 전용 `WishlistSellerIdsRequest`, `WishlistSellerNamesResponse`를 사용하고 기존 `SellerQueryUseCase.findSellers()`만 재사용한다.
 
 **Tech Stack:** Java 21, Spring Boot 4.1.0, Spring MVC, Spring Data JPA, Spring gRPC server, Jakarta Validation, JUnit 5, Mockito, AssertJ, MockMvc, Gradle
 
@@ -15,7 +15,7 @@
 - Product 계약은 `#478 (PR)`의 `POST /api/v2/products/wishlists`를 사용하며 product-service 코드는 이번 계획에서 수정하지 않는다.
 - `GET /api/v2/wishlists`의 인증, `page` 기본값 `0`, `size` 기본값 `20`, `PageResponse` meta 계산은 유지한다.
 - Wishlist 항목 응답은 `wishlistId`, `productId`, `addedAt`만 포함한다. 제거 필드를 fallback 값이나 deprecated 필드로 남기지 않는다.
-- `POST /api/v2/sellers/wishlists`는 `SellerIdsRequest`의 빈 배열 금지와 최대 30개 검증, `SellerNamesResponse`의 중복 제거·누락 판매자 `null` 정책을 그대로 사용한다.
+- `POST /api/v2/sellers/wishlists`는 새 `WishlistSellerIdsRequest`와 `WishlistSellerNamesResponse`를 사용한다. 빈 배열 금지, 최대 30개, 중복 제거, 누락 판매자 `null`이라는 동작 계약은 기존 Seller 다건 조회와 동일하게 유지한다.
 - 새 Seller UseCase, ApplicationService, Repository 메서드를 만들지 않는다.
 - Gateway는 `/sellers/wishlists`를 whitelist에 추가하지 않는다. 로그인 Wishlist 화면 호출이므로 기본 인증 정책을 사용한다.
 - User 서비스는 Seller gRPC 서버를 계속 제공하므로 protobuf plugin, gRPC server, `grpc-stub`, `grpc-protobuf`는 유지한다.
@@ -28,7 +28,9 @@
 
 ### Create
 
-- 없음.
+- `user-service/src/main/java/com/prompthub/user/seller/presentation/dto/request/WishlistSellerIdsRequest.java` — Wishlist Seller 다건 조회 전용 요청과 검증.
+- `user-service/src/main/java/com/prompthub/user/seller/presentation/dto/response/WishlistSellerNamesResponse.java` — Wishlist Seller 다건 조회 전용 응답 매핑.
+- `user-service/src/test/java/com/prompthub/user/seller/presentation/dto/response/WishlistSellerNamesResponseTest.java` — 중복 ID와 누락 판매자 계약 검증.
 
 ### Modify
 
@@ -346,12 +348,15 @@ git commit -m "refactor: 위시리스트 Product gRPC 클라이언트 제거 (#4
 
 - Modify: `user-service/src/test/java/com/prompthub/user/seller/presentation/controller/SellerControllerTest.java`
 - Modify: `user-service/src/main/java/com/prompthub/user/seller/presentation/controller/SellerController.java`
+- Create: `user-service/src/main/java/com/prompthub/user/seller/presentation/dto/request/WishlistSellerIdsRequest.java`
+- Create: `user-service/src/main/java/com/prompthub/user/seller/presentation/dto/response/WishlistSellerNamesResponse.java`
+- Create: `user-service/src/test/java/com/prompthub/user/seller/presentation/dto/response/WishlistSellerNamesResponseTest.java`
 
 **Interfaces:**
 
-- Consumes: `SellerIdsRequest(List<UUID> sellerIds)`
+- Consumes: `WishlistSellerIdsRequest(List<UUID> sellerIds)`
 - Consumes: `SellerQueryUseCase.findSellers(List<String>) -> List<SellerInfoResult>`
-- Produces: `POST /api/v2/sellers/wishlists -> ApiResult<SellerNamesResponse>`
+- Produces: `POST /api/v2/sellers/wishlists -> ApiResult<WishlistSellerNamesResponse>`
 - Preserves: `POST /api/v2/sellers/products`
 
 - [ ] **Step 1: 새 경로의 위임과 응답을 고정하는 실패 테스트 작성**
@@ -369,7 +374,7 @@ import static org.mockito.BDDMockito.then;
 private SellerQueryUseCase sellerQueryUseCase;
 ```
 
-다음 두 테스트를 추가한다.
+다음 세 테스트를 추가한다.
 
 ```java
 @Test
@@ -407,9 +412,75 @@ void getWishlistSellers_빈_목록이면_400을_반환한다() throws Exception 
 
     then(sellerQueryUseCase).shouldHaveNoInteractions();
 }
+
+@Test
+void getWishlistSellers_31개_요청이면_400을_반환한다() throws Exception {
+    List<UUID> sellerIds = java.util.stream.IntStream.range(0, 31)
+            .mapToObj(ignored -> UUID.randomUUID())
+            .toList();
+
+    mockMvc.perform(post("/api/v2/sellers/wishlists")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(
+                            java.util.Map.of("sellerIds", sellerIds))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("V001"));
+
+    then(sellerQueryUseCase).shouldHaveNoInteractions();
+}
 ```
 
-- [ ] **Step 2: 새 경로가 없어 404로 실패하는지 확인**
+- [ ] **Step 2: Wishlist 전용 응답 DTO 실패 테스트 작성**
+
+`WishlistSellerNamesResponseTest.java`를 생성한다. 이 시점에는 DTO가 없으므로 컴파일이 실패한다.
+
+```java
+package com.prompthub.user.seller.presentation.dto.response;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.prompthub.user.seller.application.dto.SellerInfoResult;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+
+class WishlistSellerNamesResponseTest {
+
+    @Test
+    void of_누락된_판매자는_null로_포함한다() {
+        UUID found = UUID.randomUUID();
+        UUID missing = UUID.randomUUID();
+        SellerInfoResult result = new SellerInfoResult(
+                found.toString(), "김철수", "", "ACTIVE");
+
+        WishlistSellerNamesResponse response = WishlistSellerNamesResponse.of(
+                List.of(found, missing), List.of(result));
+
+        assertThat(response.sellers())
+                .extracting(WishlistSellerNamesResponse.Item::sellerId)
+                .containsExactly(found, missing);
+        assertThat(response.sellers())
+                .extracting(WishlistSellerNamesResponse.Item::sellerName)
+                .containsExactly("김철수", null);
+    }
+
+    @Test
+    void of_중복된_sellerId는_한_번만_포함한다() {
+        UUID sellerId = UUID.randomUUID();
+        SellerInfoResult result = new SellerInfoResult(
+                sellerId.toString(), "김철수", "", "ACTIVE");
+
+        WishlistSellerNamesResponse response = WishlistSellerNamesResponse.of(
+                List.of(sellerId, sellerId), List.of(result));
+
+        assertThat(response.sellers())
+                .extracting(WishlistSellerNamesResponse.Item::sellerId)
+                .containsExactly(sellerId);
+    }
+}
+```
+
+- [ ] **Step 3: 전용 DTO가 없어 Red 상태인지 확인**
 
 Run:
 
@@ -417,9 +488,82 @@ Run:
 ./gradlew :user-service:test --tests com.prompthub.user.seller.presentation.controller.SellerControllerTest
 ```
 
-Expected: FAIL. `/api/v2/sellers/wishlists`가 매핑되지 않아 정상 테스트가 `404`를 받는다.
+Expected: FAIL. `WishlistSellerNamesResponse`가 아직 없어 test compilation이 실패한다.
 
-- [ ] **Step 3: 기존 Seller DTO와 UseCase를 재사용하는 Controller 메서드 추가**
+- [ ] **Step 4: Wishlist 전용 요청 DTO 구현**
+
+`WishlistSellerIdsRequest.java`를 생성한다.
+
+```java
+package com.prompthub.user.seller.presentation.dto.request;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
+import java.util.List;
+import java.util.UUID;
+
+@Schema(description = "Wishlist 판매자 이름 다건 조회 요청")
+public record WishlistSellerIdsRequest(
+        @Schema(description = "조회할 판매자 ID(UUID) 목록, 최대 30개")
+        @NotEmpty @Size(max = 30) List<UUID> sellerIds
+) {
+    public List<String> sellerIdStrings() {
+        return sellerIds.stream().map(UUID::toString).toList();
+    }
+}
+```
+
+- [ ] **Step 5: Wishlist 전용 응답 DTO 구현**
+
+`WishlistSellerNamesResponse.java`를 생성한다.
+
+```java
+package com.prompthub.user.seller.presentation.dto.response;
+
+import com.prompthub.user.seller.application.dto.SellerInfoResult;
+import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Schema(description = "Wishlist 판매자 이름 다건 조회 응답")
+public record WishlistSellerNamesResponse(
+        @Schema(description = "요청한 판매자별 이름, 존재하지 않으면 sellerName은 null")
+        List<Item> sellers
+) {
+
+    public static WishlistSellerNamesResponse of(
+            List<UUID> requestedSellerIds, List<SellerInfoResult> results) {
+        Map<String, String> nameById = results.stream()
+                .collect(Collectors.toMap(SellerInfoResult::sellerId, SellerInfoResult::sellerName));
+
+        List<Item> items = requestedSellerIds.stream()
+                .distinct()
+                .map(sellerId -> new Item(sellerId, nameById.get(sellerId.toString())))
+                .toList();
+
+        return new WishlistSellerNamesResponse(items);
+    }
+
+    @Schema(description = "Wishlist 판매자 이름 항목")
+    public record Item(
+            UUID sellerId,
+            @Schema(nullable = true) String sellerName
+    ) {
+    }
+}
+```
+
+- [ ] **Step 6: 전용 DTO와 기존 UseCase를 연결하는 Controller 메서드 추가**
+
+`SellerController`에 다음 import를 추가한다.
+
+```java
+import com.prompthub.user.seller.presentation.dto.request.WishlistSellerIdsRequest;
+import com.prompthub.user.seller.presentation.dto.response.WishlistSellerNamesResponse;
+```
 
 `SellerController`의 기존 `/api/v2/sellers/products` 메서드 다음에 아래 메서드를 추가한다.
 
@@ -429,35 +573,39 @@ Expected: FAIL. `/api/v2/sellers/wishlists`가 매핑되지 않아 정상 테스
                 + "중복은 서버가 제거하며 존재하지 않는 sellerId는 sellerName: null로 포함한다.")
 @ApiResponses({
         @ApiResponse(responseCode = "200", description = "조회 성공",
-                content = @Content(schema = @Schema(implementation = SellerNamesResponse.class))),
+                content = @Content(schema = @Schema(implementation = WishlistSellerNamesResponse.class))),
         @ApiResponse(responseCode = "400", description = "빈 배열, 30개 초과, 잘못된 UUID 형식 (V001)",
                 content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 })
 @PostMapping("/api/v2/sellers/wishlists")
-public ApiResult<SellerNamesResponse> getWishlistSellers(
-        @Valid @RequestBody SellerIdsRequest request) {
+public ApiResult<WishlistSellerNamesResponse> getWishlistSellers(
+        @Valid @RequestBody WishlistSellerIdsRequest request) {
     List<SellerInfoResult> results = sellerQueryUseCase.findSellers(request.sellerIdStrings());
-    return ApiResult.success(SellerNamesResponse.of(request.sellerIds(), results));
+    return ApiResult.success(WishlistSellerNamesResponse.of(request.sellerIds(), results));
 }
 ```
 
-- [ ] **Step 4: Controller와 공유 DTO 응답 테스트 통과 확인**
+- [ ] **Step 7: Controller와 전용 DTO 테스트 통과 확인**
 
 Run:
 
 ```bash
 ./gradlew :user-service:test \
   --tests com.prompthub.user.seller.presentation.controller.SellerControllerTest \
+  --tests com.prompthub.user.seller.presentation.dto.response.WishlistSellerNamesResponseTest \
   --tests com.prompthub.user.seller.presentation.dto.response.SellerNamesResponseTest
 ```
 
-Expected: BUILD SUCCESSFUL. `/sellers/products`의 기존 코드와 UseCase는 변경되지 않는다.
+Expected: BUILD SUCCESSFUL. `/sellers/wishlists`는 전용 DTO를 사용하고 `/sellers/products`의 기존 DTO·Controller 메서드는 변경되지 않는다. 두 경로는 같은 `SellerQueryUseCase.findSellers()`를 호출한다.
 
-- [ ] **Step 5: 새 Seller 경로 커밋**
+- [ ] **Step 8: 새 Seller 경로와 전용 DTO 커밋**
 
 ```bash
 git add user-service/src/main/java/com/prompthub/user/seller/presentation/controller/SellerController.java
+git add user-service/src/main/java/com/prompthub/user/seller/presentation/dto/request/WishlistSellerIdsRequest.java
+git add user-service/src/main/java/com/prompthub/user/seller/presentation/dto/response/WishlistSellerNamesResponse.java
 git add user-service/src/test/java/com/prompthub/user/seller/presentation/controller/SellerControllerTest.java
+git add user-service/src/test/java/com/prompthub/user/seller/presentation/dto/response/WishlistSellerNamesResponseTest.java
 git diff --cached --check
 git commit -m "feat: Wishlist 판매자 다건 조회 API 추가 (#485)"
 ```
@@ -506,7 +654,7 @@ git commit -m "feat: Wishlist 판매자 다건 조회 API 추가 (#485)"
 
 - [ ] **Step 2: Seller Wishlist 다건 조회 계약 추가**
 
-`POST /sellers/products` 절 다음에 `POST /sellers/wishlists` 절을 추가한다. 요청·응답 스키마, 최대 30개, 중복 제거, 누락 판매자 `null`은 `/sellers/products`와 같다고 명시하고, 용도와 인증만 다음처럼 구분한다.
+`POST /sellers/products` 절 다음에 `POST /sellers/wishlists` 절을 추가한다. 전용 요청·응답 DTO를 사용하지만 JSON 스키마와 최대 30개, 중복 제거, 누락 판매자 `null` 정책은 `/sellers/products`와 동일하다고 명시한다.
 
 ```markdown
 ### POST /sellers/wishlists — Wishlist 판매자 이름 다건 조회
