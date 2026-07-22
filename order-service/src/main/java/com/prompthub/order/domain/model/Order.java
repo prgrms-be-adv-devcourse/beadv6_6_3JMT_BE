@@ -111,6 +111,17 @@ public class Order extends BaseEntity {
         orderProduct.assignOrder(this);
     }
 
+    public boolean isFree() {
+        return this.totalOrderAmount == 0;
+    }
+
+    public void completeFreeOrder() {
+        if (!isFree()) {
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+        }
+        markCompleted();
+    }
+
     public void markCompleted() {
         markCompleted(LocalDateTime.now());
     }

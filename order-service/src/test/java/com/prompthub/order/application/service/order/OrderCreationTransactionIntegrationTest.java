@@ -2,6 +2,9 @@ package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.CreateOrderResult;
+import com.prompthub.order.application.dto.ProductOrderSnapshot;
+import com.prompthub.order.domain.enums.OrderProductStatus;
+import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.repository.CartRepository;
@@ -119,6 +122,28 @@ class OrderCreationTransactionIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("무료 주문은 완료·장바구니 제거·ORDER_PAID Outbox를 한 트랜잭션으로 반영한다")
+	void freeOrderCompletesAndStoresPaidOutboxAtomically() {
+		saveCart();
+		given(productClient.getOrderSnapshots(requestedProductIds())).willReturn(freeSnapshots());
+
+		CreateOrderResult result = orderCommandHandler.createOrder(BUYER_ID, command());
+		Order saved = orderRepository.findByIdWithOrderProducts(result.order().orderId()).orElseThrow();
+
+		assertThat(result.totalAmount()).isZero();
+		assertThat(saved.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
+		assertThat(saved.getCompletedAt()).isNotNull();
+		assertThat(saved.getOrderProducts()).extracting(product -> product.getOrderStatus())
+			.containsOnly(OrderProductStatus.PAID);
+		assertThat(outboxEventPersistence.findAll()).singleElement().satisfies(event -> {
+			assertThat(event.getEventType()).isEqualTo("ORDER_PAID");
+			assertThat(event.getPayload()).contains("\"totalOrderAmount\":0");
+		});
+		assertThat(productIds(loadCart())).containsExactly(UNRELATED_PRODUCT);
+		then(orderExpirationStore).shouldHaveNoInteractions();
+	}
+
+	@Test
 	@DisplayName("장바구니 저장이 실패하면 주문·상품·장바구니 제거를 모두 롤백한다")
 	void cartSaveFailureRollsBackOrderProductsAndCartRemoval() {
 		saveCart();
@@ -161,6 +186,15 @@ class OrderCreationTransactionIntegrationTest {
 		cart.addProduct(PRODUCT_C1);
 		cart.addProduct(UNRELATED_PRODUCT);
 		return cartPersistence.saveAndFlush(cart);
+	}
+
+	private List<ProductOrderSnapshot> freeSnapshots() {
+		return shuffledSnapshots().stream()
+			.map(snapshot -> new ProductOrderSnapshot(
+				snapshot.productId(), snapshot.sellerId(), snapshot.title(),
+				snapshot.productType(), snapshot.model(), 0
+			))
+			.toList();
 	}
 
 	private Cart loadCart() {

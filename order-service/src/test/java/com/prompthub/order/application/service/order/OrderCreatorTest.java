@@ -3,6 +3,7 @@ package com.prompthub.order.application.service.order;
 import com.prompthub.order.application.dto.CreateOrderResult;
 import com.prompthub.order.application.dto.OrderItem;
 import com.prompthub.order.application.event.order.OrderCreatedEvent;
+import com.prompthub.order.application.service.event.OrderPaidOutboxAppender;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
@@ -71,6 +72,9 @@ class OrderCreatorTest {
 
 	@Mock
 	private ApplicationEventPublisher applicationEventPublisher;
+
+	@Mock
+	private OrderPaidOutboxAppender orderPaidOutboxAppender;
 
 	@InjectMocks
 	private OrderCreator orderCreator;
@@ -227,19 +231,42 @@ class OrderCreatorTest {
 	}
 
 	@Test
-	@DisplayName("상품 금액이 0이면 안정적인 예외를 반환하고 외부 부수효과를 만들지 않는다")
-	void zeroItemAmount_throwsStableOrderExceptionWithoutSideEffects() {
+	@DisplayName("0원 주문은 즉시 완료하고 ORDER_PAID Outbox를 저장하며 만료 이벤트를 발행하지 않는다")
+	void freeOrder_completesAndAppendsPaidOutboxWithoutExpirationEvent() {
+		stubSuccessfulCreation();
+		given(orderNumberGenerator.generate()).willReturn("ORD-FREE");
+		given(orderRepository.findAccessiblePaidProductIdsByBuyerId(BUYER_ID)).willReturn(List.of());
 		List<OrderItem> items = List.of(
 			new OrderItem(PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, 0)
 		);
 
+		CreateOrderResult result = orderCreator.create(BUYER_ID, items);
+
+		ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+		then(orderRepository).should().save(orderCaptor.capture());
+		Order saved = orderCaptor.getValue();
+		assertThat(result.totalAmount()).isZero();
+		assertThat(saved.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
+		assertThat(saved.getCompletedAt()).isNotNull();
+		assertThat(saved.getOrderProducts()).extracting(OrderProduct::getOrderStatus)
+			.containsOnly(OrderProductStatus.PAID);
+		then(orderPaidOutboxAppender).should().append(saved);
+		then(applicationEventPublisher).shouldHaveNoInteractions();
+	}
+
+	@Test
+	@DisplayName("이미 접근 가능한 무료 상품은 O018로 거부하고 부수효과를 만들지 않는다")
+	void duplicateAccessibleFreeProduct_throwsConflictWithoutSideEffects() {
+		given(orderRepository.findAccessiblePaidProductIdsByBuyerId(BUYER_ID)).willReturn(List.of(PRODUCT_A1));
+		List<OrderItem> items = List.of(new OrderItem(PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, 0));
+
 		assertThatThrownBy(() -> orderCreator.create(BUYER_ID, items))
 			.isInstanceOf(OrderException.class)
-			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_PRODUCT_ALREADY_OWNED);
 
 		then(orderNumberGenerator).shouldHaveNoInteractions();
-		then(orderRepository).shouldHaveNoInteractions();
 		then(cartRepository).shouldHaveNoInteractions();
+		then(orderPaidOutboxAppender).shouldHaveNoInteractions();
 		then(applicationEventPublisher).shouldHaveNoInteractions();
 	}
 }
