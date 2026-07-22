@@ -170,6 +170,16 @@ public class OrderQueryService implements OrderQueryUseCase {
 		return orders.map(this::toOrderListResponse);
 	}
 
+	@Override
+	public boolean hasAccessiblePaidProduct(UUID buyerId, UUID productId) {
+		return orderRepository.existsAccessiblePaidOrderProductByBuyerIdAndProductId(buyerId, productId);
+	}
+
+	@Override
+	public List<UUID> getAccessiblePaidProductIds(UUID buyerId) {
+		return orderRepository.findAccessiblePaidProductIdsByBuyerId(buyerId);
+	}
+
 	private OrderListResponse toOrderListResponse(OrderListProjection projection) {
 		return new OrderListResponse(
 			projection.orderId(),

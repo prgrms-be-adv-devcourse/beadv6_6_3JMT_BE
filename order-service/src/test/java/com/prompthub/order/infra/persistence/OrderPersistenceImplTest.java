@@ -19,14 +19,19 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_AMOUNT_1;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_AMOUNT_2;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_ID_1;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_ID_2;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TITLE_1;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TITLE_2;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TYPE_PROMPT;
 import static com.prompthub.order.fixture.OrderFixture.SELLER_ID_1;
+import static com.prompthub.order.fixture.OrderFixture.SELLER_ID_2;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
@@ -62,6 +67,32 @@ class OrderPersistenceImplTest {
 		assertThat(result.getContent())
 			.extracting(OrderListProjection::orderId)
 			.containsExactly(newOrder.getId(), oldOrder.getId());
+	}
+
+	@Test
+	@DisplayName("환불 요청 주문의 남은 결제 상품만 열람 가능한 구매로 조회한다")
+	void findAccessiblePaidProducts_refundRequestedOrder_returnsRemainingPaidProduct() {
+		Order order = Order.create(BUYER_ID, "ORD-20260721-0001", PRODUCT_AMOUNT_1 + PRODUCT_AMOUNT_2);
+		OrderProduct refundRequested = OrderProduct.create(
+			PRODUCT_ID_1, SELLER_ID_1, PRODUCT_TITLE_1, PRODUCT_TYPE_PROMPT, "GPT-4", PRODUCT_AMOUNT_1
+		);
+		OrderProduct remainingPaid = OrderProduct.create(
+			PRODUCT_ID_2, SELLER_ID_2, PRODUCT_TITLE_2, PRODUCT_TYPE_PROMPT, "GPT-4", PRODUCT_AMOUNT_2
+		);
+		order.addOrderProduct(refundRequested);
+		order.addOrderProduct(remainingPaid);
+		order.markPaid(LocalDateTime.of(2026, 7, 21, 10, 0));
+		order.requestRefund(List.of(refundRequested.getId()));
+		entityManager.persist(order);
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(orderPersistence.existsAccessiblePaidOrderProductByBuyerIdAndProductId(BUYER_ID, PRODUCT_ID_1))
+			.isFalse();
+		assertThat(orderPersistence.existsAccessiblePaidOrderProductByBuyerIdAndProductId(BUYER_ID, PRODUCT_ID_2))
+			.isTrue();
+		assertThat(orderPersistence.findAccessiblePaidProductIdsByBuyerId(BUYER_ID))
+			.containsExactly(PRODUCT_ID_2);
 	}
 
 	private Order createPaidOrder(String orderNumber, LocalDateTime createdAt) {
