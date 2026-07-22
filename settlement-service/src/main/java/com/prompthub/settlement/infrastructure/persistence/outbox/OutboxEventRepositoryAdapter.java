@@ -2,6 +2,7 @@ package com.prompthub.settlement.infrastructure.persistence.outbox;
 
 import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
 import com.prompthub.settlement.domain.model.enums.OutboxEventStatus;
+import com.prompthub.settlement.domain.model.enums.SettlementBatchStatus;
 import com.prompthub.settlement.domain.repository.OutboxEventRepository;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,10 +38,12 @@ public class OutboxEventRepositoryAdapter implements OutboxEventRepository {
                 ? jpaRepository.findPendingBefore(
                         OutboxEventStatus.PENDING,
                         attemptedBefore,
+                        SettlementBatchStatus.COMPLETED,
                         PageRequest.of(0, limit))
                 : jpaRepository.findPendingBeforeAfterCursor(
                         OutboxEventStatus.PENDING,
                         attemptedBefore,
+                        SettlementBatchStatus.COMPLETED,
                         cursorOccurredAt,
                         cursorEventId,
                         PageRequest.of(0, limit));
