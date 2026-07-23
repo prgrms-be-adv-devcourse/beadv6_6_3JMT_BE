@@ -92,10 +92,10 @@ Optional<Payment> findLatestByOrderId(UUID orderId);
 
 ---
 
-## 5. 문서 갱신 (`../docs/`, `.claude/docs/`)
+## 5. 문서 갱신 (`../../docs`, `.claude/docs/`)
 
 - `../docs/architecture/overview.md`: 내부 동기 통신(gRPC) 표의 `order → payment | 9084 | 환불 이벤트 폴백 조회` 행을 "환불/결제 승인·실패 이벤트 폴백 조회"로 갱신(같은 행, 용도 설명만 확장).
-- `payment-service/.claude/docs/events.md`: `PAYMENT_APPROVED`/`PAYMENT_FAILED` 섹션에 "Kafka 유실 시 `PaymentQueryService.GetPayment` gRPC(포트 9084)로 폴백 조회 가능. 조회 키는 orderId(동일 orderId 여러 건이면 최신 1건)" 한 줄씩 추가.
+- `../../docs/events.md`: `PAYMENT_APPROVED`/`PAYMENT_FAILED` 섹션에 "Kafka 유실 시 `PaymentQueryService.GetPayment` gRPC(포트 9084)로 폴백 조회 가능. 조회 키는 orderId(동일 orderId 여러 건이면 최신 1건)" 한 줄씩 추가.
 
 ---
 

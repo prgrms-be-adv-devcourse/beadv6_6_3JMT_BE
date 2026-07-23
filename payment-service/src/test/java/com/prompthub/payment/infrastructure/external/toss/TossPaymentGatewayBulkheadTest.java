@@ -7,6 +7,7 @@ import com.sun.net.httpserver.HttpServer;
 import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.bulkhead.BulkheadConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.ratelimiter.RateLimiter;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -72,7 +73,8 @@ class TossPaymentGatewayBulkheadTest {
             "test-secret-key", baseUrl, objectMapper,
             CircuitBreaker.ofDefaults("test-confirm"),
             CircuitBreaker.ofDefaults("test-refund"),
-            confirmBulkhead
+            confirmBulkhead,
+            RateLimiter.ofDefaults("test-confirm-rate-limiter")
         );
 
         ExecutorService executor = Executors.newFixedThreadPool(3);
