@@ -47,4 +47,24 @@ public class ProductReindexService {
 		}
 		log.info("풀 리인덱스 완료. family={}", byFamily.size());
 	}
+
+	/**
+	 * 10분 주기 카운트 동기화 — 지난 주기 이후 Product 또는 Review가 바뀐 family만
+	 * 골라 부분 갱신한다(전체 재색인 대신). 실패 시 재시도는 하지 않는다 —
+	 * ElasticsearchProductSearchIndexer.updateCounts 참고.
+	 */
+	public void syncChangedCounts(LocalDateTime since) {
+		List<UUID> changedFamilyRootIds = productRepository.findChangedFamilyRootIds(since);
+
+		for (UUID familyRootId : changedFamilyRootIds) {
+			List<Product> members = productRepository.findAllByFamilyRootIds(List.of(familyRootId));
+			ProductFamily family = ProductFamily.of(familyRootId, members);
+			family.currentOnSale().ifPresent(onSale -> {
+				double averageRating = productRepository.getAverageRating(familyRootId);
+				long familySalesCount = productRepository.sumSalesCountByFamilyRootId(familyRootId);
+				productSearchIndexer.updateCounts(familyRootId, familySalesCount, onSale.getViewCount(), averageRating);
+			});
+		}
+		log.info("변경분 카운트 동기화 완료. family={}", changedFamilyRootIds.size());
+	}
 }

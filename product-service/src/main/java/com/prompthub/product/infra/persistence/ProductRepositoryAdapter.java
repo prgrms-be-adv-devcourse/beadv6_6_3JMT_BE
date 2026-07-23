@@ -6,6 +6,7 @@ import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
 import com.prompthub.product.domain.repository.ProductRepository;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -99,5 +100,10 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	@Override
 	public List<Product> findAllByStatus(ProductStatus productStatus) {
 		return productJpaRepository.findByStatusAndDeletedAtIsNull(productStatus);
+	}
+
+	@Override
+	public List<UUID> findChangedFamilyRootIds(LocalDateTime since) {
+		return productJpaRepository.findChangedFamilyRootIds(since);
 	}
 }

@@ -11,4 +11,6 @@ public interface ProductSearchIndexer {
 	void delete(UUID familyRootId);
 
 	void updatePrice(UUID familyRootId, int changedPrice);
+
+	void updateCounts(UUID familyRootId, long salesCount, int viewCount, double ratingAvg);
 }

@@ -6,8 +6,11 @@ import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.model.enums.ReviewStatus;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
+import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.PageRequest;
@@ -240,4 +243,26 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 	List<Product> findAllByFamilyRootIds(@Param("familyRootIds") List<UUID> familyRootIds);
 
 	List<Product> findByStatusAndDeletedAtIsNull(ProductStatus status);
+
+	@Query("""
+		select distinct coalesce(p.parentId, p.id)
+		from Product p
+		where p.updatedAt >= :since
+			and p.deletedAt is null
+		""")
+	List<UUID> findFamilyRootIdsByProductUpdatedSince(@Param("since") LocalDateTime since);
+
+	@Query("""
+		select distinct r.product.id
+		from Review r
+		where r.updatedAt >= :since
+			and r.deletedAt is null
+		""")
+	List<UUID> findFamilyRootIdsByReviewUpdatedSince(@Param("since") LocalDateTime since);
+
+	default List<UUID> findChangedFamilyRootIds(LocalDateTime since) {
+		Set<UUID> changed = new LinkedHashSet<>(findFamilyRootIdsByProductUpdatedSince(since));
+		changed.addAll(findFamilyRootIdsByReviewUpdatedSince(since));
+		return List.copyOf(changed);
+	}
 }
