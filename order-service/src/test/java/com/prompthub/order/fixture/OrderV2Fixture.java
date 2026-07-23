@@ -2,7 +2,7 @@ package com.prompthub.order.fixture;
 
 import com.prompthub.order.application.dto.CreateOrderCommand;
 import com.prompthub.order.application.dto.CreateOrderResult;
-import com.prompthub.order.application.dto.OrderItem;
+import com.prompthub.order.application.dto.OrderCreationItem;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
@@ -72,12 +72,12 @@ public final class OrderV2Fixture {
 		);
 	}
 
-	public static List<OrderItem> orderItems() {
+	public static List<OrderCreationItem> orderItems() {
 		return List.of(
-			new OrderItem(PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, AMOUNT_A1),
-			new OrderItem(PRODUCT_B1, SELLER_B, REQUEST_TITLE_B1, AMOUNT_B1),
-			new OrderItem(PRODUCT_A2, SELLER_A, REQUEST_TITLE_A2, AMOUNT_A2),
-			new OrderItem(PRODUCT_C1, SELLER_C, REQUEST_TITLE_C1, AMOUNT_C1)
+			new OrderCreationItem(PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, AMOUNT_A1),
+			new OrderCreationItem(PRODUCT_B1, SELLER_B, REQUEST_TITLE_B1, AMOUNT_B1),
+			new OrderCreationItem(PRODUCT_A2, SELLER_A, REQUEST_TITLE_A2, AMOUNT_A2),
+			new OrderCreationItem(PRODUCT_C1, SELLER_C, REQUEST_TITLE_C1, AMOUNT_C1)
 		);
 	}
 

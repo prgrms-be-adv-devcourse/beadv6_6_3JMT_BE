@@ -1,7 +1,7 @@
 package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.dto.CreateOrderResult;
-import com.prompthub.order.application.dto.OrderItem;
+import com.prompthub.order.application.dto.OrderCreationItem;
 import com.prompthub.order.application.event.order.OrderCreatedEvent;
 import com.prompthub.order.application.service.event.OrderPaidOutboxAppender;
 import com.prompthub.order.domain.model.Order;
@@ -31,8 +31,8 @@ public class OrderCreator {
 	private final OrderPaidOutboxAppender orderPaidOutboxAppender;
 
 	@Transactional
-	public CreateOrderResult create(UUID buyerId, List<OrderItem> items) {
-		int totalAmount = OrderAmountCalculator.sum(items, OrderItem::amount);
+	public CreateOrderResult create(UUID buyerId, List<OrderCreationItem> items) {
+		int totalAmount = OrderAmountCalculator.sum(items, OrderCreationItem::amount);
 		validateNoAccessibleFreeProduct(buyerId, items);
 		Order order = Order.create(buyerId, orderNumberGenerator.generate(), totalAmount);
 		items.stream()
@@ -58,10 +58,10 @@ public class OrderCreator {
 		return CreateOrderResult.from(savedOrder);
 	}
 
-	private void validateNoAccessibleFreeProduct(UUID buyerId, List<OrderItem> items) {
+	private void validateNoAccessibleFreeProduct(UUID buyerId, List<OrderCreationItem> items) {
 		Set<UUID> requestedFreeProductIds = items.stream()
 			.filter(item -> item.amount() == 0)
-			.map(OrderItem::productId)
+			.map(OrderCreationItem::productId)
 			.collect(java.util.stream.Collectors.toSet());
 		if (requestedFreeProductIds.isEmpty()) {
 			return;

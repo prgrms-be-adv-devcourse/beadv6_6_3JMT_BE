@@ -4,7 +4,7 @@ import com.prompthub.exception.BusinessException;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.CreateOrderCommand;
 import com.prompthub.order.application.dto.CreateOrderResult;
-import com.prompthub.order.application.dto.OrderItem;
+import com.prompthub.order.application.dto.OrderCreationItem;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -76,15 +76,15 @@ class OrderCommandHandlerTest {
 
 		assertThat(actual).isSameAs(expected);
 		then(productClient).should().getOrderSnapshots(requestedProductIds());
-		ArgumentCaptor<List<OrderItem>> itemsCaptor = ArgumentCaptor.forClass(List.class);
+		ArgumentCaptor<List<OrderCreationItem>> itemsCaptor = ArgumentCaptor.forClass(List.class);
 		then(orderCreator).should().create(eq(BUYER_ID), itemsCaptor.capture());
 
 		assertThat(itemsCaptor.getValue())
-			.extracting(OrderItem::productId)
+			.extracting(OrderCreationItem::productId)
 			.containsExactly(PRODUCT_A1, PRODUCT_B1, PRODUCT_A2,
 				com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_C1);
 		assertThat(itemsCaptor.getValue())
-			.extracting(OrderItem::productTitle)
+			.extracting(OrderCreationItem::productTitle)
 			.containsExactly(
 				REQUEST_TITLE_A1,
 				com.prompthub.order.fixture.OrderV2Fixture.REQUEST_TITLE_B1,
@@ -166,10 +166,10 @@ class OrderCommandHandlerTest {
 		CreateOrderResult actual = orderCommandHandler.createOrder(BUYER_ID, command());
 
 		assertThat(actual).isSameAs(expected);
-		ArgumentCaptor<List<OrderItem>> itemsCaptor = ArgumentCaptor.forClass(List.class);
+		ArgumentCaptor<List<OrderCreationItem>> itemsCaptor = ArgumentCaptor.forClass(List.class);
 		then(orderCreator).should().create(eq(BUYER_ID), itemsCaptor.capture());
 		assertThat(itemsCaptor.getValue())
-			.extracting(OrderItem::amount)
+			.extracting(OrderCreationItem::amount)
 			.contains(0);
 	}
 
