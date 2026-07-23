@@ -2,6 +2,7 @@ package com.prompthub.order.infra.redis;
 
 import com.prompthub.order.application.service.order.OrderExpirationStore;
 import com.prompthub.order.application.service.order.OrderFailureCompensationService;
+import com.prompthub.order.domain.repository.OrderRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,6 +13,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -34,6 +36,9 @@ class OrderExpirationWorkerTest {
 
 	@Mock
 	private OrderFailureCompensationService compensationService;
+
+	@Mock
+	private OrderRepository orderRepository;
 
 	@Test
 	@DisplayName("만료 대상 주문 처리 완료 시 Redis 대상과 재시도 카운트를 제거한다")
@@ -100,13 +105,57 @@ class OrderExpirationWorkerTest {
 
 		then(orderExpirationStore).should().moveToDeadLetter(ORDER_ID);
 		then(orderExpirationStore).should().removeExpiration(ORDER_ID);
-		then(orderExpirationStore).should().clearRetryCount(ORDER_ID);
+		then(orderExpirationStore).should(never()).clearRetryCount(ORDER_ID);
+	}
+
+	@Test
+	@DisplayName("Redis에 등록되지 않은 DB 만료 주문도 보상한다")
+	void processExpiredOrders_databaseCandidate_isCompensated() {
+		OrderExpirationWorker worker = worker();
+		given(orderRepository.findExpiredCreatedOrderIds(NOW_LOCAL.minusMinutes(20), 100))
+			.willReturn(List.of(ORDER_ID));
+		given(orderExpirationStore.findExpiredOrderIds(NOW, 100)).willReturn(Set.of());
+		given(compensationService.compensateTimeout(ORDER_ID, NOW_LOCAL)).willReturn(true);
+
+		worker.processExpiredOrders();
+
+		then(compensationService).should().compensateTimeout(ORDER_ID, NOW_LOCAL);
+	}
+
+	@Test
+	@DisplayName("Redis 후보 조회가 실패해도 DB 만료 후보를 처리한다")
+	void processExpiredOrders_redisLookupFailure_processesDatabaseCandidate() {
+		OrderExpirationWorker worker = worker();
+		given(orderRepository.findExpiredCreatedOrderIds(NOW_LOCAL.minusMinutes(20), 100))
+			.willReturn(List.of(ORDER_ID));
+		willThrow(new IllegalStateException("redis down"))
+			.given(orderExpirationStore).findExpiredOrderIds(NOW, 100);
+		given(compensationService.compensateTimeout(ORDER_ID, NOW_LOCAL)).willReturn(true);
+
+		worker.processExpiredOrders();
+
+		then(compensationService).should().compensateTimeout(ORDER_ID, NOW_LOCAL);
+	}
+
+	@Test
+	@DisplayName("DB와 Redis에 같은 후보가 있으면 한 번만 보상한다")
+	void processExpiredOrders_duplicateCandidates_areProcessedOnce() {
+		OrderExpirationWorker worker = worker();
+		given(orderRepository.findExpiredCreatedOrderIds(NOW_LOCAL.minusMinutes(20), 100))
+			.willReturn(List.of(ORDER_ID));
+		given(orderExpirationStore.findExpiredOrderIds(NOW, 100)).willReturn(Set.of(ORDER_ID));
+		given(compensationService.compensateTimeout(ORDER_ID, NOW_LOCAL)).willReturn(true);
+
+		worker.processExpiredOrders();
+
+		then(compensationService).should(times(1)).compensateTimeout(ORDER_ID, NOW_LOCAL);
 	}
 
 	private OrderExpirationWorker worker() {
 		return new OrderExpirationWorker(
 			orderExpirationStore,
 			compensationService,
+			orderRepository,
 			new OrderExpirationProperties(true, 20, 5_000L, 100, 3),
 			CLOCK
 		);
