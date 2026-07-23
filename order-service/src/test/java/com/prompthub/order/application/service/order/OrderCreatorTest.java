@@ -3,6 +3,7 @@ package com.prompthub.order.application.service.order;
 import com.prompthub.order.application.dto.CreateOrderResult;
 import com.prompthub.order.application.dto.OrderItem;
 import com.prompthub.order.application.event.order.OrderCreatedEvent;
+import com.prompthub.order.application.event.order.OrderProductReservationCleanupRequestedEvent;
 import com.prompthub.order.application.service.event.OrderPaidOutboxAppender;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
@@ -50,8 +51,11 @@ import static com.prompthub.order.fixture.OrderV2Fixture.orderItems;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.times;
 
@@ -75,6 +79,12 @@ class OrderCreatorTest {
 
 	@Mock
 	private OrderPaidOutboxAppender orderPaidOutboxAppender;
+
+	@Mock
+	private OrderProductPurchasePolicy purchasePolicy;
+
+	@Mock
+	private OrderProductReservationService reservationService;
 
 	@InjectMocks
 	private OrderCreator orderCreator;
@@ -231,11 +241,10 @@ class OrderCreatorTest {
 	}
 
 	@Test
-	@DisplayName("0원 주문은 즉시 완료하고 ORDER_PAID Outbox를 저장하며 만료 이벤트를 발행하지 않는다")
+	@DisplayName("0원 주문은 즉시 완료하고 ORDER_PAID Outbox와 예약 정리를 반영한다")
 	void freeOrder_completesAndAppendsPaidOutboxWithoutExpirationEvent() {
 		stubSuccessfulCreation();
 		given(orderNumberGenerator.generate()).willReturn("ORD-FREE");
-		given(orderRepository.findAccessiblePaidProductIdsByBuyerId(BUYER_ID)).willReturn(List.of());
 		List<OrderItem> items = List.of(
 			new OrderItem(PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, 0)
 		);
@@ -251,13 +260,15 @@ class OrderCreatorTest {
 		assertThat(saved.getOrderProducts()).extracting(OrderProduct::getOrderStatus)
 			.containsOnly(OrderProductStatus.PAID);
 		then(orderPaidOutboxAppender).should().append(saved);
-		then(applicationEventPublisher).shouldHaveNoInteractions();
+		then(applicationEventPublisher).should()
+			.publishEvent(OrderProductReservationCleanupRequestedEvent.from(saved));
 	}
 
 	@Test
 	@DisplayName("이미 접근 가능한 무료 상품은 O018로 거부하고 부수효과를 만들지 않는다")
 	void duplicateAccessibleFreeProduct_throwsConflictWithoutSideEffects() {
-		given(orderRepository.findAccessiblePaidProductIdsByBuyerId(BUYER_ID)).willReturn(List.of(PRODUCT_A1));
+		willThrow(new OrderException(ErrorCode.ORDER_PRODUCT_ALREADY_OWNED))
+			.given(purchasePolicy).validateOrderable(eq(BUYER_ID), anyList());
 		List<OrderItem> items = List.of(new OrderItem(PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, 0));
 
 		assertThatThrownBy(() -> orderCreator.create(BUYER_ID, items))

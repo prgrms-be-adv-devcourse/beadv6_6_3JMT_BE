@@ -47,7 +47,8 @@ public class CartController {
 		@ApiResponse(responseCode = "200", description = "장바구니 상품 추가 성공"),
 		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패, O003 판매 중이 아닌 상품"),
 		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음"),
-		@ApiResponse(responseCode = "409", description = "C001 이미 장바구니에 담긴 상품")
+		@ApiResponse(responseCode = "409", description = "C001 이미 장바구니에 담긴 상품, O018 이미 구매했거나 결제 대기 중인 상품"),
+		@ApiResponse(responseCode = "503", description = "SYS002 상품 서비스 또는 SYS003 주문 중복 방지 저장소 사용 불가")
 	})
 	public ApiResult<AddCartProductResponse> addCartProduct(
 		@Parameter(hidden = true)

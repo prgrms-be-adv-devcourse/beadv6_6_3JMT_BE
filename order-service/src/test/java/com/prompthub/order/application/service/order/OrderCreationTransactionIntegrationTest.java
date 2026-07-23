@@ -25,6 +25,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -41,6 +42,7 @@ import static com.prompthub.order.fixture.OrderV2Fixture.shuffledSnapshots;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willAnswer;
@@ -78,6 +80,9 @@ class OrderCreationTransactionIntegrationTest {
 	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;
 
+	@MockitoBean
+	private OrderProductIdempotencyStore orderProductIdempotencyStore;
+
 	@MockitoSpyBean
 	private OrderRepository orderRepository;
 
@@ -87,6 +92,9 @@ class OrderCreationTransactionIntegrationTest {
 	@BeforeEach
 	void setUp() {
 		given(orderNumberGenerator.generate()).willReturn("ORD-A", "ORD-B", "ORD-C");
+		given(orderProductIdempotencyStore.acquire(
+			any(UUID.class), anyCollection(), any(UUID.class), any(Duration.class)
+		)).willReturn(true);
 		given(productClient.getOrderSnapshots(requestedProductIds())).willAnswer(invocation -> {
 			assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
 			return shuffledSnapshots();
@@ -102,7 +110,7 @@ class OrderCreationTransactionIntegrationTest {
 		outboxEventPersistence.deleteAll();
 		orderPersistence.deleteAll();
 		cartPersistence.deleteAll();
-		reset(productClient, orderNumberGenerator, orderExpirationStore,
+		reset(productClient, orderNumberGenerator, orderExpirationStore, orderProductIdempotencyStore,
 			orderRepository, cartRepository);
 	}
 
