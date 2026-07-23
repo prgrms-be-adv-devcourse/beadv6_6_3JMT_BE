@@ -3,7 +3,7 @@ package com.prompthub.order.application.service.order;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.CreateOrderCommand;
 import com.prompthub.order.application.dto.CreateOrderResult;
-import com.prompthub.order.application.dto.OrderItem;
+import com.prompthub.order.application.dto.OrderCreationItem;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.application.usecase.CreateOrderUseCase;
 import lombok.RequiredArgsConstructor;
@@ -33,21 +33,22 @@ public class OrderCommandHandler implements CreateOrderUseCase {
 			.toList();
 		List<ProductOrderSnapshot> snapshots = productClient.getOrderSnapshots(productIds);
 		orderPolicyService.validateProductSnapshots(productIds, snapshots);
+		orderPolicyService.validateSelfPurchase(buyerId, snapshots);
 
 		Map<UUID, ProductOrderSnapshot> snapshotsByProductId = snapshots.stream()
 			.collect(toMap(ProductOrderSnapshot::productId, Function.identity()));
-		List<OrderItem> items = command.products().stream()
-			.map(product -> toOrderItem(product, snapshotsByProductId.get(product.productId())))
+		List<OrderCreationItem> items = command.products().stream()
+			.map(product -> toOrderCreationItem(product, snapshotsByProductId.get(product.productId())))
 			.toList();
 
 		return orderCreator.create(buyerId, items);
 	}
 
-	private OrderItem toOrderItem(
+	private OrderCreationItem toOrderCreationItem(
 		CreateOrderCommand.Product product,
 		ProductOrderSnapshot snapshot
 	) {
-		return new OrderItem(
+		return new OrderCreationItem(
 			product.productId(),
 			snapshot.sellerId(),
 			product.productTitle(),
