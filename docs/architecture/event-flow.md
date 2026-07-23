@@ -2,7 +2,7 @@
 
 서비스 간 Kafka 이벤트 계약과 흐름. **2026-07-23 기준 실제 코드에서 도출**했으며 각 사실의 근거 파일을 병기한다. 시스템 전체 구조는 `overview.md` 참조.
 
-> 주문-결제 흐름 재설계(#396)는 payment/order 양측 모두 반영 완료됐다. payment-service는 `ORDER_CREATED` 구독을 제거하고 결제 승인 시마다 order gRPC(9083)로 직접 조회하는 구조다. order-service는 gRPC 서버(9083, `OrderQueryGrpcServer`)를 제공하며, `payment-events` 토픽의 `PAYMENT_FAILED`를 소비해 주문을 `PENDING`→`FAILED`로 전이한다(`PaymentFailedProcessor`). (설계: `payment-service/.claude/plans/396-confirm-payment-flow-redesign.md`)
+> 주문-결제 흐름 재설계(#396)는 payment/order 양측 모두 반영 완료됐다. payment-service는 `ORDER_CREATED` 구독을 제거하고 결제 승인 시마다 order gRPC(9083)로 직접 조회하는 구조다. order-service는 gRPC 서버(9083, `OrderQueryGrpcServer`)를 제공하며, `payment-events` 토픽의 `PAYMENT_FAILED`를 소비해 주문을 `PENDING`→`FAILED`로 전이한다(`PaymentFailedProcessor`). (설계: `../../payment-service/.claude/plans/archive/396-confirm-payment-flow-redesign.md`)
 
 ## Kafka 토픽 목록
 

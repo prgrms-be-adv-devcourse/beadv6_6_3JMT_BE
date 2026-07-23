@@ -4,7 +4,7 @@ import com.prompthub.exception.BusinessException;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.CreateOrderCommand;
 import com.prompthub.order.application.dto.CreateOrderResult;
-import com.prompthub.order.application.dto.OrderItem;
+import com.prompthub.order.application.dto.OrderCreationItem;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -76,15 +76,15 @@ class OrderCommandHandlerTest {
 
 		assertThat(actual).isSameAs(expected);
 		then(productClient).should().getOrderSnapshots(requestedProductIds());
-		ArgumentCaptor<List<OrderItem>> itemsCaptor = ArgumentCaptor.forClass(List.class);
+		ArgumentCaptor<List<OrderCreationItem>> itemsCaptor = ArgumentCaptor.forClass(List.class);
 		then(orderCreator).should().create(eq(BUYER_ID), itemsCaptor.capture());
 
 		assertThat(itemsCaptor.getValue())
-			.extracting(OrderItem::productId)
+			.extracting(OrderCreationItem::productId)
 			.containsExactly(PRODUCT_A1, PRODUCT_B1, PRODUCT_A2,
 				com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_C1);
 		assertThat(itemsCaptor.getValue())
-			.extracting(OrderItem::productTitle)
+			.extracting(OrderCreationItem::productTitle)
 			.containsExactly(
 				REQUEST_TITLE_A1,
 				com.prompthub.order.fixture.OrderV2Fixture.REQUEST_TITLE_B1,
@@ -166,11 +166,37 @@ class OrderCommandHandlerTest {
 		CreateOrderResult actual = orderCommandHandler.createOrder(BUYER_ID, command());
 
 		assertThat(actual).isSameAs(expected);
-		ArgumentCaptor<List<OrderItem>> itemsCaptor = ArgumentCaptor.forClass(List.class);
+		ArgumentCaptor<List<OrderCreationItem>> itemsCaptor = ArgumentCaptor.forClass(List.class);
 		then(orderCreator).should().create(eq(BUYER_ID), itemsCaptor.capture());
 		assertThat(itemsCaptor.getValue())
-			.extracting(OrderItem::amount)
+			.extracting(OrderCreationItem::amount)
 			.contains(0);
+	}
+
+	@Test
+	@DisplayName("무료 본인 상품은 주문 생성 전에 O015로 거부한다")
+	void freeOwnProductIsRejectedBeforeOrderCreation() {
+		given(productClient.getOrderSnapshots(requestedProductIds()))
+			.willReturn(snapshotsWithOwnProduct(0));
+
+		assertThatThrownBy(() -> orderCommandHandler.createOrder(BUYER_ID, command()))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SELF_PURCHASE_NOT_ALLOWED);
+
+		then(orderCreator).shouldHaveNoInteractions();
+	}
+
+	@Test
+	@DisplayName("다건 중 유료 본인 상품 하나라도 포함되면 전체 주문을 거부한다")
+	void mixedProductsWithOwnProductAreRejectedBeforeOrderCreation() {
+		given(productClient.getOrderSnapshots(requestedProductIds()))
+			.willReturn(snapshotsWithOwnProduct(AMOUNT_A1));
+
+		assertThatThrownBy(() -> orderCommandHandler.createOrder(BUYER_ID, command()))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SELF_PURCHASE_NOT_ALLOWED);
+
+		then(orderCreator).shouldHaveNoInteractions();
 	}
 
 	@Test
@@ -240,6 +266,15 @@ class OrderCommandHandlerTest {
 	private static List<ProductOrderSnapshot> zeroAmountSnapshots() {
 		return List.of(
 			snapshot(PRODUCT_A1, SELLER_A, "서버-A1", 0),
+			shuffledSnapshots().get(0),
+			shuffledSnapshots().get(1),
+			shuffledSnapshots().get(2)
+		);
+	}
+
+	private static List<ProductOrderSnapshot> snapshotsWithOwnProduct(int amount) {
+		return List.of(
+			snapshot(PRODUCT_A1, BUYER_ID, "서버-A1", amount),
 			shuffledSnapshots().get(0),
 			shuffledSnapshots().get(1),
 			shuffledSnapshots().get(2)

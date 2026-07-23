@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 수정 가능 범위는 `payment-service/`와 `../docs/`, 루트 공유 `../grpc/`(계약 소유자 규칙에 따름)로 한정 — 다른 서비스 소스는 건드리지 않는다.
+- 수정 가능 범위는 `../../..`와 `../../docs`, 루트 공유 `../grpc/`(계약 소유자 규칙에 따름)로 한정 — 다른 서비스 소스는 건드리지 않는다.
 - 테스트 메서드명은 한국어, 클래스/필드/메서드 식별자는 영어. 단언은 AssertJ(`assertThat`).
 - 영속성 테스트는 Testcontainers(PostgreSQL) 기반 `AbstractJpaTest` 확장 — H2로 대체하지 않는다.
 - 신규 에러 코드 없음 — 기존 `PaymentErrorCode.PAYMENT_NOT_FOUND`(NOT_FOUND, "PAY005") 재사용.
@@ -806,7 +806,7 @@ EOF
 
 **Files:**
 - Modify: `../docs/architecture/overview.md`
-- Modify: `src/main/../../.claude/docs/events.md` (실제 경로: `payment-service/.claude/docs/events.md`)
+- Modify: `src/main/../../.claude/docs/events.md` (실제 경로: `../../docs/events.md`)
 
 **Interfaces:**
 - Consumes: 없음(문서 전용, 이전 태스크 산출물을 서술만 함).
@@ -827,7 +827,7 @@ EOF
 | order → payment | 9084 | 환불/결제 승인·실패 이벤트 폴백 조회(Kafka 유실 시) | `payment-service/.../infrastructure/grpc/PaymentQueryGrpcService.java` |
 ```
 
-- [ ] **Step 2: `payment-service/.claude/docs/events.md` 갱신**
+- [ ] **Step 2: `../../docs/events.md` 갱신**
 
 `### PAYMENT_FAILED` 섹션의 `구독자(order-service) 반응: PENDING → FAILED (재결제 시 FAILED → PAID 복귀 허용 필요).` 줄 바로 뒤에 한 줄 추가:
 

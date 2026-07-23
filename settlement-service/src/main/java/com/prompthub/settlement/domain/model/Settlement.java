@@ -1,10 +1,14 @@
 package com.prompthub.settlement.domain.model;
 
+import com.prompthub.settlement.domain.model.enums.PayoutStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementLineType;
+import com.prompthub.settlement.domain.model.enums.SettlementStatus;
 import com.prompthub.settlement.global.common.BaseEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -66,6 +70,14 @@ public class Settlement extends BaseEntity {
 	@Column(name = "failed_reason", length = 1000)
 	private String failedReason;
 
+	@Enumerated(EnumType.STRING)
+	@Column(name = "payout_status", nullable = false)
+	private PayoutStatus payoutStatus;
+
+	@Enumerated(EnumType.STRING)
+	@Column(name = "settlement_status", nullable = false)
+	private SettlementStatus settlementStatus;
+
 	@Column(name = "calculated_at", nullable = false)
 	private LocalDateTime calculatedAt;
 
@@ -99,6 +111,8 @@ public class Settlement extends BaseEntity {
 		this.feeTotalAmount = sum(details, SettlementDetail::getFeeAmount);
 		this.settlementTotalAmount = sum(details, SettlementDetail::getLineSettlementAmount);
 		this.refundAmount = sum(refunds, SettlementDetail::getLineAmount).abs();
+		this.payoutStatus = PayoutStatus.NOT_READY;
+		this.settlementStatus = SettlementStatus.PENDING_APPROVAL;
 		this.calculatedAt = LocalDateTime.now();
 	}
 

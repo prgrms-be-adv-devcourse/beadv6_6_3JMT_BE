@@ -39,7 +39,7 @@ class SettlementV2ResetMigrationIntegrationTest {
     }
 
     @Test
-    @DisplayName("V3는 정산과 Batch 실행 데이터를 지우고 sequence를 다시 시작한다")
+    @DisplayName("V4는 정산과 Batch 실행 데이터를 지우고 sequence를 다시 시작한다")
     void migrate_resetsSettlementAndBatchData() {
         Flyway.configure()
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())

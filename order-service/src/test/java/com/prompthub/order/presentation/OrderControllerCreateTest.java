@@ -7,6 +7,7 @@ import com.prompthub.order.application.usecase.OrderQueryUseCase;
 import com.prompthub.order.application.service.refund.OrderRefundService;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.GlobalExceptionHandler;
+import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.global.web.AuthHeaders;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -123,6 +124,21 @@ class OrderControllerCreateTest {
 				com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_A2,
 				com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_C1
 			);
+	}
+
+	@Test
+	@DisplayName("본인 판매 상품 주문은 403과 O015를 반환한다")
+	void selfPurchaseReturnsForbiddenO015() throws Exception {
+		given(createOrderUseCase.createOrder(eq(BUYER_ID), any(CreateOrderCommand.class)))
+			.willThrow(new OrderException(ErrorCode.SELF_PURCHASE_NOT_ALLOWED));
+
+		mockMvc.perform(post("/api/v2/orders")
+				.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(requestJson()))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value(ErrorCode.SELF_PURCHASE_NOT_ALLOWED.getCode()))
+			.andExpect(jsonPath("$.message").value(ErrorCode.SELF_PURCHASE_NOT_ALLOWED.getMessage()));
 	}
 
 	@Nested

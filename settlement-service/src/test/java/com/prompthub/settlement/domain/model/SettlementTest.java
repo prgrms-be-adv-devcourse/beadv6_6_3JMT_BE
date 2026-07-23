@@ -2,6 +2,8 @@ package com.prompthub.settlement.domain.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.prompthub.settlement.domain.model.enums.PayoutStatus;
+import com.prompthub.settlement.domain.model.enums.SettlementStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -80,6 +82,19 @@ class SettlementTest {
         // then
         assertThat(settlement.getRefundAmount()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(settlement.getCalculatedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("정산 생성 시 지급과 정산 상태를 초기 상태로 설정한다")
+    void create_setsInitialStatuses() {
+        // when
+        Settlement settlement = Settlement.create(
+                UUID.randomUUID(), UUID.randomUUID(), PERIOD,
+                List.of(detail("100.00", "0.15")));
+
+        // then
+        assertThat(settlement.getPayoutStatus()).isEqualTo(PayoutStatus.NOT_READY);
+        assertThat(settlement.getSettlementStatus()).isEqualTo(SettlementStatus.PENDING_APPROVAL);
     }
 
     @Test

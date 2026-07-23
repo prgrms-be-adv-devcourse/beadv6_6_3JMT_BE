@@ -1,4 +1,4 @@
--- 정산 V2 event 재생성용 파괴적 one-time reset이다.
+-- V3의 정산 초기 상태 기본값을 유지하면서 수행하는 V2 event 재생성용 one-time reset이다.
 -- 서비스가 소유한 정산 데이터와 Spring Batch metadata만 초기화한다.
 TRUNCATE TABLE
     batch_step_execution_context,

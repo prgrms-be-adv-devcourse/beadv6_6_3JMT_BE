@@ -55,12 +55,17 @@ public class OrderController {
 	private final OrderRefundService orderRefundService;
 
 	@PostMapping
-	@Operation(summary = "단일 주문 생성", description = "요청 상품을 하나의 주문으로 생성하고 주문 상품별 판매자 정보를 제공합니다.")
+	@Operation(
+		summary = "단일 주문 생성",
+		description = "요청 상품을 하나의 주문으로 생성하고 주문 상품별 판매자 정보를 제공합니다. "
+			+ "본인이 판매하는 상품은 주문할 수 없습니다. 여러 상품 중 하나라도 본인 상품이면 전체 주문이 실패하며 "
+			+ "주문·장바구니·이벤트 변경이 발생하지 않습니다."
+	)
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "주문 생성 성공"),
 		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
 		@ApiResponse(responseCode = "401", description = "A003 인증 정보 누락"),
-		@ApiResponse(responseCode = "403", description = "A004 구매자 권한 없음"),
+		@ApiResponse(responseCode = "403", description = "O015 본인 판매 상품 구매 불가"),
 		@ApiResponse(responseCode = "503", description = "SYS002 상품 서비스 사용 불가")
 	})
 	public ApiResult<CreateOrderResponse> createOrder(
