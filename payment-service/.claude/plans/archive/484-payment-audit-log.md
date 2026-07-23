@@ -55,7 +55,7 @@ infrastructure/persistence/AuditLogEventListener.java       ← @TransactionalEv
 
 **인덱스**: `idx_audit_log_entity` on (`entity_type`, `entity_id`) — 엔티티별 이력 조회 대비.
 
-`@Entity` 추가이므로 [flyway-migration.md](../rules/flyway-migration.md) 규칙에 따라 `V8__create_audit_log.sql`을 같은 PR에 동반한다.
+`@Entity` 추가이므로 [flyway-migration.md](../../rules/flyway-migration.md) 규칙에 따라 `V8__create_audit_log.sql`을 같은 PR에 동반한다.
 
 ## 기록 흐름
 
