@@ -144,4 +144,29 @@ class RedisSettlementChatStateRepositoryIntegrationTest {
         assertThat(redisTemplate.getConnectionFactory()).isInstanceOf(LettuceConnectionFactory.class);
         assertThat(((LettuceConnectionFactory) redisTemplate.getConnectionFactory()).getDatabase()).isEqualTo(1);
     }
+
+    @Test
+    void activeRun_lease가_먼저_만료돼도_실행은_실패_상태로_완료한다() {
+        UUID actorId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        Instant startedAt = Instant.parse("2026-07-22T12:00:00Z");
+        AgentRun run = AgentRun.start(
+                conversationId,
+                actorId,
+                "이번 주 정산을 알려줘",
+                startedAt,
+                Duration.ofSeconds(90)
+        );
+        assertThat(repository.acceptRun(actorId, conversationId, run).accepted()).isTrue();
+        redisTemplate.delete("ai:settlement:actor:{" + actorId + "}:active-run");
+
+        Instant failedAt = startedAt.plusSeconds(1);
+
+        assertThat(repository.fail(actorId, run.runId(), "AI_RUN_TIMEOUT", "실행 시간이 초과됐습니다.", failedAt))
+                .isTrue();
+        assertThat(repository.findOwnedRun(actorId, run.runId(), failedAt))
+                .get()
+                .extracting(AgentRun::status)
+                .isEqualTo(RunStatus.FAILED);
+    }
 }

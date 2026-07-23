@@ -1,8 +1,10 @@
 package com.prompthub.user.sellersettlement.domain.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
+import com.prompthub.user.sellersettlement.domain.model.enums.SellerSettlementLineType;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -37,5 +39,19 @@ class SellerSettlementSeedTest {
         assertThat(s.getStatus()).isEqualTo(SettlementDisplayStatus.WAITING);
         assertThat(s.getPayloadVersion()).isEqualTo((short) 1);
         assertThat(s.getDetails()).isEmpty();
+    }
+
+    @Test
+    void REFUND_Detail은_양수_금액으로_seed할_수_없다() {
+        assertThatThrownBy(() -> SellerSettlementDetail.seed(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                SellerSettlementLineType.REFUND,
+                new BigDecimal("40.00"),
+                new BigDecimal("0.1500"),
+                new BigDecimal("6.00"),
+                new BigDecimal("34.00"),
+                LocalDateTime.of(2026, 7, 17, 9, 20)))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

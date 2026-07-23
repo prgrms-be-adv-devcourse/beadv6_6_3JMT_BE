@@ -1,6 +1,7 @@
 package com.prompthub.user.sellersettlement.infrastructure.messaging.kafka.config;
 
 import com.prompthub.user.sellersettlement.infrastructure.messaging.kafka.consumer.settlement.dlt.SettlementDltSlackProperties;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -32,6 +33,7 @@ public class KafkaConfig {
 
     private static final long RETRY_INTERVAL_MS = 1_000L;
     private static final long MAX_RETRY_ATTEMPTS = 3L;
+    private static final Duration DLT_SEND_RESULT_TIMEOUT = Duration.ofSeconds(10);
 
     private final String bootstrapServers;
     private final String groupId;
@@ -84,7 +86,7 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(settlementEventConsumerFactory);
-        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         factory.setCommonErrorHandler(settlementKafkaErrorHandler);
         return factory;
     }
@@ -104,6 +106,14 @@ public class KafkaConfig {
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
                 dltKafkaTemplate,
                 (record, exception) -> new TopicPartition(record.topic() + ".DLT", record.partition()));
-        return new DefaultErrorHandler(recoverer, new FixedBackOff(RETRY_INTERVAL_MS, MAX_RETRY_ATTEMPTS));
+        recoverer.setFailIfSendResultIsError(true);
+        recoverer.setWaitForSendResultTimeout(DLT_SEND_RESULT_TIMEOUT);
+
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(
+                recoverer,
+                new FixedBackOff(RETRY_INTERVAL_MS, MAX_RETRY_ATTEMPTS)
+        );
+        errorHandler.setCommitRecovered(true);
+        return errorHandler;
     }
 }

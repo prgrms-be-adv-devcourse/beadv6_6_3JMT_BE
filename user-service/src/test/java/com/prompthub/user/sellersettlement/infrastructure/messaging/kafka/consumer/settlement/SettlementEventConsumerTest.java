@@ -97,6 +97,21 @@ class SettlementEventConsumerTest {
     }
 
     @Test
+    void V2_부모_총액이_Detail_합계와_다르면_예외를_전파하고_ack하지_않는다() throws IOException {
+        SeedSellerSettlementUseCase useCase = mock(SeedSellerSettlementUseCase.class);
+        Acknowledgment ack = mock(Acknowledgment.class);
+        SettlementEventConsumer consumer = new SettlementEventConsumer(objectMapper, useCase);
+        String inconsistentV2 = fixture("settlement-created-v2.json")
+                .replace("\"totalAmount\": 100.00", "\"totalAmount\": 101.00");
+
+        assertThatThrownBy(() -> consumer.consume(inconsistentV2, ack))
+                .isInstanceOf(SettlementEventDeserializeException.class);
+
+        then(useCase).shouldHaveNoInteractions();
+        then(ack).shouldHaveNoInteractions();
+    }
+
+    @Test
     void eventType_형식과_지원여부를_구분한다() throws IOException {
         SeedSellerSettlementUseCase malformedUseCase = mock(SeedSellerSettlementUseCase.class);
         Acknowledgment malformedAck = mock(Acknowledgment.class);

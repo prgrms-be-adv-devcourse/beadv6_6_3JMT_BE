@@ -81,7 +81,22 @@ public class SellerSettlementDetail {
         this.feeRate = Objects.requireNonNull(feeRate);
         this.feeAmount = Objects.requireNonNull(feeAmount);
         this.lineSettlementAmount = Objects.requireNonNull(lineSettlementAmount);
+        validateSignedAmount(this.lineType, this.lineAmount, "lineAmount");
+        validateSignedAmount(this.lineType, this.feeAmount, "feeAmount");
+        validateSignedAmount(this.lineType, this.lineSettlementAmount, "lineSettlementAmount");
         this.occurredAt = Objects.requireNonNull(occurredAt);
         this.createdAt = Objects.requireNonNull(createdAt);
+    }
+
+    private static void validateSignedAmount(
+            SellerSettlementLineType lineType,
+            BigDecimal amount,
+            String fieldName
+    ) {
+        int sign = amount.compareTo(BigDecimal.ZERO);
+        if ((lineType == SellerSettlementLineType.SALE && sign < 0)
+                || (lineType == SellerSettlementLineType.REFUND && sign > 0)) {
+            throw new IllegalArgumentException(fieldName + "의 부호가 lineType과 일치하지 않습니다.");
+        }
     }
 }

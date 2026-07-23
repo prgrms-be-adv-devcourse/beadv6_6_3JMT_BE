@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationVersion;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -27,6 +28,15 @@ class SettlementV2ResetMigrationIntegrationTest {
             .withDatabaseName("settlement")
             .withUsername("settlement")
             .withPassword("settlement");
+
+    @BeforeEach
+    void cleanDatabase() {
+        Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .cleanDisabled(false)
+                .load()
+                .clean();
+    }
 
     @Test
     @DisplayName("V3는 정산과 Batch 실행 데이터를 지우고 sequence를 다시 시작한다")
@@ -54,6 +64,36 @@ class SettlementV2ResetMigrationIntegrationTest {
         assertThat(rowCount(jdbc, "batch_job_instance")).isZero();
         assertThat(jdbc.queryForObject("select nextval('batch_job_instance_seq')", Long.class))
                 .isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("최신 migration 뒤에는 현재 Settlement JPA projection으로 저장할 수 있다")
+    void migrate_allowsCurrentSettlementProjection() {
+        Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .load()
+                .migrate();
+        JdbcTemplate jdbc = jdbcTemplate();
+
+        int inserted = jdbc.update("""
+                        insert into settlement (
+                            settlement_id, created_at, updated_at, calculated_at, fee_total_amount,
+                            period_end, period_start, product_count, refund_amount, seller_id,
+                            settlement_batch_id, settlement_total_amount, total_amount
+                        ) values (?, current_timestamp, current_timestamp, current_timestamp, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                UUID.randomUUID(),
+                15,
+                LocalDate.of(2026, 7, 19),
+                LocalDate.of(2026, 7, 13),
+                1,
+                0,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                85,
+                100);
+
+        assertThat(inserted).isEqualTo(1);
     }
 
     private JdbcTemplate jdbcTemplate() {

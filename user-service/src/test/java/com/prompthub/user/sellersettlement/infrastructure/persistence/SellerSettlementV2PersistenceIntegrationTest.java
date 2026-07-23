@@ -1,6 +1,7 @@
 package com.prompthub.user.sellersettlement.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.prompthub.user.global.config.JpaConfig;
 import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
@@ -16,7 +17,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @DataJpaTest
 @Import(JpaConfig.class)
@@ -55,6 +59,35 @@ class SellerSettlementV2PersistenceIntegrationTest {
         assertThat(stored.getDetails())
                 .extracting(SellerSettlementDetail::getSettlementDetailId)
                 .containsExactly(firstDetailId, secondDetailId);
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void V2_Detail_저장에_실패하면_부모도_함께_롤백한다() {
+        UUID duplicatedDetailId = UUID.randomUUID();
+        repository.saveAndFlush(v2Settlement(UUID.randomUUID(), duplicatedDetailId));
+
+        UUID rejectedSettlementId = UUID.randomUUID();
+        assertThatThrownBy(() -> repository.saveAndFlush(v2Settlement(rejectedSettlementId, duplicatedDetailId)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        assertThat(repository.findBySettlementId(rejectedSettlementId)).isEmpty();
+    }
+
+    private SellerSettlement v2Settlement(UUID settlementId, UUID detailId) {
+        return SellerSettlement.seedV2(
+                settlementId, UUID.randomUUID(),
+                LocalDate.of(2026, 7, 13), LocalDate.of(2026, 7, 19),
+                1, new BigDecimal("100.00"), new BigDecimal("85.00"),
+                new BigDecimal("15.00"), BigDecimal.ZERO,
+                LocalDateTime.of(2026, 7, 20, 1, 12),
+                List.of(detail(
+                        detailId,
+                        UUID.randomUUID(),
+                        SellerSettlementLineType.SALE,
+                        "100.00",
+                        "15.00",
+                        "85.00")));
     }
 
     private SellerSettlementDetail detail(

@@ -4,10 +4,6 @@ end
 if redis.call('HGET', KEYS[2], 'actor-id') ~= ARGV[2] then
   return 0
 end
-if redis.call('GET', KEYS[1]) ~= ARGV[1] then
-  return 0
-end
-
 redis.call('HSET', KEYS[2],
   'status', 'FAILED',
   'error-code', ARGV[3],
@@ -15,5 +11,7 @@ redis.call('HSET', KEYS[2],
   'failed-at', ARGV[5])
 redis.call('HDEL', KEYS[2], 'completed-at', 'cancelled-at', 'answer')
 redis.call('PEXPIRE', KEYS[2], ARGV[6])
-redis.call('DEL', KEYS[1])
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  redis.call('DEL', KEYS[1])
+end
 return 1

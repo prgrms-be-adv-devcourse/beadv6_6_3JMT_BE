@@ -1,13 +1,14 @@
 # 정산 도메인 내부통신 토폴로지 (현재 상태)
 
-정산 도메인이 세 모듈로 분산된 뒤의 **이벤트(Kafka)와 내부통신(gRPC)** 실제 구현 상태를 정리한다.
+정산 도메인과 이를 조회하는 AI가 분산된 뒤의 **이벤트(Kafka)와 내부통신(gRPC)** 실제 구현 상태를 정리한다.
 이 문서는 "지금 코드가 어떻게 통신하는가"의 단일 현황판이다. 설계 배경·결정은 각 trade-off 문서를,
 계약 상세(proto 전문·필드표)는 `integration-catalog.md` 를 본다.
 
-대상 세 도메인:
+대상 도메인:
 
 - **정산 본체** — `settlement-service` (정산 계산·배치·발행)
 - **셀러 정산** — `user-service` 의 `sellersettlement` 패키지 (판매자용 정산 조회·지급요청)
+- **셀러 AI** — `ai-service` (대화·Tool orchestration, 정산 데이터 비소유)
 - **어드민 정산** — `admin-service` 의 `settlement` 패키지 (운영자용 정산 조회·상태변경)
 
 > 공통 이벤트 래퍼 `EventMessage<T>`(`common-module`): `eventId·eventType·occurredAt·aggregateType·aggregateId·payload`.
@@ -20,7 +21,7 @@
 ```
                          settlement-events (Kafka)
                          EventMessage<SettlementCreatedEvent>
-                         eventType=SETTLEMENT_CREATED
+                         eventType=SETTLEMENT_CREATED, payloadVersion=2
   ┌───────────────────┐  ─────────────────────────────▶  ┌────────────────────────────┐
   │ settlement-service│  Transactional Outbox              │ user-service               │
   │  (정산 본체)       │  배치 Step flush (#301)             │  sellersettlement (셀러 정산)│
@@ -31,13 +32,19 @@
    order-service
    (OrderQueryService 운영 계약 구현)
 
+  ┌───────────────────┐   gRPC SellerSettlementQueryService   ┌────────────────────────────┐
+  │ ai-service        │ ────────────────────────────────────▶ │ user-service               │
+  │  (셀러 AI)         │   x-user-id + 내부 토큰 metadata            │ sellersettlement              │
+  └───────────────────┘                                        └────────────────────────────┘
+
   ┌────────────────────────────┐
   │ admin-service (어드민 정산)  │  ──── DB 직접(JPA read-side) ────▶  정산 테이블
   └────────────────────────────┘       이벤트·gRPC 미경유 (admin-data-access.md)
 ```
 
 핵심: **정산 본체 → 셀러 정산** 은 Kafka 이벤트, **정산 본체 → order** 는 gRPC,
-**셀러 정산 요약** 은 자체 저장소만 조회하고, **어드민 정산** 은 통신 없이 DB 직접 접근한다.
+**셀러 AI → 셀러 정산 read-side** 는 gRPC다. AI는 원장을 보유하지 않고, User가 소유한 정산 사본과
+판매자 범위 검증을 제공한다. **어드민 정산** 은 통신 없이 DB 직접 접근한다.
 
 ---
 
@@ -46,7 +53,8 @@
 | 도메인 | Kafka 발행 | Kafka 구독 | gRPC 서버 | gRPC 클라이언트 |
 |---|---|---|---|---|
 | **settlement-service** | ✅ Outbox 구현(#301) — `settlement-events` / `SETTLEMENT_CREATED` | ❌ 없음 — `order-events` 수신 제거(#317) | ❌ 없음 | ✅ order 주간 범위 조회 구현 |
-| **user `sellersettlement`** | ❌ 없음 | ✅ 구현(기본 OFF) — `settlement-events` | ❌ 없음 | ❌ 없음 |
+| **user `sellersettlement`** | ❌ 없음 | ✅ 구현(기본 OFF) — `settlement-events`, V1/V2 역직렬화 | ✅ `SellerSettlementQueryService` — AI용 판매자 정산 read-side | ❌ 없음 |
+| **ai-service (셀러 AI)** | ❌ 없음 | ❌ 없음 | ❌ 없음 | ✅ User `SellerSettlementQueryService` |
 | **admin `settlement`** | ❌ 없음 | ❌ 없음 | ❌ 없음 | ❌ 없음 — DB 직접 접근 |
 
 범례: ✅ 구현·동작 가능(게이트 별개) · ⚠️ 비활성/부분(기본 OFF 또는 상대 부재) · ❌ 없음
@@ -64,10 +72,10 @@
 | 어댑터 | `infrastructure/messaging/kafka/producer/KafkaSettlementEventPublisher` (`SettlementEventPublisher` 포트 구현) |
 | 적재 | `Settlement`·SourceLine 연결과 같은 트랜잭션에서 `settlement_outbox_event`에 완성 JSON 저장 |
 | 토픽 | `settlement-events` (`settlement.kafka.producer.topic`) |
-| 래퍼 | `EventMessage<SettlementCreatedEvent>` |
+| 래퍼 | `EventMessage<SettlementCreatedEvent>` — 신규 발행은 `payloadVersion=2` |
 | eventType | `SETTLEMENT_CREATED` |
 | aggregateType / key | `SETTLEMENT` / `settlementId` |
-| 이벤트 상세 | `SettlementCreatedEvent` (settlementId·sellerId·periodStart·periodEnd·productCount·totalAmount·settlementTotalAmount·feeTotalAmount·refundAmount·calculatedAt) |
+| 이벤트 상세 | `SettlementCreatedEvent` V2 (부모 합계 + `details[]`: settlementDetailId·orderProductId·lineType·각 라인 금액·occurredAt) |
 | 발행 시점 | Job 시작 `retryPendingOutboxStep`(이전 PENDING), Job 마지막 `flushCurrentBatchOutboxStep`(현재 배치 PENDING) |
 | 실패정책 | broker ack 동기 확인. 1~2회 `PENDING`, 3회 `FAILED`; `outboxRedriveJob(eventId)`로 지정 재처리 |
 | 멱등/전달 | Outbox PK = JSON `eventId`, 저장 원문 재발행(at-least-once). user는 `settlementId` 유니크로 중복 흡수 |
@@ -107,9 +115,10 @@
 | 컨슈머 | `sellersettlement/infrastructure/messaging/kafka/consumer/settlement/SettlementEventConsumer` |
 | 토픽 | `settlement-events` (`user.kafka.consumer.settlement.topic`) — 정산 본체 발행 토픽과 일치 |
 | 게이트 | `user.kafka.listener.settlement.enabled` — **기본값 false**(통합 검증 시 true) |
-| 래퍼 | 공통 `EventMessage<SettlementCreatedEvent>` (수동 `readTree` 역직렬화) |
-| 처리 | `eventType == SETTLEMENT_CREATED` → `SeedSellerSettlementUseCase.seed(event)` → `seller_settlement` 시딩 |
-| 이벤트 상세 | 자체 `SettlementCreatedEvent`(정산 본체 발행 DTO 와 필드 미러) |
+| 래퍼 | 공통 `EventMessage`를 수동 `readTree`로 읽고 `payloadVersion`에 따라 V1/V2 역직렬화 |
+| 처리 | `eventType == SETTLEMENT_CREATED` → `SeedSellerSettlementUseCase.seed(event)` → `seller_settlement` + `seller_settlement_detail` 시딩 |
+| 이벤트 상세 | 신규 발행은 V2. V2는 부모 합계와 `details[]` 합계를 검증한 뒤 seed하고, V1 reader 코드는 과거 호환 흔적으로만 유지한다 |
+| 실패 정책 | 최초 1회 + 1초 간격 3회 재시도. 이후 `settlement-events.DLT`에 원문·원래 key를 발행하고, 발행 성공을 확인한 뒤 source offset을 커밋한다. Slack webhook이 설정된 경우 DLT 메타데이터만 알린다 |
 
 **gRPC 클라이언트 — 없음.**
 
@@ -117,9 +126,19 @@
 - summary는 `seller_settlement` 저장소의 누적 거래액·지급 완료액만 집계한다.
 - 등록 프롬프트 수와 누적 판매건수는 프론트가 Product 공개 API를 별도로 호출한다.
 
-**gRPC 서버** — 없음. Product용 `ProductSellerQueryGrpcService`와 정산용
-`SettlementSellerQueryGrpcService`는 호출자가 사라져 제거됐다. 판매자 정보 화면 조합은
-user-service가 소유한 REST Seller 조회 API를 사용한다.
+**gRPC 서버 — AI 정산 조회용으로 구현됨.**
+
+| 항목 | 값 |
+|---|---|
+| 계약 | `grpc/user/seller_settlement_query.proto`의 `SellerSettlementQueryService` |
+| 제공 RPC | 월/주 `GetSettlementSummary`, 기간 `CompareSettlementPeriods`, 월별 `GetWeeklySettlementBreakdown`, `GetPayoutStatus` |
+| 호출자 | `ai-service`의 `UserSellerSettlementQueryClient` — OpenAI Tool이 이 포트만 호출 |
+| 인증/범위 | `x-user-id`와 내부 서비스 토큰 gRPC metadata를 User interceptor가 검증하고, 서버가 해당 판매자 ID로만 read-side를 조회 |
+| 계약 소유 | proto를 `grpc/user/`에 둔다. 조회 데이터·기간 집계·판매자 범위 검증의 단일 소유자가 User이므로, 호출자인 AI나 배치성 settlement-service가 계약을 소유하지 않는다 |
+
+과거 화면 조합용 `ProductSellerQueryGrpcService`와 `SettlementSellerQueryGrpcService`는 호출자가 없어
+제거됐다. 현재 서버는 셀러 AI의 정산 read-side 전용이며, 판매자 정보 화면 조합은 user-service REST Seller
+조회 API를 사용한다.
 
 ### 3-3. admin-service `settlement` (어드민 정산)
 
@@ -140,7 +159,8 @@ user-service가 소유한 REST Seller 조회 API를 사용한다.
 
 - 판매자 정보 화면 조합은 user-service REST API를 사용한다.
 - 상품 통계는 #452 이후 프론트가 Product 공개 API를 직접 호출한다.
-- settlement-service에 남는 동기 통신은 order 원천 조회용 gRPC뿐이다.
+- settlement-service에 남는 동기 통신은 order 원천 조회용 gRPC뿐이다. AI의 User 조회 채널은
+  settlement-service와 독립된 `ai-service → user-service` 경로다.
 
 ---
 

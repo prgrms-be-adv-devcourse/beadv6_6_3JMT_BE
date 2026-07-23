@@ -101,4 +101,14 @@ class SellerSettlementSeedServiceTest {
 
         then(sellerSettlementRepository).should(never()).save(any());
     }
+
+    @Test
+    void V2_seed도_이미_있으면_Detail을_다시_저장하지_않는다() {
+        UUID settlementId = UUID.randomUUID();
+        given(sellerSettlementRepository.existsBySettlementId(settlementId)).willReturn(true);
+
+        service.seed(v2Event(settlementId, UUID.randomUUID(), UUID.randomUUID()));
+
+        then(sellerSettlementRepository).should(never()).save(any());
+    }
 }
