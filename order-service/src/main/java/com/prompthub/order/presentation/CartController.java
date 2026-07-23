@@ -34,13 +34,11 @@ public class CartController {
 	@Operation(summary = "장바구니 조회", description = "인증된 구매자의 장바구니 상품 목록과 합계 금액을 조회합니다. 장바구니가 없으면 cartId가 null이고 상품이 비어 있는 200 응답을 반환합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "장바구니 조회 성공 또는 빈 장바구니 응답"),
-		@ApiResponse(responseCode = "400", description = "P002 상품 요청 오류",
+		@ApiResponse(responseCode = "400", description = "V001 X-User-Id UUID 형식 오류, P002 상품 요청 오류",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
 		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음, P004 상품 서비스 인증 실패",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
 		@ApiResponse(responseCode = "403", description = "P005 상품 서비스 접근 거부",
-			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
-		@ApiResponse(responseCode = "404", description = "P001 상품 없음",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
 		@ApiResponse(responseCode = "503", description = "SYS002 상품 서비스 사용 불가",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
@@ -81,7 +79,7 @@ public class CartController {
 	@Operation(summary = "장바구니 상품 삭제", description = "인증된 구매자의 장바구니에서 상품을 삭제합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "장바구니 상품 삭제 성공"),
-		@ApiResponse(responseCode = "400", description = "V001 경로 변수 UUID 형식 오류",
+		@ApiResponse(responseCode = "400", description = "V001 X-User-Id 또는 경로 변수 UUID 형식 오류",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
 		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
