@@ -17,8 +17,13 @@ import java.util.List;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.*;
+import static com.prompthub.order.fixture.OrderV2Fixture.AMOUNT_A1;
+import static com.prompthub.order.fixture.OrderV2Fixture.AMOUNT_B1;
+import static com.prompthub.order.fixture.OrderV2Fixture.BUYER_ID;
 import static com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_A1;
+import static com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_B1;
 import static com.prompthub.order.fixture.OrderV2Fixture.REQUEST_TITLE_A1;
+import static com.prompthub.order.fixture.OrderV2Fixture.SELLER_B;
 import static com.prompthub.order.fixture.OrderV2Fixture.command;
 import static com.prompthub.order.fixture.OrderV2Fixture.requestedProductIds;
 import static com.prompthub.order.fixture.OrderV2Fixture.shuffledSnapshots;
@@ -187,6 +192,51 @@ class OrderPolicyServiceTest {
 
 			assertThatThrownBy(() -> orderPolicyService.validateProductSnapshots(requestedProductIds(), snapshots))
 				.isInstanceOf(OrderException.class);
+		}
+	}
+
+	@Nested
+	@DisplayName("셀프 구매 검증")
+	class ValidateSelfPurchase {
+
+		@Test
+		@DisplayName("구매자와 판매자가 모두 다르면 셀프 구매 검증을 통과한다")
+		void differentSellers_success() {
+			orderPolicyService.validateSelfPurchase(BUYER_ID, shuffledSnapshots());
+		}
+
+		@Test
+		@DisplayName("무료 본인 상품이면 O015 예외가 발생한다")
+		void freeOwnProduct_throwsO015() {
+			List<ProductOrderSnapshot> snapshots = List.of(
+				new ProductOrderSnapshot(
+					PRODUCT_A1, BUYER_ID, "서버-A1", PRODUCT_TYPE_PROMPT, PRODUCT_MODEL, 0
+				),
+				new ProductOrderSnapshot(
+					PRODUCT_B1, SELLER_B, "서버-B1", PRODUCT_TYPE_PROMPT, PRODUCT_MODEL, AMOUNT_B1
+				)
+			);
+
+			assertThatThrownBy(() -> orderPolicyService.validateSelfPurchase(BUYER_ID, snapshots))
+				.isInstanceOf(OrderException.class)
+				.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SELF_PURCHASE_NOT_ALLOWED);
+		}
+
+		@Test
+		@DisplayName("유료 상품 중 하나라도 본인 상품이면 O015 예외가 발생한다")
+		void mixedProductsWithOwnProduct_throwsO015() {
+			List<ProductOrderSnapshot> snapshots = List.of(
+				new ProductOrderSnapshot(
+					PRODUCT_A1, SELLER_B, "서버-A1", PRODUCT_TYPE_PROMPT, PRODUCT_MODEL, AMOUNT_A1
+				),
+				new ProductOrderSnapshot(
+					PRODUCT_B1, BUYER_ID, "서버-B1", PRODUCT_TYPE_PROMPT, PRODUCT_MODEL, AMOUNT_B1
+				)
+			);
+
+			assertThatThrownBy(() -> orderPolicyService.validateSelfPurchase(BUYER_ID, snapshots))
+				.isInstanceOf(OrderException.class)
+				.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SELF_PURCHASE_NOT_ALLOWED);
 		}
 	}
 
