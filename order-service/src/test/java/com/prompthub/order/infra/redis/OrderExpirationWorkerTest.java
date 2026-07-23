@@ -156,7 +156,7 @@ class OrderExpirationWorkerTest {
 			orderExpirationStore,
 			compensationService,
 			orderRepository,
-			new OrderExpirationProperties(true, 20, 5_000L, 100, 3),
+			new OrderExpirationProperties(true, 20, 5_000L, 100, 3, 30),
 			CLOCK
 		);
 	}

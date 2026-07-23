@@ -30,23 +30,6 @@ public record OrderExpirationProperties(
 		}
 	}
 
-	public OrderExpirationProperties(
-		boolean enabled,
-		int paymentTimeoutMinutes,
-		long fixedDelayMs,
-		int batchSize,
-		int maxRetryCount
-	) {
-		this(
-			enabled,
-			paymentTimeoutMinutes,
-			fixedDelayMs,
-			batchSize,
-			maxRetryCount,
-			Math.max(paymentTimeoutMinutes + 1, 30)
-		);
-	}
-
 	@Override
 	public Duration ttl() {
 		return Duration.ofMinutes(productIdempotencyTtlMinutes);

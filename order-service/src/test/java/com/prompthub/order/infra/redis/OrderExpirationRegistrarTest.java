@@ -26,7 +26,7 @@ class OrderExpirationRegistrarTest {
 	void registerOrderExpirationRegistersOrder() {
 		OrderExpirationRegistrar registrar = new OrderExpirationRegistrar(
 			orderExpirationStore,
-			new OrderExpirationProperties(true, 20, 5_000L, 100, 3)
+			new OrderExpirationProperties(true, 20, 5_000L, 100, 3, 30)
 		);
 		OrderCreatedEvent event = new OrderCreatedEvent(ORDER_ID, CREATED_AT);
 
@@ -43,7 +43,7 @@ class OrderExpirationRegistrarTest {
 	void registerOrderExpiration_storeFailureIsSwallowed() {
 		OrderExpirationRegistrar registrar = new OrderExpirationRegistrar(
 			orderExpirationStore,
-			new OrderExpirationProperties(true, 20, 5_000L, 100, 3)
+			new OrderExpirationProperties(true, 20, 5_000L, 100, 3, 30)
 		);
 		willThrow(new IllegalStateException("redis down"))
 			.given(orderExpirationStore).registerExpiration(ORDER_ID, CREATED_AT, 20);
