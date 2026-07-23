@@ -174,6 +174,32 @@ class OrderCommandHandlerTest {
 	}
 
 	@Test
+	@DisplayName("무료 본인 상품은 주문 생성 전에 O015로 거부한다")
+	void freeOwnProductIsRejectedBeforeOrderCreation() {
+		given(productClient.getOrderSnapshots(requestedProductIds()))
+			.willReturn(snapshotsWithOwnProduct(0));
+
+		assertThatThrownBy(() -> orderCommandHandler.createOrder(BUYER_ID, command()))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SELF_PURCHASE_NOT_ALLOWED);
+
+		then(orderCreator).shouldHaveNoInteractions();
+	}
+
+	@Test
+	@DisplayName("다건 중 유료 본인 상품 하나라도 포함되면 전체 주문을 거부한다")
+	void mixedProductsWithOwnProductAreRejectedBeforeOrderCreation() {
+		given(productClient.getOrderSnapshots(requestedProductIds()))
+			.willReturn(snapshotsWithOwnProduct(AMOUNT_A1));
+
+		assertThatThrownBy(() -> orderCommandHandler.createOrder(BUYER_ID, command()))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SELF_PURCHASE_NOT_ALLOWED);
+
+		then(orderCreator).shouldHaveNoInteractions();
+	}
+
+	@Test
 	@DisplayName("Product Service 장애는 원본 예외를 보존하고 저장하지 않는다")
 	void productServiceFailureIsPreserved() {
 		BusinessException failure = new BusinessException(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE);
@@ -240,6 +266,15 @@ class OrderCommandHandlerTest {
 	private static List<ProductOrderSnapshot> zeroAmountSnapshots() {
 		return List.of(
 			snapshot(PRODUCT_A1, SELLER_A, "서버-A1", 0),
+			shuffledSnapshots().get(0),
+			shuffledSnapshots().get(1),
+			shuffledSnapshots().get(2)
+		);
+	}
+
+	private static List<ProductOrderSnapshot> snapshotsWithOwnProduct(int amount) {
+		return List.of(
+			snapshot(PRODUCT_A1, BUYER_ID, "서버-A1", amount),
 			shuffledSnapshots().get(0),
 			shuffledSnapshots().get(1),
 			shuffledSnapshots().get(2)

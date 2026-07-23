@@ -33,6 +33,7 @@ public class OrderCommandHandler implements CreateOrderUseCase {
 			.toList();
 		List<ProductOrderSnapshot> snapshots = productClient.getOrderSnapshots(productIds);
 		orderPolicyService.validateProductSnapshots(productIds, snapshots);
+		orderPolicyService.validateSelfPurchase(buyerId, snapshots);
 
 		Map<UUID, ProductOrderSnapshot> snapshotsByProductId = snapshots.stream()
 			.collect(toMap(ProductOrderSnapshot::productId, Function.identity()));
