@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: user-service
+  name: ai-service
   labels:
-    app.kubernetes.io/name: user-service
+    app.kubernetes.io/name: ai-service
     app.kubernetes.io/part-of: prompthub
     app.kubernetes.io/component: service
     app.kubernetes.io/managed-by: kustomize
@@ -17,11 +17,11 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app.kubernetes.io/name: user-service
+      app.kubernetes.io/name: ai-service
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: user-service
+        app.kubernetes.io/name: ai-service
         app.kubernetes.io/part-of: prompthub
         app.kubernetes.io/component: service
         app.kubernetes.io/managed-by: kustomize
@@ -43,9 +43,12 @@ spec:
             - |
               until wget -q -O /dev/null http://discovery:8761/actuator/health; do sleep 2; done
               until wget -q -O /dev/null http://config:8888/actuator/health; do sleep 2; done
-              until nc -z postgres 5432; do sleep 2; done
               until nc -z redis 6379; do sleep 2; done
-              until nc -z kafka 9092; do sleep 2; done
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           resources:
             requests:
               cpu: 5m
@@ -54,11 +57,11 @@ spec:
               cpu: 50m
               memory: 32Mi
       containers:
-        - name: user-service
-          image: ghcr.io/prgrms-be-adv-devcourse/prompthub-user-service@sha256:3546f9245791d4741ff90b524103f41759db9e5075180d7fc00487d4d6bbb406
+        - name: ai-service
+          image: ghcr.io/prgrms-be-adv-devcourse/prompthub-ai-service@sha256:3b59e5e5f05e9bf84fe48365022684148c33530b4cb071fcee0bdc3a82f945ab
           imagePullPolicy: IfNotPresent
           args:
-            - --spring.grpc.client.channel.product-service.target=static://product-service:$(PRODUCT_GRPC_SERVER_PORT)
+            - --spring.grpc.client.channel.user-service.target=static://user-service:$(USER_GRPC_SERVER_PORT)
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -66,10 +69,7 @@ spec:
                 - ALL
           ports:
             - name: http
-              containerPort: 18081
-              protocol: TCP
-            - name: grpc
-              containerPort: 9081
+              containerPort: 18087
               protocol: TCP
           env:
             - name: SPRING_CONFIG_IMPORT
@@ -82,28 +82,6 @@ spec:
                 secretKeyRef:
                   name: runtime-secret
                   key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
-            - name: POSTGRES_HOST
-              valueFrom:
-                secretKeyRef:
-                  name: runtime-secret
-                  key: POSTGRES_HOST
-            - name: POSTGRES_PORT
-              valueFrom:
-                secretKeyRef:
-                  name: runtime-secret
-                  key: POSTGRES_PORT
-            - name: POSTGRES_DB
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: POSTGRES_DB
-            - name: POSTGRES_USER
-              value: user_service
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: USER_SERVICE_PASSWORD
             - name: REDIS_HOST
               valueFrom:
                 secretKeyRef:
@@ -114,43 +92,27 @@ spec:
                 secretKeyRef:
                   name: runtime-secret
                   key: REDIS_PORT
-            - name: KAFKA_BOOTSTRAP_SERVERS
-              valueFrom:
-                secretKeyRef:
-                  name: runtime-secret
-                  key: KAFKA_BOOTSTRAP_SERVERS
-            - name: USER_SETTLEMENT_KAFKA_LISTENER_ENABLED
-              value: "true"
-            - name: JWT_PRIVATE_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: jwt-secret
-                  key: JWT_PRIVATE_KEY
-            - name: JWT_PUBLIC_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: jwt-secret
-                  key: JWT_PUBLIC_KEY
             - name: USER_GRPC_SERVER_PORT
               valueFrom:
                 secretKeyRef:
                   name: runtime-secret
                   key: USER_GRPC_SERVER_PORT
-            - name: SPRING_GRPC_SERVER_PORT
+            - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: runtime-secret
-                  key: USER_GRPC_SERVER_PORT
+                  name: ai-secret
+                  key: OPENAI_API_KEY
             - name: AI_USER_GRPC_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: ai-secret
                   key: AI_USER_GRPC_TOKEN
-            - name: PRODUCT_GRPC_SERVER_PORT
-              valueFrom:
-                secretKeyRef:
-                  name: runtime-secret
-                  key: PRODUCT_GRPC_SERVER_PORT
+            - name: OPENAI_REASONING_EFFORT
+              value: "low"
+            - name: AI_SETTLEMENT_CHAT_ENABLED
+              value: "true"
+            - name: AI_MAX_CONCURRENT_RUNS
+              value: "4"
             - name: MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED
               value: "true"
             - name: JAVA_TOOL_OPTIONS

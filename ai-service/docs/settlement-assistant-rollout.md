@@ -57,6 +57,8 @@ smoke 직후 OpenAI usage dashboard에서 방금 실행한 요청 한 건의 tok
 
 첫 AI image가 GHCR에 push되고 release SHA tag로 실제 rollout된 뒤 registry에서 그 image의 64자리 SHA-256 digest를 조회한다. tag가 가리키는 digest와 실제 Pod image digest가 일치하는지 확인한 다음, AI base Deployment의 `image`를 완전한 `ghcr.io/.../prompthub-ai-service@sha256:<64-hex>` reference로 고정한다. digest를 알기 전에는 `latest`, 임의 placeholder 또는 추측한 digest를 manifest에 넣지 않는다.
 
+최초 구현 image는 commit `2acff46c4d229fb2092b2e6005ccf402c71cd181`로 build해 GHCR manifest digest `sha256:3b59e5e5f05e9bf84fe48365022684148c33530b4cb071fcee0bdc3a82f945ab`로 base Deployment에 고정했다. 이는 registry 게시와 정적 manifest 검증 완료를 뜻하며, 실제 Pod rollout 또는 live smoke 완료를 뜻하지 않는다.
+
 runtime CD overlay는 base digest를 현재 short SHA tag로 치환해 release를 배포한다. base digest 고정 변경도 정적 manifest 검증을 거쳐 CD로 적용한다.
 
 ## 24시간 관찰

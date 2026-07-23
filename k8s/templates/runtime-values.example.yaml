@@ -70,6 +70,16 @@ stringData:
 apiVersion: v1
 kind: Secret
 metadata:
+  name: ai-secret
+  namespace: prompthub
+type: Opaque
+stringData:
+  OPENAI_API_KEY: example-openai-api-key
+  AI_USER_GRPC_TOKEN: example-shared-ai-user-grpc-token
+---
+apiVersion: v1
+kind: Secret
+metadata:
   name: ghcr-pull-secret
   namespace: prompthub
 type: kubernetes.io/dockerconfigjson

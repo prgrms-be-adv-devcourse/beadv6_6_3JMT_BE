@@ -150,22 +150,22 @@ Redis, Spring MVC `SseEmitter`, Kubernetes
 - `k8s/base/services/kustomization.yaml`
 - `k8s/templates/runtime-values.example.yaml`
 
-- [ ] 먼저 검증된 코드 commit의 AI image를 GHCR에 push한다.
-- [ ] registry에서 조회한 실제 64자리 SHA-256 digest만 base Deployment에 기록한다.
-- [ ] AI Deployment 1 replica, HTTP 18087/Service 8087, 기능 flag `true`를 설정한다.
-- [ ] init dependency는 Config, Discovery와 Redis만 두고 User gRPC를 hard dependency로 두지 않는다.
-- [ ] User와 AI에 같은 `AI_USER_GRPC_TOKEN` secret을 주입하고 User listener를 활성화한다.
-- [ ] Kustomize와 CD 정적 검증을 통과시킨다.
+- [x] 먼저 검증된 코드 commit의 AI image를 GHCR에 push한다.
+- [x] registry에서 조회한 실제 64자리 SHA-256 digest만 base Deployment에 기록한다.
+- [x] AI Deployment 1 replica, HTTP 18087/Service 8087, 기능 flag `true`를 설정한다.
+- [x] init dependency는 Config, Discovery와 Redis만 두고 User gRPC를 hard dependency로 두지 않는다.
+- [x] User와 AI에 같은 `AI_USER_GRPC_TOKEN` secret을 주입하고 User listener를 활성화한다.
+- [x] Kustomize와 CD 정적 검증을 통과시킨다.
 
 ### Task 9. 최종 검증과 인계
 
 - [x] `./gradlew :settlement-service:test`
 - [x] `./gradlew :user-service:test`
 - [x] `./gradlew :ai-service:test :ai-service:compileJava`
-- [ ] Config, Gateway, workflow와 Kustomize validator 실행 — Kustomize만 실제 digest 반영 후 남음
+- [x] Config, Gateway, workflow와 Kustomize validator 실행
 - [x] secret/role/header/raw payload 비노출 정적 검색
 - [x] diff 자체 검토와 별도 코드 리뷰 반영
-- [ ] 구현 문서 상태와 체크박스를 실제 결과에 맞게 갱신
+- [x] 구현 문서 상태와 체크박스를 실제 결과에 맞게 갱신
 - [ ] 사용자가 원하는 방식으로 commit, push와 PR을 인계
 
 ## 운영 적용 순서

@@ -1,7 +1,7 @@
 # 셀러 AI 정산 어시스턴트 설계
 
 - 작성일: 2026-07-22
-- 상태: 설계 승인 완료, 애플리케이션 구현 검증 완료, Kubernetes image digest 반영 전
+- 상태: 설계 승인 완료, 애플리케이션·Kubernetes 정적 검증 완료, 운영 rollout·live smoke 전
 - 대상 모듈: 신규 `ai-service`, `user-service`, `settlement-service`, `grpc`, `apigateway`, `config`, `k8s`
 - 현재 사용자: 판매자
 - 모델: OpenAI `gpt-5.6-luna`, reasoning effort `low`
