@@ -5,6 +5,9 @@ import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.rest5_client.Rest5ClientTransport;
 import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
 import org.apache.hc.core5.http.HttpHost;
@@ -40,9 +43,15 @@ public class ElasticsearchClientConfig {
 			.build();
 	}
 
+	// JacksonJsonpMapper()를 인자 없이 생성하면 내부에서 순정 ObjectMapper를 새로 만들어
+	// JavaTimeModule이 빠진 채로 쓰인다 — ProductSearchDocument의 LocalDateTime 필드
+	// 직렬화가 항상 실패하므로 JavaTimeModule을 등록한 ObjectMapper를 명시적으로 넘긴다.
 	@Bean
 	public ElasticsearchTransport elasticsearchTransport(Rest5Client rest5Client) {
-		return new Rest5ClientTransport(rest5Client, new JacksonJsonpMapper());
+		ObjectMapper objectMapper = new ObjectMapper()
+			.registerModule(new JavaTimeModule())
+			.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+		return new Rest5ClientTransport(rest5Client, new JacksonJsonpMapper(objectMapper));
 	}
 
 	@Bean

@@ -31,7 +31,7 @@ public class ElasticsearchProductSearchIndexer implements ProductSearchIndexer {
 		ProductSearchDocument document = buildDocument(onSale, familySalesCount, averageRating, firstPublishedAt);
 		try {
 			client.index(i -> i.index(ProductIndexBootstrap.ALIAS).id(document.familyRootId().toString()).document(document));
-		} catch (IOException e) {
+		} catch (IOException | RuntimeException e) {
 			throw new IllegalStateException("ES 색인에 실패했습니다. familyRootId=" + document.familyRootId(), e);
 		}
 	}
@@ -48,7 +48,7 @@ public class ElasticsearchProductSearchIndexer implements ProductSearchIndexer {
 				.filter(Objects::nonNull)
 				.map(UUID::fromString)
 				.collect(Collectors.toSet());
-		} catch (IOException e) {
+		} catch (IOException | RuntimeException e) {
 			throw new IllegalStateException("ES 색인 목록 조회에 실패했습니다.", e);
 		}
 	}
@@ -75,7 +75,7 @@ public class ElasticsearchProductSearchIndexer implements ProductSearchIndexer {
 				}
 				return b;
 			});
-		} catch (IOException e) {
+		} catch (IOException | RuntimeException e) {
 			throw new IllegalStateException("ES 벌크 반영에 실패했습니다.", e);
 		}
 	}
