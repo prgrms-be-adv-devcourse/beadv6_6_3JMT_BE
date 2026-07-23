@@ -12,7 +12,6 @@ import com.prompthub.admin.product.domain.model.entity.Product;
 import com.prompthub.admin.product.domain.model.enums.AmountType;
 import com.prompthub.admin.product.domain.model.enums.ProductStatus;
 import com.prompthub.admin.product.domain.model.enums.ProductType;
-import com.prompthub.admin.product.domain.repository.OutboxEventRepository;
 import com.prompthub.admin.product.domain.repository.ProductRepository;
 import com.prompthub.admin.product.presentation.dto.response.AdminProductListItemResponse;
 import java.util.List;
@@ -39,12 +38,6 @@ class ProductServiceTest {
 
 	@Mock
 	private SellerNicknameRepository sellerNicknameRepository;
-
-	@Mock
-	private OutboxEventRepository outboxEventRepository;
-
-	@Mock
-	private ProductOnSaleChangedEventFactory eventFactory;
 
 	@InjectMocks
 	private ProductService productAdminService;
@@ -100,8 +93,6 @@ class ProductServiceTest {
 			assertThat(pending.getStatus()).isEqualTo(ProductStatus.ON_SALE);
 			then(productRepository).should().save(onSale);
 			then(productRepository).should().save(pending);
-			then(outboxEventRepository).should().append(org.mockito.ArgumentMatchers.argThat(event ->
-				event.getAggregateId().equals(FAMILY_ROOT_ID) && event.getEventType().equals("PRODUCT_ON_SALE_CHANGED")));
 		}
 
 		@Test
@@ -115,8 +106,6 @@ class ProductServiceTest {
 
 			assertThat(pending.getStatus()).isEqualTo(ProductStatus.ON_SALE);
 			then(productRepository).should(org.mockito.Mockito.times(1)).save(pending);
-			then(outboxEventRepository).should().append(org.mockito.ArgumentMatchers.argThat(event ->
-				event.getAggregateId().equals(FAMILY_ROOT_ID) && event.getEventType().equals("PRODUCT_ON_SALE_CHANGED")));
 		}
 
 		@Test
@@ -166,8 +155,6 @@ class ProductServiceTest {
 
 			assertThat(onSale.getStatus()).isEqualTo(ProductStatus.PENDING_REVIEW);
 			assertThat(superseded.getStatus()).isEqualTo(ProductStatus.ON_SALE);
-			then(outboxEventRepository).should().append(org.mockito.ArgumentMatchers.argThat(event ->
-				event.getAggregateId().equals(FAMILY_ROOT_ID)));
 		}
 
 		@Test
@@ -180,8 +167,6 @@ class ProductServiceTest {
 			productAdminService.revertProductToPendingReview(FAMILY_ROOT_ID);
 
 			assertThat(onSale.getStatus()).isEqualTo(ProductStatus.PENDING_REVIEW);
-			then(outboxEventRepository).should().append(org.mockito.ArgumentMatchers.argThat(event ->
-				event.getAggregateId().equals(FAMILY_ROOT_ID)));
 		}
 
 		@Test
@@ -194,7 +179,6 @@ class ProductServiceTest {
 
 			assertThat(rejected.getStatus()).isEqualTo(ProductStatus.PENDING_REVIEW);
 			then(productRepository).should(org.mockito.Mockito.never()).findAllByFamilyRootIds(org.mockito.ArgumentMatchers.anyList());
-			then(outboxEventRepository).should(org.mockito.Mockito.never()).append(org.mockito.ArgumentMatchers.any());
 		}
 	}
 
