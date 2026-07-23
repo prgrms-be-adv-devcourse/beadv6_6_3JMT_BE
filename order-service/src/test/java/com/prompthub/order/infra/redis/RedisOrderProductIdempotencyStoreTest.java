@@ -1,5 +1,6 @@
 package com.prompthub.order.infra.redis;
 
+import com.prompthub.order.application.service.order.OrderProductReservationMetrics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,11 @@ import org.springframework.data.redis.core.script.RedisScript;
 import java.time.Duration;
 import java.util.List;
 
+import static com.prompthub.order.application.service.order.OrderProductReservationMetrics.RedisOperation.ACQUIRE;
+import static com.prompthub.order.application.service.order.OrderProductReservationMetrics.RedisOperation.EXISTS;
+import static com.prompthub.order.application.service.order.OrderProductReservationMetrics.RedisOperation.RELEASE;
+import static com.prompthub.order.application.service.order.OrderProductReservationMetrics.RedisOutcome.ERROR;
+import static com.prompthub.order.application.service.order.OrderProductReservationMetrics.RedisOutcome.SUCCESS;
 import static com.prompthub.order.fixture.PaymentEventFixture.BUYER_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
 import static com.prompthub.order.fixture.PaymentEventFixture.PRODUCT_A;
@@ -20,8 +26,10 @@ import static com.prompthub.order.fixture.PaymentEventFixture.PRODUCT_B;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 
@@ -36,12 +44,15 @@ class RedisOrderProductIdempotencyStoreTest {
 	@Mock
 	private ValueOperations<String, String> valueOperations;
 
+	@Mock
+	private OrderProductReservationMetrics metrics;
+
 	private RedisOrderProductIdempotencyStore store;
 
 	@BeforeEach
 	void setUp() {
 		lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-		store = new RedisOrderProductIdempotencyStore(redisTemplate);
+		store = new RedisOrderProductIdempotencyStore(redisTemplate, metrics);
 	}
 
 	@Test
@@ -54,6 +65,7 @@ class RedisOrderProductIdempotencyStoreTest {
 
 		then(valueOperations).should(times(2))
 			.setIfAbsent(any(String.class), org.mockito.ArgumentMatchers.eq(ORDER_A.toString()), org.mockito.ArgumentMatchers.eq(TTL));
+		then(metrics).should().recordRedis(eq(ACQUIRE), eq(SUCCESS), any(Duration.class));
 	}
 
 	@Test
@@ -70,6 +82,7 @@ class RedisOrderProductIdempotencyStoreTest {
 			org.mockito.ArgumentMatchers.eq(List.of("order:product:idempotency:{" + BUYER_ID + "}:" + PRODUCT_A)),
 			org.mockito.ArgumentMatchers.eq(ORDER_A.toString())
 		);
+		then(metrics).should().recordRedis(eq(ACQUIRE), eq(SUCCESS), any(Duration.class));
 	}
 
 	@Test
@@ -79,6 +92,8 @@ class RedisOrderProductIdempotencyStoreTest {
 			.willReturn(true);
 
 		assertThat(store.exists(BUYER_ID, PRODUCT_A)).isTrue();
+
+		then(metrics).should().recordRedis(eq(EXISTS), eq(SUCCESS), any(Duration.class));
 	}
 
 	@Test
@@ -90,5 +105,18 @@ class RedisOrderProductIdempotencyStoreTest {
 
 		then(redisTemplate).should(times(2))
 			.execute(any(RedisScript.class), anyList(), org.mockito.ArgumentMatchers.eq(ORDER_A.toString()));
+		then(metrics).should().recordRedis(eq(RELEASE), eq(SUCCESS), any(Duration.class));
+	}
+
+	@Test
+	@DisplayName("Redis 연산 실패 시 오류 latency를 기록하고 예외를 전달한다")
+	void exists_redisFailure_recordsErrorAndRethrows() {
+		willThrow(new IllegalStateException("redis down"))
+			.given(redisTemplate).hasKey("order:product:idempotency:{" + BUYER_ID + "}:" + PRODUCT_A);
+
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> store.exists(BUYER_ID, PRODUCT_A))
+			.isInstanceOf(IllegalStateException.class);
+
+		then(metrics).should().recordRedis(eq(EXISTS), eq(ERROR), any(Duration.class));
 	}
 }

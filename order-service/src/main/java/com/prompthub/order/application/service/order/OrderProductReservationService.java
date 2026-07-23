@@ -11,6 +11,10 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.UUID;
 
+import static com.prompthub.order.application.service.order.OrderProductReservationMetrics.ReservationOutcome.CONFLICT;
+import static com.prompthub.order.application.service.order.OrderProductReservationMetrics.ReservationOutcome.ERROR;
+import static com.prompthub.order.application.service.order.OrderProductReservationMetrics.ReservationOutcome.SUCCESS;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -18,6 +22,7 @@ public class OrderProductReservationService {
 
 	private final OrderProductIdempotencyStore store;
 	private final OrderProductIdempotencyPolicy policy;
+	private final OrderProductReservationMetrics metrics;
 
 	public void reserve(Order order) {
 		List<UUID> productIds = productIds(order);
@@ -29,11 +34,14 @@ public class OrderProductReservationService {
 				policy.ttl()
 			);
 			if (!acquired) {
+				metrics.recordAttempt(CONFLICT);
 				throw new OrderException(ErrorCode.ORDER_PRODUCT_ALREADY_OWNED);
 			}
+			metrics.recordAttempt(SUCCESS);
 		} catch (OrderException exception) {
 			throw exception;
 		} catch (RuntimeException exception) {
+			metrics.recordAttempt(ERROR);
 			log.warn("주문 상품 예약 저장소를 사용할 수 없습니다. orderId={}", order.getId(), exception);
 			throw new OrderException(ErrorCode.ORDER_IDEMPOTENCY_STORE_UNAVAILABLE);
 		}

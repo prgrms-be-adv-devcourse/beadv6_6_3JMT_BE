@@ -12,6 +12,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Duration;
 
+import static com.prompthub.order.application.service.order.OrderProductReservationMetrics.ReservationOutcome.CONFLICT;
+import static com.prompthub.order.application.service.order.OrderProductReservationMetrics.ReservationOutcome.ERROR;
+import static com.prompthub.order.application.service.order.OrderProductReservationMetrics.ReservationOutcome.SUCCESS;
 import static com.prompthub.order.fixture.PaymentEventFixture.BUYER_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
 import static com.prompthub.order.fixture.PaymentEventFixture.createdOrder;
@@ -36,6 +39,9 @@ class OrderProductReservationServiceTest {
 	@Mock
 	private OrderProductIdempotencyPolicy policy;
 
+	@Mock
+	private OrderProductReservationMetrics metrics;
+
 	@InjectMocks
 	private OrderProductReservationService service;
 
@@ -52,6 +58,7 @@ class OrderProductReservationServiceTest {
 			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_PRODUCT_ALREADY_OWNED);
 
 		then(store).should(never()).release(eq(BUYER_ID), anyCollection(), eq(order.getId()));
+		then(metrics).should().recordAttempt(CONFLICT);
 	}
 
 	@Test
@@ -65,6 +72,8 @@ class OrderProductReservationServiceTest {
 		assertThatThrownBy(() -> service.reserve(order))
 			.isInstanceOf(OrderException.class)
 			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_IDEMPOTENCY_STORE_UNAVAILABLE);
+
+		then(metrics).should().recordAttempt(ERROR);
 	}
 
 	@Test
@@ -77,6 +86,8 @@ class OrderProductReservationServiceTest {
 		)).willReturn(true);
 
 		assertThatCode(() -> service.reserve(order)).doesNotThrowAnyException();
+
+		then(metrics).should().recordAttempt(SUCCESS);
 	}
 
 	@Test

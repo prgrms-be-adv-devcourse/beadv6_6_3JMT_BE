@@ -1,5 +1,6 @@
 package com.prompthub.order.infra.redis;
 
+import com.prompthub.order.application.service.order.OrderExpirationMetrics;
 import com.prompthub.order.application.service.order.OrderExpirationStore;
 import com.prompthub.order.application.service.order.OrderFailureCompensationService;
 import com.prompthub.order.domain.repository.OrderRepository;
@@ -17,7 +18,14 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.prompthub.order.application.service.order.OrderExpirationMetrics.CandidateSource.DB;
+import static com.prompthub.order.application.service.order.OrderExpirationMetrics.CandidateSource.REDIS;
+import static com.prompthub.order.application.service.order.OrderExpirationMetrics.CompensationOutcome.DLQ;
+import static com.prompthub.order.application.service.order.OrderExpirationMetrics.CompensationOutcome.FAILURE;
+import static com.prompthub.order.application.service.order.OrderExpirationMetrics.CompensationOutcome.SKIPPED;
+import static com.prompthub.order.application.service.order.OrderExpirationMetrics.CompensationOutcome.SUCCESS;
 import static com.prompthub.order.fixture.OrderFixture.ORDER_ID;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
@@ -40,6 +48,9 @@ class OrderExpirationWorkerTest {
 	@Mock
 	private OrderRepository orderRepository;
 
+	@Mock
+	private OrderExpirationMetrics expirationMetrics;
+
 	@Test
 	@DisplayName("만료 대상 주문 처리 완료 시 Redis 대상과 재시도 카운트를 제거한다")
 	void processExpiredOrders_completed_removesExpirationAndRetry() {
@@ -53,6 +64,10 @@ class OrderExpirationWorkerTest {
 
 		then(orderExpirationStore).should().removeExpiration(ORDER_ID);
 		then(orderExpirationStore).should().clearRetryCount(ORDER_ID);
+		then(expirationMetrics).should().recordCandidates(REDIS, 1);
+		then(expirationMetrics).should().recordCompensation(SUCCESS);
+		then(expirationMetrics).should(times(1))
+			.recordCompensation(any(OrderExpirationMetrics.CompensationOutcome.class));
 	}
 
 	@Test
@@ -68,6 +83,9 @@ class OrderExpirationWorkerTest {
 
 		then(orderExpirationStore).should(never()).removeExpiration(ORDER_ID);
 		then(orderExpirationStore).should(never()).clearRetryCount(ORDER_ID);
+		then(expirationMetrics).should().recordCompensation(SKIPPED);
+		then(expirationMetrics).should(times(1))
+			.recordCompensation(any(OrderExpirationMetrics.CompensationOutcome.class));
 	}
 
 	@Test
@@ -88,6 +106,9 @@ class OrderExpirationWorkerTest {
 		then(orderExpirationStore).should(never()).moveToDeadLetter(ORDER_ID);
 		then(orderExpirationStore).should(never()).removeExpiration(ORDER_ID);
 		then(orderExpirationStore).should(never()).clearRetryCount(ORDER_ID);
+		then(expirationMetrics).should().recordCompensation(FAILURE);
+		then(expirationMetrics).should(times(1))
+			.recordCompensation(any(OrderExpirationMetrics.CompensationOutcome.class));
 	}
 
 	@Test
@@ -106,6 +127,9 @@ class OrderExpirationWorkerTest {
 		then(orderExpirationStore).should().moveToDeadLetter(ORDER_ID);
 		then(orderExpirationStore).should().removeExpiration(ORDER_ID);
 		then(orderExpirationStore).should(never()).clearRetryCount(ORDER_ID);
+		then(expirationMetrics).should().recordCompensation(DLQ);
+		then(expirationMetrics).should(times(1))
+			.recordCompensation(any(OrderExpirationMetrics.CompensationOutcome.class));
 	}
 
 	@Test
@@ -120,6 +144,8 @@ class OrderExpirationWorkerTest {
 		worker.processExpiredOrders();
 
 		then(compensationService).should().compensateTimeout(ORDER_ID, NOW_LOCAL);
+		then(expirationMetrics).should().recordCandidates(DB, 1);
+		then(expirationMetrics).should().recordCompensation(SUCCESS);
 	}
 
 	@Test
@@ -135,6 +161,8 @@ class OrderExpirationWorkerTest {
 		worker.processExpiredOrders();
 
 		then(compensationService).should().compensateTimeout(ORDER_ID, NOW_LOCAL);
+		then(expirationMetrics).should().recordCandidates(DB, 1);
+		then(expirationMetrics).should(never()).recordCandidates(REDIS, 0);
 	}
 
 	@Test
@@ -149,6 +177,28 @@ class OrderExpirationWorkerTest {
 		worker.processExpiredOrders();
 
 		then(compensationService).should(times(1)).compensateTimeout(ORDER_ID, NOW_LOCAL);
+		then(expirationMetrics).should().recordCandidates(DB, 1);
+		then(expirationMetrics).should().recordCandidates(REDIS, 1);
+		then(expirationMetrics).should(times(1))
+			.recordCompensation(any(OrderExpirationMetrics.CompensationOutcome.class));
+	}
+
+	@Test
+	@DisplayName("재시도 상태 저장 실패 시 실패 결과를 한 번 기록한다")
+	void processExpiredOrders_retryStateFailure_recordsFailureOnce() {
+		OrderExpirationWorker worker = worker();
+		given(orderExpirationStore.findExpiredOrderIds(NOW, 100))
+			.willReturn(Set.of(ORDER_ID));
+		willThrow(new RuntimeException("DB unavailable"))
+			.given(compensationService).compensateTimeout(ORDER_ID, NOW_LOCAL);
+		willThrow(new IllegalStateException("redis down"))
+			.given(orderExpirationStore).incrementRetryCount(ORDER_ID);
+
+		worker.processExpiredOrders();
+
+		then(expirationMetrics).should().recordCompensation(FAILURE);
+		then(expirationMetrics).should(times(1))
+			.recordCompensation(any(OrderExpirationMetrics.CompensationOutcome.class));
 	}
 
 	private OrderExpirationWorker worker() {
@@ -157,7 +207,8 @@ class OrderExpirationWorkerTest {
 			compensationService,
 			orderRepository,
 			new OrderExpirationProperties(true, 20, 5_000L, 100, 3, 30),
-			CLOCK
+			CLOCK,
+			expirationMetrics
 		);
 	}
 }
