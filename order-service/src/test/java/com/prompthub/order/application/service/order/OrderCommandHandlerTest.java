@@ -63,7 +63,7 @@ class OrderCommandHandlerTest {
 	private OrderCommandHandler orderCommandHandler;
 
 	@Test
-	@DisplayName("snapshot 순서와 무관하게 productId로 결합하고 요청 제목을 유지한다")
+	@DisplayName("snapshot 순서와 무관하게 productId로 결합하고 상품 서비스 제목을 사용한다")
 	@SuppressWarnings("unchecked")
 	void createOrderCombinesRequestAndSnapshotByProductId() {
 		CreateOrderResult expected = result();
@@ -86,14 +86,14 @@ class OrderCommandHandlerTest {
 		assertThat(itemsCaptor.getValue())
 			.extracting(OrderItem::productTitle)
 			.containsExactly(
-				REQUEST_TITLE_A1,
-				com.prompthub.order.fixture.OrderV2Fixture.REQUEST_TITLE_B1,
-				REQUEST_TITLE_A2,
-				com.prompthub.order.fixture.OrderV2Fixture.REQUEST_TITLE_C1
+				"서버-A1",
+				"서버-B1",
+				"서버-A2",
+				"서버-C1"
 			);
 		assertThat(itemsCaptor.getValue().getFirst().sellerId()).isEqualTo(SELLER_A);
 		assertThat(itemsCaptor.getValue().getFirst().amount()).isEqualTo(AMOUNT_A1);
-		assertThat(itemsCaptor.getValue().getFirst().productTitle()).isNotEqualTo("서버-A1");
+		assertThat(itemsCaptor.getValue().getFirst().productTitle()).isEqualTo("서버-A1");
 	}
 
 	@Test
