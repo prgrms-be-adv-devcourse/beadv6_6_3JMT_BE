@@ -4,7 +4,8 @@
 - 상태: 설계 승인 완료, 애플리케이션·Kubernetes 정적 검증 완료, 운영 rollout·live smoke 전
 - 대상 모듈: 신규 `ai-service`, `user-service`, `settlement-service`, `grpc`, `apigateway`, `config`, `k8s`
 - 현재 사용자: 판매자
-- 모델: OpenAI `gpt-5.6-luna`, reasoning effort `low`
+- 설계·브레인스토밍 모델: Codex `gpt-5.6-sol`, reasoning effort `max`
+- 서비스 런타임 모델: OpenAI `gpt-5.6-luna`, reasoning effort `low`
 
 ## 1. 결정 요약
 
