@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.global.exception.AdminException;
 import com.prompthub.admin.settlement.application.dto.SettlementListQuery;
+import com.prompthub.admin.settlement.application.dto.SettlementWeeklyListQuery;
 import com.prompthub.admin.settlement.application.usecase.SettlementUseCase;
 import com.prompthub.admin.settlement.domain.exception.SettlementInvalidStateException;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
@@ -21,6 +22,7 @@ import com.prompthub.admin.settlement.presentation.dto.response.SettlementRespon
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementStatusResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementSummaryResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementSummaryResponse.Card;
+import com.prompthub.admin.settlement.presentation.dto.response.SettlementWeeklyListResponse;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -65,6 +67,29 @@ class SettlementControllerTest {
 		ArgumentCaptor<SettlementListQuery> queryCaptor =
 			ArgumentCaptor.forClass(SettlementListQuery.class);
 		verify(settlementUseCase).getList(queryCaptor.capture());
+		assertThat(queryCaptor.getValue().settlementMonth())
+			.isEqualTo(YearMonth.of(2026, 7));
+		assertThat(queryCaptor.getValue().size()).isEqualTo(20);
+	}
+
+	@Test
+	void 어드민_주간목록은_상태와_월을_주간필터로_전달한다() throws Exception {
+		when(settlementUseCase.getWeeklyList(any()))
+			.thenReturn(new SettlementWeeklyListResponse(List.of(), List.of(), 0L, 0, 20));
+
+		mockMvc.perform(get("/api/v2/admin/settlements/weeks")
+				.param("status", "PAYOUT_REQUESTED")
+				.param("settlementMonth", "2026-07"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.success").value(true))
+			.andExpect(jsonPath("$.data.totalElements").value(0))
+			.andExpect(jsonPath("$.data.size").value(20));
+
+		ArgumentCaptor<SettlementWeeklyListQuery> queryCaptor =
+			ArgumentCaptor.forClass(SettlementWeeklyListQuery.class);
+		verify(settlementUseCase).getWeeklyList(queryCaptor.capture());
+		assertThat(queryCaptor.getValue().status())
+			.isEqualTo(SettlementDisplayStatus.PAYOUT_REQUESTED);
 		assertThat(queryCaptor.getValue().settlementMonth())
 			.isEqualTo(YearMonth.of(2026, 7));
 		assertThat(queryCaptor.getValue().size()).isEqualTo(20);

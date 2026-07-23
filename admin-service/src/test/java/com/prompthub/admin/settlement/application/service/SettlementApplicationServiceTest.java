@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.global.exception.AdminException;
 import com.prompthub.admin.settlement.application.dto.SettlementListQuery;
+import com.prompthub.admin.settlement.application.dto.SettlementWeeklyListQuery;
 import com.prompthub.admin.settlement.application.port.SellerNameQueryPort;
 import com.prompthub.admin.settlement.domain.model.Settlement;
 import com.prompthub.admin.settlement.domain.model.SettlementSourceLine;
@@ -23,10 +24,14 @@ import com.prompthub.admin.settlement.domain.repository.SettlementQueryRepositor
 import com.prompthub.admin.settlement.domain.repository.SettlementRepository;
 import com.prompthub.admin.settlement.domain.repository.SettlementSourceRepository;
 import com.prompthub.admin.settlement.domain.repository.SettlementStatusAggregate;
+import com.prompthub.admin.settlement.domain.repository.SettlementWeeklyQueryRepository;
+import com.prompthub.admin.settlement.domain.repository.SettlementWeeklyQueryRepository.WeeklyPage;
+import com.prompthub.admin.settlement.domain.repository.SettlementWeeklyStatusCount;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementListResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementStatusResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementSummaryResponse;
+import com.prompthub.admin.settlement.presentation.dto.response.SettlementWeeklyListResponse;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -44,11 +49,13 @@ class SettlementApplicationServiceTest {
 	private final SettlementQueryRepository settlementQueryRepository = mock(SettlementQueryRepository.class);
 	private final SettlementMonthlyQueryRepository monthlyQueryRepository =
 		mock(SettlementMonthlyQueryRepository.class);
+	private final SettlementWeeklyQueryRepository weeklyQueryRepository =
+		mock(SettlementWeeklyQueryRepository.class);
 	private final SellerNameQueryPort sellerNameQueryPort = mock(SellerNameQueryPort.class);
 	private final SettlementRepository settlementRepository = mock(SettlementRepository.class);
 	private final SettlementSourceRepository settlementSourceRepository = mock(SettlementSourceRepository.class);
 	private final SettlementApplicationService service = new SettlementApplicationService(
-		settlementQueryRepository, monthlyQueryRepository, sellerNameQueryPort,
+		settlementQueryRepository, monthlyQueryRepository, weeklyQueryRepository, sellerNameQueryPort,
 		settlementRepository, settlementSourceRepository);
 
 	@Test
@@ -96,6 +103,30 @@ class SettlementApplicationServiceTest {
 			assertThat(item.sellerId()).isEqualTo(SELLER_ID);
 			assertThat(item.sellerName()).isNull();
 		});
+	}
+
+	@Test
+	void 주간목록은_상태필터를_행에_적용하고_전체상태건수를_함께_반환한다() {
+		YearMonth month = YearMonth.of(2026, 7);
+		when(weeklyQueryRepository.findWeeklyPage(
+			SettlementDisplayStatus.APPROVED, month, 0, 20))
+			.thenReturn(new WeeklyPage(List.of(), 0));
+		when(weeklyQueryRepository.findStatusCounts(month)).thenReturn(List.of(
+			new SettlementWeeklyStatusCount(SettlementDisplayStatus.APPROVED, 3)));
+
+		SettlementWeeklyListResponse response = service.getWeeklyList(
+			new SettlementWeeklyListQuery(SettlementDisplayStatus.APPROVED, month, 0, 20));
+
+		assertThat(response.items()).isEmpty();
+		assertThat(response.statusCounts())
+			.filteredOn(count -> count.status().equals("APPROVED"))
+			.singleElement()
+			.extracting(SettlementWeeklyListResponse.StatusCount::count)
+			.isEqualTo(3L);
+		assertThat(response.statusCounts()).hasSize(SettlementDisplayStatus.values().length);
+		verify(weeklyQueryRepository).findWeeklyPage(
+			SettlementDisplayStatus.APPROVED, month, 0, 20);
+		verify(weeklyQueryRepository).findStatusCounts(month);
 	}
 
 	@Test

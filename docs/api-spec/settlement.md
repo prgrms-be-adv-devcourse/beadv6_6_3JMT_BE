@@ -154,7 +154,7 @@ Authorization: Bearer {accessToken}
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| `totalRevenueAmount` | BigDecimal | 누적 총 거래액 |
+| `totalRevenueAmount` | BigDecimal | 지급 완료 정산의 누적 총 거래액 |
 | `totalSettlementAmount` | BigDecimal | 누적 정산 지급 완료 금액 |
 
 ---

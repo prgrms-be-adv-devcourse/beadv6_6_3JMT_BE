@@ -29,8 +29,12 @@ public interface SellerSettlementJpaRepository extends JpaRepository<SellerSettl
             @Param("periodStart") LocalDate periodStart,
             @Param("periodEnd") LocalDate periodEnd);
 
-    @Query("select coalesce(sum(s.totalAmount), 0) from SellerSettlement s where s.sellerId = :sellerId")
-    BigDecimal sumTotalAmountBySeller(@Param("sellerId") UUID sellerId);
+    @Query("""
+            select coalesce(sum(s.totalAmount), 0) from SellerSettlement s
+            where s.sellerId = :sellerId and s.status = :status
+            """)
+    BigDecimal sumTotalAmountBySellerAndStatus(
+            @Param("sellerId") UUID sellerId, @Param("status") SettlementDisplayStatus status);
 
     @Query("""
             select coalesce(sum(s.settlementTotalAmount), 0) from SellerSettlement s
