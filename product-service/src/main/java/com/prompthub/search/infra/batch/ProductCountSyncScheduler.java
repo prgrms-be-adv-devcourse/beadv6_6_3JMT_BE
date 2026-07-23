@@ -1,6 +1,6 @@
-package com.prompthub.product.search.infra.batch;
+package com.prompthub.search.infra.batch;
 
-import com.prompthub.product.search.application.ProductReindexService;
+import com.prompthub.search.application.ProductReindexService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;

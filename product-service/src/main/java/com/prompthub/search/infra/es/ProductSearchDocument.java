@@ -1,4 +1,4 @@
-package com.prompthub.product.search.infra.es;
+package com.prompthub.search.infra.es;
 
 import java.time.LocalDateTime;
 import java.util.List;

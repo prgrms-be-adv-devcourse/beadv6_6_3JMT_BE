@@ -1,4 +1,4 @@
-package com.prompthub.product.search.infra.es;
+package com.prompthub.search.infra.es;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import java.io.IOException;

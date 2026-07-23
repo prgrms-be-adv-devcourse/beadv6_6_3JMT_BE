@@ -1,9 +1,9 @@
-package com.prompthub.product.search.infra.es;
+package com.prompthub.search.infra.es;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import com.prompthub.product.search.support.ElasticsearchIntegrationTestSupport;
+import com.prompthub.search.support.ElasticsearchIntegrationTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 

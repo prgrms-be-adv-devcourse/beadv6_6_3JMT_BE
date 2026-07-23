@@ -1168,10 +1168,10 @@ git commit -m "chore: 로컬 ES(nori) 인프라·의존성 추가 (#376)"
 
 **Files:**
 - Create: `product-service/src/main/resources/es/products-v1-mapping.json`
-- Create: `product-service/src/main/java/com/prompthub/product/search/infra/es/ElasticsearchClientConfig.java`
-- Create: `product-service/src/main/java/com/prompthub/product/search/infra/es/ProductIndexBootstrap.java`
-- Create: `product-service/src/test/java/com/prompthub/product/search/support/ElasticsearchIntegrationTestSupport.java`
-- Test: `product-service/src/test/java/com/prompthub/product/search/infra/es/ProductIndexBootstrapIntegrationTest.java`
+- Create: `product-service/src/main/java/com/prompthub/search/infra/es/ElasticsearchClientConfig.java`
+- Create: `product-service/src/main/java/com/prompthub/search/infra/es/ProductIndexBootstrap.java`
+- Create: `product-service/src/test/java/com/prompthub/search/support/ElasticsearchIntegrationTestSupport.java`
+- Test: `product-service/src/test/java/com/prompthub/search/infra/es/ProductIndexBootstrapIntegrationTest.java`
 
 **Interfaces:**
 - Produces: `ProductIndexBootstrap.ALIAS = "products"` — Task 7·8·9의 색인기가 이 alias 상수를 그대로 참조한다. `ElasticsearchClient` 빈 — Task 7·8의 색인 로직이 주입받아 사용.
@@ -1267,7 +1267,7 @@ git commit -m "chore: 로컬 ES(nori) 인프라·의존성 추가 (#376)"
 > 커스텀 `CloseableHttpAsyncClient`를 주입해야 해결됐다.
 
 ```java
-package com.prompthub.product.search.infra.es;
+package com.prompthub.search.infra.es;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
@@ -1316,7 +1316,7 @@ public class ElasticsearchClientConfig {
 - [ ] **Step 3: 인덱스·alias 부트스트랩 작성**
 
 ```java
-package com.prompthub.product.search.infra.es;
+package com.prompthub.search.infra.es;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import java.io.IOException;
@@ -1361,10 +1361,10 @@ public class ProductIndexBootstrap {
 별도 사전 빌드 스텝은 필요 없다(레이어 캐시로 재빌드는 빠름). Docker 데몬만 떠 있으면 된다.
 
 ```java
-package com.prompthub.product.search.support;
+package com.prompthub.search.support;
 
-import com.prompthub.product.search.infra.es.ElasticsearchClientConfig;
-import com.prompthub.product.search.infra.es.ProductIndexBootstrap;
+import com.prompthub.search.infra.es.ElasticsearchClientConfig;
+import com.prompthub.search.infra.es.ProductIndexBootstrap;
 import java.nio.file.Path;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -1410,11 +1410,11 @@ public abstract class ElasticsearchIntegrationTestSupport {
 - [ ] **Step 5: 부트스트랩 통합 테스트 작성**
 
 ```java
-package com.prompthub.product.search.infra.es;
+package com.prompthub.search.infra.es;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.prompthub.product.search.support.ElasticsearchIntegrationTestSupport;
+import com.prompthub.search.support.ElasticsearchIntegrationTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -1439,15 +1439,15 @@ class ProductIndexBootstrapIntegrationTest extends ElasticsearchIntegrationTestS
 
 - [ ] **Step 6: 빌드/테스트 실행**
 
-Run: `./gradlew :product-service:test --tests "com.prompthub.product.search.infra.es.ProductIndexBootstrapIntegrationTest"`
+Run: `./gradlew :product-service:test --tests "com.prompthub.search.infra.es.ProductIndexBootstrapIntegrationTest"`
 Expected: PASS (Testcontainers가 `product-elasticsearch-nori:9.4.3` 이미지로 컨테이너를 띄운 뒤 통과)
 
 - [ ] **Step 7: 커밋**
 
 ```bash
 git add product-service/src/main/resources/es/products-v1-mapping.json
-git add product-service/src/main/java/com/prompthub/product/search/
-git add product-service/src/test/java/com/prompthub/product/search/
+git add product-service/src/main/java/com/prompthub/search/
+git add product-service/src/test/java/com/prompthub/search/
 git commit -m "feat: products 인덱스 매핑·부트스트랩 추가 (#376)"
 ```
 
@@ -1456,13 +1456,13 @@ git commit -m "feat: products 인덱스 매핑·부트스트랩 추가 (#376)"
 ### Task 7: 색인 컨슈머 (product-events → ES 반영)
 
 **Files:**
-- Create: `product-service/src/main/java/com/prompthub/product/search/infra/es/ProductSearchDocument.java`
-- Create: `product-service/src/main/java/com/prompthub/product/search/application/ProductSearchIndexer.java`
-- Create: `product-service/src/main/java/com/prompthub/product/search/infra/es/ElasticsearchProductSearchIndexer.java`
-- Create: `product-service/src/main/java/com/prompthub/product/search/application/ProductSearchEventHandler.java`
-- Create: `product-service/src/main/java/com/prompthub/product/search/infra/messaging/ProductSearchEventConsumer.java`
+- Create: `product-service/src/main/java/com/prompthub/search/infra/es/ProductSearchDocument.java`
+- Create: `product-service/src/main/java/com/prompthub/search/application/ProductSearchIndexer.java`
+- Create: `product-service/src/main/java/com/prompthub/search/infra/es/ElasticsearchProductSearchIndexer.java`
+- Create: `product-service/src/main/java/com/prompthub/search/application/ProductSearchEventHandler.java`
+- Create: `product-service/src/main/java/com/prompthub/search/infra/messaging/ProductSearchEventConsumer.java`
 - Modify: `product-service/src/main/java/com/prompthub/product/infra/messaging/config/KafkaConfig.java`
-- Test: `product-service/src/test/java/com/prompthub/product/search/application/ProductSearchEventHandlerTest.java`
+- Test: `product-service/src/test/java/com/prompthub/search/application/ProductSearchEventHandlerTest.java`
 
 **Interfaces:**
 - Consumes: Task 3/4가 발행하는 `PRODUCT_ON_SALE_CHANGED`(payload `{familyRootId}`), 기존 `PRODUCT_STOPPED`/`PRODUCT_DELETED`(payload `{productId}`)/`PRODUCT_PRICE_CHANGED`(payload `{productId, previousPrice, changedPrice}`). Task 6의 `ProductIndexBootstrap.ALIAS`, `ElasticsearchClient`.
@@ -1471,7 +1471,7 @@ git commit -m "feat: products 인덱스 매핑·부트스트랩 추가 (#376)"
 - [ ] **Step 1: ES 문서 레코드 작성**
 
 ```java
-package com.prompthub.product.search.infra.es;
+package com.prompthub.search.infra.es;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -1504,7 +1504,7 @@ public record ProductSearchDocument(
 - [ ] **Step 2: `ProductSearchIndexer` 포트 + ES 어댑터 작성**
 
 ```java
-package com.prompthub.product.search.application;
+package com.prompthub.search.application;
 
 import com.prompthub.product.domain.model.entity.Product;
 import java.time.LocalDateTime;
@@ -1518,11 +1518,11 @@ public interface ProductSearchIndexer {
 ```
 
 ```java
-package com.prompthub.product.search.infra.es;
+package com.prompthub.search.infra.es;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.prompthub.product.domain.model.entity.Product;
-import com.prompthub.product.search.application.ProductSearchIndexer;
+import com.prompthub.search.application.ProductSearchIndexer;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -1593,7 +1593,7 @@ public class ElasticsearchProductSearchIndexer implements ProductSearchIndexer {
 - [ ] **Step 3: `ProductSearchEventHandler` 작성 (family 재조회·멱등성)**
 
 ```java
-package com.prompthub.product.search.application;
+package com.prompthub.search.application;
 
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.ProductFamily;
@@ -1681,7 +1681,7 @@ public class ProductSearchEventHandler {
 - [ ] **Step 4: 컨슈머 작성**
 
 ```java
-package com.prompthub.product.search.infra.messaging;
+package com.prompthub.search.infra.messaging;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -1689,7 +1689,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.product.infra.messaging.producer.ProductEventType;
-import com.prompthub.product.search.application.ProductSearchEventHandler;
+import com.prompthub.search.application.ProductSearchEventHandler;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -1796,7 +1796,7 @@ public class ProductSearchEventConsumer {
 - [ ] **Step 6: `ProductSearchEventHandler` 단위 테스트 작성**
 
 ```java
-package com.prompthub.product.search.application;
+package com.prompthub.search.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -1897,15 +1897,15 @@ class ProductSearchEventHandlerTest {
 
 - [ ] **Step 7: 빌드/테스트 실행**
 
-Run: `./gradlew :product-service:test --tests "com.prompthub.product.search.application.ProductSearchEventHandlerTest"`
+Run: `./gradlew :product-service:test --tests "com.prompthub.search.application.ProductSearchEventHandlerTest"`
 Expected: PASS (4개 테스트)
 
 - [ ] **Step 8: 커밋**
 
 ```bash
-git add product-service/src/main/java/com/prompthub/product/search/
+git add product-service/src/main/java/com/prompthub/search/
 git add product-service/src/main/java/com/prompthub/product/infra/messaging/config/KafkaConfig.java
-git add product-service/src/test/java/com/prompthub/product/search/
+git add product-service/src/test/java/com/prompthub/search/
 git commit -m "feat: product-events 색인 컨슈머 추가 (#376)"
 ```
 
@@ -1917,9 +1917,9 @@ git commit -m "feat: product-events 색인 컨슈머 추가 (#376)"
 - Modify: `product-service/src/main/java/com/prompthub/product/domain/repository/ProductRepository.java`
 - Modify: `product-service/src/main/java/com/prompthub/product/infra/persistence/ProductJpaRepository.java`
 - Modify: `product-service/src/main/java/com/prompthub/product/infra/persistence/ProductRepositoryAdapter.java`
-- Create: `product-service/src/main/java/com/prompthub/product/search/application/ProductReindexService.java`
+- Create: `product-service/src/main/java/com/prompthub/search/application/ProductReindexService.java`
 - Create: `product-service/src/main/java/com/prompthub/product/presentation/controller/ReindexController.java`
-- Test: `product-service/src/test/java/com/prompthub/product/search/application/ProductReindexServiceTest.java`
+- Test: `product-service/src/test/java/com/prompthub/search/application/ProductReindexServiceTest.java`
 
 **Interfaces:**
 - Produces: `ProductReindexService.reindexAll()` — Task 9(카운트 동기화 배치)가 그대로 재사용한다.
@@ -1954,7 +1954,7 @@ git commit -m "feat: product-events 색인 컨슈머 추가 (#376)"
 - [ ] **Step 3: `ProductReindexService` 작성**
 
 ```java
-package com.prompthub.product.search.application;
+package com.prompthub.search.application;
 
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.ProductFamily;
@@ -2011,7 +2011,7 @@ public class ProductReindexService {
 ```java
 package com.prompthub.product.presentation.controller;
 
-import com.prompthub.product.search.application.ProductReindexService;
+import com.prompthub.search.application.ProductReindexService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -2034,7 +2034,7 @@ public class ReindexController {
 - [ ] **Step 5: 단위 테스트 작성**
 
 ```java
-package com.prompthub.product.search.application;
+package com.prompthub.search.application;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -2092,7 +2092,7 @@ class ProductReindexServiceTest {
 
 - [ ] **Step 6: 빌드/테스트 실행**
 
-Run: `./gradlew :product-service:test --tests "com.prompthub.product.search.application.ProductReindexServiceTest"`
+Run: `./gradlew :product-service:test --tests "com.prompthub.search.application.ProductReindexServiceTest"`
 Expected: PASS
 
 - [ ] **Step 7: 커밋**
@@ -2101,9 +2101,9 @@ Expected: PASS
 git add product-service/src/main/java/com/prompthub/product/domain/repository/ProductRepository.java
 git add product-service/src/main/java/com/prompthub/product/infra/persistence/ProductJpaRepository.java
 git add product-service/src/main/java/com/prompthub/product/infra/persistence/ProductRepositoryAdapter.java
-git add product-service/src/main/java/com/prompthub/product/search/application/ProductReindexService.java
+git add product-service/src/main/java/com/prompthub/search/application/ProductReindexService.java
 git add product-service/src/main/java/com/prompthub/product/presentation/controller/ReindexController.java
-git add product-service/src/test/java/com/prompthub/product/search/application/ProductReindexServiceTest.java
+git add product-service/src/test/java/com/prompthub/search/application/ProductReindexServiceTest.java
 git commit -m "feat: 온디맨드 풀 리인덱스 배치 추가 (#376)"
 ```
 
@@ -2114,16 +2114,16 @@ git commit -m "feat: 온디맨드 풀 리인덱스 배치 추가 (#376)"
 family 집계값(salesCount 등)은 이벤트마다 갱신하지 않고 10분마다 묶어서 반영한다(es-1 §5). 카탈로그 규모가 작아 Task 8의 `reindexAll()`을 그대로 재사용한다 — 규모가 커지면 ES `_bulk` API 전환을 후속 이슈로 남긴다.
 
 **Files:**
-- Create: `product-service/src/main/java/com/prompthub/product/search/infra/batch/ProductCountSyncScheduler.java`
+- Create: `product-service/src/main/java/com/prompthub/search/infra/batch/ProductCountSyncScheduler.java`
 - Modify: `product-service/src/main/resources/application-local.yml`
 - Modify: `config/src/main/resources/configs/product-service.yml`
 
 - [ ] **Step 1: 스케줄러 작성**
 
 ```java
-package com.prompthub.product.search.infra.batch;
+package com.prompthub.search.infra.batch;
 
-import com.prompthub.product.search.application.ProductReindexService;
+import com.prompthub.search.application.ProductReindexService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -2166,7 +2166,7 @@ Expected: BUILD SUCCESSFUL
 - [ ] **Step 4: 커밋**
 
 ```bash
-git add product-service/src/main/java/com/prompthub/product/search/infra/batch/
+git add product-service/src/main/java/com/prompthub/search/infra/batch/
 git add product-service/src/main/resources/application-local.yml
 git add config/src/main/resources/configs/product-service.yml
 git commit -m "feat: 10분 주기 카운트 동기화 배치 추가 (#376)"

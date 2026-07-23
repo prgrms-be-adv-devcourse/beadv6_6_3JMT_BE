@@ -1,8 +1,8 @@
-package com.prompthub.product.search.infra.es;
+package com.prompthub.search.infra.es;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.prompthub.product.domain.model.entity.Product;
-import com.prompthub.product.search.application.ProductSearchIndexer;
+import com.prompthub.search.application.ProductSearchIndexer;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Map;

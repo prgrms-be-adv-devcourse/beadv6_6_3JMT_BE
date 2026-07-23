@@ -1,4 +1,4 @@
-package com.prompthub.product.search.infra.messaging;
+package com.prompthub.search.infra.messaging;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.product.infra.messaging.producer.ProductEventType;
-import com.prompthub.product.search.application.ProductSearchEventHandler;
+import com.prompthub.search.application.ProductSearchEventHandler;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -1,4 +1,4 @@
-package com.prompthub.product.search.application;
+package com.prompthub.search.application;
 
 import com.prompthub.product.domain.model.entity.Product;
 import java.time.LocalDateTime;

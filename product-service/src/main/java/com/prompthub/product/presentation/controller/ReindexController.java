@@ -1,6 +1,6 @@
 package com.prompthub.product.presentation.controller;
 
-import com.prompthub.product.search.application.ProductReindexService;
+import com.prompthub.search.application.ProductReindexService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
