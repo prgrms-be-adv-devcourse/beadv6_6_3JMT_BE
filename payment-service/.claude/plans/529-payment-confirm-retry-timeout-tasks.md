@@ -201,7 +201,7 @@ EOF
 - Consumes: 없음
 - Produces: `TossRetryConfig` — `RetryRegistry tossRetryRegistry(int maxAttempts, Duration waitDuration)` 빈, `Retry tossConfirmRetry(RetryRegistry)`(`@Qualifier("tossConfirmRetry")`) 빈. Task 3의 `TossPaymentGateway` 생성자가 `tossConfirmRetry` 빈을 주입받는다.
 
-- [ ] **Step 1: build.gradle에 의존성 추가**
+- [x] **Step 1: build.gradle에 의존성 추가**
 
 `build.gradle`의 기존 resilience4j 의존성 블록(1~7행 근처, `resilience4j-circuitbreaker`/`micrometer`/`bulkhead` 선언부) 바로 아래에 추가:
 
@@ -209,7 +209,7 @@ EOF
 implementation 'io.github.resilience4j:resilience4j-retry:2.4.0'
 ```
 
-- [ ] **Step 2: 3개 YAML 파일에 retry 설정 추가**
+- [x] **Step 2: 3개 YAML 파일에 retry 설정 추가**
 
 `src/main/resources/application-local.yml`의 `resilience4j:` 블록에 `retry:` 섹션 추가(기존 `circuitbreaker:`/`bulkhead:` 항목과 같은 들여쓰기 레벨):
 
@@ -225,7 +225,7 @@ implementation 'io.github.resilience4j:resilience4j-retry:2.4.0'
 
 `../config/src/main/resources/configs/payment-service.yml`도 동일하게 추가(41행 근처 `resilience4j:` 블록).
 
-- [ ] **Step 3: 실패하는 테스트 작성**
+- [x] **Step 3: 실패하는 테스트 작성**
 
 ```java
 package com.prompthub.payment.infrastructure.external.toss;
@@ -254,7 +254,7 @@ class TossRetryConfigTest {
 }
 ```
 
-- [ ] **Step 4: 테스트 실패 확인**
+- [x] **Step 4: 테스트 실패 확인**
 
 Run:
 ```bash
@@ -262,7 +262,7 @@ JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-serv
 ```
 Expected: FAIL — `TossRetryConfig` 클래스가 없어 컴파일 에러.
 
-- [ ] **Step 5: `TossRetryConfig` 구현**
+- [x] **Step 5: `TossRetryConfig` 구현**
 
 ```java
 package com.prompthub.payment.infrastructure.external.toss;
@@ -305,7 +305,7 @@ public class TossRetryConfig {
 }
 ```
 
-- [ ] **Step 6: 테스트 통과 확인**
+- [x] **Step 6: 테스트 통과 확인**
 
 Run:
 ```bash
@@ -313,7 +313,7 @@ JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-serv
 ```
 Expected: PASS
 
-- [ ] **Step 7: 전체 컨텍스트 기동 확인 (YAML 바인딩 누락 조기 발견)**
+- [x] **Step 7: 전체 컨텍스트 기동 확인 (YAML 바인딩 누락 조기 발견)**
 
 `TossRetryConfig`가 `@Value` 바인딩에 실패하면 Spring 컨텍스트를 로드하는 다른 모든 테스트가 깨진다. 아래로 조기 확인한다.
 
@@ -322,7 +322,7 @@ JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-serv
 ```
 Expected: PASS (기존 테스트 그대로 통과 — `application-test.yml`에 값이 채워졌는지 확인하는 용도)
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add build.gradle \
