@@ -15,6 +15,6 @@ public class ReindexController {
 
 	@PostMapping("/reindex")
 	public void reindex() {
-		productReindexService.reindexAll();
+		productReindexService.reconcileAll();
 	}
 }

@@ -1,5 +1,6 @@
 package com.prompthub.search.application;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -8,12 +9,13 @@ import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.support.ProductContentFixtures;
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -35,47 +37,41 @@ class ProductReindexServiceTest {
 	}
 
 	@Test
-	void reindexAll_ON_SALE_family마다_upsert를_호출한다() {
+	@SuppressWarnings("unchecked")
+	void reconcileAll_ON_SALE_family는_upsert_대상에_담는다() {
 		UUID familyRootId = UUID.randomUUID();
 		Product onSale = product(familyRootId, ProductStatus.ON_SALE);
 		given(productRepository.findAllByStatus(ProductStatus.ON_SALE)).willReturn(List.of(onSale));
 		given(productRepository.findAllByFamilyRootIds(List.of(familyRootId))).willReturn(List.of(onSale));
 		given(productRepository.getAverageRating(familyRootId)).willReturn(4.0);
 		given(productRepository.sumSalesCountByFamilyRootId(familyRootId)).willReturn(5L);
+		given(productSearchIndexer.findAllIndexedFamilyRootIds()).willReturn(Set.of(familyRootId));
 
-		reindexService.reindexAll();
+		reindexService.reconcileAll();
 
-		verify(productSearchIndexer).upsert(any(), org.mockito.ArgumentMatchers.eq(5L), org.mockito.ArgumentMatchers.eq(4.0), any());
+		ArgumentCaptor<List<FamilyUpsertInput>> upsertCaptor = ArgumentCaptor.forClass(List.class);
+		ArgumentCaptor<List<UUID>> deleteCaptor = ArgumentCaptor.forClass(List.class);
+		verify(productSearchIndexer).bulkReconcile(upsertCaptor.capture(), deleteCaptor.capture());
+		assertThat(upsertCaptor.getValue()).anySatisfy(input -> {
+			assertThat(input.onSale().familyRootId()).isEqualTo(familyRootId);
+			assertThat(input.familySalesCount()).isEqualTo(5L);
+			assertThat(input.averageRating()).isEqualTo(4.0);
+		});
+		assertThat(deleteCaptor.getValue()).isEmpty();
 	}
 
 	@Test
-	void syncChangedCounts_바뀐_family만_부분갱신한다() {
-		UUID familyRootId = UUID.randomUUID();
-		LocalDateTime since = LocalDateTime.now().minusMinutes(10);
-		Product onSale = product(familyRootId, ProductStatus.ON_SALE);
-		given(productRepository.findChangedFamilyRootIds(since)).willReturn(List.of(familyRootId));
-		given(productRepository.findAllByFamilyRootIds(List.of(familyRootId))).willReturn(List.of(onSale));
-		given(productRepository.getAverageRating(familyRootId)).willReturn(4.5);
-		given(productRepository.sumSalesCountByFamilyRootId(familyRootId)).willReturn(7L);
+	@SuppressWarnings("unchecked")
+	void reconcileAll_ES에만_있고_더_이상_ON_SALE_아닌_family는_삭제_대상에_담는다() {
+		UUID staleFamilyRootId = UUID.randomUUID();
+		given(productRepository.findAllByStatus(ProductStatus.ON_SALE)).willReturn(List.of());
+		given(productSearchIndexer.findAllIndexedFamilyRootIds()).willReturn(Set.of(staleFamilyRootId));
 
-		reindexService.syncChangedCounts(since);
+		reindexService.reconcileAll();
 
-		verify(productSearchIndexer).updateCounts(familyRootId, 7L, onSale.getViewCount(), 4.5);
-		verify(productSearchIndexer, org.mockito.Mockito.never()).upsert(any(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyDouble(), any());
-	}
-
-	@Test
-	void syncChangedCounts_ON_SALE가_아니면_건드리지_않는다() {
-		UUID familyRootId = UUID.randomUUID();
-		LocalDateTime since = LocalDateTime.now().minusMinutes(10);
-		Product superseded = product(familyRootId, ProductStatus.SUPERSEDED);
-		given(productRepository.findChangedFamilyRootIds(since)).willReturn(List.of(familyRootId));
-		given(productRepository.findAllByFamilyRootIds(List.of(familyRootId))).willReturn(List.of(superseded));
-
-		reindexService.syncChangedCounts(since);
-
-		verify(productSearchIndexer, org.mockito.Mockito.never())
-			.updateCounts(any(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyDouble());
+		ArgumentCaptor<List<UUID>> deleteCaptor = ArgumentCaptor.forClass(List.class);
+		verify(productSearchIndexer).bulkReconcile(any(), deleteCaptor.capture());
+		assertThat(deleteCaptor.getValue()).containsExactly(staleFamilyRootId);
 	}
 
 	private Product product(UUID id, ProductStatus status) {

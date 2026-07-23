@@ -40,14 +40,9 @@ elasticsearch:
   uris: ${ES_URIS}
 
 prompthub:
-  outbox-relay:
-    enabled: true
-    fixed-delay-ms: 5000
-    batch-size: 100
-    max-retry-count: 3
   search:
-    count-sync:
-      fixed-delay-ms: 600000
+    reconcile:
+      fixed-delay-ms: 604800000
 
 logging:
   level:
