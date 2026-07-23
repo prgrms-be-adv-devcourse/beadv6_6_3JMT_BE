@@ -99,6 +99,18 @@ class OpenApiContractTest {
     }
 
     @Test
+    @DisplayName("주문 생성 OpenAPI에 본인 상품 구매 제한과 O015를 문서화한다")
+    void createOrderDocumentsSelfPurchaseRestriction() throws Exception {
+        JsonNode operation = readOpenApi()
+            .path("paths").path("/api/v2/orders").path("post");
+
+        assertThat(operation.path("description").asText())
+            .contains("본인이 판매하는 상품은 주문할 수 없습니다.");
+        assertThat(operation.path("responses").path("403").path("description").asText())
+            .contains("O015");
+    }
+
+    @Test
     @DisplayName("주문 상태와 환불 요청 스키마는 실제 입력·출력 계약을 반영한다")
     void requestAndResponseSchemasMatchRuntimeContract() throws Exception {
         JsonNode openApi = readOpenApi();

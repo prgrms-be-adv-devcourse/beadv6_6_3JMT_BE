@@ -58,14 +58,19 @@ public class OrderController {
 	private final OrderRefundService orderRefundService;
 
 	@PostMapping
-	@Operation(summary = "단일 주문 생성", description = "요청 상품을 하나의 주문으로 생성하고 주문 상품별 판매자 정보를 제공합니다.")
+	@Operation(
+		summary = "단일 주문 생성",
+		description = "요청 상품을 하나의 주문으로 생성하고 주문 상품별 판매자 정보를 제공합니다. "
+			+ "본인이 판매하는 상품은 주문할 수 없습니다. 여러 상품 중 하나라도 본인 상품이면 전체 주문이 실패하며 "
+			+ "주문·장바구니·이벤트 변경이 발생하지 않습니다."
+	)
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "주문 생성 성공"),
 		@ApiResponse(responseCode = "400", description = "V001 X-User-Id 또는 입력값 검증 실패, P002 상품 요청 오류",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
 		@ApiResponse(responseCode = "401", description = "A003 인증 정보 누락, P004 상품 서비스 인증 실패",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
-		@ApiResponse(responseCode = "403", description = "A004 구매자 권한 없음, P005 상품 서비스 접근 거부",
+		@ApiResponse(responseCode = "403", description = "A004 구매자 권한 없음, O015 본인 판매 상품 구매 불가, P005 상품 서비스 접근 거부",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
 		@ApiResponse(responseCode = "409", description = "O018 이미 구매한 상품, P003 상품 요청 충돌",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
