@@ -7,6 +7,7 @@ import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
@@ -48,6 +49,19 @@ public class OrderAdapter implements OrderRepository {
 	@Override
 	public boolean existsAccessiblePaidOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId) {
 		return orderPersistence.existsAccessiblePaidOrderProductByBuyerIdAndProductId(buyerId, productId);
+	}
+
+	@Override
+	public boolean existsBlockingOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId) {
+		return orderPersistence.existsBlockingOrderProductByBuyerIdAndProductId(buyerId, productId);
+	}
+
+	@Override
+	public List<UUID> findExpiredCreatedOrderIds(LocalDateTime cutoff, int batchSize) {
+		if (batchSize <= 0) {
+			throw new IllegalArgumentException("batchSize must be positive");
+		}
+		return orderPersistence.findExpiredCreatedOrderIds(cutoff, PageRequest.of(0, batchSize));
 	}
 
 	@Override

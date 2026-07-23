@@ -61,7 +61,8 @@ public class OrderController {
 		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
 		@ApiResponse(responseCode = "401", description = "A003 인증 정보 누락"),
 		@ApiResponse(responseCode = "403", description = "A004 구매자 권한 없음"),
-		@ApiResponse(responseCode = "503", description = "SYS002 상품 서비스 사용 불가")
+		@ApiResponse(responseCode = "409", description = "O018 이미 구매했거나 결제 대기 중인 상품"),
+		@ApiResponse(responseCode = "503", description = "SYS002 상품 서비스 또는 SYS003 주문 중복 방지 저장소 사용 불가")
 	})
 	public ApiResult<CreateOrderResponse> createOrder(
 		@Parameter(hidden = true)

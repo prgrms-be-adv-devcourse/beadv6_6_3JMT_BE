@@ -1,6 +1,7 @@
 package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.event.order.OrderExpirationCleanupRequestedEvent;
+import com.prompthub.order.application.event.order.OrderProductReservationCleanupRequestedEvent;
 import com.prompthub.order.application.service.event.ProcessedEventService;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
@@ -45,7 +46,7 @@ public class OrderFailureCompensationService {
 	) {
 		LocalDateTime failedAt = validateFailureEvent(eventId, eventType, occurredAt, payload);
 		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
-			publishCleanup(payload.orderId());
+			publishExpirationCleanup(payload.orderId());
 			return;
 		}
 
@@ -53,7 +54,7 @@ public class OrderFailureCompensationService {
 			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
 		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
-			publishCleanup(order.getId());
+			publishCleanup(order);
 			return;
 		}
 		if (payload.buyerId() != null && !order.getBuyerId().equals(payload.buyerId())) {
@@ -65,7 +66,7 @@ public class OrderFailureCompensationService {
 
 		CompensationResult result = compensateCreatedOrder(order, failedAt);
 		processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
-		publishCleanup(order.getId());
+		publishCleanup(order);
 		logPaymentFailure(eventId, payload, failedAt, order, result);
 	}
 
@@ -74,7 +75,7 @@ public class OrderFailureCompensationService {
 		validateTimeout(orderId, timedOutAt);
 		Optional<Order> lockedOrder = orderRepository.findByIdWithOrderProductsForUpdate(orderId);
 		if (lockedOrder.isEmpty()) {
-			publishCleanup(orderId);
+			publishExpirationCleanup(orderId);
 			return true;
 		}
 
@@ -90,7 +91,7 @@ public class OrderFailureCompensationService {
 			return false;
 		}
 		CompensationResult result = compensateCreatedOrder(order, timedOutAt);
-		publishCleanup(orderId);
+		publishCleanup(order);
 		log.info(
 			"결제 결과 미수신 주문 보상 완료. orderId={}, timedOutAt={}, beforeStatus={}, afterStatus={}, targetCount={}, addedCount={}",
 			orderId,
@@ -156,8 +157,13 @@ public class OrderFailureCompensationService {
 		return new OrderException(ErrorCode.INVALID_INPUT_VALUE);
 	}
 
-	private void publishCleanup(UUID orderId) {
+	private void publishExpirationCleanup(UUID orderId) {
 		eventPublisher.publishEvent(new OrderExpirationCleanupRequestedEvent(orderId));
+	}
+
+	private void publishCleanup(Order order) {
+		publishExpirationCleanup(order.getId());
+		eventPublisher.publishEvent(OrderProductReservationCleanupRequestedEvent.from(order));
 	}
 
 	private void logPaymentFailure(

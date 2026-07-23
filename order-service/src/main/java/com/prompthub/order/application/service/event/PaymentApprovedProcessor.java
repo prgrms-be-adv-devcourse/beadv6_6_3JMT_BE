@@ -1,6 +1,7 @@
 package com.prompthub.order.application.service.event;
 
 import com.prompthub.order.application.event.order.OrderExpirationCleanupRequestedEvent;
+import com.prompthub.order.application.event.order.OrderProductReservationCleanupRequestedEvent;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -43,7 +44,7 @@ public class PaymentApprovedProcessor {
 		validator.validateEnvelope(eventId, eventType, occurredAt);
 		LocalDateTime approvedAt = validator.validate(payload);
 		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
-			publishCleanup(payload.orderId());
+			publishExpirationCleanup(payload.orderId());
 			return;
 		}
 
@@ -51,7 +52,7 @@ public class PaymentApprovedProcessor {
 			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
 		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
-			publishCleanup(order.getId());
+			publishExpirationCleanup(order.getId());
 			return;
 		}
 		boolean transitioned = order.getOrderStatus() == OrderStatus.CREATED
@@ -63,7 +64,7 @@ public class PaymentApprovedProcessor {
 		}
 
 		processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
-		publishCleanup(order.getId());
+		publishCleanup(order);
 
 		log.info(
 			"결제 승인 이벤트 처리 완료. eventId={}, orderId={}, status={}, transitioned={}, consumerGroup={}",
@@ -75,8 +76,13 @@ public class PaymentApprovedProcessor {
 		);
 	}
 
-	private void publishCleanup(UUID orderId) {
+	private void publishExpirationCleanup(UUID orderId) {
 		applicationEventPublisher.publishEvent(new OrderExpirationCleanupRequestedEvent(orderId));
+	}
+
+	private void publishCleanup(Order order) {
+		publishExpirationCleanup(order.getId());
+		applicationEventPublisher.publishEvent(OrderProductReservationCleanupRequestedEvent.from(order));
 	}
 
 	private void removePurchasedProductsFromCart(UUID buyerId, Order order) {

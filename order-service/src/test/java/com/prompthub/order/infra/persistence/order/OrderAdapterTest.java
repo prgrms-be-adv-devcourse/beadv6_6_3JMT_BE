@@ -9,12 +9,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
 import static com.prompthub.order.fixture.PaymentEventFixture.createdOrder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.inOrder;
@@ -57,5 +61,29 @@ class OrderAdapterTest {
 		then(orderProductPersistence).shouldHaveNoInteractions();
 		then(orderPersistence).should().findByIdForUpdate(ORDER_A);
 		then(orderPersistence).shouldHaveNoMoreInteractions();
+	}
+
+	@Test
+	@DisplayName("상품 구매 차단 조회를 영속성 어댑터에 위임한다")
+	void existsBlockingOrderProduct_delegatesToPersistence() {
+		given(orderPersistence.existsBlockingOrderProductByBuyerIdAndProductId(ORDER_A, ORDER_A))
+			.willReturn(true);
+
+		assertThat(orderAdapter.existsBlockingOrderProductByBuyerIdAndProductId(ORDER_A, ORDER_A)).isTrue();
+		then(orderPersistence).should().existsBlockingOrderProductByBuyerIdAndProductId(ORDER_A, ORDER_A);
+	}
+
+	@Test
+	@DisplayName("만료 주문 후보 조회를 영속성 어댑터에 위임한다")
+	void findExpiredCreatedOrderIds_delegatesToPersistence() {
+		LocalDateTime cutoff = LocalDateTime.of(2026, 7, 23, 12, 0);
+		given(orderPersistence.findExpiredCreatedOrderIds(eq(cutoff), org.mockito.ArgumentMatchers.any()))
+			.willReturn(List.of(ORDER_A));
+
+		assertThat(orderAdapter.findExpiredCreatedOrderIds(cutoff, 10)).containsExactly(ORDER_A);
+		then(orderPersistence).should().findExpiredCreatedOrderIds(
+			eq(cutoff),
+			argThat(pageable -> pageable.getPageNumber() == 0 && pageable.getPageSize() == 10)
+		);
 	}
 }
