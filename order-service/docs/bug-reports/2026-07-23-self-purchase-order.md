@@ -1,11 +1,3 @@
----
-name: 버그 리포트 (Bug Report)
-about: 판매자가 본인의 상품을 주문할 수 있는 문제를 보고합니다.
-title: "[BUG] 판매자가 본인 상품을 주문할 수 있음"
-labels: bug
-assignees: ''
----
-
 ## 🐞 버그 설명 (Description)
 
 판매자가 구매자로서 본인이 판매하는 상품을 주문할 수 있습니다.
