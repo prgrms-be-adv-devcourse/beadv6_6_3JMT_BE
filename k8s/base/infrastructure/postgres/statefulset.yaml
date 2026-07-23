@@ -39,11 +39,16 @@ spec:
         - name: postgres
           image: postgres:18.4-alpine
           imagePullPolicy: IfNotPresent
+          args:
+            - -c
+            - timezone=Asia/Seoul
           ports:
             - name: postgres
               containerPort: 5432
               protocol: TCP
           env:
+            - name: TZ
+              value: Asia/Seoul
             - name: POSTGRES_DB
               valueFrom:
                 secretKeyRef:

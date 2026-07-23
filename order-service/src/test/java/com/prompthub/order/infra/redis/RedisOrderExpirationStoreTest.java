@@ -25,6 +25,7 @@ import static org.mockito.BDDMockito.then;
 @ExtendWith(MockitoExtension.class)
 class RedisOrderExpirationStoreTest {
 
+	private static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
 	private static final String EXPIRATION_KEY = "order:expiration";
 	private static final String RETRY_KEY = "order:expiration:retry";
 	private static final String DLQ_KEY = "order:expiration:dlq";
@@ -48,7 +49,7 @@ class RedisOrderExpirationStoreTest {
 		RedisOrderExpirationStore store = store();
 		LocalDateTime createdAt = LocalDateTime.of(2026, 6, 20, 12, 0);
 		double expectedScore = createdAt.plusMinutes(20)
-			.atZone(ZoneId.systemDefault())
+			.atZone(SERVICE_ZONE)
 			.toInstant()
 			.toEpochMilli();
 		given(redisTemplate.opsForZSet()).willReturn(zSetOperations);
