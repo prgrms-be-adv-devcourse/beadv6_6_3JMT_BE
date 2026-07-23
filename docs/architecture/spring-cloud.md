@@ -159,46 +159,67 @@ sequenceDiagram
 
 ## API Gateway 요청 처리 흐름
 
-**서명 검증과 헤더 주입은 서로 다른 컴포넌트가 담당한다** — 하나의 "JWT 필터"가 아니다:
-1. `SecurityConfig`의 `oauth2ResourceServer`가 `ReactiveJwtDecoder`(RSA 공개키, `NimbusReactiveJwtDecoder`)로 서명·만료를 검증한다. 여기서 실패하면 `UserHeaderFilter`까지 가지 않고 401을 반환한다.
-2. 인증에 성공하면 `GlobalFilter`인 `UserHeaderFilter`(order=-1)가 `SecurityContext`에서 이미 검증된 `JwtAuthenticationToken`을 읽어 클레임을 추출하고 헤더를 주입한다. **서명 검증은 여기서 다시 하지 않는다.**
+요청 추적, JWT 검증과 내부 계정·역할 확인은 서로 다른 컴포넌트가 담당한다.
+
+1. `GatewayAccessLogWebFilter`가 Security보다 먼저 실행되어 요청 ID를 생성하고 전체 요청을 감싼다.
+2. `SecurityConfig`의 OAuth2 Resource Server가 보호 경로의 JWT 서명과 만료를 검증한다.
+3. 라우트가 매칭되면 `ForwardAuthFilter`가 `SecurityContext`의 JWT subject와 epoch로 User Service 내부 authorize API를 호출한다.
+4. authorize 결과가 ACTIVE이면 실제 역할을 기록한 뒤 역할 정책을 검사한다.
+5. 허용된 요청만 신뢰 사용자 헤더를 주입해 다운스트림으로 전달한다.
+6. 최종 응답, 예외 또는 취소 시 요청당 `GATEWAY_ACCESS` 로그를 한 건 기록한다.
 
 ```mermaid
 sequenceDiagram
     participant C as 클라이언트
-    participant SEC as SecurityConfig\n(oauth2ResourceServer)
-    participant UHF as UserHeaderFilter\n(GlobalFilter)
-    participant EUR as Eureka
+    participant AL as GatewayAccessLogWebFilter
+    participant SEC as SecurityConfig
+    participant FWD as ForwardAuthFilter
+    participant AUTH as User Service authorize
     participant SVC as 다운스트림 서비스
 
-    C->>SEC: GET /api/v1/users/me\nAuthorization: Bearer {token}
+    C->>AL: HTTP 요청
+    AL->>AL: 새 X-Request-Id 생성<br/>외부 X-User-* 제거
+    AL->>SEC: 요청 전달
 
-    alt 공개 경로 (/api/v2/auth/**, GET /api/v1/products/**, /actuator/** 등)
-        SEC-->>SVC: 인증 없이 통과 (X-User-* 헤더 없음)
-    else 보호된 경로
-        SEC->>SEC: JWT 서명·만료 검증 (RSA 공개키)
-        alt 서명/만료 무효
-            SEC-->>C: 401 Unauthorized
-        else 서명 유효
-            SEC->>UHF: 인증된 JwtAuthenticationToken 전달
-            UHF->>UHF: sub → userId, roles(list) → 콤마 조인,\nstatus 클레임 확인
-            alt status != ACTIVE
-                UHF-->>C: 403 Forbidden
-            else status == ACTIVE
-                UHF->>EUR: lb://{SERVICE-NAME} 조회
-                EUR-->>UHF: 실제 주소 반환
-                UHF->>SVC: Authorization 헤더 제거,\nX-User-Id / X-User-Role 추가해서 전달
-                SVC-->>C: 응답
+    alt JWT 검증 실패
+        SEC-->>AL: 401
+    else 공개 또는 JWT 검증 성공
+        SEC->>FWD: 라우트가 매칭된 요청
+        FWD->>FWD: Authorization과 외부 사용자 헤더 제거
+        alt 익명 공개 요청
+            FWD->>SVC: 사용자 헤더 없이 전달
+        else 인증 요청
+            FWD->>AUTH: userId와 epoch 확인
+            alt 거절 또는 장애
+                AUTH-->>FWD: 401 / 403 / 503
+                FWD-->>AL: 오류 응답
+            else ACTIVE
+                AUTH-->>FWD: status와 role
+                FWD->>FWD: authenticated=true와 role 저장
+                alt 역할 부족
+                    FWD-->>AL: 403
+                else 역할 충족
+                    FWD->>SVC: X-User-Id / X-User-Role
+                    SVC-->>AL: 서비스 응답
+                end
             end
         end
     end
+
+    AL->>AL: GATEWAY_ACCESS 한 건 기록
+    AL-->>C: 동일 X-Request-Id 응답
 ```
 
-**다운스트림 서비스가 받는 헤더** (인증이 필요한 요청에서만 주입됨 — 공개 경로는 헤더 없이 그대로 전달):
-- `X-User-Id`: JWT의 `sub` 클레임 (사용자 UUID, 예: `550e8400-e29b-41d4-a716-446655440000`)
-- `X-User-Role`: JWT의 `roles` 클레임(리스트)을 **콤마로 join한 문자열** (예: `BUYER`, 혹은 다중 역할이면 `BUYER,SELLER`) — 항상 단일 값이라고 가정하면 안 된다.
-- 각 서비스는 JWT를 직접 파싱하지 않고 이 헤더만 읽으면 된다.
-- **`status` 게이트**: JWT의 `status` 클레임이 `ACTIVE`가 아니면 Gateway가 다운스트림에 요청을 전달하지 않고 **403**을 즉시 반환한다(정지·탈퇴 계정 차단). 다운스트림 서비스는 이 검사를 신뢰하고 별도로 상태를 재확인하지 않는다.
+다운스트림 서비스가 받는 헤더는 다음과 같다.
+
+- `X-Request-Id`: Gateway가 생성한 UUID. 외부 값을 그대로 사용하지 않는다.
+- `X-User-Id`: 내부 authorize가 성공한 사용자의 JWT subject.
+- `X-User-Role`: 내부 authorize가 반환한 단일 역할 `BUYER`, `SELLER`, `ADMIN`.
+- `Authorization`: Gateway 이후에는 전달하지 않는다.
+
+Access 로그는 `eventType`, `service`, `requestId`, `method`, query 없는 `path`, `routeId`, `status`, `durationMs`, `authenticated`, 선택적 `userRole`, `clientIp`, 선택적 `exceptionType`을 JSON 최상위에 기록한다. 정상 응답은 2xx·3xx INFO, 4xx WARN, 5xx ERROR 정책을 따른다. Spring WebFlux의 `ErrorResponse` 예외는 내장 HTTP status와 그 status에 맞는 level을 사용하고 `exceptionType`을 유지한다. 그 밖의 예외는 500 ERROR이며, 클라이언트 취소는 다른 failure 존재 여부와 무관하게 499 WARN이다.
+
+헬스 체크(`/actuator/health/**`, `/liveness`, `/readiness`)는 access 로그에서 제외한다. `Authorization`, Cookie, userId, query string과 요청·응답 본문은 기록하지 않는다.
 
 ---
 
@@ -229,6 +250,6 @@ sequenceDiagram
 | Gateway에서 `401` 계속 반환 | 화이트리스트 경로 누락 | Gateway 필터 화이트리스트 확인 |
 | Eureka 대시보드에 서비스 안 보임 | Eureka Client 의존성 누락 또는 URL 오타 | `eureka.client.service-url` 설정 확인 |
 | `Unable to connect to Config Server` | `spring.config.import` 설정 오류 또는 포트 오타 | `spring.config.import: optional:configserver:http://localhost:8888` 확인 |
-| 유효한 토큰인데 다운스트림에서 403 | JWT `status` 클레임이 `ACTIVE`가 아님 — Gateway의 `UserHeaderFilter`가 서비스에 도달하기 전에 차단 | 계정 상태(정지·탈퇴 여부) 확인 |
-| `X-User-Role` 파싱 시 단일 값만 기대해서 깨짐 | 역할이 여러 개면 `roles` 클레임을 콤마로 join해서 보낸다(예: `BUYER,SELLER`) | 다운스트림에서 콤마 split을 전제로 파싱 |
+| 유효한 토큰인데 Gateway에서 403 | 내부 authorize 결과가 비활성이거나 현재 역할이 경로 정책보다 낮음 | User Service 계정 상태와 `gateway.route-policies` 확인 |
+| 다운스트림에서 사용자 역할을 인식하지 못함 | `X-User-Role`은 내부 authorize가 반환한 `BUYER`, `SELLER`, `ADMIN` 단일 값 | 서비스 enum과 Gateway 역할 계약 확인 |
 | Config Server 파일 수정했는데 로컬 `curl`에는 반영, 배포 환경엔 미반영 | native(classpath) 서빙 특성상 "커밋 ≠ 반영" — `configs/`는 config server 이미지에 빌드 시 포함되므로, 이미지가 재빌드·재배포돼야 서빙 내용이 바뀐다 | config 모듈 재빌드·재배포 여부 확인, 이후 값을 쓰는 서비스 재시작 여부 확인 |
