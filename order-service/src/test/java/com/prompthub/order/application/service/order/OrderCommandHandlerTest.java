@@ -228,12 +228,33 @@ class OrderCommandHandlerTest {
 			shuffledSnapshots().get(1),
 			shuffledSnapshots().get(2)
 		);
+		List<ProductOrderSnapshot> nullTitle = List.of(
+			snapshot(PRODUCT_A1, SELLER_A, null, AMOUNT_A1),
+			shuffledSnapshots().get(0),
+			shuffledSnapshots().get(1),
+			shuffledSnapshots().get(2)
+		);
+		List<ProductOrderSnapshot> blankTitle = List.of(
+			snapshot(PRODUCT_A1, SELLER_A, "   ", AMOUNT_A1),
+			shuffledSnapshots().get(0),
+			shuffledSnapshots().get(1),
+			shuffledSnapshots().get(2)
+		);
+		List<ProductOrderSnapshot> tooLongTitle = List.of(
+			snapshot(PRODUCT_A1, SELLER_A, "a".repeat(201), AMOUNT_A1),
+			shuffledSnapshots().get(0),
+			shuffledSnapshots().get(1),
+			shuffledSnapshots().get(2)
+		);
 		return Stream.of(
 			Arguments.of("snapshot count mismatch", missing),
 			Arguments.of("unknown product id", unknown),
 			Arguments.of("duplicate snapshot", duplicated),
 			Arguments.of("null seller", nullSeller),
-			Arguments.of("negative amount", negativeAmount)
+			Arguments.of("negative amount", negativeAmount),
+			Arguments.of("null title", nullTitle),
+			Arguments.of("blank title", blankTitle),
+			Arguments.of("title longer than 200 characters", tooLongTitle)
 		);
 	}
 

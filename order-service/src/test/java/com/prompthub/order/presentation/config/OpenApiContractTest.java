@@ -90,9 +90,11 @@ class OpenApiContractTest {
 
         assertErrorResponse(openApi, "/api/v2/orders", "post", "400");
         assertErrorResponse(openApi, "/api/v2/orders", "post", "409");
+        assertErrorResponse(openApi, "/api/v2/orders/users", "get", "400");
         assertErrorResponse(openApi, "/api/v2/orders/{orderId}", "get", "403");
         assertErrorResponse(openApi, "/api/v2/orders/{orderId}/content/{orderProductId}", "get", "403");
         assertErrorResponse(openApi, "/api/v2/orders/{orderId}/refund", "post", "401");
+        assertErrorResponse(openApi, "/api/v2/cart", "get", "400");
         assertErrorResponse(openApi, "/api/v2/cart", "get", "401");
     }
 
@@ -125,12 +127,14 @@ class OpenApiContractTest {
         assertThat(orderProductIds.path("uniqueItems").asBoolean()).isTrue();
 
         JsonNode cartGet = openApi.path("paths").path("/api/v2/cart").path("get");
-        assertThat(cartGet.path("responses").path("404").path("description").asText())
-            .doesNotContain("O005");
+        assertThat(cartGet.path("responses").has("404")).isFalse();
         assertThat(cartGet.path("responses").path("200").path("description").asText())
             .contains("빈 장바구니");
         assertThat(schemas.path("CartResponse").path("properties").path("cartId").path("description").asText())
             .contains("null");
+
+        JsonNode createOrder = openApi.path("paths").path("/api/v2/orders").path("post");
+        assertThat(createOrder.path("responses").has("404")).isFalse();
 
         assertUuidExamplesAreValid(openApi);
     }
