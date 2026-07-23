@@ -20,6 +20,13 @@ spring:
           routes:
             # admin-service ~ user-service 라우트는 gateway.api-versions 설정을 소스로
             # VersionedRouteDefinitionLocator(코드)가 동적으로 생성한다. (ADR-0007)
+            - id: admin-service-docs
+              uri: lb://ADMIN-SERVICE
+              predicates:
+                - Path=/admin-service/v3/api-docs
+              filters:
+                - RewritePath=/admin-service/v3/api-docs, /v3/api-docs
+
             - id: user-service-docs
               uri: lb://USER-SERVICE
               predicates:
@@ -76,6 +83,8 @@ jwt:
 springdoc:
   swagger-ui:
     urls:
+      - name: admin-service
+        url: /admin-service/v3/api-docs
       - name: user-service
         url: /user-service/v3/api-docs
       - name: product-service
