@@ -20,13 +20,14 @@
 - 다건 중 한 상품만 본인 상품이어도 주문 전체 거부
 - 전용 `403 Forbidden` 오류 계약 추가
 - 주문 생성 Swagger 설명과 응답 계약 갱신
+- 주문 생성용 내부 DTO를 `OrderCreationItem`으로 명확하게 명명
 - 정책, 애플리케이션 흐름, HTTP 계약 테스트 추가
 
 ### 제외
 
 - 이미 생성된 셀프 주문과 관련 판매량·권한·결제·정산 데이터 보정
 - Product Service 또는 Frontend 변경
-- 주문 생성 요청·응답 DTO와 Kafka·gRPC·DB 스키마 변경
+- 외부 주문 생성 요청·응답 DTO와 Kafka·gRPC·DB 스키마 변경
 
 ## 3. 오류 계약
 
@@ -63,14 +64,22 @@ validateSelfPurchase(UUID buyerId, List<ProductOrderSnapshot> snapshots)
 2. Product Service에서 요청 상품의 주문 스냅샷을 조회한다.
 3. 스냅샷 수, 상품 ID, 판매자 ID, 금액을 검증한다.
 4. 구매자 ID와 각 스냅샷의 판매자 ID를 비교해 셀프 구매를 검증한다.
-5. 요청 상품과 스냅샷을 `OrderItem`으로 결합한다.
+5. 요청 상품과 스냅샷을 `OrderCreationItem`으로 결합한다.
 6. `OrderCreator`를 호출해 주문 저장, 장바구니 정리, 이벤트 또는 Outbox 처리를 수행한다.
 
 4단계에서 실패하면 `OrderCreator`를 호출하지 않는다. 따라서 주문·주문상품 저장, 장바구니 삭제, 무료 주문 Outbox 추가, 유료 주문 생성 이벤트 발행이 모두 발생하지 않는다.
 
 직접 주문과 장바구니 기반 주문은 동일한 `POST /api/v2/orders` 및 Handler 흐름을 사용하므로 별도 분기 없이 모두 적용된다.
 
-### 4.3 API 문서
+### 4.3 주문 생성 입력 모델
+
+기존 내부 DTO `OrderItem`은 `OrderCreationItem`으로 이름을 변경한다. 이 타입은 클라이언트 요청의 `productId`, `productTitle`과 Product Service 스냅샷의 `sellerId`, `amount`를 `productId` 기준으로 결합한 영속화 전 주문 생성 입력값이다.
+
+`OrderCreationItem`은 JPA 엔티티인 `OrderProduct`와 역할을 분리한다. Handler는 외부 데이터를 결합해 생성 입력값을 만들고, `OrderCreator`는 트랜잭션 안에서 `OrderCreationItem`을 `OrderProduct`로 변환해 주문 Aggregate에 추가한다.
+
+이번 이름 변경은 해당 DTO의 파일명·타입명·호출처·테스트만 기계적으로 갱신하며 런타임 동작이나 외부 계약을 변경하지 않는다.
+
+### 4.4 API 문서
 
 `OrderController.createOrder`의 Swagger 설명에 다음 정책을 명시한다.
 
