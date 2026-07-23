@@ -361,7 +361,7 @@ EOF
 
 먼저 기존 4개 테스트의 `new TossPaymentGateway(...)` 호출부에 `Retry` 인자를 하나씩 추가해야 컴파일이 된다(각 파일 동일 패턴 — `RateLimiter.ofDefaults(...)` 다음 줄에 `Retry.ofDefaults("test-confirm-retry")` 추가).
 
-- [ ] **Step 1: 신규 회귀 테스트(재시도 성공/미대상 케이스) 작성**
+- [x] **Step 1: 신규 회귀 테스트(재시도 성공/미대상 케이스) 작성**
 
 ```java
 package com.prompthub.payment.infrastructure.external.toss;
@@ -652,7 +652,7 @@ class TossPaymentGatewayRetryTest {
 
 순수 타임아웃(readTimeout 60초 소진) 시 재시도하지 않는다는 요구사항은 실제 60초를 기다려야 재현되므로 게이트웨이 레벨 테스트로 만들지 않는다 — Task 1의 `TossRetryPredicateTest.순수_타임아웃은_재시도_대상이_아니다`가 이 로직을 이미 단위 테스트로 검증한다.
 
-- [ ] **Step 2: 테스트 실패 확인**
+- [x] **Step 2: 테스트 실패 확인**
 
 Run:
 ```bash
@@ -660,7 +660,7 @@ JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-serv
 ```
 Expected: FAIL — `TossPaymentGateway` 생성자에 `Retry` 파라미터가 없어 컴파일 에러.
 
-- [ ] **Step 3: `TossPaymentGateway` 수정**
+- [x] **Step 3: `TossPaymentGateway` 수정**
 
 `private final Bulkhead confirmBulkhead;` 아래(현재 `RateLimiter confirmRateLimiter` 필드 다음)에 필드 추가:
 
@@ -731,7 +731,7 @@ Expected: FAIL — `TossPaymentGateway` 생성자에 `Retry` 파라미터가 없
 
 import 추가: `io.github.resilience4j.retry.Retry`.
 
-- [ ] **Step 4: 기존 4개 테스트에 `Retry` 인자 추가**
+- [x] **Step 4: 기존 4개 테스트에 `Retry` 인자 추가**
 
 `TossPaymentGatewayTest.java`, `TossPaymentGatewayBulkheadTest.java`, `TossPaymentGatewayCircuitBreakerTest.java`, `TossPaymentGatewayRateLimiterTest.java` 각각의 `new TossPaymentGateway(...)` 호출부 마지막 인자 뒤에 추가:
 
@@ -742,7 +742,7 @@ import 추가: `io.github.resilience4j.retry.Retry`.
 
 `import io.github.resilience4j.retry.Retry;` 각 파일에 추가.
 
-- [ ] **Step 5: 테스트 통과 확인**
+- [x] **Step 5: 테스트 통과 확인**
 
 Run:
 ```bash
@@ -750,7 +750,7 @@ JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-serv
 ```
 Expected: PASS (Toss 게이트웨이 관련 테스트 전부 통과 — `TossPaymentGatewayRetryTest` 포함)
 
-- [ ] **Step 6: 전체 테스트 스위트 회귀 확인**
+- [x] **Step 6: 전체 테스트 스위트 회귀 확인**
 
 Run:
 ```bash
@@ -758,7 +758,7 @@ JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-serv
 ```
 Expected: BUILD SUCCESSFUL, 전체 테스트 PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/main/java/com/prompthub/payment/infrastructure/external/toss/TossPaymentGateway.java \

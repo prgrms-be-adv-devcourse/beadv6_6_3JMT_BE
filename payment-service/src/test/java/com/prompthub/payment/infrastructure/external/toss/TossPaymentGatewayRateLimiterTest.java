@@ -8,6 +8,8 @@ import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.ratelimiter.RateLimiterConfig;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -66,7 +68,12 @@ class TossPaymentGatewayRateLimiterTest {
             CircuitBreaker.ofDefaults("test-confirm"),
             CircuitBreaker.ofDefaults("test-refund"),
             Bulkhead.ofDefaults("test-confirm-bulkhead"),
-            confirmRateLimiter
+            confirmRateLimiter,
+            Retry.of("test-confirm-retry", RetryConfig.custom()
+                .maxAttempts(2)
+                .waitDuration(Duration.ofMillis(500))
+                .retryOnException(new TossRetryPredicate())
+                .build())
         );
 
         ConfirmResult first = gateway.confirm("pg-key-1", UUID.randomUUID(), 1_000);

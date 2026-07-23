@@ -8,6 +8,8 @@ import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.bulkhead.BulkheadConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.ratelimiter.RateLimiter;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -74,7 +76,12 @@ class TossPaymentGatewayBulkheadTest {
             CircuitBreaker.ofDefaults("test-confirm"),
             CircuitBreaker.ofDefaults("test-refund"),
             confirmBulkhead,
-            RateLimiter.ofDefaults("test-confirm-rate-limiter")
+            RateLimiter.ofDefaults("test-confirm-rate-limiter"),
+            Retry.of("test-confirm-retry", RetryConfig.custom()
+                .maxAttempts(2)
+                .waitDuration(Duration.ofMillis(500))
+                .retryOnException(new TossRetryPredicate())
+                .build())
         );
 
         ExecutorService executor = Executors.newFixedThreadPool(3);
