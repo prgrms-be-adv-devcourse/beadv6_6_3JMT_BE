@@ -18,10 +18,12 @@ FROM eclipse-temurin:21-jre
 ARG MODULE_NAME
 ARG MODULE_PATH
 
+ENV TZ=Asia/Seoul
+
 WORKDIR /app
 
 COPY --from=build /workspace/${MODULE_PATH}/build/libs/*.jar /app/app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=Asia/Seoul", "-jar", "/app/app.jar"]

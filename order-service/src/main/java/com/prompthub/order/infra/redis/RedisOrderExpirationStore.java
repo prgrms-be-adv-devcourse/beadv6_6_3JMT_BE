@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RedisOrderExpirationStore implements OrderExpirationStore {
 
+	private static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
 	private static final String EXPIRATION_KEY = "order:expiration";
 	private static final String RETRY_KEY = "order:expiration:retry";
 	private static final String DLQ_KEY = "order:expiration:dlq";
@@ -26,7 +27,7 @@ public class RedisOrderExpirationStore implements OrderExpirationStore {
 	@Override
 	public void registerExpiration(UUID orderId, LocalDateTime createdAt, int expireAfterMinutes) {
 		long expireAtMillis = createdAt.plusMinutes(expireAfterMinutes)
-			.atZone(ZoneId.systemDefault())
+			.atZone(SERVICE_ZONE)
 			.toInstant()
 			.toEpochMilli();
 
