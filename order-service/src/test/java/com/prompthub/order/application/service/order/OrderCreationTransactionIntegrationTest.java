@@ -43,6 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willAnswer;
@@ -92,9 +93,15 @@ class OrderCreationTransactionIntegrationTest {
 	@BeforeEach
 	void setUp() {
 		given(orderNumberGenerator.generate()).willReturn("ORD-A", "ORD-B", "ORD-C");
-		given(orderProductIdempotencyStore.acquire(
-			any(UUID.class), anyCollection(), any(UUID.class), any(Duration.class)
-		)).willReturn(true);
+		willAnswer(invocation -> {
+			assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+			return true;
+		}).given(orderProductIdempotencyStore).acquire(
+			any(UUID.class),
+			anyCollection(),
+			any(UUID.class),
+			any(Duration.class)
+		);
 		given(productClient.getOrderSnapshots(requestedProductIds())).willAnswer(invocation -> {
 			assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
 			return shuffledSnapshots();
@@ -102,7 +109,7 @@ class OrderCreationTransactionIntegrationTest {
 		willAnswer(invocation -> {
 			assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
 			return invocation.callRealMethod();
-		}).given(orderRepository).save(any());
+		}).given(orderRepository).saveAndFlush(any(Order.class));
 	}
 
 	@AfterEach
@@ -168,6 +175,11 @@ class OrderCreationTransactionIntegrationTest {
 		assertThat(productIds(loadCart()))
 			.containsExactlyInAnyOrder(PRODUCT_A1, PRODUCT_A2, PRODUCT_B1, PRODUCT_C1, UNRELATED_PRODUCT);
 		then(orderExpirationStore).shouldHaveNoInteractions();
+		then(orderProductIdempotencyStore).should().release(
+			eq(BUYER_ID),
+			anyCollection(),
+			any(UUID.class)
+		);
 	}
 
 	@Test

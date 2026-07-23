@@ -30,11 +30,6 @@ public class OrderAdapter implements OrderRepository {
 	private final OrderProductPersistence orderProductPersistence;
 
 	@Override
-	public Order save(Order order) {
-		return orderPersistence.save(order);
-	}
-
-	@Override
 	public Order saveAndFlush(Order order) {
 		try {
 			return orderPersistence.saveAndFlush(order);

@@ -13,8 +13,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface OrderRepository {
-	Order save (Order order);
-
 	Order saveAndFlush(Order order);
 
 	Optional<Order> findByIdWithOrderProducts(UUID orderId);
