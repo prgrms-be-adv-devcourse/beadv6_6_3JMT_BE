@@ -1,0 +1,70 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "analysis": {
+      "tokenizer": {
+        "autocomplete_edge_ngram": {
+          "type": "edge_ngram",
+          "min_gram": 1,
+          "max_gram": 20,
+          "token_chars": ["letter", "digit"]
+        }
+      },
+      "analyzer": {
+        "korean": {
+          "type": "custom",
+          "tokenizer": "nori_tokenizer"
+        },
+        "autocomplete": {
+          "type": "custom",
+          "tokenizer": "autocomplete_edge_ngram"
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "familyRootId": { "type": "keyword" },
+      "productId": { "type": "keyword" },
+      "sellerId": { "type": "keyword" },
+      "name": {
+        "type": "text",
+        "analyzer": "korean",
+        "fields": {
+          "keyword": { "type": "keyword" },
+          "jamo": { "type": "text", "analyzer": "autocomplete" },
+          "chosung": { "type": "text", "analyzer": "autocomplete" }
+        }
+      },
+      "description": { "type": "text", "analyzer": "korean" },
+      "content": { "type": "text", "analyzer": "korean" },
+      "extractedText": { "type": "text", "analyzer": "korean" },
+      "tags": {
+        "type": "keyword",
+        "fields": {
+          "text": { "type": "text", "analyzer": "korean" }
+        }
+      },
+      "productType": { "type": "keyword" },
+      "model": { "type": "keyword" },
+      "amount": { "type": "integer" },
+      "amountType": { "type": "keyword" },
+      "thumbnailUrl": { "type": "keyword", "index": false },
+      "badge": { "type": "keyword" },
+      "salesCount": { "type": "integer" },
+      "viewCount": { "type": "integer" },
+      "reviewCount": { "type": "integer" },
+      "ratingAvg": { "type": "float" },
+      "firstPublishedAt": { "type": "date" },
+      "currentVersionAt": { "type": "date" },
+      "embedding": {
+        "type": "dense_vector",
+        "dims": 1536,
+        "similarity": "cosine",
+        "index_options": { "type": "int8_hnsw" }
+      },
+      "embeddingSourceHash": { "type": "keyword" }
+    }
+  }
+}

@@ -54,6 +54,20 @@ public class KafkaConfig {
 	}
 
 	@Bean
+	public ProducerFactory<String, String> stringProducerFactory() {
+		Map<String, Object> config = new HashMap<>();
+		config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+		config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+		config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+		return new DefaultKafkaProducerFactory<>(config);
+	}
+
+	@Bean
+	public KafkaTemplate<String, String> stringKafkaTemplate(ProducerFactory<String, String> stringProducerFactory) {
+		return new KafkaTemplate<>(stringProducerFactory);
+	}
+
+	@Bean
 	public ConsumerFactory<String, String> orderEventConsumerFactory() {
 		Map<String, Object> config = new HashMap<>();
 		config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -81,6 +95,43 @@ public class KafkaConfig {
 	// 처리 실패 이벤트는 재시도 후 원본 토픽의 DLT(`order-events.DLT`)로 보낸다. (kafka-event.md §7)
 	@Bean
 	public DefaultErrorHandler orderEventErrorHandler(KafkaTemplate<String, Object> kafkaTemplate) {
+		DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+			kafkaTemplate,
+			(record, exception) -> new TopicPartition(record.topic() + ".DLT", record.partition())
+		);
+		return new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 2L));
+	}
+
+	// product-events 자기 소비(색인 컨슈머, #376) — order-events 소비와 다른 별도
+	// consumer group("product-service-search")을 써서 리밸런싱이 섞이지 않게 한다.
+	@Bean
+	public ConsumerFactory<String, String> productEventConsumerFactory() {
+		Map<String, Object> config = new HashMap<>();
+		config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+		config.put(ConsumerConfig.GROUP_ID_CONFIG, "product-service-search");
+		config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset);
+		config.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, enableAutoCommit);
+		config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+		config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+		return new DefaultKafkaConsumerFactory<>(config);
+	}
+
+	@Bean
+	public ConcurrentKafkaListenerContainerFactory<String, String> productEventContainerFactory(
+		ConsumerFactory<String, String> productEventConsumerFactory,
+		DefaultErrorHandler productEventErrorHandler
+	) {
+		ConcurrentKafkaListenerContainerFactory<String, String> factory =
+			new ConcurrentKafkaListenerContainerFactory<>();
+		factory.setConsumerFactory(productEventConsumerFactory);
+		factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
+		factory.setCommonErrorHandler(productEventErrorHandler);
+		return factory;
+	}
+
+	// 처리 실패 이벤트는 재시도 후 원본 토픽의 DLT(`product-events.DLT`)로 보낸다. (kafka-event.md §7)
+	@Bean
+	public DefaultErrorHandler productEventErrorHandler(KafkaTemplate<String, Object> kafkaTemplate) {
 		DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
 			kafkaTemplate,
 			(record, exception) -> new TopicPartition(record.topic() + ".DLT", record.partition())

@@ -85,8 +85,10 @@ public class ProductService implements ProductUseCase {
 			throw new ProductException(AdminErrorCode.PRODUCT_INVALID_STATUS);
 		}
 
-		if (target.getStatus() == ProductStatus.ON_SALE) {
-			UUID familyRootId = target.familyRootId();
+		boolean wasOnSale = target.getStatus() == ProductStatus.ON_SALE;
+		UUID familyRootId = target.familyRootId();
+
+		if (wasOnSale) {
 			ProductFamily family = ProductFamily.of(
 				familyRootId,
 				productRepository.findAllByFamilyRootIds(List.of(familyRootId))

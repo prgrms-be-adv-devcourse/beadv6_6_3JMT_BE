@@ -42,6 +42,14 @@ cloud:
     s3:
       bucket: ${AWS_S3_BUCKET}
 
+elasticsearch:
+  uris: ${ES_URIS}
+
+prompthub:
+  search:
+    reconcile:
+      fixed-delay-ms: 604800000
+
 logging:
   level:
     com.prompthub.product: INFO
