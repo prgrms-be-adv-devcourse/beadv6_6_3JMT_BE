@@ -4,7 +4,7 @@ import com.prompthub.ai.global.exception.AiErrorCode;
 import com.prompthub.ai.global.exception.AiException;
 import com.prompthub.ai.global.exception.GlobalExceptionHandler;
 import com.prompthub.ai.settlement.application.usecase.SettlementChatUseCase;
-import com.prompthub.ai.settlement.domain.AgentRun;
+import com.prompthub.ai.settlement.domain.run.AgentRun;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;

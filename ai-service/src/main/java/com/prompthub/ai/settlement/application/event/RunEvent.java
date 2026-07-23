@@ -1,6 +1,6 @@
 package com.prompthub.ai.settlement.application.event;
 
-import com.prompthub.ai.settlement.domain.RunStage;
+import com.prompthub.ai.settlement.domain.run.RunStage;
 
 import java.time.Instant;
 import java.util.Objects;

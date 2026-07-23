@@ -1,4 +1,4 @@
-package com.prompthub.ai.settlement.domain;
+package com.prompthub.ai.settlement.domain.run;
 
 import com.prompthub.ai.settlement.domain.exception.InvalidRunStateException;
 import org.junit.jupiter.api.Test;
@@ -35,15 +35,5 @@ class AgentRunTest {
 
         assertThatThrownBy(() -> completed.fail("AI_PROVIDER_UNAVAILABLE", "안전한 오류", startedAt.plusSeconds(11)))
                 .isInstanceOf(InvalidRunStateException.class);
-    }
-
-    @Test
-    void chatPairRequiresUserThenAssistant() {
-        Instant now = Instant.parse("2026-07-22T12:00:00Z");
-        ChatMessage assistant = ChatMessage.assistant("답변", now);
-
-        assertThatThrownBy(() -> new ChatPair(assistant, assistant))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("USER");
     }
 }

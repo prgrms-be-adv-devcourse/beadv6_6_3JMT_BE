@@ -1,9 +1,9 @@
 package com.prompthub.ai.settlement.application.port;
 
-import com.prompthub.ai.settlement.domain.AgentRun;
-import com.prompthub.ai.settlement.domain.ChatPair;
-import com.prompthub.ai.settlement.domain.ConversationSnapshot;
-import com.prompthub.ai.settlement.domain.RunStage;
+import com.prompthub.ai.settlement.domain.conversation.ChatPair;
+import com.prompthub.ai.settlement.domain.conversation.ConversationSnapshot;
+import com.prompthub.ai.settlement.domain.run.AgentRun;
+import com.prompthub.ai.settlement.domain.run.RunStage;
 
 import java.time.Instant;
 import java.util.Optional;

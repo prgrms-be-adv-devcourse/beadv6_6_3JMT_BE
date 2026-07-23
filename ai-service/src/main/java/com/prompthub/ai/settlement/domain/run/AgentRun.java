@@ -1,4 +1,4 @@
-package com.prompthub.ai.settlement.domain;
+package com.prompthub.ai.settlement.domain.run;
 
 import com.prompthub.ai.settlement.domain.exception.InvalidRunStateException;
 

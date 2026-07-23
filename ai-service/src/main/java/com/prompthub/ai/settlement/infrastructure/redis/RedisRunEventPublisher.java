@@ -4,7 +4,7 @@ import com.prompthub.ai.global.exception.AiErrorCode;
 import com.prompthub.ai.global.exception.AiException;
 import com.prompthub.ai.settlement.application.event.RunEvent;
 import com.prompthub.ai.settlement.application.port.RunEventPublisher;
-import com.prompthub.ai.settlement.domain.RunStage;
+import com.prompthub.ai.settlement.domain.run.RunStage;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import org.springframework.beans.factory.annotation.Autowired;

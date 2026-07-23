@@ -1,9 +1,9 @@
 package com.prompthub.ai.settlement.presentation.sse;
 
 import com.prompthub.ai.settlement.application.event.RunEvent;
-import com.prompthub.ai.settlement.domain.AgentRun;
-import com.prompthub.ai.settlement.domain.RunStage;
-import com.prompthub.ai.settlement.domain.RunStatus;
+import com.prompthub.ai.settlement.domain.run.AgentRun;
+import com.prompthub.ai.settlement.domain.run.RunStage;
+import com.prompthub.ai.settlement.domain.run.RunStatus;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import org.springframework.beans.factory.annotation.Autowired;

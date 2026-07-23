@@ -1,8 +1,8 @@
 package com.prompthub.ai.settlement.application.usecase;
 
-import com.prompthub.ai.settlement.domain.AgentRun;
-import com.prompthub.ai.settlement.domain.ConversationSnapshot;
-import com.prompthub.ai.settlement.domain.RunStatus;
+import com.prompthub.ai.settlement.domain.conversation.ConversationSnapshot;
+import com.prompthub.ai.settlement.domain.run.AgentRun;
+import com.prompthub.ai.settlement.domain.run.RunStatus;
 
 import java.time.Instant;
 import java.util.Optional;

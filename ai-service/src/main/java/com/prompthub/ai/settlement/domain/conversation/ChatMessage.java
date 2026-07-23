@@ -1,4 +1,4 @@
-package com.prompthub.ai.settlement.domain;
+package com.prompthub.ai.settlement.domain.conversation;
 
 import java.time.Instant;
 import java.util.Objects;

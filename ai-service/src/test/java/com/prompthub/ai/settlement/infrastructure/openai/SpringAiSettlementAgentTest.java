@@ -13,7 +13,7 @@ import com.prompthub.ai.global.exception.AiErrorCode;
 import com.prompthub.ai.global.exception.AiException;
 import com.prompthub.ai.settlement.application.port.SettlementAgent;
 import com.prompthub.ai.settlement.application.service.HistoryTokenSelector;
-import com.prompthub.ai.settlement.domain.RunStage;
+import com.prompthub.ai.settlement.domain.run.RunStage;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Duration;

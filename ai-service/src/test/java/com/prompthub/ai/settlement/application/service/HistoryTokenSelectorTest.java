@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
-import com.prompthub.ai.settlement.domain.ChatMessage;
-import com.prompthub.ai.settlement.domain.ChatPair;
+import com.prompthub.ai.settlement.domain.conversation.ChatMessage;
+import com.prompthub.ai.settlement.domain.conversation.ChatPair;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;

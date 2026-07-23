@@ -1,4 +1,6 @@
-package com.prompthub.ai.settlement.domain;
+package com.prompthub.ai.settlement.domain.conversation;
+
+import com.prompthub.ai.settlement.domain.run.AgentRun;
 
 import java.time.Instant;
 import java.util.List;

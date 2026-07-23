@@ -1,7 +1,7 @@
 package com.prompthub.ai.settlement.presentation.rest.dto;
 
 import com.prompthub.ai.settlement.application.usecase.SettlementChatUseCase;
-import com.prompthub.ai.settlement.domain.RunStatus;
+import com.prompthub.ai.settlement.domain.run.RunStatus;
 
 import java.time.Instant;
 import java.util.UUID;

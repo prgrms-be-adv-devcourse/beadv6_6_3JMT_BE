@@ -1,11 +1,11 @@
 package com.prompthub.ai.settlement.presentation.rest.dto;
 
-import com.prompthub.ai.settlement.domain.AgentRun;
-import com.prompthub.ai.settlement.domain.ChatMessage;
-import com.prompthub.ai.settlement.domain.ChatRole;
-import com.prompthub.ai.settlement.domain.ConversationSnapshot;
-import com.prompthub.ai.settlement.domain.RunStage;
-import com.prompthub.ai.settlement.domain.RunStatus;
+import com.prompthub.ai.settlement.domain.conversation.ChatMessage;
+import com.prompthub.ai.settlement.domain.conversation.ChatRole;
+import com.prompthub.ai.settlement.domain.conversation.ConversationSnapshot;
+import com.prompthub.ai.settlement.domain.run.AgentRun;
+import com.prompthub.ai.settlement.domain.run.RunStage;
+import com.prompthub.ai.settlement.domain.run.RunStatus;
 
 import java.time.Instant;
 import java.util.ArrayList;

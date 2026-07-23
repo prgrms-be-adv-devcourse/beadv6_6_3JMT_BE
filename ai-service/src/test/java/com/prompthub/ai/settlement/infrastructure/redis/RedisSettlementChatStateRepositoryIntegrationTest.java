@@ -2,11 +2,11 @@ package com.prompthub.ai.settlement.infrastructure.redis;
 
 import com.prompthub.ai.global.config.AiRedisConfig;
 import com.prompthub.ai.settlement.application.port.SettlementChatStateRepository.AcceptRunResult;
-import com.prompthub.ai.settlement.domain.AgentRun;
-import com.prompthub.ai.settlement.domain.ChatMessage;
-import com.prompthub.ai.settlement.domain.ChatPair;
-import com.prompthub.ai.settlement.domain.ConversationSnapshot;
-import com.prompthub.ai.settlement.domain.RunStatus;
+import com.prompthub.ai.settlement.domain.conversation.ChatMessage;
+import com.prompthub.ai.settlement.domain.conversation.ChatPair;
+import com.prompthub.ai.settlement.domain.conversation.ConversationSnapshot;
+import com.prompthub.ai.settlement.domain.run.AgentRun;
+import com.prompthub.ai.settlement.domain.run.RunStatus;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
