@@ -412,6 +412,12 @@ KAFKA_BOOTSTRAP_SERVERS=kafka:9092
 
 Config 파일은 Config Server 이미지에 포함된다. 설정을 바꾸면 Config 이미지를 새 SHA로 배포하고 영향을 받는 Deployment를 순차 재시작한다.
 
+### 10.4 시간대 계약
+
+모든 Java 애플리케이션 이미지는 JVM 기본 시간대와 컨테이너 시간대를 `Asia/Seoul`로 사용한다. Config Server는 Jackson과 각 JPA 서비스의 Hibernate JDBC 시간대를 `Asia/Seoul`로 제공한다. PostgreSQL StatefulSet도 `-c timezone=Asia/Seoul`과 `TZ=Asia/Seoul`을 함께 사용해 기존 데이터 볼륨과 신규 볼륨에서 동일한 세션 시간대를 보장한다.
+
+정산 주간 CronJob의 `spec.timeZone`도 `Asia/Seoul`을 유지한다. `Instant`, JWT 만료 시각, Redis epoch score와 PostgreSQL `timestamptz`처럼 절대시각을 나타내는 값은 저장값을 9시간 이동하지 않는다. 기존 `timestamp without time zone` 데이터 보정은 운영 데이터가 UTC로 기록됐는지 검증한 뒤 서비스별 Flyway 마이그레이션으로 별도 수행한다.
+
 ## 11. 스토리지 명세
 
 ### 11.1 StorageClass
