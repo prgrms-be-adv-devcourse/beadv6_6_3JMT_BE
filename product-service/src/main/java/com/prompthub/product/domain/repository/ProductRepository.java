@@ -1,9 +1,11 @@
 package com.prompthub.product.domain.repository;
 
 import com.prompthub.product.domain.model.entity.Product;
+import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,4 +43,8 @@ public interface ProductRepository {
 	long countOnSaleProductsBySellerId(UUID sellerId);
 
 	List<Product> findAllByFamilyRootIds(List<UUID> familyRootIds);
+
+	List<Product> findAllByStatus(ProductStatus productStatus);
+
+	List<UUID> findChangedFamilyRootIds(LocalDateTime since);
 }
