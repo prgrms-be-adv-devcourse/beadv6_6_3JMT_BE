@@ -36,7 +36,7 @@
 - Consumes: 없음(순수 신규 클래스, 외부 의존은 JDK/Spring 표준 타입뿐)
 - Produces: `TossRetryPredicate implements Predicate<Throwable>` — `public boolean test(Throwable throwable)`. Task 2의 `TossRetryConfig`, Task 3의 `TossPaymentGateway` 재작업이 이 클래스를 그대로 재사용한다.
 
-- [ ] **Step 1: 브랜치를 origin/develop 최신 상태로 맞춘다**
+- [x] **Step 1: 브랜치를 origin/develop 최신 상태로 맞춘다**
 
 로컬 브랜치 `feat/#529-payment-confirm-retry-timeout`이 `origin/develop`보다 뒤처져 있다(#519 RateLimiter 병합 미반영). 아래 명령으로 fast-forward한다.
 
@@ -48,7 +48,7 @@ git merge --ff-only origin/develop
 
 Expected: fast-forward 성공, `TossPaymentGateway.java`에 `RateLimiter confirmRateLimiter` 생성자 파라미터가 이미 존재하는 상태가 됨.
 
-- [ ] **Step 2: 실패하는 테스트 작성**
+- [x] **Step 2: 실패하는 테스트 작성**
 
 ```java
 package com.prompthub.payment.infrastructure.external.toss;
@@ -124,7 +124,7 @@ class TossRetryPredicateTest {
 }
 ```
 
-- [ ] **Step 3: 테스트 실패 확인**
+- [x] **Step 3: 테스트 실패 확인**
 
 Run:
 ```bash
@@ -132,7 +132,7 @@ JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-serv
 ```
 Expected: FAIL — `TossRetryPredicate` 클래스가 없어 컴파일 에러.
 
-- [ ] **Step 4: `TossRetryPredicate` 구현**
+- [x] **Step 4: `TossRetryPredicate` 구현**
 
 ```java
 package com.prompthub.payment.infrastructure.external.toss;
@@ -161,7 +161,7 @@ public class TossRetryPredicate implements Predicate<Throwable> {
 }
 ```
 
-- [ ] **Step 5: 테스트 통과 확인**
+- [x] **Step 5: 테스트 통과 확인**
 
 Run:
 ```bash
@@ -169,7 +169,7 @@ JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-serv
 ```
 Expected: PASS (테스트 6개 전부 통과)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/main/java/com/prompthub/payment/infrastructure/external/toss/TossRetryPredicate.java \
