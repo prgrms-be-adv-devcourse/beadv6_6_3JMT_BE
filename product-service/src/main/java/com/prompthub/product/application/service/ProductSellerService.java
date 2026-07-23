@@ -58,6 +58,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 		Product product = Product.create(productId, sellerId, content);
 
 		Product saved = productRepository.save(product);
+		productEventProducer.publishProductChanged(saved.familyRootId());
 
 		return new ProductCreateResponse(
 			saved.getId(),
@@ -112,7 +113,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 				onSale.supersede();
 				productRepository.save(onSale);
 				productRepository.save(next);
-				productEventProducer.publishOnSaleChanged(familyRootId);
+				productEventProducer.publishProductChanged(familyRootId);
 			}
 		}
 

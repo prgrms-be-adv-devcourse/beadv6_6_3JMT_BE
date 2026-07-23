@@ -102,7 +102,7 @@ class ProductSellerServiceTest {
 				assertThat(p.getStatus()).isEqualTo(ProductStatus.ON_SALE);
 				assertThat(p.getPatchVersion()).isEqualTo((short) 1);
 			});
-			then(productEventProducer).should().publishOnSaleChanged(PRODUCT_ID);
+			then(productEventProducer).should().publishProductChanged(PRODUCT_ID);
 		}
 
 		@Test
@@ -161,6 +161,23 @@ class ProductSellerServiceTest {
 			then(storageClient).should().copyObject(
 				org.mockito.ArgumentMatchers.eq("products/temp/file/abc.pptx"),
 				org.mockito.ArgumentMatchers.anyString());
+		}
+
+		@Test
+		@DisplayName("생성 시 PRODUCT_CHANGED 이벤트를 발행한다")
+		void createProduct_publishesProductChangedEvent() {
+			given(productRepository.save(org.mockito.ArgumentMatchers.any(Product.class)))
+				.willAnswer(inv -> inv.getArgument(0));
+
+			productSellerService.createProduct(SELLER_ID,
+				new com.prompthub.product.presentation.dto.request.ProductCreateRequest(
+					"노션 상품", "NOTION", "model", "설명", 1000,
+					null, null, "https://notion.so/my-template", null, List.of(), List.of()
+				));
+
+			ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+			then(productRepository).should().save(captor.capture());
+			then(productEventProducer).should().publishProductChanged(captor.getValue().getId());
 		}
 	}
 

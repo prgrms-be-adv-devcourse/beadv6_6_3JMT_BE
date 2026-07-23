@@ -43,20 +43,9 @@ public class ProductSearchEventConsumer {
 	}
 
 	private void handle(ProductEventType type, EventMessage<JsonNode> event) {
-		switch (type) {
-			case PRODUCT_ON_SALE_CHANGED -> {
-				UUID familyRootId = UUID.fromString(event.payload().get("familyRootId").asText());
-				productSearchEventHandler.handleOnSaleChanged(event.eventId(), event.occurredAt(), familyRootId);
-			}
-			case PRODUCT_STOPPED, PRODUCT_DELETED -> {
-				UUID productId = UUID.fromString(event.payload().get("productId").asText());
-				productSearchEventHandler.handleStoppedOrDeleted(event.eventId(), event.occurredAt(), productId, event.eventType());
-			}
-			case PRODUCT_PRICE_CHANGED -> {
-				UUID productId = UUID.fromString(event.payload().get("productId").asText());
-				int changedPrice = event.payload().get("changedPrice").asInt();
-				productSearchEventHandler.handlePriceChanged(event.eventId(), event.occurredAt(), productId, changedPrice);
-			}
+		if (type == ProductEventType.PRODUCT_CHANGED) {
+			UUID familyRootId = UUID.fromString(event.payload().get("familyRootId").asText());
+			productSearchEventHandler.handleProductChanged(event.eventId(), event.occurredAt(), familyRootId);
 		}
 	}
 

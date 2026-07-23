@@ -13,7 +13,7 @@ public enum ProductEventType implements EventType {
 	PRODUCT_STOPPED,
 	PRODUCT_DELETED,
 	PRODUCT_PRICE_CHANGED,
-	PRODUCT_ON_SALE_CHANGED;
+	PRODUCT_CHANGED;
 
 	@Override
 	public String code() {
