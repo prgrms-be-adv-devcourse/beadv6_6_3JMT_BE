@@ -2,6 +2,11 @@ package com.prompthub.order.infra.persistence;
 
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.service.order.OrderExpirationStore;
+import com.prompthub.order.domain.model.Order;
+import com.prompthub.order.domain.model.OrderProduct;
+import com.prompthub.order.domain.repository.OrderRepository;
+import com.prompthub.order.global.exception.ErrorCode;
+import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.support.PostgreSqlIntegrationTestSupport;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationVersion;
@@ -32,6 +37,9 @@ class OrderProductIdempotencyMigrationTest extends PostgreSqlIntegrationTestSupp
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private OrderRepository orderRepository;
 
     @MockitoBean
     private ProductClient productClient;
@@ -80,6 +88,45 @@ class OrderProductIdempotencyMigrationTest extends PostgreSqlIntegrationTestSupp
     }
 
     @Test
+    void persistenceAdapterMapsRealPendingConstraintToO018() {
+        Order first = order("ORD-FIRST", BUYER_A, PRODUCT_A);
+        Order second = order("ORD-SECOND", BUYER_A, PRODUCT_A);
+        orderRepository.saveAndFlush(first);
+
+        assertThatThrownBy(() -> orderRepository.saveAndFlush(second))
+            .isInstanceOf(OrderException.class)
+            .hasFieldOrPropertyWithValue(
+                "errorCode",
+                ErrorCode.ORDER_PRODUCT_ALREADY_OWNED
+            );
+    }
+
+    @Test
+    void multiProductConflictRollsBackEveryProductInNewOrder() {
+        Order existing = order("ORD-EXISTING", BUYER_A, PRODUCT_A);
+        orderRepository.saveAndFlush(existing);
+        Order conflicting = Order.create(BUYER_A, "ORD-CONFLICTING", 20_000);
+        conflicting.addOrderProduct(
+            OrderProduct.create(PRODUCT_A, SELLER_A, "상품 A", 10_000)
+        );
+        conflicting.addOrderProduct(
+            OrderProduct.create(PRODUCT_B, SELLER_A, "상품 B", 10_000)
+        );
+
+        assertThatThrownBy(() -> orderRepository.saveAndFlush(conflicting))
+            .isInstanceOf(OrderException.class)
+            .hasFieldOrPropertyWithValue(
+                "errorCode",
+                ErrorCode.ORDER_PRODUCT_ALREADY_OWNED
+            );
+        assertThat(jdbcTemplate.queryForObject(
+            "select count(*) from order_product where order_id = ?",
+            Long.class,
+            conflicting.getId()
+        )).isZero();
+    }
+
+    @Test
     void migrationBackfillsBuyerIdFromParentOrder() {
         String schema = "backfill_" + UUID.randomUUID().toString().replace("-", "");
         jdbcTemplate.execute("create schema " + schema);
@@ -117,6 +164,14 @@ class OrderProductIdempotencyMigrationTest extends PostgreSqlIntegrationTestSupp
                  created_at, updated_at)
             values (?, ?, ?, 10000, 'CREATED', current_timestamp, current_timestamp)
             """, orderId, buyerId, orderNumber);
+    }
+
+    private Order order(String number, UUID buyerId, UUID productId) {
+        Order order = Order.create(buyerId, number, 10_000);
+        order.addOrderProduct(
+            OrderProduct.create(productId, SELLER_A, "상품", 10_000)
+        );
+        return order;
     }
 
     private void insertProduct(

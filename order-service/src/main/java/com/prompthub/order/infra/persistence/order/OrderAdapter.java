@@ -5,10 +5,14 @@ import com.prompthub.order.application.dto.OrderListProductProjection;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.repository.OrderRepository;
+import com.prompthub.order.global.exception.ErrorCode;
+import com.prompthub.order.global.exception.OrderException;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -19,12 +23,27 @@ import java.util.UUID;
 @Component
 @RequiredArgsConstructor
 public class OrderAdapter implements OrderRepository {
+	private static final String PENDING_PRODUCT_UNIQUENESS =
+		"uk_order_product_buyer_product_pending";
+
 	private final OrderPersistence orderPersistence;
 	private final OrderProductPersistence orderProductPersistence;
 
 	@Override
 	public Order save(Order order) {
 		return orderPersistence.save(order);
+	}
+
+	@Override
+	public Order saveAndFlush(Order order) {
+		try {
+			return orderPersistence.saveAndFlush(order);
+		} catch (DataIntegrityViolationException exception) {
+			if (hasConstraint(exception, PENDING_PRODUCT_UNIQUENESS)) {
+				throw new OrderException(ErrorCode.ORDER_PRODUCT_ALREADY_OWNED);
+			}
+			throw exception;
+		}
 	}
 
 	@Override
@@ -83,5 +102,17 @@ public class OrderAdapter implements OrderRepository {
 	@Override
 	public List<OrderListProductProjection> findOrderProductsByOrderIds(List<UUID> orderIds) {
 		return orderPersistence.findOrderProductsByOrderIds(orderIds);
+	}
+
+	private boolean hasConstraint(Throwable failure, String expectedName) {
+		Throwable cause = failure;
+		while (cause != null) {
+			if (cause instanceof ConstraintViolationException violation
+				&& expectedName.equalsIgnoreCase(violation.getConstraintName())) {
+				return true;
+			}
+			cause = cause.getCause();
+		}
+		return false;
 	}
 }

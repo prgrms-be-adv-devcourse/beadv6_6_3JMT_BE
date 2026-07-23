@@ -1,6 +1,8 @@
 package com.prompthub.order.infra.persistence.order;
 
 import com.prompthub.order.domain.model.Order;
+import com.prompthub.order.global.exception.ErrorCode;
+import com.prompthub.order.global.exception.OrderException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -8,7 +10,10 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -17,6 +22,7 @@ import java.util.UUID;
 import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
 import static com.prompthub.order.fixture.PaymentEventFixture.createdOrder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -85,5 +91,40 @@ class OrderAdapterTest {
 			eq(cutoff),
 			argThat(pageable -> pageable.getPageNumber() == 0 && pageable.getPageSize() == 10)
 		);
+	}
+
+	@Test
+	void saveAndFlush_pendingProductConstraint_mapsToO018() {
+		Order order = createdOrder();
+		given(orderPersistence.saveAndFlush(order))
+			.willThrow(integrityFailure("uk_order_product_buyer_product_pending"));
+
+		assertThatThrownBy(() -> orderAdapter.saveAndFlush(order))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue(
+				"errorCode",
+				ErrorCode.ORDER_PRODUCT_ALREADY_OWNED
+			);
+	}
+
+	@Test
+	void saveAndFlush_unrelatedConstraint_preservesOriginalFailure() {
+		Order order = createdOrder();
+		DataIntegrityViolationException failure = integrityFailure("uk_order_number");
+		given(orderPersistence.saveAndFlush(order)).willThrow(failure);
+
+		assertThatThrownBy(() -> orderAdapter.saveAndFlush(order))
+			.isSameAs(failure);
+	}
+
+	private DataIntegrityViolationException integrityFailure(String constraintName) {
+		ConstraintViolationException cause = new ConstraintViolationException(
+			"constraint violation",
+			new SQLException("duplicate"),
+			"insert into order_product",
+			ConstraintViolationException.ConstraintKind.UNIQUE,
+			constraintName
+		);
+		return new DataIntegrityViolationException("constraint violation", cause);
 	}
 }
