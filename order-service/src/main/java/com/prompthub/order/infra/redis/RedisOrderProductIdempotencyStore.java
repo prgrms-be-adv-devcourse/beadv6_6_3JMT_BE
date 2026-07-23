@@ -3,6 +3,7 @@ package com.prompthub.order.infra.redis;
 import com.prompthub.order.application.service.order.OrderProductIdempotencyStore;
 import com.prompthub.order.application.service.order.OrderProductReservationMetrics;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -23,6 +24,7 @@ import static com.prompthub.order.application.service.order.OrderProductReservat
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class RedisOrderProductIdempotencyStore implements OrderProductIdempotencyStore {
 
 	private static final String KEY_PREFIX = "order:product:idempotency:";
@@ -104,19 +106,32 @@ public class RedisOrderProductIdempotencyStore implements OrderProductIdempotenc
 		long startedAt = System.nanoTime();
 		try {
 			T result = action.get();
-			metrics.recordRedis(
-				operation,
-				SUCCESS,
-				Duration.ofNanos(System.nanoTime() - startedAt)
-			);
+			recordRedisQuietly(operation, SUCCESS, startedAt);
 			return result;
 		} catch (RuntimeException exception) {
+			recordRedisQuietly(operation, ERROR, startedAt);
+			throw exception;
+		}
+	}
+
+	private void recordRedisQuietly(
+		OrderProductReservationMetrics.RedisOperation operation,
+		OrderProductReservationMetrics.RedisOutcome outcome,
+		long startedAt
+	) {
+		try {
 			metrics.recordRedis(
 				operation,
-				ERROR,
+				outcome,
 				Duration.ofNanos(System.nanoTime() - startedAt)
 			);
-			throw exception;
+		} catch (RuntimeException exception) {
+			log.warn(
+				"주문 상품 예약 Redis 지표 기록에 실패했습니다. operation={}, outcome={}",
+				operation,
+				outcome,
+				exception
+			);
 		}
 	}
 

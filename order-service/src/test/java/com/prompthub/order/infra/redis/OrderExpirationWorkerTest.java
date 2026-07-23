@@ -25,6 +25,7 @@ import static com.prompthub.order.application.service.order.OrderExpirationMetri
 import static com.prompthub.order.application.service.order.OrderExpirationMetrics.CompensationOutcome.SKIPPED;
 import static com.prompthub.order.application.service.order.OrderExpirationMetrics.CompensationOutcome.SUCCESS;
 import static com.prompthub.order.fixture.OrderFixture.ORDER_ID;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -199,6 +200,88 @@ class OrderExpirationWorkerTest {
 		then(expirationMetrics).should().recordCompensation(FAILURE);
 		then(expirationMetrics).should(times(1))
 			.recordCompensation(any(OrderExpirationMetrics.CompensationOutcome.class));
+	}
+
+	@Test
+	@DisplayName("후보 지표 기록 실패에도 DB와 Redis 후보를 한 번만 보상한다")
+	void processExpiredOrders_candidateMetricFailure_preservesCandidates() {
+		OrderExpirationWorker worker = worker();
+		given(orderRepository.findExpiredCreatedOrderIds(NOW_LOCAL.minusMinutes(20), 100))
+			.willReturn(List.of(ORDER_ID));
+		given(orderExpirationStore.findExpiredOrderIds(NOW, 100))
+			.willReturn(Set.of(ORDER_ID));
+		given(compensationService.compensateTimeout(ORDER_ID, NOW_LOCAL)).willReturn(true);
+		willThrow(new IllegalStateException("metrics down"))
+			.given(expirationMetrics).recordCandidates(DB, 1);
+		willThrow(new IllegalStateException("metrics down"))
+			.given(expirationMetrics).recordCandidates(REDIS, 1);
+
+		assertThatCode(worker::processExpiredOrders).doesNotThrowAnyException();
+
+		then(compensationService).should(times(1)).compensateTimeout(ORDER_ID, NOW_LOCAL);
+		then(orderExpirationStore).should(times(1)).removeExpiration(ORDER_ID);
+		then(orderExpirationStore).should(times(1)).clearRetryCount(ORDER_ID);
+		then(orderExpirationStore).should(never()).incrementRetryCount(ORDER_ID);
+		then(orderExpirationStore).should(never()).moveToDeadLetter(ORDER_ID);
+	}
+
+	@Test
+	@DisplayName("성공 보상 지표 기록 실패는 재시도와 DLQ 상태를 변경하지 않는다")
+	void processExpiredOrders_successMetricFailure_preservesCompensationState() {
+		OrderExpirationWorker worker = worker();
+		given(orderExpirationStore.findExpiredOrderIds(NOW, 100))
+			.willReturn(Set.of(ORDER_ID));
+		given(compensationService.compensateTimeout(ORDER_ID, NOW_LOCAL)).willReturn(true);
+		willThrow(new IllegalStateException("metrics down"))
+			.given(expirationMetrics).recordCompensation(SUCCESS);
+
+		assertThatCode(worker::processExpiredOrders).doesNotThrowAnyException();
+
+		then(compensationService).should(times(1)).compensateTimeout(ORDER_ID, NOW_LOCAL);
+		then(orderExpirationStore).should(times(1)).removeExpiration(ORDER_ID);
+		then(orderExpirationStore).should(times(1)).clearRetryCount(ORDER_ID);
+		then(orderExpirationStore).should(never()).incrementRetryCount(ORDER_ID);
+		then(orderExpirationStore).should(never()).moveToDeadLetter(ORDER_ID);
+	}
+
+	@Test
+	@DisplayName("건너뜀 보상 지표 기록 실패는 재시도와 Redis 상태를 변경하지 않는다")
+	void processExpiredOrders_skippedMetricFailure_preservesCompensationState() {
+		OrderExpirationWorker worker = worker();
+		given(orderExpirationStore.findExpiredOrderIds(NOW, 100))
+			.willReturn(Set.of(ORDER_ID));
+		given(compensationService.compensateTimeout(ORDER_ID, NOW_LOCAL)).willReturn(false);
+		willThrow(new IllegalStateException("metrics down"))
+			.given(expirationMetrics).recordCompensation(SKIPPED);
+
+		assertThatCode(worker::processExpiredOrders).doesNotThrowAnyException();
+
+		then(compensationService).should(times(1)).compensateTimeout(ORDER_ID, NOW_LOCAL);
+		then(orderExpirationStore).should(never()).removeExpiration(ORDER_ID);
+		then(orderExpirationStore).should(never()).clearRetryCount(ORDER_ID);
+		then(orderExpirationStore).should(never()).incrementRetryCount(ORDER_ID);
+		then(orderExpirationStore).should(never()).moveToDeadLetter(ORDER_ID);
+	}
+
+	@Test
+	@DisplayName("DLQ 지표 기록 실패는 원래 재시도와 DLQ 상태를 변경하지 않는다")
+	void processExpiredOrders_dlqMetricFailure_preservesRetryAndDeadLetterState() {
+		OrderExpirationWorker worker = worker();
+		given(orderExpirationStore.findExpiredOrderIds(NOW, 100))
+			.willReturn(Set.of(ORDER_ID));
+		willThrow(new RuntimeException("DB unavailable"))
+			.given(compensationService).compensateTimeout(ORDER_ID, NOW_LOCAL);
+		given(orderExpirationStore.incrementRetryCount(ORDER_ID)).willReturn(4L);
+		willThrow(new IllegalStateException("metrics down"))
+			.given(expirationMetrics).recordCompensation(DLQ);
+
+		assertThatCode(worker::processExpiredOrders).doesNotThrowAnyException();
+
+		then(compensationService).should(times(1)).compensateTimeout(ORDER_ID, NOW_LOCAL);
+		then(orderExpirationStore).should(times(1)).incrementRetryCount(ORDER_ID);
+		then(orderExpirationStore).should(times(1)).moveToDeadLetter(ORDER_ID);
+		then(orderExpirationStore).should(times(1)).removeExpiration(ORDER_ID);
+		then(orderExpirationStore).should(never()).clearRetryCount(ORDER_ID);
 	}
 
 	private OrderExpirationWorker worker() {

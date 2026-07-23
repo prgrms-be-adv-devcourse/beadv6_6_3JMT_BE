@@ -91,6 +91,54 @@ class OrderProductReservationServiceTest {
 	}
 
 	@Test
+	@DisplayName("성공 지표 기록 실패는 예약 성공을 변경하지 않는다")
+	void reserve_successMetricFailure_doesNotAlterSuccess() {
+		Order order = createdOrder();
+		given(policy.ttl()).willReturn(TTL);
+		given(store.acquire(
+			eq(BUYER_ID), anyCollection(), eq(order.getId()), eq(TTL)
+		)).willReturn(true);
+		willThrow(new IllegalStateException("metrics down"))
+			.given(metrics).recordAttempt(SUCCESS);
+
+		assertThatCode(() -> service.reserve(order)).doesNotThrowAnyException();
+
+		then(metrics).should(never()).recordAttempt(ERROR);
+	}
+
+	@Test
+	@DisplayName("충돌 지표 기록 실패는 O018을 변경하지 않는다")
+	void reserve_conflictMetricFailure_preservesAlreadyOwned() {
+		Order order = createdOrder();
+		given(policy.ttl()).willReturn(TTL);
+		given(store.acquire(eq(BUYER_ID), anyCollection(), eq(order.getId()), eq(TTL)))
+			.willReturn(false);
+		willThrow(new IllegalStateException("metrics down"))
+			.given(metrics).recordAttempt(CONFLICT);
+
+		assertThatThrownBy(() -> service.reserve(order))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_PRODUCT_ALREADY_OWNED);
+
+		then(metrics).should(never()).recordAttempt(ERROR);
+	}
+
+	@Test
+	@DisplayName("오류 지표 기록 실패는 Redis 장애의 SYS003 변환을 변경하지 않는다")
+	void reserve_errorMetricFailure_preservesUnavailable() {
+		Order order = createdOrder();
+		given(policy.ttl()).willReturn(TTL);
+		given(store.acquire(eq(BUYER_ID), anyCollection(), eq(order.getId()), eq(TTL)))
+			.willThrow(new IllegalStateException("redis down"));
+		willThrow(new IllegalStateException("metrics down"))
+			.given(metrics).recordAttempt(ERROR);
+
+		assertThatThrownBy(() -> service.reserve(order))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_IDEMPOTENCY_STORE_UNAVAILABLE);
+	}
+
+	@Test
 	@DisplayName("주문 생성 실패 시 주문 토큰으로 예약을 해제한다")
 	void releaseAfterFailure_releasesWithOrderToken() {
 		Order order = createdOrder();

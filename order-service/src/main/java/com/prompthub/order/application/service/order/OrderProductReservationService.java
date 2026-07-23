@@ -34,14 +34,14 @@ public class OrderProductReservationService {
 				policy.ttl()
 			);
 			if (!acquired) {
-				metrics.recordAttempt(CONFLICT);
+				recordAttemptQuietly(CONFLICT);
 				throw new OrderException(ErrorCode.ORDER_PRODUCT_ALREADY_OWNED);
 			}
-			metrics.recordAttempt(SUCCESS);
+			recordAttemptQuietly(SUCCESS);
 		} catch (OrderException exception) {
 			throw exception;
 		} catch (RuntimeException exception) {
-			metrics.recordAttempt(ERROR);
+			recordAttemptQuietly(ERROR);
 			log.warn("주문 상품 예약 저장소를 사용할 수 없습니다. orderId={}", order.getId(), exception);
 			throw new OrderException(ErrorCode.ORDER_IDEMPOTENCY_STORE_UNAVAILABLE);
 		}
@@ -74,6 +74,16 @@ public class OrderProductReservationService {
 				exception
 			);
 			throw new OrderException(ErrorCode.ORDER_IDEMPOTENCY_STORE_UNAVAILABLE);
+		}
+	}
+
+	private void recordAttemptQuietly(
+		OrderProductReservationMetrics.ReservationOutcome outcome
+	) {
+		try {
+			metrics.recordAttempt(outcome);
+		} catch (RuntimeException exception) {
+			log.warn("주문 상품 예약 지표 기록에 실패했습니다. outcome={}", outcome, exception);
 		}
 	}
 

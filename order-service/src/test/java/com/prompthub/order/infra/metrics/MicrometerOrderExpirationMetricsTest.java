@@ -4,8 +4,14 @@ import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static com.prompthub.order.application.service.order.OrderExpirationMetrics.CandidateSource.DB;
 import static com.prompthub.order.application.service.order.OrderExpirationMetrics.CompensationOutcome.DLQ;
+import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
+import static com.prompthub.order.fixture.OrderFixture.EVENT_ID;
+import static com.prompthub.order.fixture.OrderFixture.ORDER_ID;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_ID_1;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class MicrometerOrderExpirationMetricsTest {
@@ -31,9 +37,23 @@ class MicrometerOrderExpirationMetricsTest {
 	}
 
 	private void assertNoIdentifierTags(SimpleMeterRegistry registry) {
-		assertThat(registry.getMeters())
-			.flatExtracting(meter -> meter.getId().getTags())
+		List<Tag> tags = registry.getMeters().stream()
+			.flatMap(meter -> meter.getId().getTags().stream())
+			.toList();
+		assertThat(tags)
 			.extracting(Tag::getKey)
 			.doesNotContain("buyerId", "productId", "orderId", "eventId");
+		assertThat(tags)
+			.extracting(Tag::getValue)
+			.doesNotContain(
+				"buyerId",
+				"productId",
+				"orderId",
+				"eventId",
+				BUYER_ID.toString(),
+				PRODUCT_ID_1.toString(),
+				ORDER_ID.toString(),
+				EVENT_ID.toString()
+			);
 	}
 }

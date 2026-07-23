@@ -24,6 +24,8 @@ import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
 import static com.prompthub.order.fixture.PaymentEventFixture.PRODUCT_A;
 import static com.prompthub.order.fixture.PaymentEventFixture.PRODUCT_B;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -114,9 +116,62 @@ class RedisOrderProductIdempotencyStoreTest {
 		willThrow(new IllegalStateException("redis down"))
 			.given(redisTemplate).hasKey("order:product:idempotency:{" + BUYER_ID + "}:" + PRODUCT_A);
 
-		org.assertj.core.api.Assertions.assertThatThrownBy(() -> store.exists(BUYER_ID, PRODUCT_A))
+		assertThatThrownBy(() -> store.exists(BUYER_ID, PRODUCT_A))
 			.isInstanceOf(IllegalStateException.class);
 
 		then(metrics).should().recordRedis(eq(EXISTS), eq(ERROR), any(Duration.class));
+	}
+
+	@Test
+	@DisplayName("획득 성공 지표 기록 실패는 true 결과를 변경하지 않는다")
+	void acquire_successMetricFailure_preservesResult() {
+		given(valueOperations.setIfAbsent(any(String.class), any(String.class), any(Duration.class)))
+			.willReturn(true);
+		willThrow(new IllegalStateException("metrics down"))
+			.given(metrics).recordRedis(eq(ACQUIRE), eq(SUCCESS), any(Duration.class));
+
+		assertThat(store.acquire(BUYER_ID, List.of(PRODUCT_A), ORDER_A, TTL)).isTrue();
+	}
+
+	@Test
+	@DisplayName("조회 성공 지표 기록 실패는 Redis 조회 결과를 변경하지 않는다")
+	void exists_successMetricFailure_preservesResult() {
+		given(redisTemplate.hasKey("order:product:idempotency:{" + BUYER_ID + "}:" + PRODUCT_A))
+			.willReturn(true);
+		willThrow(new IllegalStateException("metrics down"))
+			.given(metrics).recordRedis(eq(EXISTS), eq(SUCCESS), any(Duration.class));
+
+		assertThat(store.exists(BUYER_ID, PRODUCT_A)).isTrue();
+	}
+
+	@Test
+	@DisplayName("해제 성공 지표 기록 실패는 compare-and-delete 결과를 변경하지 않는다")
+	void release_successMetricFailure_preservesResult() {
+		given(redisTemplate.execute(any(RedisScript.class), anyList(), any())).willReturn(1L);
+		willThrow(new IllegalStateException("metrics down"))
+			.given(metrics).recordRedis(eq(RELEASE), eq(SUCCESS), any(Duration.class));
+
+		assertThatCode(() ->
+			store.release(BUYER_ID, List.of(PRODUCT_A), ORDER_A)
+		).doesNotThrowAnyException();
+
+		then(redisTemplate).should().execute(
+			any(RedisScript.class),
+			eq(List.of("order:product:idempotency:{" + BUYER_ID + "}:" + PRODUCT_A)),
+			eq(ORDER_A.toString())
+		);
+	}
+
+	@Test
+	@DisplayName("오류 지표 기록 실패는 원래 Redis 예외를 교체하지 않는다")
+	void exists_errorMetricFailure_preservesOriginalException() {
+		IllegalStateException redisFailure = new IllegalStateException("redis down");
+		willThrow(redisFailure)
+			.given(redisTemplate).hasKey("order:product:idempotency:{" + BUYER_ID + "}:" + PRODUCT_A);
+		willThrow(new IllegalArgumentException("metrics down"))
+			.given(metrics).recordRedis(eq(EXISTS), eq(ERROR), any(Duration.class));
+
+		assertThatThrownBy(() -> store.exists(BUYER_ID, PRODUCT_A))
+			.isSameAs(redisFailure);
 	}
 }

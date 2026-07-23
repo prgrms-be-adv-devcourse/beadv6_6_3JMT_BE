@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -60,8 +60,8 @@ public class OrderExpirationWorker {
 		try {
 			List<UUID> databaseCandidates =
 				orderRepository.findExpiredCreatedOrderIds(cutoff, properties.batchSize());
-			metrics.recordCandidates(DB, databaseCandidates.size());
 			candidates.addAll(databaseCandidates);
+			recordCandidatesQuietly(DB, databaseCandidates.size());
 		} catch (RuntimeException exception) {
 			log.warn("DB 기준 주문 만료 후보 조회에 실패했습니다. cutoff={}", cutoff, exception);
 		}
@@ -71,25 +71,27 @@ public class OrderExpirationWorker {
 		try {
 			Set<UUID> redisCandidates =
 				orderExpirationStore.findExpiredOrderIds(now, properties.batchSize());
-			metrics.recordCandidates(REDIS, redisCandidates.size());
 			candidates.addAll(redisCandidates);
+			recordCandidatesQuietly(REDIS, redisCandidates.size());
 		} catch (RuntimeException exception) {
 			log.warn("Redis 기준 주문 만료 후보 조회에 실패했습니다. DB reconciliation 결과를 계속 처리합니다.", exception);
 		}
 	}
 
 	private void processExpiredOrder(UUID orderId, LocalDateTime now) {
+		OrderExpirationMetrics.CompensationOutcome outcome;
 		try {
 			boolean completed = compensationService.compensateTimeout(orderId, now);
 			if (completed) {
 				cleanupRedisState(orderId);
-				metrics.recordCompensation(SUCCESS);
+				outcome = SUCCESS;
 			} else {
-				metrics.recordCompensation(SKIPPED);
+				outcome = SKIPPED;
 			}
 		} catch (Exception exception) {
-			metrics.recordCompensation(handleFailure(orderId, exception));
+			outcome = handleFailure(orderId, exception);
 		}
+		recordCompensationQuietly(outcome);
 	}
 
 	private OrderExpirationMetrics.CompensationOutcome handleFailure(
@@ -118,6 +120,27 @@ public class OrderExpirationWorker {
 
 		log.warn("주문 만료 처리에 실패했습니다. orderId={}, retryCount={}", orderId, retryCount, exception);
 		return movedToDeadLetter ? DLQ : FAILURE;
+	}
+
+	private void recordCandidatesQuietly(
+		OrderExpirationMetrics.CandidateSource source,
+		int count
+	) {
+		try {
+			metrics.recordCandidates(source, count);
+		} catch (RuntimeException exception) {
+			log.warn("주문 만료 후보 지표 기록에 실패했습니다. source={}", source, exception);
+		}
+	}
+
+	private void recordCompensationQuietly(
+		OrderExpirationMetrics.CompensationOutcome outcome
+	) {
+		try {
+			metrics.recordCompensation(outcome);
+		} catch (RuntimeException exception) {
+			log.warn("주문 만료 보상 지표 기록에 실패했습니다. outcome={}", outcome, exception);
+		}
 	}
 
 	private void removeExpirationQuietly(UUID orderId) {
