@@ -23,6 +23,10 @@ public interface OrderRepository {
 
 	boolean existsAccessiblePaidOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId);
 
+	boolean existsBlockingOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId);
+
+	List<UUID> findExpiredCreatedOrderIds(LocalDateTime cutoff, int batchSize);
+
 	List<UUID> findAccessiblePaidProductIdsByBuyerId(UUID buyerId);
 
 	Page<OrderListProjection> searchOrders(
