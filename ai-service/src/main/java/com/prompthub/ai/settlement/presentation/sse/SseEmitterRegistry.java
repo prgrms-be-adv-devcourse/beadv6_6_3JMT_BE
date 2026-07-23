@@ -1,4 +1,4 @@
-package com.prompthub.ai.settlement.presentation;
+package com.prompthub.ai.settlement.presentation.sse;
 
 import com.prompthub.ai.settlement.application.event.RunEvent;
 import com.prompthub.ai.settlement.domain.AgentRun;

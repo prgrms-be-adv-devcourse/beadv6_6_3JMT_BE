@@ -1,17 +1,17 @@
-package com.prompthub.ai.settlement.presentation;
+package com.prompthub.ai.settlement.presentation.rest;
 
 import com.prompthub.ai.global.config.AiSettlementProperties;
 import com.prompthub.ai.global.exception.AiErrorCode;
 import com.prompthub.ai.global.exception.GlobalExceptionHandler;
 import com.prompthub.ai.settlement.application.usecase.SettlementChatUseCase;
 import com.prompthub.ai.settlement.domain.RunStatus;
+import com.prompthub.ai.settlement.infrastructure.web.interceptor.AiSettlementFeatureInterceptor;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -137,18 +137,6 @@ class SettlementChatControllerTest {
     }
 
     static AiSettlementProperties properties(boolean enabled) {
-        return new AiSettlementProperties(
-                "gpt-5.6-luna",
-                "low",
-                2_000,
-                8_000,
-                Duration.ofSeconds(90),
-                Duration.ofSeconds(3),
-                new AiSettlementProperties.Execution(4),
-                new AiSettlementProperties.Conversation(Duration.ofHours(24), 20),
-                new AiSettlementProperties.Sse(Duration.ofSeconds(15)),
-                new AiSettlementProperties.Settlement(new AiSettlementProperties.Chat(enabled)),
-                "internal-token"
-        );
+        return com.prompthub.ai.settlement.AiSettlementTestFixtures.properties(enabled);
     }
 }

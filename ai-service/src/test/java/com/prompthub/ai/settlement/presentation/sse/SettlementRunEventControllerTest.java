@@ -1,4 +1,4 @@
-package com.prompthub.ai.settlement.presentation;
+package com.prompthub.ai.settlement.presentation.sse;
 
 import com.prompthub.ai.global.exception.AiErrorCode;
 import com.prompthub.ai.global.exception.AiException;
@@ -54,7 +54,7 @@ class SettlementRunEventControllerTest {
         SettlementRunEventController controller = new SettlementRunEventController(
                 useCase,
                 registry,
-                SettlementChatControllerTest.properties(true),
+                com.prompthub.ai.settlement.AiSettlementTestFixtures.properties(true),
                 CLOCK
         );
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller)
@@ -96,7 +96,7 @@ class SettlementRunEventControllerTest {
         SettlementRunEventController controller = new SettlementRunEventController(
                 useCase,
                 registry,
-                SettlementChatControllerTest.properties(true),
+                com.prompthub.ai.settlement.AiSettlementTestFixtures.properties(true),
                 CLOCK
         );
 
@@ -121,7 +121,7 @@ class SettlementRunEventControllerTest {
         SettlementRunEventController controller = new SettlementRunEventController(
                 useCase,
                 registry,
-                SettlementChatControllerTest.properties(false),
+                com.prompthub.ai.settlement.AiSettlementTestFixtures.properties(false),
                 CLOCK
         );
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller)

@@ -2,7 +2,7 @@ package com.prompthub.ai.settlement.infrastructure.redis;
 
 import com.prompthub.ai.settlement.application.event.RunEvent;
 import com.prompthub.ai.settlement.application.service.RunFutureRegistry;
-import com.prompthub.ai.settlement.presentation.SseEmitterRegistry;
+import com.prompthub.ai.settlement.presentation.sse.SseEmitterRegistry;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.springframework.data.redis.connection.Message;

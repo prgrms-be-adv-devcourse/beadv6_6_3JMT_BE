@@ -1,5 +1,6 @@
-package com.prompthub.ai.settlement.presentation;
+package com.prompthub.ai.settlement.infrastructure.web.config;
 
+import com.prompthub.ai.settlement.infrastructure.web.interceptor.AiSettlementFeatureInterceptor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;

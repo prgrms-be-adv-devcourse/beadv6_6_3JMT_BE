@@ -1,4 +1,4 @@
-package com.prompthub.ai.settlement.presentation.dto;
+package com.prompthub.ai.settlement.presentation.rest.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

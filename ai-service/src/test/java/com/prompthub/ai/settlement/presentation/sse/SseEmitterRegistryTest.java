@@ -1,4 +1,4 @@
-package com.prompthub.ai.settlement.presentation;
+package com.prompthub.ai.settlement.presentation.sse;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;

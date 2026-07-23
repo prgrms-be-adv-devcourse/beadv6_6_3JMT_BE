@@ -1,4 +1,4 @@
-package com.prompthub.ai.settlement.presentation;
+package com.prompthub.ai.settlement.presentation.sse;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;

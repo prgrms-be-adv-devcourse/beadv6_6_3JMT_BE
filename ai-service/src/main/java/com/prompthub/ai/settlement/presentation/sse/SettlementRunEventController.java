@@ -1,4 +1,4 @@
-package com.prompthub.ai.settlement.presentation;
+package com.prompthub.ai.settlement.presentation.sse;
 
 import com.prompthub.ai.global.config.AiSettlementProperties;
 import com.prompthub.ai.global.exception.AiErrorCode;

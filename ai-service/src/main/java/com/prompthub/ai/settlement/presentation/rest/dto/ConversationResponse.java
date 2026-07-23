@@ -1,4 +1,4 @@
-package com.prompthub.ai.settlement.presentation.dto;
+package com.prompthub.ai.settlement.presentation.rest.dto;
 
 import com.prompthub.ai.settlement.domain.AgentRun;
 import com.prompthub.ai.settlement.domain.ChatMessage;

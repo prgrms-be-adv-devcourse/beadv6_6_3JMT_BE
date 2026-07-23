@@ -1,13 +1,13 @@
-package com.prompthub.ai.settlement.presentation;
+package com.prompthub.ai.settlement.presentation.rest;
 
 import com.prompthub.ai.global.config.AiSettlementProperties;
 import com.prompthub.ai.global.exception.AiErrorCode;
 import com.prompthub.ai.global.exception.AiException;
 import com.prompthub.ai.settlement.application.usecase.SettlementChatUseCase;
-import com.prompthub.ai.settlement.presentation.dto.AcceptedRunResponse;
-import com.prompthub.ai.settlement.presentation.dto.AiApiResponse;
-import com.prompthub.ai.settlement.presentation.dto.ConversationResponse;
-import com.prompthub.ai.settlement.presentation.dto.CreateSettlementChatMessageRequest;
+import com.prompthub.ai.settlement.presentation.rest.dto.AcceptedRunResponse;
+import com.prompthub.ai.settlement.presentation.rest.dto.AiApiResponse;
+import com.prompthub.ai.settlement.presentation.rest.dto.ConversationResponse;
+import com.prompthub.ai.settlement.presentation.rest.dto.CreateSettlementChatMessageRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;

@@ -1,4 +1,4 @@
-package com.prompthub.ai.settlement.presentation.dto;
+package com.prompthub.ai.settlement.presentation.rest.dto;
 
 public record AiApiResponse<T>(
         boolean success,

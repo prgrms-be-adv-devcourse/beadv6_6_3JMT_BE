@@ -452,7 +452,9 @@ ai-service/
 └─ src/main/java/com/prompthub/ai/
    ├─ AiServiceApplication
    └─ settlement/
-      ├─ presentation/      # conversation/message/SSE controller
+      ├─ presentation/
+      │  ├─ rest/          # conversation/message REST controller와 DTO
+      │  └─ sse/           # run event controller, emitter registry, heartbeat
       ├─ application/
       │  ├─ chat/           # conversation과 run use case
       │  ├─ agent/          # manual tool loop와 response harness
@@ -461,8 +463,14 @@ ai-service/
       └─ infrastructure/
          ├─ grpc/           # User client, metadata interceptor
          ├─ openai/         # Spring AI ChatModel 옵션
-         └─ redis/          # state repository, lock, Pub/Sub
+         ├─ redis/          # state repository, lock, Pub/Sub
+         └─ web/            # 기능 전용 WebMvc config와 interceptor
 ```
+
+Spring MVC 등록과 접근 차단은 응답 표현이 아니라 프레임워크 조립 책임이므로
+`infrastructure.web`에 둔다. 일반 HTTP 응답은 `presentation.rest`, 장기 연결과 이벤트 전송은
+`presentation.sse`로 분리한다. 기능 전용 WebMvc 설정을 애플리케이션 전체 공통인 `global.config`에
+두지 않는다.
 
 주요 의존성은 Spring Web MVC, Validation, Actuator, Spring Data Redis, Spring AI OpenAI starter,
 Spring gRPC client, protobuf와 common-module이다. AI 서비스에는 PostgreSQL, JPA, Flyway와 Kafka를

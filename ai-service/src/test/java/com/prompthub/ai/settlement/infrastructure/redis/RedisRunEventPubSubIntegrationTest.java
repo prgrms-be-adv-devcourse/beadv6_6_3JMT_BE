@@ -1,7 +1,7 @@
 package com.prompthub.ai.settlement.infrastructure.redis;
 
 import com.prompthub.ai.settlement.application.service.RunFutureRegistry;
-import com.prompthub.ai.settlement.presentation.SseEmitterRegistry;
+import com.prompthub.ai.settlement.presentation.sse.SseEmitterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
