@@ -2,7 +2,7 @@ package com.prompthub.order.application.dto;
 
 import java.util.UUID;
 
-public record OrderItem(
+public record OrderCreationItem(
 	UUID productId,
 	UUID sellerId,
 	String productTitle,
