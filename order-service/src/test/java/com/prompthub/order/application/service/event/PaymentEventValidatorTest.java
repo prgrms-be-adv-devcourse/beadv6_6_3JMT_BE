@@ -23,7 +23,7 @@ class PaymentEventValidatorTest {
 	@Test
 	void validateApproved_convertsOffsetTimestampToKoreanLocalDateTime() {
 		LocalDateTime approvedAt = validator.validate(new PaymentApprovedPayload(
-			PAYMENT_ID, ORDER_A, BUYER_ID, 30_000, "2026-07-17T01:00:05Z"
+			ORDER_A, "2026-07-17T01:00:05Z"
 		));
 
 		assertThat(approvedAt).isEqualTo(LocalDateTime.of(2026, 7, 17, 10, 0, 5));
@@ -60,6 +60,19 @@ class PaymentEventValidatorTest {
 	@Test
 	void validateFailed_acceptsSingleOrderPayload() {
 		validator.validate(new PaymentFailedPayload(PAYMENT_ID, ORDER_A, BUYER_ID));
+	}
+
+	@Test
+	void validateFailed_acceptsReducedPaymentContract() {
+		validator.validate(new PaymentFailedPayload(
+			null,
+			ORDER_A,
+			null,
+			30_000,
+			null,
+			null,
+			"2026-07-17T01:00:05Z"
+		));
 	}
 
 	@Test

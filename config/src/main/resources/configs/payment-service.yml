@@ -11,6 +11,12 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Seoul
+  jackson:
+    time-zone: Asia/Seoul
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
     admin:
@@ -43,3 +49,17 @@ resilience4j:
         slow-call-rate-threshold: 50
         wait-duration-in-open-state: 30s
         permitted-number-of-calls-in-half-open-state: 3
+        ignore-exceptions:
+          - io.github.resilience4j.bulkhead.BulkheadFullException
+          - io.github.resilience4j.ratelimiter.RequestNotPermitted
+  bulkhead:
+    instances:
+      toss-confirm-bulkhead:
+        max-concurrent-calls: 20
+        max-wait-duration: 200ms
+  ratelimiter:
+    instances:
+      toss-confirm-rate-limiter:
+        limit-for-period: 30
+        limit-refresh-period: 1s
+        timeout-duration: 0ms

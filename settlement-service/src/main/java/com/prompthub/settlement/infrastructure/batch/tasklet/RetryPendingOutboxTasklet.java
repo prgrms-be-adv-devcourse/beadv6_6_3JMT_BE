@@ -1,9 +1,9 @@
 package com.prompthub.settlement.infrastructure.batch.tasklet;
 
 import com.prompthub.settlement.application.usecase.OutboxEventUseCase;
+import com.prompthub.settlement.global.config.SettlementClockConfig;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.scope.context.ChunkContext;
@@ -30,7 +30,7 @@ public class RetryPendingOutboxTasklet implements Tasklet {
         }
         LocalDateTime attemptedBefore = LocalDateTime.ofInstant(
                 Instant.ofEpochMilli(requestedAtParam),
-                ZoneId.systemDefault());
+                SettlementClockConfig.SETTLEMENT_ZONE);
         outboxEventUseCase.flushPendingBefore(attemptedBefore);
         return RepeatStatus.FINISHED;
     }

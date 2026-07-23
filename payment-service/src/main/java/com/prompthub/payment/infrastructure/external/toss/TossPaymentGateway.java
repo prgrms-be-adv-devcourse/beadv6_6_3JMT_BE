@@ -10,8 +10,12 @@ import com.prompthub.payment.infrastructure.external.toss.dto.TossConfirmRespons
 import com.prompthub.payment.infrastructure.external.toss.dto.TossErrorResponse;
 import com.prompthub.payment.infrastructure.external.toss.dto.TossRefundRequest;
 import com.prompthub.payment.infrastructure.external.toss.dto.TossRefundResponse;
+import io.github.resilience4j.bulkhead.Bulkhead;
+import io.github.resilience4j.bulkhead.BulkheadFullException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.ratelimiter.RateLimiter;
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -49,13 +53,17 @@ public class TossPaymentGateway implements PaymentGateway {
     private final ObjectMapper objectMapper;
     private final CircuitBreaker confirmCircuitBreaker;
     private final CircuitBreaker refundCircuitBreaker;
+    private final Bulkhead confirmBulkhead;
+    private final RateLimiter confirmRateLimiter;
 
     public TossPaymentGateway(
         @Value("${payment.toss.secret-key}") String secretKey,
         @Value("${payment.toss.base-url:https://api.tosspayments.com/v1}") String baseUrl,
         ObjectMapper objectMapper,
         @Qualifier("tossConfirmCircuitBreaker") CircuitBreaker confirmCircuitBreaker,
-        @Qualifier("tossRefundCircuitBreaker") CircuitBreaker refundCircuitBreaker
+        @Qualifier("tossRefundCircuitBreaker") CircuitBreaker refundCircuitBreaker,
+        @Qualifier("tossConfirmBulkhead") Bulkhead confirmBulkhead,
+        @Qualifier("tossConfirmRateLimiter") RateLimiter confirmRateLimiter
     ) {
         String credentials = Base64.getEncoder()
             .encodeToString((secretKey + ":").getBytes(StandardCharsets.UTF_8));
@@ -70,11 +78,13 @@ public class TossPaymentGateway implements PaymentGateway {
         this.objectMapper = objectMapper;
         this.confirmCircuitBreaker = confirmCircuitBreaker;
         this.refundCircuitBreaker = refundCircuitBreaker;
+        this.confirmBulkhead = confirmBulkhead;
+        this.confirmRateLimiter = confirmRateLimiter;
     }
 
     @Override
     public ConfirmResult confirm(String paymentKey, UUID orderId, int amount) {
-        return execute(confirmCircuitBreaker, () -> {
+        return executeConfirm(() -> {
             TossConfirmRequest request = new TossConfirmRequest(paymentKey, orderId.toString(), amount);
             String requestJson = toJson(request);
 
@@ -172,6 +182,32 @@ public class TossPaymentGateway implements PaymentGateway {
             throw new PaymentGatewayException(
                 PaymentErrorCode.PG_UNAVAILABLE, "CIRCUIT_OPEN",
                 "PG사 서킷브레이커가 열려 있어 호출을 차단했습니다.", null, null
+            );
+        }
+    }
+
+    private <T> T executeConfirm(Supplier<T> supplier) {
+        try {
+            Supplier<T> bulkheadDecorated = Bulkhead.decorateSupplier(confirmBulkhead, supplier);
+            Supplier<T> rateLimiterDecorated = RateLimiter.decorateSupplier(confirmRateLimiter, bulkheadDecorated);
+            return CircuitBreaker.decorateSupplier(confirmCircuitBreaker, rateLimiterDecorated).get();
+        } catch (CallNotPermittedException exception) {
+            log.warn("Toss 서킷브레이커 OPEN — 호출 차단됨. circuitBreaker={}", confirmCircuitBreaker.getName());
+            throw new PaymentGatewayException(
+                PaymentErrorCode.PG_UNAVAILABLE, "CIRCUIT_OPEN",
+                "PG사 서킷브레이커가 열려 있어 호출을 차단했습니다.", null, null
+            );
+        } catch (RequestNotPermitted exception) {
+            log.warn("Toss 확인 RateLimiter 거절 — 유량 상한 초과. rateLimiter={}", confirmRateLimiter.getName());
+            throw new PaymentGatewayException(
+                PaymentErrorCode.PG_RATE_LIMITED, "RATE_LIMITED",
+                "결제 승인 유량 상한을 초과했습니다.", null, null
+            );
+        } catch (BulkheadFullException exception) {
+            log.warn("Toss 확인 Bulkhead 포화 — 동시 호출 상한 초과. bulkhead={}", confirmBulkhead.getName());
+            throw new PaymentGatewayException(
+                PaymentErrorCode.PG_BUSY, "BULKHEAD_FULL",
+                "결제 승인 동시 호출 상한을 초과했습니다.", null, null
             );
         }
     }

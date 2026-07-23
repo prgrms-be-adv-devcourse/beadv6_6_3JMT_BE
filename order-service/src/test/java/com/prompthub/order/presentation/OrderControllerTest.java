@@ -17,6 +17,7 @@ import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
+import com.prompthub.order.presentation.dto.response.OrderListProductResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -436,18 +437,24 @@ class OrderControllerTest {
 			@DisplayName("내 주문 목록 조회 성공")
 			void getOrders_success() throws Exception {
 				// given
-				OrderListResponse order = new OrderListResponse(
-					ORDER_ID,
+				OrderListProductResponse product = new OrderListProductResponse(
 					ORDER_PRODUCT_ID,
 					PRODUCT_ID_1,
-					OrderStatus.PAID,
 					OrderProductStatus.PAID,
+					PRODUCT_AMOUNT_1,
 					true,
 					false,
 					PRODUCT_TYPE_PROMPT,
 					PRODUCT_TITLE_1,
 					PRODUCT_MODEL,
-					4.5,
+					4.5
+				);
+				OrderListResponse order = new OrderListResponse(
+					ORDER_ID,
+					ORDER_NUMBER,
+					OrderStatus.PAID,
+					TOTAL_AMOUNT,
+					List.of(product),
 					PAID_AT,
 					CREATED_AT
 				);
@@ -475,16 +482,20 @@ class OrderControllerTest {
 					.andExpect(jsonPath("$.success").value(true))
 					.andExpect(jsonPath("$.message").value("success"))
 					.andExpect(jsonPath("$.data[0].orderId").value(ORDER_ID.toString()))
-					.andExpect(jsonPath("$.data[0].orderProductId").value(ORDER_PRODUCT_ID.toString()))
-					.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID_1.toString()))
+					.andExpect(jsonPath("$.data[0].orderNumber").value(ORDER_NUMBER))
 					.andExpect(jsonPath("$.data[0].orderStatus").value("COMPLETED"))
-					.andExpect(jsonPath("$.data[0].isRefundable").value(true))
-					.andExpect(jsonPath("$.data[0].isRefund").doesNotExist())
-					.andExpect(jsonPath("$.data[0].productType").value(PRODUCT_TYPE_PROMPT))
-					.andExpect(jsonPath("$.data[0].title").value(PRODUCT_TITLE_1))
-					.andExpect(jsonPath("$.data[0].model").value(PRODUCT_MODEL))
-					.andExpect(jsonPath("$.data[0].rating").value(4.5))
-					// .andExpect(jsonPath("$.data[0].thumbnailUrl").value(PRODUCT_THUMBNAIL_URL))
+					.andExpect(jsonPath("$.data[0].totalAmount").value(TOTAL_AMOUNT))
+					.andExpect(jsonPath("$.data[0].orderProductId").doesNotExist())
+					.andExpect(jsonPath("$.data[0].products.length()").value(1))
+					.andExpect(jsonPath("$.data[0].products[0].orderProductId").value(ORDER_PRODUCT_ID.toString()))
+					.andExpect(jsonPath("$.data[0].products[0].productId").value(PRODUCT_ID_1.toString()))
+					.andExpect(jsonPath("$.data[0].products[0].orderProductStatus").value("PAID"))
+					.andExpect(jsonPath("$.data[0].products[0].amount").value(PRODUCT_AMOUNT_1))
+					.andExpect(jsonPath("$.data[0].products[0].isRefundable").value(true))
+					.andExpect(jsonPath("$.data[0].products[0].productType").value(PRODUCT_TYPE_PROMPT))
+					.andExpect(jsonPath("$.data[0].products[0].title").value(PRODUCT_TITLE_1))
+					.andExpect(jsonPath("$.data[0].products[0].model").value(PRODUCT_MODEL))
+					.andExpect(jsonPath("$.data[0].products[0].rating").value(4.5))
 					.andExpect(jsonPath("$.data[0].paidAt").value("2026-06-20T12:00:00"))
 					.andExpect(jsonPath("$.data[0].createdAt").value("2026-06-20T11:58:00"))
 					.andExpect(jsonPath("$.meta.page").value(1))
@@ -499,18 +510,24 @@ class OrderControllerTest {
 			@DisplayName("내 주문 목록 조회 응답은 rating이 null이어도 정상이다")
 			void getOrders_nullRating_success() throws Exception {
 				// given
-				OrderListResponse order = new OrderListResponse(
-					ORDER_ID,
+				OrderListProductResponse product = new OrderListProductResponse(
 					ORDER_PRODUCT_ID,
 					PRODUCT_ID_1,
-					OrderStatus.PAID,
 					OrderProductStatus.PAID,
+					PRODUCT_AMOUNT_1,
 					true,
 					false,
 					PRODUCT_TYPE_PROMPT,
 					PRODUCT_TITLE_1,
 					PRODUCT_MODEL,
-					null,
+					null
+				);
+				OrderListResponse order = new OrderListResponse(
+					ORDER_ID,
+					ORDER_NUMBER,
+					OrderStatus.PAID,
+					TOTAL_AMOUNT,
+					List.of(product),
 					PAID_AT,
 					CREATED_AT
 				);
@@ -524,7 +541,7 @@ class OrderControllerTest {
 				mockMvc.perform(get("/api/v2/orders")
 						.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
 					.andExpect(status().isOk())
-					.andExpect(jsonPath("$.data[0].rating").doesNotExist());
+					.andExpect(jsonPath("$.data[0].products[0].rating").doesNotExist());
 			}
 		}
 

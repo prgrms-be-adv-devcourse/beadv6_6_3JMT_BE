@@ -1,7 +1,7 @@
 package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.dto.CreateOrderResult;
-import com.prompthub.order.application.dto.OrderItem;
+import com.prompthub.order.application.dto.OrderCreationItem;
 import com.prompthub.order.application.event.order.OrderCreatedEvent;
 import com.prompthub.order.application.service.event.OrderPaidOutboxAppender;
 import com.prompthub.order.domain.enums.OrderProductStatus;
@@ -186,9 +186,9 @@ class OrderCreatorTest {
 	void singleSellerStillCreatesSingleOrder() {
 		stubSuccessfulCreation();
 		given(orderNumberGenerator.generate()).willReturn("ORD-A");
-		List<OrderItem> singleSellerItems = List.of(
-			new OrderItem(PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, AMOUNT_A1),
-			new OrderItem(PRODUCT_A2, SELLER_A, REQUEST_TITLE_A2, AMOUNT_A2)
+		List<OrderCreationItem> singleSellerItems = List.of(
+			new OrderCreationItem(PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, AMOUNT_A1),
+			new OrderCreationItem(PRODUCT_A2, SELLER_A, REQUEST_TITLE_A2, AMOUNT_A2)
 		);
 
 		CreateOrderResult result = orderCreator.create(BUYER_ID, singleSellerItems);
@@ -202,9 +202,9 @@ class OrderCreatorTest {
 	void totalAmountAtIntMax_createsOrder() {
 		stubSuccessfulCreation();
 		given(orderNumberGenerator.generate()).willReturn("ORD-MAX");
-		List<OrderItem> items = List.of(
-			new OrderItem(PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, Integer.MAX_VALUE - 1),
-			new OrderItem(PRODUCT_A2, SELLER_A, REQUEST_TITLE_A2, 1)
+		List<OrderCreationItem> items = List.of(
+			new OrderCreationItem(PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, Integer.MAX_VALUE - 1),
+			new OrderCreationItem(PRODUCT_A2, SELLER_A, REQUEST_TITLE_A2, 1)
 		);
 
 		CreateOrderResult result = orderCreator.create(BUYER_ID, items);
@@ -215,9 +215,9 @@ class OrderCreatorTest {
 	@Test
 	@DisplayName("상품 총액 overflow면 안정적인 예외를 반환하고 외부 부수효과를 만들지 않는다")
 	void totalAmountOverflow_throwsStableOrderExceptionWithoutSideEffects() {
-		List<OrderItem> items = List.of(
-			new OrderItem(PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, Integer.MAX_VALUE),
-			new OrderItem(PRODUCT_A2, SELLER_A, REQUEST_TITLE_A2, 1)
+		List<OrderCreationItem> items = List.of(
+			new OrderCreationItem(PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, Integer.MAX_VALUE),
+			new OrderCreationItem(PRODUCT_A2, SELLER_A, REQUEST_TITLE_A2, 1)
 		);
 
 		assertThatThrownBy(() -> orderCreator.create(BUYER_ID, items))
@@ -236,8 +236,8 @@ class OrderCreatorTest {
 		stubSuccessfulCreation();
 		given(orderNumberGenerator.generate()).willReturn("ORD-FREE");
 		given(orderRepository.findAccessiblePaidProductIdsByBuyerId(BUYER_ID)).willReturn(List.of());
-		List<OrderItem> items = List.of(
-			new OrderItem(PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, 0)
+		List<OrderCreationItem> items = List.of(
+			new OrderCreationItem(PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, 0)
 		);
 
 		CreateOrderResult result = orderCreator.create(BUYER_ID, items);
@@ -258,7 +258,7 @@ class OrderCreatorTest {
 	@DisplayName("이미 접근 가능한 무료 상품은 O018로 거부하고 부수효과를 만들지 않는다")
 	void duplicateAccessibleFreeProduct_throwsConflictWithoutSideEffects() {
 		given(orderRepository.findAccessiblePaidProductIdsByBuyerId(BUYER_ID)).willReturn(List.of(PRODUCT_A1));
-		List<OrderItem> items = List.of(new OrderItem(PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, 0));
+		List<OrderCreationItem> items = List.of(new OrderCreationItem(PRODUCT_A1, SELLER_A, REQUEST_TITLE_A1, 0));
 
 		assertThatThrownBy(() -> orderCreator.create(BUYER_ID, items))
 			.isInstanceOf(OrderException.class)

@@ -11,6 +11,9 @@ import com.prompthub.admin.settlement.domain.repository.SettlementMonthlyQueryRe
 import com.prompthub.admin.settlement.domain.repository.SettlementMonthlyQueryRepository.MonthlyStatusCount;
 import com.prompthub.admin.settlement.domain.repository.SettlementQueryRepository;
 import com.prompthub.admin.settlement.domain.repository.SettlementStatusAggregate;
+import com.prompthub.admin.settlement.domain.repository.SettlementWeeklyQueryRepository;
+import com.prompthub.admin.settlement.domain.repository.SettlementWeeklyQueryRepository.WeeklyPage;
+import com.prompthub.admin.settlement.domain.repository.SettlementWeeklyStatusCount;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -25,7 +28,8 @@ import org.springframework.test.context.ActiveProfiles;
 
 @DataJpaTest
 @Import({SettlementQueryRepositoryAdapter.class,
-        SettlementMonthlyQueryRepositoryAdapter.class})
+        SettlementMonthlyQueryRepositoryAdapter.class,
+        SettlementWeeklyQueryRepositoryAdapter.class})
 @ActiveProfiles("test")
 class SettlementQueryRepositoryAdapterTest {
 
@@ -34,6 +38,9 @@ class SettlementQueryRepositoryAdapterTest {
 
     @Autowired
     private SettlementMonthlyQueryRepository monthlyQueryRepository;
+
+    @Autowired
+    private SettlementWeeklyQueryRepository weeklyQueryRepository;
 
     @Autowired
     private TestEntityManager entityManager;
@@ -178,6 +185,29 @@ class SettlementQueryRepositoryAdapterTest {
                     .isEqualTo(new MonthlyKey(sellerId, YearMonth.of(2026, 1)));
             assertThat(aggregate.refundAmount()).isEqualByComparingTo(BigDecimal.ZERO);
         });
+    }
+
+    @Test
+    void 주간목록은_상태를_행에_직접_적용하고_월범위의_상태건수를_반환한다() {
+        UUID sellerId = UUID.randomUUID();
+        insert(sellerId, LocalDate.of(2026, 6, 29), 1,
+                "100", "15", "0", "85", SettlementDisplayStatus.APPROVED);
+        insert(sellerId, LocalDate.of(2026, 7, 6), 1,
+                "200", "30", "0", "170", SettlementDisplayStatus.PAID);
+        insert(sellerId, LocalDate.of(2026, 8, 3), 1,
+                "300", "45", "0", "255", SettlementDisplayStatus.APPROVED);
+
+        WeeklyPage page = weeklyQueryRepository.findWeeklyPage(
+                SettlementDisplayStatus.APPROVED, YearMonth.of(2026, 7), 0, 20);
+        List<SettlementWeeklyStatusCount> counts = weeklyQueryRepository
+                .findStatusCounts(YearMonth.of(2026, 7));
+
+        assertThat(page.totalElements()).isEqualTo(1);
+        assertThat(page.content()).extracting(Settlement::getPeriodStart)
+                .containsExactly(LocalDate.of(2026, 6, 29));
+        assertThat(counts).containsExactlyInAnyOrder(
+                new SettlementWeeklyStatusCount(SettlementDisplayStatus.APPROVED, 1),
+                new SettlementWeeklyStatusCount(SettlementDisplayStatus.PAID, 1));
     }
 
     private void insert(

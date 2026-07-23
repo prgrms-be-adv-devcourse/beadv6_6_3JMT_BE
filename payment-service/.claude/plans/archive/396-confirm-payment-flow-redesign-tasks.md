@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - 설계 근거: `.claude/plans/396-confirm-payment-flow-redesign.md` — 각 결정의 "왜"는 이 문서 참조.
-- 수정 가능 범위는 `payment-service/`와 `../docs/`로 한정 — `order-service` 등 다른 서비스 소스는 건드리지 않는다(불일치 발견 사항은 "리포 스코프 밖" 섹션에 기록만 함, 코드 수정 없음).
+- 수정 가능 범위는 `../../..`와 `../../docs`로 한정 — `order-service` 등 다른 서비스 소스는 건드리지 않는다(불일치 발견 사항은 "리포 스코프 밖" 섹션에 기록만 함, 코드 수정 없음).
 - 테스트 메서드명은 한국어, 클래스/필드/메서드 식별자는 영어. 단언은 AssertJ(`assertThat`).
 - 영속성/Kafka 통합 테스트는 Testcontainers 기반(`AbstractIntegrationTest`/`AbstractJpaTest`) — H2·EmbeddedKafka로 대체하지 않는다.
 - Flyway: 이미 배포된 `V1`/`V2`는 수정 금지. 다음 마이그레이션은 `V3`.

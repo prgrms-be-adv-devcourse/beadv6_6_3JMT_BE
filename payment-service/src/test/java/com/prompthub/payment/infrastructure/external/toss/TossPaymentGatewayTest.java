@@ -3,7 +3,9 @@ package com.prompthub.payment.infrastructure.external.toss;
 import com.prompthub.payment.application.gateway.external.RefundResult;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.ratelimiter.RateLimiter;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -53,7 +55,9 @@ class TossPaymentGatewayTest {
         TossPaymentGateway gateway = new TossPaymentGateway(
             "test-secret-key", baseUrl, objectMapper,
             CircuitBreaker.ofDefaults("test-confirm"),
-            CircuitBreaker.ofDefaults("test-refund")
+            CircuitBreaker.ofDefaults("test-refund"),
+            Bulkhead.ofDefaults("test-confirm-bulkhead"),
+            RateLimiter.ofDefaults("test-confirm-rate-limiter")
         );
         UUID refundId = UUID.randomUUID();
 

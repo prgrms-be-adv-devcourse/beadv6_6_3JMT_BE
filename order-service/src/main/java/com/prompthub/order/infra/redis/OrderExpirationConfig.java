@@ -6,14 +6,17 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.time.Clock;
+import java.time.ZoneId;
 
 @Configuration
 @EnableScheduling
 @EnableConfigurationProperties(OrderExpirationProperties.class)
 public class OrderExpirationConfig {
 
+	private static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
+
 	@Bean
 	public Clock clock() {
-		return Clock.systemDefaultZone();
+		return Clock.system(SERVICE_ZONE);
 	}
 }

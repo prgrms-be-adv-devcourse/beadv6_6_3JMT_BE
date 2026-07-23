@@ -17,6 +17,26 @@ class PaymentFailedPayloadTest {
 	private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
 	@Test
+	@DisplayName("현재 축소형 실패 계약의 금액과 실패 시각을 역직렬화한다")
+	void deserializesCurrentReducedContract() throws Exception {
+		String json = """
+			{
+			  "orderId": "%s",
+			  "failedAmount": 30000,
+			  "failedAt": "2026-07-18T01:00:05Z"
+			}
+			""".formatted(ORDER_A);
+
+		PaymentFailedPayload payload = objectMapper.readValue(json, PaymentFailedPayload.class);
+
+		assertThat(payload.paymentId()).isNull();
+		assertThat(payload.buyerId()).isNull();
+		assertThat(payload.failedAmount()).isEqualTo(30_000);
+		assertThat(payload.failedAtOr(LocalDateTime.MIN))
+			.isEqualTo(LocalDateTime.of(2026, 7, 18, 10, 0, 5));
+	}
+
+	@Test
 	@DisplayName("현재 생산자의 userId를 buyerId로 역직렬화하고 failedAt 누락 시 envelope 시각을 사용한다")
 	void deserializesLegacyUserIdAndFallsBackToOccurredAt() throws Exception {
 		String json = """

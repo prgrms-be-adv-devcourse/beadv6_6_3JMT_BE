@@ -1,6 +1,7 @@
 package com.prompthub.admin.settlement.presentation.controller;
 
 import com.prompthub.admin.settlement.application.dto.SettlementListQuery;
+import com.prompthub.admin.settlement.application.dto.SettlementWeeklyListQuery;
 import com.prompthub.admin.settlement.application.usecase.SettlementUseCase;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementDetailResponse;
@@ -8,6 +9,7 @@ import com.prompthub.admin.settlement.presentation.dto.response.SettlementListRe
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementStatusResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementSummaryResponse;
+import com.prompthub.admin.settlement.presentation.dto.response.SettlementWeeklyListResponse;
 import com.prompthub.exception.response.ErrorResponse;
 import com.prompthub.presentation.dto.ApiResult;
 import io.swagger.v3.oas.annotations.Operation;
@@ -91,6 +93,34 @@ public class SettlementController {
 	) {
 		return ApiResult.success(settlementUseCase.getList(
 			new SettlementListQuery(status, settlementMonth, page, size)));
+	}
+
+	@GetMapping("/weeks")
+	@Operation(summary = "주간 정산 목록 조회",
+		description = "주간 정산을 상태·정산 월로 필터링해 조회합니다. 상태 필터는 주간 정산 항목에 직접 적용됩니다. ADMIN 권한이 필요합니다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공",
+			content = @Content(schema = @Schema(implementation = SettlementWeeklyListResponse.class))),
+		@ApiResponse(responseCode = "400", description = "요청 값 오류",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "401", description = "인증 정보 없음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "403", description = "ADMIN 권한 없음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	})
+	public ApiResult<SettlementWeeklyListResponse> getWeeklyList(
+		@Parameter(description = "주간 정산 표시 상태 필터(미지정 시 전체)")
+		@RequestParam(required = false) SettlementDisplayStatus status,
+		@Parameter(description = "정산 월(YYYY-MM, 미지정 시 전체)", example = "2026-07")
+		@RequestParam(required = false)
+		@DateTimeFormat(pattern = "yyyy-MM") YearMonth settlementMonth,
+		@Parameter(description = "0-base 페이지 번호")
+		@RequestParam(defaultValue = "0") @Min(0) int page,
+		@Parameter(description = "페이지 크기")
+		@RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
+	) {
+		return ApiResult.success(settlementUseCase.getWeeklyList(
+			new SettlementWeeklyListQuery(status, settlementMonth, page, size)));
 	}
 
 	@GetMapping("/sellers/{sellerId}/months/{settlementMonth}")

@@ -327,6 +327,51 @@
 
 ---
 
+### GET /users/order-product — 구매한 프롬프트 리더용 판매자 단건 조회
+
+- 인증: 필요 (`/reader`는 로그인 필수 라우트)
+- 필요 역할: BUYER / SELLER
+- `/reader/[id]`(구매한 프롬프트 리더) 판매자 카드 표시용. Client는 Order 소유권 확인 →
+  Product 상세 조회로 얻은 `sellerId`를 그대로 전달해 호출한다.
+- 응답 스키마는 `GET /sellers/product`와 완전히 동일하다. 인증 요건만 다르다(그쪽은 비로그인 공개 페이지용).
+- `sellerId`에 대한 소유권 검증(요청자가 실제로 이 판매자에게서 구매했는지)은 하지 않는다 — 응답 필드가
+  이미 `/sellers/product`로 누구나 조회 가능한 비민감 공개 정보이고, 구매 여부 자체는 앞단 Order 서비스
+  호출에서 이미 걸러진다.
+
+#### Request
+
+**Query Parameters**
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| sellerId | string(UUID) | Y | 조회할 판매자 ID |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sellerName": "김철수",
+    "profileImageUrl": "https://.../profile.png"
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| sellerName | string | 판매자 이름 |
+| profileImageUrl | string \| null | 프로필 이미지 URL. 미등록 시 null |
+
+**400 Bad Request** — `sellerId` 누락 또는 잘못된 UUID 형식 (`VALIDATION_FAILED`, V001)
+
+**404 Not Found** — 형식은 유효하나 존재하지 않는 sellerId (`AUTH_NOT_FOUND`, A001)
+
+---
+
 ### POST /users/order-products — 구매 상품 판매자 이름 다건 조회
 
 - 인증: 필요
