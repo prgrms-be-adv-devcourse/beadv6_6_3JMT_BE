@@ -91,6 +91,8 @@ class OrderExpirationReconciliationIntegrationTest extends PostgreSqlIntegration
 			.hasValueSatisfying(cart -> assertThat(cart.getCartProducts())
 				.extracting(CartProduct::getProductId)
 				.containsExactlyInAnyOrderElementsOf(productIds()));
+		then(orderExpirationStore).should()
+			.findExpiredOrderIds(any(Instant.class), eq(100));
 		then(orderProductIdempotencyStore).should().release(
 			eq(BUYER_ID),
 			eq(productIds().stream().sorted().toList()),
