@@ -1,6 +1,6 @@
 package com.prompthub.order.infra.redis;
 
-import com.prompthub.order.application.event.order.OrderProductReservationCleanupRequestedEvent;
+import com.prompthub.order.application.event.order.OrderProductReservationCleanupEvent;
 import com.prompthub.order.application.service.order.OrderProductIdempotencyStore;
 import com.prompthub.order.domain.model.Order;
 import org.junit.jupiter.api.DisplayName;
@@ -26,8 +26,8 @@ class OrderProductReservationCleanupListenerTest {
 	void cleanup_releasesWithOrderToken() {
 		Order order = createdOrder();
 		OrderProductReservationCleanupListener listener = new OrderProductReservationCleanupListener(store);
-		OrderProductReservationCleanupRequestedEvent event =
-			OrderProductReservationCleanupRequestedEvent.from(order);
+		OrderProductReservationCleanupEvent event =
+			OrderProductReservationCleanupEvent.from(order);
 
 		listener.cleanup(event);
 
@@ -44,15 +44,15 @@ class OrderProductReservationCleanupListenerTest {
 		Order order = createdOrder();
 		willThrow(new IllegalStateException("redis down"))
 			.given(store).release(eq(order.getBuyerId()), eq(
-			OrderProductReservationCleanupRequestedEvent.from(order).productIds()
+			OrderProductReservationCleanupEvent.from(order).productIds()
 		), eq(order.getId()));
 		OrderProductReservationCleanupListener listener = new OrderProductReservationCleanupListener(store);
 
-		listener.cleanup(OrderProductReservationCleanupRequestedEvent.from(order));
+		listener.cleanup(OrderProductReservationCleanupEvent.from(order));
 
 		then(store).should(times(1)).release(
 			eq(order.getBuyerId()),
-			eq(OrderProductReservationCleanupRequestedEvent.from(order).productIds()),
+			eq(OrderProductReservationCleanupEvent.from(order).productIds()),
 			eq(order.getId())
 		);
 	}

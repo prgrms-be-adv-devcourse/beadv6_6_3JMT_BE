@@ -1,7 +1,7 @@
 package com.prompthub.order.application.service.event;
 
 import com.prompthub.order.application.event.order.OrderExpirationCleanupRequestedEvent;
-import com.prompthub.order.application.event.order.OrderProductReservationCleanupRequestedEvent;
+import com.prompthub.order.application.event.order.OrderProductReservationCleanupEvent;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -82,7 +82,7 @@ public class PaymentApprovedProcessor {
 
 	private void publishCleanup(Order order) {
 		publishExpirationCleanup(order.getId());
-		applicationEventPublisher.publishEvent(OrderProductReservationCleanupRequestedEvent.from(order));
+		applicationEventPublisher.publishEvent(OrderProductReservationCleanupEvent.from(order));
 	}
 
 	private void removePurchasedProductsFromCart(UUID buyerId, Order order) {

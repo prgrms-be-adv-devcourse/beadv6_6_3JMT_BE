@@ -3,7 +3,7 @@ package com.prompthub.order.application.service.order;
 import com.prompthub.order.application.dto.CreateOrderResult;
 import com.prompthub.order.application.dto.OrderItem;
 import com.prompthub.order.application.event.order.OrderCreatedEvent;
-import com.prompthub.order.application.event.order.OrderProductReservationCleanupRequestedEvent;
+import com.prompthub.order.application.event.order.OrderProductReservationCleanupEvent;
 import com.prompthub.order.application.service.event.OrderPaidOutboxAppender;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -54,7 +54,7 @@ public class OrderCreator {
 		removeOrderedProductsFromCart(buyerId, savedOrder);
 		if (savedOrder.isFree()) {
 			orderPaidOutboxAppender.append(savedOrder);
-			applicationEventPublisher.publishEvent(OrderProductReservationCleanupRequestedEvent.from(savedOrder));
+			applicationEventPublisher.publishEvent(OrderProductReservationCleanupEvent.from(savedOrder));
 		} else {
 			applicationEventPublisher.publishEvent(OrderCreatedEvent.from(savedOrder));
 		}

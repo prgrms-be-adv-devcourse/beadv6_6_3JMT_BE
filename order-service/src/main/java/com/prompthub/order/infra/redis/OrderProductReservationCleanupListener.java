@@ -1,6 +1,6 @@
 package com.prompthub.order.infra.redis;
 
-import com.prompthub.order.application.event.order.OrderProductReservationCleanupRequestedEvent;
+import com.prompthub.order.application.event.order.OrderProductReservationCleanupEvent;
 import com.prompthub.order.application.service.order.OrderProductIdempotencyStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +16,7 @@ public class OrderProductReservationCleanupListener {
 	private final OrderProductIdempotencyStore store;
 
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-	public void cleanup(OrderProductReservationCleanupRequestedEvent event) {
+	public void cleanup(OrderProductReservationCleanupEvent event) {
 		try {
 			store.release(event.buyerId(), event.productIds(), event.orderId());
 		} catch (RuntimeException exception) {

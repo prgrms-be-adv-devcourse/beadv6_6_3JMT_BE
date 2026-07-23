@@ -1,7 +1,7 @@
 package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.event.order.OrderExpirationCleanupRequestedEvent;
-import com.prompthub.order.application.event.order.OrderProductReservationCleanupRequestedEvent;
+import com.prompthub.order.application.event.order.OrderProductReservationCleanupEvent;
 import com.prompthub.order.application.service.event.ProcessedEventService;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
@@ -163,7 +163,7 @@ public class OrderFailureCompensationService {
 
 	private void publishCleanup(Order order) {
 		publishExpirationCleanup(order.getId());
-		eventPublisher.publishEvent(OrderProductReservationCleanupRequestedEvent.from(order));
+		eventPublisher.publishEvent(OrderProductReservationCleanupEvent.from(order));
 	}
 
 	private void logPaymentFailure(

@@ -3,7 +3,7 @@ package com.prompthub.order.application.service.order;
 import com.prompthub.order.application.dto.CreateOrderResult;
 import com.prompthub.order.application.dto.OrderItem;
 import com.prompthub.order.application.event.order.OrderCreatedEvent;
-import com.prompthub.order.application.event.order.OrderProductReservationCleanupRequestedEvent;
+import com.prompthub.order.application.event.order.OrderProductReservationCleanupEvent;
 import com.prompthub.order.application.service.event.OrderPaidOutboxAppender;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
@@ -261,7 +261,7 @@ class OrderCreatorTest {
 			.containsOnly(OrderProductStatus.PAID);
 		then(orderPaidOutboxAppender).should().append(saved);
 		then(applicationEventPublisher).should()
-			.publishEvent(OrderProductReservationCleanupRequestedEvent.from(saved));
+			.publishEvent(OrderProductReservationCleanupEvent.from(saved));
 	}
 
 	@Test
