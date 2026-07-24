@@ -31,9 +31,12 @@ class OrderProductIdempotencyMigrationTest extends PostgreSqlIntegrationTestSupp
     private static final UUID SELLER_A = uuid(201);
     private static final UUID ORDER_A = uuid(301);
     private static final UUID ORDER_B = uuid(302);
+    private static final UUID ORDER_C = uuid(303);
+    private static final UUID ORDER_D = uuid(304);
     private static final UUID ORDER_PRODUCT_A = uuid(401);
     private static final UUID ORDER_PRODUCT_B = uuid(402);
     private static final UUID ORDER_PRODUCT_C = uuid(403);
+    private static final UUID ORDER_PRODUCT_D = uuid(404);
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -127,8 +130,8 @@ class OrderProductIdempotencyMigrationTest extends PostgreSqlIntegrationTestSupp
     }
 
     @Test
-    void migrationBackfillsBuyerIdFromParentOrder() {
-        String schema = "backfill_" + UUID.randomUUID().toString().replace("-", "");
+    void migrationKeepsLegacyDuplicatesOutsideNewPendingConstraint() {
+        String schema = "legacy_duplicates_" + UUID.randomUUID().toString().replace("-", "");
         jdbcTemplate.execute("create schema " + schema);
         try {
             DriverManagerDataSource dataSource = schemaDataSource(schema);
@@ -139,7 +142,8 @@ class OrderProductIdempotencyMigrationTest extends PostgreSqlIntegrationTestSupp
                 .target(MigrationVersion.fromVersion("6"))
                 .load()
                 .migrate();
-            insertLegacyOrderAndProduct(schemaJdbc);
+            insertLegacyOrderAndProduct(schemaJdbc, ORDER_A, ORDER_PRODUCT_A, "ORD-LEGACY-A");
+            insertLegacyOrderAndProduct(schemaJdbc, ORDER_B, ORDER_PRODUCT_B, "ORD-LEGACY-B");
 
             Flyway.configure()
                 .dataSource(dataSource)
@@ -148,17 +152,31 @@ class OrderProductIdempotencyMigrationTest extends PostgreSqlIntegrationTestSupp
                 .migrate();
 
             assertThat(schemaJdbc.queryForObject(
-                "select buyer_id from order_product where id = ?",
-                UUID.class,
-                ORDER_PRODUCT_A
-            )).isEqualTo(BUYER_A);
+                "select count(*) from order_product where buyer_id is null",
+                Long.class
+            )).isEqualTo(2);
+
+            insertOrder(schemaJdbc, ORDER_C, BUYER_A, "ORD-NEW-A");
+            insertOrder(schemaJdbc, ORDER_D, BUYER_A, "ORD-NEW-B");
+            insertProduct(schemaJdbc, ORDER_PRODUCT_C, ORDER_C, BUYER_A, PRODUCT_A, "PENDING");
+
+            assertThatThrownBy(() ->
+                insertProduct(schemaJdbc, ORDER_PRODUCT_D, ORDER_D, BUYER_A, PRODUCT_A, "PENDING")
+            )
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .satisfies(exception -> assertThat(rootCause(exception).getMessage())
+                    .contains("uk_order_product_buyer_product_pending"));
         } finally {
             jdbcTemplate.execute("drop schema " + schema + " cascade");
         }
     }
 
     private void insertOrder(UUID orderId, UUID buyerId, String orderNumber) {
-        jdbcTemplate.update("""
+        insertOrder(jdbcTemplate, orderId, buyerId, orderNumber);
+    }
+
+    private void insertOrder(JdbcTemplate template, UUID orderId, UUID buyerId, String orderNumber) {
+        template.update("""
             insert into "order"
                 (id, buyer_id, order_number, total_order_amount, order_status,
                  created_at, updated_at)
@@ -181,7 +199,18 @@ class OrderProductIdempotencyMigrationTest extends PostgreSqlIntegrationTestSupp
         UUID productId,
         String status
     ) {
-        jdbcTemplate.update("""
+        insertProduct(jdbcTemplate, orderProductId, orderId, buyerId, productId, status);
+    }
+
+    private void insertProduct(
+        JdbcTemplate template,
+        UUID orderProductId,
+        UUID orderId,
+        UUID buyerId,
+        UUID productId,
+        String status
+    ) {
+        template.update("""
             insert into order_product
                 (id, order_id, buyer_id, product_id, seller_id,
                  product_title_snapshot, product_amount_snapshot,
@@ -201,14 +230,13 @@ class OrderProductIdempotencyMigrationTest extends PostgreSqlIntegrationTestSupp
         );
     }
 
-    private void insertLegacyOrderAndProduct(JdbcTemplate schemaJdbc) {
-        schemaJdbc.update("""
-            insert into "order"
-                (id, buyer_id, order_number, total_order_amount, order_status,
-                 created_at, updated_at)
-            values (?, ?, 'ORD-BACKFILL', 10000, 'CREATED',
-                    current_timestamp, current_timestamp)
-            """, ORDER_A, BUYER_A);
+    private void insertLegacyOrderAndProduct(
+        JdbcTemplate schemaJdbc,
+        UUID orderId,
+        UUID orderProductId,
+        String orderNumber
+    ) {
+        insertOrder(schemaJdbc, orderId, BUYER_A, orderNumber);
         schemaJdbc.update("""
             insert into order_product
                 (id, order_id, product_id, seller_id,
@@ -216,7 +244,7 @@ class OrderProductIdempotencyMigrationTest extends PostgreSqlIntegrationTestSupp
                  order_product_status, downloaded, created_at, updated_at)
             values (?, ?, ?, ?, '상품', 10000, 'PENDING', false,
                     current_timestamp, current_timestamp)
-            """, ORDER_PRODUCT_A, ORDER_A, PRODUCT_A, SELLER_A);
+            """, orderProductId, orderId, PRODUCT_A, SELLER_A);
     }
 
     private long countOrderProducts() {
