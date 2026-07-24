@@ -26,6 +26,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
+import static com.prompthub.payment.infrastructure.external.toss.TossRetryTestSupport.retryOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -48,14 +49,6 @@ class TossPaymentGatewayRetryTest {
         if (scheduler != null) {
             scheduler.shutdownNow();
         }
-    }
-
-    private Retry retryOf(String name) {
-        return Retry.of(name, RetryConfig.custom()
-            .maxAttempts(2)
-            .waitDuration(Duration.ofMillis(500))
-            .retryOnException(new TossRetryPredicate())
-            .build());
     }
 
     @Test

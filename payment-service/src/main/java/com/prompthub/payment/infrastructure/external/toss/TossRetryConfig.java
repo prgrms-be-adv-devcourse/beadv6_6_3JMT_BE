@@ -28,7 +28,7 @@ public class TossRetryConfig {
 
     @Bean("tossConfirmRetry")
     public Retry tossConfirmRetry(RetryRegistry tossRetryRegistry) {
-        return tossRetryRegistry.retry("tossConfirmRetry");
+        return tossRetryRegistry.retry("toss-confirm-retry");
     }
 
     @Bean

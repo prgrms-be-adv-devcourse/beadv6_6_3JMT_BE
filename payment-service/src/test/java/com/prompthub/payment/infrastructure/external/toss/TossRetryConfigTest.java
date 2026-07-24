@@ -17,7 +17,7 @@ class TossRetryConfigTest {
 
         Retry confirmRetry = config.tossConfirmRetry(registry);
 
-        assertThat(confirmRetry.getName()).isEqualTo("tossConfirmRetry");
+        assertThat(confirmRetry.getName()).isEqualTo("toss-confirm-retry");
         assertThat(confirmRetry.getRetryConfig().getMaxAttempts()).isEqualTo(2);
         assertThat(confirmRetry.getRetryConfig().getIntervalBiFunction().apply(1, null)).isEqualTo(500L);
     }
