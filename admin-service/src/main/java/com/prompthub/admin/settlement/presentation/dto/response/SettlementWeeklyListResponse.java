@@ -2,7 +2,7 @@ package com.prompthub.admin.settlement.presentation.dto.response;
 
 import com.prompthub.admin.settlement.domain.model.Settlement;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
-import com.prompthub.admin.settlement.domain.repository.SettlementWeeklyQueryRepository.WeeklyPage;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementWeeklyQueryRepository.WeeklyPage;
 import com.prompthub.admin.settlement.domain.repository.SettlementWeeklyStatusCount;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementMonthlyResponse.Action;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementMonthlyResponse.WeeklySettlement;

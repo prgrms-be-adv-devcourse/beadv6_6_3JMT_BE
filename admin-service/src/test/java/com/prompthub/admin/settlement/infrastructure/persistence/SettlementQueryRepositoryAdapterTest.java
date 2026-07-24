@@ -4,16 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.prompthub.admin.settlement.domain.model.Settlement;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
-import com.prompthub.admin.settlement.domain.repository.SettlementMonthlyQueryRepository;
-import com.prompthub.admin.settlement.domain.repository.SettlementMonthlyQueryRepository.MonthlyAggregate;
-import com.prompthub.admin.settlement.domain.repository.SettlementMonthlyQueryRepository.MonthlyKey;
-import com.prompthub.admin.settlement.domain.repository.SettlementMonthlyQueryRepository.MonthlyPage;
-import com.prompthub.admin.settlement.domain.repository.SettlementMonthlyQueryRepository.MonthlyStatusCount;
-import com.prompthub.admin.settlement.domain.repository.SettlementQueryRepository;
 import com.prompthub.admin.settlement.domain.repository.SettlementStatusAggregate;
-import com.prompthub.admin.settlement.domain.repository.SettlementWeeklyQueryRepository;
-import com.prompthub.admin.settlement.domain.repository.SettlementWeeklyQueryRepository.WeeklyPage;
 import com.prompthub.admin.settlement.domain.repository.SettlementWeeklyStatusCount;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementMonthlyQueryRepository.MonthlyAggregate;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementMonthlyQueryRepository.MonthlyKey;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementMonthlyQueryRepository.MonthlyPage;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementMonthlyQueryRepository.MonthlyStatusCount;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementWeeklyQueryRepository.WeeklyPage;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -27,9 +24,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 @DataJpaTest
-@Import({SettlementQueryRepositoryAdapter.class,
-        SettlementMonthlyQueryRepositoryAdapter.class,
-        SettlementWeeklyQueryRepositoryAdapter.class})
+@Import({SettlementQueryRepository.class,
+        SettlementMonthlyQueryRepository.class,
+        SettlementWeeklyQueryRepository.class})
 @ActiveProfiles("test")
 class SettlementQueryRepositoryAdapterTest {
 

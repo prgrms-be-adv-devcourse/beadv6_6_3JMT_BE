@@ -2,8 +2,8 @@ package com.prompthub.admin.settlement.presentation.dto.response;
 
 import com.prompthub.admin.settlement.domain.model.Settlement;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
-import com.prompthub.admin.settlement.domain.repository.SettlementMonthlyQueryRepository.MonthlyKey;
-import com.prompthub.admin.settlement.domain.repository.SettlementMonthlyQueryRepository.MonthlyStatusCount;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementMonthlyQueryRepository.MonthlyKey;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementMonthlyQueryRepository.MonthlyStatusCount;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDate;

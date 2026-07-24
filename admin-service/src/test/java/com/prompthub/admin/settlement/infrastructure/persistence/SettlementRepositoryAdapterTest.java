@@ -5,8 +5,6 @@ import static org.assertj.core.api.Assertions.tuple;
 
 import com.prompthub.admin.settlement.domain.model.Settlement;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
-import com.prompthub.admin.settlement.domain.repository.SettlementQueryRepository;
-import com.prompthub.admin.settlement.domain.repository.SettlementRepository;
 import com.prompthub.admin.settlement.domain.repository.SettlementStatusAggregate;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -22,7 +20,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
 
 @DataJpaTest
-@Import({SettlementRepositoryAdapter.class, SettlementQueryRepositoryAdapter.class})
+@Import({SettlementRepository.class, SettlementQueryRepository.class})
 @ActiveProfiles("test")
 @Sql("/sql/settlements.sql")
 class SettlementRepositoryAdapterTest {

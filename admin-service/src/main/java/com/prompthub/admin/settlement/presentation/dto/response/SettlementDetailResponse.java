@@ -1,8 +1,8 @@
 package com.prompthub.admin.settlement.presentation.dto.response;
 
 import com.prompthub.admin.settlement.domain.model.Settlement;
-import com.prompthub.admin.settlement.domain.repository.SettlementMonthlyQueryRepository.MonthlyAggregate;
-import com.prompthub.admin.settlement.domain.repository.SettlementMonthlyQueryRepository.MonthlyStatusCount;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementMonthlyQueryRepository.MonthlyAggregate;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementMonthlyQueryRepository.MonthlyStatusCount;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementMonthlyResponse.StatusCount;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementMonthlyResponse.WeeklySettlement;
 import io.swagger.v3.oas.annotations.media.Schema;

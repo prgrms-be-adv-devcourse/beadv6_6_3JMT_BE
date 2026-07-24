@@ -1,6 +1,5 @@
 package com.prompthub.admin.settlement.infrastructure.persistence;
 
-import com.prompthub.admin.settlement.domain.repository.SettlementQueryRepository;
 import com.prompthub.admin.settlement.domain.repository.SettlementStatusAggregate;
 
 import java.time.LocalDate;
@@ -12,16 +11,14 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor
-public class SettlementQueryRepositoryAdapter implements SettlementQueryRepository {
+public class SettlementQueryRepository {
 
 	private final SettlementQueryJpaRepository jpaRepository;
 
-	@Override
 	public List<SettlementStatusAggregate> aggregateByStatus() {
 		return jpaRepository.aggregateByStatus();
 	}
 
-	@Override
 	public List<SettlementStatusAggregate> aggregateByStatus(YearMonth settlementMonth) {
 		if (settlementMonth == null) {
 			return aggregateByStatus();

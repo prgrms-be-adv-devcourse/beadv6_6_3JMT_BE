@@ -3,7 +3,6 @@ package com.prompthub.admin.settlement.infrastructure.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.prompthub.admin.settlement.domain.model.SettlementSourceLine;
-import com.prompthub.admin.settlement.domain.repository.SettlementSourceRepository;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -15,7 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
 
 @DataJpaTest
-@Import(SettlementSourceRepositoryAdapter.class)
+@Import(SettlementSourceRepository.class)
 @ActiveProfiles("test")
 @Sql("/sql/source-lines.sql")
 class SettlementSourceRepositoryAdapterTest {

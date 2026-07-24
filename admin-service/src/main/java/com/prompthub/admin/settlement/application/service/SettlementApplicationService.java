@@ -4,21 +4,20 @@ import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.global.exception.AdminException;
 import com.prompthub.admin.settlement.application.dto.SettlementListQuery;
 import com.prompthub.admin.settlement.application.dto.SettlementWeeklyListQuery;
-import com.prompthub.admin.settlement.application.port.SellerNameQueryPort;
 import com.prompthub.admin.settlement.domain.model.Settlement;
 import com.prompthub.admin.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
-import com.prompthub.admin.settlement.domain.repository.SettlementMonthlyQueryRepository;
-import com.prompthub.admin.settlement.domain.repository.SettlementMonthlyQueryRepository.MonthlyAggregate;
-import com.prompthub.admin.settlement.domain.repository.SettlementMonthlyQueryRepository.MonthlyKey;
-import com.prompthub.admin.settlement.domain.repository.SettlementMonthlyQueryRepository.MonthlyPage;
-import com.prompthub.admin.settlement.domain.repository.SettlementMonthlyQueryRepository.MonthlyStatusCount;
-import com.prompthub.admin.settlement.domain.repository.SettlementQueryRepository;
-import com.prompthub.admin.settlement.domain.repository.SettlementRepository;
-import com.prompthub.admin.settlement.domain.repository.SettlementSourceRepository;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementMonthlyQueryRepository;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementMonthlyQueryRepository.MonthlyAggregate;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementMonthlyQueryRepository.MonthlyKey;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementMonthlyQueryRepository.MonthlyPage;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementMonthlyQueryRepository.MonthlyStatusCount;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementQueryRepository;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementRepository;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementSourceRepository;
 import com.prompthub.admin.settlement.domain.repository.SettlementStatusAggregate;
-import com.prompthub.admin.settlement.domain.repository.SettlementWeeklyQueryRepository;
-import com.prompthub.admin.settlement.domain.repository.SettlementWeeklyQueryRepository.WeeklyPage;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementWeeklyQueryRepository;
+import com.prompthub.admin.settlement.infrastructure.persistence.SettlementWeeklyQueryRepository.WeeklyPage;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementDetailResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementListResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementResponse;
@@ -26,6 +25,7 @@ import com.prompthub.admin.settlement.presentation.dto.response.SettlementStatus
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementSummaryResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementSummaryResponse.Card;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementWeeklyListResponse;
+import com.prompthub.admin.user.application.service.UserApplicationService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -54,7 +54,7 @@ public class SettlementApplicationService {
 	private final SettlementQueryRepository settlementQueryRepository;
 	private final SettlementMonthlyQueryRepository monthlyQueryRepository;
 	private final SettlementWeeklyQueryRepository weeklyQueryRepository;
-	private final SellerNameQueryPort sellerNameQueryPort;
+	private final UserApplicationService userApplicationService;
 	private final SettlementRepository settlementRepository;
 	private final SettlementSourceRepository settlementSourceRepository;
 
@@ -70,7 +70,7 @@ public class SettlementApplicationService {
 			.distinct()
 			.toList();
 		Map<UUID, String> sellerNames =
-			sellerNameQueryPort.findNamesBySellerIds(sellerIds);
+			userApplicationService.findNamesByIds(sellerIds);
 		sellerIds.stream()
 			.filter(sellerId -> !sellerNames.containsKey(sellerId))
 			.forEach(sellerId ->
@@ -88,7 +88,7 @@ public class SettlementApplicationService {
 			.toList();
 		Map<UUID, String> sellerNames = sellerIds.isEmpty()
 			? Map.of()
-			: sellerNameQueryPort.findNamesBySellerIds(sellerIds);
+			: userApplicationService.findNamesByIds(sellerIds);
 		sellerIds.stream()
 			.filter(sellerId -> !sellerNames.containsKey(sellerId))
 			.forEach(sellerId ->
@@ -109,7 +109,7 @@ public class SettlementApplicationService {
 		List<Settlement> weeklySettlements = monthlyQueryRepository
 			.findWeeklySettlements(sellerId, settlementMonth);
 		Map<UUID, String> sellerNames =
-			sellerNameQueryPort.findNamesBySellerIds(List.of(sellerId));
+			userApplicationService.findNamesByIds(List.of(sellerId));
 		String sellerName = sellerNames.get(sellerId);
 		if (sellerName == null) {
 			log.warn("정산 판매자명 조회 누락 - sellerId={}", sellerId);
