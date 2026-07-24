@@ -28,7 +28,7 @@
 |---------|------|------|--------|------|
 | q | string | N | `""` | 제목/설명 검색 |
 | productType | string | N | `"all"` | `all\|PROMPT\|NOTION\|PPT\|EXCEL` |
-| sort | string | N | `"popular"` | `popular\|rating\|price-asc\|price-desc` |
+| sort | string | N | `"popular"` | `popular\|rating\|price-asc` |
 | page | number | N | `1` | 페이지 번호 |
 | size | number | N | `20` | 페이지당 항목 수 |
 

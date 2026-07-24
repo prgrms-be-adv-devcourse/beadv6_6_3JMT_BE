@@ -16,16 +16,21 @@ import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
 import com.prompthub.product.presentation.dto.response.ProductVersionResponse;
 import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import com.prompthub.presentation.dto.PageResponse;
+import com.prompthub.search.application.ProductSearchHit;
+import com.prompthub.search.application.ProductSearchPageResult;
+import com.prompthub.search.application.ProductSearchQueryService;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -37,6 +42,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 	private final ProductRepository productRepository;
 	private final StorageClient storageClient;
 	private final ProductFamilyResolver productFamilyResolver;
+	private final ProductSearchQueryService productSearchQueryService;
 
 	public PageResponse<ProductListItemResponse> getProducts(
 		String q,
@@ -51,14 +57,40 @@ public class ProductQueryService implements ProductQueryUseCase {
 		String selectedProductType = normalizeProductType(productType);
 		String selectedSort = normalizeSort(sort);
 
+		try {
+			return searchViaElasticsearch(keyword, selectedProductType, selectedSort, normalizedPage, normalizedSize);
+		} catch (RuntimeException e) {
+			log.warn("ES 조회에 실패해 RDB로 폴백합니다.", e);
+			return searchViaRdb(keyword, selectedProductType, selectedSort, normalizedPage, normalizedSize);
+		}
+	}
+
+	private PageResponse<ProductListItemResponse> searchViaElasticsearch(
+		String keyword, String productType, String sort, int page, int size
+	) {
+		ProductSearchPageResult result = productSearchQueryService.search(keyword, productType, sort, page, size);
+		boolean hasNext = (long) (page - 1) * size + result.hits().size() < result.total();
+
+		return PageResponse.success(
+			result.hits().stream().map(this::toListItemResponse).toList(),
+			page,
+			size,
+			result.total(),
+			hasNext
+		);
+	}
+
+	private PageResponse<ProductListItemResponse> searchViaRdb(
+		String keyword, String productType, String sort, int page, int size
+	) {
 		List<ProductListProjection> products = productRepository.findPublicProducts(
 			keyword,
-			selectedProductType,
-			selectedSort,
-			PageRequest.of(normalizedPage - 1, normalizedSize)
+			productType,
+			sort,
+			PageRequest.of(page - 1, size)
 		);
-		long total = productRepository.countPublicProducts(keyword, selectedProductType);
-		boolean hasNext = (long) (normalizedPage - 1) * normalizedSize + products.size() < total;
+		long total = productRepository.countPublicProducts(keyword, productType);
+		boolean hasNext = (long) (page - 1) * size + products.size() < total;
 
 		Map<UUID, List<String>> tagsByProductId = productRepository
 			.findAllByIdIn(products.stream().map(ProductListProjection::id).toList())
@@ -69,8 +101,8 @@ public class ProductQueryService implements ProductQueryUseCase {
 			products.stream()
 				.map(p -> toListItemResponse(p, tagsByProductId.getOrDefault(p.id(), List.of())))
 				.toList(),
-			normalizedPage,
-			normalizedSize,
+			page,
+			size,
 			total,
 			hasNext
 		);
@@ -194,6 +226,26 @@ public class ProductQueryService implements ProductQueryUseCase {
 		);
 	}
 
+	private ProductListItemResponse toListItemResponse(ProductSearchHit hit) {
+		return new ProductListItemResponse(
+			hit.productId(),
+			hit.name(),
+			hit.productType(),
+			hit.model(),
+			hit.amount(),
+			null,
+			hit.ratingAvg(),
+			hit.salesCount(),
+			hit.sellerId(),
+			null,
+			hit.description(),
+			toUrl(hit.thumbnailUrl()),
+			hit.tags(),
+			hit.firstPublishedAt(),
+			hit.currentVersionAt()
+		);
+	}
+
 	private ProductReviewResponse toReviewResponse(ProductReviewProjection review) {
 		return new ProductReviewResponse(
 			review.id(),
@@ -258,7 +310,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 	}
 
 	private String normalizeSort(String sort) {
-		if ("rating".equals(sort) || "price-asc".equals(sort) || "price-desc".equals(sort)) {
+		if ("rating".equals(sort) || "price-asc".equals(sort)) {
 			return sort;
 		}
 

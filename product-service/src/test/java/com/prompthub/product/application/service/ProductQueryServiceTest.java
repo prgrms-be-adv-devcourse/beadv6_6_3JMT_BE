@@ -14,6 +14,9 @@ import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
 import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import com.prompthub.presentation.dto.PageResponse;
+import com.prompthub.search.application.ProductSearchHit;
+import com.prompthub.search.application.ProductSearchPageResult;
+import com.prompthub.search.application.ProductSearchQueryService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -32,8 +35,12 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class ProductQueryServiceTest {
@@ -50,11 +57,18 @@ class ProductQueryServiceTest {
 	@Mock
 	private StorageClient storageClient;
 
+	@Mock
+	private ProductSearchQueryService productSearchQueryService;
+
 	private ProductQueryService productQueryService;
 
 	@BeforeEach
 	void setUp() {
-		productQueryService = new ProductQueryService(productRepository, storageClient, new ProductFamilyResolver(productRepository));
+		productQueryService = new ProductQueryService(
+			productRepository, storageClient, new ProductFamilyResolver(productRepository), productSearchQueryService);
+		// getProducts를 호출하지 않는 테스트에서는 불필요한 스텁 경고를 피하기 위해 lenient 처리.
+		lenient().when(productSearchQueryService.search(any(), any(), any(), anyInt(), anyInt()))
+			.thenThrow(new IllegalStateException("테스트 기본값: ES 실패 가정, RDB 폴백 경로를 검증한다"));
 	}
 
 	@Nested
@@ -120,6 +134,47 @@ class ProductQueryServiceTest {
 					assertThat(((ProductException) exception).getErrorCode())
 						.isEqualTo(ProductErrorCode.INVALID_PRODUCT_TYPE)
 				);
+		}
+
+		@Test
+		@DisplayName("ES 조회가 성공하면 ES 결과를 매핑해 반환하고 RDB는 호출하지 않는다")
+		void getProducts_esSuccess_mapsEsHitsWithoutTouchingRdb() {
+			ProductSearchHit hit = new ProductSearchHit(
+				PRODUCT_ID, SELLER_ID, "ES에서 온 상품", "ES 설명", "PROMPT", "GPT-4o",
+				5000, "products/thumb.jpg", List.of("es태그"), 10, 4.2, CREATED_AT, UPDATED_AT
+			);
+			// 기본 스텁(@BeforeEach)이 이미 예외를 던지도록 설정돼 있어, given(mock.method())처럼
+			// 먼저 실제 호출을 평가하는 방식은 그 예외를 즉시 트리거한다 — doReturn으로 덮어쓴다.
+			doReturn(new ProductSearchPageResult(List.of(hit), 1))
+				.when(productSearchQueryService).search("es검색어", "PROMPT", "popular", 1, 20);
+			given(storageClient.generatePresignedDownloadUrl("products/thumb.jpg"))
+				.willReturn("https://s3/presigned");
+
+			PageResponse<ProductListItemResponse> response =
+				productQueryService.getProducts("es검색어", "PROMPT", "popular", 1, 20);
+
+			assertThat(response.data()).hasSize(1);
+			ProductListItemResponse item = response.data().getFirst();
+			assertThat(item.id()).isEqualTo(PRODUCT_ID);
+			assertThat(item.title()).isEqualTo("ES에서 온 상품");
+			assertThat(item.thumbnail_url()).isEqualTo("https://s3/presigned");
+			assertThat(response.meta().total()).isEqualTo(1);
+			then(productRepository).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("ES 조회가 실패하면 기존 RDB 경로로 폴백한다")
+		void getProducts_esFailure_fallsBackToRdb() {
+			ProductListProjection projection = productListProjection(PRODUCT_ID, "PROMPT");
+			given(productRepository.findPublicProducts("", "all", "popular", Pageable.ofSize(20)))
+				.willReturn(List.of(projection));
+			given(productRepository.countPublicProducts("", "all")).willReturn(1L);
+			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID))).willReturn(List.of(product(ProductStatus.ON_SALE, null)));
+
+			PageResponse<ProductListItemResponse> response = productQueryService.getProducts(null, null, "popular", 1, 20);
+
+			assertThat(response.data()).hasSize(1);
+			assertThat(response.data().getFirst().id()).isEqualTo(PRODUCT_ID);
 		}
 	}
 
