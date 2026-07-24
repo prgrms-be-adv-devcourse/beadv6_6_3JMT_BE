@@ -10,6 +10,7 @@ import com.prompthub.admin.user.application.dto.UserPageResult;
 import com.prompthub.admin.user.application.dto.UserRoleResult;
 import com.prompthub.admin.user.application.dto.UserStatusResult;
 import com.prompthub.admin.user.domain.model.User;
+import com.prompthub.admin.user.domain.model.UserProfile;
 import com.prompthub.admin.user.domain.model.UserRole;
 import com.prompthub.admin.user.domain.model.UserStatus;
 import com.prompthub.admin.user.domain.repository.UserRepository;
@@ -22,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -136,6 +138,24 @@ class UserApplicationServiceTest {
 		assertThatThrownBy(() ->
 			userApplicationService.changeUserRole(new ChangeUserRoleCommand(userId, UserRole.SELLER)))
 			.isInstanceOf(AdminException.class);
+	}
+
+	@Test
+	void 프로필조회는_ID를_중복제거해_한번에_조회한다() {
+		UUID userId = UUID.randomUUID();
+		UserProfile profile = new UserProfile(userId, "구매자A", "https://cdn.example.com/a.png");
+		given(userRepository.findProfilesByIds(List.of(userId))).willReturn(List.of(profile));
+
+		Map<UUID, UserProfile> result = userApplicationService.findProfilesByIds(List.of(userId, userId));
+
+		assertThat(result).containsEntry(userId, profile);
+		then(userRepository).should().findProfilesByIds(List.of(userId));
+	}
+
+	@Test
+	void 빈ID목록으로_프로필을_조회하면_저장소를_호출하지_않는다() {
+		assertThat(userApplicationService.findProfilesByIds(List.of())).isEmpty();
+		then(userRepository).shouldHaveNoInteractions();
 	}
 
 	// 테스트 전용 헬퍼 — User는 domain-model.md 정책상 public 생성자/빌더가 없으므로

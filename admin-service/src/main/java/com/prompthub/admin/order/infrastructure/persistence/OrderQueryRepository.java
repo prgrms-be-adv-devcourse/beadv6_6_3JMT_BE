@@ -3,7 +3,6 @@ package com.prompthub.admin.order.infrastructure.persistence;
 import com.prompthub.admin.order.application.dto.DailyTransactionProjection;
 import com.prompthub.admin.order.application.dto.OrderListProjection;
 import com.prompthub.admin.order.domain.enums.OrderStatus;
-import com.prompthub.admin.order.domain.repository.OrderQueryRepository;
 import com.prompthub.admin.order.presentation.dto.request.OrderSearchCondition;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.BooleanExpression;
@@ -32,11 +31,10 @@ import static com.prompthub.admin.order.domain.model.QOrderProduct.orderProduct;
 
 @Repository
 @RequiredArgsConstructor
-public class OrderQueryRepositoryImpl implements OrderQueryRepository {
+public class OrderQueryRepository {
 
 	private final JPAQueryFactory queryFactory;
 
-	@Override
 	public Page<OrderListProjection> searchOrders(OrderSearchCondition condition, Pageable pageable) {
 		List<UUID> orderIds = queryFactory
 			.select(order.id)
@@ -91,13 +89,11 @@ public class OrderQueryRepositoryImpl implements OrderQueryRepository {
 		return new PageImpl<>(content, pageable, valueOrZero(countQuery.fetchOne()));
 	}
 
-	@Override
 	public long sumMonthlyTransactionAmount(LocalDateTime startInclusive, LocalDateTime endExclusive) {
 		return sumCompletedOrderAmount(startInclusive, endExclusive)
 			- sumRefundedProductAmount(startInclusive, endExclusive);
 	}
 
-	@Override
 	public List<DailyTransactionProjection> findDailyTransactions(
 		LocalDateTime startInclusive,
 		LocalDateTime endExclusive
