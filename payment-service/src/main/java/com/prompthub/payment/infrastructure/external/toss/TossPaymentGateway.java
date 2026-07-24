@@ -16,6 +16,7 @@ import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
+import io.github.resilience4j.retry.Retry;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -55,6 +56,7 @@ public class TossPaymentGateway implements PaymentGateway {
     private final CircuitBreaker refundCircuitBreaker;
     private final Bulkhead confirmBulkhead;
     private final RateLimiter confirmRateLimiter;
+    private final Retry confirmRetry;
 
     public TossPaymentGateway(
         @Value("${payment.toss.secret-key}") String secretKey,
@@ -63,7 +65,8 @@ public class TossPaymentGateway implements PaymentGateway {
         @Qualifier("tossConfirmCircuitBreaker") CircuitBreaker confirmCircuitBreaker,
         @Qualifier("tossRefundCircuitBreaker") CircuitBreaker refundCircuitBreaker,
         @Qualifier("tossConfirmBulkhead") Bulkhead confirmBulkhead,
-        @Qualifier("tossConfirmRateLimiter") RateLimiter confirmRateLimiter
+        @Qualifier("tossConfirmRateLimiter") RateLimiter confirmRateLimiter,
+        @Qualifier("tossConfirmRetry") Retry confirmRetry
     ) {
         String credentials = Base64.getEncoder()
             .encodeToString((secretKey + ":").getBytes(StandardCharsets.UTF_8));
@@ -80,6 +83,7 @@ public class TossPaymentGateway implements PaymentGateway {
         this.refundCircuitBreaker = refundCircuitBreaker;
         this.confirmBulkhead = confirmBulkhead;
         this.confirmRateLimiter = confirmRateLimiter;
+        this.confirmRetry = confirmRetry;
     }
 
     @Override
@@ -90,6 +94,7 @@ public class TossPaymentGateway implements PaymentGateway {
 
             TossConfirmResponse response = restClient.post()
                 .uri("/payments/confirm")
+                .header("Idempotency-Key", "confirm-" + paymentKey)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(request)
                 .retrieve()
@@ -190,7 +195,8 @@ public class TossPaymentGateway implements PaymentGateway {
         try {
             Supplier<T> bulkheadDecorated = Bulkhead.decorateSupplier(confirmBulkhead, supplier);
             Supplier<T> rateLimiterDecorated = RateLimiter.decorateSupplier(confirmRateLimiter, bulkheadDecorated);
-            return CircuitBreaker.decorateSupplier(confirmCircuitBreaker, rateLimiterDecorated).get();
+            Supplier<T> retryDecorated = Retry.decorateSupplier(confirmRetry, rateLimiterDecorated);
+            return CircuitBreaker.decorateSupplier(confirmCircuitBreaker, retryDecorated).get();
         } catch (CallNotPermittedException exception) {
             log.warn("Toss 서킷브레이커 OPEN — 호출 차단됨. circuitBreaker={}", confirmCircuitBreaker.getName());
             throw new PaymentGatewayException(
