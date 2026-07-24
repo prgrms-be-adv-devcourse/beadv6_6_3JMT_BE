@@ -18,7 +18,7 @@ import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderListProductResponse;
-import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
+import com.prompthub.order.presentation.dto.response.ProductDownloadResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -145,12 +145,7 @@ class OrderControllerTest {
 		@DisplayName("주문상품 다운로드 확정 성공")
 		void confirmDownload_success() throws Exception {
 			// given
-			OrderProductDownloadResponse response = new OrderProductDownloadResponse(
-				ORDER_ID,
-				ORDER_PRODUCT_ID,
-				true,
-				false
-			);
+			ProductDownloadResponse response = new ProductDownloadResponse(true);
 
 			when(confirmDownloadUseCase.confirmDownload(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID)))
 				.thenReturn(response);
@@ -161,12 +156,8 @@ class OrderControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.message").value("success"))
-				.andExpect(jsonPath("$.data.orderId").value(ORDER_ID.toString()))
-				.andExpect(jsonPath("$.data.orderProductId").value(ORDER_PRODUCT_ID.toString()))
 				.andExpect(jsonPath("$.data.downloaded").value(true))
-				.andExpect(jsonPath("$.data.isDownload").doesNotExist())
-				.andExpect(jsonPath("$.data.isRefundable").value(false))
-				.andExpect(jsonPath("$.data.isRefund").doesNotExist());
+				.andExpect(jsonPath("$.data.isDownload").doesNotExist());
 
 			verify(confirmDownloadUseCase).confirmDownload(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID));
 		}

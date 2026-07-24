@@ -13,8 +13,6 @@ import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
-import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
-import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
 import com.prompthub.order.presentation.dto.response.ProductDownloadResponse;
 import com.prompthub.exception.response.ErrorResponse;
 import com.prompthub.presentation.dto.ApiResult;
@@ -227,7 +225,7 @@ public class OrderController {
 		@ApiResponse(responseCode = "503", description = "SYS002 상품 서비스 사용 불가",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
-	public ApiResult<OrderProductDownloadResponse> confirmDownload(
+	public ApiResult<ProductDownloadResponse> confirmDownload(
 		@Parameter(hidden = true)
 		@RequestHeader(USER_ID) UUID buyerId,
 		@Parameter(description = "주문 ID", example = "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111")
