@@ -40,13 +40,13 @@ public class ProductService implements ProductUseCase {
 				.map(SellerNickname::getSellerId)
 				.toList();
 
-		int zeroBasedPage = query.page() - 1;
+		// page는 0부터 시작 (FE DataPagination과 동일한 0-base 계약)
 		List<Product> products = productRepository.findProducts(
-			query.status(), keyword, keywordSellerIds, zeroBasedPage, query.size());
+			query.status(), keyword, keywordSellerIds, query.page(), query.size());
 		long total = productRepository.countProducts(query.status(), keyword, keywordSellerIds);
 
 		List<AdminProductListItemResponse> items = toListItemResponses(products);
-		boolean hasNext = total > (long) query.page() * query.size();
+		boolean hasNext = total > (long) (query.page() + 1) * query.size();
 
 		return new AdminProductPageResult(items, query.page(), query.size(), total, hasNext);
 	}

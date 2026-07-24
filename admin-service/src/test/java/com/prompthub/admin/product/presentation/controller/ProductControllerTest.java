@@ -39,40 +39,40 @@ class ProductControllerTest {
 	class ListProducts {
 
 		@Test
-		@DisplayName("파라미터가 없으면 ALL(null)·page=1·size=20으로 조회한다")
+		@DisplayName("파라미터가 없으면 ALL(null)·page=0·size=20으로 조회한다")
 		void listProducts_defaults() throws Exception {
-			given(productUseCase.listProducts(new AdminProductListQuery(null, null, 1, 20)))
-				.willReturn(new AdminProductPageResult(List.of(), 1, 20, 0, false));
+			given(productUseCase.listProducts(new AdminProductListQuery(null, null, 0, 20)))
+				.willReturn(new AdminProductPageResult(List.of(), 0, 20, 0, false));
 
 			mockMvc.perform(get("/api/v2/admin/products"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
-				.andExpect(jsonPath("$.meta.page").value(1))
+				.andExpect(jsonPath("$.meta.page").value(0))
 				.andExpect(jsonPath("$.meta.size").value(20))
 				.andExpect(jsonPath("$.meta.total").value(0))
 				.andExpect(jsonPath("$.meta.hasNext").value(false));
 
-			then(productUseCase).should().listProducts(new AdminProductListQuery(null, null, 1, 20));
+			then(productUseCase).should().listProducts(new AdminProductListQuery(null, null, 0, 20));
 		}
 
 		@Test
 		@DisplayName("status=pending_review는 PENDING_REVIEW 필터로 전달된다")
 		void listProducts_statusPendingReview() throws Exception {
-			given(productUseCase.listProducts(new AdminProductListQuery(ProductStatus.PENDING_REVIEW, null, 1, 20)))
-				.willReturn(new AdminProductPageResult(List.of(), 1, 20, 0, false));
+			given(productUseCase.listProducts(new AdminProductListQuery(ProductStatus.PENDING_REVIEW, null, 0, 20)))
+				.willReturn(new AdminProductPageResult(List.of(), 0, 20, 0, false));
 
 			mockMvc.perform(get("/api/v2/admin/products").param("status", "pending_review"))
 				.andExpect(status().isOk());
 
 			then(productUseCase).should()
-				.listProducts(new AdminProductListQuery(ProductStatus.PENDING_REVIEW, null, 1, 20));
+				.listProducts(new AdminProductListQuery(ProductStatus.PENDING_REVIEW, null, 0, 20));
 		}
 
 		@Test
 		@DisplayName("keyword는 그대로 전달된다")
 		void listProducts_keyword() throws Exception {
-			given(productUseCase.listProducts(new AdminProductListQuery(ProductStatus.ON_SALE, "프롬프트", 1, 20)))
-				.willReturn(new AdminProductPageResult(List.of(), 1, 20, 0, false));
+			given(productUseCase.listProducts(new AdminProductListQuery(ProductStatus.ON_SALE, "프롬프트", 0, 20)))
+				.willReturn(new AdminProductPageResult(List.of(), 0, 20, 0, false));
 
 			mockMvc.perform(get("/api/v2/admin/products")
 					.param("status", "on_sale")
@@ -80,7 +80,7 @@ class ProductControllerTest {
 				.andExpect(status().isOk());
 
 			then(productUseCase).should()
-				.listProducts(new AdminProductListQuery(ProductStatus.ON_SALE, "프롬프트", 1, 20));
+				.listProducts(new AdminProductListQuery(ProductStatus.ON_SALE, "프롬프트", 0, 20));
 		}
 
 		@Test

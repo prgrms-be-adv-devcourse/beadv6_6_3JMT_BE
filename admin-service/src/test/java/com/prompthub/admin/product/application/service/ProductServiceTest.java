@@ -60,7 +60,7 @@ class ProductServiceTest {
 			given(sellerNicknameRepository.findAllById(List.of(SELLER_ID))).willReturn(List.of(nickname));
 
 			AdminProductPageResult result = productAdminService.listProducts(
-				new AdminProductListQuery(ProductStatus.PENDING_REVIEW, null, 1, 20));
+				new AdminProductListQuery(ProductStatus.PENDING_REVIEW, null, 0, 20));
 
 			assertThat(result.items()).hasSize(1);
 			assertThat(result.items().get(0).sellerNickname()).isEqualTo("판매자A");
@@ -77,7 +77,7 @@ class ProductServiceTest {
 			given(sellerNicknameRepository.findAllById(List.of(SELLER_ID))).willReturn(List.of());
 
 			AdminProductPageResult result = productAdminService.listProducts(
-				new AdminProductListQuery(null, null, 1, 20));
+				new AdminProductListQuery(null, null, 0, 20));
 
 			assertThat(result.items().get(0).sellerNickname()).isEqualTo("알 수 없음");
 		}
@@ -92,7 +92,7 @@ class ProductServiceTest {
 			given(productRepository.countProducts(null, "판매자", List.of(SELLER_ID))).willReturn(0L);
 
 			AdminProductPageResult result = productAdminService.listProducts(
-				new AdminProductListQuery(null, "  판매자  ", 1, 20));
+				new AdminProductListQuery(null, "  판매자  ", 0, 20));
 
 			assertThat(result.items()).isEmpty();
 			then(productRepository).should().findProducts(null, "판매자", List.of(SELLER_ID), 0, 20);
@@ -105,7 +105,7 @@ class ProductServiceTest {
 			given(productRepository.countProducts(null, null, List.of())).willReturn(45L);
 
 			AdminProductPageResult result = productAdminService.listProducts(
-				new AdminProductListQuery(null, null, 1, 20));
+				new AdminProductListQuery(null, null, 0, 20));
 
 			assertThat(result.hasNext()).isTrue();
 			assertThat(result.total()).isEqualTo(45L);

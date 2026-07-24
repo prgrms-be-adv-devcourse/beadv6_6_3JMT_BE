@@ -32,7 +32,7 @@ public class ProductController {
 	public PageResponse<AdminProductListItemResponse> listProducts(
 		@RequestParam(defaultValue = "ALL") String status,
 		@RequestParam(required = false) String keyword,
-		@RequestParam(defaultValue = "1") int page,
+		@RequestParam(defaultValue = "0") int page,
 		@RequestParam(defaultValue = "20") int size
 	) {
 		AdminProductListQuery query = new AdminProductListQuery(parseStatusFilter(status), keyword, page, size);
