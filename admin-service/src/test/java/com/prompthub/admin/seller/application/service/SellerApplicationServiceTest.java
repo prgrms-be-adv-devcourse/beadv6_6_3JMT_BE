@@ -1,6 +1,6 @@
 package com.prompthub.admin.seller.application.service;
 
-import com.prompthub.admin.auth.application.service.SessionRevocationApplicationService;
+import com.prompthub.admin.auth.service.AuthService;
 import com.prompthub.admin.global.exception.AdminException;
 import com.prompthub.admin.seller.application.dto.ApproveSellerCommand;
 import com.prompthub.admin.seller.application.dto.RejectSellerCommand;
@@ -37,7 +37,7 @@ class SellerApplicationServiceTest {
 	private UserRepository userRepository;
 
 	@Mock
-	private SessionRevocationApplicationService sessionRevocationApplicationService;
+	private AuthService authService;
 
 	@InjectMocks
 	private SellerApplicationService sellerApplicationService;
@@ -57,7 +57,7 @@ class SellerApplicationServiceTest {
 
 		assertThat(result.status()).isEqualTo(SellerRegisterStatus.APPROVED);
 		assertThat(user.getRoles()).contains(UserRole.SELLER);
-		then(sessionRevocationApplicationService).should().evictAuthorizationCache(userId);
+		then(authService).should().evictAuthorizationCache(userId);
 	}
 
 	@Test
@@ -73,7 +73,7 @@ class SellerApplicationServiceTest {
 
 		assertThat(result.status()).isEqualTo(SellerRegisterStatus.REJECTED);
 		assertThat(result.rejectReason()).isEqualTo("포트폴리오 미확인");
-		then(sessionRevocationApplicationService).shouldHaveNoInteractions();
+		then(authService).shouldHaveNoInteractions();
 	}
 
 	@Test

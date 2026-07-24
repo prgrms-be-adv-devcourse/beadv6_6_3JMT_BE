@@ -1,4 +1,4 @@
-package com.prompthub.admin.auth.infrastructure.persistence;
+package com.prompthub.admin.auth.repository;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,7 +11,7 @@ import java.util.UUID;
 import static org.mockito.BDDMockito.then;
 
 @ExtendWith(MockitoExtension.class)
-class RefreshTokenRepositoryAdapterTest {
+class RefreshTokenRepositoryTest {
 
 	@Mock
 	private RefreshTokenJpaRepository refreshTokenJpaRepository;

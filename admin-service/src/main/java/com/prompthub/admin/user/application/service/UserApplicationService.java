@@ -1,6 +1,6 @@
 package com.prompthub.admin.user.application.service;
 
-import com.prompthub.admin.auth.application.service.SessionRevocationApplicationService;
+import com.prompthub.admin.auth.service.AuthService;
 import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.global.exception.AdminException;
 import com.prompthub.admin.user.application.dto.ChangeUserRoleCommand;
@@ -29,7 +29,7 @@ import java.util.List;
 public class UserApplicationService implements UserUseCase {
 
 	private final UserRepository userRepository;
-	private final SessionRevocationApplicationService sessionRevocationApplicationService;
+	private final AuthService authService;
 
 	@Override
 	public UserPageResult listUsers(UserListQuery query) {
@@ -58,9 +58,9 @@ public class UserApplicationService implements UserUseCase {
 
 		userRepository.save(user);
 		if (command.status() == UserStatus.WITHDRAWN) {
-			sessionRevocationApplicationService.revoke(user.getUserId());
+			authService.revoke(user.getUserId());
 		} else {
-			sessionRevocationApplicationService.evictAuthorizationCache(user.getUserId());
+			authService.evictAuthorizationCache(user.getUserId());
 		}
 		return UserStatusResult.from(user);
 	}
@@ -74,7 +74,7 @@ public class UserApplicationService implements UserUseCase {
 		user.changeRole(command.role());
 
 		userRepository.save(user);
-		sessionRevocationApplicationService.evictAuthorizationCache(user.getUserId());
+		authService.evictAuthorizationCache(user.getUserId());
 		return UserRoleResult.from(user);
 	}
 

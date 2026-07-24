@@ -1,7 +1,7 @@
-package com.prompthub.admin.auth.application.service;
+package com.prompthub.admin.auth.service;
 
-import com.prompthub.admin.auth.infrastructure.persistence.RefreshTokenRepository;
-import com.prompthub.admin.auth.infrastructure.redis.AuthorizationCacheRepository;
+import com.prompthub.admin.auth.repository.RefreshTokenRepository;
+import com.prompthub.admin.auth.repository.AuthorizationCacheRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -13,7 +13,7 @@ import java.util.UUID;
 import static org.mockito.BDDMockito.then;
 
 @ExtendWith(MockitoExtension.class)
-class SessionRevocationApplicationServiceTest {
+class AuthServiceTest {
 
 	@Mock
 	private RefreshTokenRepository refreshTokenRepository;
@@ -22,7 +22,7 @@ class SessionRevocationApplicationServiceTest {
 	private AuthorizationCacheRepository authorizationCacheRepository;
 
 	@InjectMocks
-	private SessionRevocationApplicationService sessionRevocationService;
+	private AuthService sessionRevocationService;
 
 	@Test
 	void revoke_유저의_모든_RT를_삭제한다() {

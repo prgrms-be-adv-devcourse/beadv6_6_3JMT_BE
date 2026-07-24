@@ -1,4 +1,4 @@
-package com.prompthub.admin.auth.infrastructure.persistence;
+package com.prompthub.admin.auth.repository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
