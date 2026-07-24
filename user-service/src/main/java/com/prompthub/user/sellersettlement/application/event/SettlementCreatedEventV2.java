@@ -37,6 +37,9 @@ public record SettlementCreatedEventV2(
         Objects.requireNonNull(refundAmount, "refundAmount는 필수입니다.");
         Objects.requireNonNull(calculatedAt, "calculatedAt은 필수입니다.");
         details = List.copyOf(Objects.requireNonNull(details, "details는 필수입니다."));
+    }
+
+    public void validateContract() {
         validateAggregates(
                 productCount,
                 totalAmount,

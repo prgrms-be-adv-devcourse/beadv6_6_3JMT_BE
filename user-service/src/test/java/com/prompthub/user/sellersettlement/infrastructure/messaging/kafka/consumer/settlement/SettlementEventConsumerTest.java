@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
+import com.prompthub.user.global.exception.SettlementEventContractViolationException;
 import com.prompthub.user.global.exception.SettlementEventDeserializeException;
 import com.prompthub.user.sellersettlement.application.event.SettlementCreatedEventV1;
 import com.prompthub.user.sellersettlement.application.event.SettlementCreatedEventV2;
@@ -105,7 +106,8 @@ class SettlementEventConsumerTest {
                 .replace("\"totalAmount\": 100.00", "\"totalAmount\": 101.00");
 
         assertThatThrownBy(() -> consumer.consume(inconsistentV2, ack))
-                .isInstanceOf(SettlementEventDeserializeException.class);
+                .isInstanceOf(SettlementEventContractViolationException.class)
+                .hasMessageContaining("totalAmount");
 
         then(useCase).shouldHaveNoInteractions();
         then(ack).shouldHaveNoInteractions();

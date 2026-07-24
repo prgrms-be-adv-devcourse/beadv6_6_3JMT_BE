@@ -1,6 +1,7 @@
 package com.prompthub.user.sellersettlement.infrastructure.messaging.kafka.consumer.settlement;
 
 import com.prompthub.common.event.EventMessage;
+import com.prompthub.user.global.exception.SettlementEventContractViolationException;
 import com.prompthub.user.global.exception.SettlementEventDeserializeException;
 import com.prompthub.user.sellersettlement.application.event.SettlementCreatedEventV1;
 import com.prompthub.user.sellersettlement.application.event.SettlementCreatedEventV2;
@@ -54,10 +55,22 @@ public class SettlementEventConsumer {
         switch (resolvePayloadVersion(root)) {
             case 1 -> seedSellerSettlementUseCase.seed(
                     toEventMessage(root, SettlementCreatedEventV1.class).payload());
-            case 2 -> seedSellerSettlementUseCase.seed(
+            case 2 -> consumeSettlementCreatedV2(
                     toEventMessage(root, SettlementCreatedEventV2.class).payload());
             default -> throw deserializeException("지원하지 않는 정산 payload version입니다.");
         }
+    }
+
+    private void consumeSettlementCreatedV2(SettlementCreatedEventV2 event) {
+        try {
+            event.validateContract();
+        } catch (IllegalArgumentException exception) {
+            throw new SettlementEventContractViolationException(
+                    "정산 V2 이벤트 계약 검증에 실패했습니다: " + exception.getMessage(),
+                    exception
+            );
+        }
+        seedSellerSettlementUseCase.seed(event);
     }
 
     private int resolvePayloadVersion(JsonNode root) {

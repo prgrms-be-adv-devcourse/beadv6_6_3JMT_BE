@@ -35,6 +35,7 @@ public enum UserErrorCode implements ErrorCode {
     SELLER_SETTLEMENT_ACCESS_DENIED(HttpStatus.FORBIDDEN, "SS002", "본인 정산이 아닙니다."),
     SELLER_SETTLEMENT_INVALID_STATE(HttpStatus.CONFLICT, "SS003", "요청한 상태로 전이할 수 없습니다."),
     SETTLEMENT_EVENT_DESERIALIZE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "SS004", "정산 이벤트 메시지 역직렬화에 실패했습니다."),
+    SETTLEMENT_EVENT_CONTRACT_VIOLATION(HttpStatus.INTERNAL_SERVER_ERROR, "SS005", "정산 이벤트 계약 검증에 실패했습니다."),
 
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "SYS001", "서버 내부 오류가 발생했습니다.");
 
