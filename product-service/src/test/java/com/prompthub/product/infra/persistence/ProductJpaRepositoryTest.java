@@ -69,6 +69,22 @@ class ProductJpaRepositoryTest {
 	}
 
 	@Test
+	void sumViewCountByFamilyRootId_aggregatesAcrossVersionsAndExcludesDeleted() {
+		Product root = product(null, ProductStatus.SUPERSEDED, (short) 1, (short) 0);
+		ReflectionTestUtils.setField(root, "viewCount", 7);
+		Product current = product(root.getId(), ProductStatus.ON_SALE, (short) 2, (short) 0);
+		ReflectionTestUtils.setField(current, "viewCount", 3);
+		Product deletedVersion = product(root.getId(), ProductStatus.STOPPED, (short) 1, (short) 1);
+		ReflectionTestUtils.setField(deletedVersion, "viewCount", 100);
+		ReflectionTestUtils.setField(deletedVersion, "deletedAt", java.time.LocalDateTime.now());
+		productJpaRepository.saveAll(List.of(root, current, deletedVersion));
+
+		long result = productJpaRepository.sumViewCountByFamilyRootId(root.getId());
+
+		assertThat(result).isEqualTo(10L);
+	}
+
+	@Test
 	void findAllByFamilyRootIds_returnsRootAndChildren() {
 		Product root = product(null, ProductStatus.SUPERSEDED, (short) 1, (short) 0);
 		Product child = product(root.getId(), ProductStatus.ON_SALE, (short) 2, (short) 0);

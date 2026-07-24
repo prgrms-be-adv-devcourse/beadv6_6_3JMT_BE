@@ -48,7 +48,7 @@ elasticsearch:
 prompthub:
   search:
     reconcile:
-      fixed-delay-ms: 604800000
+      fixed-delay-ms: 20000
 
 logging:
   level:
