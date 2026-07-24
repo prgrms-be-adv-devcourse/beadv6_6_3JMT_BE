@@ -1,10 +1,10 @@
-package com.prompthub.admin.home.application.service;
+package com.prompthub.admin.home.service;
 
-import com.prompthub.admin.home.application.dto.HomeResult;
-import com.prompthub.admin.home.infrastructure.persistence.HomeQueryRepository;
-import com.prompthub.admin.home.infrastructure.persistence.HomeQueryRepository.PendingProductPreview;
-import com.prompthub.admin.home.infrastructure.persistence.HomeQueryRepository.SettlementSummary;
-import com.prompthub.admin.home.infrastructure.persistence.HomeQueryRepository.UserSummary;
+import com.prompthub.admin.home.dto.HomeResult;
+import com.prompthub.admin.home.repository.HomeQueryRepository;
+import com.prompthub.admin.home.repository.HomeQueryRepository.PendingProductPreview;
+import com.prompthub.admin.home.repository.HomeQueryRepository.SettlementSummary;
+import com.prompthub.admin.home.repository.HomeQueryRepository.UserSummary;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-public class HomeApplicationService {
+public class HomeService {
 
 	private static final int RECENT_DAYS = 7;
 	private static final int PRODUCT_PREVIEW_LIMIT = 4;
@@ -30,7 +30,7 @@ public class HomeApplicationService {
 	private final Clock clock;
 	private final ZoneId zoneId;
 
-	public HomeApplicationService(
+	public HomeService(
 		HomeQueryRepository repository,
 		@Qualifier("homeClock") Clock clock,
 		@Qualifier("homeZoneId") ZoneId zoneId

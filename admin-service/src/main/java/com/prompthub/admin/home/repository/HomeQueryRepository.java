@@ -1,4 +1,4 @@
-package com.prompthub.admin.home.infrastructure.persistence;
+package com.prompthub.admin.home.repository;
 
 import java.math.BigDecimal;
 import java.sql.ResultSet;
