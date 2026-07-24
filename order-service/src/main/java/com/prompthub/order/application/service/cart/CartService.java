@@ -3,6 +3,7 @@ package com.prompthub.order.application.service.cart;
 import com.prompthub.exception.BusinessException;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductCartSnapshot;
+import com.prompthub.order.application.service.order.OrderProductPurchasePolicy;
 import com.prompthub.order.application.usecase.CartUseCase;
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.CartProduct;
@@ -33,6 +34,7 @@ public class CartService implements CartUseCase {
 
 	private final CartRepository cartRepository;
 	private final ProductClient productClient;
+	private final OrderProductPurchasePolicy orderProductPurchasePolicy;
 
 	@Override
 	@Transactional(readOnly = true)
@@ -50,6 +52,7 @@ public class CartService implements CartUseCase {
 
 	@Override
 	public AddCartProductResponse addCartProduct(UUID buyerId, AddCartProductRequest request) {
+		orderProductPurchasePolicy.validateCartAddable(buyerId, request.productId());
 		ProductCartSnapshot snapshot = productClient.getCartSnapshot(request.productId());
 		validateOnSale(snapshot);
 

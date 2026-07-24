@@ -4,6 +4,7 @@ import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.service.order.OrderCommandHandler;
 import com.prompthub.order.application.service.order.OrderExpirationStore;
 import com.prompthub.order.application.service.order.OrderNumberGenerator;
+import com.prompthub.order.application.service.order.OrderProductIdempotencyStore;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.infra.persistence.order.OrderPersistence;
 import com.prompthub.order.infra.persistence.outbox.OutboxEventPersistence;
@@ -18,6 +19,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -30,6 +32,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 
@@ -55,17 +59,23 @@ class OrderExpirationAfterCommitIntegrationTest {
 	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;
 
+	@MockitoBean
+	private OrderProductIdempotencyStore orderProductIdempotencyStore;
+
 	@BeforeEach
 	void setUp() {
 		given(productClient.getOrderSnapshots(requestedProductIds())).willReturn(shuffledSnapshots());
 		given(orderNumberGenerator.generate()).willReturn("ORD-A");
+		given(orderProductIdempotencyStore.acquire(
+			any(UUID.class), anyCollection(), any(UUID.class), any(Duration.class)
+		)).willReturn(true);
 	}
 
 	@AfterEach
 	void tearDown() {
 		outboxEventPersistence.deleteAll();
 		orderPersistence.deleteAll();
-		reset(productClient, orderNumberGenerator, orderExpirationStore);
+		reset(productClient, orderNumberGenerator, orderExpirationStore, orderProductIdempotencyStore);
 	}
 
 	@Test

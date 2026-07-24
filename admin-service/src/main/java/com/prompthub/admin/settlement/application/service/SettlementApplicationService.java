@@ -3,6 +3,7 @@ package com.prompthub.admin.settlement.application.service;
 import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.global.exception.AdminException;
 import com.prompthub.admin.settlement.application.dto.SettlementListQuery;
+import com.prompthub.admin.settlement.application.dto.SettlementWeeklyListQuery;
 import com.prompthub.admin.settlement.application.port.SellerNameQueryPort;
 import com.prompthub.admin.settlement.application.usecase.SettlementUseCase;
 import com.prompthub.admin.settlement.domain.model.Settlement;
@@ -17,12 +18,15 @@ import com.prompthub.admin.settlement.domain.repository.SettlementQueryRepositor
 import com.prompthub.admin.settlement.domain.repository.SettlementRepository;
 import com.prompthub.admin.settlement.domain.repository.SettlementSourceRepository;
 import com.prompthub.admin.settlement.domain.repository.SettlementStatusAggregate;
+import com.prompthub.admin.settlement.domain.repository.SettlementWeeklyQueryRepository;
+import com.prompthub.admin.settlement.domain.repository.SettlementWeeklyQueryRepository.WeeklyPage;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementDetailResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementListResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementStatusResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementSummaryResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementSummaryResponse.Card;
+import com.prompthub.admin.settlement.presentation.dto.response.SettlementWeeklyListResponse;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -50,6 +54,7 @@ public class SettlementApplicationService implements SettlementUseCase {
 
 	private final SettlementQueryRepository settlementQueryRepository;
 	private final SettlementMonthlyQueryRepository monthlyQueryRepository;
+	private final SettlementWeeklyQueryRepository weeklyQueryRepository;
 	private final SellerNameQueryPort sellerNameQueryPort;
 	private final SettlementRepository settlementRepository;
 	private final SettlementSourceRepository settlementSourceRepository;
@@ -74,6 +79,26 @@ public class SettlementApplicationService implements SettlementUseCase {
 				log.warn("정산 판매자명 조회 누락 - sellerId={}", sellerId));
 		return SettlementListResponse.from(
 			page, counts, sellerNames, query.page(), query.size());
+	}
+
+	@Override
+	public SettlementWeeklyListResponse getWeeklyList(SettlementWeeklyListQuery query) {
+		WeeklyPage page = weeklyQueryRepository.findWeeklyPage(
+			query.status(), query.settlementMonth(), query.page(), query.size());
+		List<UUID> sellerIds = page.content().stream()
+			.map(Settlement::getSellerId)
+			.distinct()
+			.toList();
+		Map<UUID, String> sellerNames = sellerIds.isEmpty()
+			? Map.of()
+			: sellerNameQueryPort.findNamesBySellerIds(sellerIds);
+		sellerIds.stream()
+			.filter(sellerId -> !sellerNames.containsKey(sellerId))
+			.forEach(sellerId ->
+				log.warn("정산 판매자명 조회 누락 - sellerId={}", sellerId));
+		return SettlementWeeklyListResponse.from(
+			page, weeklyQueryRepository.findStatusCounts(query.settlementMonth()), sellerNames,
+			query.page(), query.size());
 	}
 
 	@Override

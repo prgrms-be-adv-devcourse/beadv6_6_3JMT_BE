@@ -13,7 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface OrderRepository {
-	Order save (Order order);
+	Order saveAndFlush(Order order);
 
 	Optional<Order> findByIdWithOrderProducts(UUID orderId);
 
@@ -22,6 +22,10 @@ public interface OrderRepository {
 	Optional<Order> findByOrderNumber(String orderNumber);
 
 	boolean existsAccessiblePaidOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId);
+
+	boolean existsBlockingOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId);
+
+	List<UUID> findExpiredCreatedOrderIds(LocalDateTime cutoff, int batchSize);
 
 	List<UUID> findAccessiblePaidProductIdsByBuyerId(UUID buyerId);
 
