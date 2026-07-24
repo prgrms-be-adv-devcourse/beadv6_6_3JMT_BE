@@ -4,6 +4,7 @@ import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.event.order.OrderExpirationCleanupRequestedEvent;
 import com.prompthub.order.application.service.order.OrderExpirationStore;
 import com.prompthub.order.application.service.order.OrderFailureCompensationService;
+import com.prompthub.order.application.service.order.OrderProductIdempotencyStore;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
@@ -70,12 +71,15 @@ class OrderExpirationCleanupAfterCommitIntegrationTest {
 	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;
 
+	@MockitoBean
+	private OrderProductIdempotencyStore orderProductIdempotencyStore;
+
 	@AfterEach
 	void tearDown() {
 		processedEventRepository.deleteAll();
 		orderPersistence.deleteAll();
 		cartPersistence.deleteAll();
-		reset(productClient, orderExpirationStore);
+		reset(productClient, orderExpirationStore, orderProductIdempotencyStore);
 	}
 
 	@Test

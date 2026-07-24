@@ -72,9 +72,9 @@ public class OrderController {
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
 		@ApiResponse(responseCode = "403", description = "A004 구매자 권한 없음, O015 본인 판매 상품 구매 불가, P005 상품 서비스 접근 거부",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
-		@ApiResponse(responseCode = "409", description = "O018 이미 구매한 상품, P003 상품 요청 충돌",
+		@ApiResponse(responseCode = "409", description = "O018 이미 구매했거나 결제 대기 중인 상품, P003 상품 요청 충돌",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
-		@ApiResponse(responseCode = "503", description = "SYS002 상품 서비스 사용 불가",
+		@ApiResponse(responseCode = "503", description = "SYS002 상품 서비스 또는 SYS003 주문 중복 방지 저장소 사용 불가",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public ApiResult<CreateOrderResponse> createOrder(

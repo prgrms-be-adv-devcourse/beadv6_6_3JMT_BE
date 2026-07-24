@@ -44,6 +44,9 @@ public class OrderProduct {
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
+    @Column(name = "buyer_id", columnDefinition = "uuid")
+    private UUID buyerId;
+
     @Column(name = "product_id", columnDefinition = "uuid", nullable = false)
     private UUID productId;
 
@@ -133,7 +136,8 @@ public class OrderProduct {
     }
 
     protected void assignOrder(Order order) {
-        this.order = order;
+        this.order = Objects.requireNonNull(order, "order must not be null");
+        this.buyerId = order.getBuyerId();
     }
 
     public void markPaid() {

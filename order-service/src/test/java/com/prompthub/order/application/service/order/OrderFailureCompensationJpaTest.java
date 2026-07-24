@@ -83,11 +83,14 @@ class OrderFailureCompensationJpaTest extends PostgreSqlIntegrationTestSupport {
 	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;
 
+	@MockitoBean
+	private OrderProductIdempotencyStore orderProductIdempotencyStore;
+
 	private DatabaseStateProbe databaseStateProbe;
 
 	@BeforeEach
 	void setUp() {
-		reset(productClient, orderExpirationStore);
+		reset(productClient, orderExpirationStore, orderProductIdempotencyStore);
 		databaseStateProbe = new DatabaseStateProbe(
 			orderPersistence,
 			cartPersistence,
