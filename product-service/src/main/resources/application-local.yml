@@ -55,6 +55,13 @@ prompthub:
   search:
     reconcile:
       fixed-delay-ms: 20000
+    ranking:
+      sales-weight: 0.3
+      view-weight: 0.1
+      rating-weight: 0.1
+      freshness-weight: 0.2
+      freshness-scale: 30d
+      freshness-decay: 0.7
 
 logging:
   level:

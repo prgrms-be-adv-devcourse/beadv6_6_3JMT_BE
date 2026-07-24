@@ -12,6 +12,7 @@ import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
 import org.apache.hc.core5.http.HttpHost;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -24,6 +25,7 @@ import org.springframework.context.annotation.Configuration;
  * HttpAsyncClient를 주입한다.
  */
 @Configuration
+@EnableConfigurationProperties(SearchRankingProperties.class)
 public class ElasticsearchClientConfig {
 
 	@Value("${elasticsearch.uris}")
