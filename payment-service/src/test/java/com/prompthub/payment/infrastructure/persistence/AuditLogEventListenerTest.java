@@ -12,6 +12,7 @@ import com.prompthub.payment.domain.event.PaymentApprovedEvent;
 import com.prompthub.payment.domain.event.PaymentFailedEvent;
 import com.prompthub.payment.domain.event.PaymentRefundFailedEvent;
 import com.prompthub.payment.domain.event.PaymentRefundedEvent;
+import com.prompthub.payment.domain.event.PaymentRequestedEvent;
 import com.prompthub.payment.domain.model.AuditEntityType;
 import com.prompthub.payment.domain.model.AuditEventType;
 import com.prompthub.payment.domain.model.AuditLog;
@@ -113,6 +114,27 @@ class AuditLogEventListenerTest {
             .containsExactly(AuditEventType.REFUND_REQUESTED, AuditEventType.REFUND_FAILED);
         assertThat(saved.get(1).getFailureCode()).isEqualTo("CANCEL_FAILED");
         assertThat(saved.get(1).getDetail()).isEqualTo("PG 오류");
+    }
+
+    @Test
+    void 결제_요청_이벤트_수신_시_감사로그를_저장한다() {
+        Payment payment = Payment.create(
+            UUID.randomUUID(), UUID.randomUUID(), "pgTx-6", "TOSS_PAYMENTS", "CARD", 10_000);
+        payment.markRequested(OffsetDateTime.now());
+
+        listener.onPaymentRequested(new PaymentRequestedEvent(payment));
+
+        ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(auditLogRepository).save(captor.capture());
+        AuditLog auditLog = captor.getValue();
+        assertThat(auditLog.getOrderId()).isEqualTo(payment.getOrderId());
+        assertThat(auditLog.getEntityType()).isEqualTo(AuditEntityType.PAYMENT);
+        assertThat(auditLog.getEntityId()).isEqualTo(payment.getId());
+        assertThat(auditLog.getEventType()).isEqualTo(AuditEventType.PAYMENT_REQUESTED);
+        assertThat(auditLog.getActorId()).isEqualTo(payment.getUserId());
+        assertThat(auditLog.getNewStatus()).isEqualTo("REQUESTED");
+        assertThat(auditLog.getFailureCode()).isNull();
+        assertThat(auditLog.getDetail()).isNull();
     }
 
     @Test

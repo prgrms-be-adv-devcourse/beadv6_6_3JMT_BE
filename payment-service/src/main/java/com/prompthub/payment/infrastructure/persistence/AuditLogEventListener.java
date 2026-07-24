@@ -4,6 +4,7 @@ import com.prompthub.payment.domain.event.PaymentApprovedEvent;
 import com.prompthub.payment.domain.event.PaymentFailedEvent;
 import com.prompthub.payment.domain.event.PaymentRefundFailedEvent;
 import com.prompthub.payment.domain.event.PaymentRefundedEvent;
+import com.prompthub.payment.domain.event.PaymentRequestedEvent;
 import com.prompthub.payment.domain.model.AuditLog;
 import com.prompthub.payment.domain.repository.AuditLogRepository;
 import java.util.UUID;
@@ -19,6 +20,11 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class AuditLogEventListener {
 
     private final AuditLogRepository auditLogRepository;
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onPaymentRequested(PaymentRequestedEvent event) {
+        save(AuditLog.forPaymentRequested(event.payment()), event.payment().getId());
+    }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPaymentApproved(PaymentApprovedEvent event) {

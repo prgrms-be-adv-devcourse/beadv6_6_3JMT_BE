@@ -76,6 +76,14 @@ public class AuditLog {
         this.occurredAt = occurredAt;
     }
 
+    public static AuditLog forPaymentRequested(Payment payment) {
+        return new AuditLog(
+            UUID.randomUUID(), payment.getOrderId(), AuditEntityType.PAYMENT, payment.getId(),
+            AuditEventType.PAYMENT_REQUESTED, payment.getUserId(), payment.getStatus().name(),
+            null, null, payment.getRequestedAt()
+        );
+    }
+
     public static AuditLog forPaymentApproved(Payment payment) {
         return new AuditLog(
             UUID.randomUUID(), payment.getOrderId(), AuditEntityType.PAYMENT, payment.getId(),
