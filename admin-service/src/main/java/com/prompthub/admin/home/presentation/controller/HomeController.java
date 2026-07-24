@@ -1,6 +1,6 @@
 package com.prompthub.admin.home.presentation.controller;
 
-import com.prompthub.admin.home.application.usecase.HomeUseCase;
+import com.prompthub.admin.home.application.service.HomeApplicationService;
 import com.prompthub.admin.home.presentation.dto.response.HomeResponse;
 import com.prompthub.exception.response.ErrorResponse;
 import com.prompthub.presentation.dto.ApiResult;
@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "gatewayHeaders")
 public class HomeController {
 
-	private final HomeUseCase homeUseCase;
+	private final HomeApplicationService homeApplicationService;
 
 	@GetMapping
 	@Operation(
@@ -38,6 +38,6 @@ public class HomeController {
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public ApiResult<HomeResponse> getHome() {
-		return ApiResult.success(HomeResponse.from(homeUseCase.getHome()));
+		return ApiResult.success(HomeResponse.from(homeApplicationService.getHome()));
 	}
 }

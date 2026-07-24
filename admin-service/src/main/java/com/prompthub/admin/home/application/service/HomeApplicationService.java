@@ -1,7 +1,6 @@
 package com.prompthub.admin.home.application.service;
 
 import com.prompthub.admin.home.application.dto.HomeResult;
-import com.prompthub.admin.home.application.usecase.HomeUseCase;
 import com.prompthub.admin.home.domain.repository.HomeQueryRepository;
 import com.prompthub.admin.home.domain.repository.HomeQueryRepository.PendingProductPreview;
 import com.prompthub.admin.home.domain.repository.HomeQueryRepository.SettlementSummary;
@@ -22,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-public class HomeApplicationService implements HomeUseCase {
+public class HomeApplicationService {
 
 	private static final int RECENT_DAYS = 7;
 	private static final int PRODUCT_PREVIEW_LIMIT = 4;
@@ -41,7 +40,6 @@ public class HomeApplicationService implements HomeUseCase {
 		this.zoneId = zoneId;
 	}
 
-	@Override
 	public HomeResult getHome() {
 		ZonedDateTime generatedAt = clock.instant().atZone(zoneId);
 		LocalDate today = generatedAt.toLocalDate();
