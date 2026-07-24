@@ -51,7 +51,7 @@ public class OrderCommandHandler implements CreateOrderUseCase {
 		return new OrderCreationItem(
 			product.productId(),
 			snapshot.sellerId(),
-			product.productTitle(),
+			snapshot.title(),
 			snapshot.amount()
 		);
 	}

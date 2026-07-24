@@ -28,7 +28,11 @@ public record CreateOrderRequest(
 		@Schema(description = "상품 ID", example = "00000000-0000-0000-0000-000000000201")
 		@NotNull(message = "상품 ID는 null일 수 없습니다.")
 		UUID productId,
-		@Schema(description = "주문 시점 상품 제목", example = "면접 준비 프롬프트")
+		@Schema(
+			description = "레거시 호환 입력값. 주문 저장에는 상품 서비스가 반환한 상품 제목 스냅샷을 사용합니다.",
+			example = "면접 준비 프롬프트",
+			deprecated = true
+		)
 		@NotBlank(message = "상품 제목은 비어 있을 수 없습니다.")
 		@Size(max = 200, message = "상품 제목은 200자를 초과할 수 없습니다.")
 		String productTitle
