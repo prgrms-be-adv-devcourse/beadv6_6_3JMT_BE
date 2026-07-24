@@ -2,6 +2,7 @@ package com.prompthub.order.application.service.event;
 
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.service.order.OrderExpirationStore;
+import com.prompthub.order.application.service.order.OrderProductIdempotencyStore;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
@@ -95,6 +96,9 @@ class PaymentEventTransactionIntegrationTest {
 	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;
 
+	@MockitoBean
+	private OrderProductIdempotencyStore orderProductIdempotencyStore;
+
 	@MockitoSpyBean
 	private OutboxEventRepository outboxEventRepository;
 
@@ -103,7 +107,7 @@ class PaymentEventTransactionIntegrationTest {
 
 	@AfterEach
 	void tearDown() {
-		reset(outboxEventRepository, processedEventRepository, orderExpirationStore);
+		reset(outboxEventRepository, processedEventRepository, orderExpirationStore, orderProductIdempotencyStore);
 		processedEventRepository.deleteAll();
 		outboxEventPersistence.deleteAll();
 		orderPersistence.deleteAll();

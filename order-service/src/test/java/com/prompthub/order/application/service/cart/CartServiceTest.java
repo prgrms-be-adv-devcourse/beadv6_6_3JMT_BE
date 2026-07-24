@@ -2,6 +2,7 @@ package com.prompthub.order.application.service.cart;
 
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductCartSnapshot;
+import com.prompthub.order.application.service.order.OrderProductPurchasePolicy;
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.CartProduct;
 import com.prompthub.order.domain.repository.CartRepository;
@@ -54,6 +55,9 @@ class CartServiceTest {
 
 	@Mock
 	private ProductClient productClient;
+
+	@Mock
+	private OrderProductPurchasePolicy orderProductPurchasePolicy;
 
 	@InjectMocks
 	private CartService cartService;
