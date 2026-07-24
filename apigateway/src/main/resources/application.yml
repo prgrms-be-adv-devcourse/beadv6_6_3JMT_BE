@@ -87,3 +87,8 @@ springdoc:
 
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:https://prompthub-fe.vercel.app,http://localhost:3000}
+
+logging:
+  structured:
+    format:
+      console: logstash

@@ -10,10 +10,13 @@ import com.prompthub.payment.application.gateway.external.OrderPaymentInfo;
 import com.prompthub.payment.application.gateway.external.PaymentGateway;
 import com.prompthub.payment.application.gateway.external.PaymentGatewayException;
 import com.prompthub.payment.domain.event.PaymentApprovedEvent;
+import com.prompthub.payment.domain.event.PaymentFailedEvent;
+import com.prompthub.payment.domain.event.PaymentRequestedEvent;
 import com.prompthub.payment.domain.model.Payment;
 import com.prompthub.payment.domain.model.PaymentStatus;
 import com.prompthub.payment.domain.repository.PaymentRepository;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -177,11 +180,16 @@ class ConfirmPaymentServiceTest {
 
         assertThat(result.paymentId()).isNotNull();
 
-        ArgumentCaptor<PaymentApprovedEvent> captor = ArgumentCaptor.forClass(PaymentApprovedEvent.class);
-        verify(applicationEventPublisher).publishEvent(captor.capture());
-        assertThat(captor.getValue().payment().getStatus()).isEqualTo(PaymentStatus.PAID);
-        assertThat(captor.getValue().payment().getApprovedAmount()).isEqualTo(10_000);
-        assertThat(captor.getValue().payment().getRequestPayload()).isEqualTo("{\"paymentKey\":\"toss-key\"}");
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(applicationEventPublisher, org.mockito.Mockito.times(2)).publishEvent(eventCaptor.capture());
+        List<Object> events = eventCaptor.getAllValues();
+        assertThat(events.get(0)).isInstanceOf(PaymentRequestedEvent.class);
+        assertThat(events.get(1)).isInstanceOf(PaymentApprovedEvent.class);
+
+        PaymentApprovedEvent approvedEvent = (PaymentApprovedEvent) events.get(1);
+        assertThat(approvedEvent.payment().getStatus()).isEqualTo(PaymentStatus.PAID);
+        assertThat(approvedEvent.payment().getApprovedAmount()).isEqualTo(10_000);
+        assertThat(approvedEvent.payment().getRequestPayload()).isEqualTo("{\"paymentKey\":\"toss-key\"}");
     }
 
     @Test
@@ -209,7 +217,11 @@ class ConfirmPaymentServiceTest {
             .extracting(e -> ((BusinessException) e).getErrorCode())
             .isEqualTo(PaymentErrorCode.PG_INVALID_REQUEST);
 
-        verify(applicationEventPublisher, never()).publishEvent(any());
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(applicationEventPublisher, org.mockito.Mockito.times(2)).publishEvent(eventCaptor.capture());
+        List<Object> events = eventCaptor.getAllValues();
+        assertThat(events.get(0)).isInstanceOf(PaymentRequestedEvent.class);
+        assertThat(events.get(1)).isInstanceOf(PaymentFailedEvent.class);
 
         ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
         verify(paymentRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
@@ -242,7 +254,11 @@ class ConfirmPaymentServiceTest {
             .extracting(e -> ((BusinessException) e).getErrorCode())
             .isEqualTo(PaymentErrorCode.PAYMENT_FAILED);
 
-        verify(applicationEventPublisher, never()).publishEvent(any());
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(applicationEventPublisher, org.mockito.Mockito.times(2)).publishEvent(eventCaptor.capture());
+        List<Object> events = eventCaptor.getAllValues();
+        assertThat(events.get(0)).isInstanceOf(PaymentRequestedEvent.class);
+        assertThat(events.get(1)).isInstanceOf(PaymentFailedEvent.class);
 
         ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
         verify(paymentRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());

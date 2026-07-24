@@ -159,6 +159,11 @@ public class OrderQueryService implements OrderQueryUseCase {
 	}
 
 	@Override
+	public boolean isProductDownloaded(UUID buyerId, UUID productId) {
+		return orderRepository.isAccessiblePaidProductDownloaded(buyerId, productId);
+	}
+
+	@Override
 	public List<UUID> getAccessiblePaidProductIds(UUID buyerId) {
 		return orderRepository.findAccessiblePaidProductIdsByBuyerId(buyerId);
 	}

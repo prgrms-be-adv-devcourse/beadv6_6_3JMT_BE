@@ -22,6 +22,8 @@ public interface OrderQueryUseCase {
 
 	boolean hasAccessiblePaidProduct(UUID buyerId, UUID productId);
 
+	boolean isProductDownloaded(UUID buyerId, UUID productId);
+
 	List<UUID> getAccessiblePaidProductIds(UUID buyerId);
 
 }

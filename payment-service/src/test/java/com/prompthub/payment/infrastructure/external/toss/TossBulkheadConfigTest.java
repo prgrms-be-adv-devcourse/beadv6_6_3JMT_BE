@@ -17,7 +17,7 @@ class TossBulkheadConfigTest {
 
         Bulkhead confirmBulkhead = config.tossConfirmBulkhead(registry);
 
-        assertThat(confirmBulkhead.getName()).isEqualTo("tossConfirmBulkhead");
+        assertThat(confirmBulkhead.getName()).isEqualTo("toss-confirm-bulkhead");
         assertThat(confirmBulkhead.getBulkheadConfig().getMaxConcurrentCalls()).isEqualTo(20);
         assertThat(confirmBulkhead.getBulkheadConfig().getMaxWaitDuration()).isEqualTo(Duration.ofMillis(200));
     }

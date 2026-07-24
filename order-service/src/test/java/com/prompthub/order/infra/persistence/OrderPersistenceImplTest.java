@@ -25,13 +25,17 @@ import java.util.List;
 import java.util.UUID;
 
 import static com.prompthub.order.fixture.OrderFixture.BUYER_ID;
+import static com.prompthub.order.fixture.OrderFixture.CREATED_AT;
+import static com.prompthub.order.fixture.OrderFixture.PAID_AT;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_AMOUNT_1;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_AMOUNT_2;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_ID_1;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_ID_2;
+import static com.prompthub.order.fixture.OrderFixture.PRODUCT_MODEL;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TITLE_1;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TITLE_2;
 import static com.prompthub.order.fixture.OrderFixture.PRODUCT_TYPE_PROMPT;
+import static com.prompthub.order.fixture.OrderFixture.REFUNDED_AT;
 import static com.prompthub.order.fixture.OrderFixture.SELLER_ID_1;
 import static com.prompthub.order.fixture.OrderFixture.SELLER_ID_2;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -119,6 +123,92 @@ class OrderPersistenceImplTest {
 			.isTrue();
 		assertThat(orderPersistence.findAccessiblePaidProductIdsByBuyerId(BUYER_ID))
 			.containsExactly(PRODUCT_ID_2);
+	}
+
+	@Test
+	@DisplayName("열람 가능한 구매 상품의 다운로드 여부를 반환한다")
+	void isAccessiblePaidProductDownloaded_returnsPersistedDownloadState() {
+		Order order = createPaidOrder("ORD-20260724-0001", LocalDateTime.of(2026, 7, 24, 10, 0), true);
+		order.getOrderProducts().getFirst().markDownloaded();
+		entityManager.persist(order);
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(orderPersistence.isAccessiblePaidProductDownloaded(BUYER_ID, PRODUCT_ID_1)).isTrue();
+		assertThat(orderPersistence.isAccessiblePaidProductDownloaded(BUYER_ID, PRODUCT_ID_2)).isFalse();
+		assertThat(orderPersistence.isAccessiblePaidProductDownloaded(UUID.randomUUID(), PRODUCT_ID_1)).isFalse();
+	}
+
+	@Test
+	@DisplayName("결제 대기·완료·환불 요청 상품은 구매 차단 상태로 조회한다")
+	void existsBlockingOrderProduct_returnsTrueForPendingPaidAndRefundRequested() {
+		UUID pendingProduct = UUID.fromString("00000000-0000-0000-0000-000000000711");
+		UUID paidProduct = UUID.fromString("00000000-0000-0000-0000-000000000712");
+		UUID refundRequestedProduct = UUID.fromString("00000000-0000-0000-0000-000000000713");
+		UUID failedProduct = UUID.fromString("00000000-0000-0000-0000-000000000714");
+		UUID refundedProduct = UUID.fromString("00000000-0000-0000-0000-000000000715");
+
+		Order pending = orderWithProduct("ORD-BLOCK-PENDING", pendingProduct);
+		Order paid = orderWithProduct("ORD-BLOCK-PAID", paidProduct);
+		paid.markPaid(PAID_AT);
+		Order refundRequested = orderWithProduct("ORD-BLOCK-REQUESTED", refundRequestedProduct);
+		refundRequested.markPaid(PAID_AT);
+		refundRequested.requestRefund(List.of(refundRequested.getOrderProducts().getFirst().getId()));
+		Order failed = orderWithProduct("ORD-BLOCK-FAILED", failedProduct);
+		failed.markFailed(CREATED_AT.plusMinutes(1));
+		Order refunded = orderWithProduct("ORD-BLOCK-REFUNDED", refundedProduct);
+		refunded.markPaid(PAID_AT);
+		refunded.refundOrderProduct(
+			refunded.getOrderProducts().getFirst().getId(),
+			PRODUCT_AMOUNT_1,
+			REFUNDED_AT
+		);
+
+		List.of(pending, paid, refundRequested, failed, refunded).forEach(entityManager::persist);
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(orderPersistence.existsBlockingOrderProductByBuyerIdAndProductId(BUYER_ID, pendingProduct))
+			.isTrue();
+		assertThat(orderPersistence.existsBlockingOrderProductByBuyerIdAndProductId(BUYER_ID, paidProduct))
+			.isTrue();
+		assertThat(orderPersistence.existsBlockingOrderProductByBuyerIdAndProductId(BUYER_ID, refundRequestedProduct))
+			.isTrue();
+		assertThat(orderPersistence.existsBlockingOrderProductByBuyerIdAndProductId(BUYER_ID, failedProduct))
+			.isFalse();
+		assertThat(orderPersistence.existsBlockingOrderProductByBuyerIdAndProductId(BUYER_ID, refundedProduct))
+			.isFalse();
+	}
+
+	@Test
+	@DisplayName("DB 만료 조회는 cutoff 이전의 CREATED 주문만 오래된 순서로 반환한다")
+	void findExpiredCreatedOrderIds_returnsOnlyExpiredCreatedOrders() {
+		LocalDateTime cutoff = LocalDateTime.now().plusMinutes(1);
+		Order expired = orderWithProduct("ORD-EXPIRED", UUID.fromString("00000000-0000-0000-0000-000000000721"));
+		Order completed = orderWithProduct("ORD-EXPIRED-COMPLETED", UUID.fromString("00000000-0000-0000-0000-000000000723"));
+		completed.markPaid(PAID_AT);
+
+		List.of(expired, completed).forEach(entityManager::persist);
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(orderPersistence.findExpiredCreatedOrderIds(cutoff, PageRequest.of(0, 10)))
+			.containsExactly(expired.getId());
+	}
+
+	private Order orderWithProduct(String orderNumber, UUID productId) {
+		Order order = Order.create(BUYER_ID, orderNumber, PRODUCT_AMOUNT_1);
+		order.addOrderProduct(OrderProduct.create(
+			productId,
+			SELLER_ID_1,
+			PRODUCT_TITLE_1,
+			PRODUCT_TYPE_PROMPT,
+			PRODUCT_MODEL,
+			PRODUCT_AMOUNT_1
+		));
+		ReflectionTestUtils.setField(order, "createdAt", CREATED_AT);
+		ReflectionTestUtils.setField(order, "updatedAt", CREATED_AT);
+		return order;
 	}
 
 	private Order createPaidOrder(String orderNumber, LocalDateTime createdAt, boolean includeSecondProduct) {

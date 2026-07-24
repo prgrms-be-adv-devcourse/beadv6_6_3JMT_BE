@@ -20,6 +20,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -107,8 +108,9 @@ public class Order extends BaseEntity {
     }
 
     public void addOrderProduct(OrderProduct orderProduct) {
-        this.orderProducts.add(orderProduct);
+        Objects.requireNonNull(orderProduct, "orderProduct must not be null");
         orderProduct.assignOrder(this);
+        this.orderProducts.add(orderProduct);
     }
 
     public boolean isFree() {

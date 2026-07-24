@@ -18,7 +18,7 @@ import com.prompthub.order.presentation.dto.response.OrderDetailProductResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderListProductResponse;
-import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
+import com.prompthub.order.presentation.dto.response.ProductDownloadResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -145,12 +145,7 @@ class OrderControllerTest {
 		@DisplayName("주문상품 다운로드 확정 성공")
 		void confirmDownload_success() throws Exception {
 			// given
-			OrderProductDownloadResponse response = new OrderProductDownloadResponse(
-				ORDER_ID,
-				ORDER_PRODUCT_ID,
-				true,
-				false
-			);
+			ProductDownloadResponse response = new ProductDownloadResponse(true);
 
 			when(confirmDownloadUseCase.confirmDownload(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID)))
 				.thenReturn(response);
@@ -161,12 +156,8 @@ class OrderControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.message").value("success"))
-				.andExpect(jsonPath("$.data.orderId").value(ORDER_ID.toString()))
-				.andExpect(jsonPath("$.data.orderProductId").value(ORDER_PRODUCT_ID.toString()))
 				.andExpect(jsonPath("$.data.downloaded").value(true))
-				.andExpect(jsonPath("$.data.isDownload").doesNotExist())
-				.andExpect(jsonPath("$.data.isRefundable").value(false))
-				.andExpect(jsonPath("$.data.isRefund").doesNotExist());
+				.andExpect(jsonPath("$.data.isDownload").doesNotExist());
 
 			verify(confirmDownloadUseCase).confirmDownload(eq(BUYER_ID), eq(ORDER_ID), eq(ORDER_PRODUCT_ID));
 		}
@@ -664,6 +655,33 @@ class OrderControllerTest {
 		}
 
 		@Test
+		@DisplayName("상품 상세 페이지용 다운로드 여부를 반환한다")
+		void getProductDownloadStatus_success() throws Exception {
+			when(orderQueryUseCase.isProductDownloaded(BUYER_ID, PRODUCT_ID_1)).thenReturn(true);
+
+			mockMvc.perform(get("/api/v2/orders/products/{productId}", PRODUCT_ID_1)
+					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data.downloaded").value(true));
+
+			verify(orderQueryUseCase).isProductDownloaded(BUYER_ID, PRODUCT_ID_1);
+		}
+
+		@Test
+		@DisplayName("미다운로드 구매 상품은 false를 반환한다")
+		void getProductDownloadStatus_notDownloaded_returnsFalse() throws Exception {
+			when(orderQueryUseCase.isProductDownloaded(BUYER_ID, PRODUCT_ID_1)).thenReturn(false);
+
+			mockMvc.perform(get("/api/v2/orders/products/{productId}", PRODUCT_ID_1)
+					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.downloaded").value(false));
+
+			verify(orderQueryUseCase).isProductDownloaded(BUYER_ID, PRODUCT_ID_1);
+		}
+
+		@Test
 		@DisplayName("마이페이지용 구매 상품 ID 목록을 반환한다")
 		void getAccessiblePaidProductIds_success() throws Exception {
 			when(orderQueryUseCase.getAccessiblePaidProductIds(BUYER_ID))
@@ -683,6 +701,16 @@ class OrderControllerTest {
 		@DisplayName("사용자 ID 헤더가 없으면 401을 반환한다")
 		void hasAccessiblePaidProduct_missingUserId_unauthorized() throws Exception {
 			mockMvc.perform(get("/api/v2/orders/product/{productId}/paid", PRODUCT_ID_1))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
+
+			verifyNoInteractions(orderQueryUseCase);
+		}
+
+		@Test
+		@DisplayName("다운로드 여부 조회에 사용자 ID 헤더가 없으면 401을 반환한다")
+		void getProductDownloadStatus_missingUserId_unauthorized() throws Exception {
+			mockMvc.perform(get("/api/v2/orders/products/{productId}", PRODUCT_ID_1))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
 
