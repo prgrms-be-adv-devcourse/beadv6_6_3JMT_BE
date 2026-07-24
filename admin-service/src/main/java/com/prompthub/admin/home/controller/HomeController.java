@@ -1,7 +1,7 @@
-package com.prompthub.admin.home.presentation.controller;
+package com.prompthub.admin.home.controller;
 
-import com.prompthub.admin.home.application.usecase.HomeUseCase;
-import com.prompthub.admin.home.presentation.dto.response.HomeResponse;
+import com.prompthub.admin.home.service.HomeService;
+import com.prompthub.admin.home.dto.response.HomeResponse;
 import com.prompthub.exception.response.ErrorResponse;
 import com.prompthub.presentation.dto.ApiResult;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "gatewayHeaders")
 public class HomeController {
 
-	private final HomeUseCase homeUseCase;
+	private final HomeService homeApplicationService;
 
 	@GetMapping
 	@Operation(
@@ -38,6 +38,6 @@ public class HomeController {
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public ApiResult<HomeResponse> getHome() {
-		return ApiResult.success(HomeResponse.from(homeUseCase.getHome()));
+		return ApiResult.success(HomeResponse.from(homeApplicationService.getHome()));
 	}
 }

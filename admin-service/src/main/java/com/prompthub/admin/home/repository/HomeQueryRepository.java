@@ -1,6 +1,5 @@
-package com.prompthub.admin.home.infrastructure.persistence;
+package com.prompthub.admin.home.repository;
 
-import com.prompthub.admin.home.domain.repository.HomeQueryRepository;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -16,7 +15,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor
-public class HomeQueryRepositoryAdapter implements HomeQueryRepository {
+public class HomeQueryRepository {
 
 	private static final String USER_SUMMARY_SQL = """
 		SELECT
@@ -99,7 +98,6 @@ public class HomeQueryRepositoryAdapter implements HomeQueryRepository {
 
 	private final NamedParameterJdbcTemplate jdbcTemplate;
 
-	@Override
 	public UserSummary findUserSummary(
 		LocalDateTime todayStartInclusive,
 		LocalDateTime tomorrowStartExclusive
@@ -115,7 +113,6 @@ public class HomeQueryRepositoryAdapter implements HomeQueryRepository {
 		);
 	}
 
-	@Override
 	public long findMonthlyTransactionAmount(
 		LocalDateTime startInclusive,
 		LocalDateTime endExclusive
@@ -128,7 +125,6 @@ public class HomeQueryRepositoryAdapter implements HomeQueryRepository {
 		return result == null ? 0L : result;
 	}
 
-	@Override
 	public List<DailyTransaction> findDailyTransactions(
 		LocalDateTime startInclusive,
 		LocalDateTime endExclusive
@@ -144,7 +140,6 @@ public class HomeQueryRepositoryAdapter implements HomeQueryRepository {
 		);
 	}
 
-	@Override
 	public SettlementSummary findPendingApprovalSettlementSummary() {
 		return jdbcTemplate.queryForObject(
 			SETTLEMENT_SUMMARY_SQL,
@@ -156,7 +151,6 @@ public class HomeQueryRepositoryAdapter implements HomeQueryRepository {
 		);
 	}
 
-	@Override
 	public PendingProductPreview findPendingProductPreview(int limit) {
 		Long totalCount = jdbcTemplate.queryForObject(PENDING_PRODUCT_COUNT_SQL, Map.of(), Long.class);
 		List<PendingProduct> items = jdbcTemplate.query(
@@ -191,5 +185,32 @@ public class HomeQueryRepositoryAdapter implements HomeQueryRepository {
 
 	private BigDecimal valueOrZero(BigDecimal value) {
 		return value == null ? BigDecimal.ZERO : value;
+	}
+
+	public record UserSummary(long totalUsers, long todayNewUsers) {
+	}
+
+	public record DailyTransaction(LocalDate date, long transactionCount, long transactionAmount) {
+	}
+
+	public record SettlementSummary(BigDecimal pendingApprovalAmount, long pendingApprovalCount) {
+	}
+
+	public record PendingProductPreview(long totalCount, List<PendingProduct> items) {
+		public PendingProductPreview {
+			items = List.copyOf(items);
+		}
+	}
+
+	public record PendingProduct(
+		UUID productId,
+		String title,
+		String sellerNickname,
+		String productType,
+		String model,
+		int amount,
+		String status,
+		LocalDateTime createdAt
+	) {
 	}
 }

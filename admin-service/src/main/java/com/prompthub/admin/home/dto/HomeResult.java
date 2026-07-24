@@ -1,4 +1,4 @@
-package com.prompthub.admin.home.application.dto;
+package com.prompthub.admin.home.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
