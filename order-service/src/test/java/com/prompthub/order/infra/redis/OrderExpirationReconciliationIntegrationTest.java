@@ -62,7 +62,7 @@ class OrderExpirationReconciliationIntegrationTest extends PostgreSqlIntegration
 	@Test
 	void databaseReconciliationFailsExpiredOrderWithoutPaymentEvent() {
 		Order order = orderRepository.saveAndFlush(createdOrder());
-		LocalDateTime timedOutAt = order.getCreatedAt().plusMinutes(20);
+		LocalDateTime timedOutAt = order.getCreatedAt().plusMinutes(20).plusSeconds(1);
 		Clock clock = Clock.fixed(
 			timedOutAt.atZone(ZoneId.of("Asia/Seoul")).toInstant(),
 			ZoneId.of("Asia/Seoul")
