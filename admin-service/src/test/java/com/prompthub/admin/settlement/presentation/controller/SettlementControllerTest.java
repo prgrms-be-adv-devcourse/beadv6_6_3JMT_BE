@@ -13,7 +13,7 @@ import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.global.exception.AdminException;
 import com.prompthub.admin.settlement.application.dto.SettlementListQuery;
 import com.prompthub.admin.settlement.application.dto.SettlementWeeklyListQuery;
-import com.prompthub.admin.settlement.application.usecase.SettlementUseCase;
+import com.prompthub.admin.settlement.application.service.SettlementApplicationService;
 import com.prompthub.admin.settlement.domain.exception.SettlementInvalidStateException;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementDetailResponse;
@@ -46,14 +46,14 @@ class SettlementControllerTest {
 	private MockMvc mockMvc;
 
 	@MockitoBean
-	private SettlementUseCase settlementUseCase;
+	private SettlementApplicationService settlementApplicationService;
 
 	private static final UUID SELLER_ID =
 		UUID.fromString("22222222-2222-2222-2222-222222222222");
 
 	@Test
 	void 어드민_월별목록은_v2경로와_기본20을_유지한다() throws Exception {
-		when(settlementUseCase.getList(any()))
+		when(settlementApplicationService.getList(any()))
 			.thenReturn(new SettlementListResponse(List.of(), 0L, 0, 20));
 
 		mockMvc.perform(get("/api/v2/admin/settlements")
@@ -66,7 +66,7 @@ class SettlementControllerTest {
 
 		ArgumentCaptor<SettlementListQuery> queryCaptor =
 			ArgumentCaptor.forClass(SettlementListQuery.class);
-		verify(settlementUseCase).getList(queryCaptor.capture());
+		verify(settlementApplicationService).getList(queryCaptor.capture());
 		assertThat(queryCaptor.getValue().settlementMonth())
 			.isEqualTo(YearMonth.of(2026, 7));
 		assertThat(queryCaptor.getValue().size()).isEqualTo(20);
@@ -74,7 +74,7 @@ class SettlementControllerTest {
 
 	@Test
 	void 어드민_주간목록은_상태와_월을_주간필터로_전달한다() throws Exception {
-		when(settlementUseCase.getWeeklyList(any()))
+		when(settlementApplicationService.getWeeklyList(any()))
 			.thenReturn(new SettlementWeeklyListResponse(List.of(), List.of(), 0L, 0, 20));
 
 		mockMvc.perform(get("/api/v2/admin/settlements/weeks")
@@ -87,7 +87,7 @@ class SettlementControllerTest {
 
 		ArgumentCaptor<SettlementWeeklyListQuery> queryCaptor =
 			ArgumentCaptor.forClass(SettlementWeeklyListQuery.class);
-		verify(settlementUseCase).getWeeklyList(queryCaptor.capture());
+		verify(settlementApplicationService).getWeeklyList(queryCaptor.capture());
 		assertThat(queryCaptor.getValue().status())
 			.isEqualTo(SettlementDisplayStatus.PAYOUT_REQUESTED);
 		assertThat(queryCaptor.getValue().settlementMonth())
@@ -97,7 +97,7 @@ class SettlementControllerTest {
 
 	@Test
 	void 어드민_판매자월_상세를_조회한다() throws Exception {
-		when(settlementUseCase.getDetail(SELLER_ID, YearMonth.of(2026, 7)))
+		when(settlementApplicationService.getDetail(SELLER_ID, YearMonth.of(2026, 7)))
 			.thenReturn(emptyDetail(SELLER_ID, "2026-07"));
 
 		mockMvc.perform(get(
@@ -117,7 +117,7 @@ class SettlementControllerTest {
 
 	@Test
 	void 어드민_summary는_선택월을_받는다() throws Exception {
-		when(settlementUseCase.getSummary(YearMonth.of(2026, 7)))
+		when(settlementApplicationService.getSummary(YearMonth.of(2026, 7)))
 			.thenReturn(new SettlementSummaryResponse(
 				List.of(new Card(SettlementDisplayStatus.WAITING.name(), BigDecimal.TEN, 4L))));
 
@@ -141,7 +141,7 @@ class SettlementControllerTest {
 	void 정산을_승인하면_변경된_표시상태를_내려준다() throws Exception {
 		UUID settlementId = UUID.randomUUID();
 		UUID actorId = UUID.randomUUID();
-		when(settlementUseCase.approve(settlementId))
+		when(settlementApplicationService.approve(settlementId))
 			.thenReturn(new SettlementStatusResponse(
 				settlementId,
 				SettlementDisplayStatus.APPROVED,
@@ -160,7 +160,7 @@ class SettlementControllerTest {
 	void 정산을_취소하면_취소된_표시상태를_내려준다() throws Exception {
 		UUID settlementId = UUID.randomUUID();
 		UUID actorId = UUID.randomUUID();
-		when(settlementUseCase.cancel(settlementId))
+		when(settlementApplicationService.cancel(settlementId))
 			.thenReturn(new SettlementResponse(
 				settlementId, UUID.randomUUID(), "CANCELLED", LocalDateTime.now()));
 
@@ -174,7 +174,7 @@ class SettlementControllerTest {
 	void 존재하지_않는_정산을_승인하면_404_를_내려준다() throws Exception {
 		UUID settlementId = UUID.randomUUID();
 		UUID actorId = UUID.randomUUID();
-		when(settlementUseCase.approve(settlementId))
+		when(settlementApplicationService.approve(settlementId))
 			.thenThrow(new AdminException(AdminErrorCode.SETTLEMENT_NOT_FOUND));
 
 		mockMvc.perform(patch("/api/v2/admin/settlements/{settlementId}/approve", settlementId)
@@ -187,7 +187,7 @@ class SettlementControllerTest {
 	void 전이_불가능한_상태에서_승인하면_409_를_내려준다() throws Exception {
 		UUID settlementId = UUID.randomUUID();
 		UUID actorId = UUID.randomUUID();
-		when(settlementUseCase.approve(settlementId))
+		when(settlementApplicationService.approve(settlementId))
 			.thenThrow(new SettlementInvalidStateException("approve", SettlementDisplayStatus.CANCELLED));
 
 		mockMvc.perform(patch("/api/v2/admin/settlements/{settlementId}/approve", settlementId)

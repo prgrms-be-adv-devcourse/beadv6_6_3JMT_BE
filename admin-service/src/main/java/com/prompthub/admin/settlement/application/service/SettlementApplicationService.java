@@ -5,7 +5,6 @@ import com.prompthub.admin.global.exception.AdminException;
 import com.prompthub.admin.settlement.application.dto.SettlementListQuery;
 import com.prompthub.admin.settlement.application.dto.SettlementWeeklyListQuery;
 import com.prompthub.admin.settlement.application.port.SellerNameQueryPort;
-import com.prompthub.admin.settlement.application.usecase.SettlementUseCase;
 import com.prompthub.admin.settlement.domain.model.Settlement;
 import com.prompthub.admin.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
@@ -43,7 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 @Slf4j
-public class SettlementApplicationService implements SettlementUseCase {
+public class SettlementApplicationService {
 
 	private static final List<SettlementDisplayStatus> CARD_ORDER = List.of(
 		SettlementDisplayStatus.WAITING,
@@ -59,7 +58,6 @@ public class SettlementApplicationService implements SettlementUseCase {
 	private final SettlementRepository settlementRepository;
 	private final SettlementSourceRepository settlementSourceRepository;
 
-	@Override
 	public SettlementListResponse getList(SettlementListQuery query) {
 		MonthlyPage page = monthlyQueryRepository.findMonthlyPage(
 			query.status(), query.settlementMonth(), query.page(), query.size());
@@ -81,7 +79,6 @@ public class SettlementApplicationService implements SettlementUseCase {
 			page, counts, sellerNames, query.page(), query.size());
 	}
 
-	@Override
 	public SettlementWeeklyListResponse getWeeklyList(SettlementWeeklyListQuery query) {
 		WeeklyPage page = weeklyQueryRepository.findWeeklyPage(
 			query.status(), query.settlementMonth(), query.page(), query.size());
@@ -101,7 +98,6 @@ public class SettlementApplicationService implements SettlementUseCase {
 			query.page(), query.size());
 	}
 
-	@Override
 	public SettlementDetailResponse getDetail(
 		UUID sellerId, YearMonth settlementMonth) {
 		MonthlyAggregate aggregate = monthlyQueryRepository
@@ -122,7 +118,6 @@ public class SettlementApplicationService implements SettlementUseCase {
 			aggregate, counts, weeklySettlements, sellerName);
 	}
 
-	@Override
 	public SettlementSummaryResponse getSummary(YearMonth settlementMonth) {
 		Map<SettlementDisplayStatus, BigDecimal> amountByCard = new EnumMap<>(SettlementDisplayStatus.class);
 		Map<SettlementDisplayStatus, Long> countByCard = new EnumMap<>(SettlementDisplayStatus.class);
@@ -147,7 +142,6 @@ public class SettlementApplicationService implements SettlementUseCase {
 		return new SettlementSummaryResponse(cards);
 	}
 
-	@Override
 	@Transactional
 	public SettlementStatusResponse approve(UUID settlementId) {
 		Settlement settlement = findSettlement(settlementId);
@@ -156,7 +150,6 @@ public class SettlementApplicationService implements SettlementUseCase {
 		return SettlementStatusResponse.from(settlement);
 	}
 
-	@Override
 	@Transactional
 	public SettlementStatusResponse hold(UUID settlementId) {
 		Settlement settlement = findSettlement(settlementId);
@@ -165,7 +158,6 @@ public class SettlementApplicationService implements SettlementUseCase {
 		return SettlementStatusResponse.from(settlement);
 	}
 
-	@Override
 	@Transactional
 	public SettlementStatusResponse releaseHold(UUID settlementId) {
 		Settlement settlement = findSettlement(settlementId);
@@ -174,7 +166,6 @@ public class SettlementApplicationService implements SettlementUseCase {
 		return SettlementStatusResponse.from(settlement);
 	}
 
-	@Override
 	@Transactional
 	public SettlementStatusResponse payout(UUID settlementId) {
 		Settlement settlement = findSettlement(settlementId);
@@ -183,7 +174,6 @@ public class SettlementApplicationService implements SettlementUseCase {
 		return SettlementStatusResponse.from(settlement);
 	}
 
-	@Override
 	@Transactional
 	public SettlementStatusResponse payoutHold(UUID settlementId) {
 		Settlement settlement = findSettlement(settlementId);
@@ -192,7 +182,6 @@ public class SettlementApplicationService implements SettlementUseCase {
 		return SettlementStatusResponse.from(settlement);
 	}
 
-	@Override
 	@Transactional
 	public SettlementStatusResponse releasePayoutHold(UUID settlementId) {
 		Settlement settlement = findSettlement(settlementId);
@@ -201,7 +190,6 @@ public class SettlementApplicationService implements SettlementUseCase {
 		return SettlementStatusResponse.from(settlement);
 	}
 
-	@Override
 	@Transactional
 	public SettlementResponse cancel(UUID settlementId) {
 		Settlement settlement = findSettlement(settlementId);

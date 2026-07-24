@@ -2,7 +2,7 @@ package com.prompthub.admin.settlement.presentation.controller;
 
 import com.prompthub.admin.settlement.application.dto.SettlementListQuery;
 import com.prompthub.admin.settlement.application.dto.SettlementWeeklyListQuery;
-import com.prompthub.admin.settlement.application.usecase.SettlementUseCase;
+import com.prompthub.admin.settlement.application.service.SettlementApplicationService;
 import com.prompthub.admin.settlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementDetailResponse;
 import com.prompthub.admin.settlement.presentation.dto.response.SettlementListResponse;
@@ -44,7 +44,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 public class SettlementController {
 
-	private final SettlementUseCase settlementUseCase;
+	private final SettlementApplicationService settlementApplicationService;
 
 	@GetMapping("/summary")
 	@Operation(summary = "정산 요약 카드 조회",
@@ -64,7 +64,7 @@ public class SettlementController {
 		@RequestParam(required = false)
 		@DateTimeFormat(pattern = "yyyy-MM") YearMonth settlementMonth
 	) {
-		return ApiResult.success(settlementUseCase.getSummary(settlementMonth));
+		return ApiResult.success(settlementApplicationService.getSummary(settlementMonth));
 	}
 
 	@GetMapping
@@ -91,7 +91,7 @@ public class SettlementController {
 		@Parameter(description = "페이지 크기")
 		@RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
 	) {
-		return ApiResult.success(settlementUseCase.getList(
+		return ApiResult.success(settlementApplicationService.getList(
 			new SettlementListQuery(status, settlementMonth, page, size)));
 	}
 
@@ -119,7 +119,7 @@ public class SettlementController {
 		@Parameter(description = "페이지 크기")
 		@RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
 	) {
-		return ApiResult.success(settlementUseCase.getWeeklyList(
+		return ApiResult.success(settlementApplicationService.getWeeklyList(
 			new SettlementWeeklyListQuery(status, settlementMonth, page, size)));
 	}
 
@@ -144,7 +144,7 @@ public class SettlementController {
 		@PathVariable @DateTimeFormat(pattern = "yyyy-MM") YearMonth settlementMonth
 	) {
 		return ApiResult.success(
-			settlementUseCase.getDetail(sellerId, settlementMonth));
+			settlementApplicationService.getDetail(sellerId, settlementMonth));
 	}
 
 	@PatchMapping("/{settlementId}/approve")
@@ -166,7 +166,7 @@ public class SettlementController {
 		@Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId,
 		@Parameter(description = "요청 수행자 ID(UUID)", in = ParameterIn.HEADER) @RequestHeader("X-User-Id") UUID actorId) {
 		log.info("정산 승인 요청 - settlementId={}, actorId={}", settlementId, actorId);
-		return ApiResult.success(settlementUseCase.approve(settlementId));
+		return ApiResult.success(settlementApplicationService.approve(settlementId));
 	}
 
 	@PatchMapping("/{settlementId}/hold")
@@ -188,7 +188,7 @@ public class SettlementController {
 		@Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId,
 		@Parameter(description = "요청 수행자 ID(UUID)", in = ParameterIn.HEADER) @RequestHeader("X-User-Id") UUID actorId) {
 		log.info("정산 승인 보류 요청 - settlementId={}, actorId={}", settlementId, actorId);
-		return ApiResult.success(settlementUseCase.hold(settlementId));
+		return ApiResult.success(settlementApplicationService.hold(settlementId));
 	}
 
 	@PatchMapping("/{settlementId}/release-hold")
@@ -210,7 +210,7 @@ public class SettlementController {
 		@Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId,
 		@Parameter(description = "요청 수행자 ID(UUID)", in = ParameterIn.HEADER) @RequestHeader("X-User-Id") UUID actorId) {
 		log.info("정산 승인 보류 해제 요청 - settlementId={}, actorId={}", settlementId, actorId);
-		return ApiResult.success(settlementUseCase.releaseHold(settlementId));
+		return ApiResult.success(settlementApplicationService.releaseHold(settlementId));
 	}
 
 	@PatchMapping("/{settlementId}/payout")
@@ -232,7 +232,7 @@ public class SettlementController {
 		@Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId,
 		@Parameter(description = "요청 수행자 ID(UUID)", in = ParameterIn.HEADER) @RequestHeader("X-User-Id") UUID actorId) {
 		log.info("정산 지급 요청 - settlementId={}, actorId={}", settlementId, actorId);
-		return ApiResult.success(settlementUseCase.payout(settlementId));
+		return ApiResult.success(settlementApplicationService.payout(settlementId));
 	}
 
 	@PatchMapping("/{settlementId}/payout-hold")
@@ -254,7 +254,7 @@ public class SettlementController {
 		@Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId,
 		@Parameter(description = "요청 수행자 ID(UUID)", in = ParameterIn.HEADER) @RequestHeader("X-User-Id") UUID actorId) {
 		log.info("정산 지급 보류 요청 - settlementId={}, actorId={}", settlementId, actorId);
-		return ApiResult.success(settlementUseCase.payoutHold(settlementId));
+		return ApiResult.success(settlementApplicationService.payoutHold(settlementId));
 	}
 
 	@PatchMapping("/{settlementId}/payout-hold/release")
@@ -276,7 +276,7 @@ public class SettlementController {
 		@Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId,
 		@Parameter(description = "요청 수행자 ID(UUID)", in = ParameterIn.HEADER) @RequestHeader("X-User-Id") UUID actorId) {
 		log.info("정산 지급 보류 해제 요청 - settlementId={}, actorId={}", settlementId, actorId);
-		return ApiResult.success(settlementUseCase.releasePayoutHold(settlementId));
+		return ApiResult.success(settlementApplicationService.releasePayoutHold(settlementId));
 	}
 
 	@PatchMapping("/{settlementId}/cancel")
@@ -298,6 +298,6 @@ public class SettlementController {
 		@Parameter(description = "정산 ID(UUID)") @PathVariable UUID settlementId,
 		@Parameter(description = "요청 수행자 ID(UUID)", in = ParameterIn.HEADER) @RequestHeader("X-User-Id") UUID actorId) {
 		log.info("정산 취소 요청 - settlementId={}, actorId={}", settlementId, actorId);
-		return ApiResult.success(settlementUseCase.cancel(settlementId));
+		return ApiResult.success(settlementApplicationService.cancel(settlementId));
 	}
 }
