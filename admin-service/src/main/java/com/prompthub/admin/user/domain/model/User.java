@@ -23,8 +23,8 @@ import java.util.UUID;
 /**
  * user-service 소유 "user" 테이블(+ user_role)의 읽기+쓰기 재매핑. 어드민
  * 액션(목록/통계/상태변경/판매자 승인 시 역할 부여)이 실제로 참조하는
- * 컬럼만 매핑한다 — profile_image_url·terms_agreed는 이 엔드포인트들이
- * 안 써서 매핑하지 않았다. PK 컬럼명은 실제 DDL 기준 "id"(user_role의
+ * 컬럼만 매핑한다 — terms_agreed는 이 엔드포인트들이 안 써서 매핑하지 않았다.
+ * PK 컬럼명은 실제 DDL 기준 "id"(user_role의
  * FK 컬럼명은 "user_id"라 헷갈리기 쉬우니 주의).
  * 상태·역할 규칙의 소유자는 user-service User — 불변식이 바뀌면 같이 맞춘다.
  */
@@ -43,6 +43,9 @@ public class User extends BaseEntity {
 
 	@Column(name = "email", nullable = false, length = 255, unique = true)
 	private String email;
+
+	@Column(name = "profile_image_url", length = 500)
+	private String profileImageUrl;
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "status", nullable = false, length = 20)
