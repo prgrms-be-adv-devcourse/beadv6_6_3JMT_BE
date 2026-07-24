@@ -13,6 +13,7 @@ import co.elastic.clients.elasticsearch.core.SearchRequest;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 /**
@@ -31,8 +32,7 @@ public class ProductSearchQueryBuilder {
 
 	private final SearchRankingProperties rankingProperties;
 
-	public SearchRequest build(String keyword, String productType, String sort, int page, int size) {
-		int from = Math.max(page, 0) * size;
+	public SearchRequest build(String keyword, String productType, String sort, Pageable pageable) {
 		Query query = buildQuery(keyword, productType, sort);
 		List<SortOptions> sortOptions = buildSort(sort);
 
@@ -40,8 +40,8 @@ public class ProductSearchQueryBuilder {
 			.index(ProductIndexBootstrap.ALIAS)
 			.query(query)
 			.sort(sortOptions)
-			.from(from)
-			.size(size)
+			.from((int) pageable.getOffset())
+			.size(pageable.getPageSize())
 			.trackTotalHits(t -> t.enabled(true)));
 	}
 

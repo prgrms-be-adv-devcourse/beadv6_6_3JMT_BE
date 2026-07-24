@@ -29,6 +29,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -36,7 +37,6 @@ import static com.prompthub.product.support.ProductContentFixtures.promptContent
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.doReturn;
@@ -67,7 +67,7 @@ class ProductQueryServiceTest {
 		productQueryService = new ProductQueryService(
 			productRepository, storageClient, new ProductFamilyResolver(productRepository), productSearchQueryService);
 		// getProducts를 호출하지 않는 테스트에서는 불필요한 스텁 경고를 피하기 위해 lenient 처리.
-		lenient().when(productSearchQueryService.search(any(), any(), any(), anyInt(), anyInt()))
+		lenient().when(productSearchQueryService.search(any(), any(), any(), any()))
 			.thenThrow(new IllegalStateException("테스트 기본값: ES 실패 가정, RDB 폴백 경로를 검증한다"));
 	}
 
@@ -146,7 +146,7 @@ class ProductQueryServiceTest {
 			// 기본 스텁(@BeforeEach)이 이미 예외를 던지도록 설정돼 있어, given(mock.method())처럼
 			// 먼저 실제 호출을 평가하는 방식은 그 예외를 즉시 트리거한다 — doReturn으로 덮어쓴다.
 			doReturn(new ProductSearchPageResult(List.of(hit), 1))
-				.when(productSearchQueryService).search("es검색어", "PROMPT", "popular", 0, 20);
+				.when(productSearchQueryService).search("es검색어", "PROMPT", "popular", PageRequest.of(0, 20));
 			given(storageClient.generatePresignedDownloadUrl("products/thumb.jpg"))
 				.willReturn("https://s3/presigned");
 

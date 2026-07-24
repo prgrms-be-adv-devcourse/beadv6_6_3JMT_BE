@@ -10,6 +10,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageRequest;
 
 class ProductSearchQueryBuilderTest {
 
@@ -89,7 +90,7 @@ class ProductSearchQueryBuilderTest {
 
 	@Test
 	void build_page와_size로_from을_계산하고_trackTotalHits를_켠다() {
-		SearchRequest request = queryBuilder.build("", "all", "popular", 3, 10);
+		SearchRequest request = queryBuilder.build("", "all", "popular", PageRequest.of(3, 10));
 
 		assertThat(request.index()).containsExactly(ProductIndexBootstrap.ALIAS);
 		assertThat(request.from()).isEqualTo(30);

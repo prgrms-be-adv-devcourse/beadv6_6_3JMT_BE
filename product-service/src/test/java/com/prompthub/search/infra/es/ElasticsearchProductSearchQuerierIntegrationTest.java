@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 
 class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchIntegrationTestSupport {
 
@@ -42,7 +43,7 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 		index(high, 0, 0, 4.5);
 		refresh();
 
-		ProductSearchPageResult result = querier().search("", "all", "rating", 0, 20);
+		ProductSearchPageResult result = querier().search("", "all", "rating", PageRequest.of(0, 20));
 
 		List<UUID> orderedIds = result.hits().stream().filter(h -> h.productId().equals(low.getId()) || h.productId().equals(high.getId()))
 			.map(ProductSearchHit::productId).toList();
@@ -57,7 +58,7 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 		index(expensive, 0, 0, 0);
 		refresh();
 
-		ProductSearchPageResult result = querier().search("", "all", "price-asc", 0, 20);
+		ProductSearchPageResult result = querier().search("", "all", "price-asc", PageRequest.of(0, 20));
 
 		List<UUID> orderedIds = result.hits().stream()
 			.filter(h -> h.productId().equals(cheap.getId()) || h.productId().equals(expensive.getId()))
@@ -73,7 +74,7 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 		index(banana, 0, 0, 0);
 		refresh();
 
-		ProductSearchPageResult result = querier().search("사과", "all", "popular", 0, 20);
+		ProductSearchPageResult result = querier().search("사과", "all", "popular", PageRequest.of(0, 20));
 
 		assertThat(result.hits()).extracting(ProductSearchHit::productId).contains(apple.getId());
 		assertThat(result.hits()).extracting(ProductSearchHit::productId).doesNotContain(banana.getId());
@@ -87,7 +88,7 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 		index(notion, 0, 0, 0);
 		refresh();
 
-		ProductSearchPageResult result = querier().search("", "PROMPT", "popular", 0, 20);
+		ProductSearchPageResult result = querier().search("", "PROMPT", "popular", PageRequest.of(0, 20));
 
 		assertThat(result.hits()).extracting(ProductSearchHit::productId).contains(prompt.getId());
 		assertThat(result.hits()).extracting(ProductSearchHit::productId).doesNotContain(notion.getId());
@@ -112,7 +113,7 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 		List<UUID> collected = new ArrayList<>();
 		long total = -1;
 		for (int page = 0; page < 3; page++) {
-			ProductSearchPageResult result = querier().search(uniqueKeyword, "all", "price-asc", page, 2);
+			ProductSearchPageResult result = querier().search(uniqueKeyword, "all", "price-asc", PageRequest.of(page, 2));
 			total = result.total();
 			collected.addAll(result.hits().stream().map(ProductSearchHit::productId).toList());
 		}

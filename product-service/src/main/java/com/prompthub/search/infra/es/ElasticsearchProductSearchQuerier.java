@@ -9,6 +9,7 @@ import com.prompthub.search.application.ProductSearchQueryService;
 import java.io.IOException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -19,8 +20,8 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryServ
 	private final ProductSearchQueryBuilder queryBuilder;
 
 	@Override
-	public ProductSearchPageResult search(String keyword, String productType, String sort, int page, int size) {
-		SearchRequest request = queryBuilder.build(keyword, productType, sort, page, size);
+	public ProductSearchPageResult search(String keyword, String productType, String sort, Pageable pageable) {
+		SearchRequest request = queryBuilder.build(keyword, productType, sort, pageable);
 		try {
 			SearchResponse<ProductSearchDocument> response = client.search(request, ProductSearchDocument.class);
 			List<ProductSearchHit> hits = response.hits().hits().stream()

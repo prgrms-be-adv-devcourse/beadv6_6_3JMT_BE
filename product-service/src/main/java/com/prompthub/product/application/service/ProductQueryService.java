@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,46 +52,40 @@ public class ProductQueryService implements ProductQueryUseCase {
 		int page,
 		int size
 	) {
-		int normalizedPage = normalizePage(page);
-		int normalizedSize = normalizePositive(size);
 		String keyword = normalizeKeyword(q);
 		String selectedProductType = normalizeProductType(productType);
 		String selectedSort = normalizeSort(sort);
+		Pageable pageable = PageRequest.of(normalizePage(page), normalizePositive(size));
 
 		try {
-			return searchViaElasticsearch(keyword, selectedProductType, selectedSort, normalizedPage, normalizedSize);
+			return searchViaElasticsearch(keyword, selectedProductType, selectedSort, pageable);
 		} catch (RuntimeException e) {
 			log.warn("ES 조회에 실패해 RDB로 폴백합니다.", e);
-			return searchViaRdb(keyword, selectedProductType, selectedSort, normalizedPage, normalizedSize);
+			return searchViaRdb(keyword, selectedProductType, selectedSort, pageable);
 		}
 	}
 
 	private PageResponse<ProductListItemResponse> searchViaElasticsearch(
-		String keyword, String productType, String sort, int page, int size
+		String keyword, String productType, String sort, Pageable pageable
 	) {
-		ProductSearchPageResult result = productSearchQueryService.search(keyword, productType, sort, page, size);
-		boolean hasNext = (long) page * size + result.hits().size() < result.total();
+		ProductSearchPageResult result = productSearchQueryService.search(keyword, productType, sort, pageable);
+		boolean hasNext = pageable.getOffset() + result.hits().size() < result.total();
 
 		return PageResponse.success(
 			result.hits().stream().map(this::toListItemResponse).toList(),
-			page,
-			size,
+			pageable.getPageNumber(),
+			pageable.getPageSize(),
 			result.total(),
 			hasNext
 		);
 	}
 
 	private PageResponse<ProductListItemResponse> searchViaRdb(
-		String keyword, String productType, String sort, int page, int size
+		String keyword, String productType, String sort, Pageable pageable
 	) {
-		List<ProductListProjection> products = productRepository.findPublicProducts(
-			keyword,
-			productType,
-			sort,
-			PageRequest.of(page, size)
-		);
+		List<ProductListProjection> products = productRepository.findPublicProducts(keyword, productType, sort, pageable);
 		long total = productRepository.countPublicProducts(keyword, productType);
-		boolean hasNext = (long) page * size + products.size() < total;
+		boolean hasNext = pageable.getOffset() + products.size() < total;
 
 		Map<UUID, List<String>> tagsByProductId = productRepository
 			.findAllByIdIn(products.stream().map(ProductListProjection::id).toList())
@@ -101,8 +96,8 @@ public class ProductQueryService implements ProductQueryUseCase {
 			products.stream()
 				.map(p -> toListItemResponse(p, tagsByProductId.getOrDefault(p.id(), List.of())))
 				.toList(),
-			page,
-			size,
+			pageable.getPageNumber(),
+			pageable.getPageSize(),
 			total,
 			hasNext
 		);
