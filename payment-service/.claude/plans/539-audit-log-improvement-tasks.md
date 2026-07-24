@@ -37,7 +37,7 @@
 
 이 태스크는 `Refund.fail(...)`을 2-인자에서 3-인자로 바꾼다. 이 메서드를 호출하는 모든 파일(`RefundService`, 4개 테스트 파일)을 같은 커밋에서 함께 고쳐야 컴파일이 유지된다.
 
-- [ ] **Step 1: 실패 코드 포함 라운드트립 실패 테스트 작성**
+- [x] **Step 1: 실패 코드 포함 라운드트립 실패 테스트 작성**
 
 `RefundJpaRepositoryTest.java`의 기존 테스트를 아래로 교체한다(`refund.fail(...)` 호출이 아직 2-인자라 컴파일이 깨지는 게 정상):
 
@@ -62,12 +62,12 @@
     }
 ```
 
-- [ ] **Step 2: 컴파일 실패로 테스트가 실패하는 것을 확인**
+- [x] **Step 2: 컴파일 실패로 테스트가 실패하는 것을 확인**
 
 Run: `JAVA_HOME=/Users/anjinpyo/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:compileTestJava`
 Expected: FAIL — `cannot find symbol: method fail(String,String,OffsetDateTime)` (2-인자 `fail`만 존재)
 
-- [ ] **Step 3: 마이그레이션 작성**
+- [x] **Step 3: 마이그레이션 작성**
 
 `src/main/resources/db/migration/V10__add_refund_failure_code.sql`:
 
@@ -77,7 +77,7 @@ Expected: FAIL — `cannot find symbol: method fail(String,String,OffsetDateTime
 ALTER TABLE refund ADD COLUMN failure_code varchar(50);
 ```
 
-- [ ] **Step 4: Refund 엔티티에 failure_code 필드 추가 및 fail() 시그니처 변경**
+- [x] **Step 4: Refund 엔티티에 failure_code 필드 추가 및 fail() 시그니처 변경**
 
 `Refund.java`에 필드 추가(`failureReason` 필드 바로 아래):
 
@@ -101,7 +101,7 @@ ALTER TABLE refund ADD COLUMN failure_code varchar(50);
     }
 ```
 
-- [ ] **Step 5: RefundService 호출부 갱신 — 실패 코드 채우기**
+- [x] **Step 5: RefundService 호출부 갱신 — 실패 코드 채우기**
 
 `RefundService.java`에 클래스 상수 추가:
 
@@ -130,7 +130,7 @@ ALTER TABLE refund ADD COLUMN failure_code varchar(50);
 
 (이 시점엔 `PaymentRefundFailedEvent`가 아직 3-인자다 — Task 2에서 2-인자로 축소한다. 여기선 기존 3-인자 생성자 호출을 그대로 유지한다.)
 
-- [ ] **Step 6: 나머지 호출부(테스트) 시그니처 갱신**
+- [x] **Step 6: 나머지 호출부(테스트) 시그니처 갱신**
 
 `RefundServiceTest.java` — `누적_환불액_초과_시_예외_없이_FAILED_row_생성_및_실패_이벤트_발행` 테스트의 기존 단언 블록 뒤에 추가:
 
@@ -158,12 +158,12 @@ ALTER TABLE refund ADD COLUMN failure_code varchar(50);
         refund.fail("CANCEL_FAILED", "PG 오류", OffsetDateTime.now());
 ```
 
-- [ ] **Step 7: 테스트 통과 확인**
+- [x] **Step 7: 테스트 통과 확인**
 
 Run: `JAVA_HOME=/Users/anjinpyo/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.persistence.RefundJpaRepositoryTest" --tests "com.prompthub.payment.application.service.RefundServiceTest" --tests "com.prompthub.payment.infrastructure.messaging.KafkaPaymentEventPublisherTest" --tests "com.prompthub.payment.infrastructure.persistence.AuditLogEventListenerTest"`
 Expected: PASS (전체 GREEN)
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/main/resources/db/migration/V10__add_refund_failure_code.sql \
@@ -208,7 +208,7 @@ EOF
 
 `AuditEventType`을 리네이밍하는 태스크라 `AuditLog`/`AuditLogEventListener`/관련 테스트를 한 번에 갱신해야 컴파일이 유지된다. `forPaymentRequested`/`PAYMENT_REQUESTED` 관련 프로덕션 코드는 Task 3에서 추가한다 — 이 태스크에서는 enum 값만 먼저 정의해둔다(CHECK 제약과 함께 6종을 한 번에 맞추기 위함).
 
-- [ ] **Step 1: 실패하는 테스트 작성 — order_id/failure_code 포함 라운드트립 + REFUND_REQUESTED 동반 저장**
+- [x] **Step 1: 실패하는 테스트 작성 — order_id/failure_code 포함 라운드트립 + REFUND_REQUESTED 동반 저장**
 
 `AuditLogJpaRepositoryTest.java` 전체를 아래로 교체:
 
@@ -416,12 +416,12 @@ class AuditLogEventListenerTest {
 }
 ```
 
-- [ ] **Step 2: 컴파일 실패 확인**
+- [x] **Step 2: 컴파일 실패 확인**
 
 Run: `JAVA_HOME=/Users/anjinpyo/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:compileTestJava`
 Expected: FAIL — `getOrderId()`/`getFailureCode()` 심볼 없음, `forRefundFailed` 심볼 없음, `REFUND_REQUESTED` 등 enum 상수 없음
 
-- [ ] **Step 3: 마이그레이션 작성**
+- [x] **Step 3: 마이그레이션 작성**
 
 `src/main/resources/db/migration/V11__extend_audit_log_order_and_failure_code.sql`:
 
@@ -457,7 +457,7 @@ ALTER TABLE audit_log ADD CONSTRAINT audit_log_event_type_check
 CREATE INDEX idx_audit_log_order ON audit_log (order_id);
 ```
 
-- [ ] **Step 4: AuditEventType 재정의**
+- [x] **Step 4: AuditEventType 재정의**
 
 `AuditEventType.java` 전체 교체:
 
@@ -474,7 +474,7 @@ public enum AuditEventType {
 }
 ```
 
-- [ ] **Step 5: AuditLog 엔티티/팩토리 재구성**
+- [x] **Step 5: AuditLog 엔티티/팩토리 재구성**
 
 `AuditLog.java` 전체 교체(`forPaymentRequested`는 Task 3에서 추가):
 
@@ -599,7 +599,7 @@ public class AuditLog {
 }
 ```
 
-- [ ] **Step 6: PaymentRefundFailedEvent 파라미터 축소**
+- [x] **Step 6: PaymentRefundFailedEvent 파라미터 축소**
 
 `PaymentRefundFailedEvent.java` 전체 교체:
 
@@ -639,7 +639,7 @@ public record PaymentRefundFailedEvent(Payment payment, Refund refund) {}
         assertThat(eventCaptor.getValue().refund().getFailureReason()).isEqualTo("환불 실패");
 ```
 
-- [ ] **Step 7: AuditLogEventListener 갱신 — 환불 이벤트당 2건 저장**
+- [x] **Step 7: AuditLogEventListener 갱신 — 환불 이벤트당 2건 저장**
 
 `AuditLogEventListener.java` 전체 교체(`PAYMENT_REQUESTED` 리스너는 Task 3에서 추가):
 
@@ -699,12 +699,12 @@ public class AuditLogEventListener {
 }
 ```
 
-- [ ] **Step 8: 테스트 통과 확인**
+- [x] **Step 8: 테스트 통과 확인**
 
 Run: `JAVA_HOME=/Users/anjinpyo/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.persistence.AuditLogJpaRepositoryTest" --tests "com.prompthub.payment.infrastructure.persistence.AuditLogEventListenerTest" --tests "com.prompthub.payment.infrastructure.messaging.KafkaPaymentEventPublisherTest" --tests "com.prompthub.payment.application.service.RefundServiceTest"`
 Expected: PASS (전체 GREEN)
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/main/resources/db/migration/V11__extend_audit_log_order_and_failure_code.sql \
@@ -752,7 +752,7 @@ EOF
 
 **⚠️ 중요 — Mockito 오버로드 함정:** `ApplicationEventPublisher`는 `publishEvent(Object)`와 `publishEvent(ApplicationEvent)` 두 오버로드를 갖는다. `PaymentRequestedEvent`/`PaymentApprovedEvent`/`PaymentFailedEvent` 등은 전부 `ApplicationEvent`를 상속하지 않는 순수 record라 실제로는 항상 `publishEvent(Object)` 오버로드로 호출된다. 그런데 테스트 코드에서 `verify(mock).publishEvent(any())`처럼 타입 파라미터 없이 쓰면, javac가 컴파일 시 **더 특수한** `publishEvent(ApplicationEvent)` 오버로드를 선택해버려 실제 호출(`publishEvent(Object)`)과 어긋난다. 기존 `ConfirmPaymentServiceTest`의 `verify(applicationEventPublisher, never()).publishEvent(any());` 두 곳이 바로 이 함정에 걸려 있었다 — 실제로는 `PaymentFailedEvent`가 발행되는데도 겉보기엔 "발행 안 됨"을 검증하는 것처럼 보이는 죽은 단언이었다. 이번 태스크에서 `ArgumentCaptor<Object>`로 명시적으로 캡처하는 방식으로 고쳐서, `PaymentRequestedEvent` 추가 후에도 실제 호출을 정확히 검증한다.
 
-- [ ] **Step 1: 실패하는 테스트 작성 — AuditLogEventListener의 PAYMENT_REQUESTED 처리**
+- [x] **Step 1: 실패하는 테스트 작성 — AuditLogEventListener의 PAYMENT_REQUESTED 처리**
 
 `AuditLogEventListenerTest.java`에 아래 테스트와 import를 추가한다(`import com.prompthub.payment.domain.event.PaymentRequestedEvent;` 추가):
 
@@ -779,12 +779,12 @@ EOF
     }
 ```
 
-- [ ] **Step 2: 컴파일 실패 확인**
+- [x] **Step 2: 컴파일 실패 확인**
 
 Run: `JAVA_HOME=/Users/anjinpyo/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:compileTestJava`
 Expected: FAIL — `PaymentRequestedEvent` 심볼 없음, `onPaymentRequested` 메서드 없음
 
-- [ ] **Step 3: PaymentRequestedEvent 생성**
+- [x] **Step 3: PaymentRequestedEvent 생성**
 
 `src/main/java/com/prompthub/payment/domain/event/PaymentRequestedEvent.java`:
 
@@ -796,7 +796,7 @@ import com.prompthub.payment.domain.model.Payment;
 public record PaymentRequestedEvent(Payment payment) {}
 ```
 
-- [ ] **Step 4: AuditLog.forPaymentRequested 팩토리 추가**
+- [x] **Step 4: AuditLog.forPaymentRequested 팩토리 추가**
 
 `AuditLog.java`의 `forPaymentApproved` 메서드 바로 위에 추가:
 
@@ -811,7 +811,7 @@ public record PaymentRequestedEvent(Payment payment) {}
 
 ```
 
-- [ ] **Step 5: AuditLogEventListener에 리스너 추가**
+- [x] **Step 5: AuditLogEventListener에 리스너 추가**
 
 `AuditLogEventListener.java` — import에 `com.prompthub.payment.domain.event.PaymentRequestedEvent;` 추가, `onPaymentApproved` 위에 추가:
 
@@ -823,7 +823,7 @@ public record PaymentRequestedEvent(Payment payment) {}
 
 ```
 
-- [ ] **Step 6: ConfirmPaymentService에서 TX1 커밋 직후 이벤트 발행**
+- [x] **Step 6: ConfirmPaymentService에서 TX1 커밋 직후 이벤트 발행**
 
 `ConfirmPaymentService.java` — import에 `com.prompthub.payment.domain.event.PaymentRequestedEvent;` 추가, TX1 블록 수정:
 
@@ -848,7 +848,7 @@ public record PaymentRequestedEvent(Payment payment) {}
         }
 ```
 
-- [ ] **Step 7: ConfirmPaymentServiceTest 갱신 — 오버로드 함정 수정 + PaymentRequestedEvent 검증**
+- [x] **Step 7: ConfirmPaymentServiceTest 갱신 — 오버로드 함정 수정 + PaymentRequestedEvent 검증**
 
 `ConfirmPaymentServiceTest.java` — import에 `com.prompthub.payment.domain.event.PaymentFailedEvent;`, `com.prompthub.payment.domain.event.PaymentRequestedEvent;`, `java.util.List` 추가.
 
@@ -889,17 +889,17 @@ public record PaymentRequestedEvent(Payment payment) {}
 
 (`금액_불일치_시_AMOUNT_MISMATCH_예외_및_결제시도_미기록` 테스트는 TX1 진입 전에 실패하므로 손대지 않는다 — 기존 `verify(applicationEventPublisher, never()).publishEvent(any());` 그대로 유효.)
 
-- [ ] **Step 8: 테스트 통과 확인**
+- [x] **Step 8: 테스트 통과 확인**
 
 Run: `JAVA_HOME=/Users/anjinpyo/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.persistence.AuditLogEventListenerTest" --tests "com.prompthub.payment.application.service.ConfirmPaymentServiceTest"`
 Expected: PASS (전체 GREEN)
 
-- [ ] **Step 9: 전체 테스트 스위트 실행(회귀 확인)**
+- [x] **Step 9: 전체 테스트 스위트 실행(회귀 확인)**
 
 Run: `JAVA_HOME=/Users/anjinpyo/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test`
 Expected: PASS (전체 GREEN) — Testcontainers 기반 통합 테스트(`ConfirmPaymentIntegrationTest`, `PartialRefundIntegrationTest` 등) 포함해 전부 통과해야 한다.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add src/main/java/com/prompthub/payment/domain/event/PaymentRequestedEvent.java \
@@ -933,7 +933,7 @@ EOF
 **Interfaces:**
 - Consumes: Task 1~3에서 확정된 최종 스키마(참고용, 코드 인터페이스 없음).
 
-- [ ] **Step 1: refund 테이블 섹션에 failure_code 행 추가**
+- [x] **Step 1: refund 테이블 섹션에 failure_code 행 추가**
 
 `refund` 테이블 표의 `failure_reason` 행 바로 위에 추가:
 
@@ -941,7 +941,7 @@ EOF
 | `failure_code` | VARCHAR(50) | — | NULL | PG사 환불 실패 코드 또는 내부 사유 코드(예: `REFUND_LIMIT_EXCEEDED`). `fail()` 호출 시에만 값 설정 |
 ```
 
-- [ ] **Step 2: audit_log 섹션 전체를 최신 스키마로 교체**
+- [x] **Step 2: audit_log 섹션 전체를 최신 스키마로 교체**
 
 `## audit_log 테이블` 섹션 전체를 아래로 교체:
 
@@ -976,7 +976,7 @@ EOF
 | `idx_audit_log_order` | (`order_id`) | CS 문의 등 주문 단위 조회 |
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add .claude/docs/db-schema.md
