@@ -1,6 +1,6 @@
 package com.prompthub.admin.user.application.service;
 
-import com.prompthub.admin.auth.application.usecase.SessionRevocationUseCase;
+import com.prompthub.admin.auth.application.service.SessionRevocationApplicationService;
 import com.prompthub.admin.auth.domain.repository.AuthorizationCacheRepository;
 import com.prompthub.admin.global.exception.AdminException;
 import com.prompthub.admin.user.application.dto.ChangeUserRoleCommand;
@@ -42,7 +42,7 @@ class UserApplicationServiceTest {
 	private AuthorizationCacheRepository authorizationCacheRepository;
 
 	@Mock
-	private SessionRevocationUseCase sessionRevocationUseCase;
+	private SessionRevocationApplicationService sessionRevocationApplicationService;
 
 	@InjectMocks
 	private UserApplicationService userApplicationService;
@@ -69,7 +69,7 @@ class UserApplicationServiceTest {
 			new ChangeUserStatusCommand(userId, UserStatus.WITHDRAWN));
 
 		assertThat(result.status()).isEqualTo(UserStatus.WITHDRAWN);
-		then(sessionRevocationUseCase).should().revoke(userId);
+		then(sessionRevocationApplicationService).should().revoke(userId);
 		then(authorizationCacheRepository).should(never()).evict(any());
 	}
 
@@ -83,7 +83,7 @@ class UserApplicationServiceTest {
 		userApplicationService.changeUserStatus(new ChangeUserStatusCommand(userId, UserStatus.BLOCKED));
 
 		then(authorizationCacheRepository).should().evict(userId);
-		then(sessionRevocationUseCase).should(never()).revoke(any());
+		then(sessionRevocationApplicationService).should(never()).revoke(any());
 	}
 
 	@Test

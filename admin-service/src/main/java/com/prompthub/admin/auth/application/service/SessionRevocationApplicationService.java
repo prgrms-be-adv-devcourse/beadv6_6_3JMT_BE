@@ -1,6 +1,5 @@
 package com.prompthub.admin.auth.application.service;
 
-import com.prompthub.admin.auth.application.usecase.SessionRevocationUseCase;
 import com.prompthub.admin.auth.domain.repository.AuthorizationCacheRepository;
 import com.prompthub.admin.auth.domain.repository.RefreshTokenRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,12 +10,11 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class SessionRevocationApplicationService implements SessionRevocationUseCase {
+public class SessionRevocationApplicationService {
 
 	private final RefreshTokenRepository refreshTokenRepository;
 	private final AuthorizationCacheRepository authorizationCacheRepository;
 
-	@Override
 	@Transactional
 	public void revoke(UUID userId) {
 		refreshTokenRepository.deleteByUserId(userId);

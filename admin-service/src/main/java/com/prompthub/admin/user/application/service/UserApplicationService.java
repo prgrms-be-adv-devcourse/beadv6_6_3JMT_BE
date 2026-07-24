@@ -1,6 +1,6 @@
 package com.prompthub.admin.user.application.service;
 
-import com.prompthub.admin.auth.application.usecase.SessionRevocationUseCase;
+import com.prompthub.admin.auth.application.service.SessionRevocationApplicationService;
 import com.prompthub.admin.auth.domain.repository.AuthorizationCacheRepository;
 import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.global.exception.AdminException;
@@ -31,7 +31,7 @@ public class UserApplicationService implements UserUseCase {
 
 	private final UserRepository userRepository;
 	private final AuthorizationCacheRepository authorizationCacheRepository;
-	private final SessionRevocationUseCase sessionRevocationUseCase;
+	private final SessionRevocationApplicationService sessionRevocationApplicationService;
 
 	@Override
 	public UserPageResult listUsers(UserListQuery query) {
@@ -60,7 +60,7 @@ public class UserApplicationService implements UserUseCase {
 
 		userRepository.save(user);
 		if (command.status() == UserStatus.WITHDRAWN) {
-			sessionRevocationUseCase.revoke(user.getUserId());
+			sessionRevocationApplicationService.revoke(user.getUserId());
 		} else {
 			authorizationCacheRepository.evict(user.getUserId());
 		}
