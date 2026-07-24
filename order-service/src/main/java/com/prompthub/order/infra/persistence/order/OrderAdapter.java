@@ -66,6 +66,11 @@ public class OrderAdapter implements OrderRepository {
 	}
 
 	@Override
+	public boolean isAccessiblePaidProductDownloaded(UUID buyerId, UUID productId) {
+		return orderPersistence.isAccessiblePaidProductDownloaded(buyerId, productId);
+	}
+
+	@Override
 	public boolean existsBlockingOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId) {
 		return orderPersistence.existsBlockingOrderProductByBuyerIdAndProductId(buyerId, productId);
 	}
