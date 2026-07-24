@@ -9,7 +9,7 @@ import java.util.UUID;
 public record CartProductResponse(
 	@Schema(description = "장바구니 상품 ID", example = "00000000-0000-0000-0000-000000000701")
 	UUID cartProductId,
-	@Schema(description = "상품 ID", example = "p1b55b60-5e84-4f3f-b4f1-6c10e1a22222")
+	@Schema(description = "상품 ID", example = "a1b55b60-5e84-4f3f-b4f1-6c10e1a22222")
 	UUID productId,
 	@Schema(description = "상품 제목", example = "면접 준비 프롬프트")
 	String productTitle,

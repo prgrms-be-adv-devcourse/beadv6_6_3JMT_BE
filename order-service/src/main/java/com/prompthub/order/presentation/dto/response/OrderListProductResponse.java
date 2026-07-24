@@ -19,13 +19,13 @@ public record OrderListProductResponse(
 	boolean isRefundable,
 	@Schema(description = "다운로드 여부", example = "false")
 	boolean downloaded,
-	@Schema(description = "상품 유형", example = "PROMPT", nullable = true)
+	@Schema(description = "상품 유형. 주문 목록 조회에서는 제공하지 않아 null", nullable = true)
 	String productType,
 	@Schema(description = "주문 시점 상품 제목", example = "면접 준비 프롬프트")
 	String title,
-	@Schema(description = "상품 모델명 또는 분류", example = "GPT-4.1", nullable = true)
+	@Schema(description = "상품 모델명 또는 분류. 주문 목록 조회에서는 제공하지 않아 null", nullable = true)
 	String model,
-	@Schema(description = "리뷰 평점. 리뷰가 없으면 null", example = "4.5", nullable = true)
+	@Schema(description = "리뷰 평점. 리뷰 기능을 제공하지 않아 null", nullable = true)
 	Double rating
 ) {
 }

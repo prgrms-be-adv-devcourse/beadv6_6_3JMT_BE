@@ -2,13 +2,15 @@ package com.prompthub.order.infra.persistence.order;
 
 import com.prompthub.order.domain.model.Order;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.Optional;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface OrderPersistence extends JpaRepository<Order, UUID>, OrderPersistenceCustom {
@@ -48,6 +50,35 @@ public interface OrderPersistence extends JpaRepository<Order, UUID>, OrderPersi
 	boolean existsAccessiblePaidOrderProductByBuyerIdAndProductId(
 		@Param("buyerId") UUID buyerId,
 		@Param("productId") UUID productId
+	);
+
+	@Query("""
+    select case when count(op) > 0 then true else false end
+    from Order o
+    join o.orderProducts op
+    where o.buyerId = :buyerId
+      and op.productId = :productId
+      and op.orderStatus in (
+        com.prompthub.order.domain.enums.OrderProductStatus.PENDING,
+        com.prompthub.order.domain.enums.OrderProductStatus.PAID,
+        com.prompthub.order.domain.enums.OrderProductStatus.REFUND_REQUESTED
+      )
+""")
+	boolean existsBlockingOrderProductByBuyerIdAndProductId(
+		@Param("buyerId") UUID buyerId,
+		@Param("productId") UUID productId
+	);
+
+	@Query("""
+    select o.id
+    from Order o
+    where o.orderStatus = com.prompthub.order.domain.enums.OrderStatus.CREATED
+      and o.createdAt <= :cutoff
+    order by o.createdAt asc
+""")
+	List<UUID> findExpiredCreatedOrderIds(
+		@Param("cutoff") LocalDateTime cutoff,
+		Pageable pageable
 	);
 
 	@Query("""

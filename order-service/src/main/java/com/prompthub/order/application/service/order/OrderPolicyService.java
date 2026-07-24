@@ -56,7 +56,10 @@ public class OrderPolicyService {
 		Set<UUID> requestedIds = new HashSet<>(requestedProductIds);
 		if (products.stream().anyMatch(product -> product == null
 			|| product.productId() == null
-			|| product.sellerId() == null)) {
+			|| product.sellerId() == null
+			|| product.title() == null
+			|| product.title().isBlank()
+			|| product.title().length() > MAX_PRODUCT_TITLE_LENGTH)) {
 			throw invalidInput();
 		}
 		OrderAmountCalculator.sum(products, ProductOrderSnapshot::amount);
