@@ -1,7 +1,7 @@
 package com.prompthub.admin.auth.application.service;
 
-import com.prompthub.admin.auth.domain.repository.AuthorizationCacheRepository;
-import com.prompthub.admin.auth.domain.repository.RefreshTokenRepository;
+import com.prompthub.admin.auth.infrastructure.persistence.RefreshTokenRepository;
+import com.prompthub.admin.auth.infrastructure.redis.AuthorizationCacheRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -40,5 +40,15 @@ class SessionRevocationApplicationServiceTest {
 		sessionRevocationService.revoke(userId);
 
 		then(authorizationCacheRepository).should().evict(userId);
+	}
+
+	@Test
+	void evictAuthorizationCache_RT는_건드리지_않고_인가캐시만_무효화한다() {
+		UUID userId = UUID.randomUUID();
+
+		sessionRevocationService.evictAuthorizationCache(userId);
+
+		then(authorizationCacheRepository).should().evict(userId);
+		then(refreshTokenRepository).shouldHaveNoInteractions();
 	}
 }

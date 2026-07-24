@@ -22,8 +22,8 @@ class RedisAuthorizationCacheAdapterTest {
 	@Mock
 	private StringRedisTemplate redisTemplate;
 
-	private RedisAuthorizationCacheAdapter adapter() {
-		return new RedisAuthorizationCacheAdapter(redisTemplate);
+	private AuthorizationCacheRepository adapter() {
+		return new AuthorizationCacheRepository(redisTemplate);
 	}
 
 	@Test

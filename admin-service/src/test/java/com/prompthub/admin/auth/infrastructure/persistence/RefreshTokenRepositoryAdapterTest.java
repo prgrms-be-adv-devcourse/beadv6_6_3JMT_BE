@@ -19,8 +19,8 @@ class RefreshTokenRepositoryAdapterTest {
 	@Mock
 	private StringRedisTemplate redisTemplate;
 
-	private RefreshTokenRepositoryAdapter adapter() {
-		return new RefreshTokenRepositoryAdapter(refreshTokenJpaRepository, redisTemplate);
+	private RefreshTokenRepository adapter() {
+		return new RefreshTokenRepository(refreshTokenJpaRepository, redisTemplate);
 	}
 
 	@Test

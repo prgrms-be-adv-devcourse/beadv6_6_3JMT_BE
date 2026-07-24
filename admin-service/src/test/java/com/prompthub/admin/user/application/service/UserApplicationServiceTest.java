@@ -1,7 +1,6 @@
 package com.prompthub.admin.user.application.service;
 
 import com.prompthub.admin.auth.application.service.SessionRevocationApplicationService;
-import com.prompthub.admin.auth.domain.repository.AuthorizationCacheRepository;
 import com.prompthub.admin.global.exception.AdminException;
 import com.prompthub.admin.user.application.dto.ChangeUserRoleCommand;
 import com.prompthub.admin.user.application.dto.ChangeUserStatusCommand;
@@ -39,9 +38,6 @@ class UserApplicationServiceTest {
 	private UserRepository userRepository;
 
 	@Mock
-	private AuthorizationCacheRepository authorizationCacheRepository;
-
-	@Mock
 	private SessionRevocationApplicationService sessionRevocationApplicationService;
 
 	@InjectMocks
@@ -70,7 +66,7 @@ class UserApplicationServiceTest {
 
 		assertThat(result.status()).isEqualTo(UserStatus.WITHDRAWN);
 		then(sessionRevocationApplicationService).should().revoke(userId);
-		then(authorizationCacheRepository).should(never()).evict(any());
+		then(sessionRevocationApplicationService).should(never()).evictAuthorizationCache(any());
 	}
 
 	@Test
@@ -82,7 +78,7 @@ class UserApplicationServiceTest {
 
 		userApplicationService.changeUserStatus(new ChangeUserStatusCommand(userId, UserStatus.BLOCKED));
 
-		then(authorizationCacheRepository).should().evict(userId);
+		then(sessionRevocationApplicationService).should().evictAuthorizationCache(userId);
 		then(sessionRevocationApplicationService).should(never()).revoke(any());
 	}
 
@@ -109,7 +105,7 @@ class UserApplicationServiceTest {
 
 		assertThat(result.role()).isEqualTo(UserRole.SELLER);
 		assertThat(user.getRoles()).contains(UserRole.BUYER, UserRole.SELLER);
-		then(authorizationCacheRepository).should().evict(userId);
+		then(sessionRevocationApplicationService).should().evictAuthorizationCache(userId);
 	}
 
 	@Test
