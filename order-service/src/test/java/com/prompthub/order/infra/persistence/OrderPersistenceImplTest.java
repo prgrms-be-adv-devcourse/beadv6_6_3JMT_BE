@@ -121,6 +121,20 @@ class OrderPersistenceImplTest {
 			.containsExactly(PRODUCT_ID_2);
 	}
 
+	@Test
+	@DisplayName("열람 가능한 구매 상품의 다운로드 여부를 반환한다")
+	void isAccessiblePaidProductDownloaded_returnsPersistedDownloadState() {
+		Order order = createPaidOrder("ORD-20260724-0001", LocalDateTime.of(2026, 7, 24, 10, 0), true);
+		order.getOrderProducts().getFirst().markDownloaded();
+		entityManager.persist(order);
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(orderPersistence.isAccessiblePaidProductDownloaded(BUYER_ID, PRODUCT_ID_1)).isTrue();
+		assertThat(orderPersistence.isAccessiblePaidProductDownloaded(BUYER_ID, PRODUCT_ID_2)).isFalse();
+		assertThat(orderPersistence.isAccessiblePaidProductDownloaded(UUID.randomUUID(), PRODUCT_ID_1)).isFalse();
+	}
+
 	private Order createPaidOrder(String orderNumber, LocalDateTime createdAt, boolean includeSecondProduct) {
 		Order order = Order.create(
 			BUYER_ID,

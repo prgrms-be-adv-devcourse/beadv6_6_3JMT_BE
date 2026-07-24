@@ -23,6 +23,8 @@ public interface OrderRepository {
 
 	boolean existsAccessiblePaidOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId);
 
+	boolean isAccessiblePaidProductDownloaded(UUID buyerId, UUID productId);
+
 	List<UUID> findAccessiblePaidProductIdsByBuyerId(UUID buyerId);
 
 	Page<OrderListProjection> searchOrders(
