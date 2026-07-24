@@ -126,6 +126,20 @@ class OrderPersistenceImplTest {
 	}
 
 	@Test
+	@DisplayName("열람 가능한 구매 상품의 다운로드 여부를 반환한다")
+	void isAccessiblePaidProductDownloaded_returnsPersistedDownloadState() {
+		Order order = createPaidOrder("ORD-20260724-0001", LocalDateTime.of(2026, 7, 24, 10, 0), true);
+		order.getOrderProducts().getFirst().markDownloaded();
+		entityManager.persist(order);
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(orderPersistence.isAccessiblePaidProductDownloaded(BUYER_ID, PRODUCT_ID_1)).isTrue();
+		assertThat(orderPersistence.isAccessiblePaidProductDownloaded(BUYER_ID, PRODUCT_ID_2)).isFalse();
+		assertThat(orderPersistence.isAccessiblePaidProductDownloaded(UUID.randomUUID(), PRODUCT_ID_1)).isFalse();
+	}
+
+	@Test
 	@DisplayName("결제 대기·완료·환불 요청 상품은 구매 차단 상태로 조회한다")
 	void existsBlockingOrderProduct_returnsTrueForPendingPaidAndRefundRequested() {
 		UUID pendingProduct = UUID.fromString("00000000-0000-0000-0000-000000000711");

@@ -4,6 +4,7 @@ import com.prompthub.payment.domain.event.PaymentApprovedEvent;
 import com.prompthub.payment.domain.event.PaymentFailedEvent;
 import com.prompthub.payment.domain.event.PaymentRefundFailedEvent;
 import com.prompthub.payment.domain.event.PaymentRefundedEvent;
+import com.prompthub.payment.domain.event.PaymentRequestedEvent;
 import com.prompthub.payment.domain.model.AuditLog;
 import com.prompthub.payment.domain.repository.AuditLogRepository;
 import java.util.UUID;
@@ -21,6 +22,11 @@ public class AuditLogEventListener {
     private final AuditLogRepository auditLogRepository;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onPaymentRequested(PaymentRequestedEvent event) {
+        save(AuditLog.forPaymentRequested(event.payment()), event.payment().getId());
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPaymentApproved(PaymentApprovedEvent event) {
         save(AuditLog.forPaymentApproved(event.payment()), event.payment().getId());
     }
@@ -32,15 +38,14 @@ public class AuditLogEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPaymentRefunded(PaymentRefundedEvent event) {
-        save(AuditLog.forPaymentRefunded(event.payment(), event.refund()), event.refund().getId());
+        save(AuditLog.forRefundRequested(event.payment(), event.refund()), event.refund().getId());
+        save(AuditLog.forRefundCompleted(event.payment(), event.refund()), event.refund().getId());
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPaymentRefundFailed(PaymentRefundFailedEvent event) {
-        save(
-            AuditLog.forPaymentRefundFailed(event.payment(), event.refund(), event.failureReason()),
-            event.refund().getId()
-        );
+        save(AuditLog.forRefundRequested(event.payment(), event.refund()), event.refund().getId());
+        save(AuditLog.forRefundFailed(event.payment(), event.refund()), event.refund().getId());
     }
 
     private void save(AuditLog auditLog, UUID entityId) {
