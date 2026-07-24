@@ -109,7 +109,7 @@ prompthub:
     max-retry-count: 3
   order:
     enabled: true
-    payment-timeout-minutes: 20
+    payment-timeout-minutes: 1
     product-idempotency-ttl-minutes: 30
     fixed-delay-ms: 5000
     batch-size: 100
