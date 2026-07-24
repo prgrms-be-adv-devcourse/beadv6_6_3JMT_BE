@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 설계 문서: `product-service/docs/plans/2026-07-13-presigned-put-upload-design.md`
+- 설계 문서: `docs/superpowers/specs/2026-07-13-presigned-put-upload-design.md` (로컬 보관 — git 미추적)
 - 이슈 #308, 브랜치 `feat/#306-product-type-fields`(A에서 이어서), PR/close는 A·B·C 완료 후 일괄
 - 버킷 private 유지. 업로드=presigned PUT, 읽기=기존 presigned GET
 - 발급 엔드포인트 통합 `POST /api/v2/sellers/me/products/uploads`, purpose∈{thumbnail,image,file}
