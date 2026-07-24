@@ -1,6 +1,7 @@
 package com.prompthub.product.infra.messaging.producer;
 
 import com.prompthub.common.event.EventMessage;
+import com.prompthub.product.infra.messaging.producer.event.ProductChangedPayload;
 import com.prompthub.product.infra.messaging.producer.event.ProductPriceChangedPayload;
 import com.prompthub.product.infra.messaging.producer.event.ProductStoppedPayload;
 import java.util.UUID;
@@ -90,6 +91,25 @@ class ProductEventProducerTest {
 			assertThat(payload.productId()).isEqualTo(PRODUCT_ID);
 			assertThat(payload.previousPrice()).isEqualTo(10000);
 			assertThat(payload.changedPrice()).isEqualTo(8000);
+		}
+	}
+
+	@Nested
+	@DisplayName("PRODUCT_CHANGED 이벤트 발행")
+	class PublishProductChanged {
+
+		@Test
+		@DisplayName("EventMessage 봉투로 감싸 familyRootId를 payload로 발행한다")
+		void publishProductChanged_sendsEnvelope() {
+			productEventProducer.publishProductChanged(PRODUCT_ID);
+
+			EventMessage<?> message = captureMessage();
+			assertThat(message.eventId()).isNotNull();
+			assertThat(message.eventType()).isEqualTo("PRODUCT_CHANGED");
+			assertThat(message.aggregateType()).isEqualTo("PRODUCT");
+			assertThat(message.aggregateId()).isEqualTo(PRODUCT_ID);
+			assertThat(message.payload()).isInstanceOf(ProductChangedPayload.class);
+			assertThat(((ProductChangedPayload) message.payload()).familyRootId()).isEqualTo(PRODUCT_ID);
 		}
 	}
 }
