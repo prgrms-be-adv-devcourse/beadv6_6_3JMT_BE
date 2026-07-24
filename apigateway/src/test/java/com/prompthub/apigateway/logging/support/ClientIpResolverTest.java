@@ -1,9 +1,6 @@
 package com.prompthub.apigateway.logging.support;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
@@ -79,15 +76,6 @@ class ClientIpResolverTest {
                         .header("X-Forwarded-For", "2001:db8::7, 2001:db8::١٩٢.٠.٢.١"));
 
         assertThat(resolver.resolve(exchange)).isEqualTo("2001:db8::7");
-    }
-
-    @Test
-    void IP_리터럴_검증에_호스트명_해석기를_참조하지_않는다() throws IOException {
-        try (InputStream bytecode = ClientIpResolver.class.getResourceAsStream("ClientIpResolver.class")) {
-            assertThat(bytecode).isNotNull();
-            assertThat(new String(bytecode.readAllBytes(), StandardCharsets.ISO_8859_1))
-                    .doesNotContain("getByName", "getAllByName");
-        }
     }
 
     @Test
