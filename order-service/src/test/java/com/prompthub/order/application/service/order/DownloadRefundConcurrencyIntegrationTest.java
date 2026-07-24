@@ -11,7 +11,7 @@ import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.infra.persistence.order.OrderPersistence;
-import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
+import com.prompthub.order.presentation.dto.response.ProductDownloadResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -86,7 +86,7 @@ class DownloadRefundConcurrencyIntegrationTest {
 			return new ProductContent(PRODUCT_A, "content");
 		});
 
-		Future<OrderProductDownloadResponse> downloadFuture = executor.submit(() ->
+		Future<ProductDownloadResponse> downloadFuture = executor.submit(() ->
 			confirmDownloadCommandHandler.confirmDownload(BUYER_ID, ORDER_A, ORDER_PRODUCT_A)
 		);
 		assertThat(downloadHoldingLock.await(WAIT_SECONDS, TimeUnit.SECONDS)).isTrue();
@@ -120,7 +120,7 @@ class DownloadRefundConcurrencyIntegrationTest {
 			orderRefundService.requestRefund(BUYER_ID, ORDER_A, List.of(ORDER_PRODUCT_A))
 		);
 		assertThat(refundHoldingLock.await(WAIT_SECONDS, TimeUnit.SECONDS)).isTrue();
-		Future<OrderProductDownloadResponse> downloadFuture = executor.submit(() ->
+		Future<ProductDownloadResponse> downloadFuture = executor.submit(() ->
 			confirmDownloadCommandHandler.confirmDownload(BUYER_ID, ORDER_A, ORDER_PRODUCT_A)
 		);
 		assertThat(downloadFuture.isDone()).isFalse();
