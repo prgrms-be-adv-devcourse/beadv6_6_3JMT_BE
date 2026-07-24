@@ -3,6 +3,8 @@ package com.prompthub.admin.product.application.service;
 import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.order.domain.model.SellerNickname;
 import com.prompthub.admin.order.infrastructure.persistence.SellerNicknameRepository;
+import com.prompthub.admin.product.application.dto.AdminProductListQuery;
+import com.prompthub.admin.product.application.dto.AdminProductPageResult;
 import com.prompthub.admin.product.application.usecase.ProductUseCase;
 import com.prompthub.admin.product.domain.exception.ProductException;
 import com.prompthub.admin.product.domain.model.entity.Product;
@@ -31,8 +33,37 @@ public class ProductService implements ProductUseCase {
 	@Override
 	@Transactional(readOnly = true)
 	public List<AdminProductListItemResponse> getPendingReviewProducts() {
-		List<Product> products = productRepository.findPendingReviewProducts();
+		return toListItemResponses(productRepository.findPendingReviewProducts());
+	}
 
+	@Override
+	@Transactional(readOnly = true)
+	public AdminProductPageResult listProducts(AdminProductListQuery query) {
+		String keyword = normalizeKeyword(query.keyword());
+		List<UUID> keywordSellerIds = keyword == null
+			? List.of()
+			: sellerNicknameRepository.findByNicknameContainingIgnoreCase(keyword).stream()
+				.map(SellerNickname::getSellerId)
+				.toList();
+
+		int zeroBasedPage = query.page() - 1;
+		List<Product> products = productRepository.findProducts(
+			query.status(), keyword, keywordSellerIds, zeroBasedPage, query.size());
+		long total = productRepository.countProducts(query.status(), keyword, keywordSellerIds);
+
+		List<AdminProductListItemResponse> items = toListItemResponses(products);
+		boolean hasNext = total > (long) query.page() * query.size();
+
+		return new AdminProductPageResult(items, query.page(), query.size(), total, hasNext);
+	}
+
+	private static String normalizeKeyword(String keyword) {
+		if (keyword == null) return null;
+		String trimmed = keyword.trim();
+		return trimmed.isEmpty() ? null : trimmed;
+	}
+
+	private List<AdminProductListItemResponse> toListItemResponses(List<Product> products) {
 		List<UUID> sellerIds = products.stream()
 			.map(Product::getSellerId)
 			.distinct()
