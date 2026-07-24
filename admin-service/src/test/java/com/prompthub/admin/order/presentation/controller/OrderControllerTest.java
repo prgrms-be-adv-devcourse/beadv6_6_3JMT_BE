@@ -1,6 +1,6 @@
 package com.prompthub.admin.order.presentation.controller;
 
-import com.prompthub.admin.order.application.usecase.OrderUseCase;
+import com.prompthub.admin.order.application.service.OrderService;
 import com.prompthub.admin.order.domain.enums.OrderStatus;
 import com.prompthub.admin.order.presentation.dto.response.DailyTransactionResponse;
 import com.prompthub.admin.order.presentation.dto.response.MonthlyTradeAmountResponse;
@@ -35,7 +35,7 @@ class OrderControllerTest {
 	private MockMvc mockMvc;
 
 	@MockitoBean
-	private OrderUseCase orderUseCase;
+	private OrderService orderService;
 
 	@Test
 	void 전체_주문_목록을_조회한다() throws Exception {
@@ -54,7 +54,7 @@ class OrderControllerTest {
 				"프롬프트 상품 1", 30_000, "PAID"
 			))
 		);
-		when(orderUseCase.getOrders(eq(new com.prompthub.admin.order.presentation.dto.request.OrderSearchCondition("ALL", 1, 20).resolve())))
+		when(orderService.getOrders(eq(new com.prompthub.admin.order.presentation.dto.request.OrderSearchCondition("ALL", 1, 20).resolve())))
 			.thenReturn(new PageImpl<>(List.of(order), PageRequest.of(0, 20), 1));
 
 		mockMvc.perform(get("/api/v2/admin/orders")
@@ -83,7 +83,7 @@ class OrderControllerTest {
 
 	@Test
 	void 이번_달_실제_거래액을_조회한다() throws Exception {
-		when(orderUseCase.getMonthlyTransactionAmount())
+		when(orderService.getMonthlyTransactionAmount())
 			.thenReturn(new MonthlyTradeAmountResponse(25_000L));
 
 		mockMvc.perform(get("/api/v2/admin/orders/month"))
@@ -93,7 +93,7 @@ class OrderControllerTest {
 
 	@Test
 	void 최근_7일_거래량을_조회한다() throws Exception {
-		when(orderUseCase.getWeeklyTransactions())
+		when(orderService.getWeeklyTransactions())
 			.thenReturn(new WeeklyTransactionResponse(
 				2L,
 				30_000L,
