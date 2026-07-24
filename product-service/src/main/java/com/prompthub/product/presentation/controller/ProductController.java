@@ -2,6 +2,7 @@ package com.prompthub.product.presentation.controller;
 
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.application.usecase.ProductSellerUseCase;
+import com.prompthub.product.application.usecase.PurchasedProductQueryUseCase;
 import com.prompthub.product.presentation.dto.request.ProductCreateRequest;
 import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
 import com.prompthub.product.presentation.dto.request.ProductsByIdsRequest;
@@ -11,6 +12,7 @@ import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
 import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
+import com.prompthub.product.presentation.dto.response.PurchasedProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductListItemResponse;
 import com.prompthub.presentation.dto.PageResponse;
@@ -39,6 +41,7 @@ public class ProductController {
 
 	private final ProductQueryUseCase productQueryUseCase;
 	private final ProductSellerUseCase productSellerUseCase;
+	private final PurchasedProductQueryUseCase purchasedProductQueryUseCase;
 
 	@GetMapping("/products")
 	public PageResponse<ProductListItemResponse> getProducts(
@@ -119,6 +122,14 @@ public class ProductController {
 	@GetMapping("/products/{productId}/reviews")
 	public ApiResult<List<ProductReviewResponse>> getProductReviews(@PathVariable UUID productId) {
 		return ApiResult.success(productQueryUseCase.getProductReviews(productId));
+	}
+
+	@GetMapping("/products/{productId}/orders")
+	public ApiResult<PurchasedProductDetailResponse> getPurchasedProduct(
+		@RequestHeader("X-User-Id") UUID userId,
+		@PathVariable UUID productId
+	) {
+		return ApiResult.success(purchasedProductQueryUseCase.getPurchasedProduct(userId, productId));
 	}
 
 	@PatchMapping("/products/{productId}/inspection")

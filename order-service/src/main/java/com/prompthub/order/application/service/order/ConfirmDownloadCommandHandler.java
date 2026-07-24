@@ -7,7 +7,7 @@ import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
+import com.prompthub.order.presentation.dto.response.ProductDownloadResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +23,7 @@ public class ConfirmDownloadCommandHandler implements ConfirmDownloadUseCase {
 	private final ProductClient productClient;
 
 	@Override
-	public OrderProductDownloadResponse confirmDownload(UUID buyerId, UUID orderId, UUID orderProductId) {
+	public ProductDownloadResponse confirmDownload(UUID buyerId, UUID orderId, UUID orderProductId) {
 		Order order = orderRepository.findByIdWithOrderProductsForUpdate(orderId)
 			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
@@ -43,11 +43,6 @@ public class ConfirmDownloadCommandHandler implements ConfirmDownloadUseCase {
 		productClient.getProductContent(orderProduct.getProductId());
 		orderProduct.markDownloaded();
 
-		return new OrderProductDownloadResponse(
-			order.getId(),
-			orderProduct.getId(),
-			orderProduct.isDownloaded(),
-			orderProduct.isRefundable()
-		);
+		return new ProductDownloadResponse(orderProduct.isDownloaded());
 	}
 }

@@ -13,8 +13,9 @@ import com.prompthub.order.presentation.dto.response.CreateOrderResponse;
 import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
-import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
+import com.prompthub.order.presentation.dto.response.ProductDownloadResponse;
 import com.prompthub.exception.response.ErrorResponse;
+import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.presentation.dto.PageResponse;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -72,9 +73,9 @@ public class OrderController {
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
 		@ApiResponse(responseCode = "403", description = "A004 구매자 권한 없음, O015 본인 판매 상품 구매 불가, P005 상품 서비스 접근 거부",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
-		@ApiResponse(responseCode = "409", description = "O018 이미 구매한 상품, P003 상품 요청 충돌",
+		@ApiResponse(responseCode = "409", description = "O018 이미 구매했거나 결제 대기 중인 상품, P003 상품 요청 충돌",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
-		@ApiResponse(responseCode = "503", description = "SYS002 상품 서비스 사용 불가",
+		@ApiResponse(responseCode = "503", description = "SYS002 상품 서비스 또는 SYS003 주문 중복 방지 저장소 사용 불가",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public ApiResult<CreateOrderResponse> createOrder(
@@ -101,6 +102,22 @@ public class OrderController {
 		@Parameter(description = "상품 ID") @PathVariable UUID productId
 	) {
 		return ApiResult.success(orderQueryUseCase.hasAccessiblePaidProduct(buyerId, productId));
+	}
+
+	@GetMapping("/products/{productId}")
+	@Operation(summary = "구매 상품 다운로드 여부 조회", description = "구매자가 해당 상품을 다운로드했는지 반환합니다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "다운로드 여부 조회 성공"),
+		@ApiResponse(responseCode = "401", description = "A003 인증 정보 누락")
+	})
+	public ApiResult<ProductDownloadResponse> getProductDownloadStatus(
+		@Parameter(hidden = true)
+		@RequestHeader(USER_ID) UUID buyerId,
+		@Parameter(description = "상품 ID") @PathVariable UUID productId
+	) {
+		return ApiResult.success(new ProductDownloadResponse(
+			orderQueryUseCase.isProductDownloaded(buyerId, productId)
+		));
 	}
 
 	@GetMapping("/users")
@@ -208,7 +225,7 @@ public class OrderController {
 		@ApiResponse(responseCode = "503", description = "SYS002 상품 서비스 사용 불가",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
-	public ApiResult<OrderProductDownloadResponse> confirmDownload(
+	public ApiResult<ProductDownloadResponse> confirmDownload(
 		@Parameter(hidden = true)
 		@RequestHeader(USER_ID) UUID buyerId,
 		@Parameter(description = "주문 ID", example = "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111")

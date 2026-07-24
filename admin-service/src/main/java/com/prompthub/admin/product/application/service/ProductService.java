@@ -3,8 +3,11 @@ package com.prompthub.admin.product.application.service;
 import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.order.domain.model.SellerNickname;
 import com.prompthub.admin.order.infrastructure.persistence.SellerNicknameRepository;
+import com.prompthub.admin.product.application.dto.AdminProductListQuery;
+import com.prompthub.admin.product.application.dto.AdminProductPageResult;
 import com.prompthub.admin.product.application.usecase.ProductUseCase;
 import com.prompthub.admin.product.domain.exception.ProductException;
+import com.prompthub.admin.product.domain.model.ProductListFilter;
 import com.prompthub.admin.product.domain.model.entity.Product;
 import com.prompthub.admin.product.domain.model.entity.ProductFamily;
 import com.prompthub.admin.product.domain.model.enums.ProductStatus;
@@ -15,6 +18,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,9 +34,33 @@ public class ProductService implements ProductUseCase {
 
 	@Override
 	@Transactional(readOnly = true)
-	public List<AdminProductListItemResponse> getPendingReviewProducts() {
-		List<Product> products = productRepository.findPendingReviewProducts();
+	public AdminProductPageResult listProducts(AdminProductListQuery query) {
+		String keyword = normalizeKeyword(query.keyword());
+		List<UUID> keywordSellerIds = keyword == null
+			? List.of()
+			: sellerNicknameRepository.findByNicknameContainingIgnoreCase(keyword).stream()
+				.map(SellerNickname::getSellerId)
+				.toList();
 
+		Page<Product> page = productRepository.findProducts(
+			new ProductListFilter(query.status(), keyword, keywordSellerIds), query.pageable());
+
+		return new AdminProductPageResult(
+			toListItemResponses(page.getContent()),
+			query.pageable().getPageNumber(),
+			query.pageable().getPageSize(),
+			page.getTotalElements(),
+			page.hasNext()
+		);
+	}
+
+	private static String normalizeKeyword(String keyword) {
+		if (keyword == null) return null;
+		String trimmed = keyword.trim();
+		return trimmed.isEmpty() ? null : trimmed;
+	}
+
+	private List<AdminProductListItemResponse> toListItemResponses(List<Product> products) {
 		List<UUID> sellerIds = products.stream()
 			.map(Product::getSellerId)
 			.distinct()

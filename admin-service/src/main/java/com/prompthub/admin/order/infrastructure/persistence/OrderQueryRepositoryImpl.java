@@ -42,7 +42,7 @@ public class OrderQueryRepositoryImpl implements OrderQueryRepository {
 			.select(order.id)
 			.from(order)
 			.where(orderStatusEq(condition.resolvedOrderStatus()))
-			.orderBy(order.createdAt.desc())
+			.orderBy(order.createdAt.desc(), order.id.desc())
 			.offset(pageable.getOffset())
 			.limit(pageable.getPageSize())
 			.fetch();
@@ -59,9 +59,12 @@ public class OrderQueryRepositoryImpl implements OrderQueryRepository {
 		List<Tuple> rows = queryFactory
 			.select(
 				order.id,
+				order.orderNumber,
+				order.buyerId,
 				orderProduct.sellerId,
 				orderProduct.productTitle,
 				orderProduct.productAmount,
+				orderProduct.orderProductStatus,
 				order.totalOrderAmount,
 				order.orderStatus,
 				order.createdAt,
@@ -71,7 +74,7 @@ public class OrderQueryRepositoryImpl implements OrderQueryRepository {
 			.from(order)
 			.join(order.orderProducts, orderProduct)
 			.where(order.id.in(orderIds))
-			.orderBy(order.createdAt.desc(), orderProduct.createdAt.asc(), orderProduct.id.asc())
+			.orderBy(order.createdAt.desc(), order.id.desc(), orderProduct.createdAt.asc(), orderProduct.id.asc())
 			.fetch();
 
 		Map<UUID, List<Tuple>> rowsByOrderId = new LinkedHashMap<>();
@@ -144,24 +147,20 @@ public class OrderQueryRepositoryImpl implements OrderQueryRepository {
 
 	private OrderListProjection toOrderListProjection(List<Tuple> rows) {
 		Tuple first = rows.getFirst();
-		int productCount = rows.size();
-		Map<UUID, SellerSummaryAccumulator> sellerSummaries = new LinkedHashMap<>();
-		rows.forEach(row -> sellerSummaries
-			.computeIfAbsent(row.get(orderProduct.sellerId), ignored -> new SellerSummaryAccumulator())
-			.addProduct(valueOrZero(row.get(orderProduct.productAmount))));
 
 		return new OrderListProjection(
 			first.get(order.id),
-			formatProductTitle(first.get(orderProduct.productTitle), productCount),
-			productCount,
+			first.get(order.orderNumber),
+			first.get(order.buyerId),
 			valueOrZero(first.get(order.totalOrderAmount)),
 			first.get(order.orderStatus),
 			first.get(order.createdAt),
-			sellerSummaries.entrySet().stream()
-				.map(entry -> new OrderListProjection.SellerSummary(
-					entry.getKey(),
-					entry.getValue().productCount,
-					entry.getValue().orderAmount
+			rows.stream()
+				.map(row -> new OrderListProjection.OrderProductSummary(
+					row.get(orderProduct.sellerId),
+					row.get(orderProduct.productTitle),
+					valueOrZero(row.get(orderProduct.productAmount)),
+					row.get(orderProduct.orderProductStatus)
 				))
 				.toList()
 		);
@@ -219,13 +218,6 @@ public class OrderQueryRepositoryImpl implements OrderQueryRepository {
 		return value == null ? 0 : value;
 	}
 
-	private String formatProductTitle(String firstProductTitle, int totalProductCount) {
-		if (totalProductCount <= 1) {
-			return firstProductTitle;
-		}
-		return firstProductTitle + " 외 " + (totalProductCount - 1) + "건";
-	}
-
 	private static class DailyTransactionAccumulator {
 		private long transactionCount;
 		private long transactionAmount;
@@ -240,13 +232,4 @@ public class OrderQueryRepositoryImpl implements OrderQueryRepository {
 		}
 	}
 
-	private static class SellerSummaryAccumulator {
-		private int productCount;
-		private int orderAmount;
-
-		private void addProduct(int productAmount) {
-			this.productCount++;
-			this.orderAmount += productAmount;
-		}
-	}
 }
