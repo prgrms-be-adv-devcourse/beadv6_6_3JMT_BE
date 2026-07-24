@@ -13,6 +13,7 @@ public enum AiErrorCode implements ErrorCode {
     AI_STATE_UNAVAILABLE("AI 정산 상태를 처리할 수 없습니다.", HttpStatus.SERVICE_UNAVAILABLE),
     SETTLEMENT_DATA_UNAVAILABLE("정산 데이터를 조회할 수 없습니다.", HttpStatus.SERVICE_UNAVAILABLE),
     AI_PROVIDER_UNAVAILABLE("AI 답변을 생성할 수 없습니다.", HttpStatus.SERVICE_UNAVAILABLE),
+    AI_RESPONSE_POLICY_VIOLATION("AI 답변을 생성할 수 없습니다.", HttpStatus.SERVICE_UNAVAILABLE),
     TOOL_LOOP_LIMIT_EXCEEDED("정확한 답변에 필요한 조회 횟수를 초과했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     RUN_TIMEOUT("AI 답변 생성 시간을 초과했습니다.", HttpStatus.GATEWAY_TIMEOUT),
     AI_INTERNAL_ERROR("예상하지 못한 AI 서비스 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);

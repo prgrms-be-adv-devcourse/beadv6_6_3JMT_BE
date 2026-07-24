@@ -10,6 +10,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @DisplayName("AI 정산 최종 답변 정책")
 class FinalAnswerPolicyTest {
@@ -23,7 +24,7 @@ class FinalAnswerPolicyTest {
         assertThatThrownBy(() -> policy.validateAndChunk(answer))
                 .isInstanceOf(AiException.class)
                 .extracting(exception -> ((AiException) exception).getErrorCode())
-                .isEqualTo(AiErrorCode.AI_PROVIDER_UNAVAILABLE);
+                .isEqualTo(AiErrorCode.AI_RESPONSE_POLICY_VIOLATION);
     }
 
     @Test
@@ -38,6 +39,16 @@ class FinalAnswerPolicyTest {
         assertThat(validated.chunks().get(0).codePointCount(0, validated.chunks().get(0).length()))
                 .isEqualTo(40);
         assertThat(String.join("", validated.chunks())).isEqualTo(answer);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "사용자가 \"환불이 있었나요?\"라고 질문했습니다. 이번 달 환불액은 10,000원입니다.",
+            "정산 범위는 {완료된 주차} 기준이며 지급 예정액은 85,000원입니다."
+    })
+    @DisplayName("인용 질문과 일반 중괄호 표현은 정상 답변으로 허용한다")
+    void allowsQuestionQuotesAndOrdinaryBraces(String answer) {
+        assertThat(policy.validateAndChunk(answer).answer()).isEqualTo(answer);
     }
 
     private static Stream<String> unsafeAnswers() {

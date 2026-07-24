@@ -14,8 +14,11 @@ public class FinalAnswerPolicy {
     private static final int MAX_CHUNK_CODE_POINTS = 40;
     private static final Pattern UUID_PATTERN = Pattern.compile(
             "(?i)(?<![0-9a-f])[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![0-9a-f])");
-    private static final Pattern KOREAN_QUESTION_ENDING = Pattern.compile(
-            "(?:나요|까요|습니까|인가요|하시겠어요|주시겠어요)\\s*[.!]?\\s*(?:\\R|$)");
+    private static final Pattern QUESTION_ENDING = Pattern.compile(
+            "(?:(?:나요|까요|습니까|인가요|하시겠어요|주시겠어요)\\s*[.!?？]?"
+                    + "|[?？])\\s*(?:\\R|$)");
+    private static final Pattern JSON_FIELD_PATTERN = Pattern.compile(
+            "\"[^\"\\r\\n]+\"\\s*:");
     private static final Pattern INTERNAL_IDENTIFIER_PATTERN = Pattern.compile(
             "(?i)\\b(?:actor|seller|run|conversation|settlement(?:[\\s_-]*detail)?|order[\\s_-]*product)"
                     + "[\\s_-]*id\\b");
@@ -51,7 +54,7 @@ public class FinalAnswerPolicy {
 
     public ValidatedAnswer validateAndChunk(String candidate) {
         if (!isSafe(candidate)) {
-            throw new AiException(AiErrorCode.AI_PROVIDER_UNAVAILABLE);
+            throw new AiException(AiErrorCode.AI_RESPONSE_POLICY_VIOLATION);
         }
         String answer = candidate.strip();
         return new ValidatedAnswer(answer, chunk(answer));
@@ -59,16 +62,22 @@ public class FinalAnswerPolicy {
 
     private boolean isSafe(String candidate) {
         if (candidate == null || candidate.isBlank()
-                || candidate.indexOf('?') >= 0 || candidate.indexOf('？') >= 0
                 || candidate.contains("```")
-                || candidate.indexOf('{') >= 0 || candidate.indexOf('}') >= 0
+                || looksLikeRawJson(candidate)
                 || UUID_PATTERN.matcher(candidate).find()
                 || INTERNAL_IDENTIFIER_PATTERN.matcher(candidate).find()
-                || KOREAN_QUESTION_ENDING.matcher(candidate.strip()).find()) {
+                || QUESTION_ENDING.matcher(candidate.strip()).find()) {
             return false;
         }
         String normalized = candidate.toLowerCase(Locale.ROOT);
         return FORBIDDEN_INTERNAL_TERMS.stream().noneMatch(normalized::contains);
+    }
+
+    private boolean looksLikeRawJson(String candidate) {
+        String stripped = candidate.strip();
+        boolean jsonBoundary = stripped.startsWith("{") && stripped.endsWith("}")
+                || stripped.startsWith("[") && stripped.endsWith("]");
+        return jsonBoundary && JSON_FIELD_PATTERN.matcher(stripped).find();
     }
 
     private List<String> chunk(String answer) {
