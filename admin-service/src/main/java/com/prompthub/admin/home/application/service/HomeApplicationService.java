@@ -1,10 +1,10 @@
 package com.prompthub.admin.home.application.service;
 
 import com.prompthub.admin.home.application.dto.HomeResult;
-import com.prompthub.admin.home.domain.repository.HomeQueryRepository;
-import com.prompthub.admin.home.domain.repository.HomeQueryRepository.PendingProductPreview;
-import com.prompthub.admin.home.domain.repository.HomeQueryRepository.SettlementSummary;
-import com.prompthub.admin.home.domain.repository.HomeQueryRepository.UserSummary;
+import com.prompthub.admin.home.infrastructure.persistence.HomeQueryRepository;
+import com.prompthub.admin.home.infrastructure.persistence.HomeQueryRepository.PendingProductPreview;
+import com.prompthub.admin.home.infrastructure.persistence.HomeQueryRepository.SettlementSummary;
+import com.prompthub.admin.home.infrastructure.persistence.HomeQueryRepository.UserSummary;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
