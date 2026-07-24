@@ -20,35 +20,53 @@ class SettlementCreatedEventTest {
     private static final SettlementPeriod PERIOD = SettlementPeriod.of(
             LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 7));
 
-    private SettlementDetail sale(String lineAmount) {
-        return SettlementDetail.sale(UUID.randomUUID(),
-                new BigDecimal(lineAmount), new BigDecimal("0.15"), OCCURRED_AT);
-    }
-
     @Test
-    @DisplayName("Settlement의 정산 스냅샷 10필드를 이벤트로 누락 없이 매핑한다")
-    void from_mapsAllSnapshotFields() {
+    @DisplayName("Settlement의 V2 스냅샷과 전체 상세를 원본 값 그대로 매핑한다")
+    void from_mapsV2SnapshotAndAllDetails() {
         // given
         UUID settlementId = UUID.randomUUID();
         UUID sellerId = UUID.randomUUID();
+        UUID orderProductId = UUID.randomUUID();
+        UUID saleDetailId = UUID.randomUUID();
+        UUID refundDetailId = UUID.randomUUID();
+        SettlementDetail sale = SettlementDetail.sale(
+                orderProductId,
+                new BigDecimal("100.00"),
+                new BigDecimal("0.1500"),
+                OCCURRED_AT);
+        SettlementDetail refund = SettlementDetail.refund(
+                orderProductId,
+                new BigDecimal("40.00"),
+                new BigDecimal("0.1500"),
+                OCCURRED_AT.plusDays(1));
+        ReflectionTestUtils.setField(sale, "id", saleDetailId);
+        ReflectionTestUtils.setField(refund, "id", refundDetailId);
         Settlement settlement = Settlement.create(
                 UUID.randomUUID(), sellerId, PERIOD,
-                List.of(sale("100.00"), sale("200.00")));
+                List.of(sale, refund));
         ReflectionTestUtils.setField(settlement, "id", settlementId); // id는 @GeneratedValue라 unit에선 수동 세팅
 
         // when
         SettlementCreatedEvent event = SettlementCreatedEvent.from(settlement);
 
         // then
+        assertThat(event.payloadVersion()).isEqualTo(2);
         assertThat(event.settlementId()).isEqualTo(settlementId);
         assertThat(event.sellerId()).isEqualTo(sellerId);
         assertThat(event.periodStart()).isEqualTo(LocalDate.of(2026, 6, 1));
         assertThat(event.periodEnd()).isEqualTo(LocalDate.of(2026, 6, 7));
-        assertThat(event.productCount()).isEqualTo(2);
-        assertThat(event.totalAmount()).isEqualByComparingTo("300.00");
-        assertThat(event.settlementTotalAmount()).isEqualByComparingTo("255.00");
-        assertThat(event.feeTotalAmount()).isEqualByComparingTo("45.00");
-        assertThat(event.refundAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(event.productCount()).isEqualTo(1);
+        assertThat(event.totalAmount()).isEqualByComparingTo("100.00");
+        assertThat(event.settlementTotalAmount()).isEqualByComparingTo("51.00");
+        assertThat(event.feeTotalAmount()).isEqualByComparingTo("9.00");
+        assertThat(event.refundAmount()).isEqualByComparingTo("40.00");
         assertThat(event.calculatedAt()).isEqualTo(settlement.getCalculatedAt());
+        assertThat(event.details()).hasSize(2);
+        assertThat(event.details()).extracting(SettlementDetailEvent::settlementDetailId)
+                .containsExactly(saleDetailId, refundDetailId);
+        assertThat(event.details()).extracting(SettlementDetailEvent::lineType)
+                .containsExactly("SALE", "REFUND");
+        assertThat(event.details().get(1).lineAmount()).isEqualByComparingTo("-40.00");
+        assertThat(event.details().get(1).feeAmount()).isEqualByComparingTo("-6.00");
     }
 }

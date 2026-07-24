@@ -1,6 +1,6 @@
 # 이벤트 흐름
 
-서비스 간 Kafka 이벤트 계약과 흐름. **2026-07-18 기준 실제 코드에서 도출**했으며 각 사실의 근거 파일을 병기한다. 시스템 전체 구조는 `overview.md` 참조.
+서비스 간 Kafka 이벤트 계약과 흐름. **2026-07-23 기준 실제 코드에서 도출**했으며 각 사실의 근거 파일을 병기한다. 시스템 전체 구조는 `overview.md` 참조.
 
 > 주문-결제 흐름 재설계(#396)는 payment/order 양측 모두 반영 완료됐다. payment-service는 `ORDER_CREATED` 구독을 제거하고 결제 승인 시마다 order gRPC(9083)로 직접 조회하는 구조다. order-service는 gRPC 서버(9083, `OrderQueryGrpcServer`)를 제공하며, `payment-events` 토픽의 `PAYMENT_FAILED`를 소비해 주문을 `PENDING`→`FAILED`로 전이한다(`PaymentFailedProcessor`). (설계: `../../payment-service/.claude/plans/archive/396-confirm-payment-flow-redesign.md`)
 
@@ -13,6 +13,7 @@ payment가 발행하는 결제/환불 이벤트는 **토픽 이름이 이벤트 
 | `payment-events` | payment | order (`PAYMENT_APPROVED`/`PAYMENT_REFUNDED`/`PAYMENT_FAILED`만 라우팅, `PAYMENT_REFUND_FAILED`는 미소비 — 아래 참조) | `orderId`(문자열) | `EventMessage<T>` 봉투: `eventId`, `eventType`, `occurredAt`, `aggregateType`(=`ORDER` 고정), `aggregateId`(=orderId), `payload`. `eventType`별 payload — `PAYMENT_APPROVED`→`PaymentApprovedMessage`, `PAYMENT_REFUNDED`→`PaymentRefundedMessage`, `PAYMENT_FAILED`→`PaymentFailedMessage`, `PAYMENT_REFUND_FAILED`→`PaymentRefundFailedMessage` |
 | `order-events` | order | product, settlement, **payment(구현: `ORDER_REFUND_REQUESTED`만)** | `orderId` (aggregateId) | `OrderEventEnvelope`(`ORDER_PAID`/`ORDER_REFUND`) |
 | `product-events` | product | order | `productId` | `ProductStoppedEvent` / `ProductDeletedEvent` / `ProductPriceChangedEvent` |
+| `settlement-events` | settlement | user | `settlementId` | `EventMessage<SettlementCreatedEvent>` 봉투. 현재 생산 버전은 `payloadVersion=2`이며 정산 부모 필드와 `SettlementDetail` 전체를 포함 |
 
 - 토픽 상수: `payment-service/.../infrastructure/messaging/config/PaymentTopic.java`(`PAYMENT_EVENTS = "payment-events"`), 각 서비스 Consumer/Producer의 `TOPIC` 상수.
 - `NewTopic` 선언은 payment-service `KafkaConfig`의 `payment-events`(partitions 1, replicas 1)만 존재. 나머지 토픽은 브로커 auto-create에 의존한다.
@@ -23,19 +24,22 @@ payment가 발행하는 결제/환불 이벤트는 **토픽 이름이 이벤트 
 
 P = 발행, C = 소비(괄호는 consumer groupId):
 
-| 서비스 \ 토픽 | payment-events | order-events | product-events |
-|---|---|---|---|
-| payment | P (`PAYMENT_APPROVED`/`PAYMENT_REFUNDED`/`PAYMENT_REFUND_FAILED`/`PAYMENT_FAILED` 4종) | C (`payment-service-order-events`, `ORDER_REFUND_REQUESTED`만) | - |
-| order | C (`order-service`, `PAYMENT_APPROVED`/`PAYMENT_REFUNDED`/`PAYMENT_FAILED`만 라우팅 — `PAYMENT_REFUND_FAILED`는 정의 없어 무시) | P | C (`order-service`) |
-| product | - | C (`product-service`) | P |
-| settlement | - | C (`settlement-service`) | - |
-| user | - | - | - |
+| 서비스 \ 토픽 | payment-events | order-events | product-events | settlement-events |
+|---|---|---|---|---|
+| payment | P (`PAYMENT_APPROVED`/`PAYMENT_REFUNDED`/`PAYMENT_REFUND_FAILED`/`PAYMENT_FAILED` 4종) | C (`payment-service-order-events`, `ORDER_REFUND_REQUESTED`만) | - | - |
+| order | C (`order-service`, `PAYMENT_APPROVED`/`PAYMENT_REFUNDED`/`PAYMENT_FAILED`만 라우팅 — `PAYMENT_REFUND_FAILED`는 정의 없어 무시) | P | C (`order-service`) | - |
+| product | - | C (`product-service`) | P | - |
+| settlement | - | C (`settlement-service`) | - | P (`SETTLEMENT_CREATED` V2) |
+| user | - | - | - | C (`user-service`) |
 
 주의 사항:
 
 - **settlement의 order-events 리스너는 기본 비활성**: `autoStartup = "${settlement.kafka.listener.order.enabled:false}"` — 설정으로 켜야 소비한다. `settlement-service/.../kafka/consumer/order/OrderEventConsumer.java:34`
 - **payment-service는 `order-events`를 구독한다**: `OrderEventConsumer`가 전용 그룹 `payment-service-order-events`로 소비하되 최상위 `eventType == ORDER_REFUND_REQUESTED`만 처리(그 외 무시)하고 부분환불을 개시한다. `StringDeserializer`+`ObjectMapper` 수동 파싱, MANUAL ack, 재시도 3회 후 `order-events.DLT`. 결제 승인 시 필요한 주문 정보는 이벤트 구독이 아니라 매 요청 gRPC(order 9083) 직접 조회로 확보한다(#396).
-- user-service는 Kafka를 사용하지 않는다.
+- **user-service의 settlement 리스너도 기본 비활성**:
+  `user.kafka.listener.settlement.enabled=false`. V1 코드는 변경 이력을 위해 남겨 두지만 현재 Settlement
+  생산자는 V2만 발행한다. 역직렬화·처리 실패는 1초 간격으로 3회 재시도한 뒤
+  `settlement-events.DLT`로 보내고, Webhook이 설정돼 있으면 Slack으로 알린다.
 
 ### 서비스별 발행 메커니즘
 
@@ -45,8 +49,28 @@ P = 발행, C = 소비(괄호는 consumer groupId):
 | payment (환불/환불실패) | 스케줄러/서비스가 트랜잭션 커밋 후 publisher **직접 호출**, 동일하게 `payment-events`에 발행 (Spring Boot 4.1 중첩 리스너 제한 우회) | `KafkaPaymentEventPublisher.java` |
 | order | **Outbox 패턴**: `OutboxEventAppender`가 `OutboxEvent`(PENDING) 저장 → `OutboxRelay`가 `@Scheduled`(기본 5초) 폴링 후 동기 발행(`send().get()`) | `order-service/.../outbox/OutboxEventAppender.java`, `kafka/producer/OutboxRelay.java` |
 | product | `KafkaTemplate.send` 직접 호출 (Outbox·트랜잭션 리스너 없음) | `product-service/.../messaging/producer/ProductEventProducer.java` |
+| settlement | 정산과 Detail, Outbox를 같은 트랜잭션에 저장 → 현재 배치의 Outbox를 동기 발행하고 성공/실패 상태 기록 | `JsonOutboxEventAppender.java`, `OutboxEventPublishService.java`, `FlushCurrentBatchOutboxTasklet.java` |
 
 ## 주요 시나리오별 이벤트 시퀀스
+
+### 정산 완료 → 셀러 분석 읽기 모델
+
+```mermaid
+sequenceDiagram
+    participant STL as Settlement CronJob
+    participant DB1 as Settlement DB
+    participant K as Kafka
+    participant US as User
+    participant DB2 as User DB
+
+    STL->>DB1: Settlement + SettlementDetail + Outbox 저장
+    STL->>K: settlement-events / SETTLEMENT_CREATED V2
+    K->>US: user-service consumer
+    US->>DB2: seller_settlement + seller_settlement_detail 저장
+```
+
+V2는 정산 한 건에 속한 Detail을 같은 이벤트에 포함한다. User는 이를 셀러 본인 조회용 읽기 모델로
+보관하고, AI 서비스에는 원본 이벤트가 아니라 권한 검사가 적용된 gRPC 집계 결과를 제공한다.
 
 ### 결제 승인
 

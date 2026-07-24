@@ -51,6 +51,19 @@ class RoutePolicyResolverTest {
     }
 
     @Test
+    void ai_정산_경로는_SELLER만_접근한다() {
+        Map<String, String> policies = new LinkedHashMap<>();
+        policies.put("/api/*/ai/settlement/**", "SELLER");
+
+        Optional<GatewayRole> result = RoutePolicyResolver.requiredRole(
+            "/api/v2/ai/settlement/conversations/current",
+            propertiesOf(policies)
+        );
+
+        assertThat(result).contains(GatewayRole.SELLER);
+    }
+
+    @Test
     void 선언_순서상_첫_매칭이_우선한다() {
         Map<String, String> policies = new LinkedHashMap<>();
         policies.put("/api/*/sellers/**", "SELLER");

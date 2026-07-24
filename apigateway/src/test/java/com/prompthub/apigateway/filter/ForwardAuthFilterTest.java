@@ -138,6 +138,24 @@ class ForwardAuthFilterTest {
     }
 
     @Test
+    void 셀러_전용_AI_정산_경로는_ADMIN에게도_403을_반환한다() {
+        GatewayRoutePolicyProperties properties = emptyPolicies();
+        properties.setRoutePolicies(new LinkedHashMap<>(Map.of("/api/*/ai/settlement/**", "SELLER")));
+        ForwardAuthFilter filter = new ForwardAuthFilter(authorizeClient, properties);
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/v2/ai/settlement/conversations/current"));
+        AtomicReference<ServerWebExchange> captured = new AtomicReference<>();
+        given(authorizeClient.authorize("user-1", 3L))
+                .willReturn(Mono.just(new AuthorizeResult("ACTIVE", GatewayRole.ADMIN)));
+
+        StepVerifier.create(runFilter(filter, exchange, capturingChain(captured), jwtWithEpoch("user-1", 3L)))
+                .verifyComplete();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(captured.get()).isNull();
+    }
+
+    @Test
     void 정상이면_헤더를_주입하고_다운스트림으로_전달한다() {
         ForwardAuthFilter filter = new ForwardAuthFilter(authorizeClient, emptyPolicies());
         MockServerWebExchange exchange = MockServerWebExchange.from(

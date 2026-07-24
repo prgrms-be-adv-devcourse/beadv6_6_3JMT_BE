@@ -55,6 +55,7 @@ class SettlementBatchRestartMigrationIntegrationTest {
 
         Flyway.configure()
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .target(MigrationVersion.fromVersion("2"))
                 .load()
                 .migrate();
 

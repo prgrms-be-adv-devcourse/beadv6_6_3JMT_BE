@@ -65,8 +65,8 @@ class CalculateSettlementApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("PAID는 더하고 REFUND는 빼서 순액으로 정산을 생성한다")
-    void calculate_paidAndRefund_netsAmount() {
+    @DisplayName("PAID와 REFUND를 분리한 요약과 signed 순액으로 정산을 생성한다")
+    void calculate_paidAndRefund_separatesSummaryAndNetsAmount() {
         // given
         UUID sellerId = UUID.randomUUID();
         CalculateSettlementCommand command = new CalculateSettlementCommand(UUID.randomUUID(), sellerId, PERIOD);
@@ -77,9 +77,10 @@ class CalculateSettlementApplicationServiceTest {
         // when
         Settlement settlement = service.calculate(command);
 
-        // then : PAID 300(fee 45, net 255) + REFUND 100(fee -15, net -85) => total 200, fee 30, net 170
-        assertThat(settlement.getProductCount()).isEqualTo(2);
-        assertThat(settlement.getTotalAmount()).isEqualByComparingTo("200.00");
+        // then : PAID 300(fee 45, net 255) + REFUND 100(fee -15, net -85)
+        assertThat(settlement.getProductCount()).isEqualTo(1);
+        assertThat(settlement.getTotalAmount()).isEqualByComparingTo("300.00");
+        assertThat(settlement.getRefundAmount()).isEqualByComparingTo("100.00");
         assertThat(settlement.getFeeTotalAmount()).isEqualByComparingTo("30.00");
         assertThat(settlement.getSettlementTotalAmount()).isEqualByComparingTo("170.00");
         assertThat(settlement.getPeriodStart()).isEqualTo(PERIOD.periodStart());

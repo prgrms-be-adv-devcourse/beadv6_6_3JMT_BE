@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+package prompthub.sellersettlement;
+
+option java_multiple_files = true;
+option java_package = "com.prompthub.user.grpc.sellersettlement";
+option java_outer_classname = "SellerSettlementQueryProto";
+
+service SellerSettlementQueryService {
+  rpc GetSettlementSummary(GetSettlementSummaryRequest)
+      returns (GetSettlementSummaryResponse);
+  rpc CompareSettlementPeriods(CompareSettlementPeriodsRequest)
+      returns (CompareSettlementPeriodsResponse);
+  rpc GetWeeklySettlementBreakdown(GetWeeklySettlementBreakdownRequest)
+      returns (GetWeeklySettlementBreakdownResponse);
+  rpc GetPayoutStatus(GetPayoutStatusRequest)
+      returns (GetPayoutStatusResponse);
+}
+
+enum SettlementPeriodType {
+  SETTLEMENT_PERIOD_TYPE_UNSPECIFIED = 0;
+  MONTH = 1;
+  WEEK = 2;
+}
+
+message SettlementAggregate {
+  string included_start_date = 1;
+  string included_end_date = 2;
+  string data_through = 3;
+  bool partial = 4;
+  int64 sale_count = 5;
+  int64 refund_count = 6;
+  string gross_sale_amount = 7;
+  string gross_refund_amount = 8;
+  string sale_fee_amount = 9;
+  string refunded_fee_amount = 10;
+  string net_fee_amount = 11;
+  string payout_amount = 12;
+}
+
+message CountChange {
+  int64 difference = 1;
+  string change_rate_percent = 2;
+  bool comparable = 3;
+}
+
+message DecimalChange {
+  string difference = 1;
+  string change_rate_percent = 2;
+  bool comparable = 3;
+}
+
+message SettlementAggregateComparison {
+  CountChange sale_count = 1;
+  CountChange refund_count = 2;
+  DecimalChange gross_sale_amount = 3;
+  DecimalChange gross_refund_amount = 4;
+  DecimalChange sale_fee_amount = 5;
+  DecimalChange refunded_fee_amount = 6;
+  DecimalChange net_fee_amount = 7;
+  DecimalChange payout_amount = 8;
+}
+
+message GetSettlementSummaryRequest {
+  SettlementPeriodType period_type = 1;
+  string period = 2;
+}
+
+message GetSettlementSummaryResponse {
+  SettlementPeriodType period_type = 1;
+  string requested_period = 2;
+  SettlementAggregate aggregate = 3;
+}
+
+message CompareSettlementPeriodsRequest {
+  SettlementPeriodType period_type = 1;
+  string current_period = 2;
+  string comparison_period = 3;
+}
+
+message CompareSettlementPeriodsResponse {
+  SettlementPeriodType period_type = 1;
+  string current_period = 2;
+  string comparison_period = 3;
+  SettlementAggregate current = 4;
+  SettlementAggregate comparison = 5;
+  SettlementAggregateComparison changes = 6;
+}
+
+message GetWeeklySettlementBreakdownRequest {
+  string month = 1;
+}
+
+message WeeklySettlementBucket {
+  string week_start_date = 1;
+  string week_end_date = 2;
+  bool boundary_week = 3;
+  SettlementAggregate aggregate = 4;
+}
+
+message GetWeeklySettlementBreakdownResponse {
+  string requested_month = 1;
+  bool partial = 2;
+  string data_through = 3;
+  repeated WeeklySettlementBucket weeks = 4;
+}
+
+message GetPayoutStatusRequest {
+  string settlement_month = 1;
+}
+
+message PayoutStatusCount {
+  string status = 1;
+  int64 count = 2;
+}
+
+message WeeklyPayoutStatus {
+  string period_start_date = 1;
+  string period_end_date = 2;
+  string status = 3;
+  string paid_at = 4;
+}
+
+message GetPayoutStatusResponse {
+  string settlement_month = 1;
+  repeated PayoutStatusCount status_counts = 2;
+  repeated WeeklyPayoutStatus weekly_settlements = 3;
+}

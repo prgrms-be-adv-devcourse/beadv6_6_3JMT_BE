@@ -20,6 +20,13 @@ required_patterns=(
   "if: github.event_name == 'push'"
   'application_manifests_changed:'
   'steps\.changed\.outputs\.application_manifests_any_changed'
+  '^[[:space:]]+ai_service:$'
+  'services_json=.*"ai-service"'
+  'services\+=\("ai-service"\)'
+  'ensure_package ai-service ai-service k8s/base/services/ai'
+  '^[[:space:]]+ai-secret$'
+  '^[[:space:]]+- name: ghcr\.io/prgrms-be-adv-devcourse/prompthub-ai-service$'
+  '^[[:space:]]+newName: ghcr\.io/\$owner_lc/prompthub-ai-service$'
   '^[[:space:]]+- k8s/overlays/ec2-kubeadm/applications/\*\*$'
   '^[[:space:]]+- infrastructure$'
   '^[[:space:]]+- ingress$'
@@ -80,8 +87,42 @@ done
 deployment_order_block="$(sed -n '/deployment_order=(/,/)/p' "${WORKFLOW}")"
 config_consumers_block="$(sed -n '/config_consumers=(/,/)/p' "${WORKFLOW}")"
 release_order_block="$(sed -n '/release_order=(/,/)/p' "${WORKFLOW}")"
+user_service_filter_block="$(sed -n '/^[[:space:]]*user_service:/,/^[[:space:]]*ai_service:/p' "${WORKFLOW}")"
+ai_service_filter_block="$(sed -n '/^[[:space:]]*ai_service:/,/^[[:space:]]*product_service:/p' "${WORKFLOW}")"
 application_manifests_block="$(sed -n '/^[[:space:]]*application_manifests:/,/^[[:space:]]*all_applications:/p' "${WORKFLOW}")"
 initial_application_prepare_block="$(sed -n '/- name: 최초 애플리케이션 리소스 준비/,/- name: 애플리케이션 리소스와 이미지 배포/p' "${WORKFLOW}")"
+
+array_values() {
+  local array_name="$1"
+
+  sed -n "/^[[:space:]]*${array_name}=(/,/^[[:space:]]*)/p" "${WORKFLOW}" |
+    sed '1d;$d;s/^[[:space:]]*//;s/[[:space:]]*$//'
+}
+
+expected_release_order=$'config\ndiscovery\nuser-service\nproduct-service\norder-service\npayment-service\nsettlement-service\nadmin-service\nai-service\napigateway'
+expected_deployment_order=$'config\ndiscovery\nuser-service\nproduct-service\norder-service\npayment-service\nadmin-service\nai-service\napigateway'
+expected_config_consumers=$'user-service\nproduct-service\norder-service\npayment-service\nadmin-service\nai-service\napigateway'
+
+if ! grep -Eq '^[[:space:]]+- grpc/user/\*\*$' <<< "${user_service_filter_block}"; then
+  fail "user_service changes must include the shared User gRPC contract"
+fi
+
+if ! grep -Eq '^[[:space:]]+- ai-service/\*\*$' <<< "${ai_service_filter_block}" ||
+  ! grep -Eq '^[[:space:]]+- grpc/user/\*\*$' <<< "${ai_service_filter_block}"; then
+  fail "ai_service changes must include its module and the shared User gRPC contract"
+fi
+
+if [ "$(array_values release_order)" != "${expected_release_order}" ]; then
+  fail "release_order must place ai-service after admin-service and before apigateway"
+fi
+
+if [ "$(array_values deployment_order)" != "${expected_deployment_order}" ]; then
+  fail "deployment_order must place ai-service after admin-service and before apigateway"
+fi
+
+if [ "$(array_values config_consumers)" != "${expected_config_consumers}" ]; then
+  fail "config_consumers must place ai-service after admin-service and before apigateway"
+fi
 
 if ! grep -Eq '^[[:space:]]+- \.github/workflows/cd-selfhosted-kubernetes\.yml$' <<< "${application_manifests_block}"; then
   fail "Kubernetes CD workflow changes must reconcile application manifests"

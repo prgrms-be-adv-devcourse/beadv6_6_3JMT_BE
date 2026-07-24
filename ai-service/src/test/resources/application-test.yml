@@ -1,0 +1,42 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 1
+  ai:
+    openai:
+      api-key: test-openai-key
+    retry:
+      max-attempts: 1
+
+eureka:
+  client:
+    enabled: false
+
+management:
+  health:
+    redis:
+      enabled: false
+
+ai:
+  model: gpt-5.6-luna
+  reasoning-effort: low
+  max-completion-tokens: 2000
+  history-max-tokens: 8000
+  run-timeout: 90s
+  user-grpc-deadline: 3s
+  user-grpc-internal-token: test-internal-token
+  execution:
+    max-concurrent-runs: 4
+  conversation:
+    ttl: 24h
+    max-pairs: 20
+  sse:
+    heartbeat: 15s
+  settlement:
+    chat:
+      enabled: false
