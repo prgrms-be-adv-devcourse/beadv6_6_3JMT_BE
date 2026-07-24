@@ -27,6 +27,9 @@ public class AuditLog {
     @Column(name = "id", columnDefinition = "uuid")
     private UUID id;
 
+    @Column(name = "order_id", columnDefinition = "uuid", nullable = false)
+    private UUID orderId;
+
     @Enumerated(STRING)
     @Column(name = "entity_type", columnDefinition = "varchar(20)", nullable = false)
     private AuditEntityType entityType;
@@ -44,6 +47,9 @@ public class AuditLog {
     @Column(name = "new_status", length = 20, nullable = false)
     private String newStatus;
 
+    @Column(name = "failure_code", length = 50)
+    private String failureCode;
+
     @Column(name = "detail", columnDefinition = "text")
     private String detail;
 
@@ -55,44 +61,66 @@ public class AuditLog {
     private OffsetDateTime createdAt;
 
     private AuditLog(
-        UUID id, AuditEntityType entityType, UUID entityId, AuditEventType eventType,
-        UUID actorId, String newStatus, String detail, OffsetDateTime occurredAt
+        UUID id, UUID orderId, AuditEntityType entityType, UUID entityId, AuditEventType eventType,
+        UUID actorId, String newStatus, String failureCode, String detail, OffsetDateTime occurredAt
     ) {
         this.id = id;
+        this.orderId = orderId;
         this.entityType = entityType;
         this.entityId = entityId;
         this.eventType = eventType;
         this.actorId = actorId;
         this.newStatus = newStatus;
+        this.failureCode = failureCode;
         this.detail = detail;
         this.occurredAt = occurredAt;
     }
 
+    public static AuditLog forPaymentRequested(Payment payment) {
+        return new AuditLog(
+            UUID.randomUUID(), payment.getOrderId(), AuditEntityType.PAYMENT, payment.getId(),
+            AuditEventType.PAYMENT_REQUESTED, payment.getUserId(), payment.getStatus().name(),
+            null, null, payment.getRequestedAt()
+        );
+    }
+
     public static AuditLog forPaymentApproved(Payment payment) {
         return new AuditLog(
-            UUID.randomUUID(), AuditEntityType.PAYMENT, payment.getId(), AuditEventType.PAYMENT_APPROVED,
-            payment.getUserId(), payment.getStatus().name(), null, payment.getApprovedAt()
+            UUID.randomUUID(), payment.getOrderId(), AuditEntityType.PAYMENT, payment.getId(),
+            AuditEventType.PAYMENT_APPROVED, payment.getUserId(), payment.getStatus().name(),
+            null, null, payment.getApprovedAt()
         );
     }
 
     public static AuditLog forPaymentFailed(Payment payment) {
         return new AuditLog(
-            UUID.randomUUID(), AuditEntityType.PAYMENT, payment.getId(), AuditEventType.PAYMENT_FAILED,
-            payment.getUserId(), payment.getStatus().name(), payment.getFailureReason(), payment.getFailedAt()
+            UUID.randomUUID(), payment.getOrderId(), AuditEntityType.PAYMENT, payment.getId(),
+            AuditEventType.PAYMENT_FAILED, payment.getUserId(), payment.getStatus().name(),
+            payment.getFailureCode(), payment.getFailureReason(), payment.getFailedAt()
         );
     }
 
-    public static AuditLog forPaymentRefunded(Payment payment, Refund refund) {
+    public static AuditLog forRefundRequested(Payment payment, Refund refund) {
         return new AuditLog(
-            UUID.randomUUID(), AuditEntityType.REFUND, refund.getId(), AuditEventType.PAYMENT_REFUNDED,
-            payment.getUserId(), refund.getStatus().name(), null, refund.getCompletedAt()
+            UUID.randomUUID(), payment.getOrderId(), AuditEntityType.REFUND, refund.getId(),
+            AuditEventType.REFUND_REQUESTED, payment.getUserId(), RefundStatus.REQUESTED.name(),
+            null, null, refund.getRequestedAt()
         );
     }
 
-    public static AuditLog forPaymentRefundFailed(Payment payment, Refund refund, String failureReason) {
+    public static AuditLog forRefundCompleted(Payment payment, Refund refund) {
         return new AuditLog(
-            UUID.randomUUID(), AuditEntityType.REFUND, refund.getId(), AuditEventType.PAYMENT_REFUND_FAILED,
-            payment.getUserId(), refund.getStatus().name(), failureReason, refund.getFailedAt()
+            UUID.randomUUID(), payment.getOrderId(), AuditEntityType.REFUND, refund.getId(),
+            AuditEventType.REFUND_COMPLETED, payment.getUserId(), refund.getStatus().name(),
+            null, null, refund.getCompletedAt()
+        );
+    }
+
+    public static AuditLog forRefundFailed(Payment payment, Refund refund) {
+        return new AuditLog(
+            UUID.randomUUID(), payment.getOrderId(), AuditEntityType.REFUND, refund.getId(),
+            AuditEventType.REFUND_FAILED, payment.getUserId(), refund.getStatus().name(),
+            refund.getFailureCode(), refund.getFailureReason(), refund.getFailedAt()
         );
     }
 }

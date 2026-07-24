@@ -6,6 +6,7 @@ import com.sun.net.httpserver.HttpServer;
 import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.ratelimiter.RateLimiter;
+import io.github.resilience4j.retry.Retry;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -57,7 +58,8 @@ class TossPaymentGatewayTest {
             CircuitBreaker.ofDefaults("test-confirm"),
             CircuitBreaker.ofDefaults("test-refund"),
             Bulkhead.ofDefaults("test-confirm-bulkhead"),
-            RateLimiter.ofDefaults("test-confirm-rate-limiter")
+            RateLimiter.ofDefaults("test-confirm-rate-limiter"),
+            Retry.ofDefaults("test-confirm-retry")
         );
         UUID refundId = UUID.randomUUID();
 

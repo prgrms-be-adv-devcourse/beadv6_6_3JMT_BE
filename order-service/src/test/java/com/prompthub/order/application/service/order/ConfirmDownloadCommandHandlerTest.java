@@ -9,7 +9,7 @@ import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
+import com.prompthub.order.presentation.dto.response.ProductDownloadResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -59,13 +59,10 @@ class ConfirmDownloadCommandHandlerTest {
                 .willReturn(new ProductContent(orderProduct.getProductId(), "content"));
 
             // when
-            OrderProductDownloadResponse response = confirmDownloadCommandHandler.confirmDownload(BUYER_ID, order.getId(), orderProduct.getId());
+            ProductDownloadResponse response = confirmDownloadCommandHandler.confirmDownload(BUYER_ID, order.getId(), orderProduct.getId());
 
             // then
-            assertThat(response.orderId()).isEqualTo(order.getId());
-            assertThat(response.orderProductId()).isEqualTo(orderProduct.getId());
             assertThat(response.downloaded()).isTrue();
-            assertThat(response.isRefundable()).isFalse();
             assertThat(orderProduct.isDownloaded()).isTrue();
 
             then(orderRepository).should().findByIdWithOrderProductsForUpdate(order.getId());
@@ -84,7 +81,7 @@ class ConfirmDownloadCommandHandlerTest {
 			given(productClient.getProductContent(remainingProduct.getProductId()))
 				.willReturn(new ProductContent(remainingProduct.getProductId(), "content"));
 
-			OrderProductDownloadResponse response = confirmDownloadCommandHandler.confirmDownload(
+			ProductDownloadResponse response = confirmDownloadCommandHandler.confirmDownload(
 				BUYER_ID,
 				order.getId(),
 				remainingProduct.getId()
@@ -150,11 +147,10 @@ class ConfirmDownloadCommandHandlerTest {
                 .willReturn(new ProductContent(orderProduct.getProductId(), "content"));
 
             // when
-            OrderProductDownloadResponse response = confirmDownloadCommandHandler.confirmDownload(BUYER_ID, order.getId(), orderProduct.getId());
+            ProductDownloadResponse response = confirmDownloadCommandHandler.confirmDownload(BUYER_ID, order.getId(), orderProduct.getId());
 
             // then
             assertThat(response.downloaded()).isTrue();
-            assertThat(response.isRefundable()).isFalse();
             assertThat(orderProduct.isDownloaded()).isTrue();
         }
 

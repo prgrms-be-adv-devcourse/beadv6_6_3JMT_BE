@@ -2,9 +2,9 @@ package com.prompthub.admin.order.application.service;
 
 import com.prompthub.admin.order.application.dto.DailyTransactionProjection;
 import com.prompthub.admin.order.application.dto.OrderListProjection;
+import com.prompthub.admin.order.application.dto.OrderUserProfile;
+import com.prompthub.admin.order.application.port.OrderUserProfileQueryPort;
 import com.prompthub.admin.order.application.usecase.OrderUseCase;
-import com.prompthub.admin.order.domain.model.SellerNickname;
-import com.prompthub.admin.order.infrastructure.persistence.SellerNicknameRepository;
 import com.prompthub.admin.order.presentation.dto.request.OrderSearchCondition;
 import com.prompthub.admin.order.presentation.dto.response.DailyTransactionResponse;
 import com.prompthub.admin.order.presentation.dto.response.MonthlyTradeAmountResponse;
@@ -24,17 +24,14 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class OrderService implements OrderUseCase {
 
 	private static final int RECENT_DAYS = 7;
-	private static final String UNKNOWN_SELLER_NICKNAME = "알 수 없음";
-
 	private final OrderQueryService orderQueryService;
-	private final SellerNicknameRepository sellerNicknameRepository;
+	private final OrderUserProfileQueryPort orderUserProfileQueryPort;
 
 	@Override
 	public Page<OrderListResponse> getOrders(OrderSearchCondition condition) {
@@ -44,17 +41,12 @@ public class OrderService implements OrderUseCase {
 			Sort.by(Sort.Direction.DESC, "createdAt")
 		);
 		Page<OrderListProjection> orders = orderQueryService.searchOrders(condition, pageable);
-		List<UUID> sellerIds = collectSellerIds(orders.getContent());
-		Map<UUID, String> sellerNicknames = sellerIds.isEmpty()
+		List<UUID> userIds = collectUserIds(orders.getContent());
+		Map<UUID, OrderUserProfile> profiles = userIds.isEmpty()
 			? Map.of()
-			: sellerNicknameRepository.findAllById(sellerIds).stream()
-				.collect(Collectors.toMap(
-					SellerNickname::getSellerId,
-					SellerNickname::getNickname,
-					(existing, ignored) -> existing
-				));
+			: orderUserProfileQueryPort.findProfilesByUserIds(userIds);
 
-		return orders.map(projection -> toOrderListResponse(projection, sellerNicknames));
+		return orders.map(projection -> toOrderListResponse(projection, profiles));
 	}
 
 	@Override
@@ -100,39 +92,41 @@ public class OrderService implements OrderUseCase {
 
 	private OrderListResponse toOrderListResponse(
 		OrderListProjection projection,
-		Map<UUID, String> sellerNicknames
+		Map<UUID, OrderUserProfile> profiles
 	) {
-		List<OrderListResponse.SellerSummary> sellers = projection.sellers().stream()
-			.map(seller -> new OrderListResponse.SellerSummary(
-				seller.sellerId(),
-				sellerNicknames.getOrDefault(seller.sellerId(), UNKNOWN_SELLER_NICKNAME),
-				seller.productCount(),
-				seller.orderAmount()
+		List<OrderListResponse.OrderProductSummary> orderProducts = projection.orderProducts().stream()
+			.map(orderProduct -> new OrderListResponse.OrderProductSummary(
+				toUserSummary(orderProduct.sellerId(), profiles),
+				orderProduct.productTitle(),
+				orderProduct.productAmount(),
+				orderProduct.orderProductStatus()
 			))
 			.toList();
 
 		return new OrderListResponse(
-			projection.orderId(),
-			sellers.size(),
-			sellers,
-			projection.productTitle(),
-			projection.totalOrderCount(),
+			projection.orderNumber(),
+			toUserSummary(projection.buyerId(), profiles),
 			projection.totalOrderAmount(),
 			projection.orderStatus(),
-			projection.createdAt()
+			projection.createdAt(),
+			orderProducts
 		);
 	}
 
-	private List<UUID> collectSellerIds(List<OrderListProjection> orders) {
-		if (orders.isEmpty()) {
-			return List.of();
-		}
-		return orders.stream()
-			.flatMap(order -> order.sellers().stream())
-			.map(OrderListProjection.SellerSummary::sellerId)
-			.collect(Collectors.toCollection(LinkedHashSet::new))
-			.stream()
-			.toList();
+	private OrderListResponse.UserSummary toUserSummary(UUID userId, Map<UUID, OrderUserProfile> profiles) {
+		OrderUserProfile profile = profiles.get(userId);
+		return profile == null
+			? new OrderListResponse.UserSummary(userId, "알 수 없음", null)
+			: new OrderListResponse.UserSummary(profile.userId(), profile.name(), profile.profileImageUrl());
+	}
+
+	private List<UUID> collectUserIds(List<OrderListProjection> orders) {
+		LinkedHashSet<UUID> userIds = new LinkedHashSet<>();
+		orders.forEach(order -> {
+			userIds.add(order.buyerId());
+			order.orderProducts().forEach(orderProduct -> userIds.add(orderProduct.sellerId()));
+		});
+		return userIds.stream().toList();
 	}
 
 	private DailyTransactionResponse toDailyTransactionResponse(

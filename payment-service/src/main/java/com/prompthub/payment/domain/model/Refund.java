@@ -48,6 +48,9 @@ public class Refund {
     @Column(name = "failure_reason", columnDefinition = "text")
     private String failureReason;
 
+    @Column(name = "failure_code", length = 50)
+    private String failureCode;
+
     @Enumerated(STRING)
     @Column(name = "status", columnDefinition = "varchar(20)", nullable = false)
     private RefundStatus status;
@@ -106,12 +109,13 @@ public class Refund {
         this.completedAt = completedAt;
     }
 
-    public void fail(String failureReason, OffsetDateTime failedAt) {
+    public void fail(String failureCode, String failureReason, OffsetDateTime failedAt) {
         if (this.status != RefundStatus.REQUESTED) {
             throw new InvalidRefundStateException("REQUESTED 상태에서만 FAILED로 전환할 수 있습니다.");
         }
         log.debug("Refund 상태 전이 — id={}, {} → FAILED", id, status);
         this.status = RefundStatus.FAILED;
+        this.failureCode = failureCode;
         this.failureReason = failureReason;
         this.failedAt = failedAt;
     }

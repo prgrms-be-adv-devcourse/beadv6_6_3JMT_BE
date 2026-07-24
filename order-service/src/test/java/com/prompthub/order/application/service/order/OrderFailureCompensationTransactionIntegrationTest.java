@@ -61,6 +61,9 @@ class OrderFailureCompensationTransactionIntegrationTest extends PostgreSqlInteg
 	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;
 
+	@MockitoBean
+	private OrderProductIdempotencyStore orderProductIdempotencyStore;
+
 	@MockitoSpyBean
 	private CartRepository cartRepository;
 
@@ -70,12 +73,12 @@ class OrderFailureCompensationTransactionIntegrationTest extends PostgreSqlInteg
 	@BeforeEach
 	void setUp() {
 		cleanDatabase();
-		reset(productClient, orderExpirationStore, cartRepository, processedEventRepository);
+		reset(productClient, orderExpirationStore, orderProductIdempotencyStore, cartRepository, processedEventRepository);
 	}
 
 	@AfterEach
 	void tearDown() {
-		reset(productClient, orderExpirationStore, cartRepository, processedEventRepository);
+		reset(productClient, orderExpirationStore, orderProductIdempotencyStore, cartRepository, processedEventRepository);
 		cleanDatabase();
 	}
 

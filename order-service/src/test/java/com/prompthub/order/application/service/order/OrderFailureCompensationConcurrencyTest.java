@@ -1,5 +1,6 @@
 package com.prompthub.order.application.service.order;
 
+import com.prompthub.exception.BusinessException;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductCartSnapshot;
 import com.prompthub.order.application.service.cart.CartService;
@@ -12,6 +13,7 @@ import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.ProcessedEventRepository;
 import com.prompthub.order.global.exception.CartException;
 import com.prompthub.order.global.exception.ErrorCode;
+import com.prompthub.order.global.exception.OrderException;
 import com.prompthub.order.infra.persistence.cart.CartPersistence;
 import com.prompthub.order.infra.persistence.order.OrderPersistence;
 import com.prompthub.order.infra.persistence.outbox.OutboxEventPersistence;
@@ -209,8 +211,9 @@ class OrderFailureCompensationConcurrencyTest extends PostgreSqlIntegrationTestS
 			return;
 		}
 		assertThat(failure)
-			.isInstanceOf(CartException.class)
-			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.CART_ITEM_DUPLICATED);
+			.isInstanceOfAny(CartException.class, OrderException.class);
+		assertThat(((BusinessException) failure).getErrorCode())
+			.isIn(ErrorCode.CART_ITEM_DUPLICATED, ErrorCode.ORDER_PRODUCT_ALREADY_OWNED);
 	}
 
 	private Order loadOrder() {

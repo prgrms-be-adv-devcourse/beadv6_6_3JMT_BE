@@ -17,7 +17,7 @@ import java.util.UUID;
 /**
  * order-service 소유 "order_product" 테이블의 읽기 전용 재매핑.
  * 이 3개 어드민 쿼리가 실제로 참조하는 컬럼만 매핑했다(product_id·
- * order_product_status·updated_at·downloaded 등은 매핑하지 않음).
+ * updated_at·downloaded 등은 매핑하지 않음).
  */
 @Entity
 @Table(name = "\"order_product\"")
@@ -41,6 +41,9 @@ public class OrderProduct {
 
 	@Column(name = "product_amount_snapshot", nullable = false)
 	private int productAmount;
+
+	@Column(name = "order_product_status", nullable = false, length = 20)
+	private String orderProductStatus;
 
 	@Column(name = "created_at", nullable = false)
 	private LocalDateTime createdAt;

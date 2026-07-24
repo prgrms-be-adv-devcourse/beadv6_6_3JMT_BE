@@ -11,6 +11,7 @@ import com.prompthub.order.infra.persistence.cart.CartPersistence;
 import com.prompthub.order.infra.persistence.order.OrderPersistence;
 import com.prompthub.order.infra.persistence.outbox.OutboxEventPersistence;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,11 +19,14 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 
@@ -55,6 +59,16 @@ class OrderCreationResilienceIntegrationTest {
 
 	@MockitoBean
 	private OrderExpirationStore orderExpirationStore;
+
+	@MockitoBean
+	private OrderProductIdempotencyStore orderProductIdempotencyStore;
+
+	@BeforeEach
+	void setUpReservationStore() {
+		given(orderProductIdempotencyStore.acquire(
+			any(UUID.class), anyCollection(), any(UUID.class), any(Duration.class)
+		)).willReturn(true);
+	}
 
 	@AfterEach
 	void tearDown() {

@@ -23,6 +23,11 @@ import com.prompthub.apigateway.config.GatewayRoutePolicyProperties;
 
 import reactor.core.publisher.Mono;
 
+import static com.prompthub.apigateway.logging.GatewayLogConstants.AUTHENTICATED_ATTRIBUTE;
+import static com.prompthub.apigateway.logging.GatewayLogConstants.USER_ID_HEADER;
+import static com.prompthub.apigateway.logging.GatewayLogConstants.USER_ROLE_ATTRIBUTE;
+import static com.prompthub.apigateway.logging.GatewayLogConstants.USER_ROLE_HEADER;
+
 @Component
 public class ForwardAuthFilter implements GlobalFilter, Ordered {
 
@@ -36,11 +41,12 @@ public class ForwardAuthFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        ServerWebExchange sanitized = sanitizeHeaders(exchange);
         return ReactiveSecurityContextHolder.getContext()
                 .flatMap(ctx -> Mono.justOrEmpty(ctx.getAuthentication()))
                 .ofType(JwtAuthenticationToken.class)
-                .flatMap(auth -> authorizeAndForward(auth.getToken(), exchange, chain))
-                .switchIfEmpty(Mono.defer(() -> chain.filter(exchange).thenReturn(true)))
+                .flatMap(auth -> authorizeAndForward(auth.getToken(), sanitized, chain))
+                .switchIfEmpty(Mono.defer(() -> chain.filter(sanitized).thenReturn(true)))
                 .then();
     }
 
@@ -64,6 +70,9 @@ public class ForwardAuthFilter implements GlobalFilter, Ordered {
             return reject(exchange, HttpStatus.FORBIDDEN);
         }
 
+        exchange.getAttributes().put(AUTHENTICATED_ATTRIBUTE, true);
+        exchange.getAttributes().put(USER_ROLE_ATTRIBUTE, result.role());
+
         String path = exchange.getRequest().getPath().value();
         Optional<GatewayRouteAccessPolicy> requiredPolicy =
                 RoutePolicyResolver.requiredPolicy(path, routePolicyProperties);
@@ -72,12 +81,22 @@ public class ForwardAuthFilter implements GlobalFilter, Ordered {
         }
 
         ServerWebExchange mutated = exchange.mutate()
-                .request(r -> r
-                        .headers(headers -> headers.remove(HttpHeaders.AUTHORIZATION))
-                        .header("X-User-Id", userId)
-                        .header("X-User-Role", result.role().name()))
+                .request(request -> request.headers(headers -> {
+                    headers.set(USER_ID_HEADER, userId);
+                    headers.set(USER_ROLE_HEADER, result.role().name());
+                }))
                 .build();
         return chain.filter(mutated).thenReturn(true);
+    }
+
+    private ServerWebExchange sanitizeHeaders(ServerWebExchange exchange) {
+        return exchange.mutate()
+                .request(request -> request.headers(headers -> {
+                    headers.remove(HttpHeaders.AUTHORIZATION);
+                    headers.remove(USER_ID_HEADER);
+                    headers.remove(USER_ROLE_HEADER);
+                }))
+                .build();
     }
 
     private Long extractEpoch(Jwt jwt) {

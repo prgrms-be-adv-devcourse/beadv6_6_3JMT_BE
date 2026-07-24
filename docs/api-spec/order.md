@@ -413,19 +413,13 @@
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| orderId | UUID | 주문 ID |
-| orderProductId | UUID | 주문 상품 ID |
 | downloaded | Boolean | 다운로드 확정 여부 |
-| isRefundable | Boolean | 다운로드 확정 이후 환불 가능 여부 |
 
 ```json
 {
   "success": true,
   "data": {
-    "orderId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
-    "orderProductId": "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa",
-    "downloaded": true,
-    "isRefundable": false
+    "downloaded": true
   },
   "message": "success"
 }

@@ -12,6 +12,7 @@ import com.prompthub.payment.application.gateway.external.PaymentGatewayExceptio
 import com.prompthub.payment.application.usecase.ConfirmPaymentUseCase;
 import com.prompthub.payment.domain.event.PaymentApprovedEvent;
 import com.prompthub.payment.domain.event.PaymentFailedEvent;
+import com.prompthub.payment.domain.event.PaymentRequestedEvent;
 import com.prompthub.payment.domain.model.Payment;
 import com.prompthub.payment.domain.model.PaymentStatus;
 import com.prompthub.payment.domain.repository.PaymentRepository;
@@ -88,6 +89,7 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
                 paymentRepository.saveAndFlush(payment);
                 payment.markRequested(OffsetDateTime.now());
                 paymentRepository.save(payment);
+                applicationEventPublisher.publishEvent(new PaymentRequestedEvent(payment));
                 return payment.getId();
             });
         } catch (DataIntegrityViolationException e) {

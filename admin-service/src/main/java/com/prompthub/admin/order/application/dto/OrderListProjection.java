@@ -7,18 +7,12 @@ import java.util.List;
 import java.util.UUID;
 
 public record OrderListProjection(
-	UUID orderId,
-	String productTitle,
-	int totalOrderCount,
-	int totalOrderAmount,
-	OrderStatus orderStatus,
-	LocalDateTime createdAt,
-	List<SellerSummary> sellers
+	UUID orderId, String orderNumber, UUID buyerId, int totalOrderAmount,
+	OrderStatus orderStatus, LocalDateTime createdAt,
+	List<OrderProductSummary> orderProducts
 ) {
-	public record SellerSummary(
-		UUID sellerId,
-		int productCount,
-		int orderAmount
+	public record OrderProductSummary(
+		UUID sellerId, String productTitle, int productAmount, String orderProductStatus
 	) {
 	}
 }

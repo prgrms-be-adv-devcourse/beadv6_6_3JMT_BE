@@ -40,16 +40,19 @@ class OrderControllerTest {
 	@Test
 	void 전체_주문_목록을_조회한다() throws Exception {
 		OrderListResponse order = new OrderListResponse(
-			UUID.fromString("00000000-0000-0000-0000-000000000501"),
-			1,
-			List.of(new OrderListResponse.SellerSummary(
-				UUID.fromString("00000000-0000-0000-0000-000000000201"), "판매자A", 2, 30_000
-			)),
-			"프롬프트 상품 1",
-			2,
+			"ORD-20260624-0001",
+			new OrderListResponse.UserSummary(
+				UUID.fromString("00000000-0000-0000-0000-000000000101"), "구매자A", "https://cdn/buyer.png"
+			),
 			30_000,
 			OrderStatus.COMPLETED,
-			LocalDateTime.of(2026, 6, 24, 10, 0)
+			LocalDateTime.of(2026, 6, 24, 10, 0),
+			List.of(new OrderListResponse.OrderProductSummary(
+				new OrderListResponse.UserSummary(
+					UUID.fromString("00000000-0000-0000-0000-000000000201"), "판매자A", "https://cdn/seller-a.png"
+				),
+				"프롬프트 상품 1", 30_000, "PAID"
+			))
 		);
 		when(orderUseCase.getOrders(eq(new com.prompthub.admin.order.presentation.dto.request.OrderSearchCondition("ALL", 1, 20).resolve())))
 			.thenReturn(new PageImpl<>(List.of(order), PageRequest.of(0, 20), 1));
@@ -60,8 +63,13 @@ class OrderControllerTest {
 				.param("size", "20"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.success").value(true))
-			.andExpect(jsonPath("$.data[0].sellerCount").value(1))
-			.andExpect(jsonPath("$.data[0].sellers[0].sellerNickname").value("판매자A"))
+			.andExpect(jsonPath("$.data[0].orderNumber").value("ORD-20260624-0001"))
+			.andExpect(jsonPath("$.data[0].buyer.name").value("구매자A"))
+			.andExpect(jsonPath("$.data[0].buyer.profileImageUrl").value("https://cdn/buyer.png"))
+			.andExpect(jsonPath("$.data[0].orderProducts[0].seller.name").value("판매자A"))
+			.andExpect(jsonPath("$.data[0].orderProducts[0].productTitle").value("프롬프트 상품 1"))
+			.andExpect(jsonPath("$.data[0].orderProducts[0].productAmount").value(30_000))
+			.andExpect(jsonPath("$.data[0].orderProducts[0].orderProductStatus").value("PAID"))
 			.andExpect(jsonPath("$.meta.total").value(1));
 	}
 

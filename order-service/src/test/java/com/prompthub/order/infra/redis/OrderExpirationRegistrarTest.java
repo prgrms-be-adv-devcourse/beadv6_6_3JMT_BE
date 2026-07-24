@@ -10,7 +10,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static com.prompthub.order.fixture.OrderFixture.CREATED_AT;
 import static com.prompthub.order.fixture.OrderFixture.ORDER_ID;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
@@ -24,7 +26,7 @@ class OrderExpirationRegistrarTest {
 	void registerOrderExpirationRegistersOrder() {
 		OrderExpirationRegistrar registrar = new OrderExpirationRegistrar(
 			orderExpirationStore,
-			new OrderExpirationProperties(true, 20, 5_000L, 100, 3)
+			new OrderExpirationProperties(true, 20, 5_000L, 100, 3, 30)
 		);
 		OrderCreatedEvent event = new OrderCreatedEvent(ORDER_ID, CREATED_AT);
 
@@ -34,5 +36,19 @@ class OrderExpirationRegistrarTest {
 		then(orderExpirationStore).should(times(1))
 			.registerExpiration(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
 				org.mockito.ArgumentMatchers.eq(20));
+	}
+
+	@Test
+	@DisplayName("Redis 만료 등록 실패는 DB reconciliation을 위해 전파하지 않는다")
+	void registerOrderExpiration_storeFailureIsSwallowed() {
+		OrderExpirationRegistrar registrar = new OrderExpirationRegistrar(
+			orderExpirationStore,
+			new OrderExpirationProperties(true, 20, 5_000L, 100, 3, 30)
+		);
+		willThrow(new IllegalStateException("redis down"))
+			.given(orderExpirationStore).registerExpiration(ORDER_ID, CREATED_AT, 20);
+
+		assertThatCode(() -> registrar.registerOrderExpiration(new OrderCreatedEvent(ORDER_ID, CREATED_AT)))
+			.doesNotThrowAnyException();
 	}
 }

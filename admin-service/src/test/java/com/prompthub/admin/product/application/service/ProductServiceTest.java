@@ -7,13 +7,15 @@ import static org.mockito.BDDMockito.then;
 
 import com.prompthub.admin.order.domain.model.SellerNickname;
 import com.prompthub.admin.order.infrastructure.persistence.SellerNicknameRepository;
+import com.prompthub.admin.product.application.dto.AdminProductListQuery;
+import com.prompthub.admin.product.application.dto.AdminProductPageResult;
 import com.prompthub.admin.product.domain.exception.ProductException;
+import com.prompthub.admin.product.domain.model.ProductListFilter;
 import com.prompthub.admin.product.domain.model.entity.Product;
 import com.prompthub.admin.product.domain.model.enums.AmountType;
 import com.prompthub.admin.product.domain.model.enums.ProductStatus;
 import com.prompthub.admin.product.domain.model.enums.ProductType;
 import com.prompthub.admin.product.domain.repository.ProductRepository;
-import com.prompthub.admin.product.presentation.dto.response.AdminProductListItemResponse;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,6 +27,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,6 +38,7 @@ class ProductServiceTest {
 
 	private static final UUID SELLER_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
 	private static final UUID FAMILY_ROOT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
+	private static final Pageable PAGE_0_20 = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
 
 	@Mock
 	private ProductRepository productRepository;
@@ -43,35 +50,72 @@ class ProductServiceTest {
 	private ProductService productAdminService;
 
 	@Nested
-	@DisplayName("검수 대기 목록 조회")
-	class GetPendingReviewProducts {
+	@DisplayName("상품 목록 조회")
+	class ListProducts {
 
 		@Test
 		@DisplayName("판매자 닉네임을 함께 채워서 반환한다")
-		void getPendingReviewProducts_fillsSellerNickname() {
+		void listProducts_fillsSellerNickname() {
 			Product pending = product(FAMILY_ROOT_ID, null, ProductStatus.PENDING_REVIEW, (short) 1, (short) 0);
-			given(productRepository.findPendingReviewProducts()).willReturn(List.of(pending));
+			given(productRepository.findProducts(
+				new ProductListFilter(ProductStatus.PENDING_REVIEW, null, List.of()), PAGE_0_20))
+				.willReturn(new PageImpl<>(List.of(pending), PAGE_0_20, 1));
 			SellerNickname nickname = Mockito.mock(SellerNickname.class);
 			given(nickname.getSellerId()).willReturn(SELLER_ID);
 			given(nickname.getNickname()).willReturn("판매자A");
 			given(sellerNicknameRepository.findAllById(List.of(SELLER_ID))).willReturn(List.of(nickname));
 
-			List<AdminProductListItemResponse> result = productAdminService.getPendingReviewProducts();
+			AdminProductPageResult result = productAdminService.listProducts(
+				new AdminProductListQuery(ProductStatus.PENDING_REVIEW, null, PAGE_0_20));
 
-			assertThat(result).hasSize(1);
-			assertThat(result.get(0).sellerNickname()).isEqualTo("판매자A");
+			assertThat(result.items()).hasSize(1);
+			assertThat(result.items().get(0).sellerNickname()).isEqualTo("판매자A");
+			assertThat(result.total()).isEqualTo(1L);
+			assertThat(result.hasNext()).isFalse();
 		}
 
 		@Test
 		@DisplayName("닉네임을 찾을 수 없으면 '알 수 없음'으로 채운다")
-		void getPendingReviewProducts_unknownSeller_fallsBack() {
+		void listProducts_unknownSeller_fallsBack() {
 			Product pending = product(FAMILY_ROOT_ID, null, ProductStatus.PENDING_REVIEW, (short) 1, (short) 0);
-			given(productRepository.findPendingReviewProducts()).willReturn(List.of(pending));
+			given(productRepository.findProducts(new ProductListFilter(null, null, List.of()), PAGE_0_20))
+				.willReturn(new PageImpl<>(List.of(pending), PAGE_0_20, 1));
 			given(sellerNicknameRepository.findAllById(List.of(SELLER_ID))).willReturn(List.of());
 
-			List<AdminProductListItemResponse> result = productAdminService.getPendingReviewProducts();
+			AdminProductPageResult result = productAdminService.listProducts(
+				new AdminProductListQuery(null, null, PAGE_0_20));
 
-			assertThat(result.get(0).sellerNickname()).isEqualTo("알 수 없음");
+			assertThat(result.items().get(0).sellerNickname()).isEqualTo("알 수 없음");
+		}
+
+		@Test
+		@DisplayName("keyword가 있으면 닉네임으로 sellerId를 먼저 찾아 리포지토리에 전달한다")
+		void listProducts_keyword_resolvesSellerIdsFirst() {
+			SellerNickname nickname = Mockito.mock(SellerNickname.class);
+			given(nickname.getSellerId()).willReturn(SELLER_ID);
+			given(sellerNicknameRepository.findByNicknameContainingIgnoreCase("판매자")).willReturn(List.of(nickname));
+			ProductListFilter filter = new ProductListFilter(null, "판매자", List.of(SELLER_ID));
+			given(productRepository.findProducts(filter, PAGE_0_20))
+				.willReturn(new PageImpl<>(List.of(), PAGE_0_20, 0));
+
+			AdminProductPageResult result = productAdminService.listProducts(
+				new AdminProductListQuery(null, "  판매자  ", PAGE_0_20));
+
+			assertThat(result.items()).isEmpty();
+			then(productRepository).should().findProducts(filter, PAGE_0_20);
+		}
+
+		@Test
+		@DisplayName("total이 페이지 범위를 넘으면 hasNext가 true다")
+		void listProducts_hasNext_whenTotalExceedsPage() {
+			given(productRepository.findProducts(new ProductListFilter(null, null, List.of()), PAGE_0_20))
+				.willReturn(new PageImpl<>(List.of(), PAGE_0_20, 45L));
+
+			AdminProductPageResult result = productAdminService.listProducts(
+				new AdminProductListQuery(null, null, PAGE_0_20));
+
+			assertThat(result.hasNext()).isTrue();
+			assertThat(result.total()).isEqualTo(45L);
 		}
 	}
 
