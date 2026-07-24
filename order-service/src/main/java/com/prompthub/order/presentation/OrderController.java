@@ -14,6 +14,7 @@ import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
+import com.prompthub.order.presentation.dto.response.ProductDownloadResponse;
 import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.presentation.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -85,6 +86,22 @@ public class OrderController {
 		@Parameter(description = "상품 ID") @PathVariable UUID productId
 	) {
 		return ApiResult.success(orderQueryUseCase.hasAccessiblePaidProduct(buyerId, productId));
+	}
+
+	@GetMapping("/products/{productId}")
+	@Operation(summary = "구매 상품 다운로드 여부 조회", description = "구매자가 해당 상품을 다운로드했는지 반환합니다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "다운로드 여부 조회 성공"),
+		@ApiResponse(responseCode = "401", description = "A003 인증 정보 누락")
+	})
+	public ApiResult<ProductDownloadResponse> getProductDownloadStatus(
+		@Parameter(hidden = true)
+		@RequestHeader(USER_ID) UUID buyerId,
+		@Parameter(description = "상품 ID") @PathVariable UUID productId
+	) {
+		return ApiResult.success(new ProductDownloadResponse(
+			orderQueryUseCase.isProductDownloaded(buyerId, productId)
+		));
 	}
 
 	@GetMapping("/users")

@@ -664,6 +664,33 @@ class OrderControllerTest {
 		}
 
 		@Test
+		@DisplayName("상품 상세 페이지용 다운로드 여부를 반환한다")
+		void getProductDownloadStatus_success() throws Exception {
+			when(orderQueryUseCase.isProductDownloaded(BUYER_ID, PRODUCT_ID_1)).thenReturn(true);
+
+			mockMvc.perform(get("/api/v2/orders/products/{productId}", PRODUCT_ID_1)
+					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data.downloaded").value(true));
+
+			verify(orderQueryUseCase).isProductDownloaded(BUYER_ID, PRODUCT_ID_1);
+		}
+
+		@Test
+		@DisplayName("미다운로드 구매 상품은 false를 반환한다")
+		void getProductDownloadStatus_notDownloaded_returnsFalse() throws Exception {
+			when(orderQueryUseCase.isProductDownloaded(BUYER_ID, PRODUCT_ID_1)).thenReturn(false);
+
+			mockMvc.perform(get("/api/v2/orders/products/{productId}", PRODUCT_ID_1)
+					.header(AuthHeaders.USER_ID, BUYER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.downloaded").value(false));
+
+			verify(orderQueryUseCase).isProductDownloaded(BUYER_ID, PRODUCT_ID_1);
+		}
+
+		@Test
 		@DisplayName("마이페이지용 구매 상품 ID 목록을 반환한다")
 		void getAccessiblePaidProductIds_success() throws Exception {
 			when(orderQueryUseCase.getAccessiblePaidProductIds(BUYER_ID))
@@ -683,6 +710,16 @@ class OrderControllerTest {
 		@DisplayName("사용자 ID 헤더가 없으면 401을 반환한다")
 		void hasAccessiblePaidProduct_missingUserId_unauthorized() throws Exception {
 			mockMvc.perform(get("/api/v2/orders/product/{productId}/paid", PRODUCT_ID_1))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
+
+			verifyNoInteractions(orderQueryUseCase);
+		}
+
+		@Test
+		@DisplayName("다운로드 여부 조회에 사용자 ID 헤더가 없으면 401을 반환한다")
+		void getProductDownloadStatus_missingUserId_unauthorized() throws Exception {
+			mockMvc.perform(get("/api/v2/orders/products/{productId}", PRODUCT_ID_1))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value(ErrorCode.INVALID_AUTHENTICATION.getCode()));
 
