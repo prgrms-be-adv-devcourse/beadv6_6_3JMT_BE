@@ -1,4 +1,4 @@
-package com.prompthub.ai.settlement.infrastructure.grpc;
+package com.prompthub.ai.settlement.infrastructure.client.user;
 
 import com.prompthub.ai.global.config.AiSettlementProperties;
 import com.prompthub.ai.global.exception.AiErrorCode;
@@ -35,7 +35,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-public class UserSellerSettlementQueryClient implements SellerSettlementAnalysisQuery {
+public class UserSellerSettlementAnalysisQueryClient implements SellerSettlementAnalysisQuery {
 
     private static final Metadata.Key<String> USER_ID = Metadata.Key.of(
             "x-user-id", Metadata.ASCII_STRING_MARSHALLER);
@@ -48,7 +48,7 @@ public class UserSellerSettlementQueryClient implements SellerSettlementAnalysis
     private final MeterRegistry meterRegistry;
 
     @Autowired
-    public UserSellerSettlementQueryClient(
+    public UserSellerSettlementAnalysisQueryClient(
             SellerSettlementQueryServiceBlockingStub baseStub,
             AiSettlementProperties properties,
             MeterRegistry meterRegistry
@@ -56,7 +56,7 @@ public class UserSellerSettlementQueryClient implements SellerSettlementAnalysis
         this(baseStub, properties.userGrpcDeadline(), properties.userGrpcInternalToken(), meterRegistry);
     }
 
-    UserSellerSettlementQueryClient(
+    UserSellerSettlementAnalysisQueryClient(
             SellerSettlementQueryServiceBlockingStub baseStub,
             Duration deadline,
             String internalToken,

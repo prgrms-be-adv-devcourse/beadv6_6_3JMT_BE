@@ -132,7 +132,7 @@
 |---|---|
 | 계약 | `grpc/user/seller_settlement_query.proto`의 `SellerSettlementQueryService` |
 | 제공 RPC | 월/주 `GetSettlementSummary`, 기간 `CompareSettlementPeriods`, 월별 `GetWeeklySettlementBreakdown`, `GetPayoutStatus` |
-| 호출자 | `ai-service`의 `UserSellerSettlementQueryClient` — OpenAI Tool이 이 포트만 호출 |
+| 호출자 | `ai-service`의 `UserSellerSettlementAnalysisQueryClient` — OpenAI Tool이 `SellerSettlementAnalysisQuery` 포트를 통해서만 호출 |
 | 인증/범위 | `x-user-id`와 내부 서비스 토큰 gRPC metadata를 User interceptor가 검증하고, 서버가 해당 판매자 ID로만 read-side를 조회 |
 | 계약 소유 | proto를 `grpc/user/`에 둔다. 조회 데이터·기간 집계·판매자 범위 검증의 단일 소유자가 User이므로, 호출자인 AI나 배치성 settlement-service가 계약을 소유하지 않는다 |
 

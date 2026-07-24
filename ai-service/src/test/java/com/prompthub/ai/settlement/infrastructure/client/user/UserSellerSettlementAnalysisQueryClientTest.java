@@ -1,4 +1,4 @@
-package com.prompthub.ai.settlement.infrastructure.grpc;
+package com.prompthub.ai.settlement.infrastructure.client.user;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -35,7 +35,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 @DisplayName("AI User 판매자 정산 gRPC client")
-class UserSellerSettlementQueryClientTest {
+class UserSellerSettlementAnalysisQueryClientTest {
 
     private static final String TOKEN = "internal-test-token";
     private static final Metadata.Key<String> USER_ID = Metadata.Key.of(
@@ -51,7 +51,7 @@ class UserSellerSettlementQueryClientTest {
 
     private Server server;
     private ManagedChannel channel;
-    private UserSellerSettlementQueryClient client;
+    private UserSellerSettlementAnalysisQueryClient client;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -62,7 +62,7 @@ class UserSellerSettlementQueryClientTest {
                 .build()
                 .start();
         channel = InProcessChannelBuilder.forName(serverName).directExecutor().build();
-        client = new UserSellerSettlementQueryClient(
+        client = new UserSellerSettlementAnalysisQueryClient(
                 SellerSettlementQueryServiceGrpc.newBlockingStub(channel),
                 Duration.ofSeconds(3),
                 TOKEN,
