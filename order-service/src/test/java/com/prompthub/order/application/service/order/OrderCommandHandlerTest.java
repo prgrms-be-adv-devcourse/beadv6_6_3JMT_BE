@@ -4,7 +4,7 @@ import com.prompthub.exception.BusinessException;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.CreateOrderCommand;
 import com.prompthub.order.application.dto.CreateOrderResult;
-import com.prompthub.order.application.dto.OrderItem;
+import com.prompthub.order.application.dto.OrderCreationItem;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
 import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -63,7 +63,7 @@ class OrderCommandHandlerTest {
 	private OrderCommandHandler orderCommandHandler;
 
 	@Test
-	@DisplayName("snapshot 순서와 무관하게 productId로 결합하고 요청 제목을 유지한다")
+	@DisplayName("snapshot 순서와 무관하게 productId로 결합하고 상품 서비스 제목을 사용한다")
 	@SuppressWarnings("unchecked")
 	void createOrderCombinesRequestAndSnapshotByProductId() {
 		CreateOrderResult expected = result();
@@ -76,24 +76,24 @@ class OrderCommandHandlerTest {
 
 		assertThat(actual).isSameAs(expected);
 		then(productClient).should().getOrderSnapshots(requestedProductIds());
-		ArgumentCaptor<List<OrderItem>> itemsCaptor = ArgumentCaptor.forClass(List.class);
+		ArgumentCaptor<List<OrderCreationItem>> itemsCaptor = ArgumentCaptor.forClass(List.class);
 		then(orderCreator).should().create(eq(BUYER_ID), itemsCaptor.capture());
 
 		assertThat(itemsCaptor.getValue())
-			.extracting(OrderItem::productId)
+			.extracting(OrderCreationItem::productId)
 			.containsExactly(PRODUCT_A1, PRODUCT_B1, PRODUCT_A2,
 				com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_C1);
 		assertThat(itemsCaptor.getValue())
-			.extracting(OrderItem::productTitle)
+			.extracting(OrderCreationItem::productTitle)
 			.containsExactly(
-				REQUEST_TITLE_A1,
-				com.prompthub.order.fixture.OrderV2Fixture.REQUEST_TITLE_B1,
-				REQUEST_TITLE_A2,
-				com.prompthub.order.fixture.OrderV2Fixture.REQUEST_TITLE_C1
+				"서버-A1",
+				"서버-B1",
+				"서버-A2",
+				"서버-C1"
 			);
 		assertThat(itemsCaptor.getValue().getFirst().sellerId()).isEqualTo(SELLER_A);
 		assertThat(itemsCaptor.getValue().getFirst().amount()).isEqualTo(AMOUNT_A1);
-		assertThat(itemsCaptor.getValue().getFirst().productTitle()).isNotEqualTo("서버-A1");
+		assertThat(itemsCaptor.getValue().getFirst().productTitle()).isEqualTo("서버-A1");
 	}
 
 	@Test
@@ -166,11 +166,37 @@ class OrderCommandHandlerTest {
 		CreateOrderResult actual = orderCommandHandler.createOrder(BUYER_ID, command());
 
 		assertThat(actual).isSameAs(expected);
-		ArgumentCaptor<List<OrderItem>> itemsCaptor = ArgumentCaptor.forClass(List.class);
+		ArgumentCaptor<List<OrderCreationItem>> itemsCaptor = ArgumentCaptor.forClass(List.class);
 		then(orderCreator).should().create(eq(BUYER_ID), itemsCaptor.capture());
 		assertThat(itemsCaptor.getValue())
-			.extracting(OrderItem::amount)
+			.extracting(OrderCreationItem::amount)
 			.contains(0);
+	}
+
+	@Test
+	@DisplayName("무료 본인 상품은 주문 생성 전에 O015로 거부한다")
+	void freeOwnProductIsRejectedBeforeOrderCreation() {
+		given(productClient.getOrderSnapshots(requestedProductIds()))
+			.willReturn(snapshotsWithOwnProduct(0));
+
+		assertThatThrownBy(() -> orderCommandHandler.createOrder(BUYER_ID, command()))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SELF_PURCHASE_NOT_ALLOWED);
+
+		then(orderCreator).shouldHaveNoInteractions();
+	}
+
+	@Test
+	@DisplayName("다건 중 유료 본인 상품 하나라도 포함되면 전체 주문을 거부한다")
+	void mixedProductsWithOwnProductAreRejectedBeforeOrderCreation() {
+		given(productClient.getOrderSnapshots(requestedProductIds()))
+			.willReturn(snapshotsWithOwnProduct(AMOUNT_A1));
+
+		assertThatThrownBy(() -> orderCommandHandler.createOrder(BUYER_ID, command()))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SELF_PURCHASE_NOT_ALLOWED);
+
+		then(orderCreator).shouldHaveNoInteractions();
 	}
 
 	@Test
@@ -228,18 +254,48 @@ class OrderCommandHandlerTest {
 			shuffledSnapshots().get(1),
 			shuffledSnapshots().get(2)
 		);
+		List<ProductOrderSnapshot> nullTitle = List.of(
+			snapshot(PRODUCT_A1, SELLER_A, null, AMOUNT_A1),
+			shuffledSnapshots().get(0),
+			shuffledSnapshots().get(1),
+			shuffledSnapshots().get(2)
+		);
+		List<ProductOrderSnapshot> blankTitle = List.of(
+			snapshot(PRODUCT_A1, SELLER_A, "   ", AMOUNT_A1),
+			shuffledSnapshots().get(0),
+			shuffledSnapshots().get(1),
+			shuffledSnapshots().get(2)
+		);
+		List<ProductOrderSnapshot> tooLongTitle = List.of(
+			snapshot(PRODUCT_A1, SELLER_A, "a".repeat(201), AMOUNT_A1),
+			shuffledSnapshots().get(0),
+			shuffledSnapshots().get(1),
+			shuffledSnapshots().get(2)
+		);
 		return Stream.of(
 			Arguments.of("snapshot count mismatch", missing),
 			Arguments.of("unknown product id", unknown),
 			Arguments.of("duplicate snapshot", duplicated),
 			Arguments.of("null seller", nullSeller),
-			Arguments.of("negative amount", negativeAmount)
+			Arguments.of("negative amount", negativeAmount),
+			Arguments.of("null title", nullTitle),
+			Arguments.of("blank title", blankTitle),
+			Arguments.of("title longer than 200 characters", tooLongTitle)
 		);
 	}
 
 	private static List<ProductOrderSnapshot> zeroAmountSnapshots() {
 		return List.of(
 			snapshot(PRODUCT_A1, SELLER_A, "서버-A1", 0),
+			shuffledSnapshots().get(0),
+			shuffledSnapshots().get(1),
+			shuffledSnapshots().get(2)
+		);
+	}
+
+	private static List<ProductOrderSnapshot> snapshotsWithOwnProduct(int amount) {
+		return List.of(
+			snapshot(PRODUCT_A1, BUYER_ID, "서버-A1", amount),
 			shuffledSnapshots().get(0),
 			shuffledSnapshots().get(1),
 			shuffledSnapshots().get(2)

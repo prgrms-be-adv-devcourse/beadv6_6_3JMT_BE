@@ -25,12 +25,19 @@ public record CreateOrderResponse(
 	}
 
 	public record Order(
+		@Schema(description = "주문 ID", example = "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111")
 		UUID orderId,
+		@Schema(description = "주문 번호", example = "ORD-20260618-000001")
 		String orderNumber,
+		@Schema(description = "구매자 ID", example = "7c2f6e91-2c1b-4a3b-9f99-3f527f7d1234")
 		UUID buyerId,
+		@Schema(description = "주문 상태. CREATED, COMPLETED, FAILED, REFUND_REQUESTED, PARTIAL_REFUNDED, ALL_REFUNDED", example = "CREATED")
 		OrderStatus orderStatus,
+		@Schema(description = "주문 금액. 원 단위 정수", example = "45000")
 		int orderAmount,
+		@Schema(description = "주문 상품 목록")
 		List<Product> products,
+		@Schema(description = "주문 생성 일시. yyyy-MM-dd'T'HH:mm:ss 형식", example = "2026-06-18T14:30:00")
 		LocalDateTime createdAt
 	) {
 
@@ -48,14 +55,17 @@ public record CreateOrderResponse(
 	}
 
 	public record Product(
-		@Schema(description = "주문 상품 ID")
+		@Schema(description = "주문 상품 ID", example = "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa")
 		UUID orderProductId,
-		@Schema(description = "상품 ID")
+		@Schema(description = "상품 ID", example = "a1b55b60-5e84-4f3f-b4f1-6c10e1a22222")
 		UUID productId,
-		@Schema(description = "주문 상품별 판매자 ID")
+		@Schema(description = "주문 상품별 판매자 ID", example = "8f2c6e91-2c1b-4a3b-9f99-3f527f7d5678")
 		UUID sellerId,
+		@Schema(description = "상품 서비스에서 조회한 주문 시점 제목 스냅샷", example = "면접 준비 프롬프트")
 		String productTitle,
+		@Schema(description = "주문 시점 상품 금액 스냅샷. 원 단위 정수", example = "15000")
 		int productAmount,
+		@Schema(description = "주문 상품 상태. PENDING, PAID, FAILED, REFUND_REQUESTED, REFUNDED", example = "PENDING")
 		OrderProductStatus orderProductStatus
 	) {
 

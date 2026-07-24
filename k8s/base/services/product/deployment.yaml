@@ -126,6 +126,11 @@ spec:
                 secretKeyRef:
                   name: product-secret
                   key: AWS_S3_BUCKET
+            - name: ES_URIS
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secret
+                  key: ES_URIS
             - name: MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED
               value: "true"
             - name: JAVA_TOOL_OPTIONS

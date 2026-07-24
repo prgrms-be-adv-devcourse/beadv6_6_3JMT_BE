@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -55,7 +56,10 @@ public class OrderPolicyService {
 		Set<UUID> requestedIds = new HashSet<>(requestedProductIds);
 		if (products.stream().anyMatch(product -> product == null
 			|| product.productId() == null
-			|| product.sellerId() == null)) {
+			|| product.sellerId() == null
+			|| product.title() == null
+			|| product.title().isBlank()
+			|| product.title().length() > MAX_PRODUCT_TITLE_LENGTH)) {
 			throw invalidInput();
 		}
 		OrderAmountCalculator.sum(products, ProductOrderSnapshot::amount);
@@ -63,6 +67,12 @@ public class OrderPolicyService {
 
 		if (responseIds.size() != products.size() || !responseIds.equals(requestedIds)) {
 			throw invalidInput();
+		}
+	}
+
+	public void validateSelfPurchase(UUID buyerId, List<ProductOrderSnapshot> snapshots) {
+		if (snapshots.stream().anyMatch(snapshot -> Objects.equals(buyerId, snapshot.sellerId()))) {
+			throw new OrderException(ErrorCode.SELF_PURCHASE_NOT_ALLOWED);
 		}
 	}
 
