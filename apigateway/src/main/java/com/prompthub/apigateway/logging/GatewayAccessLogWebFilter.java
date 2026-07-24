@@ -82,7 +82,7 @@ public class GatewayAccessLogWebFilter implements WebFilter, Ordered {
 
     private long elapsedMillis(long startedNanos) {
         long elapsedNanos = System.nanoTime() - startedNanos;
-        return Math.max(0L, TimeUnit.NANOSECONDS.toMillis(elapsedNanos));
+        return TimeUnit.NANOSECONDS.toMillis(elapsedNanos);
     }
 
     private void writeSafely(
