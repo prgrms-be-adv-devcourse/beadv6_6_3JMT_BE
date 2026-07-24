@@ -93,7 +93,7 @@ class AuditLogEventListenerTest {
         payment.markRequested(OffsetDateTime.now());
         payment.approve(10_000, "CARD", "{}", "{}", OffsetDateTime.now());
         Refund refund = Refund.create(payment.getId(), UUID.randomUUID(), 4_000, "단순 변심");
-        refund.fail("PG 오류", OffsetDateTime.now());
+        refund.fail("CANCEL_FAILED", "PG 오류", OffsetDateTime.now());
 
         listener.onPaymentRefundFailed(new PaymentRefundFailedEvent(payment, refund, "PG 오류"));
 

@@ -105,6 +105,7 @@ class RefundServiceTest {
         verify(refundRepository).save(refundCaptor.capture());
         assertThat(refundCaptor.getValue().getStatus()).isEqualTo(RefundStatus.FAILED);
         assertThat(refundCaptor.getValue().getFailureReason()).isNotBlank();
+        assertThat(refundCaptor.getValue().getFailureCode()).isEqualTo("REFUND_LIMIT_EXCEEDED");
 
         ArgumentCaptor<PaymentRefundFailedEvent> eventCaptor = ArgumentCaptor.forClass(PaymentRefundFailedEvent.class);
         verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
@@ -182,6 +183,7 @@ class RefundServiceTest {
         verify(refundRepository).save(refundCaptor.capture());
         assertThat(refundCaptor.getValue().getStatus()).isEqualTo(RefundStatus.FAILED);
         assertThat(refundCaptor.getValue().getFailureReason()).isEqualTo("환불 실패");
+        assertThat(refundCaptor.getValue().getFailureCode()).isEqualTo("CANCEL_FAILED");
 
         ArgumentCaptor<PaymentRefundFailedEvent> eventCaptor = ArgumentCaptor.forClass(PaymentRefundFailedEvent.class);
         verify(applicationEventPublisher).publishEvent(eventCaptor.capture());

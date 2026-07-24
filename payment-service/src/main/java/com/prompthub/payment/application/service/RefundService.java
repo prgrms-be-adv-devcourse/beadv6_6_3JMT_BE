@@ -30,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class RefundService implements RefundUseCase {
 
     private static final List<PaymentStatus> REFUNDABLE_STATUSES = List.of(PaymentStatus.PAID);
+    private static final String REFUND_LIMIT_EXCEEDED_CODE = "REFUND_LIMIT_EXCEEDED";
 
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
@@ -70,7 +71,7 @@ public class RefundService implements RefundUseCase {
     private void failByExceedingLimit(Payment payment, Refund refund, int remainingAmount, int requestedAmount) {
         log.warn("환불 가능 잔액 초과 — paymentId={}, remainingAmount={}, requestedAmount={}",
             payment.getId(), remainingAmount, requestedAmount);
-        refund.fail("환불 가능 잔액을 초과했습니다.", OffsetDateTime.now());
+        refund.fail(REFUND_LIMIT_EXCEEDED_CODE, "환불 가능 잔액을 초과했습니다.", OffsetDateTime.now());
         refundRepository.save(refund);
         applicationEventPublisher.publishEvent(
             new PaymentRefundFailedEvent(payment, refund, "환불 가능 잔액을 초과했습니다."));
@@ -85,7 +86,7 @@ public class RefundService implements RefundUseCase {
         } catch (PaymentGatewayException e) {
             log.error("PG 환불 실패 — paymentId={}, refundRequestId={}, code={}, reason={}",
                 payment.getId(), refund.getRefundRequestId(), e.getFailureCode(), e.getFailureReason());
-            refund.fail(e.getFailureReason(), OffsetDateTime.now());
+            refund.fail(e.getFailureCode(), e.getFailureReason(), OffsetDateTime.now());
             refundRepository.save(refund);
             applicationEventPublisher.publishEvent(
                 new PaymentRefundFailedEvent(payment, refund, e.getFailureReason()));
