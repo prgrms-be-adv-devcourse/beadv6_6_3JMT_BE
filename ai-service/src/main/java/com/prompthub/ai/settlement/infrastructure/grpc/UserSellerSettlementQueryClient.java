@@ -3,7 +3,7 @@ package com.prompthub.ai.settlement.infrastructure.grpc;
 import com.prompthub.ai.global.config.AiSettlementProperties;
 import com.prompthub.ai.global.exception.AiErrorCode;
 import com.prompthub.ai.global.exception.AiException;
-import com.prompthub.ai.settlement.application.port.SellerSettlementQuery;
+import com.prompthub.ai.settlement.application.port.SellerSettlementAnalysisQuery;
 import com.prompthub.user.grpc.sellersettlement.CompareSettlementPeriodsRequest;
 import com.prompthub.user.grpc.sellersettlement.CompareSettlementPeriodsResponse;
 import com.prompthub.user.grpc.sellersettlement.CountChange;
@@ -35,7 +35,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-public class UserSellerSettlementQueryClient implements SellerSettlementQuery {
+public class UserSellerSettlementQueryClient implements SellerSettlementAnalysisQuery {
 
     private static final Metadata.Key<String> USER_ID = Metadata.Key.of(
             "x-user-id", Metadata.ASCII_STRING_MARSHALLER);

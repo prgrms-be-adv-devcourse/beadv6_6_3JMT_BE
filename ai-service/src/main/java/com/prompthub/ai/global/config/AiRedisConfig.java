@@ -1,6 +1,6 @@
 package com.prompthub.ai.global.config;
 
-import com.prompthub.ai.settlement.infrastructure.redis.RedisRunEventSubscriber;
+import com.prompthub.ai.settlement.infrastructure.messaging.redis.RedisSettlementRunEventSubscriber;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -17,7 +17,7 @@ public class AiRedisConfig {
     @Bean
     public RedisMessageListenerContainer aiSettlementRedisMessageListenerContainer(
             RedisConnectionFactory connectionFactory,
-            RedisRunEventSubscriber subscriber
+            RedisSettlementRunEventSubscriber subscriber
     ) {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);

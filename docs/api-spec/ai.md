@@ -54,7 +54,7 @@ sequenceDiagram
     participant AG as SpringAiSettlementAgent
     participant O as OpenAI Luna
     participant TM as ToolCallingManager
-    participant T as SettlementAnalysisTools
+    participant T as SellerSettlementAnalysisTools
     participant U as User gRPC
     participant DB as User PostgreSQL
     participant S as Redis + Pub/Sub

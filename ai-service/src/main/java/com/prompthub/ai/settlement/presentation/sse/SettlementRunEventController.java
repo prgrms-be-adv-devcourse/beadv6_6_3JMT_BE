@@ -3,7 +3,7 @@ package com.prompthub.ai.settlement.presentation.sse;
 import com.prompthub.ai.global.config.AiSettlementProperties;
 import com.prompthub.ai.global.exception.AiErrorCode;
 import com.prompthub.ai.global.exception.AiException;
-import com.prompthub.ai.settlement.application.usecase.SettlementChatUseCase;
+import com.prompthub.ai.settlement.application.usecase.SettlementRunUseCase;
 import com.prompthub.ai.settlement.domain.run.AgentRun;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -29,13 +29,13 @@ public class SettlementRunEventController {
     private static final String USER_ID_HEADER = "X-User-Id";
     private static final Duration SSE_TIMEOUT_MARGIN = Duration.ofSeconds(30);
 
-    private final SettlementChatUseCase useCase;
+    private final SettlementRunUseCase useCase;
     private final SseEmitterRegistry emitterRegistry;
     private final AiSettlementProperties properties;
     private final Clock clock;
 
     public SettlementRunEventController(
-            SettlementChatUseCase useCase,
+            SettlementRunUseCase useCase,
             SseEmitterRegistry emitterRegistry,
             AiSettlementProperties properties,
             Clock clock

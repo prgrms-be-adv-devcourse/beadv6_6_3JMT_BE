@@ -1,7 +1,6 @@
 package com.prompthub.ai.settlement.application.usecase;
 
 import com.prompthub.ai.settlement.domain.conversation.ConversationSnapshot;
-import com.prompthub.ai.settlement.domain.run.AgentRun;
 import com.prompthub.ai.settlement.domain.run.RunStatus;
 
 import java.time.Instant;
@@ -15,10 +14,6 @@ public interface SettlementChatUseCase {
     AcceptedRun acceptQuestion(UUID actorId, String content);
 
     void deleteCurrentConversation(UUID actorId);
-
-    AgentRun getOwnedRun(UUID actorId, UUID runId);
-
-    boolean claimFirstStream(UUID actorId, UUID runId);
 
     record AcceptedRun(
             UUID conversationId,

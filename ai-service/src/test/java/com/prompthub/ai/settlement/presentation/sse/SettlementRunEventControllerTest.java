@@ -3,7 +3,7 @@ package com.prompthub.ai.settlement.presentation.sse;
 import com.prompthub.ai.global.exception.AiErrorCode;
 import com.prompthub.ai.global.exception.AiException;
 import com.prompthub.ai.global.exception.GlobalExceptionHandler;
-import com.prompthub.ai.settlement.application.usecase.SettlementChatUseCase;
+import com.prompthub.ai.settlement.application.usecase.SettlementRunUseCase;
 import com.prompthub.ai.settlement.domain.run.AgentRun;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -47,7 +47,7 @@ class SettlementRunEventControllerTest {
                 Instant.parse("2026-07-22T12:00:00Z"),
                 Duration.ofSeconds(90)
         );
-        SettlementChatUseCase useCase = mock(SettlementChatUseCase.class);
+        SettlementRunUseCase useCase = mock(SettlementRunUseCase.class);
         SseEmitterRegistry registry = mock(SseEmitterRegistry.class);
         when(useCase.getOwnedRun(actorId, run.runId())).thenReturn(run);
         when(useCase.claimFirstStream(actorId, run.runId())).thenReturn(true);
@@ -88,7 +88,7 @@ class SettlementRunEventControllerTest {
                 Instant.parse("2026-07-22T12:00:00Z"),
                 Duration.ofSeconds(90)
         );
-        SettlementChatUseCase useCase = mock(SettlementChatUseCase.class);
+        SettlementRunUseCase useCase = mock(SettlementRunUseCase.class);
         SseEmitterRegistry registry = mock(SseEmitterRegistry.class);
         when(useCase.getOwnedRun(actorId, run.runId())).thenReturn(run);
         when(useCase.claimFirstStream(actorId, run.runId())).thenReturn(false);
@@ -116,7 +116,7 @@ class SettlementRunEventControllerTest {
 
     @Test
     void disabledSseStopsBeforeOwnershipLookup() throws Exception {
-        SettlementChatUseCase useCase = mock(SettlementChatUseCase.class);
+        SettlementRunUseCase useCase = mock(SettlementRunUseCase.class);
         SseEmitterRegistry registry = mock(SseEmitterRegistry.class);
         SettlementRunEventController controller = new SettlementRunEventController(
                 useCase,

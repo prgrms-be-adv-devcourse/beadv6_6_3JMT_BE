@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.prompthub.ai.global.exception.AiErrorCode;
 import com.prompthub.ai.global.exception.AiException;
-import com.prompthub.ai.settlement.application.port.SellerSettlementQuery.SettlementSummaryResult;
+import com.prompthub.ai.settlement.application.port.SellerSettlementAnalysisQuery.SettlementSummaryResult;
 import com.prompthub.user.grpc.sellersettlement.GetSettlementSummaryRequest;
 import com.prompthub.user.grpc.sellersettlement.GetSettlementSummaryResponse;
 import com.prompthub.user.grpc.sellersettlement.SellerSettlementQueryServiceGrpc;
