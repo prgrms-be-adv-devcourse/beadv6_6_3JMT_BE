@@ -28,6 +28,8 @@ public interface ProductRepository {
 
 	long sumSalesCountByFamilyRootId(UUID familyRootId);
 
+	long sumViewCountByFamilyRootId(UUID familyRootId);
+
 	List<ProductListProjection> findRelatedProducts(UUID productId, ProductType productType, int limit);
 
 	List<ProductReviewProjection> findActiveReviews(UUID productId);

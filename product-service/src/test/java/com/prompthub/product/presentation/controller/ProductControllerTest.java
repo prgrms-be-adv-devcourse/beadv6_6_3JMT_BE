@@ -154,6 +154,20 @@ class ProductControllerTest {
 				.andExpect(jsonPath("$.meta.page").value(1))
 				.andExpect(jsonPath("$.meta.size").value(8));
 		}
+
+		@Test
+		@DisplayName("쿼리 파라미터를 안 보내면 기본값(page=0)으로 조회한다")
+		void getProducts_defaultsToPageZero() throws Exception {
+			ProductListItemResponse item = productListItemResponse(PRODUCT_ID, "PROMPT");
+			given(productQueryUseCase.getProducts("", "all", "popular", 0, 20))
+				.willReturn(PageResponse.success(List.of(item), 0, 20, 1, false));
+
+			mockMvc.perform(get("/api/v2/products"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.meta.page").value(0))
+				.andExpect(jsonPath("$.meta.size").value(20));
+		}
 	}
 
 	@Nested

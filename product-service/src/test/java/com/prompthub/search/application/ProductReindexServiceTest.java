@@ -3,6 +3,7 @@ package com.prompthub.search.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.prompthub.product.domain.model.entity.Product;
@@ -41,10 +42,12 @@ class ProductReindexServiceTest {
 	void reconcileAll_ON_SALE_family는_upsert_대상에_담는다() {
 		UUID familyRootId = UUID.randomUUID();
 		Product onSale = product(familyRootId, ProductStatus.ON_SALE);
+		given(productSearchIndexer.indexExists()).willReturn(true);
 		given(productRepository.findAllByStatus(ProductStatus.ON_SALE)).willReturn(List.of(onSale));
 		given(productRepository.findAllByFamilyRootIds(List.of(familyRootId))).willReturn(List.of(onSale));
 		given(productRepository.getAverageRating(familyRootId)).willReturn(4.0);
 		given(productRepository.sumSalesCountByFamilyRootId(familyRootId)).willReturn(5L);
+		given(productRepository.sumViewCountByFamilyRootId(familyRootId)).willReturn(9L);
 		given(productSearchIndexer.findAllIndexedFamilyRootIds()).willReturn(Set.of(familyRootId));
 
 		reindexService.reconcileAll();
@@ -55,6 +58,7 @@ class ProductReindexServiceTest {
 		assertThat(upsertCaptor.getValue()).anySatisfy(input -> {
 			assertThat(input.onSale().familyRootId()).isEqualTo(familyRootId);
 			assertThat(input.familySalesCount()).isEqualTo(5L);
+			assertThat(input.familyViewCount()).isEqualTo(9L);
 			assertThat(input.averageRating()).isEqualTo(4.0);
 		});
 		assertThat(deleteCaptor.getValue()).isEmpty();
@@ -64,6 +68,7 @@ class ProductReindexServiceTest {
 	@SuppressWarnings("unchecked")
 	void reconcileAll_ES에만_있고_더_이상_ON_SALE_아닌_family는_삭제_대상에_담는다() {
 		UUID staleFamilyRootId = UUID.randomUUID();
+		given(productSearchIndexer.indexExists()).willReturn(true);
 		given(productRepository.findAllByStatus(ProductStatus.ON_SALE)).willReturn(List.of());
 		given(productSearchIndexer.findAllIndexedFamilyRootIds()).willReturn(Set.of(staleFamilyRootId));
 
@@ -72,6 +77,16 @@ class ProductReindexServiceTest {
 		ArgumentCaptor<List<UUID>> deleteCaptor = ArgumentCaptor.forClass(List.class);
 		verify(productSearchIndexer).bulkReconcile(any(), deleteCaptor.capture());
 		assertThat(deleteCaptor.getValue()).containsExactly(staleFamilyRootId);
+	}
+
+	@Test
+	void reconcileAll_인덱스가_아직_없으면_아무것도_하지_않고_건너뛴다() {
+		given(productSearchIndexer.indexExists()).willReturn(false);
+
+		reindexService.reconcileAll();
+
+		verify(productRepository, never()).findAllByStatus(any());
+		verify(productSearchIndexer, never()).bulkReconcile(any(), any());
 	}
 
 	private Product product(UUID id, ProductStatus status) {

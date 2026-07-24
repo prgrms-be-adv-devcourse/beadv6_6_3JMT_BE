@@ -43,9 +43,17 @@ public class ProductSearchEventConsumer {
 	}
 
 	private void handle(ProductEventType type, EventMessage<JsonNode> event) {
-		if (type == ProductEventType.PRODUCT_CHANGED) {
-			UUID familyRootId = UUID.fromString(event.payload().get("familyRootId").asText());
-			productSearchEventHandler.handleProductChanged(event.eventId(), event.occurredAt(), familyRootId);
+		switch (type) {
+			case PRODUCT_CHANGED -> {
+				UUID familyRootId = UUID.fromString(event.payload().get("familyRootId").asText());
+				productSearchEventHandler.handleProductChanged(event.eventId(), event.occurredAt(), familyRootId);
+			}
+			case PRODUCT_STOPPED, PRODUCT_DELETED -> {
+				UUID productId = UUID.fromString(event.payload().get("productId").asText());
+				productSearchEventHandler.handleProductRemovalCandidate(
+					event.eventId(), event.occurredAt(), type.name(), productId);
+			}
+			default -> log.info("색인 컨슈머가 처리하지 않는 eventType입니다. eventType={}", type);
 		}
 	}
 

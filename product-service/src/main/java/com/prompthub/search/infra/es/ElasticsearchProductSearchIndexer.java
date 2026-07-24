@@ -27,12 +27,21 @@ public class ElasticsearchProductSearchIndexer implements ProductSearchIndexer {
 	private final ElasticsearchClient client;
 
 	@Override
-	public void upsert(Product onSale, long familySalesCount, double averageRating, LocalDateTime firstPublishedAt) {
-		ProductSearchDocument document = buildDocument(onSale, familySalesCount, averageRating, firstPublishedAt);
+	public void upsert(Product onSale, long familySalesCount, long familyViewCount, double averageRating, LocalDateTime firstPublishedAt) {
+		ProductSearchDocument document = buildDocument(onSale, familySalesCount, familyViewCount, averageRating, firstPublishedAt);
 		try {
 			client.index(i -> i.index(ProductIndexBootstrap.ALIAS).id(document.familyRootId().toString()).document(document));
 		} catch (IOException | RuntimeException e) {
 			throw new IllegalStateException("ES 색인에 실패했습니다. familyRootId=" + document.familyRootId(), e);
+		}
+	}
+
+	@Override
+	public boolean indexExists() {
+		try {
+			return client.indices().existsAlias(e -> e.name(ProductIndexBootstrap.ALIAS)).value();
+		} catch (IOException | RuntimeException e) {
+			throw new IllegalStateException("ES alias 존재 여부 확인에 실패했습니다.", e);
 		}
 	}
 
@@ -62,7 +71,8 @@ public class ElasticsearchProductSearchIndexer implements ProductSearchIndexer {
 			client.bulk(b -> {
 				for (FamilyUpsertInput input : toUpsert) {
 					ProductSearchDocument document = buildDocument(
-						input.onSale(), input.familySalesCount(), input.averageRating(), input.firstPublishedAt());
+						input.onSale(), input.familySalesCount(), input.familyViewCount(),
+						input.averageRating(), input.firstPublishedAt());
 					b.operations(op -> op.index(idx -> idx
 						.index(ProductIndexBootstrap.ALIAS)
 						.id(document.familyRootId().toString())
@@ -81,7 +91,7 @@ public class ElasticsearchProductSearchIndexer implements ProductSearchIndexer {
 	}
 
 	private ProductSearchDocument buildDocument(
-		Product onSale, long familySalesCount, double averageRating, LocalDateTime firstPublishedAt
+		Product onSale, long familySalesCount, long familyViewCount, double averageRating, LocalDateTime firstPublishedAt
 	) {
 		return new ProductSearchDocument(
 			onSale.familyRootId(),
@@ -98,7 +108,7 @@ public class ElasticsearchProductSearchIndexer implements ProductSearchIndexer {
 			onSale.getThumbnailUrl(),
 			onSale.getBadge(),
 			(int) familySalesCount,
-			onSale.getViewCount(),
+			(int) familyViewCount,
 			0,
 			averageRating,
 			firstPublishedAt,

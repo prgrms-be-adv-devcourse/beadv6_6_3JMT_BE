@@ -22,7 +22,7 @@ class ElasticsearchProductSearchIndexerIntegrationTest extends ElasticsearchInte
 		UUID familyRootId = UUID.randomUUID();
 		Product product = Product.create(familyRootId, UUID.randomUUID(), ProductContentFixtures.promptContent());
 
-		indexer.upsert(product, 5L, 4.5, LocalDateTime.now());
+		indexer.upsert(product, 5L, 3L, 4.5, LocalDateTime.now());
 		client.indices().refresh(r -> r.index(ProductIndexBootstrap.ALIAS));
 
 		var response = client.get(
@@ -31,5 +31,12 @@ class ElasticsearchProductSearchIndexerIntegrationTest extends ElasticsearchInte
 		assertThat(response.found()).isTrue();
 		assertThat(response.source()).isNotNull();
 		assertThat(response.source().familyRootId()).isEqualTo(familyRootId);
+	}
+
+	@Test
+	void indexExists_부트스트랩으로_생성된_alias가_있으면_true를_반환한다() {
+		ElasticsearchProductSearchIndexer indexer = new ElasticsearchProductSearchIndexer(client);
+
+		assertThat(indexer.indexExists()).isTrue();
 	}
 }

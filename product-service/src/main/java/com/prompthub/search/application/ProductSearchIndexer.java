@@ -8,7 +8,9 @@ import java.util.UUID;
 
 public interface ProductSearchIndexer {
 
-	void upsert(Product onSale, long familySalesCount, double averageRating, LocalDateTime firstPublishedAt);
+	void upsert(Product onSale, long familySalesCount, long familyViewCount, double averageRating, LocalDateTime firstPublishedAt);
+
+	boolean indexExists();
 
 	Set<UUID> findAllIndexedFamilyRootIds();
 
