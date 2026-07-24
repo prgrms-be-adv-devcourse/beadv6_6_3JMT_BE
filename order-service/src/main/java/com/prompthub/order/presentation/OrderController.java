@@ -14,8 +14,11 @@ import com.prompthub.order.presentation.dto.response.OrderContentResponse;
 import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
 import com.prompthub.order.presentation.dto.response.OrderListResponse;
 import com.prompthub.order.presentation.dto.response.OrderProductDownloadResponse;
+import com.prompthub.exception.response.ErrorResponse;
 import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.presentation.dto.PageResponse;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -45,7 +48,7 @@ import static com.prompthub.order.global.web.AuthHeaders.USER_ID;
 @RequestMapping("/api/v2/orders")
 @RestController
 @RequiredArgsConstructor
-@Tag(name = "Order", description = "주문 생성, 조회, 구매 콘텐츠, 리뷰 API")
+@Tag(name = "Order", description = "주문 생성, 조회, 구매 콘텐츠, 환불 API")
 @SecurityRequirement(name = "Bearer")
 public class OrderController {
 
@@ -63,11 +66,16 @@ public class OrderController {
 	)
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "주문 생성 성공"),
-		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
-		@ApiResponse(responseCode = "401", description = "A003 인증 정보 누락"),
-		@ApiResponse(responseCode = "403", description = "A004 구매자 권한 없음, O015 본인 판매 상품 구매 불가"),
-		@ApiResponse(responseCode = "409", description = "O018 이미 구매했거나 결제 대기 중인 상품"),
-		@ApiResponse(responseCode = "503", description = "SYS002 상품 서비스 또는 SYS003 주문 중복 방지 저장소 사용 불가")
+		@ApiResponse(responseCode = "400", description = "V001 X-User-Id 또는 입력값 검증 실패, P002 상품 요청 오류",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "401", description = "A003 인증 정보 누락, P004 상품 서비스 인증 실패",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "403", description = "A004 구매자 권한 없음, O015 본인 판매 상품 구매 불가, P005 상품 서비스 접근 거부",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "409", description = "O018 이미 구매했거나 결제 대기 중인 상품, P003 상품 요청 충돌",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "503", description = "SYS002 상품 서비스 또는 SYS003 주문 중복 방지 저장소 사용 불가",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public ApiResult<CreateOrderResponse> createOrder(
 		@Parameter(hidden = true)
@@ -82,8 +90,10 @@ public class OrderController {
 	@Operation(summary = "상품 구매 여부 조회", description = "구매자가 현재 상품 콘텐츠를 열람할 수 있는 결제 상태인지 반환합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "구매 여부 조회 성공"),
-		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
-		@ApiResponse(responseCode = "401", description = "A003 인증 정보 누락")
+		@ApiResponse(responseCode = "400", description = "V001 X-User-Id 또는 입력값 검증 실패",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "401", description = "A003 인증 정보 누락",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public ApiResult<Boolean> hasAccessiblePaidProduct(
 		@Parameter(hidden = true)
@@ -97,7 +107,10 @@ public class OrderController {
 	@Operation(summary = "구매 상품 ID 목록 조회", description = "구매자가 현재 열람할 수 있는 상품 ID 목록을 중복 없이 반환합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "구매 상품 ID 목록 조회 성공"),
-		@ApiResponse(responseCode = "401", description = "A003 인증 정보 누락")
+		@ApiResponse(responseCode = "400", description = "V001 X-User-Id UUID 형식 오류",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "401", description = "A003 인증 정보 누락",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public ApiResult<List<UUID>> getAccessiblePaidProductIds(
 		@Parameter(hidden = true)
@@ -110,9 +123,14 @@ public class OrderController {
 	@Operation(summary = "주문 상세 조회", description = "구매자 본인의 주문 상세와 주문 상품 목록을 조회합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "주문 상세 조회 성공"),
-		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음"),
-		@ApiResponse(responseCode = "403", description = "O008 해당 주문에 접근할 수 없음"),
-		@ApiResponse(responseCode = "404", description = "O001 주문 없음")
+		@ApiResponse(responseCode = "400", description = "V001 X-User-Id 또는 주문 ID 형식 오류",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "403", description = "A004 주문 소유자가 아님",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "404", description = "O001 주문 없음",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public ApiResult<OrderDetailResponse> getOrderDetail(
 		@Parameter(hidden = true)
@@ -127,9 +145,16 @@ public class OrderController {
 	@Operation(summary = "구매 콘텐츠 열람", description = "결제 완료된 주문 상품의 구매 콘텐츠를 조회합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "구매 콘텐츠 열람 성공"),
-		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음"),
-		@ApiResponse(responseCode = "403", description = "E001 구매 콘텐츠 열람 불가"),
-		@ApiResponse(responseCode = "404", description = "O001 주문 없음, O012 주문 상품 없음")
+		@ApiResponse(responseCode = "400", description = "V001 X-User-Id 또는 경로 변수 UUID 형식 오류, P002 상품 요청 오류",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음, P004 상품 서비스 인증 실패",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "403", description = "A004 주문 소유자가 아님, E001 구매 콘텐츠 열람 불가, P005 상품 서비스 접근 거부",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "404", description = "O001 주문 없음, P001 상품 없음",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "503", description = "SYS002 상품 서비스 사용 불가",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public ApiResult<OrderContentResponse> getOrderContent(
 		@Parameter(hidden = true)
@@ -146,8 +171,10 @@ public class OrderController {
 	@Operation(summary = "주문 목록 조회", description = "구매자 본인의 주문을 주문 단위로 페이지 조회하고 각 주문의 주문상품 목록을 함께 반환합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "주문 목록 조회 성공"),
-		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
-		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음")
+		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public PageResponse<OrderListResponse> getOrders(
 		@Parameter(hidden = true)
@@ -170,9 +197,16 @@ public class OrderController {
 	@Operation(summary = "주문상품 다운로드 확정", description = "구매자가 다운로드 버튼을 클릭했음을 기록하고 환불 가능 여부를 반환합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "주문상품 다운로드 확정 성공"),
-		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음"),
-		@ApiResponse(responseCode = "403", description = "A004 권한 없음, E001 구매 콘텐츠 열람 불가"),
-		@ApiResponse(responseCode = "404", description = "O001 주문 없음, O012 주문 상품 없음")
+		@ApiResponse(responseCode = "400", description = "V001 X-User-Id 또는 경로 변수 UUID 형식 오류, P002 상품 요청 오류",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음, P004 상품 서비스 인증 실패",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "403", description = "A004 주문 소유자가 아님, E001 구매 콘텐츠 열람 불가, P005 상품 서비스 접근 거부",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "404", description = "O001 주문 없음, O012 주문 상품 없음, P001 상품 없음",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "503", description = "SYS002 상품 서비스 사용 불가",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public ApiResult<OrderProductDownloadResponse> confirmDownload(
 		@Parameter(hidden = true)
@@ -187,17 +221,24 @@ public class OrderController {
 
 	@PostMapping("/{orderId}/refund")
 	@ResponseStatus(HttpStatus.ACCEPTED)
-	@Operation(summary = "주문 상품 다건 부분 환불 요청", description = "결제 완료된 미다운로드 주문 상품을 비동기로 환불 접수합니다.")
+	@Operation(summary = "주문 상품 다건 부분 환불 요청", description = "결제 완료된 미다운로드 주문 상품을 비동기로 환불 접수합니다. 성공 시 status는 REQUESTED입니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "202", description = "환불 요청 접수 성공"),
-		@ApiResponse(responseCode = "400", description = "V001 입력값 검증 실패"),
-		@ApiResponse(responseCode = "403", description = "O008 주문 접근 불가"),
-		@ApiResponse(responseCode = "404", description = "O001 주문 없음, O012 주문 상품 없음"),
-		@ApiResponse(responseCode = "409", description = "O017 환불 불가")
+		@ApiResponse(responseCode = "400", description = "V001 X-User-Id, 입력값 검증 또는 경로 변수 UUID 형식 오류",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "401", description = "A003 토큰 만료 또는 유효하지 않음",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "403", description = "O008 주문 접근 불가",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "404", description = "O001 주문 없음, O012 주문 상품 없음",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "409", description = "O017 환불 불가",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public ApiResult<RefundResult> requestRefund(
 		@Parameter(hidden = true)
 		@RequestHeader(USER_ID) UUID buyerId,
+		@Parameter(description = "환불을 요청할 주문 ID", example = "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111")
 		@PathVariable UUID orderId,
 		@Valid @RequestBody RefundOrderRequest request
 	) {
