@@ -4,7 +4,6 @@ import com.prompthub.admin.order.application.dto.DailyTransactionProjection;
 import com.prompthub.admin.order.application.dto.OrderListProjection;
 import com.prompthub.admin.order.application.dto.OrderUserProfile;
 import com.prompthub.admin.order.application.port.OrderUserProfileQueryPort;
-import com.prompthub.admin.order.application.usecase.OrderUseCase;
 import com.prompthub.admin.order.presentation.dto.request.OrderSearchCondition;
 import com.prompthub.admin.order.presentation.dto.response.DailyTransactionResponse;
 import com.prompthub.admin.order.presentation.dto.response.MonthlyTradeAmountResponse;
@@ -27,13 +26,12 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class OrderService implements OrderUseCase {
+public class OrderService {
 
 	private static final int RECENT_DAYS = 7;
 	private final OrderQueryService orderQueryService;
 	private final OrderUserProfileQueryPort orderUserProfileQueryPort;
 
-	@Override
 	public Page<OrderListResponse> getOrders(OrderSearchCondition condition) {
 		PageRequest pageable = PageRequest.of(
 			condition.page() - 1,
@@ -49,7 +47,6 @@ public class OrderService implements OrderUseCase {
 		return orders.map(projection -> toOrderListResponse(projection, profiles));
 	}
 
-	@Override
 	public MonthlyTradeAmountResponse getMonthlyTransactionAmount() {
 		LocalDate today = LocalDate.now();
 		LocalDateTime start = today.withDayOfMonth(1).atStartOfDay();
@@ -60,7 +57,6 @@ public class OrderService implements OrderUseCase {
 		);
 	}
 
-	@Override
 	public WeeklyTransactionResponse getWeeklyTransactions() {
 		LocalDate endDate = LocalDate.now();
 		LocalDate startDate = endDate.minusDays(RECENT_DAYS - 1L);

@@ -1,6 +1,6 @@
 package com.prompthub.admin.order.presentation.controller;
 
-import com.prompthub.admin.order.application.usecase.OrderUseCase;
+import com.prompthub.admin.order.application.service.OrderService;
 import com.prompthub.admin.order.presentation.dto.request.OrderSearchCondition;
 import com.prompthub.admin.order.presentation.dto.response.MonthlyTradeAmountResponse;
 import com.prompthub.admin.order.presentation.dto.response.OrderListResponse;
@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "gatewayHeaders")
 public class OrderController {
 
-	private final OrderUseCase orderUseCase;
+	private final OrderService orderService;
 
 	@GetMapping
 	@Operation(summary = "관리자 전체 주문 목록 조회", description = "주문별 구매자와 주문 상품 목록을 함께 조회합니다.")
@@ -38,7 +38,7 @@ public class OrderController {
 	})
 	public PageResponse<OrderListResponse> getOrders(@ModelAttribute OrderSearchCondition condition) {
 		OrderSearchCondition resolvedCondition = condition.resolve();
-		Page<OrderListResponse> orders = orderUseCase.getOrders(resolvedCondition);
+		Page<OrderListResponse> orders = orderService.getOrders(resolvedCondition);
 
 		return PageResponse.success(
 			orders.getContent(),
@@ -57,7 +57,7 @@ public class OrderController {
 		@ApiResponse(responseCode = "403", description = "ADMIN 권한 없음")
 	})
 	public ApiResult<MonthlyTradeAmountResponse> getMonthlyTransactionAmount() {
-		return ApiResult.success(orderUseCase.getMonthlyTransactionAmount());
+		return ApiResult.success(orderService.getMonthlyTransactionAmount());
 	}
 
 	@GetMapping("/weekend")
@@ -68,6 +68,6 @@ public class OrderController {
 		@ApiResponse(responseCode = "403", description = "ADMIN 권한 없음")
 	})
 	public ApiResult<WeeklyTransactionResponse> getWeeklyTransactions() {
-		return ApiResult.success(orderUseCase.getWeeklyTransactions());
+		return ApiResult.success(orderService.getWeeklyTransactions());
 	}
 }
