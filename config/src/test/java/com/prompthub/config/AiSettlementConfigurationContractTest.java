@@ -18,7 +18,7 @@ class AiSettlementConfigurationContractTest {
 
         assertThat(global.getProperty("gateway.api-versions.ai-service[0]")).isEqualTo("v2");
         assertThat(global.getProperty("gateway.route-policies./api/*/ai/settlement/**"))
-            .isEqualTo("SELLER");
+            .isEqualTo("SELLER_OR_ADMIN");
 
         assertThat(ai.getProperty("server.port")).isEqualTo("18087");
         assertThat(ai.getProperty("spring.data.redis.database")).isEqualTo("1");

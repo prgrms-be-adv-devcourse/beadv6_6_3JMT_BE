@@ -18,6 +18,7 @@ import com.prompthub.apigateway.client.AuthorizeDeniedException;
 import com.prompthub.apigateway.client.AuthorizeResult;
 import com.prompthub.apigateway.client.AuthorizeUnavailableException;
 import com.prompthub.apigateway.client.GatewayRole;
+import com.prompthub.apigateway.config.GatewayRouteAccessPolicy;
 import com.prompthub.apigateway.config.GatewayRoutePolicyProperties;
 
 import reactor.core.publisher.Mono;
@@ -64,8 +65,9 @@ public class ForwardAuthFilter implements GlobalFilter, Ordered {
         }
 
         String path = exchange.getRequest().getPath().value();
-        Optional<GatewayRole> requiredRole = RoutePolicyResolver.requiredRole(path, routePolicyProperties);
-        if (requiredRole.isPresent() && !hasRequiredRole(result.role(), requiredRole.get())) {
+        Optional<GatewayRouteAccessPolicy> requiredPolicy =
+                RoutePolicyResolver.requiredPolicy(path, routePolicyProperties);
+        if (requiredPolicy.isPresent() && !requiredPolicy.orElseThrow().allows(result.role())) {
             return reject(exchange, HttpStatus.FORBIDDEN);
         }
 
@@ -76,13 +78,6 @@ public class ForwardAuthFilter implements GlobalFilter, Ordered {
                         .header("X-User-Role", result.role().name()))
                 .build();
         return chain.filter(mutated).thenReturn(true);
-    }
-
-    private boolean hasRequiredRole(GatewayRole actualRole, GatewayRole requiredRole) {
-        if (requiredRole == GatewayRole.SELLER) {
-            return actualRole == GatewayRole.SELLER;
-        }
-        return actualRole.ordinal() >= requiredRole.ordinal();
     }
 
     private Long extractEpoch(Jwt jwt) {

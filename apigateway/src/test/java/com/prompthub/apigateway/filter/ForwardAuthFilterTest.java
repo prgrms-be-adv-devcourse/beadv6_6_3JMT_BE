@@ -138,9 +138,10 @@ class ForwardAuthFilterTest {
     }
 
     @Test
-    void 셀러_전용_AI_정산_경로는_ADMIN에게도_403을_반환한다() {
+    void AI_정산_SELLER_OR_ADMIN_정책은_ADMIN도_통과시킨다() {
         GatewayRoutePolicyProperties properties = emptyPolicies();
-        properties.setRoutePolicies(new LinkedHashMap<>(Map.of("/api/*/ai/settlement/**", "SELLER")));
+        properties.setRoutePolicies(new LinkedHashMap<>(Map.of(
+                "/api/*/ai/settlement/**", "SELLER_OR_ADMIN")));
         ForwardAuthFilter filter = new ForwardAuthFilter(authorizeClient, properties);
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/api/v2/ai/settlement/conversations/current"));
@@ -149,6 +150,31 @@ class ForwardAuthFilterTest {
                 .willReturn(Mono.just(new AuthorizeResult("ACTIVE", GatewayRole.ADMIN)));
 
         StepVerifier.create(runFilter(filter, exchange, capturingChain(captured), jwtWithEpoch("user-1", 3L)))
+                .verifyComplete();
+
+        assertThat(exchange.getResponse().getStatusCode()).isNull();
+        assertThat(captured.get()).isNotNull();
+        assertThat(captured.get().getRequest().getHeaders().getFirst("X-User-Role"))
+                .isEqualTo("ADMIN");
+    }
+
+    @Test
+    void 기존_SELLER_정책은_ADMIN을_통과시키지_않는다() {
+        GatewayRoutePolicyProperties properties = emptyPolicies();
+        properties.setRoutePolicies(new LinkedHashMap<>(Map.of(
+                "/api/*/sellers/me/**", "SELLER")));
+        ForwardAuthFilter filter = new ForwardAuthFilter(authorizeClient, properties);
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/v2/sellers/me/products"));
+        AtomicReference<ServerWebExchange> captured = new AtomicReference<>();
+        given(authorizeClient.authorize("user-1", 3L))
+                .willReturn(Mono.just(new AuthorizeResult("ACTIVE", GatewayRole.ADMIN)));
+
+        StepVerifier.create(runFilter(
+                        filter,
+                        exchange,
+                        capturingChain(captured),
+                        jwtWithEpoch("user-1", 3L)))
                 .verifyComplete();
 
         assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);

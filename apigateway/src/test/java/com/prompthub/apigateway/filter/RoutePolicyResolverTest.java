@@ -6,7 +6,7 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
-import com.prompthub.apigateway.client.GatewayRole;
+import com.prompthub.apigateway.config.GatewayRouteAccessPolicy;
 import com.prompthub.apigateway.config.GatewayRoutePolicyProperties;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,9 +23,10 @@ class RoutePolicyResolverTest {
     void admin_경로는_설정이_비어있어도_ADMIN_캐치올로_매칭된다() {
         GatewayRoutePolicyProperties properties = propertiesOf(new LinkedHashMap<>());
 
-        Optional<GatewayRole> result = RoutePolicyResolver.requiredRole("/api/v2/admin/users", properties);
+        Optional<GatewayRouteAccessPolicy> result =
+                RoutePolicyResolver.requiredPolicy("/api/v2/admin/users", properties);
 
-        assertThat(result).contains(GatewayRole.ADMIN);
+        assertThat(result).contains(GatewayRouteAccessPolicy.ADMIN);
     }
 
     @Test
@@ -34,9 +35,10 @@ class RoutePolicyResolverTest {
         policies.put("/api/*/admin/**", "BUYER");
         GatewayRoutePolicyProperties properties = propertiesOf(policies);
 
-        Optional<GatewayRole> result = RoutePolicyResolver.requiredRole("/api/v2/admin/users", properties);
+        Optional<GatewayRouteAccessPolicy> result =
+                RoutePolicyResolver.requiredPolicy("/api/v2/admin/users", properties);
 
-        assertThat(result).contains(GatewayRole.ADMIN);
+        assertThat(result).contains(GatewayRouteAccessPolicy.ADMIN);
     }
 
     @Test
@@ -45,22 +47,23 @@ class RoutePolicyResolverTest {
         policies.put("/api/*/sellers/me/**", "SELLER");
         GatewayRoutePolicyProperties properties = propertiesOf(policies);
 
-        Optional<GatewayRole> result = RoutePolicyResolver.requiredRole("/api/v2/sellers/me/products", properties);
+        Optional<GatewayRouteAccessPolicy> result =
+                RoutePolicyResolver.requiredPolicy("/api/v2/sellers/me/products", properties);
 
-        assertThat(result).contains(GatewayRole.SELLER);
+        assertThat(result).contains(GatewayRouteAccessPolicy.SELLER);
     }
 
     @Test
-    void ai_정산_경로는_SELLER만_접근한다() {
+    void ai_정산_경로는_SELLER_OR_ADMIN_정책으로_매칭된다() {
         Map<String, String> policies = new LinkedHashMap<>();
-        policies.put("/api/*/ai/settlement/**", "SELLER");
+        policies.put("/api/*/ai/settlement/**", "SELLER_OR_ADMIN");
 
-        Optional<GatewayRole> result = RoutePolicyResolver.requiredRole(
+        Optional<GatewayRouteAccessPolicy> result = RoutePolicyResolver.requiredPolicy(
             "/api/v2/ai/settlement/conversations/current",
             propertiesOf(policies)
         );
 
-        assertThat(result).contains(GatewayRole.SELLER);
+        assertThat(result).contains(GatewayRouteAccessPolicy.SELLER_OR_ADMIN);
     }
 
     @Test
@@ -70,16 +73,18 @@ class RoutePolicyResolverTest {
         policies.put("/api/*/sellers/me/**", "BUYER");
         GatewayRoutePolicyProperties properties = propertiesOf(policies);
 
-        Optional<GatewayRole> result = RoutePolicyResolver.requiredRole("/api/v2/sellers/me/products", properties);
+        Optional<GatewayRouteAccessPolicy> result =
+                RoutePolicyResolver.requiredPolicy("/api/v2/sellers/me/products", properties);
 
-        assertThat(result).contains(GatewayRole.SELLER);
+        assertThat(result).contains(GatewayRouteAccessPolicy.SELLER);
     }
 
     @Test
     void 매칭되는_정책이_없으면_empty를_반환한다() {
         GatewayRoutePolicyProperties properties = propertiesOf(new LinkedHashMap<>());
 
-        Optional<GatewayRole> result = RoutePolicyResolver.requiredRole("/api/v2/products", properties);
+        Optional<GatewayRouteAccessPolicy> result =
+                RoutePolicyResolver.requiredPolicy("/api/v2/products", properties);
 
         assertThat(result).isEmpty();
     }

@@ -1,8 +1,10 @@
 # 셀러 AI 정산 API
 
-`ai-service`가 제공하는 셀러 전용 정산 질의 API다. Gateway는
-`/api/v2/ai/settlement/**`에 `SELLER` 정책을 적용하고, AI 서비스는 전달받은 `X-User-Id`를
-대화 소유자와 User gRPC actor metadata로 사용한다. 현재 role 헤더를 prompt나 gRPC 계약에 전달하지 않는다.
+`ai-service`가 제공하는 셀러 범위 정산 질의 API다. Gateway는
+`/api/v2/ai/settlement/**`에 `SELLER_OR_ADMIN` 정책을 적용해 `SELLER`와 `ADMIN`을 허용한다.
+AI 서비스는 전달받은 `X-User-Id`를 대화 소유자와 User gRPC actor metadata로 사용한다. 현재는 role
+헤더를 prompt나 gRPC 계약에 전달하지 않으며, ADMIN에도 SELLER와 동일한 본인 범위 답변 정책을 적용한다.
+향후 role별 답변 범위를 확장할 때 role 전달 방식과 권한별 harness를 별도로 결정한다.
 
 ## 엔드포인트
 

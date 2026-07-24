@@ -75,7 +75,7 @@ gateway:
     notification-service: [ v2 ]
   route-policies:
     /api/*/sellers/me/**: SELLER
-    /api/*/ai/settlement/**: SELLER
+    /api/*/ai/settlement/**: SELLER_OR_ADMIN
 
 jwt:
   public-key: ${JWT_PUBLIC_KEY}

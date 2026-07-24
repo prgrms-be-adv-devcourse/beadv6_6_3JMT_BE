@@ -120,5 +120,5 @@ postgres(5432) + kafka(9092)
    - JWT `sub` → `X-User-Id`, `roles` claim → `X-User-Role`(콤마 조인, `BUYER`/`SELLER`/`ADMIN`)
    - `status` claim이 `ACTIVE`가 아니면 **403 즉시 반환**
    - 다운스트림 전달 전 `Authorization` 헤더는 제거
-5. **다운스트림 소비**: 각 서비스 Controller가 `@RequestHeader("X-User-Id")` 등으로 수신. 역할 검증 방식은 서비스별 규칙을 따른다. AI 정산 API는 Gateway의 `SELLER` 경로 정책을 거친 뒤 `ai-service`에는 `X-User-Id`만 사용하며, role을 prompt나 gRPC 계약으로 전달하지 않는다.
+5. **다운스트림 소비**: 각 서비스 Controller가 `@RequestHeader("X-User-Id")` 등으로 수신. 역할 검증 방식은 서비스별 규칙을 따른다. AI 정산 API는 Gateway의 명시적 `SELLER_OR_ADMIN` 정책으로 두 role을 허용한다. 현재 `ai-service`는 `X-User-Id`만 사용하고 role을 prompt나 gRPC 계약으로 전달하지 않아 두 role에 동일한 본인 범위 답변 정책을 적용한다. 다른 `SELLER` 정책 경로는 기존처럼 ADMIN을 허용하지 않는다.
 6. 헤더 이름(`X-User-Id`, `X-User-Role`)은 **서비스 간 계약이므로 임의 변경 금지** (apigateway CLAUDE.md).
