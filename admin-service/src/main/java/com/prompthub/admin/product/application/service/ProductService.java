@@ -32,12 +32,6 @@ public class ProductService implements ProductUseCase {
 
 	@Override
 	@Transactional(readOnly = true)
-	public List<AdminProductListItemResponse> getPendingReviewProducts() {
-		return toListItemResponses(productRepository.findPendingReviewProducts());
-	}
-
-	@Override
-	@Transactional(readOnly = true)
 	public AdminProductPageResult listProducts(AdminProductListQuery query) {
 		String keyword = normalizeKeyword(query.keyword());
 		List<UUID> keywordSellerIds = keyword == null

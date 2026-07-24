@@ -12,8 +12,6 @@ public interface ProductRepository {
 
 	Product save(Product product);
 
-	List<Product> findPendingReviewProducts();
-
 	List<Product> findProducts(ProductStatus status, String keyword, List<UUID> keywordSellerIds, int page, int size);
 
 	long countProducts(ProductStatus status, String keyword, List<UUID> keywordSellerIds);

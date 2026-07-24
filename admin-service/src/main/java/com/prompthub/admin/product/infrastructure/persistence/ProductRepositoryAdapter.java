@@ -29,11 +29,6 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	}
 
 	@Override
-	public List<Product> findPendingReviewProducts() {
-		return productJpaRepository.findPendingReviewProducts();
-	}
-
-	@Override
 	public List<Product> findAllByFamilyRootIds(List<UUID> familyRootIds) {
 		return productJpaRepository.findAllByFamilyRootIds(familyRootIds);
 	}
