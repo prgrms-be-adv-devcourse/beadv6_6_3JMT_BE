@@ -21,13 +21,13 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-@Import({QuerydslConfig.class, OrderQueryRepositoryImpl.class})
+@Import({QuerydslConfig.class, OrderQueryRepository.class})
 @ActiveProfiles("test")
 @Sql("/sql/orders.sql")
 class OrderQueryRepositoryImplTest {
 
 	@Autowired
-	private OrderQueryRepositoryImpl repository;
+	private OrderQueryRepository repository;
 
 	@Test
 	void COMPLETED_상태로_필터링하면_해당_주문의_모든_상품을_반환한다() {

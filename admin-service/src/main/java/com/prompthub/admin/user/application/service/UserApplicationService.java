@@ -14,6 +14,7 @@ import com.prompthub.admin.user.application.dto.UserStatusResult;
 import com.prompthub.admin.user.application.dto.UserSummaryResult;
 import com.prompthub.admin.user.application.usecase.UserUseCase;
 import com.prompthub.admin.user.domain.model.User;
+import com.prompthub.admin.user.domain.model.UserProfile;
 import com.prompthub.admin.user.domain.model.UserStatus;
 import com.prompthub.admin.user.domain.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -101,6 +103,15 @@ public class UserApplicationService implements UserUseCase {
 		}
 		return userRepository.findAllByIds(distinctIds).stream()
 			.collect(Collectors.toUnmodifiableMap(User::getUserId, User::getName));
+	}
+
+	public Map<UUID, UserProfile> findProfilesByIds(List<UUID> userIds) {
+		List<UUID> distinctIds = userIds.stream().distinct().toList();
+		if (distinctIds.isEmpty()) {
+			return Map.of();
+		}
+		return userRepository.findProfilesByIds(distinctIds).stream()
+			.collect(Collectors.toUnmodifiableMap(UserProfile::userId, Function.identity()));
 	}
 
 	private static void applyStatus(User user, UserStatus status) {

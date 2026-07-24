@@ -2,9 +2,10 @@ package com.prompthub.admin.order.application.service;
 
 import com.prompthub.admin.order.application.dto.DailyTransactionProjection;
 import com.prompthub.admin.order.application.dto.OrderListProjection;
-import com.prompthub.admin.order.application.dto.OrderUserProfile;
-import com.prompthub.admin.order.application.port.OrderUserProfileQueryPort;
+import com.prompthub.admin.user.application.service.UserApplicationService;
+import com.prompthub.admin.user.domain.model.UserProfile;
 import com.prompthub.admin.order.domain.enums.OrderStatus;
+import com.prompthub.admin.order.infrastructure.persistence.OrderQueryRepository;
 import com.prompthub.admin.order.presentation.dto.request.OrderSearchCondition;
 import com.prompthub.admin.order.presentation.dto.response.MonthlyTradeAmountResponse;
 import com.prompthub.admin.order.presentation.dto.response.OrderListResponse;
@@ -41,10 +42,10 @@ class OrderServiceTest {
 	private static final String PRODUCT_TITLE_1 = "프롬프트 상품 1";
 
 	@Mock
-	private OrderQueryService orderQueryService;
+	private OrderQueryRepository orderQueryRepository;
 
 	@Mock
-	private OrderUserProfileQueryPort orderUserProfileQueryPort;
+	private UserApplicationService userApplicationService;
 
 	@InjectMocks
 	private OrderService orderService;
@@ -58,12 +59,12 @@ class OrderServiceTest {
 		void getOrders_mapsBuyerAndProductsWithSingleBulkLookup() {
 			OrderSearchCondition condition = new OrderSearchCondition("ALL", 1, 20);
 			OrderListProjection projection = orderProjection();
-			given(orderQueryService.searchOrders(any(), any()))
+			given(orderQueryRepository.searchOrders(any(), any()))
 				.willReturn(new PageImpl<>(List.of(projection), PageRequest.of(0, 20), 1));
-			given(orderUserProfileQueryPort.findProfilesByUserIds(List.of(BUYER_ID, SELLER_ID_1, SELLER_ID_2)))
+			given(userApplicationService.findProfilesByIds(List.of(BUYER_ID, SELLER_ID_1, SELLER_ID_2)))
 				.willReturn(java.util.Map.of(
-					BUYER_ID, new OrderUserProfile(BUYER_ID, "구매자A", "https://cdn/buyer.png"),
-					SELLER_ID_1, new OrderUserProfile(SELLER_ID_1, "판매자A", "https://cdn/seller-a.png")
+					BUYER_ID, new UserProfile(BUYER_ID, "구매자A", "https://cdn/buyer.png"),
+					SELLER_ID_1, new UserProfile(SELLER_ID_1, "판매자A", "https://cdn/seller-a.png")
 				));
 
 			Page<OrderListResponse> response = orderService.getOrders(condition.resolve());
@@ -82,27 +83,27 @@ class OrderServiceTest {
 					"프롬프트 상품 2", 15_000, "REFUNDED"
 				)
 			);
-			then(orderUserProfileQueryPort).should().findProfilesByUserIds(List.of(BUYER_ID, SELLER_ID_1, SELLER_ID_2));
+			then(userApplicationService).should().findProfilesByIds(List.of(BUYER_ID, SELLER_ID_1, SELLER_ID_2));
 		}
 
 		@Test
 		@DisplayName("주문 목록이 비어 있으면 판매자 조회를 생략한다")
 		void getOrders_emptyOrders_skipsSellerLookup() {
 			OrderSearchCondition condition = new OrderSearchCondition("ALL", 1, 20);
-			given(orderQueryService.searchOrders(any(), any()))
+			given(orderQueryRepository.searchOrders(any(), any()))
 				.willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
 			Page<OrderListResponse> response = orderService.getOrders(condition.resolve());
 
 			assertThat(response.getContent()).isEmpty();
-			then(orderUserProfileQueryPort).should(never()).findProfilesByUserIds(any());
+			then(userApplicationService).should(never()).findProfilesByIds(any());
 		}
 	}
 
 	@Test
 	@DisplayName("이번 달 실제 거래액을 조회한다")
 	void getMonthlyTransactionAmount_success() {
-		given(orderQueryService.sumMonthlyTransactionAmount(any(), any()))
+		given(orderQueryRepository.sumMonthlyTransactionAmount(any(), any()))
 			.willReturn(25_000L);
 
 		MonthlyTradeAmountResponse response = orderService.getMonthlyTransactionAmount();
@@ -114,7 +115,7 @@ class OrderServiceTest {
 	@DisplayName("최근 7일 거래량은 누락된 날짜를 0으로 채우고 합계를 계산한다")
 	void getWeeklyTransactions_success() {
 		LocalDate today = LocalDate.now();
-		given(orderQueryService.findDailyTransactions(any(), any()))
+		given(orderQueryRepository.findDailyTransactions(any(), any()))
 			.willReturn(List.of(new DailyTransactionProjection(today, 2L, 30_000L)));
 
 		WeeklyTransactionResponse response = orderService.getWeeklyTransactions();
