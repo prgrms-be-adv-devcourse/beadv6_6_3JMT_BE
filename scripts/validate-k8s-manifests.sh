@@ -12,6 +12,7 @@ fi
 
 PACKAGES=(
   "k8s/addons/nginx-ingress"
+  "k8s/addons/elk"
   "k8s/base/storage"
   "k8s/base/infrastructure/postgres"
   "k8s/base/infrastructure/redis"
@@ -189,6 +190,49 @@ for package in "${PACKAGES[@]}"; do
 
     if grep -Eq '^kind:[[:space:]]+Service$' "${rendered}"; then
       echo "ingress controller must not render an external Service" >&2
+      exit 1
+    fi
+  fi
+
+  if [[ "${package}" == "k8s/addons/elk" ]]; then
+    required_patterns=(
+      '^kind:[[:space:]]+StatefulSet$'
+      '^[[:space:]]+name:[[:space:]]+elasticsearch$'
+      '^[[:space:]]+name:[[:space:]]+elasticsearch-local-pv$'
+      '^[[:space:]]+storage:[[:space:]]+10Gi$'
+      '^[[:space:]]+path:[[:space:]]+/var/lib/prompthub/elasticsearch$'
+      '^[[:space:]]+prompthub.io/node-pool:[[:space:]]+control-stateful$'
+      'node-role.kubernetes.io/control-plane'
+      'xpack.security.enabled'
+      'gateway-access-[*]'
+      'delete'
+      '^[[:space:]]+name:[[:space:]]+fluent-bit$'
+      'apigateway-[*]_prompthub_apigateway-[*][.]log'
+      'logstash.elk.svc.cluster.local'
+    )
+
+    for pattern in "${required_patterns[@]}"; do
+      if ! grep -Eq "${pattern}" "${rendered}"; then
+        echo "missing ELK contract: ${pattern}" >&2
+        exit 1
+      fi
+    done
+
+    if grep -Eq 'emptyDir:[[:space:]]*\\{\\}' "${rendered}"; then
+      echo "ELK must not use ephemeral emptyDir storage" >&2
+      exit 1
+    fi
+
+    if ! awk '
+      /name:[[:space:]]+xpack.security.enabled/ {
+        getline
+        if ($1 == "value:" && $2 == "\"false\"") {
+          found = 1
+        }
+      }
+      END { exit !found }
+    ' "${rendered}"; then
+      echo "Elasticsearch security must remain disabled until Product Service migration" >&2
       exit 1
     fi
   fi

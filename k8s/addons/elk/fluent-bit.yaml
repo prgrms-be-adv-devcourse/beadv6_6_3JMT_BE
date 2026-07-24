@@ -1,0 +1,238 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fluent-bit
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fluent-bit-read
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+      - pods
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fluent-bit-read
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: fluent-bit-read
+subjects:
+  - kind: ServiceAccount
+    name: fluent-bit
+    namespace: elk
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush                     5
+        Grace                     30
+        Log_Level                 info
+        Daemon                    Off
+        Parsers_File              /fluent-bit/etc/parsers.conf
+        HTTP_Server               On
+        HTTP_Listen               0.0.0.0
+        HTTP_Port                 2020
+        Health_Check              On
+        storage.path              /var/lib/fluent-bit/storage
+        storage.sync              normal
+        storage.checksum          off
+        storage.backlog.mem_limit 10M
+
+    [INPUT]
+        Name                     tail
+        Tag                      kube.apigateway.*
+        Path                     /var/log/containers/apigateway-*_prompthub_apigateway-*.log
+        multiline.parser         docker, cri
+        DB                       /var/lib/fluent-bit/apigateway.db
+        DB.Sync                  Normal
+        Read_from_Head           Off
+        Refresh_Interval         5
+        Rotate_Wait              30
+        Mem_Buf_Limit            10MB
+        Skip_Long_Lines          On
+        storage.type             filesystem
+        storage.total_limit_size 512M
+
+    [FILTER]
+        Name                kubernetes
+        Match               kube.apigateway.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix     kube.apigateway.var.log.containers.
+        Merge_Log           Off
+        Labels              On
+        Annotations         Off
+
+    [OUTPUT]
+        Name                http
+        Match               kube.apigateway.*
+        Host                logstash.elk.svc.cluster.local
+        Port                8000
+        URI                 /
+        Format              json
+        Json_Date_Key       @timestamp
+        Json_Date_Format    iso8601
+        Header              Content-Type application/json
+        HTTP_User           ${LOGSTASH_HTTP_USERNAME}
+        HTTP_Passwd         ${LOGSTASH_HTTP_PASSWORD}
+        Retry_Limit         False
+        workers             1
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fluent-bit
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fluent-bit
+        app.kubernetes.io/part-of: prompthub
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      serviceAccountName: fluent-bit
+      nodeSelector:
+        prompthub.io/node-pool: application
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: fluent-bit
+          image: cr.fluentbit.io/fluent/fluent-bit:5.0.2
+          imagePullPolicy: IfNotPresent
+          command:
+            - /fluent-bit/bin/fluent-bit
+          args:
+            - --config
+            - /fluent-bit/etc/fluent-bit.conf
+          ports:
+            - name: metrics
+              containerPort: 2020
+              protocol: TCP
+          env:
+            - name: LOGSTASH_HTTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: logstash-http-credentials
+                  key: username
+            - name: LOGSTASH_HTTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: logstash-http-credentials
+                  key: password
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 192Mi
+          startupProbe:
+            httpGet:
+              path: /api/v1/health
+              port: metrics
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: metrics
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: metrics
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: config
+              mountPath: /fluent-bit/etc/fluent-bit.conf
+              subPath: fluent-bit.conf
+              readOnly: true
+            - name: varlogcontainers
+              mountPath: /var/log/containers
+              readOnly: true
+            - name: varlogpods
+              mountPath: /var/log/pods
+              readOnly: true
+            - name: fluent-bit-state
+              mountPath: /var/lib/fluent-bit
+      volumes:
+        - name: config
+          configMap:
+            name: fluent-bit-config
+        - name: varlogcontainers
+          hostPath:
+            path: /var/log/containers
+            type: Directory
+        - name: varlogpods
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+        - name: fluent-bit-state
+          hostPath:
+            path: /var/lib/fluent-bit
+            type: DirectoryOrCreate
