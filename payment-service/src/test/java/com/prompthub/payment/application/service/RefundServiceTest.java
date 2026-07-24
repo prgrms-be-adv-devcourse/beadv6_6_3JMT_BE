@@ -187,7 +187,7 @@ class RefundServiceTest {
 
         ArgumentCaptor<PaymentRefundFailedEvent> eventCaptor = ArgumentCaptor.forClass(PaymentRefundFailedEvent.class);
         verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
-        assertThat(eventCaptor.getValue().failureReason()).isEqualTo("환불 실패");
+        assertThat(eventCaptor.getValue().refund().getFailureReason()).isEqualTo("환불 실패");
     }
 
     private Payment 결제_생성_후_승인(int amount) {

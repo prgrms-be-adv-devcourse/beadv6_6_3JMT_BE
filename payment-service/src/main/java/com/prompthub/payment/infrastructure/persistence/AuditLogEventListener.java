@@ -32,15 +32,14 @@ public class AuditLogEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPaymentRefunded(PaymentRefundedEvent event) {
-        save(AuditLog.forPaymentRefunded(event.payment(), event.refund()), event.refund().getId());
+        save(AuditLog.forRefundRequested(event.payment(), event.refund()), event.refund().getId());
+        save(AuditLog.forRefundCompleted(event.payment(), event.refund()), event.refund().getId());
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPaymentRefundFailed(PaymentRefundFailedEvent event) {
-        save(
-            AuditLog.forPaymentRefundFailed(event.payment(), event.refund(), event.failureReason()),
-            event.refund().getId()
-        );
+        save(AuditLog.forRefundRequested(event.payment(), event.refund()), event.refund().getId());
+        save(AuditLog.forRefundFailed(event.payment(), event.refund()), event.refund().getId());
     }
 
     private void save(AuditLog auditLog, UUID entityId) {

@@ -137,7 +137,7 @@ class KafkaPaymentEventPublisherTest {
         refund.fail("CANCEL_FAILED", "PG 오류", OffsetDateTime.now());
 
         publisher.onPaymentRefundFailed(
-            new com.prompthub.payment.domain.event.PaymentRefundFailedEvent(payment, refund, "PG 오류"));
+            new com.prompthub.payment.domain.event.PaymentRefundFailedEvent(payment, refund));
 
         ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
         org.mockito.Mockito.verify(kafkaTemplate)

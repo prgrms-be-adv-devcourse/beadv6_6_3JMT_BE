@@ -73,8 +73,7 @@ public class RefundService implements RefundUseCase {
             payment.getId(), remainingAmount, requestedAmount);
         refund.fail(REFUND_LIMIT_EXCEEDED_CODE, "환불 가능 잔액을 초과했습니다.", OffsetDateTime.now());
         refundRepository.save(refund);
-        applicationEventPublisher.publishEvent(
-            new PaymentRefundFailedEvent(payment, refund, "환불 가능 잔액을 초과했습니다."));
+        applicationEventPublisher.publishEvent(new PaymentRefundFailedEvent(payment, refund));
     }
 
     private void executeGatewayRefund(Payment payment, Refund refund, int amount) {
@@ -88,8 +87,7 @@ public class RefundService implements RefundUseCase {
                 payment.getId(), refund.getRefundRequestId(), e.getFailureCode(), e.getFailureReason());
             refund.fail(e.getFailureCode(), e.getFailureReason(), OffsetDateTime.now());
             refundRepository.save(refund);
-            applicationEventPublisher.publishEvent(
-                new PaymentRefundFailedEvent(payment, refund, e.getFailureReason()));
+            applicationEventPublisher.publishEvent(new PaymentRefundFailedEvent(payment, refund));
         }
     }
 }
