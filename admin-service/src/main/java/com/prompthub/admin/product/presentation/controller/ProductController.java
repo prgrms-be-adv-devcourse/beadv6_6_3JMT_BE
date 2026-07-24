@@ -13,6 +13,9 @@ import com.prompthub.presentation.dto.PageResponse;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,7 +38,9 @@ public class ProductController {
 		@RequestParam(defaultValue = "0") int page,
 		@RequestParam(defaultValue = "20") int size
 	) {
-		AdminProductListQuery query = new AdminProductListQuery(parseStatusFilter(status), keyword, page, size);
+		// Pageable 자동 리졸버를 쓰지 않고 직접 조립 — 문서에 없는 sort 파라미터가 열리는 것을 막는다.
+		Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+		AdminProductListQuery query = new AdminProductListQuery(parseStatusFilter(status), keyword, pageable);
 		AdminProductPageResult result = productUseCase.listProducts(query);
 		return PageResponse.success(result.items(), result.page(), result.size(), result.total(), result.hasNext());
 	}

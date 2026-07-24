@@ -21,12 +21,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(ProductController.class)
 @ActiveProfiles("test")
 class ProductControllerTest {
+
+	private static final Pageable PAGE_0_20 = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -41,7 +46,7 @@ class ProductControllerTest {
 		@Test
 		@DisplayName("파라미터가 없으면 ALL(null)·page=0·size=20으로 조회한다")
 		void listProducts_defaults() throws Exception {
-			given(productUseCase.listProducts(new AdminProductListQuery(null, null, 0, 20)))
+			given(productUseCase.listProducts(new AdminProductListQuery(null, null, PAGE_0_20)))
 				.willReturn(new AdminProductPageResult(List.of(), 0, 20, 0, false));
 
 			mockMvc.perform(get("/api/v2/admin/products"))
@@ -52,26 +57,26 @@ class ProductControllerTest {
 				.andExpect(jsonPath("$.meta.total").value(0))
 				.andExpect(jsonPath("$.meta.hasNext").value(false));
 
-			then(productUseCase).should().listProducts(new AdminProductListQuery(null, null, 0, 20));
+			then(productUseCase).should().listProducts(new AdminProductListQuery(null, null, PAGE_0_20));
 		}
 
 		@Test
 		@DisplayName("status=pending_review는 PENDING_REVIEW 필터로 전달된다")
 		void listProducts_statusPendingReview() throws Exception {
-			given(productUseCase.listProducts(new AdminProductListQuery(ProductStatus.PENDING_REVIEW, null, 0, 20)))
+			given(productUseCase.listProducts(new AdminProductListQuery(ProductStatus.PENDING_REVIEW, null, PAGE_0_20)))
 				.willReturn(new AdminProductPageResult(List.of(), 0, 20, 0, false));
 
 			mockMvc.perform(get("/api/v2/admin/products").param("status", "pending_review"))
 				.andExpect(status().isOk());
 
 			then(productUseCase).should()
-				.listProducts(new AdminProductListQuery(ProductStatus.PENDING_REVIEW, null, 0, 20));
+				.listProducts(new AdminProductListQuery(ProductStatus.PENDING_REVIEW, null, PAGE_0_20));
 		}
 
 		@Test
 		@DisplayName("keyword는 그대로 전달된다")
 		void listProducts_keyword() throws Exception {
-			given(productUseCase.listProducts(new AdminProductListQuery(ProductStatus.ON_SALE, "프롬프트", 0, 20)))
+			given(productUseCase.listProducts(new AdminProductListQuery(ProductStatus.ON_SALE, "프롬프트", PAGE_0_20)))
 				.willReturn(new AdminProductPageResult(List.of(), 0, 20, 0, false));
 
 			mockMvc.perform(get("/api/v2/admin/products")
@@ -80,7 +85,7 @@ class ProductControllerTest {
 				.andExpect(status().isOk());
 
 			then(productUseCase).should()
-				.listProducts(new AdminProductListQuery(ProductStatus.ON_SALE, "프롬프트", 0, 20));
+				.listProducts(new AdminProductListQuery(ProductStatus.ON_SALE, "프롬프트", PAGE_0_20));
 		}
 
 		@Test

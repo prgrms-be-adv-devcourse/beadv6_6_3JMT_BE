@@ -7,6 +7,7 @@ import com.prompthub.admin.product.application.dto.AdminProductListQuery;
 import com.prompthub.admin.product.application.dto.AdminProductPageResult;
 import com.prompthub.admin.product.application.usecase.ProductUseCase;
 import com.prompthub.admin.product.domain.exception.ProductException;
+import com.prompthub.admin.product.domain.model.ProductListFilter;
 import com.prompthub.admin.product.domain.model.entity.Product;
 import com.prompthub.admin.product.domain.model.entity.ProductFamily;
 import com.prompthub.admin.product.domain.model.enums.ProductStatus;
@@ -17,6 +18,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,15 +42,16 @@ public class ProductService implements ProductUseCase {
 				.map(SellerNickname::getSellerId)
 				.toList();
 
-		// page는 0부터 시작 (FE DataPagination과 동일한 0-base 계약)
-		List<Product> products = productRepository.findProducts(
-			query.status(), keyword, keywordSellerIds, query.page(), query.size());
-		long total = productRepository.countProducts(query.status(), keyword, keywordSellerIds);
+		Page<Product> page = productRepository.findProducts(
+			new ProductListFilter(query.status(), keyword, keywordSellerIds), query.pageable());
 
-		List<AdminProductListItemResponse> items = toListItemResponses(products);
-		boolean hasNext = total > (long) (query.page() + 1) * query.size();
-
-		return new AdminProductPageResult(items, query.page(), query.size(), total, hasNext);
+		return new AdminProductPageResult(
+			toListItemResponses(page.getContent()),
+			query.pageable().getPageNumber(),
+			query.pageable().getPageSize(),
+			page.getTotalElements(),
+			page.hasNext()
+		);
 	}
 
 	private static String normalizeKeyword(String keyword) {

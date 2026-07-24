@@ -8,17 +8,11 @@ import org.springframework.data.jpa.domain.Specification;
 
 public class ProductSpecifications {
 
-	private static final List<ProductStatus> ADMIN_VISIBLE_STATUSES = List.of(
-		ProductStatus.PENDING_REVIEW,
-		ProductStatus.ON_SALE,
-		ProductStatus.REJECTED
-	);
-
 	private ProductSpecifications() {
 	}
 
 	public static Specification<Product> withStatus(ProductStatus status) {
-		if (status == null) return (root, query, cb) -> root.get("status").in(ADMIN_VISIBLE_STATUSES);
+		if (status == null) return (root, query, cb) -> root.get("status").in(ProductStatus.adminVisibleStatuses());
 		return (root, query, cb) -> cb.equal(root.get("status"), status);
 	}
 
