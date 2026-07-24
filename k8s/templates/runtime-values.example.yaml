@@ -31,6 +31,7 @@ stringData:
   REDIS_HOST: redis
   REDIS_PORT: "6379"
   KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  ES_URIS: http://elasticsearch.elk.svc.cluster.local:9200
   USER_GRPC_SERVER_PORT: "9081"
   PRODUCT_GRPC_SERVER_PORT: "9082"
   ORDER_GRPC_SERVER_PORT: "9083"

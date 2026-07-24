@@ -1,6 +1,7 @@
 package com.prompthub.product.infra.messaging.producer;
 
 import com.prompthub.common.event.EventMessage;
+import com.prompthub.product.infra.messaging.producer.event.ProductChangedPayload;
 import com.prompthub.product.infra.messaging.producer.event.ProductDeletedPayload;
 import com.prompthub.product.infra.messaging.producer.event.ProductPriceChangedPayload;
 import com.prompthub.product.infra.messaging.producer.event.ProductStoppedPayload;
@@ -37,6 +38,10 @@ public class ProductEventProducer {
 	public void publishPriceChanged(UUID productId, int previousPrice, int changedPrice) {
 		publish(ProductEventType.PRODUCT_PRICE_CHANGED, productId,
 			ProductPriceChangedPayload.of(productId, previousPrice, changedPrice));
+	}
+
+	public void publishProductChanged(UUID familyRootId) {
+		publish(ProductEventType.PRODUCT_CHANGED, familyRootId, ProductChangedPayload.of(familyRootId));
 	}
 
 	private void publish(ProductEventType eventType, UUID aggregateId, Object payload) {

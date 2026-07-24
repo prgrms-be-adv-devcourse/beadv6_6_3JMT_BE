@@ -18,3 +18,14 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
     ports:
       - '9092:9092'
+
+  product-elasticsearch:
+    build:
+      context: ./docker/elasticsearch
+    container_name: product-elasticsearch-dev
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: 'false'
+      ES_JAVA_OPTS: '-Xms1g -Xmx1g'
+    ports:
+      - '9200:9200'

@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 설계 문서: `product-service/docs/plans/2026-07-13-buyer-deliverable-by-type-design.md`
+- 설계 문서: `docs/superpowers/specs/2026-07-13-buyer-deliverable-by-type-design.md` (로컬 보관 — git 미추적)
 - 이슈 #309, 브랜치 `feat/#306-product-type-fields`(A·B에서 이어서)
 - **proto·order-service 무변경** — 크로스서비스 아님. content(string) 하나에 유형별 값을 담는다
 - content·file_url·external_url은 DB에서 모두 `text`, gRPC content도 string → 단일 필드로 충분

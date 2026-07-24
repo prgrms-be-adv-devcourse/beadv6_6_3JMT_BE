@@ -32,7 +32,8 @@ public class SellerSettlementRepositoryAdapter implements SellerSettlementReposi
 
     @Override
     public BigDecimal sumTotalAmountBySeller(UUID sellerId) {
-        return jpaRepository.sumTotalAmountBySeller(sellerId);
+        return jpaRepository.sumTotalAmountBySellerAndStatus(
+                sellerId, SettlementDisplayStatus.PAID);
     }
 
     @Override
