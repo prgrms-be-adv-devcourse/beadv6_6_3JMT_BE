@@ -1,6 +1,6 @@
 package com.prompthub.admin.seller.application.service;
 
-import com.prompthub.admin.auth.domain.repository.AuthorizationCacheRepository;
+import com.prompthub.admin.auth.service.AuthService;
 import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.global.exception.AdminException;
 import com.prompthub.admin.seller.application.dto.ApproveSellerCommand;
@@ -33,7 +33,7 @@ public class SellerApplicationService implements SellerUseCase {
 
 	private final SellerRegisterRepository sellerRegisterRepository;
 	private final UserRepository userRepository;
-	private final AuthorizationCacheRepository authorizationCacheRepository;
+	private final AuthService authService;
 
 	@Override
 	public SellerRegisterPageResult listSellerRegisters(SellerRegisterListQuery query) {
@@ -73,7 +73,7 @@ public class SellerApplicationService implements SellerUseCase {
 			.orElseThrow(() -> new AdminException(AdminErrorCode.USER_NOT_FOUND));
 		user.addRole(UserRole.SELLER);
 		userRepository.save(user);
-		authorizationCacheRepository.evict(user.getUserId());
+		authService.evictAuthorizationCache(user.getUserId());
 
 		return SellerRegisterReviewResult.from(register);
 	}
