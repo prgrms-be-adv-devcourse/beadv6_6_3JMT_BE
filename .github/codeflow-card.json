@@ -102,6 +102,108 @@
           "total": 206
         }
       ]
+    },
+    {
+      "at": "2026-07-23T16:59:35.685Z",
+      "sha": "e41d7ee59505f1e84600b4dbce01684a7d283bf6",
+      "pr": null,
+      "actor": "gfkmkl",
+      "files": 1355,
+      "functions": 1481,
+      "loc": 139841,
+      "languages": 14,
+      "topLanguages": [
+        {
+          "ext": "md",
+          "pct": 52,
+          "lines": 72189
+        },
+        {
+          "ext": "java",
+          "pct": 43,
+          "lines": 59989
+        },
+        {
+          "ext": "yaml",
+          "pct": 2,
+          "lines": 2831
+        },
+        {
+          "ext": "yml",
+          "pct": 1,
+          "lines": 1682
+        },
+        {
+          "ext": "sql",
+          "pct": 1,
+          "lines": 1111
+        }
+      ],
+      "dead": 4,
+      "deadPct": 0.3,
+      "circular": 1,
+      "godObjects": 1,
+      "avgCoupling": 2,
+      "securityIssues": 15,
+      "patterns": 9,
+      "duplicates": 30,
+      "layerViolations": 281,
+      "connections": 2719,
+      "avgFnLines": 13.1,
+      "longestFn": 16,
+      "testFiles": 297,
+      "testRatio": 21.9,
+      "topFolders": [
+        {
+          "name": "order-service",
+          "count": 254
+        },
+        {
+          "name": "settlement-service",
+          "count": 226
+        },
+        {
+          "name": "user-service",
+          "count": 205
+        },
+        {
+          "name": "admin-service",
+          "count": 172
+        },
+        {
+          "name": "payment-service",
+          "count": 167
+        }
+      ],
+      "folders": 5,
+      "grade": "C",
+      "score": 72,
+      "topBlast": {
+        "path": "settlement-service/src/test/java/com/prompthub/settlement/infrastructure/persistence/migration/SettlementBatchRestartMigrationIntegrationTest.java",
+        "direct": 179,
+        "transitive": 396,
+        "total": 575
+      },
+      "fragility": [
+        {
+          "path": "settlement-service/src/test/java/com/prompthub/settlement/infrastructure/persistence/migration/SettlementBatchRestartMigrationIntegrationTest.java",
+          "direct": 179,
+          "transitive": 396,
+          "total": 575
+        },
+        {
+          "path": "user-service/src/main/java/com/prompthub/user/auth/domain/model/OAuthProvider.java",
+          "direct": 102,
+          "transitive": 450,
+          "total": 552
+        },
+        {
+          "path": "order-service/src/main/java/com/prompthub/order/infra/messaging/kafka/event/PaymentFailedPayload.java",
+          "direct": 91,
+          "transitive": 417,
+          "total": 508
+        }
+      ]
     }
   ]
 }
