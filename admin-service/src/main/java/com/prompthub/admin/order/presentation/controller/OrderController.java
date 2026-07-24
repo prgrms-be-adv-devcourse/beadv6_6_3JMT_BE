@@ -29,7 +29,7 @@ public class OrderController {
 	private final OrderUseCase orderUseCase;
 
 	@GetMapping
-	@Operation(summary = "관리자 전체 주문 목록 조회", description = "관리자가 전체 주문을 상태 조건과 페이지 조건으로 조회합니다.")
+	@Operation(summary = "관리자 전체 주문 목록 조회", description = "주문별 구매자와 주문 상품 목록을 함께 조회합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "관리자 주문 목록 조회 성공"),
 		@ApiResponse(responseCode = "400", description = "요청 값 검증 실패"),

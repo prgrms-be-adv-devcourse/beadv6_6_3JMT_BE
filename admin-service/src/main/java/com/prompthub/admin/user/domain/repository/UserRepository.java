@@ -1,6 +1,7 @@
 package com.prompthub.admin.user.domain.repository;
 
 import com.prompthub.admin.user.domain.model.User;
+import com.prompthub.admin.user.domain.model.UserProfile;
 import com.prompthub.admin.user.domain.model.UserRole;
 import com.prompthub.admin.user.domain.model.UserStatus;
 
@@ -16,4 +17,5 @@ public interface UserRepository {
 	long countUsers(UserStatus status, UserRole role, String keyword);
 	long countCreatedBetween(LocalDateTime from, LocalDateTime to);
 	List<User> findAllByIds(List<UUID> userIds);
+	List<UserProfile> findProfilesByIds(List<UUID> userIds);
 }
