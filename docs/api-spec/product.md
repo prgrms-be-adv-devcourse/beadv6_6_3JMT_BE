@@ -29,7 +29,7 @@
 | q | string | N | `""` | 제목/설명 검색 |
 | productType | string | N | `"all"` | `all\|PROMPT\|NOTION\|PPT\|EXCEL` |
 | sort | string | N | `"popular"` | `popular\|rating\|price-asc` |
-| page | number | N | `1` | 페이지 번호 |
+| page | number | N | `0` | 0부터 시작하는 페이지 번호 |
 | size | number | N | `20` | 페이지당 항목 수 |
 
 #### Response
@@ -85,7 +85,7 @@
 | tags | string[] | 판매자 지정 태그 목록 |
 | createdAt | string | 생성일시 (ISO 8601) |
 | updatedAt | string | 수정일시 (ISO 8601) |
-| meta.page | integer | 현재 페이지 번호 |
+| meta.page | integer | 현재 페이지 번호(0-base) |
 | meta.size | integer | 페이지당 항목 수 |
 | meta.total | integer | 전체 항목 수 |
 | meta.hasNext | boolean | 다음 페이지 존재 여부 |

@@ -92,7 +92,7 @@ class ProductSearchQueryBuilderTest {
 		SearchRequest request = queryBuilder.build("", "all", "popular", 3, 10);
 
 		assertThat(request.index()).containsExactly(ProductIndexBootstrap.ALIAS);
-		assertThat(request.from()).isEqualTo(20);
+		assertThat(request.from()).isEqualTo(30);
 		assertThat(request.size()).isEqualTo(10);
 		assertThat(request.trackTotalHits().isEnabled()).isTrue();
 		assertThat(request.trackTotalHits().enabled()).isTrue();

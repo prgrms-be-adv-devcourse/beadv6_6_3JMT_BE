@@ -32,7 +32,7 @@ public class ProductSearchQueryBuilder {
 	private final SearchRankingProperties rankingProperties;
 
 	public SearchRequest build(String keyword, String productType, String sort, int page, int size) {
-		int from = Math.max(page - 1, 0) * size;
+		int from = Math.max(page, 0) * size;
 		Query query = buildQuery(keyword, productType, sort);
 		List<SortOptions> sortOptions = buildSort(sort);
 

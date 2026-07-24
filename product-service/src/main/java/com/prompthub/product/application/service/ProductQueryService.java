@@ -51,7 +51,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 		int page,
 		int size
 	) {
-		int normalizedPage = normalizePositive(page);
+		int normalizedPage = normalizePage(page);
 		int normalizedSize = normalizePositive(size);
 		String keyword = normalizeKeyword(q);
 		String selectedProductType = normalizeProductType(productType);
@@ -69,7 +69,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 		String keyword, String productType, String sort, int page, int size
 	) {
 		ProductSearchPageResult result = productSearchQueryService.search(keyword, productType, sort, page, size);
-		boolean hasNext = (long) (page - 1) * size + result.hits().size() < result.total();
+		boolean hasNext = (long) page * size + result.hits().size() < result.total();
 
 		return PageResponse.success(
 			result.hits().stream().map(this::toListItemResponse).toList(),
@@ -87,10 +87,10 @@ public class ProductQueryService implements ProductQueryUseCase {
 			keyword,
 			productType,
 			sort,
-			PageRequest.of(page - 1, size)
+			PageRequest.of(page, size)
 		);
 		long total = productRepository.countPublicProducts(keyword, productType);
-		boolean hasNext = (long) (page - 1) * size + products.size() < total;
+		boolean hasNext = (long) page * size + products.size() < total;
 
 		Map<UUID, List<String>> tagsByProductId = productRepository
 			.findAllByIdIn(products.stream().map(ProductListProjection::id).toList())
@@ -283,6 +283,10 @@ public class ProductQueryService implements ProductQueryUseCase {
 		return keys.stream()
 			.map(storageClient::generatePresignedDownloadUrl)
 			.toList();
+	}
+
+	private int normalizePage(int value) {
+		return Math.max(value, 0);
 	}
 
 	private int normalizePositive(int value) {

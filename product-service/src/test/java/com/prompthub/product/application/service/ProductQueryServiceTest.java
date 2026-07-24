@@ -100,14 +100,14 @@ class ProductQueryServiceTest {
 			assertThat(response.data().getFirst().id()).isEqualTo(PRODUCT_ID);
 			assertThat(response.data().getFirst().productType()).isEqualTo("PROMPT");
 			assertThat(response.data().getFirst().tags()).containsExactly("리액트", "리팩터링");
-			assertThat(response.meta().page()).isEqualTo(1);
+			assertThat(response.meta().page()).isEqualTo(0);
 			assertThat(response.meta().size()).isEqualTo(8);
 			assertThat(response.meta().total()).isEqualTo(1);
 			assertThat(response.meta().hasNext()).isFalse();
 		}
 
 		@Test
-		@DisplayName("page와 size는 1 이상으로 보정한다")
+		@DisplayName("page는 0 이상, size는 1 이상으로 보정한다")
 		void getProducts_normalizesPageAndSize() {
 			ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
 			given(productRepository.findPublicProducts(
@@ -146,12 +146,12 @@ class ProductQueryServiceTest {
 			// 기본 스텁(@BeforeEach)이 이미 예외를 던지도록 설정돼 있어, given(mock.method())처럼
 			// 먼저 실제 호출을 평가하는 방식은 그 예외를 즉시 트리거한다 — doReturn으로 덮어쓴다.
 			doReturn(new ProductSearchPageResult(List.of(hit), 1))
-				.when(productSearchQueryService).search("es검색어", "PROMPT", "popular", 1, 20);
+				.when(productSearchQueryService).search("es검색어", "PROMPT", "popular", 0, 20);
 			given(storageClient.generatePresignedDownloadUrl("products/thumb.jpg"))
 				.willReturn("https://s3/presigned");
 
 			PageResponse<ProductListItemResponse> response =
-				productQueryService.getProducts("es검색어", "PROMPT", "popular", 1, 20);
+				productQueryService.getProducts("es검색어", "PROMPT", "popular", 0, 20);
 
 			assertThat(response.data()).hasSize(1);
 			ProductListItemResponse item = response.data().getFirst();
@@ -171,7 +171,7 @@ class ProductQueryServiceTest {
 			given(productRepository.countPublicProducts("", "all")).willReturn(1L);
 			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID))).willReturn(List.of(product(ProductStatus.ON_SALE, null)));
 
-			PageResponse<ProductListItemResponse> response = productQueryService.getProducts(null, null, "popular", 1, 20);
+			PageResponse<ProductListItemResponse> response = productQueryService.getProducts(null, null, "popular", 0, 20);
 
 			assertThat(response.data()).hasSize(1);
 			assertThat(response.data().getFirst().id()).isEqualTo(PRODUCT_ID);
