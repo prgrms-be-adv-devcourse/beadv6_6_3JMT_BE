@@ -2,6 +2,7 @@ package com.prompthub.ai.settlement.infrastructure.persistence.redis;
 
 import com.prompthub.ai.global.config.AiRedisConfig;
 import com.prompthub.ai.settlement.domain.repository.SettlementChatStateRepository.AcceptRunResult;
+import com.prompthub.ai.settlement.domain.repository.SettlementChatStateRepository.ConversationCancellation;
 import com.prompthub.ai.settlement.domain.conversation.ChatMessage;
 import com.prompthub.ai.settlement.domain.conversation.ChatPair;
 import com.prompthub.ai.settlement.domain.conversation.ConversationSnapshot;
@@ -64,7 +65,8 @@ class RedisSettlementChatStateRepositoryIntegrationTest {
                 scripts.acceptRunScript(),
                 scripts.completeRunScript(),
                 scripts.failRunScript(),
-                scripts.cancelConversationScript(),
+                scripts.markRunCancelledScript(),
+                scripts.cleanupCancelledConversationScript(),
                 scripts.expireStaleRunScript(),
                 scripts.updateStageScript()
         );
@@ -133,16 +135,72 @@ class RedisSettlementChatStateRepositoryIntegrationTest {
                 .isEqualTo(RunStatus.RUNNING);
 
         Instant cancelledAt = completedAt.plusSeconds(3);
-        assertThat(repository.cancelCurrentConversation(actorId, cancelledAt)).contains(nextRun.runId());
-        assertThat(repository.findCurrentConversation(actorId, cancelledAt)).isEmpty();
+        ConversationCancellation cancellation =
+                repository.markCurrentRunCancelled(actorId, cancelledAt).orElseThrow();
+        assertThat(cancellation.conversationId()).isEqualTo(accepted.conversationId());
+        assertThat(cancellation.cancelledRunId()).contains(nextRun.runId());
+        assertThat(redisTemplate.opsForValue().get(activeRunKey(actorId)))
+                .isEqualTo(nextRun.runId().toString());
+        assertThat(repository.acceptRun(actorId, UUID.randomUUID(), competingRun).accepted()).isFalse();
         assertThat(repository.findOwnedRun(actorId, nextRun.runId(), cancelledAt))
                 .get()
                 .extracting(AgentRun::status)
                 .isEqualTo(RunStatus.CANCELLED);
         assertThat(repository.complete(actorId, nextRun.runId(), pair, "취소 후 답변", cancelledAt)).isFalse();
 
+        UUID differentRunId = UUID.randomUUID();
+        redisTemplate.opsForValue().set(activeRunKey(actorId), differentRunId.toString());
+        assertThat(repository.cleanupCancelledConversation(actorId, cancellation)).isFalse();
+        assertThat(redisTemplate.opsForValue().get(activeRunKey(actorId)))
+                .isEqualTo(differentRunId.toString());
+        assertThat(repository.findCurrentConversation(actorId, cancelledAt)).isPresent();
+
+        redisTemplate.opsForValue().set(activeRunKey(actorId), nextRun.runId().toString());
+        assertThat(repository.cleanupCancelledConversation(actorId, cancellation)).isTrue();
+        assertThat(redisTemplate.opsForValue().get(activeRunKey(actorId))).isNull();
+        assertThat(repository.findCurrentConversation(actorId, cancelledAt)).isEmpty();
+
+        AgentRun afterCleanup = AgentRun.start(
+                UUID.randomUUID(),
+                actorId,
+                "취소 정리 후 질문",
+                cancelledAt.plusSeconds(1),
+                Duration.ofSeconds(90)
+        );
+        assertThat(repository.acceptRun(actorId, afterCleanup.conversationId(), afterCleanup).accepted())
+                .isTrue();
+
         assertThat(redisTemplate.getConnectionFactory()).isInstanceOf(LettuceConnectionFactory.class);
         assertThat(((LettuceConnectionFactory) redisTemplate.getConnectionFactory()).getDatabase()).isEqualTo(1);
+    }
+
+    @Test
+    void completedConversation도_두_단계로_삭제한다() {
+        UUID actorId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        Instant startedAt = Instant.parse("2026-07-22T12:00:00Z");
+        AgentRun run = AgentRun.start(
+                conversationId,
+                actorId,
+                "완료된 대화",
+                startedAt,
+                Duration.ofSeconds(90)
+        );
+        assertThat(repository.acceptRun(actorId, conversationId, run).accepted()).isTrue();
+        Instant completedAt = startedAt.plusSeconds(1);
+        ChatPair pair = new ChatPair(
+                ChatMessage.user(run.question(), startedAt),
+                ChatMessage.assistant("완료된 답변", completedAt)
+        );
+        assertThat(repository.complete(actorId, run.runId(), pair, "완료된 답변", completedAt))
+                .isTrue();
+
+        ConversationCancellation cancellation =
+                repository.markCurrentRunCancelled(actorId, completedAt.plusSeconds(1)).orElseThrow();
+
+        assertThat(cancellation.cancelledRunId()).isEmpty();
+        assertThat(repository.cleanupCancelledConversation(actorId, cancellation)).isTrue();
+        assertThat(repository.findCurrentConversation(actorId, completedAt.plusSeconds(1))).isEmpty();
     }
 
     @Test
@@ -168,5 +226,9 @@ class RedisSettlementChatStateRepositoryIntegrationTest {
                 .get()
                 .extracting(AgentRun::status)
                 .isEqualTo(RunStatus.FAILED);
+    }
+
+    private String activeRunKey(UUID actorId) {
+        return "ai:settlement:actor:{" + actorId + "}:active-run";
     }
 }

@@ -9,6 +9,7 @@ import com.prompthub.ai.settlement.domain.conversation.ConversationSnapshot;
 import com.prompthub.ai.settlement.domain.run.AgentRun;
 import com.prompthub.ai.settlement.domain.run.RunStage;
 import com.prompthub.ai.settlement.domain.run.RunStatus;
+import com.prompthub.ai.settlement.domain.repository.SettlementChatStateRepository.ConversationCancellation;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +34,7 @@ public class RedisSettlementChatStateRepository implements SettlementChatStateRe
     private static final String KEY_PREFIX = "ai:settlement:";
     private static final String RUN_PREFIX = KEY_PREFIX + "run:";
     private static final String MESSAGES_PREFIX = KEY_PREFIX + "conversation:";
+    private static final Duration CANCELLATION_LOCK_TTL = Duration.ofSeconds(30);
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
@@ -41,7 +43,8 @@ public class RedisSettlementChatStateRepository implements SettlementChatStateRe
     private final RedisScript<List> acceptRunScript;
     private final RedisScript<Long> completeRunScript;
     private final RedisScript<Long> failRunScript;
-    private final RedisScript<String> cancelConversationScript;
+    private final RedisScript<List> markRunCancelledScript;
+    private final RedisScript<Long> cleanupCancelledConversationScript;
     private final RedisScript<Long> expireStaleRunScript;
     private final RedisScript<Long> updateStageScript;
     private final MeterRegistry meterRegistry;
@@ -54,7 +57,9 @@ public class RedisSettlementChatStateRepository implements SettlementChatStateRe
             @Qualifier("acceptRunScript") RedisScript<List> acceptRunScript,
             @Qualifier("completeRunScript") RedisScript<Long> completeRunScript,
             @Qualifier("failRunScript") RedisScript<Long> failRunScript,
-            @Qualifier("cancelConversationScript") RedisScript<String> cancelConversationScript,
+            @Qualifier("markRunCancelledScript") RedisScript<List> markRunCancelledScript,
+            @Qualifier("cleanupCancelledConversationScript")
+            RedisScript<Long> cleanupCancelledConversationScript,
             @Qualifier("expireStaleRunScript") RedisScript<Long> expireStaleRunScript,
             @Qualifier("updateStageScript") RedisScript<Long> updateStageScript,
             MeterRegistry meterRegistry
@@ -67,7 +72,8 @@ public class RedisSettlementChatStateRepository implements SettlementChatStateRe
                 acceptRunScript,
                 completeRunScript,
                 failRunScript,
-                cancelConversationScript,
+                markRunCancelledScript,
+                cleanupCancelledConversationScript,
                 expireStaleRunScript,
                 updateStageScript,
                 meterRegistry
@@ -82,7 +88,8 @@ public class RedisSettlementChatStateRepository implements SettlementChatStateRe
             RedisScript<List> acceptRunScript,
             RedisScript<Long> completeRunScript,
             RedisScript<Long> failRunScript,
-            RedisScript<String> cancelConversationScript,
+            RedisScript<List> markRunCancelledScript,
+            RedisScript<Long> cleanupCancelledConversationScript,
             RedisScript<Long> expireStaleRunScript,
             RedisScript<Long> updateStageScript
     ) {
@@ -94,7 +101,8 @@ public class RedisSettlementChatStateRepository implements SettlementChatStateRe
                 acceptRunScript,
                 completeRunScript,
                 failRunScript,
-                cancelConversationScript,
+                markRunCancelledScript,
+                cleanupCancelledConversationScript,
                 expireStaleRunScript,
                 updateStageScript,
                 Metrics.globalRegistry
@@ -109,7 +117,8 @@ public class RedisSettlementChatStateRepository implements SettlementChatStateRe
             RedisScript<List> acceptRunScript,
             RedisScript<Long> completeRunScript,
             RedisScript<Long> failRunScript,
-            RedisScript<String> cancelConversationScript,
+            RedisScript<List> markRunCancelledScript,
+            RedisScript<Long> cleanupCancelledConversationScript,
             RedisScript<Long> expireStaleRunScript,
             RedisScript<Long> updateStageScript,
             MeterRegistry meterRegistry
@@ -121,7 +130,8 @@ public class RedisSettlementChatStateRepository implements SettlementChatStateRe
         this.acceptRunScript = acceptRunScript;
         this.completeRunScript = completeRunScript;
         this.failRunScript = failRunScript;
-        this.cancelConversationScript = cancelConversationScript;
+        this.markRunCancelledScript = markRunCancelledScript;
+        this.cleanupCancelledConversationScript = cleanupCancelledConversationScript;
         this.expireStaleRunScript = expireStaleRunScript;
         this.updateStageScript = updateStageScript;
         this.meterRegistry = meterRegistry;
@@ -274,21 +284,52 @@ public class RedisSettlementChatStateRepository implements SettlementChatStateRe
     }
 
     @Override
-    public Optional<UUID> cancelCurrentConversation(UUID actorId, Instant cancelledAt) {
+    public Optional<ConversationCancellation> markCurrentRunCancelled(
+            UUID actorId,
+            Instant cancelledAt
+    ) {
         return protect(() -> {
-            String cancelledRunId = redisTemplate.execute(
-                    cancelConversationScript,
+            List<?> result = redisTemplate.execute(
+                    markRunCancelledScript,
                     List.of(conversationPointerKey(actorId), activeRunKey(actorId)),
                     actorId.toString(),
                     Long.toString(cancelledAt.toEpochMilli()),
                     Long.toString(conversationTtl.toMillis()),
                     RUN_PREFIX,
-                    MESSAGES_PREFIX
+                    Long.toString(CANCELLATION_LOCK_TTL.toMillis())
             );
-            if (cancelledRunId == null || cancelledRunId.isBlank()) {
+            if (result == null || result.isEmpty()) {
                 return Optional.empty();
             }
-            return Optional.of(UUID.fromString(cancelledRunId));
+            if (result.size() != 2) {
+                throw new IllegalStateException("mark-run-cancelled.lua 결과가 올바르지 않습니다.");
+            }
+            String cancelledRunId = asString(result.get(1));
+            return Optional.of(new ConversationCancellation(
+                    UUID.fromString(asString(result.get(0))),
+                    cancelledRunId.isBlank()
+                            ? Optional.empty()
+                            : Optional.of(UUID.fromString(cancelledRunId))
+            ));
+        });
+    }
+
+    @Override
+    public boolean cleanupCancelledConversation(
+            UUID actorId,
+            ConversationCancellation cancellation
+    ) {
+        return protect(() -> {
+            Long result = redisTemplate.execute(
+                    cleanupCancelledConversationScript,
+                    List.of(conversationPointerKey(actorId), activeRunKey(actorId)),
+                    actorId.toString(),
+                    cancellation.conversationId().toString(),
+                    cancellation.cancelledRunId().map(UUID::toString).orElse(""),
+                    RUN_PREFIX,
+                    MESSAGES_PREFIX
+            );
+            return Long.valueOf(1L).equals(result);
         });
     }
 

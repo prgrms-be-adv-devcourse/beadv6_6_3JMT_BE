@@ -715,6 +715,13 @@ heartbeat는 화면에 표시하지 않고 대화 TTL도 연장하지 않는다.
 5. actor active-run lock을 compare-and-delete로 해제한다.
 6. 최소 run tombstone은 24시간 유지한다.
 
+1단계는 `mark-run-cancelled.lua`가 소유자와 `RUNNING` 상태를 확인한 뒤 수행한다. 이때 conversation과
+message를 삭제하지 않고 active-run lock도 유지하며, Java가 event publish와 Future cancel을 마칠 시간을
+확보하도록 lock을 30초 cleanup lease로 연장한다. 2단계 `cleanup-cancelled-conversation.lua`는 pointer의
+conversationId와 latest-run-id를 다시 확인하고 active-run 값이 취소한 runId와 같을 때만 conversation,
+message와 lock을 삭제한다. 중간에 다른 runId가 관찰되면 아무것도 삭제하지 않는다. 프로세스가 1단계
+이후 중단되더라도 cleanup lease가 만료되므로 영구 잠금은 남지 않는다.
+
 tombstone은 사용자에게 과거 대화로 보이기 위한 것이 아니다. 늦게 돌아온 Tool/OpenAI callback이
 cancelled run의 최종 답변을 다시 저장하지 못하게 하는 fencing record다. Orchestrator는 각 Tool 전후와
 최종 commit 전에 run 상태가 여전히 RUNNING인지 확인한다. 최종 commit은 run 상태뿐 아니라 actor의

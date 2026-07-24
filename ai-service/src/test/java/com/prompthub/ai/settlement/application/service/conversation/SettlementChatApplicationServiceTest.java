@@ -10,6 +10,7 @@ import com.prompthub.ai.settlement.application.service.run.SettlementRunExecutor
 import com.prompthub.ai.settlement.application.service.run.SettlementRunTaskRegistry;
 import com.prompthub.ai.settlement.application.usecase.SettlementChatUseCase;
 import com.prompthub.ai.settlement.domain.repository.SettlementChatStateRepository;
+import com.prompthub.ai.settlement.domain.repository.SettlementChatStateRepository.ConversationCancellation;
 import com.prompthub.ai.settlement.domain.run.AgentRun;
 import com.prompthub.ai.settlement.domain.run.RunStage;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -123,7 +124,13 @@ class SettlementChatApplicationServiceTest {
         });
 
         SettlementChatUseCase.AcceptedRun accepted = service.acceptQuestion(actorId, " 이번 달 정산 요약 ");
-        when(repository.cancelCurrentConversation(actorId, NOW)).thenReturn(Optional.of(accepted.runId()));
+        ConversationCancellation cancellation = new ConversationCancellation(
+                accepted.conversationId(),
+                Optional.of(accepted.runId())
+        );
+        when(repository.markCurrentRunCancelled(actorId, NOW))
+                .thenReturn(Optional.of(cancellation));
+        when(repository.cleanupCancelledConversation(actorId, cancellation)).thenReturn(true);
         doThrow(new AiException(AiErrorCode.AI_STATE_UNAVAILABLE))
                 .when(publisher).cancelled(accepted.runId(), NOW);
 
@@ -133,9 +140,10 @@ class SettlementChatApplicationServiceTest {
         assertThat(accepted.status().name()).isEqualTo("RUNNING");
         assertThat(accepted.deadlineAt()).isEqualTo(NOW.plusSeconds(90));
         InOrder order = inOrder(repository, publisher, taskRegistry);
-        order.verify(repository).cancelCurrentConversation(actorId, NOW);
+        order.verify(repository).markCurrentRunCancelled(actorId, NOW);
         order.verify(publisher).cancelled(accepted.runId(), NOW);
         order.verify(taskRegistry).cancel(accepted.runId());
+        order.verify(repository).cleanupCancelledConversation(actorId, cancellation);
         assertThat(taskRegistry.size()).isZero();
         assertThat(concurrencyLimiter.tryAcquire()).isPresent();
     }

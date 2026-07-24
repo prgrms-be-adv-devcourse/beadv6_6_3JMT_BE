@@ -11,6 +11,7 @@ import com.prompthub.ai.settlement.application.usecase.SettlementChatUseCase;
 import com.prompthub.ai.settlement.domain.conversation.ChatPair;
 import com.prompthub.ai.settlement.domain.conversation.ConversationSnapshot;
 import com.prompthub.ai.settlement.domain.repository.SettlementChatStateRepository;
+import com.prompthub.ai.settlement.domain.repository.SettlementChatStateRepository.ConversationCancellation;
 import com.prompthub.ai.settlement.domain.run.AgentRun;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
@@ -146,22 +147,30 @@ public class SettlementChatApplicationService implements SettlementChatUseCase {
     public void deleteCurrentConversation(UUID actorId) {
         assertEnabled();
         Instant cancelledAt = clock.instant();
-        Optional<UUID> cancelledRunId = stateRepository.cancelCurrentConversation(actorId, cancelledAt);
-        if (cancelledRunId.isEmpty()) {
+        Optional<ConversationCancellation> prepared =
+                stateRepository.markCurrentRunCancelled(actorId, cancelledAt);
+        if (prepared.isEmpty()) {
             return;
         }
-        UUID runId = cancelledRunId.orElseThrow();
+        ConversationCancellation cancellation = prepared.orElseThrow();
+        try {
+            cancellation.cancelledRunId().ifPresent(runId ->
+                    cancelRunExecution(runId, cancelledAt));
+        } finally {
+            stateRepository.cleanupCancelledConversation(actorId, cancellation);
+        }
+    }
+
+    private void cancelRunExecution(UUID runId, Instant cancelledAt) {
         meterRegistry.counter(
                 "ai.chat.runs",
                 "status", "CANCELLED",
                 "error_code", "none").increment();
         try {
-            try {
-                eventPublisher.cancelled(runId, cancelledAt);
-            } catch (RuntimeException publishException) {
-                log.warn("AI settlement cancelled event publish failed. runId={}, category={}",
-                        runId, publishException.getClass().getSimpleName());
-            }
+            eventPublisher.cancelled(runId, cancelledAt);
+        } catch (RuntimeException publishException) {
+            log.warn("AI settlement cancelled event publish failed. runId={}, category={}",
+                    runId, publishException.getClass().getSimpleName());
         } finally {
             taskRegistry.cancel(runId);
         }

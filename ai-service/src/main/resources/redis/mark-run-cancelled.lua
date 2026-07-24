@@ -1,8 +1,12 @@
 local conversationId = redis.call('HGET', KEYS[1], 'conversation-id')
+if not conversationId then
+  return {}
+end
+
 local activeRunId = redis.call('GET', KEYS[2])
 local latestRunId = redis.call('HGET', KEYS[1], 'latest-run-id')
 local candidateRunId = activeRunId or latestRunId
-local cancelledRunId = nil
+local cancelledRunId = ''
 
 if candidateRunId then
   local runKey = ARGV[4] .. '{' .. candidateRunId .. '}'
@@ -14,17 +18,10 @@ if candidateRunId then
     redis.call('HDEL', runKey, 'completed-at', 'failed-at', 'answer', 'error-code', 'error-message')
     redis.call('PEXPIRE', runKey, ARGV[3])
     cancelledRunId = candidateRunId
+    if activeRunId == candidateRunId then
+      redis.call('PEXPIRE', KEYS[2], ARGV[5])
+    end
   end
 end
 
-if activeRunId then
-  if redis.call('GET', KEYS[2]) == activeRunId then
-    redis.call('DEL', KEYS[2])
-  end
-end
-
-if conversationId then
-  redis.call('DEL', ARGV[5] .. '{' .. conversationId .. '}:messages')
-end
-redis.call('DEL', KEYS[1])
-return cancelledRunId
+return {conversationId, cancelledRunId}

@@ -40,9 +40,14 @@ public class AiRedisConfig {
         return script("redis/fail-run.lua", Long.class);
     }
 
-    @Bean("cancelConversationScript")
-    public DefaultRedisScript<String> cancelConversationScript() {
-        return script("redis/cancel-conversation.lua", String.class);
+    @Bean("markRunCancelledScript")
+    public DefaultRedisScript<List> markRunCancelledScript() {
+        return script("redis/mark-run-cancelled.lua", List.class);
+    }
+
+    @Bean("cleanupCancelledConversationScript")
+    public DefaultRedisScript<Long> cleanupCancelledConversationScript() {
+        return script("redis/cleanup-cancelled-conversation.lua", Long.class);
     }
 
     @Bean("expireStaleRunScript")

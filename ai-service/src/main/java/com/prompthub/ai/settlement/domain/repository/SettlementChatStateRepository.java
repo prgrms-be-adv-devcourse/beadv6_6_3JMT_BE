@@ -6,6 +6,7 @@ import com.prompthub.ai.settlement.domain.run.AgentRun;
 import com.prompthub.ai.settlement.domain.run.RunStage;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -23,11 +24,24 @@ public interface SettlementChatStateRepository {
 
     boolean fail(UUID actorId, UUID runId, String code, String message, Instant failedAt);
 
-    Optional<UUID> cancelCurrentConversation(UUID actorId, Instant cancelledAt);
+    Optional<ConversationCancellation> markCurrentRunCancelled(UUID actorId, Instant cancelledAt);
+
+    boolean cleanupCancelledConversation(UUID actorId, ConversationCancellation cancellation);
 
     boolean expireStaleRun(UUID actorId, UUID runId, Instant now);
 
     boolean claimFirstStream(UUID actorId, UUID runId);
+
+    record ConversationCancellation(
+            UUID conversationId,
+            Optional<UUID> cancelledRunId
+    ) {
+
+        public ConversationCancellation {
+            Objects.requireNonNull(conversationId, "conversationId는 필수입니다.");
+            cancelledRunId = cancelledRunId == null ? Optional.empty() : cancelledRunId;
+        }
+    }
 
     record AcceptRunResult(
             boolean accepted,
