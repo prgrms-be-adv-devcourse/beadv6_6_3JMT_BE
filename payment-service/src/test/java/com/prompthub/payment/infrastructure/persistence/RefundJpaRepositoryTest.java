@@ -97,18 +97,19 @@ class RefundJpaRepositoryTest extends AbstractJpaTest {
     }
 
     @Test
-    void 환불_실패_시_failure_reason과_failed_at이_저장되고_사용자_사유는_보존된다() {
+    void 환불_실패_시_failure_code와_failure_reason이_저장되고_사용자_사유는_보존된다() {
         UUID paymentId = UUID.randomUUID();
         Refund refund = Refund.create(paymentId, UUID.randomUUID(), 5_000, "단순 변심");
         OffsetDateTime failedAt = OffsetDateTime.now();
 
-        refund.fail("PG 오류", failedAt);
+        refund.fail("PG_ERROR", "PG 오류", failedAt);
         Refund saved = refundJpaRepository.saveAndFlush(refund);
 
         Refund found = refundJpaRepository.findById(saved.getId())
             .orElseThrow(() -> new AssertionError("Refund not found"));
 
         assertThat(found.getReason()).isEqualTo("단순 변심");
+        assertThat(found.getFailureCode()).isEqualTo("PG_ERROR");
         assertThat(found.getFailureReason()).isEqualTo("PG 오류");
         assertThat(found.getFailedAt()).isNotNull();
         assertThat(found.getStatus()).isEqualTo(RefundStatus.FAILED);
