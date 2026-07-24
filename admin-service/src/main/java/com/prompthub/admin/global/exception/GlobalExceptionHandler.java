@@ -1,8 +1,8 @@
 package com.prompthub.admin.global.exception;
 
-import com.prompthub.admin.settlement.domain.exception.SettlementAlreadyCancelledException;
-import com.prompthub.admin.settlement.domain.exception.SettlementAlreadyPaidException;
-import com.prompthub.admin.settlement.domain.exception.SettlementInvalidStateException;
+import com.prompthub.admin.settlement.exception.SettlementAlreadyCancelledException;
+import com.prompthub.admin.settlement.exception.SettlementAlreadyPaidException;
+import com.prompthub.admin.settlement.exception.SettlementInvalidStateException;
 import com.prompthub.exception.BusinessException;
 import com.prompthub.exception.ErrorCode;
 import com.prompthub.exception.response.ErrorResponse;

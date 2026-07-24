@@ -23,6 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -89,6 +92,15 @@ public class UserApplicationService implements UserUseCase {
 		long todayNewUsers = userRepository.countCreatedBetween(startOfDay, startOfNextDay);
 
 		return new UserStatsResult(totalUsers, todayNewUsers);
+	}
+
+	public Map<UUID, String> findNamesByIds(List<UUID> userIds) {
+		List<UUID> distinctIds = userIds.stream().distinct().toList();
+		if (distinctIds.isEmpty()) {
+			return Map.of();
+		}
+		return userRepository.findAllByIds(distinctIds).stream()
+			.collect(Collectors.toUnmodifiableMap(User::getUserId, User::getName));
 	}
 
 	private static void applyStatus(User user, UserStatus status) {

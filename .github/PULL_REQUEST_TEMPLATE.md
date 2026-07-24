@@ -25,7 +25,8 @@
 
 ## ☑️ 체크리스트 (Checklist)
 
-- [ ] 클린아키텍처: 의존성 방향(presentation→application→domain←infrastructure)·포트&어댑터·계층 책임 준수
+- [ ] 클린아키텍처(user/payment/product/settlement-service): 의존성 방향(presentation→application→domain←infrastructure)·포트&어댑터·계층 책임 준수
+- [ ] 3-tier(admin-service): Controller→Service→Repository 단방향 의존 준수, 포트/어댑터 인터페이스 불필요(구현체 1개뿐인 인터페이스는 만들지 않음)
 - [ ] 도메인 모델: 비즈니스 setter 금지·상태변경은 도메인 메서드·Lombok 허용 범위 준수
 - [ ] Controller/예외: 얇은 컨트롤러(Repository 직접 접근 금지)·커스텀 예외·전역 예외 핸들러
 - [ ] 코드 스타일: 네이밍 케이스·와일드카드 import 금지·빈 catch 금지
