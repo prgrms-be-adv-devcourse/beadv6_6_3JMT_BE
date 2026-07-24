@@ -35,7 +35,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 @DisplayName("AI User 판매자 정산 gRPC client")
-class UserSellerSettlementAnalysisQueryClientTest {
+class SellerSettlementQueryClientTest {
 
     private static final String TOKEN = "internal-test-token";
     private static final Metadata.Key<String> USER_ID = Metadata.Key.of(
@@ -51,7 +51,7 @@ class UserSellerSettlementAnalysisQueryClientTest {
 
     private Server server;
     private ManagedChannel channel;
-    private UserSellerSettlementAnalysisQueryClient client;
+    private SellerSettlementQueryClient client;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -62,7 +62,7 @@ class UserSellerSettlementAnalysisQueryClientTest {
                 .build()
                 .start();
         channel = InProcessChannelBuilder.forName(serverName).directExecutor().build();
-        client = new UserSellerSettlementAnalysisQueryClient(
+        client = new SellerSettlementQueryClient(
                 SellerSettlementQueryServiceGrpc.newBlockingStub(channel),
                 Duration.ofSeconds(3),
                 TOKEN,

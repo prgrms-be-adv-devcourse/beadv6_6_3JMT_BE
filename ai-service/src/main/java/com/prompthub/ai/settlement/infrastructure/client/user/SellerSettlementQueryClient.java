@@ -35,7 +35,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-public class UserSellerSettlementAnalysisQueryClient implements SellerSettlementAnalysisQuery {
+public class SellerSettlementQueryClient implements SellerSettlementAnalysisQuery {
 
     private static final Metadata.Key<String> USER_ID = Metadata.Key.of(
             "x-user-id", Metadata.ASCII_STRING_MARSHALLER);
@@ -48,7 +48,7 @@ public class UserSellerSettlementAnalysisQueryClient implements SellerSettlement
     private final MeterRegistry meterRegistry;
 
     @Autowired
-    public UserSellerSettlementAnalysisQueryClient(
+    public SellerSettlementQueryClient(
             SellerSettlementQueryServiceBlockingStub baseStub,
             AiSettlementProperties properties,
             MeterRegistry meterRegistry
@@ -56,7 +56,7 @@ public class UserSellerSettlementAnalysisQueryClient implements SellerSettlement
         this(baseStub, properties.userGrpcDeadline(), properties.userGrpcInternalToken(), meterRegistry);
     }
 
-    UserSellerSettlementAnalysisQueryClient(
+    SellerSettlementQueryClient(
             SellerSettlementQueryServiceBlockingStub baseStub,
             Duration deadline,
             String internalToken,
