@@ -6,7 +6,6 @@ import com.prompthub.admin.settlement.dto.SettlementListQuery;
 import com.prompthub.admin.settlement.dto.SettlementWeeklyListQuery;
 import com.prompthub.admin.settlement.entity.Settlement;
 import com.prompthub.admin.settlement.entity.SettlementSourceLine;
-import com.prompthub.admin.settlement.entity.enums.SettlementDisplayStatus;
 import com.prompthub.admin.settlement.repository.SettlementMonthlyQueryRepository;
 import com.prompthub.admin.settlement.repository.SettlementMonthlyQueryRepository.MonthlyAggregate;
 import com.prompthub.admin.settlement.repository.SettlementMonthlyQueryRepository.MonthlyKey;
@@ -23,13 +22,11 @@ import com.prompthub.admin.settlement.dto.response.SettlementListResponse;
 import com.prompthub.admin.settlement.dto.response.SettlementResponse;
 import com.prompthub.admin.settlement.dto.response.SettlementStatusResponse;
 import com.prompthub.admin.settlement.dto.response.SettlementSummaryResponse;
-import com.prompthub.admin.settlement.dto.response.SettlementSummaryResponse.Card;
 import com.prompthub.admin.settlement.dto.response.SettlementWeeklyListResponse;
+import com.prompthub.admin.settlement.util.SettlementSummaryAggregator;
 import com.prompthub.admin.user.application.service.UserApplicationService;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -43,13 +40,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 @Slf4j
 public class SettlementService {
-
-	private static final List<SettlementDisplayStatus> CARD_ORDER = List.of(
-		SettlementDisplayStatus.WAITING,
-		SettlementDisplayStatus.APPROVED,
-		SettlementDisplayStatus.PAYOUT_ON_HOLD,
-		SettlementDisplayStatus.PAID
-	);
 
 	private final SettlementQueryRepository settlementQueryRepository;
 	private final SettlementMonthlyQueryRepository monthlyQueryRepository;
@@ -119,27 +109,9 @@ public class SettlementService {
 	}
 
 	public SettlementSummaryResponse getSummary(YearMonth settlementMonth) {
-		Map<SettlementDisplayStatus, BigDecimal> amountByCard = new EnumMap<>(SettlementDisplayStatus.class);
-		Map<SettlementDisplayStatus, Long> countByCard = new EnumMap<>(SettlementDisplayStatus.class);
-		for (SettlementDisplayStatus card : CARD_ORDER) {
-			amountByCard.put(card, BigDecimal.ZERO);
-			countByCard.put(card, 0L);
-		}
-
-		for (SettlementStatusAggregate aggregate
-			: settlementQueryRepository.aggregateByStatus(settlementMonth)) {
-			SettlementDisplayStatus card = aggregate.status().toCard();
-			if (card == null) {
-				continue;
-			}
-			amountByCard.merge(card, aggregate.sumSettlementTotal(), BigDecimal::add);
-			countByCard.merge(card, aggregate.count(), Long::sum);
-		}
-
-		List<Card> cards = CARD_ORDER.stream()
-			.map(card -> new Card(card.name(), amountByCard.get(card), countByCard.get(card)))
-			.toList();
-		return new SettlementSummaryResponse(cards);
+		List<SettlementStatusAggregate> aggregates =
+			settlementQueryRepository.aggregateByStatus(settlementMonth);
+		return new SettlementSummaryResponse(SettlementSummaryAggregator.toCards(aggregates));
 	}
 
 	@Transactional
