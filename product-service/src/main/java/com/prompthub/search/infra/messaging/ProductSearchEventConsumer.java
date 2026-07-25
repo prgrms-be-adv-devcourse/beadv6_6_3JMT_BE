@@ -6,7 +6,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.product.infra.messaging.producer.ProductEventType;
+import com.prompthub.product.infra.messaging.producer.event.ProductDeletedPayload;
+import com.prompthub.product.infra.messaging.producer.event.ProductStoppedPayload;
 import com.prompthub.search.application.ProductSearchEventHandler;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,12 +51,27 @@ public class ProductSearchEventConsumer {
 				UUID familyRootId = UUID.fromString(event.payload().get("familyRootId").asText());
 				productSearchEventHandler.handleProductChanged(event.eventId(), event.occurredAt(), familyRootId);
 			}
-			case PRODUCT_STOPPED, PRODUCT_DELETED -> {
-				UUID productId = UUID.fromString(event.payload().get("productId").asText());
+			case PRODUCT_STOPPED -> {
+				ProductStoppedPayload payload = mapPayload(event.payload(), ProductStoppedPayload.class);
+				UUID productId = Objects.requireNonNull(payload.productId(), "PRODUCT_STOPPED payload에 productId가 없습니다.");
+				productSearchEventHandler.handleProductRemovalCandidate(
+					event.eventId(), event.occurredAt(), type.name(), productId);
+			}
+			case PRODUCT_DELETED -> {
+				ProductDeletedPayload payload = mapPayload(event.payload(), ProductDeletedPayload.class);
+				UUID productId = Objects.requireNonNull(payload.productId(), "PRODUCT_DELETED payload에 productId가 없습니다.");
 				productSearchEventHandler.handleProductRemovalCandidate(
 					event.eventId(), event.occurredAt(), type.name(), productId);
 			}
 			default -> log.info("색인 컨슈머가 처리하지 않는 eventType입니다. eventType={}", type);
+		}
+	}
+
+	private <T> T mapPayload(JsonNode payload, Class<T> type) {
+		try {
+			return objectMapper.treeToValue(payload, type);
+		} catch (JsonProcessingException e) {
+			throw new IllegalArgumentException("product-events payload 매핑에 실패했습니다. type=" + type.getSimpleName(), e);
 		}
 	}
 
