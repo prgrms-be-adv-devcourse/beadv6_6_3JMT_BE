@@ -30,11 +30,14 @@ class ProductReindexServiceTest {
 	@Mock
 	private ProductSearchIndexer productSearchIndexer;
 
+	@Mock
+	private FamilyStatsResolver familyStatsResolver;
+
 	private ProductReindexService reindexService;
 
 	@BeforeEach
 	void setUp() {
-		reindexService = new ProductReindexService(productRepository, productSearchIndexer);
+		reindexService = new ProductReindexService(productRepository, productSearchIndexer, familyStatsResolver);
 	}
 
 	@Test
@@ -42,12 +45,11 @@ class ProductReindexServiceTest {
 	void reconcileAll_ON_SALE_family는_upsert_대상에_담는다() {
 		UUID familyRootId = UUID.randomUUID();
 		Product onSale = product(familyRootId, ProductStatus.ON_SALE);
+		FamilyUpsertInput expectedInput = new FamilyUpsertInput(onSale, 5L, 9L, 4.0, onSale.getCreatedAt());
 		given(productSearchIndexer.indexExists()).willReturn(true);
 		given(productRepository.findAllByStatus(ProductStatus.ON_SALE)).willReturn(List.of(onSale));
 		given(productRepository.findAllByFamilyRootIds(List.of(familyRootId))).willReturn(List.of(onSale));
-		given(productRepository.getAverageRating(familyRootId)).willReturn(4.0);
-		given(productRepository.sumSalesCountByFamilyRootId(familyRootId)).willReturn(5L);
-		given(productRepository.sumViewCountByFamilyRootId(familyRootId)).willReturn(9L);
+		given(familyStatsResolver.resolve(familyRootId, List.of(onSale), onSale)).willReturn(expectedInput);
 		given(productSearchIndexer.findAllIndexedFamilyRootIds()).willReturn(Set.of(familyRootId));
 
 		reindexService.reconcileAll();
@@ -55,12 +57,7 @@ class ProductReindexServiceTest {
 		ArgumentCaptor<List<FamilyUpsertInput>> upsertCaptor = ArgumentCaptor.forClass(List.class);
 		ArgumentCaptor<List<UUID>> deleteCaptor = ArgumentCaptor.forClass(List.class);
 		verify(productSearchIndexer).bulkReconcile(upsertCaptor.capture(), deleteCaptor.capture());
-		assertThat(upsertCaptor.getValue()).anySatisfy(input -> {
-			assertThat(input.onSale().familyRootId()).isEqualTo(familyRootId);
-			assertThat(input.familySalesCount()).isEqualTo(5L);
-			assertThat(input.familyViewCount()).isEqualTo(9L);
-			assertThat(input.averageRating()).isEqualTo(4.0);
-		});
+		assertThat(upsertCaptor.getValue()).containsExactly(expectedInput);
 		assertThat(deleteCaptor.getValue()).isEmpty();
 	}
 

@@ -4,9 +4,7 @@ import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.ProductFamily;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.repository.ProductRepository;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,6 +28,7 @@ public class ProductReindexService {
 
 	private final ProductRepository productRepository;
 	private final ProductSearchIndexer productSearchIndexer;
+	private final FamilyStatsResolver familyStatsResolver;
 
 	public void reconcileAll() {
 		if (!productSearchIndexer.indexExists()) {
@@ -45,16 +44,8 @@ public class ProductReindexService {
 		for (UUID familyRootId : byFamily.keySet()) {
 			List<Product> members = productRepository.findAllByFamilyRootIds(List.of(familyRootId));
 			ProductFamily family = ProductFamily.of(familyRootId, members);
-			family.currentOnSale().ifPresent(onSale -> {
-				double averageRating = productRepository.getAverageRating(familyRootId);
-				long familySalesCount = productRepository.sumSalesCountByFamilyRootId(familyRootId);
-				long familyViewCount = productRepository.sumViewCountByFamilyRootId(familyRootId);
-				LocalDateTime firstPublishedAt = members.stream()
-					.map(Product::getCreatedAt)
-					.min(Comparator.naturalOrder())
-					.orElse(onSale.getCreatedAt());
-				toUpsert.add(new FamilyUpsertInput(onSale, familySalesCount, familyViewCount, averageRating, firstPublishedAt));
-			});
+			family.currentOnSale().ifPresent(onSale ->
+				toUpsert.add(familyStatsResolver.resolve(familyRootId, members, onSale)));
 		}
 
 		Set<UUID> onSaleFamilyRootIds = byFamily.keySet();

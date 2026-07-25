@@ -1,8 +1,6 @@
 package com.prompthub.search.application;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyDouble;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -39,25 +37,27 @@ class ProductSearchEventHandlerTest {
 	@Mock
 	private ProductSearchIndexer productSearchIndexer;
 
+	@Mock
+	private FamilyStatsResolver familyStatsResolver;
+
 	private ProductSearchEventHandler handler;
 
 	@BeforeEach
 	void setUp() {
-		handler = new ProductSearchEventHandler(productRepository, processedEventRepository, productSearchIndexer);
+		handler = new ProductSearchEventHandler(productRepository, processedEventRepository, productSearchIndexer, familyStatsResolver);
 	}
 
 	@Test
 	void handleProductChanged_ON_SALE_멤버가_있으면_그걸_대표로_upsert한다() {
 		Product onSale = product(FAMILY_ROOT_ID, ProductStatus.ON_SALE);
+		FamilyUpsertInput expectedInput = new FamilyUpsertInput(onSale, 10L, 3L, 4.5, onSale.getCreatedAt());
 		given(processedEventRepository.existsByEventIdAndConsumerGroup(EVENT_ID, "product-service-search")).willReturn(false);
 		given(productRepository.findAllByFamilyRootIds(List.of(FAMILY_ROOT_ID))).willReturn(List.of(onSale));
-		given(productRepository.getAverageRating(FAMILY_ROOT_ID)).willReturn(4.5);
-		given(productRepository.sumSalesCountByFamilyRootId(FAMILY_ROOT_ID)).willReturn(10L);
-		given(productRepository.sumViewCountByFamilyRootId(FAMILY_ROOT_ID)).willReturn(3L);
+		given(familyStatsResolver.resolve(FAMILY_ROOT_ID, List.of(onSale), onSale)).willReturn(expectedInput);
 
 		handler.handleProductChanged(EVENT_ID, LocalDateTime.now(), FAMILY_ROOT_ID);
 
-		verify(productSearchIndexer).upsert(onSale, 10L, 3L, 4.5, onSale.getCreatedAt());
+		verify(productSearchIndexer).upsert(expectedInput);
 	}
 
 	@Test
@@ -69,7 +69,7 @@ class ProductSearchEventHandlerTest {
 		handler.handleProductChanged(EVENT_ID, LocalDateTime.now(), FAMILY_ROOT_ID);
 
 		verify(productSearchIndexer).bulkReconcile(List.of(), List.of(FAMILY_ROOT_ID));
-		verify(productSearchIndexer, never()).upsert(any(), anyLong(), anyLong(), anyDouble(), any());
+		verify(productSearchIndexer, never()).upsert(any());
 	}
 
 	@Test
@@ -86,16 +86,15 @@ class ProductSearchEventHandlerTest {
 		UUID stoppedProductId = UUID.randomUUID();
 		Product stillOnSale = product(FAMILY_ROOT_ID, ProductStatus.ON_SALE);
 		Product stopped = product(FAMILY_ROOT_ID, ProductStatus.STOPPED);
+		FamilyUpsertInput expectedInput = new FamilyUpsertInput(stillOnSale, 1L, 2L, 4.0, stillOnSale.getCreatedAt());
 		given(processedEventRepository.existsByEventIdAndConsumerGroup(EVENT_ID, "product-service-search")).willReturn(false);
 		given(productRepository.findById(stoppedProductId)).willReturn(Optional.of(stopped));
 		given(productRepository.findAllByFamilyRootIds(List.of(FAMILY_ROOT_ID))).willReturn(List.of(stillOnSale, stopped));
-		given(productRepository.getAverageRating(FAMILY_ROOT_ID)).willReturn(4.0);
-		given(productRepository.sumSalesCountByFamilyRootId(FAMILY_ROOT_ID)).willReturn(1L);
-		given(productRepository.sumViewCountByFamilyRootId(FAMILY_ROOT_ID)).willReturn(2L);
+		given(familyStatsResolver.resolve(FAMILY_ROOT_ID, List.of(stillOnSale, stopped), stillOnSale)).willReturn(expectedInput);
 
 		handler.handleProductRemovalCandidate(EVENT_ID, LocalDateTime.now(), "PRODUCT_STOPPED", stoppedProductId);
 
-		verify(productSearchIndexer).upsert(stillOnSale, 1L, 2L, 4.0, stillOnSale.getCreatedAt());
+		verify(productSearchIndexer).upsert(expectedInput);
 	}
 
 	@Test

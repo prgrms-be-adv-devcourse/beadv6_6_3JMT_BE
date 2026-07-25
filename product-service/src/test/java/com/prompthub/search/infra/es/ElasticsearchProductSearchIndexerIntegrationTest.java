@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.support.ProductContentFixtures;
+import com.prompthub.search.application.FamilyUpsertInput;
 import com.prompthub.search.support.ElasticsearchIntegrationTestSupport;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -22,7 +23,7 @@ class ElasticsearchProductSearchIndexerIntegrationTest extends ElasticsearchInte
 		UUID familyRootId = UUID.randomUUID();
 		Product product = Product.create(familyRootId, UUID.randomUUID(), ProductContentFixtures.promptContent());
 
-		indexer.upsert(product, 5L, 3L, 4.5, LocalDateTime.now());
+		indexer.upsert(new FamilyUpsertInput(product, 5L, 3L, 4.5, LocalDateTime.now()));
 		client.indices().refresh(r -> r.index(ProductIndexBootstrap.ALIAS));
 
 		var response = client.get(

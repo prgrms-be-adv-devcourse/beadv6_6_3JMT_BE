@@ -27,8 +27,9 @@ public class ElasticsearchProductSearchIndexer implements ProductSearchIndexer {
 	private final ElasticsearchClient client;
 
 	@Override
-	public void upsert(Product onSale, long familySalesCount, long familyViewCount, double averageRating, LocalDateTime firstPublishedAt) {
-		ProductSearchDocument document = buildDocument(onSale, familySalesCount, familyViewCount, averageRating, firstPublishedAt);
+	public void upsert(FamilyUpsertInput input) {
+		ProductSearchDocument document = buildDocument(
+			input.onSale(), input.familySalesCount(), input.familyViewCount(), input.averageRating(), input.firstPublishedAt());
 		try {
 			client.index(i -> i.index(ProductIndexBootstrap.ALIAS).id(document.familyRootId().toString()).document(document));
 		} catch (IOException | RuntimeException e) {

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.support.ProductContentFixtures;
+import com.prompthub.search.application.FamilyUpsertInput;
 import com.prompthub.search.application.ProductSearchHit;
 import com.prompthub.search.application.ProductSearchPageResult;
 import com.prompthub.search.support.ElasticsearchIntegrationTestSupport;
@@ -28,7 +29,7 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 
 	private void index(Product product, long salesCount, long viewCount, double ratingAvg) {
 		ElasticsearchProductSearchIndexer indexer = new ElasticsearchProductSearchIndexer(client);
-		indexer.upsert(product, salesCount, viewCount, ratingAvg, LocalDateTime.now());
+		indexer.upsert(new FamilyUpsertInput(product, salesCount, viewCount, ratingAvg, LocalDateTime.now()));
 	}
 
 	private void refresh() throws Exception {

@@ -6,7 +6,6 @@ import com.prompthub.product.domain.model.entity.ProductProcessedEvent;
 import com.prompthub.product.domain.repository.ProcessedEventRepository;
 import com.prompthub.product.domain.repository.ProductRepository;
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,6 +29,7 @@ public class ProductSearchEventHandler {
 	private final ProductRepository productRepository;
 	private final ProcessedEventRepository processedEventRepository;
 	private final ProductSearchIndexer productSearchIndexer;
+	private final FamilyStatsResolver familyStatsResolver;
 
 	@Transactional
 	public void handleProductChanged(UUID eventId, LocalDateTime occurredAt, UUID familyRootId) {
@@ -61,14 +61,8 @@ public class ProductSearchEventHandler {
 		}
 
 		Product representative = currentOnSale.get();
-		double averageRating = productRepository.getAverageRating(familyRootId);
-		long familySalesCount = productRepository.sumSalesCountByFamilyRootId(familyRootId);
-		long familyViewCount = productRepository.sumViewCountByFamilyRootId(familyRootId);
-		LocalDateTime firstPublishedAt = members.stream()
-			.map(Product::getCreatedAt)
-			.min(Comparator.naturalOrder())
-			.orElse(representative.getCreatedAt());
-		productSearchIndexer.upsert(representative, familySalesCount, familyViewCount, averageRating, firstPublishedAt);
+		FamilyUpsertInput input = familyStatsResolver.resolve(familyRootId, members, representative);
+		productSearchIndexer.upsert(input);
 	}
 
 	private boolean alreadyProcessed(UUID eventId) {
