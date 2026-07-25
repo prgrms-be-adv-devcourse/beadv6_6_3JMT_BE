@@ -51,20 +51,17 @@ public class ProductSearchEventConsumer {
 				UUID familyRootId = UUID.fromString(event.payload().get("familyRootId").asText());
 				productSearchEventHandler.handleProductChanged(event.eventId(), event.occurredAt(), familyRootId);
 			}
-			case PRODUCT_STOPPED -> {
-				ProductStoppedPayload payload = mapPayload(event.payload(), ProductStoppedPayload.class);
-				UUID productId = Objects.requireNonNull(payload.productId(), "PRODUCT_STOPPED payload에 productId가 없습니다.");
-				productSearchEventHandler.handleProductRemovalCandidate(
-					event.eventId(), event.occurredAt(), type.name(), productId);
-			}
-			case PRODUCT_DELETED -> {
-				ProductDeletedPayload payload = mapPayload(event.payload(), ProductDeletedPayload.class);
-				UUID productId = Objects.requireNonNull(payload.productId(), "PRODUCT_DELETED payload에 productId가 없습니다.");
-				productSearchEventHandler.handleProductRemovalCandidate(
-					event.eventId(), event.occurredAt(), type.name(), productId);
-			}
+			case PRODUCT_STOPPED -> handleRemovalCandidate(
+				type, event, mapPayload(event.payload(), ProductStoppedPayload.class).productId());
+			case PRODUCT_DELETED -> handleRemovalCandidate(
+				type, event, mapPayload(event.payload(), ProductDeletedPayload.class).productId());
 			default -> log.info("색인 컨슈머가 처리하지 않는 eventType입니다. eventType={}", type);
 		}
+	}
+
+	private void handleRemovalCandidate(ProductEventType type, EventMessage<JsonNode> event, UUID productId) {
+		Objects.requireNonNull(productId, type.name() + " payload에 productId가 없습니다.");
+		productSearchEventHandler.handleProductRemovalCandidate(event.eventId(), event.occurredAt(), type.name(), productId);
 	}
 
 	private <T> T mapPayload(JsonNode payload, Class<T> type) {

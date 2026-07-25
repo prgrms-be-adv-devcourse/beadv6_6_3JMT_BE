@@ -7,7 +7,6 @@ import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.search.application.FamilyUpsertInput;
 import com.prompthub.search.application.ProductSearchIndexer;
 import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -28,8 +27,7 @@ public class ElasticsearchProductSearchIndexer implements ProductSearchIndexer {
 
 	@Override
 	public void upsert(FamilyUpsertInput input) {
-		ProductSearchDocument document = buildDocument(
-			input.onSale(), input.familySalesCount(), input.familyViewCount(), input.averageRating(), input.firstPublishedAt());
+		ProductSearchDocument document = buildDocument(input);
 		try {
 			client.index(i -> i.index(ProductIndexBootstrap.ALIAS).id(document.familyRootId().toString()).document(document));
 		} catch (IOException | RuntimeException e) {
@@ -71,9 +69,7 @@ public class ElasticsearchProductSearchIndexer implements ProductSearchIndexer {
 		try {
 			client.bulk(b -> {
 				for (FamilyUpsertInput input : toUpsert) {
-					ProductSearchDocument document = buildDocument(
-						input.onSale(), input.familySalesCount(), input.familyViewCount(),
-						input.averageRating(), input.firstPublishedAt());
+					ProductSearchDocument document = buildDocument(input);
 					b.operations(op -> op.index(idx -> idx
 						.index(ProductIndexBootstrap.ALIAS)
 						.id(document.familyRootId().toString())
@@ -91,9 +87,8 @@ public class ElasticsearchProductSearchIndexer implements ProductSearchIndexer {
 		}
 	}
 
-	private ProductSearchDocument buildDocument(
-		Product onSale, long familySalesCount, long familyViewCount, double averageRating, LocalDateTime firstPublishedAt
-	) {
+	private ProductSearchDocument buildDocument(FamilyUpsertInput input) {
+		Product onSale = input.onSale();
 		return new ProductSearchDocument(
 			onSale.familyRootId(),
 			onSale.getId(),
@@ -108,11 +103,11 @@ public class ElasticsearchProductSearchIndexer implements ProductSearchIndexer {
 			onSale.getAmountType().name(),
 			onSale.getThumbnailUrl(),
 			onSale.getBadge(),
-			(int) familySalesCount,
-			(int) familyViewCount,
+			(int) input.familySalesCount(),
+			(int) input.familyViewCount(),
 			0,
-			averageRating,
-			firstPublishedAt,
+			input.averageRating(),
+			input.firstPublishedAt(),
 			onSale.getUpdatedAt()
 		);
 	}
