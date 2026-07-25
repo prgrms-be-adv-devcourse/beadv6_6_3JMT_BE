@@ -16,16 +16,22 @@ import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
 import com.prompthub.product.presentation.dto.response.ProductVersionResponse;
 import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import com.prompthub.presentation.dto.PageResponse;
+import com.prompthub.search.application.ProductSearchHit;
+import com.prompthub.search.application.ProductSearchPageResult;
+import com.prompthub.search.application.ProductSearchQueryService;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -37,6 +43,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 	private final ProductRepository productRepository;
 	private final StorageClient storageClient;
 	private final ProductFamilyResolver productFamilyResolver;
+	private final ProductSearchQueryService productSearchQueryService;
 
 	public PageResponse<ProductListItemResponse> getProducts(
 		String q,
@@ -45,20 +52,40 @@ public class ProductQueryService implements ProductQueryUseCase {
 		int page,
 		int size
 	) {
-		int normalizedPage = normalizePositive(page);
-		int normalizedSize = normalizePositive(size);
 		String keyword = normalizeKeyword(q);
 		String selectedProductType = normalizeProductType(productType);
 		String selectedSort = normalizeSort(sort);
+		Pageable pageable = PageRequest.of(normalizePage(page), normalizePositive(size));
 
-		List<ProductListProjection> products = productRepository.findPublicProducts(
-			keyword,
-			selectedProductType,
-			selectedSort,
-			PageRequest.of(normalizedPage - 1, normalizedSize)
+		try {
+			return searchViaElasticsearch(keyword, selectedProductType, selectedSort, pageable);
+		} catch (RuntimeException e) {
+			log.warn("ES 조회에 실패해 RDB로 폴백합니다.", e);
+			return searchViaRdb(keyword, selectedProductType, selectedSort, pageable);
+		}
+	}
+
+	private PageResponse<ProductListItemResponse> searchViaElasticsearch(
+		String keyword, String productType, String sort, Pageable pageable
+	) {
+		ProductSearchPageResult result = productSearchQueryService.search(keyword, productType, sort, pageable);
+		boolean hasNext = pageable.getOffset() + result.hits().size() < result.total();
+
+		return PageResponse.success(
+			result.hits().stream().map(this::toListItemResponse).toList(),
+			pageable.getPageNumber(),
+			pageable.getPageSize(),
+			result.total(),
+			hasNext
 		);
-		long total = productRepository.countPublicProducts(keyword, selectedProductType);
-		boolean hasNext = (long) (normalizedPage - 1) * normalizedSize + products.size() < total;
+	}
+
+	private PageResponse<ProductListItemResponse> searchViaRdb(
+		String keyword, String productType, String sort, Pageable pageable
+	) {
+		List<ProductListProjection> products = productRepository.findPublicProducts(keyword, productType, sort, pageable);
+		long total = productRepository.countPublicProducts(keyword, productType);
+		boolean hasNext = pageable.getOffset() + products.size() < total;
 
 		Map<UUID, List<String>> tagsByProductId = productRepository
 			.findAllByIdIn(products.stream().map(ProductListProjection::id).toList())
@@ -69,8 +96,8 @@ public class ProductQueryService implements ProductQueryUseCase {
 			products.stream()
 				.map(p -> toListItemResponse(p, tagsByProductId.getOrDefault(p.id(), List.of())))
 				.toList(),
-			normalizedPage,
-			normalizedSize,
+			pageable.getPageNumber(),
+			pageable.getPageSize(),
 			total,
 			hasNext
 		);
@@ -194,6 +221,26 @@ public class ProductQueryService implements ProductQueryUseCase {
 		);
 	}
 
+	private ProductListItemResponse toListItemResponse(ProductSearchHit hit) {
+		return new ProductListItemResponse(
+			hit.productId(),
+			hit.name(),
+			hit.productType(),
+			hit.model(),
+			hit.amount(),
+			null,
+			hit.ratingAvg(),
+			hit.salesCount(),
+			hit.sellerId(),
+			null,
+			hit.description(),
+			toUrl(hit.thumbnailUrl()),
+			hit.tags(),
+			hit.firstPublishedAt(),
+			hit.currentVersionAt()
+		);
+	}
+
 	private ProductReviewResponse toReviewResponse(ProductReviewProjection review) {
 		return new ProductReviewResponse(
 			review.id(),
@@ -233,6 +280,10 @@ public class ProductQueryService implements ProductQueryUseCase {
 			.toList();
 	}
 
+	private int normalizePage(int value) {
+		return Math.max(value, 0);
+	}
+
 	private int normalizePositive(int value) {
 		return Math.max(value, 1);
 	}
@@ -258,7 +309,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 	}
 
 	private String normalizeSort(String sort) {
-		if ("rating".equals(sort) || "price-asc".equals(sort) || "price-desc".equals(sort)) {
+		if ("rating".equals(sort) || "price-asc".equals(sort)) {
 			return sort;
 		}
 
