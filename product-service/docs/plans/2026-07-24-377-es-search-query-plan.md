@@ -77,7 +77,10 @@ ES 인덱스가 아직 없는 상태(최초 배포 등)에서 기동하면 `Prod
     content, 없으면 `match_all`) + functions(salesCount/viewCount/ratingAvg weight, firstPublishedAt
     gauss) — 가중치는 신규 `prompthub.search.ranking.*` `@ConfigurationProperties`로 뺀다(초기값
     0.3/0.1/0.1/0.2, scale 30d, decay 0.7).
-  - `rating`/`price-asc` → 단순 `sort` 절(`ratingAvg`/`amount` + `_id` tiebreaker).
+  - `rating`/`price-asc` → 단순 `sort` 절(`ratingAvg`/`amount` + `familyRootId` tiebreaker —
+    ES `_id` 필드는 fielddata 접근이 막혀 있어(`Fielddata access on the _id field is
+    disallowed`) 리터럴 `_id` 정렬은 불가능해서, 색인 시 `_id`와 동일하게 채운 별도 필드를
+    대신 쓴다).
   - 페이징: `from=(page-1)*size`, `size=size`, `track_total_hits: true`.
 - 쿼리 빌더 유닛 테스트(ES 없이, 순수 함수로 쿼리 구성 검증) + Testcontainers 통합 테스트
   (`ElasticsearchIntegrationTestSupport` 재사용): 3개 정렬 순서, nori 검색 매칭, productType 필터,
