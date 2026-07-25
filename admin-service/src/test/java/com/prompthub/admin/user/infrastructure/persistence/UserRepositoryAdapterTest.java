@@ -1,6 +1,7 @@
 package com.prompthub.admin.user.infrastructure.persistence;
 
 import com.prompthub.admin.user.domain.model.User;
+import com.prompthub.admin.user.domain.model.UserProfile;
 import com.prompthub.admin.user.domain.model.UserRole;
 import com.prompthub.admin.user.domain.model.UserStatus;
 import com.prompthub.admin.user.domain.repository.UserRepository;
@@ -82,5 +83,12 @@ class UserRepositoryAdapterTest {
 		));
 
 		assertThat(result).hasSize(2);
+	}
+
+	@Test
+	void 프로필_조회는_역할을_로딩하지_않는_스칼라_프로젝션을_사용한다() {
+		List<UserProfile> result = userRepository.findProfilesByIds(List.of(USER_1));
+
+		assertThat(result).containsExactly(new UserProfile(USER_1, "김도윤", null));
 	}
 }

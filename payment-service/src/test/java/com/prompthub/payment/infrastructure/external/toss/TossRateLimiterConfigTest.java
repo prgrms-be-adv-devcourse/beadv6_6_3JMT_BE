@@ -17,7 +17,7 @@ class TossRateLimiterConfigTest {
 
         RateLimiter confirmRateLimiter = config.tossConfirmRateLimiter(registry);
 
-        assertThat(confirmRateLimiter.getName()).isEqualTo("tossConfirmRateLimiter");
+        assertThat(confirmRateLimiter.getName()).isEqualTo("toss-confirm-rate-limiter");
         assertThat(confirmRateLimiter.getRateLimiterConfig().getLimitForPeriod()).isEqualTo(30);
         assertThat(confirmRateLimiter.getRateLimiterConfig().getLimitRefreshPeriod())
             .isEqualTo(Duration.ofSeconds(1));

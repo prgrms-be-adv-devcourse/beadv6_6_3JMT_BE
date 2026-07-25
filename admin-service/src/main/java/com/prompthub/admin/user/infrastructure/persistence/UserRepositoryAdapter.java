@@ -1,6 +1,7 @@
 package com.prompthub.admin.user.infrastructure.persistence;
 
 import com.prompthub.admin.user.domain.model.User;
+import com.prompthub.admin.user.domain.model.UserProfile;
 import com.prompthub.admin.user.domain.model.UserRole;
 import com.prompthub.admin.user.domain.model.UserStatus;
 import com.prompthub.admin.user.domain.repository.UserRepository;
@@ -50,6 +51,18 @@ public class UserRepositoryAdapter implements UserRepository {
 	@Override
 	public List<User> findAllByIds(List<UUID> userIds) {
 		return userJpaRepository.findAllById(userIds);
+	}
+
+	@Override
+	public List<UserProfile> findProfilesByIds(List<UUID> userIds) {
+		List<UUID> distinctIds = userIds.stream().distinct().toList();
+		if (distinctIds.isEmpty()) {
+			return List.of();
+		}
+		return userJpaRepository.findProfilesByIds(distinctIds).stream()
+			.map(profile -> new UserProfile(
+				profile.getUserId(), profile.getName(), profile.getProfileImageUrl()))
+			.toList();
 	}
 
 	private Specification<User> buildSpec(UserStatus status, UserRole role, String keyword) {

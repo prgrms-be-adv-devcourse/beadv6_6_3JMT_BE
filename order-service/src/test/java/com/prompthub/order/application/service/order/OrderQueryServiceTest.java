@@ -571,6 +571,18 @@ class OrderQueryServiceTest {
             then(productClient).shouldHaveNoInteractions();
         }
 
+		@Test
+		@DisplayName("구매 상품 다운로드 여부를 저장소 조회 결과대로 반환한다")
+		void isProductDownloaded_returnsRepositoryResult() {
+			given(orderRepository.isAccessiblePaidProductDownloaded(BUYER_ID, PRODUCT_ID_1))
+				.willReturn(true);
+
+			assertThat(orderQueryService.isProductDownloaded(BUYER_ID, PRODUCT_ID_1)).isTrue();
+
+			then(orderRepository).should().isAccessiblePaidProductDownloaded(BUYER_ID, PRODUCT_ID_1);
+			then(productClient).shouldHaveNoInteractions();
+		}
+
         @Test
         @DisplayName("열람 가능한 구매 상품 ID 목록을 그대로 반환한다")
         void getAccessiblePaidProductIds_returnsProductIds() {

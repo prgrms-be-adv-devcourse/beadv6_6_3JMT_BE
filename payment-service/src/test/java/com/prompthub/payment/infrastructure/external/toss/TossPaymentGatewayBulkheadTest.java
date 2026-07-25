@@ -25,6 +25,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
+import static com.prompthub.payment.infrastructure.external.toss.TossRetryTestSupport.retryOf;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TossPaymentGatewayBulkheadTest {
@@ -74,7 +75,8 @@ class TossPaymentGatewayBulkheadTest {
             CircuitBreaker.ofDefaults("test-confirm"),
             CircuitBreaker.ofDefaults("test-refund"),
             confirmBulkhead,
-            RateLimiter.ofDefaults("test-confirm-rate-limiter")
+            RateLimiter.ofDefaults("test-confirm-rate-limiter"),
+            retryOf("test-confirm-retry")
         );
 
         ExecutorService executor = Executors.newFixedThreadPool(3);

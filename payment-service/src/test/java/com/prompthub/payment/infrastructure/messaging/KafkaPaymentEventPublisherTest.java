@@ -134,10 +134,10 @@ class KafkaPaymentEventPublisherTest {
         payment.approve(10_000, "CARD", "{}", "{}", OffsetDateTime.now());
         com.prompthub.payment.domain.model.Refund refund =
             com.prompthub.payment.domain.model.Refund.create(payment.getId(), UUID.randomUUID(), 4_000, null);
-        refund.fail("PG 오류", OffsetDateTime.now());
+        refund.fail("CANCEL_FAILED", "PG 오류", OffsetDateTime.now());
 
         publisher.onPaymentRefundFailed(
-            new com.prompthub.payment.domain.event.PaymentRefundFailedEvent(payment, refund, "PG 오류"));
+            new com.prompthub.payment.domain.event.PaymentRefundFailedEvent(payment, refund));
 
         ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
         org.mockito.Mockito.verify(kafkaTemplate)

@@ -32,7 +32,7 @@ public class TossRateLimiterConfig {
 
     @Bean("tossConfirmRateLimiter")
     public RateLimiter tossConfirmRateLimiter(RateLimiterRegistry tossRateLimiterRegistry) {
-        return tossRateLimiterRegistry.rateLimiter("tossConfirmRateLimiter");
+        return tossRateLimiterRegistry.rateLimiter("toss-confirm-rate-limiter");
     }
 
     @Bean

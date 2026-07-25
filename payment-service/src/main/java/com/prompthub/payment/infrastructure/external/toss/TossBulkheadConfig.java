@@ -29,7 +29,7 @@ public class TossBulkheadConfig {
 
     @Bean("tossConfirmBulkhead")
     public Bulkhead tossConfirmBulkhead(BulkheadRegistry tossBulkheadRegistry) {
-        return tossBulkheadRegistry.bulkhead("tossConfirmBulkhead");
+        return tossBulkheadRegistry.bulkhead("toss-confirm-bulkhead");
     }
 
     @Bean

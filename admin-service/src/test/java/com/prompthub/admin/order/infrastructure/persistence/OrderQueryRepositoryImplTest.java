@@ -30,7 +30,7 @@ class OrderQueryRepositoryImplTest {
 	private OrderQueryRepositoryImpl repository;
 
 	@Test
-	void COMPLETED_상태로_필터링하면_해당_주문만_판매자별로_묶어서_반환한다() {
+	void COMPLETED_상태로_필터링하면_해당_주문의_모든_상품을_반환한다() {
 		Page<OrderListProjection> result = repository.searchOrders(
 			new OrderSearchCondition("COMPLETED", 1, 20).resolve(),
 			PageRequest.of(0, 20)
@@ -39,13 +39,18 @@ class OrderQueryRepositoryImplTest {
 		assertThat(result.getTotalElements()).isEqualTo(1);
 		OrderListProjection projection = result.getContent().getFirst();
 		assertThat(projection.orderId()).isEqualTo(UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001"));
-		assertThat(projection.productTitle()).isEqualTo("프롬프트 상품 1 외 1건");
-		assertThat(projection.totalOrderCount()).isEqualTo(2);
+		assertThat(projection.orderNumber()).isEqualTo("ORD-20260610-0001");
+		assertThat(projection.buyerId())
+			.isEqualTo(UUID.fromString("dddddddd-0000-0000-0000-000000000001"));
 		assertThat(projection.totalOrderAmount()).isEqualTo(30000);
 		assertThat(projection.orderStatus()).isEqualTo(OrderStatus.COMPLETED);
-		assertThat(projection.sellers()).containsExactly(
-			new OrderListProjection.SellerSummary(UUID.fromString("cccccccc-0000-0000-0000-000000000001"), 1, 10000),
-			new OrderListProjection.SellerSummary(UUID.fromString("cccccccc-0000-0000-0000-000000000002"), 1, 20000)
+		assertThat(projection.orderProducts()).containsExactly(
+			new OrderListProjection.OrderProductSummary(
+				UUID.fromString("cccccccc-0000-0000-0000-000000000001"), "프롬프트 상품 1", 10_000, "PAID"
+			),
+			new OrderListProjection.OrderProductSummary(
+				UUID.fromString("cccccccc-0000-0000-0000-000000000002"), "프롬프트 상품 2", 20_000, "PAID"
+			)
 		);
 	}
 
@@ -77,5 +82,18 @@ class OrderQueryRepositoryImplTest {
 		assertThat(result.get(2).date()).isEqualTo(java.time.LocalDate.of(2026, 6, 12));
 		assertThat(result.get(2).transactionCount()).isZero();
 		assertThat(result.get(2).transactionAmount()).isEqualTo(-10000L);
+	}
+
+	@Test
+	void 생성일시가_같은_주문도_ID_내림차순으로_페이지가_겹치지_않는다() {
+		Page<OrderListProjection> firstPage = repository.searchOrders(
+			new OrderSearchCondition("ALL", 1, 1).resolve(), PageRequest.of(0, 1));
+		Page<OrderListProjection> secondPage = repository.searchOrders(
+			new OrderSearchCondition("ALL", 2, 1).resolve(), PageRequest.of(1, 1));
+
+		assertThat(firstPage.getContent()).extracting(OrderListProjection::orderId)
+			.containsExactly(UUID.fromString("aaaaaaaa-0000-0000-0000-000000000005"));
+		assertThat(secondPage.getContent()).extracting(OrderListProjection::orderId)
+			.containsExactly(UUID.fromString("aaaaaaaa-0000-0000-0000-000000000004"));
 	}
 }

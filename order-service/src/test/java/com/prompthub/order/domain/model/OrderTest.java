@@ -39,6 +39,17 @@ class OrderTest {
     }
 
     @Test
+    void addOrderProduct_assignsParentOrderAndBuyerId() {
+        Order order = Order.create(BUYER_ID, "ORD-BUYER", 10_000);
+        OrderProduct product = createOrderProduct1();
+
+        order.addOrderProduct(product);
+
+        assertThat(product.getOrder()).isSameAs(order);
+        assertThat(product.getBuyerId()).isEqualTo(BUYER_ID);
+    }
+
+    @Test
     void markCompleted_changesOrderAndProductsAtomically() {
         Order order = createPendingOrder();
         OrderProduct product = createOrderProduct1();

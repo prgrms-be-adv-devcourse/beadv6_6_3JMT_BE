@@ -1,6 +1,10 @@
 spring:
   application:
     name: order-service
+  data:
+    redis:
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:1s}
+      timeout: ${REDIS_COMMAND_TIMEOUT:2s}
   config:
     import:
       - ${CONFIG_IMPORT:}
@@ -105,7 +109,8 @@ prompthub:
     max-retry-count: 3
   order:
     enabled: true
-    payment-timeout-minutes: 20
+    payment-timeout-minutes: 1
+    product-idempotency-ttl-minutes: 30
     fixed-delay-ms: 5000
     batch-size: 100
     max-retry-count: 3

@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
+import static com.prompthub.payment.infrastructure.external.toss.TossRetryTestSupport.retryOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -66,7 +67,8 @@ class TossPaymentGatewayRateLimiterTest {
             CircuitBreaker.ofDefaults("test-confirm"),
             CircuitBreaker.ofDefaults("test-refund"),
             Bulkhead.ofDefaults("test-confirm-bulkhead"),
-            confirmRateLimiter
+            confirmRateLimiter,
+            retryOf("test-confirm-retry")
         );
 
         ConfirmResult first = gateway.confirm("pg-key-1", UUID.randomUUID(), 1_000);

@@ -3,6 +3,7 @@ package com.prompthub.product.presentation.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.application.usecase.ProductSellerUseCase;
+import com.prompthub.product.application.usecase.PurchasedProductQueryUseCase;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
 import com.prompthub.product.exception.ProductExceptionHandler;
@@ -12,6 +13,7 @@ import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
 import com.prompthub.product.presentation.dto.response.ProductVersionResponse;
 import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
+import com.prompthub.product.presentation.dto.response.PurchasedProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductListItemResponse;
 import com.prompthub.presentation.dto.PageResponse;
@@ -45,6 +47,7 @@ class ProductControllerTest {
 
 	private static final UUID PRODUCT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
 	private static final UUID SELLER_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
+	private static final UUID USER_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
 	private static final LocalDateTime CREATED_AT = LocalDateTime.of(2026, 5, 1, 0, 0);
 	private static final LocalDateTime UPDATED_AT = LocalDateTime.of(2026, 6, 1, 0, 0);
 
@@ -57,13 +60,72 @@ class ProductControllerTest {
 	@Mock
 	private ProductSellerUseCase productSellerUseCase;
 
+	@Mock
+	private PurchasedProductQueryUseCase purchasedProductQueryUseCase;
+
 	@BeforeEach
 	void setUp() {
 		mockMvc = MockMvcBuilders.standaloneSetup(
-				new ProductController(productQueryUseCase, productSellerUseCase))
+				new ProductController(productQueryUseCase, productSellerUseCase, purchasedProductQueryUseCase))
 			.setControllerAdvice(new ProductExceptionHandler())
 			.build();
 		objectMapper = new ObjectMapper();
+	}
+
+	@Nested
+	@DisplayName("GET /api/v2/products/{productId}/orders")
+	class GetPurchasedProduct {
+
+		@Test
+		@DisplayName("구매한 상품 reader 데이터를 반환한다")
+		void getPurchasedProduct_success() throws Exception {
+			PurchasedProductDetailResponse response = new PurchasedProductDetailResponse(
+				PRODUCT_ID, "면접 답변 프롬프트", "PROMPT", "GPT-4o",
+				"프롬프트 본문", null, null, "https://cdn/thumb.png",
+				SELLER_ID, 4.5, 5
+			);
+			given(purchasedProductQueryUseCase.getPurchasedProduct(USER_ID, PRODUCT_ID)).willReturn(response);
+
+			mockMvc.perform(get("/api/v2/products/{productId}/orders", PRODUCT_ID)
+					.header("X-User-Id", USER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data.productId").value(PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data.title").value("면접 답변 프롬프트"))
+				.andExpect(jsonPath("$.data.productType").value("PROMPT"))
+				.andExpect(jsonPath("$.data.model").value("GPT-4o"))
+				.andExpect(jsonPath("$.data.content").value("프롬프트 본문"))
+				.andExpect(jsonPath("$.data.fileUrl").isEmpty())
+				.andExpect(jsonPath("$.data.externalUrl").isEmpty())
+				.andExpect(jsonPath("$.data.thumbnailUrl").value("https://cdn/thumb.png"))
+				.andExpect(jsonPath("$.data.sellerId").value(SELLER_ID.toString()))
+				.andExpect(jsonPath("$.data.averageRating").value(4.5))
+				.andExpect(jsonPath("$.data.myRating").value(5));
+		}
+
+		@Test
+		@DisplayName("없는 상품이면 404 P001을 반환한다")
+		void getPurchasedProduct_notFound() throws Exception {
+			given(purchasedProductQueryUseCase.getPurchasedProduct(USER_ID, PRODUCT_ID))
+				.willThrow(new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
+
+			mockMvc.perform(get("/api/v2/products/{productId}/orders", PRODUCT_ID)
+					.header("X-User-Id", USER_ID.toString()))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.code").value("P001"));
+		}
+
+		@Test
+		@DisplayName("X-User-Id 헤더가 없으면 500(SYS001)으로 처리된다 — 기존 인증 필요 API와 동일")
+		void getPurchasedProduct_missingUserIdHeader() throws Exception {
+			mockMvc.perform(get("/api/v2/products/{productId}/orders", PRODUCT_ID))
+				.andExpect(status().isInternalServerError())
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.code").value("SYS001"));
+
+			verifyNoInteractions(purchasedProductQueryUseCase);
+		}
 	}
 
 	@Nested

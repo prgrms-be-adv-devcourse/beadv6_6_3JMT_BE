@@ -63,3 +63,8 @@ resilience4j:
         limit-for-period: 30
         limit-refresh-period: 1s
         timeout-duration: 0ms
+  retry:
+    instances:
+      toss-confirm-retry:
+        max-attempts: 2
+        wait-duration: 500ms

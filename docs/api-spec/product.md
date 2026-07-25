@@ -180,6 +180,60 @@
 
 ---
 
+### GET /products/{productId}/orders — 구매 상품 reader 조회
+
+- 인증: 필요 (Gateway 주입 `X-User-Id`)
+- 용도: 구매한 프롬프트 reader 페이지(FE `/reader/[id]`)가 상품 데이터·유형별 콘텐츠·평균/내 별점을 한 번에 조회. 응답의 `sellerId`로 user-service `POST /users/order-products`를 이어서 호출해 판매자 이름을 채운다.
+- 구매 여부 검증은 현재 하지 않는다(#550 결정, 후속 이슈에서 order-service 연동 예정).
+
+#### Path Parameters
+
+| 파라미터 | 타입 | 설명 |
+|---------|------|------|
+| productId | UUID | 상품 ID |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "productId": "uuid",
+    "title": "면접 답변 프롬프트",
+    "productType": "PROMPT",
+    "model": "GPT-4o",
+    "content": "프롬프트 본문...",
+    "fileUrl": null,
+    "externalUrl": null,
+    "thumbnailUrl": "https://cdn/thumb.png",
+    "sellerId": "uuid",
+    "averageRating": 4.5,
+    "myRating": 5
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| productId | string(UUID) | 요청한 상품 ID |
+| title | string | 상품명 |
+| productType | string | PROMPT / NOTION / PPT / EXCEL |
+| model | string \| null | 대상 모델 |
+| content | string \| null | 프롬프트 본문 (PROMPT만) |
+| fileUrl | string \| null | presigned 다운로드 URL (PPT·EXCEL만) |
+| externalUrl | string \| null | 외부 노션 링크 (NOTION만) |
+| thumbnailUrl | string \| null | 썸네일 URL |
+| sellerId | string(UUID) | 판매자 ID |
+| averageRating | number | family 평균 별점 |
+| myRating | number \| null | 요청 유저의 별점 (없으면 null) |
+
+**404 Not Found** — 존재하지 않거나 현재 판매 중인 버전이 없는 상품 (`P001`)
+
+---
+
 ### GET /products/{productId} — 상품 상세 조회
 
 - 인증: 불필요
