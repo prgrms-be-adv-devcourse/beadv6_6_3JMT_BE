@@ -68,6 +68,24 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 	}
 
 	@Test
+	void search_popular_정렬은_salesCount가_높은_상품을_먼저_반환한다() throws Exception {
+		// 고유 키워드로 격리 — 공유 ES 컨테이너에 다른 테스트 문서가 섞여도 순서 검증에 영향 없게 함.
+		String uniqueKeyword = "POPULARORDER" + UUID.randomUUID().toString().substring(0, 8);
+		Product lowSales = Product.create(UUID.randomUUID(), UUID.randomUUID(),
+			ProductContentFixtures.promptContent(uniqueKeyword + " 인기낮음", 1000));
+		Product highSales = Product.create(UUID.randomUUID(), UUID.randomUUID(),
+			ProductContentFixtures.promptContent(uniqueKeyword + " 인기높음", 1000));
+		index(lowSales, 1, 0, 0);
+		index(highSales, 500, 0, 0);
+		refresh();
+
+		ProductSearchPageResult result = querier().search(uniqueKeyword, "all", "popular", PageRequest.of(0, 20));
+
+		assertThat(result.hits()).extracting(ProductSearchHit::productId)
+			.containsExactly(highSales.getId(), lowSales.getId());
+	}
+
+	@Test
 	void search_q로_nori_형태소_검색이_매칭된다() throws Exception {
 		Product apple = Product.create(UUID.randomUUID(), UUID.randomUUID(), ProductContentFixtures.promptContent("빨간 사과 목업 생성기", 1000));
 		Product banana = Product.create(UUID.randomUUID(), UUID.randomUUID(), ProductContentFixtures.promptContent("노란 바나나 목업 생성기", 1000));
