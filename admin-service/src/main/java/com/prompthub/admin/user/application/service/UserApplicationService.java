@@ -94,6 +94,12 @@ public class UserApplicationService implements UserUseCase {
 		return new UserStatsResult(totalUsers, todayNewUsers);
 	}
 
+	public List<UUID> findIdsByNameContainingIgnoreCase(String keyword) {
+		return userRepository.findByNameContainingIgnoreCase(keyword).stream()
+			.map(User::getUserId)
+			.toList();
+	}
+
 	public Map<UUID, String> findNamesByIds(List<UUID> userIds) {
 		List<UUID> distinctIds = userIds.stream().distinct().toList();
 		if (distinctIds.isEmpty()) {

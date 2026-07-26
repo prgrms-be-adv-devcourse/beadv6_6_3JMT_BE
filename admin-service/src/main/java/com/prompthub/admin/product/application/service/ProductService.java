@@ -1,8 +1,6 @@
 package com.prompthub.admin.product.application.service;
 
 import com.prompthub.admin.global.exception.AdminErrorCode;
-import com.prompthub.admin.order.domain.model.SellerNickname;
-import com.prompthub.admin.order.infrastructure.persistence.SellerNicknameRepository;
 import com.prompthub.admin.product.application.dto.AdminProductListQuery;
 import com.prompthub.admin.product.application.dto.AdminProductPageResult;
 import com.prompthub.admin.product.domain.exception.ProductException;
@@ -10,12 +8,12 @@ import com.prompthub.admin.product.domain.model.ProductListFilter;
 import com.prompthub.admin.product.domain.model.entity.Product;
 import com.prompthub.admin.product.domain.model.entity.ProductFamily;
 import com.prompthub.admin.product.domain.model.enums.ProductStatus;
-import com.prompthub.admin.product.domain.repository.ProductRepository;
+import com.prompthub.admin.product.infrastructure.persistence.ProductRepository;
 import com.prompthub.admin.product.presentation.dto.response.AdminProductListItemResponse;
+import com.prompthub.admin.user.application.service.UserApplicationService;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
@@ -29,16 +27,14 @@ public class ProductService {
 	private static final String UNKNOWN_SELLER_NICKNAME = "알 수 없음";
 
 	private final ProductRepository productRepository;
-	private final SellerNicknameRepository sellerNicknameRepository;
+	private final UserApplicationService userApplicationService;
 
 	@Transactional(readOnly = true)
 	public AdminProductPageResult listProducts(AdminProductListQuery query) {
 		String keyword = normalizeKeyword(query.keyword());
 		List<UUID> keywordSellerIds = keyword == null
 			? List.of()
-			: sellerNicknameRepository.findByNicknameContainingIgnoreCase(keyword).stream()
-				.map(SellerNickname::getSellerId)
-				.toList();
+			: userApplicationService.findIdsByNameContainingIgnoreCase(keyword);
 
 		Page<Product> page = productRepository.findProducts(
 			new ProductListFilter(query.status(), keyword, keywordSellerIds), query.pageable());
@@ -65,12 +61,7 @@ public class ProductService {
 			.toList();
 		Map<UUID, String> sellerNicknames = sellerIds.isEmpty()
 			? Map.of()
-			: sellerNicknameRepository.findAllById(sellerIds).stream()
-				.collect(Collectors.toMap(
-					SellerNickname::getSellerId,
-					SellerNickname::getNickname,
-					(existing, ignored) -> existing
-				));
+			: userApplicationService.findNamesByIds(sellerIds);
 
 		return products.stream()
 			.map(product -> AdminProductListItemResponse.from(

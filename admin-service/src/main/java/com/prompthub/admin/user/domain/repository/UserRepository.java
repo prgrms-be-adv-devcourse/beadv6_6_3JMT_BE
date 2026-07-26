@@ -18,4 +18,5 @@ public interface UserRepository {
 	long countCreatedBetween(LocalDateTime from, LocalDateTime to);
 	List<User> findAllByIds(List<UUID> userIds);
 	List<UserProfile> findProfilesByIds(List<UUID> userIds);
+	List<User> findByNameContainingIgnoreCase(String name);
 }

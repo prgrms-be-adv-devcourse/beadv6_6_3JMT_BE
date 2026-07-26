@@ -5,8 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
-import com.prompthub.admin.order.domain.model.SellerNickname;
-import com.prompthub.admin.order.infrastructure.persistence.SellerNicknameRepository;
 import com.prompthub.admin.product.application.dto.AdminProductListQuery;
 import com.prompthub.admin.product.application.dto.AdminProductPageResult;
 import com.prompthub.admin.product.domain.exception.ProductException;
@@ -15,8 +13,10 @@ import com.prompthub.admin.product.domain.model.entity.Product;
 import com.prompthub.admin.product.domain.model.enums.AmountType;
 import com.prompthub.admin.product.domain.model.enums.ProductStatus;
 import com.prompthub.admin.product.domain.model.enums.ProductType;
-import com.prompthub.admin.product.domain.repository.ProductRepository;
+import com.prompthub.admin.product.infrastructure.persistence.ProductRepository;
+import com.prompthub.admin.user.application.service.UserApplicationService;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -25,7 +25,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -44,7 +43,7 @@ class ProductServiceTest {
 	private ProductRepository productRepository;
 
 	@Mock
-	private SellerNicknameRepository sellerNicknameRepository;
+	private UserApplicationService userApplicationService;
 
 	@InjectMocks
 	private ProductService productAdminService;
@@ -60,10 +59,8 @@ class ProductServiceTest {
 			given(productRepository.findProducts(
 				new ProductListFilter(ProductStatus.PENDING_REVIEW, null, List.of()), PAGE_0_20))
 				.willReturn(new PageImpl<>(List.of(pending), PAGE_0_20, 1));
-			SellerNickname nickname = Mockito.mock(SellerNickname.class);
-			given(nickname.getSellerId()).willReturn(SELLER_ID);
-			given(nickname.getNickname()).willReturn("판매자A");
-			given(sellerNicknameRepository.findAllById(List.of(SELLER_ID))).willReturn(List.of(nickname));
+			given(userApplicationService.findNamesByIds(List.of(SELLER_ID)))
+				.willReturn(Map.of(SELLER_ID, "판매자A"));
 
 			AdminProductPageResult result = productAdminService.listProducts(
 				new AdminProductListQuery(ProductStatus.PENDING_REVIEW, null, PAGE_0_20));
@@ -80,7 +77,7 @@ class ProductServiceTest {
 			Product pending = product(FAMILY_ROOT_ID, null, ProductStatus.PENDING_REVIEW, (short) 1, (short) 0);
 			given(productRepository.findProducts(new ProductListFilter(null, null, List.of()), PAGE_0_20))
 				.willReturn(new PageImpl<>(List.of(pending), PAGE_0_20, 1));
-			given(sellerNicknameRepository.findAllById(List.of(SELLER_ID))).willReturn(List.of());
+			given(userApplicationService.findNamesByIds(List.of(SELLER_ID))).willReturn(Map.of());
 
 			AdminProductPageResult result = productAdminService.listProducts(
 				new AdminProductListQuery(null, null, PAGE_0_20));
@@ -91,9 +88,7 @@ class ProductServiceTest {
 		@Test
 		@DisplayName("keyword가 있으면 닉네임으로 sellerId를 먼저 찾아 리포지토리에 전달한다")
 		void listProducts_keyword_resolvesSellerIdsFirst() {
-			SellerNickname nickname = Mockito.mock(SellerNickname.class);
-			given(nickname.getSellerId()).willReturn(SELLER_ID);
-			given(sellerNicknameRepository.findByNicknameContainingIgnoreCase("판매자")).willReturn(List.of(nickname));
+			given(userApplicationService.findIdsByNameContainingIgnoreCase("판매자")).willReturn(List.of(SELLER_ID));
 			ProductListFilter filter = new ProductListFilter(null, "판매자", List.of(SELLER_ID));
 			given(productRepository.findProducts(filter, PAGE_0_20))
 				.willReturn(new PageImpl<>(List.of(), PAGE_0_20, 0));
