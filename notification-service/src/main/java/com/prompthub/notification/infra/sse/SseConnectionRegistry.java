@@ -22,14 +22,15 @@ public class SseConnectionRegistry {
     }
 
     public SseEmitter connect(UUID recipientId) {
-        Set<SseEmitter> emitters = emittersByRecipient.computeIfAbsent(recipientId, ignored -> ConcurrentHashMap.newKeySet());
         SseEmitter emitter = new SseEmitter(properties.timeoutMillis());
-        synchronized (emitters) {
-            if (emitters.size() >= properties.maxConnectionsPerUser()) {
+        emittersByRecipient.compute(recipientId, (ignored, emitters) -> {
+            Set<SseEmitter> registeredEmitters = emitters == null ? ConcurrentHashMap.newKeySet() : emitters;
+            if (registeredEmitters.size() >= properties.maxConnectionsPerUser()) {
                 throw new NotificationException(NotificationErrorCode.SSE_CONNECTION_LIMIT_EXCEEDED);
             }
-            emitters.add(emitter);
-        }
+            registeredEmitters.add(emitter);
+            return registeredEmitters;
+        });
         emitter.onCompletion(() -> remove(recipientId, emitter));
         emitter.onTimeout(() -> remove(recipientId, emitter));
         emitter.onError(ignored -> remove(recipientId, emitter));
