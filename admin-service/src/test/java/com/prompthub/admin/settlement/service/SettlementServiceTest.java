@@ -31,7 +31,7 @@ import com.prompthub.admin.settlement.dto.response.SettlementResponse;
 import com.prompthub.admin.settlement.dto.response.SettlementStatusResponse;
 import com.prompthub.admin.settlement.dto.response.SettlementSummaryResponse;
 import com.prompthub.admin.settlement.dto.response.SettlementWeeklyListResponse;
-import com.prompthub.admin.user.application.service.UserApplicationService;
+import com.prompthub.admin.user.service.UserService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -51,11 +51,11 @@ class SettlementServiceTest {
 		mock(SettlementMonthlyQueryRepository.class);
 	private final SettlementWeeklyQueryRepository weeklyQueryRepository =
 		mock(SettlementWeeklyQueryRepository.class);
-	private final UserApplicationService userApplicationService = mock(UserApplicationService.class);
+	private final UserService userService = mock(UserService.class);
 	private final SettlementRepository settlementRepository = mock(SettlementRepository.class);
 	private final SettlementSourceRepository settlementSourceRepository = mock(SettlementSourceRepository.class);
 	private final SettlementService service = new SettlementService(
-		settlementQueryRepository, monthlyQueryRepository, weeklyQueryRepository, userApplicationService,
+		settlementQueryRepository, monthlyQueryRepository, weeklyQueryRepository, userService,
 		settlementRepository, settlementSourceRepository);
 
 	@Test
@@ -69,7 +69,7 @@ class SettlementServiceTest {
 		when(monthlyQueryRepository.findStatusCounts(List.of(key)))
 			.thenReturn(List.of(new MonthlyStatusCount(
 				key, SettlementDisplayStatus.APPROVED, 1)));
-		when(userApplicationService.findNamesByIds(List.of(SELLER_ID)))
+		when(userService.findNamesByIds(List.of(SELLER_ID)))
 			.thenReturn(Map.of(SELLER_ID, "프롬프트 상점"));
 
 		SettlementListResponse response = service.getList(
@@ -81,7 +81,7 @@ class SettlementServiceTest {
 			assertThat(item.settlementMonth()).isEqualTo("2026-07");
 			assertThat(item.payoutAmount()).isEqualByComparingTo("1770000");
 		});
-		verify(userApplicationService).findNamesByIds(List.of(SELLER_ID));
+		verify(userService).findNamesByIds(List.of(SELLER_ID));
 	}
 
 	@Test
@@ -93,7 +93,7 @@ class SettlementServiceTest {
 		when(monthlyQueryRepository.findMonthlyPage(null, null, 0, 20))
 			.thenReturn(new MonthlyPage(List.of(aggregate), 1));
 		when(monthlyQueryRepository.findStatusCounts(List.of(key))).thenReturn(List.of());
-		when(userApplicationService.findNamesByIds(List.of(SELLER_ID)))
+		when(userService.findNamesByIds(List.of(SELLER_ID)))
 			.thenReturn(Map.of());
 
 		SettlementListResponse response = service.getList(

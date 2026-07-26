@@ -10,7 +10,7 @@ import com.prompthub.admin.product.model.ProductFamily;
 import com.prompthub.admin.product.entity.enums.ProductStatus;
 import com.prompthub.admin.product.repository.ProductRepository;
 import com.prompthub.admin.product.dto.response.AdminProductListItemResponse;
-import com.prompthub.admin.user.application.service.UserApplicationService;
+import com.prompthub.admin.user.service.UserService;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -27,14 +27,14 @@ public class ProductService {
 	private static final String UNKNOWN_SELLER_NICKNAME = "알 수 없음";
 
 	private final ProductRepository productRepository;
-	private final UserApplicationService userApplicationService;
+	private final UserService userService;
 
 	@Transactional(readOnly = true)
 	public AdminProductPageResult listProducts(AdminProductListQuery query) {
 		String keyword = normalizeKeyword(query.keyword());
 		List<UUID> keywordSellerIds = keyword == null
 			? List.of()
-			: userApplicationService.findIdsByNameContainingIgnoreCase(keyword);
+			: userService.findIdsByNameContainingIgnoreCase(keyword);
 
 		Page<Product> page = productRepository.findProducts(
 			new ProductListFilter(query.status(), keyword, keywordSellerIds), query.pageable());
@@ -61,7 +61,7 @@ public class ProductService {
 			.toList();
 		Map<UUID, String> sellerNicknames = sellerIds.isEmpty()
 			? Map.of()
-			: userApplicationService.findNamesByIds(sellerIds);
+			: userService.findNamesByIds(sellerIds);
 
 		return products.stream()
 			.map(product -> AdminProductListItemResponse.from(
