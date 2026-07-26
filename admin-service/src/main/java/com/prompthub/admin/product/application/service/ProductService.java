@@ -5,7 +5,6 @@ import com.prompthub.admin.order.domain.model.SellerNickname;
 import com.prompthub.admin.order.infrastructure.persistence.SellerNicknameRepository;
 import com.prompthub.admin.product.application.dto.AdminProductListQuery;
 import com.prompthub.admin.product.application.dto.AdminProductPageResult;
-import com.prompthub.admin.product.application.usecase.ProductUseCase;
 import com.prompthub.admin.product.domain.exception.ProductException;
 import com.prompthub.admin.product.domain.model.ProductListFilter;
 import com.prompthub.admin.product.domain.model.entity.Product;
@@ -25,14 +24,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class ProductService implements ProductUseCase {
+public class ProductService {
 
 	private static final String UNKNOWN_SELLER_NICKNAME = "알 수 없음";
 
 	private final ProductRepository productRepository;
 	private final SellerNicknameRepository sellerNicknameRepository;
 
-	@Override
 	@Transactional(readOnly = true)
 	public AdminProductPageResult listProducts(AdminProductListQuery query) {
 		String keyword = normalizeKeyword(query.keyword());
@@ -82,7 +80,6 @@ public class ProductService implements ProductUseCase {
 			.toList();
 	}
 
-	@Override
 	public void approveProduct(UUID productId) {
 		Product target = getProductInPendingReview(productId);
 		UUID familyRootId = target.familyRootId();
@@ -98,14 +95,12 @@ public class ProductService implements ProductUseCase {
 		productRepository.save(target);
 	}
 
-	@Override
 	public void rejectProduct(UUID productId, String reason) {
 		Product product = getProductInPendingReview(productId);
 		product.reject(reason);
 		productRepository.save(product);
 	}
 
-	@Override
 	public void revertProductToPendingReview(UUID productId) {
 		Product target = productRepository.findById(productId)
 			.orElseThrow(() -> new ProductException(AdminErrorCode.PRODUCT_NOT_FOUND));

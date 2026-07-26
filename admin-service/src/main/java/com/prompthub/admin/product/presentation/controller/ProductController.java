@@ -4,7 +4,7 @@ import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.global.exception.AdminException;
 import com.prompthub.admin.product.application.dto.AdminProductListQuery;
 import com.prompthub.admin.product.application.dto.AdminProductPageResult;
-import com.prompthub.admin.product.application.usecase.ProductUseCase;
+import com.prompthub.admin.product.application.service.ProductService;
 import com.prompthub.admin.product.domain.model.enums.ProductStatus;
 import com.prompthub.admin.product.presentation.dto.request.ProductRejectRequest;
 import com.prompthub.admin.product.presentation.dto.response.AdminProductListItemResponse;
@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class ProductController {
 
-	private final ProductUseCase productUseCase;
+	private final ProductService productService;
 
 	@GetMapping
 	public PageResponse<AdminProductListItemResponse> listProducts(
@@ -41,7 +41,7 @@ public class ProductController {
 		// Pageable 자동 리졸버를 쓰지 않고 직접 조립 — 문서에 없는 sort 파라미터가 열리는 것을 막는다.
 		Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 		AdminProductListQuery query = new AdminProductListQuery(parseStatusFilter(status), keyword, pageable);
-		AdminProductPageResult result = productUseCase.listProducts(query);
+		AdminProductPageResult result = productService.listProducts(query);
 		return PageResponse.success(result.items(), result.page(), result.size(), result.total(), result.hasNext());
 	}
 
@@ -49,7 +49,7 @@ public class ProductController {
 	public ApiResult<Void> approveProduct(
 		@PathVariable UUID productId
 	) {
-		productUseCase.approveProduct(productId);
+		productService.approveProduct(productId);
 		return ApiResult.success(null);
 	}
 
@@ -58,7 +58,7 @@ public class ProductController {
 		@PathVariable UUID productId,
 		@Valid @RequestBody ProductRejectRequest request
 	) {
-		productUseCase.rejectProduct(productId, request.reason());
+		productService.rejectProduct(productId, request.reason());
 		return ApiResult.success(null);
 	}
 
@@ -66,7 +66,7 @@ public class ProductController {
 	public ApiResult<Void> revertProductToPendingReview(
 		@PathVariable UUID productId
 	) {
-		productUseCase.revertProductToPendingReview(productId);
+		productService.revertProductToPendingReview(productId);
 		return ApiResult.success(null);
 	}
 

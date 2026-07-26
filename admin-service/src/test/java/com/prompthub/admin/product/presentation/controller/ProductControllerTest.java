@@ -12,7 +12,7 @@ import java.util.UUID;
 
 import com.prompthub.admin.product.application.dto.AdminProductListQuery;
 import com.prompthub.admin.product.application.dto.AdminProductPageResult;
-import com.prompthub.admin.product.application.usecase.ProductUseCase;
+import com.prompthub.admin.product.application.service.ProductService;
 import com.prompthub.admin.product.domain.model.enums.ProductStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -37,7 +37,7 @@ class ProductControllerTest {
 	private MockMvc mockMvc;
 
 	@MockitoBean
-	private ProductUseCase productUseCase;
+	private ProductService productService;
 
 	@Nested
 	@DisplayName("GET /api/v2/admin/products")
@@ -46,7 +46,7 @@ class ProductControllerTest {
 		@Test
 		@DisplayName("파라미터가 없으면 ALL(null)·page=0·size=20으로 조회한다")
 		void listProducts_defaults() throws Exception {
-			given(productUseCase.listProducts(new AdminProductListQuery(null, null, PAGE_0_20)))
+			given(productService.listProducts(new AdminProductListQuery(null, null, PAGE_0_20)))
 				.willReturn(new AdminProductPageResult(List.of(), 0, 20, 0, false));
 
 			mockMvc.perform(get("/api/v2/admin/products"))
@@ -57,26 +57,26 @@ class ProductControllerTest {
 				.andExpect(jsonPath("$.meta.total").value(0))
 				.andExpect(jsonPath("$.meta.hasNext").value(false));
 
-			then(productUseCase).should().listProducts(new AdminProductListQuery(null, null, PAGE_0_20));
+			then(productService).should().listProducts(new AdminProductListQuery(null, null, PAGE_0_20));
 		}
 
 		@Test
 		@DisplayName("status=pending_review는 PENDING_REVIEW 필터로 전달된다")
 		void listProducts_statusPendingReview() throws Exception {
-			given(productUseCase.listProducts(new AdminProductListQuery(ProductStatus.PENDING_REVIEW, null, PAGE_0_20)))
+			given(productService.listProducts(new AdminProductListQuery(ProductStatus.PENDING_REVIEW, null, PAGE_0_20)))
 				.willReturn(new AdminProductPageResult(List.of(), 0, 20, 0, false));
 
 			mockMvc.perform(get("/api/v2/admin/products").param("status", "pending_review"))
 				.andExpect(status().isOk());
 
-			then(productUseCase).should()
+			then(productService).should()
 				.listProducts(new AdminProductListQuery(ProductStatus.PENDING_REVIEW, null, PAGE_0_20));
 		}
 
 		@Test
 		@DisplayName("keyword는 그대로 전달된다")
 		void listProducts_keyword() throws Exception {
-			given(productUseCase.listProducts(new AdminProductListQuery(ProductStatus.ON_SALE, "프롬프트", PAGE_0_20)))
+			given(productService.listProducts(new AdminProductListQuery(ProductStatus.ON_SALE, "프롬프트", PAGE_0_20)))
 				.willReturn(new AdminProductPageResult(List.of(), 0, 20, 0, false));
 
 			mockMvc.perform(get("/api/v2/admin/products")
@@ -84,7 +84,7 @@ class ProductControllerTest {
 					.param("keyword", "프롬프트"))
 				.andExpect(status().isOk());
 
-			then(productUseCase).should()
+			then(productService).should()
 				.listProducts(new AdminProductListQuery(ProductStatus.ON_SALE, "프롬프트", PAGE_0_20));
 		}
 
@@ -109,7 +109,7 @@ class ProductControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
-			then(productUseCase).should().approveProduct(productId);
+			then(productService).should().approveProduct(productId);
 		}
 	}
 
@@ -128,7 +128,7 @@ class ProductControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
-			then(productUseCase).should().rejectProduct(productId, "콘텐츠 미흡");
+			then(productService).should().rejectProduct(productId, "콘텐츠 미흡");
 		}
 	}
 }
