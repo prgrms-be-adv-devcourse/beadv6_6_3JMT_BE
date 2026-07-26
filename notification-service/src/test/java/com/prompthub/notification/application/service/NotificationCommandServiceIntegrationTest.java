@@ -6,7 +6,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.prompthub.notification.domain.enums.NotificationType;
 import com.prompthub.notification.global.exception.NotificationException;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -61,5 +66,49 @@ class NotificationCommandServiceIntegrationTest {
         commandService.createIfAbsent(new CreateNotificationCommand(UUID.randomUUID(), UUID.randomUUID(), NotificationType.ORDER_PAID, "결제 완료", "완료", "ORDER", UUID.randomUUID(), "notification-service", Instant.now()));
 
         assertThat(commandService.markAllRead(ownerId)).isEqualTo(1);
+    }
+
+    @Test
+    void assignsDistinctSequencesWhenFirstNotificationsArriveConcurrently() throws Exception {
+        UUID recipientId = UUID.randomUUID();
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            List<Future<StoredNotification>> results = List.of(
+                executor.submit(() -> createAfterStart(ready, start, recipientId)),
+                executor.submit(() -> createAfterStart(ready, start, recipientId))
+            );
+            ready.await();
+            start.countDown();
+
+            assertThat(results.stream().map(this::get).map(StoredNotification::sequence))
+                .containsExactlyInAnyOrder(1L, 2L);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private StoredNotification createAfterStart(CountDownLatch ready, CountDownLatch start, UUID recipientId) {
+        ready.countDown();
+        try {
+            start.await();
+            return commandService.createIfAbsent(new CreateNotificationCommand(
+                UUID.randomUUID(), recipientId, NotificationType.ORDER_PAID, "결제 완료", "완료",
+                "ORDER", UUID.randomUUID(), "notification-service", Instant.now()
+            ));
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(exception);
+        }
+    }
+
+    private StoredNotification get(Future<StoredNotification> result) {
+        try {
+            return result.get();
+        } catch (Exception exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 }
