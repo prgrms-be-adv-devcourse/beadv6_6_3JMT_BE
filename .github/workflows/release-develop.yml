@@ -1,0 +1,238 @@
+name: Release - Develop
+
+on:
+  push:
+    branches: ["develop"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-develop
+  cancel-in-progress: false
+
+jobs:
+  planning:
+    name: Plan Release Targets
+    runs-on: ubuntu-latest
+    outputs:
+      test_matrix: ${{ steps.plan.outputs.test_matrix }}
+      image_matrix: ${{ steps.plan.outputs.image_matrix }}
+      deploy: ${{ steps.plan.outputs.deploy }}
+      application_manifests_changed: ${{ steps.plan.outputs.application_manifests_changed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed modules
+        id: changed
+        uses: tj-actions/changed-files@v46
+        with:
+          files_yaml: |
+            user_service:
+              - user-service/**
+              - grpc/user/**
+            ai_service:
+              - ai-service/**
+              - grpc/user/**
+            product_service:
+              - product-service/**
+            order_service:
+              - order-service/**
+            payment_service:
+              - payment-service/**
+            settlement_service:
+              - settlement-service/**
+            admin_service:
+              - admin-service/**
+            apigateway:
+              - apigateway/**
+            config:
+              - config/**
+            discovery:
+              - discovery/**
+            shared_build:
+              - common-module/**
+              - Dockerfile
+              - build.gradle
+              - build.gradle.kts
+              - gradle.properties
+              - gradlew
+              - gradlew.bat
+              - settings.gradle
+              - settings.gradle.kts
+              - gradle/**
+              - .github/workflows/reusable-build.yml
+              - .github/workflows/reusable-docker-build.yml
+              - .github/workflows/release-develop.yml
+              - scripts/plan-release-targets.sh
+            application_manifests:
+              - k8s/base/platform/**
+              - k8s/base/services/**
+              - k8s/base/gateway/**
+              - k8s/overlays/ec2-kubeadm/applications/**
+              - .github/workflows/reusable-kubernetes-deploy.yml
+
+      - name: Plan test, image, and deploy targets
+        id: plan
+        shell: bash
+        env:
+          USER_SERVICE_CHANGED: ${{ steps.changed.outputs.user_service_any_changed }}
+          AI_SERVICE_CHANGED: ${{ steps.changed.outputs.ai_service_any_changed }}
+          PRODUCT_SERVICE_CHANGED: ${{ steps.changed.outputs.product_service_any_changed }}
+          ORDER_SERVICE_CHANGED: ${{ steps.changed.outputs.order_service_any_changed }}
+          PAYMENT_SERVICE_CHANGED: ${{ steps.changed.outputs.payment_service_any_changed }}
+          SETTLEMENT_SERVICE_CHANGED: ${{ steps.changed.outputs.settlement_service_any_changed }}
+          ADMIN_SERVICE_CHANGED: ${{ steps.changed.outputs.admin_service_any_changed }}
+          APIGATEWAY_CHANGED: ${{ steps.changed.outputs.apigateway_any_changed }}
+          CONFIG_CHANGED: ${{ steps.changed.outputs.config_any_changed }}
+          DISCOVERY_CHANGED: ${{ steps.changed.outputs.discovery_any_changed }}
+          SHARED_BUILD_CHANGED: ${{ steps.changed.outputs.shared_build_any_changed }}
+          APPLICATION_MANIFESTS_CHANGED: ${{ steps.changed.outputs.application_manifests_any_changed }}
+        run: bash scripts/plan-release-targets.sh
+
+  build-and-test:
+    name: Test -> ${{ matrix.service }}
+    needs: planning
+    if: needs.planning.outputs.test_matrix != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.planning.outputs.test_matrix) }}
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: ${{ matrix.service }}
+      module-path: ${{ matrix.service }}
+
+  ci-gate:
+    name: Release CI Gate
+    needs:
+      - planning
+      - build-and-test
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every affected module test
+        shell: bash
+        env:
+          PLANNING_RESULT: ${{ needs.planning.result }}
+          TEST_MATRIX: ${{ needs.planning.outputs.test_matrix }}
+          TEST_RESULT: ${{ needs.build-and-test.result }}
+        run: |
+          set -euo pipefail
+
+          if [ "$PLANNING_RESULT" != "success" ]; then
+            echo "Release planning failed."
+            exit 1
+          fi
+
+          if [ "$TEST_MATRIX" = "[]" ]; then
+            if [ "$TEST_RESULT" != "skipped" ]; then
+              echo "Expected build-and-test to be skipped, got: $TEST_RESULT"
+              exit 1
+            fi
+            echo "No application tests are required."
+            exit 0
+          fi
+
+          if [ "$TEST_RESULT" != "success" ]; then
+            echo "At least one affected module failed build or test: $TEST_RESULT"
+            exit 1
+          fi
+
+          echo "Every affected module passed build and test."
+
+  publish-images:
+    name: Publish -> ${{ matrix.service }}
+    needs:
+      - planning
+      - ci-gate
+    if: needs.ci-gate.result == 'success' && needs.planning.outputs.image_matrix != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.planning.outputs.image_matrix) }}
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: ${{ matrix.service }}
+      module-path: ${{ matrix.service }}
+      ghcr-repository: prompthub-${{ matrix.service }}
+      image-tag: ${{ github.sha }}
+      push-image: true
+      publish-latest: false
+    secrets: inherit
+
+  collect-release-manifest:
+    name: Collect Immutable Release Manifest
+    needs:
+      - planning
+      - ci-gate
+      - publish-images
+    if: >-
+      always() &&
+      needs.planning.result == 'success' &&
+      needs.ci-gate.result == 'success' &&
+      (needs.publish-images.result == 'success' || needs.publish-images.result == 'skipped')
+    runs-on: ubuntu-latest
+    outputs:
+      release_manifest: ${{ steps.manifest.outputs.release_manifest }}
+    steps:
+      - name: Download image metadata
+        if: needs.planning.outputs.image_matrix != '[]'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: image-metadata-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/image-metadata
+
+      - name: Build immutable release manifest
+        id: manifest
+        shell: bash
+        env:
+          IMAGE_MATRIX: ${{ needs.planning.outputs.image_matrix }}
+          METADATA_DIR: ${{ runner.temp }}/image-metadata
+        run: |
+          set -euo pipefail
+
+          expected_count="$(jq 'length' <<< "$IMAGE_MATRIX")"
+          if [ "$expected_count" -eq 0 ]; then
+            echo 'release_manifest={}' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          shopt -s nullglob
+          metadata_files=("$METADATA_DIR"/*.json)
+          if [ "${#metadata_files[@]}" -ne "$expected_count" ]; then
+            echo "Expected $expected_count image metadata files, found ${#metadata_files[@]}."
+            exit 1
+          fi
+
+          for metadata_file in "${metadata_files[@]}"; do
+            service="$(jq -r '.service' "$metadata_file")"
+            image_uri="$(jq -r '.imageUri' "$metadata_file")"
+            digest="$(jq -r '.digest' "$metadata_file")"
+            immutable_ref="$(jq -r '.immutableRef' "$metadata_file")"
+
+            jq -e --arg service "$service" 'index($service) != null' <<< "$IMAGE_MATRIX" >/dev/null
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            [[ "$image_uri" =~ ^ghcr\.io/[^/]+/prompthub-${service}:${GITHUB_SHA}$ ]]
+            [ "$immutable_ref" = "${image_uri%:*}@${digest}" ]
+          done
+
+          release_manifest="$(
+            jq -s -c '
+              if (map(.service) | unique | length) != length then
+                error("duplicate service metadata")
+              else
+                map({key: .service, value: .}) | from_entries
+              end
+            ' "${metadata_files[@]}"
+          )"
+
+          [ "$(jq 'length' <<< "$release_manifest")" -eq "$expected_count" ]
+          echo "release_manifest=$release_manifest" >> "$GITHUB_OUTPUT"
