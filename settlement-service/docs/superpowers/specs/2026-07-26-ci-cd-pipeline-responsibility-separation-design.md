@@ -1,7 +1,7 @@
 # CI/CD 파이프라인 책임 분리 설계
 
 - 작성일: 2026-07-26
-- 상태: 설계 승인 완료, 구현 계획 작성 전
+- 상태: 설계 승인 완료, 구현 계획 작성 완료
 - 연결 이슈: `#584 (이슈)`
 - 대상: GitHub Actions, GHCR, Kubernetes 애플리케이션 배포
 
@@ -339,3 +339,9 @@ kubectl apply --dry-run=server
 - 상태 저장 인프라와 Ingress는 수동 배포로 남는다.
 - 순차 rollout, Config 소비자 재시작과 rollback 계약이 유지된다.
 - 정적 워크플로 검증과 Kubernetes manifest·Secret contract 검증이 통과한다.
+
+## 13. 구현 계획
+
+구현은 아래 계획을 따른다.
+
+`settlement-service/docs/superpowers/plans/2026-07-27-ci-cd-pipeline-responsibility-separation-implementation.md`
