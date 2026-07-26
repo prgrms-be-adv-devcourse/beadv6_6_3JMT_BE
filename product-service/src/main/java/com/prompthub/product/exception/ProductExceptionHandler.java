@@ -11,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -60,6 +61,27 @@ public class ProductExceptionHandler {
 		ProductErrorCode errorCode = ProductErrorCode.INVALID_INPUT_VALUE;
 
 		log.warn("[{}] Product 요청 값 검증에 실패했습니다. reason={}", getRequestId(request), exception.getMessage());
+
+		return ResponseEntity
+			.status(errorCode.getStatus())
+			.body(ErrorResponse.of(errorCode));
+	}
+
+	/**
+	 * 매핑된 핸들러가 없는 경로 요청을 404로 응답한다.
+	 *
+	 * <p>이 핸들러가 없으면 아래 {@code Exception} 캐치올이 대신 잡아 500을 반환한다.
+	 * 그러면 "주소를 잘못 썼다"와 "서버가 실제로 터졌다"가 같은 응답이 돼, 클라이언트도
+	 * 모니터링도 둘을 구분하지 못한다.
+	 */
+	@ExceptionHandler(NoResourceFoundException.class)
+	public ResponseEntity<ErrorResponse> handleNoResourceFound(
+		NoResourceFoundException exception,
+		HttpServletRequest request
+	) {
+		ProductErrorCode errorCode = ProductErrorCode.ENDPOINT_NOT_FOUND;
+
+		log.warn("[{}] 존재하지 않는 경로 요청입니다. path={}", getRequestId(request), exception.getResourcePath());
 
 		return ResponseEntity
 			.status(errorCode.getStatus())

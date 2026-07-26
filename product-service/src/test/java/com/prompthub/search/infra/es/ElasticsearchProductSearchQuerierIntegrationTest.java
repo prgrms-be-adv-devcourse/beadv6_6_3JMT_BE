@@ -86,7 +86,7 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 	}
 
 	@Test
-	void search_q로_nori_형태소_검색이_매칭된다() throws Exception {
+	void search_q로_상품명_단어_검색이_매칭된다() throws Exception {
 		Product apple = Product.create(UUID.randomUUID(), UUID.randomUUID(), ProductContentFixtures.promptContent("빨간 사과 목업 생성기", 1000));
 		Product banana = Product.create(UUID.randomUUID(), UUID.randomUUID(), ProductContentFixtures.promptContent("노란 바나나 목업 생성기", 1000));
 		index(apple, 0, 0, 0);
@@ -146,5 +146,49 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 		List<UUID> ourCollected = collected.stream().filter(allIds::contains).toList();
 		assertThat(ourCollected).containsExactlyInAnyOrderElementsOf(allIds);
 		assertThat(ourCollected).doesNotHaveDuplicates();
+	}
+
+	@Test
+	void suggest_상품명_중간_단어로도_제안된다() throws Exception {
+		// 이 서비스의 상품명은 "시니어 코드리뷰 프롬프트"처럼 앞에 수식어가 붙는다.
+		// 상품명 첫 글자로만 매칭하면 "코드"로는 아무것도 안 나온다 —
+		// match_phrase_prefix가 중간 단어에서도 앞부분 매칭을 하는지가 이 기능의 전제다.
+		String tag = UUID.randomUUID().toString().substring(0, 8);
+		String name = "시니어 " + tag + " 코드리뷰 프롬프트";
+		index(product(name), 0, 0, 0);
+		refresh();
+
+		List<String> suggestions = querier().suggest("코드", 20);
+
+		assertThat(suggestions).contains(name);
+	}
+
+	@Test
+	void suggest_salesCount_높은_상품명을_먼저_반환한다() throws Exception {
+		String tag = UUID.randomUUID().toString().substring(0, 8);
+		index(product(tag + " 적게팔린"), 3, 0, 0);
+		index(product(tag + " 많이팔린"), 100, 0, 0);
+		refresh();
+
+		List<String> suggestions = querier().suggest(tag, 5);
+
+		assertThat(suggestions).containsExactly(tag + " 많이팔린", tag + " 적게팔린");
+	}
+
+	@Test
+	void suggest_limit만큼만_반환한다() throws Exception {
+		String tag = UUID.randomUUID().toString().substring(0, 8);
+		for (int i = 0; i < 5; i++) {
+			index(product(tag + " 상품" + i), i, 0, 0);
+		}
+		refresh();
+
+		List<String> suggestions = querier().suggest(tag, 2);
+
+		assertThat(suggestions).hasSize(2);
+	}
+
+	private Product product(String name) {
+		return Product.create(UUID.randomUUID(), UUID.randomUUID(), ProductContentFixtures.promptContent(name, 1000));
 	}
 }
