@@ -37,10 +37,13 @@ import static com.prompthub.product.support.ProductContentFixtures.promptContent
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class ProductQueryServiceTest {
@@ -175,6 +178,42 @@ class ProductQueryServiceTest {
 
 			assertThat(response.data()).hasSize(1);
 			assertThat(response.data().getFirst().id()).isEqualTo(PRODUCT_ID);
+		}
+	}
+
+	@Nested
+	@DisplayName("상품명 자동완성")
+	class Suggest {
+
+		@Test
+		@DisplayName("검색어를 정규화해 ES 제안을 조회한다")
+		void suggest_delegatesToElasticsearch() {
+			given(productSearchQueryService.suggest("프롬", 5)).willReturn(List.of("프롬프트 마스터 팩"));
+
+			List<String> result = productQueryService.suggest("  프롬  ");
+
+			assertThat(result).containsExactly("프롬프트 마스터 팩");
+		}
+
+		@Test
+		@DisplayName("빈 검색어면 ES를 조회하지 않고 빈 목록을 반환한다")
+		void suggest_blankKeywordSkipsQuery() {
+			List<String> result = productQueryService.suggest("   ");
+
+			assertThat(result).isEmpty();
+			then(productSearchQueryService).should(never()).suggest(any(), anyInt());
+		}
+
+		@Test
+		@DisplayName("ES 조회가 실패해도 예외를 던지지 않고 빈 목록을 반환한다")
+		void suggest_returnsEmptyWhenElasticsearchFails() {
+			willThrow(new IllegalStateException("ES down"))
+				.given(productSearchQueryService).suggest("프롬", 5);
+
+			List<String> result = productQueryService.suggest("프롬");
+
+			// 타이핑 중 매 요청이 500이 되는 것보다 드롭다운이 안 뜨는 편이 낫다
+			assertThat(result).isEmpty();
 		}
 	}
 

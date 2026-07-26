@@ -39,6 +39,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 
 	private static final String ALL_PRODUCT_TYPES = "all";
 	private static final int DEFAULT_LIMIT = 4;
+	private static final int SUGGEST_LIMIT = 5;
 
 	private final ProductRepository productRepository;
 	private final StorageClient storageClient;
@@ -62,6 +63,28 @@ public class ProductQueryService implements ProductQueryUseCase {
 		} catch (RuntimeException e) {
 			log.warn("ES 조회에 실패해 RDB로 폴백합니다.", e);
 			return searchViaRdb(keyword, selectedProductType, selectedSort, pageable);
+		}
+	}
+
+	/**
+	 * 검색어로 시작하는 상품명을 제안한다. 빈 입력이면 조회하지 않는다.
+	 *
+	 * <p>ES 조회가 실패하면 빈 목록을 반환한다 — RDB에는 대응하는 조회가 없고, 자동완성은
+	 * 드롭다운이 뜨지 않을 뿐 검색 자체를 막지 않으므로 예외로 요청을 실패시키지 않는다.
+	 * 타이핑 중 매 요청마다 500이 나가는 편보다 낫다.
+	 */
+	@Override
+	public List<String> suggest(String q) {
+		String keyword = normalizeKeyword(q);
+		if (keyword.isBlank()) {
+			return List.of();
+		}
+
+		try {
+			return productSearchQueryService.suggest(keyword, SUGGEST_LIMIT);
+		} catch (RuntimeException e) {
+			log.warn("ES 자동완성 조회에 실패해 빈 목록을 반환합니다.", e);
+			return List.of();
 		}
 	}
 

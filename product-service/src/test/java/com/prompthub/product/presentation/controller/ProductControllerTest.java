@@ -171,6 +171,35 @@ class ProductControllerTest {
 	}
 
 	@Nested
+	@DisplayName("GET /api/v2/products/suggest")
+	class Suggest {
+
+		@Test
+		@DisplayName("로그인 없이 상품명 제안을 조회한다")
+		void suggest_success() throws Exception {
+			given(productQueryUseCase.suggest("프롬"))
+				.willReturn(List.of("프롬프트 마스터 팩", "시니어 코드리뷰 프롬프트"));
+
+			mockMvc.perform(get("/api/v2/products/suggest").param("q", "프롬"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data[0]").value("프롬프트 마스터 팩"))
+				.andExpect(jsonPath("$.data[1]").value("시니어 코드리뷰 프롬프트"));
+		}
+
+		@Test
+		@DisplayName("q를 안 보내면 빈 문자열로 위임한다")
+		void suggest_defaultsToEmptyKeyword() throws Exception {
+			given(productQueryUseCase.suggest("")).willReturn(List.of());
+
+			mockMvc.perform(get("/api/v2/products/suggest"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data").isArray())
+				.andExpect(jsonPath("$.data").isEmpty());
+		}
+	}
+
+	@Nested
 	@DisplayName("POST /api/v2/products")
 	class CreateProduct {
 

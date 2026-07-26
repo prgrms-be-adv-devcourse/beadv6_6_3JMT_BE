@@ -45,6 +45,26 @@ public class ProductSearchQueryBuilder {
 			.trackTotalHits(t -> t.enabled(true)));
 	}
 
+	/**
+	 * 자동완성 제안 요청을 구성한다.
+	 *
+	 * <p>목록의 {@code popular} 정렬(function_score)을 재사용하지 않고 {@code salesCount}
+	 * 단일 기준으로 정렬한다 — 자동완성은 타이핑 중 수 ms 응답이 요건이라 점수 계산을 얹지
+	 * 않고, 제안어 몇 개를 고르는 데 신선도·평점의 기여가 미미하다고 판단했다.
+	 *
+	 * <p>{@code match_phrase_prefix}는 마지막 토큰을 prefix로 처리하므로 상품명이 "시니어
+	 * 코드리뷰 프롬프트"처럼 여러 단어여도 중간 단어의 앞부분("코드")으로 걸린다. 형태소
+	 * 분석기(nori) 없이 기본 분석기로 동작한다 — 자세한 근거는 #379 참고.
+	 */
+	public SearchRequest buildSuggest(String keyword, int limit) {
+		return SearchRequest.of(s -> s
+			.index(ProductIndexBootstrap.ALIAS)
+			.query(q -> q.matchPhrasePrefix(m -> m.field("name").query(keyword)))
+			.sort(so -> so.field(f -> f.field("salesCount").order(SortOrder.Desc)))
+			.source(src -> src.filter(f -> f.includes("name")))
+			.size(limit));
+	}
+
 	Query buildQuery(String keyword, String productType, String sort) {
 		List<Query> filters = new ArrayList<>();
 		if (productType != null && !ALL_PRODUCT_TYPES.equals(productType)) {
