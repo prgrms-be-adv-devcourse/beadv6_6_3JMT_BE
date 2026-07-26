@@ -22,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -136,6 +137,25 @@ class UserApplicationServiceTest {
 		assertThatThrownBy(() ->
 			userApplicationService.changeUserRole(new ChangeUserRoleCommand(userId, UserRole.SELLER)))
 			.isInstanceOf(AdminException.class);
+	}
+
+	@Test
+	void 이름조회는_ID를_중복제거해_한번에_조회한다() throws Exception {
+		UUID userId = UUID.randomUUID();
+		User user = newUser(userId, UserStatus.ACTIVE);
+
+		given(userRepository.findAllByIds(List.of(userId))).willReturn(List.of(user));
+
+		Map<UUID, String> result = userApplicationService.findNamesByIds(List.of(userId, userId));
+
+		assertThat(result).containsEntry(userId, "테스트유저");
+		then(userRepository).should().findAllByIds(List.of(userId));
+	}
+
+	@Test
+	void 빈ID목록으로_이름을_조회하면_저장소를_호출하지_않는다() {
+		assertThat(userApplicationService.findNamesByIds(List.of())).isEmpty();
+		then(userRepository).shouldHaveNoInteractions();
 	}
 
 	// 테스트 전용 헬퍼 — User는 domain-model.md 정책상 public 생성자/빌더가 없으므로

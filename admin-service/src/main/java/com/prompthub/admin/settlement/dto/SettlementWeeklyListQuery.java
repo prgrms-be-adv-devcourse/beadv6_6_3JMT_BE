@@ -1,0 +1,11 @@
+package com.prompthub.admin.settlement.dto;
+
+import com.prompthub.admin.settlement.entity.enums.SettlementDisplayStatus;
+import java.time.YearMonth;
+
+public record SettlementWeeklyListQuery(
+        SettlementDisplayStatus status,
+        YearMonth settlementMonth,
+        int page,
+        int size) {
+}
