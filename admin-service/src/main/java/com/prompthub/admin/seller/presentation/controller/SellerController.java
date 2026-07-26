@@ -7,7 +7,7 @@ import com.prompthub.admin.seller.application.dto.RejectSellerCommand;
 import com.prompthub.admin.seller.application.dto.SellerRegisterListQuery;
 import com.prompthub.admin.seller.application.dto.SellerRegisterPageResult;
 import com.prompthub.admin.seller.application.dto.SellerRegisterReviewResult;
-import com.prompthub.admin.seller.application.usecase.SellerUseCase;
+import com.prompthub.admin.seller.application.service.SellerApplicationService;
 import com.prompthub.admin.seller.domain.model.SellerRegisterStatus;
 import com.prompthub.admin.seller.presentation.dto.request.RejectSellerRegisterRequest;
 import com.prompthub.admin.seller.presentation.dto.response.SellerRegisterResponse;
@@ -43,7 +43,7 @@ import java.util.UUID;
 @SecurityRequirement(name = "gatewayHeaders")
 public class SellerController {
 
-	private final SellerUseCase sellerUseCase;
+	private final SellerApplicationService sellerApplicationService;
 
 	@GetMapping("/sellers/register")
 	@Operation(summary = "판매자 신청 목록 조회", description = "상태 필터 및 페이지네이션 지원. 역할: ADMIN")
@@ -64,7 +64,7 @@ public class SellerController {
 	) {
 		SellerRegisterListQuery query = new SellerRegisterListQuery(parseStatus(status), page, size);
 
-		SellerRegisterPageResult result = sellerUseCase.listSellerRegisters(query);
+		SellerRegisterPageResult result = sellerApplicationService.listSellerRegisters(query);
 
 		List<SellerRegisterResponse> responseData = result.items().stream()
 			.map(SellerRegisterResponse::from)
@@ -89,7 +89,7 @@ public class SellerController {
 	public ApiResult<SellerRegisterReviewResponse> approveSeller(
 		@Parameter(description = "판매자 등록 신청 ID") @PathVariable UUID registerId
 	) {
-		SellerRegisterReviewResult result = sellerUseCase.approve(new ApproveSellerCommand(registerId));
+		SellerRegisterReviewResult result = sellerApplicationService.approve(new ApproveSellerCommand(registerId));
 		return ApiResult.success(SellerRegisterReviewResponse.from(result));
 	}
 
@@ -110,7 +110,7 @@ public class SellerController {
 		@Parameter(description = "판매자 등록 신청 ID") @PathVariable UUID registerId,
 		@Valid @RequestBody RejectSellerRegisterRequest request
 	) {
-		SellerRegisterReviewResult result = sellerUseCase.reject(
+		SellerRegisterReviewResult result = sellerApplicationService.reject(
 			new RejectSellerCommand(registerId, request.rejectReason()));
 		return ApiResult.success(SellerRegisterReviewResponse.from(result));
 	}

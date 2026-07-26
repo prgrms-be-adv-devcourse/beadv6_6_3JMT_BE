@@ -9,7 +9,7 @@ import com.prompthub.admin.user.application.dto.UserPageResult;
 import com.prompthub.admin.user.application.dto.UserRoleResult;
 import com.prompthub.admin.user.application.dto.UserStatsResult;
 import com.prompthub.admin.user.application.dto.UserStatusResult;
-import com.prompthub.admin.user.application.usecase.UserUseCase;
+import com.prompthub.admin.user.application.service.UserApplicationService;
 import com.prompthub.admin.user.domain.model.UserRole;
 import com.prompthub.admin.user.domain.model.UserStatus;
 import com.prompthub.admin.user.presentation.dto.request.ChangeUserRoleRequest;
@@ -49,7 +49,7 @@ import java.util.UUID;
 @SecurityRequirement(name = "gatewayHeaders")
 public class UserController {
 
-	private final UserUseCase userUseCase;
+	private final UserApplicationService userApplicationService;
 
 	@GetMapping("/users")
 	@Operation(summary = "전체 사용자 목록 조회", description = "상태·역할·키워드 필터, 페이지네이션 지원. 역할: ADMIN")
@@ -73,7 +73,7 @@ public class UserController {
 		@RequestParam(defaultValue = "20") int size
 	) {
 		UserListQuery query = new UserListQuery(parseStatusFilter(status), parseRoleFilter(role), keyword, page, size);
-		UserPageResult result = userUseCase.listUsers(query);
+		UserPageResult result = userApplicationService.listUsers(query);
 
 		List<UserResponse> responseData = result.users().stream()
 			.map(UserResponse::from)
@@ -92,7 +92,7 @@ public class UserController {
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	public ApiResult<UserStatsResponse> getUserStats() {
-		UserStatsResult result = userUseCase.getUserStats();
+		UserStatsResult result = userApplicationService.getUserStats();
 		return ApiResult.success(UserStatsResponse.from(result));
 	}
 
@@ -116,7 +116,7 @@ public class UserController {
 		UserStatus targetStatus = parseStatusCommand(request.status());
 		ChangeUserStatusCommand command = new ChangeUserStatusCommand(userId, targetStatus);
 
-		UserStatusResult result = userUseCase.changeUserStatus(command);
+		UserStatusResult result = userApplicationService.changeUserStatus(command);
 		return ApiResult.success(UserStatusResponse.from(result));
 	}
 
@@ -140,7 +140,7 @@ public class UserController {
 		UserRole targetRole = parseRoleCommand(request.role());
 		ChangeUserRoleCommand command = new ChangeUserRoleCommand(userId, targetRole);
 
-		UserRoleResult result = userUseCase.changeUserRole(command);
+		UserRoleResult result = userApplicationService.changeUserRole(command);
 		return ApiResult.success(UserRoleResponse.from(result));
 	}
 

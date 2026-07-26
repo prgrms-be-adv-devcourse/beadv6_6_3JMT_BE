@@ -11,7 +11,6 @@ import com.prompthub.admin.user.application.dto.UserRoleResult;
 import com.prompthub.admin.user.application.dto.UserStatsResult;
 import com.prompthub.admin.user.application.dto.UserStatusResult;
 import com.prompthub.admin.user.application.dto.UserSummaryResult;
-import com.prompthub.admin.user.application.usecase.UserUseCase;
 import com.prompthub.admin.user.domain.model.User;
 import com.prompthub.admin.user.domain.model.UserProfile;
 import com.prompthub.admin.user.domain.model.UserStatus;
@@ -31,12 +30,11 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class UserApplicationService implements UserUseCase {
+public class UserApplicationService {
 
 	private final UserRepository userRepository;
 	private final AuthService authService;
 
-	@Override
 	public UserPageResult listUsers(UserListQuery query) {
 		int zeroBasedPage = query.page() - 1;
 
@@ -53,7 +51,6 @@ public class UserApplicationService implements UserUseCase {
 		return new UserPageResult(results, query.page(), query.size(), total, hasNext);
 	}
 
-	@Override
 	@Transactional
 	public UserStatusResult changeUserStatus(ChangeUserStatusCommand command) {
 		User user = userRepository.findById(command.userId())
@@ -70,7 +67,6 @@ public class UserApplicationService implements UserUseCase {
 		return UserStatusResult.from(user);
 	}
 
-	@Override
 	@Transactional
 	public UserRoleResult changeUserRole(ChangeUserRoleCommand command) {
 		User user = userRepository.findById(command.userId())
@@ -83,7 +79,6 @@ public class UserApplicationService implements UserUseCase {
 		return UserRoleResult.from(user);
 	}
 
-	@Override
 	public UserStatsResult getUserStats() {
 		long totalUsers = userRepository.countUsers(null, null, null);
 

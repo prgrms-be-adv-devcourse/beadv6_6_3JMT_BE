@@ -9,7 +9,6 @@ import com.prompthub.admin.seller.application.dto.SellerRegisterListQuery;
 import com.prompthub.admin.seller.application.dto.SellerRegisterPageResult;
 import com.prompthub.admin.seller.application.dto.SellerRegisterReviewResult;
 import com.prompthub.admin.seller.application.dto.SellerRegisterSummaryResult;
-import com.prompthub.admin.seller.application.usecase.SellerUseCase;
 import com.prompthub.admin.seller.domain.model.SellerRegister;
 import com.prompthub.admin.seller.domain.model.SellerRegisterStatus;
 import com.prompthub.admin.seller.domain.repository.SellerRegisterRepository;
@@ -29,13 +28,12 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class SellerApplicationService implements SellerUseCase {
+public class SellerApplicationService {
 
 	private final SellerRegisterRepository sellerRegisterRepository;
 	private final UserRepository userRepository;
 	private final AuthService authService;
 
-	@Override
 	public SellerRegisterPageResult listSellerRegisters(SellerRegisterListQuery query) {
 		int zeroBasedPage = query.page() - 1;
 
@@ -60,7 +58,6 @@ public class SellerApplicationService implements SellerUseCase {
 		return new SellerRegisterPageResult(items, query.page(), query.size(), total, hasNext);
 	}
 
-	@Override
 	@Transactional
 	public SellerRegisterReviewResult approve(ApproveSellerCommand command) {
 		SellerRegister register = findRegister(command.registerId());
@@ -78,7 +75,6 @@ public class SellerApplicationService implements SellerUseCase {
 		return SellerRegisterReviewResult.from(register);
 	}
 
-	@Override
 	@Transactional
 	public SellerRegisterReviewResult reject(RejectSellerCommand command) {
 		SellerRegister register = findRegister(command.registerId());

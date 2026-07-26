@@ -5,7 +5,7 @@ import com.prompthub.admin.user.application.dto.UserRoleResult;
 import com.prompthub.admin.user.application.dto.UserStatsResult;
 import com.prompthub.admin.user.application.dto.UserStatusResult;
 import com.prompthub.admin.user.application.dto.UserSummaryResult;
-import com.prompthub.admin.user.application.usecase.UserUseCase;
+import com.prompthub.admin.user.application.service.UserApplicationService;
 import com.prompthub.admin.user.domain.model.UserRole;
 import com.prompthub.admin.user.domain.model.UserStatus;
 import org.junit.jupiter.api.Test;
@@ -34,14 +34,14 @@ class UserControllerTest {
 	private MockMvc mockMvc;
 
 	@MockitoBean
-	private UserUseCase userUseCase;
+	private UserApplicationService userApplicationService;
 
 	@Test
 	void 회원_목록을_조회한다() throws Exception {
 		UserSummaryResult summary = new UserSummaryResult(
 			UUID.fromString("00000000-0000-0000-0000-000000000001"),
 			"김도윤", "doyoon.kim@gmail.com", UserRole.BUYER, UserStatus.ACTIVE);
-		when(userUseCase.listUsers(any())).thenReturn(new UserPageResult(List.of(summary), 1, 20, 1, false));
+		when(userApplicationService.listUsers(any())).thenReturn(new UserPageResult(List.of(summary), 1, 20, 1, false));
 
 		mockMvc.perform(get("/api/v2/admin/users").param("status", "ALL").param("role", "ALL"))
 			.andExpect(status().isOk())
@@ -52,7 +52,7 @@ class UserControllerTest {
 
 	@Test
 	void 회원_통계를_조회한다() throws Exception {
-		when(userUseCase.getUserStats()).thenReturn(new UserStatsResult(1240L, 13L));
+		when(userApplicationService.getUserStats()).thenReturn(new UserStatsResult(1240L, 13L));
 
 		mockMvc.perform(get("/api/v2/admin/stats/users"))
 			.andExpect(status().isOk())
@@ -63,7 +63,7 @@ class UserControllerTest {
 	@Test
 	void 사용자_상태를_변경한다() throws Exception {
 		UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000002");
-		when(userUseCase.changeUserStatus(any())).thenReturn(
+		when(userApplicationService.changeUserStatus(any())).thenReturn(
 			new UserStatusResult(userId, UserStatus.BLOCKED, LocalDateTime.of(2026, 7, 20, 10, 0)));
 
 		mockMvc.perform(patch("/api/v2/admin/users/{userId}/status", userId)
@@ -87,7 +87,7 @@ class UserControllerTest {
 	@Test
 	void 사용자_역할을_변경한다() throws Exception {
 		UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000004");
-		when(userUseCase.changeUserRole(any())).thenReturn(
+		when(userApplicationService.changeUserRole(any())).thenReturn(
 			new UserRoleResult(userId, UserRole.SELLER, LocalDateTime.of(2026, 7, 21, 10, 0)));
 
 		mockMvc.perform(patch("/api/v2/admin/users/{userId}/role", userId)

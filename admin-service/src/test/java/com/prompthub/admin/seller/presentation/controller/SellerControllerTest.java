@@ -3,7 +3,7 @@ package com.prompthub.admin.seller.presentation.controller;
 import com.prompthub.admin.seller.application.dto.SellerRegisterPageResult;
 import com.prompthub.admin.seller.application.dto.SellerRegisterReviewResult;
 import com.prompthub.admin.seller.application.dto.SellerRegisterSummaryResult;
-import com.prompthub.admin.seller.application.usecase.SellerUseCase;
+import com.prompthub.admin.seller.application.service.SellerApplicationService;
 import com.prompthub.admin.seller.domain.model.SellerRegisterStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +31,7 @@ class SellerControllerTest {
 	private MockMvc mockMvc;
 
 	@MockitoBean
-	private SellerUseCase sellerUseCase;
+	private SellerApplicationService sellerApplicationService;
 
 	@Test
 	void 판매자_신청_목록을_조회한다() throws Exception {
@@ -41,7 +41,7 @@ class SellerControllerTest {
 			"이서아", "seoah@example.com", "이미지 생성 전문",
 			List.of("이미지 생성"), null, SellerRegisterStatus.PENDING,
 			LocalDateTime.of(2026, 6, 14, 0, 0));
-		when(sellerUseCase.listSellerRegisters(any()))
+		when(sellerApplicationService.listSellerRegisters(any()))
 			.thenReturn(new SellerRegisterPageResult(List.of(summary), 1, 20, 1, false));
 
 		mockMvc.perform(get("/api/v2/admin/sellers/register").param("status", "ALL"))
@@ -54,7 +54,7 @@ class SellerControllerTest {
 	void 판매자_신청을_승인한다() throws Exception {
 		UUID registerId = UUID.fromString("00000000-0000-0000-0000-000000000201");
 		UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000202");
-		when(sellerUseCase.approve(any())).thenReturn(new SellerRegisterReviewResult(
+		when(sellerApplicationService.approve(any())).thenReturn(new SellerRegisterReviewResult(
 			registerId, userId, SellerRegisterStatus.APPROVED, null,
 			LocalDateTime.of(2026, 7, 20, 10, 0)));
 
@@ -67,7 +67,7 @@ class SellerControllerTest {
 	void 판매자_신청을_반려한다() throws Exception {
 		UUID registerId = UUID.fromString("00000000-0000-0000-0000-000000000301");
 		UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000302");
-		when(sellerUseCase.reject(any())).thenReturn(new SellerRegisterReviewResult(
+		when(sellerApplicationService.reject(any())).thenReturn(new SellerRegisterReviewResult(
 			registerId, userId, SellerRegisterStatus.REJECTED, "사유 불충분",
 			LocalDateTime.of(2026, 7, 20, 10, 0)));
 
