@@ -3,99 +3,165 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKFLOW="${ROOT_DIR}/.github/workflows/cd-selfhosted-kubernetes.yml"
+RELEASE_WORKFLOW="${ROOT_DIR}/.github/workflows/release-develop.yml"
+APPLICATION_WORKFLOW="${ROOT_DIR}/.github/workflows/reusable-kubernetes-deploy.yml"
+MANUAL_WORKFLOW="${ROOT_DIR}/.github/workflows/cd-selfhosted-kubernetes.yml"
+DOCKER_WORKFLOW="${ROOT_DIR}/.github/workflows/reusable-docker-build.yml"
+PR_WORKFLOW="${ROOT_DIR}/.github/workflows/ci.yml"
 COMPOSE_WORKFLOW="${ROOT_DIR}/.github/workflows/cd-selfhosted-compose.yml"
 
 fail() {
-  echo "Kubernetes CD workflow validation failed: $1" >&2
+  echo "CI/CD workflow validation failed: $1" >&2
   exit 1
 }
 
-[[ -f "${WORKFLOW}" ]] || fail "missing ${WORKFLOW#"${ROOT_DIR}/"}"
+require_file() {
+  [ -f "$1" ] || fail "missing ${1#"${ROOT_DIR}/"}"
+}
 
-required_patterns=(
-  '^name:[[:space:]]+CD - Self-hosted Kubernetes$'
+require_pattern() {
+  local file="$1"
+  local pattern="$2"
+  local contract="$3"
+
+  grep -Eq -- "$pattern" "$file" || fail "$contract"
+}
+
+forbid_pattern() {
+  local file="$1"
+  local pattern="$2"
+  local contract="$3"
+
+  if grep -Eq -- "$pattern" "$file"; then
+    fail "$contract"
+  fi
+}
+
+for workflow in \
+  "$RELEASE_WORKFLOW" \
+  "$APPLICATION_WORKFLOW" \
+  "$MANUAL_WORKFLOW" \
+  "$DOCKER_WORKFLOW" \
+  "$PR_WORKFLOW" \
+  "$COMPOSE_WORKFLOW"; do
+  require_file "$workflow"
+done
+
+# develop Release CI: affected tests -> aggregate Gate -> image publish -> digest manifest -> CD.
+release_patterns=(
+  '^name:[[:space:]]+Release - Develop$'
   '^[[:space:]]+push:$'
-  '^[[:space:]]+workflow_dispatch:$'
-  "if: github.event_name == 'push'"
+  'branches:[[:space:]]+\["develop"\]'
+  '^[[:space:]]+planning:$'
+  '^[[:space:]]+build-and-test:$'
+  '^[[:space:]]+ci-gate:$'
+  '^    name:[[:space:]]+Release CI Gate$'
+  '^[[:space:]]+publish-images:$'
+  '^[[:space:]]+collect-release-manifest:$'
+  '^[[:space:]]+deploy:$'
+  'uses:[[:space:]]+\./\.github/workflows/reusable-build\.yml'
+  'uses:[[:space:]]+\./\.github/workflows/reusable-docker-build\.yml'
+  'uses:[[:space:]]+\./\.github/workflows/reusable-kubernetes-deploy\.yml'
+  'run:[[:space:]]+bash scripts/plan-release-targets\.sh'
+  '^[[:space:]]+- grpc/user/\*\*$'
+  'test_matrix:'
+  'image_matrix:'
   'application_manifests_changed:'
-  'steps\.changed\.outputs\.application_manifests_any_changed'
-  '^[[:space:]]+ai_service:$'
-  'services_json=.*"ai-service"'
-  'services\+=\("ai-service"\)'
-  'ensure_package ai-service ai-service k8s/base/services/ai'
-  '^[[:space:]]+ai-secret$'
-  '^[[:space:]]+- name: ghcr\.io/prgrms-be-adv-devcourse/prompthub-ai-service$'
-  '^[[:space:]]+newName: ghcr\.io/\$owner_lc/prompthub-ai-service$'
-  '^[[:space:]]+- k8s/overlays/ec2-kubeadm/applications/\*\*$'
-  '^[[:space:]]+- infrastructure$'
-  '^[[:space:]]+- ingress$'
-  '^[[:space:]]+- k8s/base/platform/\*\*$'
-  '^[[:space:]]+- k8s/base/services/\*\*$'
-  '^[[:space:]]+- k8s/base/gateway/\*\*$'
-  '^[[:space:]]+- \.github/workflows/cd-selfhosted-kubernetes\.yml$'
-  'kubectl apply -k k8s/base/storage'
-  'kubectl apply -k k8s/base/infrastructure'
-  'kubectl apply -k k8s/addons/nginx-ingress'
-  'kubectl apply -f k8s/overlays/ec2-kubeadm/gateway-ingress.yaml'
-  'kubectl apply --dry-run=server -k "\$runtime_overlay"'
-  'kubectl apply -k "\$runtime_overlay"'
+  'needs\.ci-gate\.result == '\''success'\'''
+  'push-image:[[:space:]]+true'
+  'publish-latest:[[:space:]]+false'
+  'packages:[[:space:]]+write'
+  'pattern:[[:space:]]+image-metadata-\*'
+  'release_manifest:'
+  'release-manifest:[[:space:]]+\$\{\{ needs\.collect-release-manifest\.outputs\.release_manifest \}\}'
+)
+
+for pattern in "${release_patterns[@]}"; do
+  require_pattern "$RELEASE_WORKFLOW" "$pattern" "release workflow missing contract: $pattern"
+done
+
+forbid_pattern "$RELEASE_WORKFLOW" '^[[:space:]]+pull_request:' \
+  "Release workflow must not run for pull requests"
+forbid_pattern "$RELEASE_WORKFLOW" 'workflow_run:' \
+  "Release and CD must remain in one needs DAG"
+forbid_pattern "$RELEASE_WORKFLOW" ':latest' \
+  "Kubernetes Release CI must not publish or deploy latest"
+
+publish_block="$(sed -n '/^  publish-images:/,/^  collect-release-manifest:/p' "$RELEASE_WORKFLOW")"
+grep -Eq '^[[:space:]]+- ci-gate$' <<< "$publish_block" ||
+  fail "image publishing must depend on the aggregate CI Gate"
+
+# Reusable Docker publisher: full SHA trace tag plus immutable digest artifact.
+docker_patterns=(
+  '^[[:space:]]+ghcr-repository:$'
+  '^[[:space:]]+image-tag:$'
+  '^[[:space:]]+publish-latest:$'
+  'image_tag="\$\{IMAGE_TAG_INPUT:-\$\{GITHUB_SHA\}\}"'
+  '^[[:space:]]+id:[[:space:]]+build$'
+  'IMAGE_DIGEST:[[:space:]]+\$\{\{ steps\.build\.outputs\.digest \}\}'
+  '\^sha256:\[0-9a-f\]\{64\}\$'
+  'immutable_ref="\$\{repository\}@\$\{IMAGE_DIGEST\}"'
+  'name:[[:space:]]+image-metadata-\$\{\{ inputs\.module-name \}\}'
+  'retention-days:[[:space:]]+1'
+  'image_digest:'
+  'immutable_ref:'
+)
+
+for pattern in "${docker_patterns[@]}"; do
+  require_pattern "$DOCKER_WORKFLOW" "$pattern" "Docker workflow missing contract: $pattern"
+done
+
+forbid_pattern "$DOCKER_WORKFLOW" 'ecr-repository|aws-region|SHORT_SHA' \
+  "Docker workflow must use GHCR naming and full SHA tags"
+
+grep -Fq '[ "$PUSH_IMAGE" = "true" ] && [ "$PUBLISH_LATEST" = "true" ]' "$DOCKER_WORKFLOW" ||
+  fail "latest must be opt-in and limited to pushed images"
+
+# Reusable application CD: only immutable release inputs may introduce new images.
+application_patterns=(
+  '^name:[[:space:]]+Reusable Kubernetes Application Deploy$'
+  '^[[:space:]]+workflow_call:$'
+  '^[[:space:]]+release-manifest:$'
+  '^[[:space:]]+application-manifests-changed:$'
+  'Validate immutable release manifest'
+  'immutableRef'
+  '\^sha256:\[0-9a-f\]\{64\}\$'
+  'current_or_base_image\(\)'
+  '\.\[\$service\]\.immutableRef'
+  'digest:[[:space:]]+\$value'
   'snapshot_manifest_deployments'
   'track_manifest_deployment_changes'
+  'rollback_deployments'
+  'kubectl rollout undo deployment/'
   'ensure_settlement_cronjob'
-  'settlement_cronjob="settlement-weekly"'
-  'release_order=\('
   'snapshot_settlement_cronjob'
   'rollback_settlement_cronjob'
   'kubectl set image cronjob/'
-  'kubectl get cronjob "\$settlement_cronjob"'
   'kubectl delete deployment/settlement-service'
   'kubectl delete service/settlement-service'
-  'kubectl set image deployment/'
-  'kubectl rollout status deployment/'
-  'kubectl rollout undo deployment/'
-  'kubectl delete deployment/'
+  'kubectl apply --dry-run=server -k "\$runtime_overlay"'
+  'kubectl apply -k "\$runtime_overlay"'
+  '^[[:space:]]+ai-secret$'
 )
 
-for pattern in "${required_patterns[@]}"; do
-  if ! grep -Eq -- "${pattern}" "${WORKFLOW}"; then
-    fail "missing contract: ${pattern}"
-  fi
+for pattern in "${application_patterns[@]}"; do
+  require_pattern "$APPLICATION_WORKFLOW" "$pattern" "application CD missing contract: $pattern"
 done
 
-forbidden_patterns=(
-  'docker compose'
-  'docker stop'
-  'docker rm'
-  'K8S_AUTO_DEPLOY_ENABLED'
-  'kubectl apply -k k8s/overlays/ec2-kubeadm'
-  '- k8s/base/infrastructure/**'
-  '- k8s/base/storage/**'
-  '- k8s/addons/nginx-ingress/**'
-  'kubectl create job'
-  '--from=cronjob/settlement-weekly'
-  'ensure_package settlement-service'
-  'kubectl apply --server-side --dry-run=server -k "$runtime_overlay"'
-)
-
-for pattern in "${forbidden_patterns[@]}"; do
-  if grep -Fq -- "${pattern}" "${WORKFLOW}"; then
-    fail "forbidden command: ${pattern}"
-  fi
-done
-
-deployment_order_block="$(sed -n '/deployment_order=(/,/)/p' "${WORKFLOW}")"
-config_consumers_block="$(sed -n '/config_consumers=(/,/)/p' "${WORKFLOW}")"
-release_order_block="$(sed -n '/release_order=(/,/)/p' "${WORKFLOW}")"
-user_service_filter_block="$(sed -n '/^[[:space:]]*user_service:/,/^[[:space:]]*ai_service:/p' "${WORKFLOW}")"
-ai_service_filter_block="$(sed -n '/^[[:space:]]*ai_service:/,/^[[:space:]]*product_service:/p' "${WORKFLOW}")"
-application_manifests_block="$(sed -n '/^[[:space:]]*application_manifests:/,/^[[:space:]]*all_applications:/p' "${WORKFLOW}")"
-initial_application_prepare_block="$(sed -n '/- name: 최초 애플리케이션 리소스 준비/,/- name: 애플리케이션 리소스와 이미지 배포/p' "${WORKFLOW}")"
+forbid_pattern "$APPLICATION_WORKFLOW" 'docker/build|push-image|packages:[[:space:]]+write|SHORT_SHA|short_sha|:latest' \
+  "application CD must not build, push, or use mutable image references"
+forbid_pattern "$APPLICATION_WORKFLOW" 'kubectl apply -k k8s/base/(storage|infrastructure)' \
+  "application CD must not reconcile stateful infrastructure"
+forbid_pattern "$APPLICATION_WORKFLOW" 'kubectl apply -k k8s/addons/nginx-ingress' \
+  "application CD must not reconcile Ingress"
+forbid_pattern "$APPLICATION_WORKFLOW" 'kubectl create job|--from=cronjob/settlement-weekly' \
+  "application CD must not start settlement jobs"
 
 array_values() {
-  local array_name="$1"
+  local file="$1"
+  local array_name="$2"
 
-  sed -n "/^[[:space:]]*${array_name}=(/,/^[[:space:]]*)/p" "${WORKFLOW}" |
+  sed -n "/^[[:space:]]*${array_name}=(/,/^[[:space:]]*)/p" "$file" |
     sed '1d;$d;s/^[[:space:]]*//;s/[[:space:]]*$//'
 }
 
@@ -103,53 +169,48 @@ expected_release_order=$'config\ndiscovery\nuser-service\nproduct-service\norder
 expected_deployment_order=$'config\ndiscovery\nuser-service\nproduct-service\norder-service\npayment-service\nadmin-service\nai-service\napigateway'
 expected_config_consumers=$'user-service\nproduct-service\norder-service\npayment-service\nadmin-service\nai-service\napigateway'
 
-if ! grep -Eq '^[[:space:]]+- grpc/user/\*\*$' <<< "${user_service_filter_block}"; then
-  fail "user_service changes must include the shared User gRPC contract"
-fi
+[ "$(array_values "$APPLICATION_WORKFLOW" release_order)" = "$expected_release_order" ] ||
+  fail "release_order changed"
+[ "$(array_values "$APPLICATION_WORKFLOW" deployment_order)" = "$expected_deployment_order" ] ||
+  fail "deployment_order changed"
+[ "$(array_values "$APPLICATION_WORKFLOW" config_consumers)" = "$expected_config_consumers" ] ||
+  fail "config_consumers changed"
 
-if ! grep -Eq '^[[:space:]]+- ai-service/\*\*$' <<< "${ai_service_filter_block}" ||
-  ! grep -Eq '^[[:space:]]+- grpc/user/\*\*$' <<< "${ai_service_filter_block}"; then
-  fail "ai_service changes must include its module and the shared User gRPC contract"
-fi
+# The old Kubernetes workflow is now manual infrastructure and Ingress only.
+manual_patterns=(
+  '^name:[[:space:]]+CD - Self-hosted Kubernetes$'
+  '^[[:space:]]+workflow_dispatch:$'
+  '^[[:space:]]+deploy-infrastructure:$'
+  '^[[:space:]]+deploy-ingress:$'
+  'kubectl apply -k k8s/base/storage'
+  'kubectl apply -k k8s/base/infrastructure'
+  'kubectl apply -k k8s/addons/nginx-ingress'
+  'kubectl apply -f k8s/overlays/ec2-kubeadm/gateway-ingress.yaml'
+)
 
-if [ "$(array_values release_order)" != "${expected_release_order}" ]; then
-  fail "release_order must place ai-service after admin-service and before apigateway"
-fi
+for pattern in "${manual_patterns[@]}"; do
+  require_pattern "$MANUAL_WORKFLOW" "$pattern" "manual workflow missing contract: $pattern"
+done
 
-if [ "$(array_values deployment_order)" != "${expected_deployment_order}" ]; then
-  fail "deployment_order must place ai-service after admin-service and before apigateway"
-fi
+forbid_pattern "$MANUAL_WORKFLOW" '^[[:space:]]+push:' \
+  "manual Kubernetes workflow must not run on develop push"
+forbid_pattern "$MANUAL_WORKFLOW" 'packages:[[:space:]]+write|planning:|publish|build-and-push|deploy-applications|reusable-docker-build' \
+  "manual Kubernetes workflow contains an automatic application responsibility"
 
-if [ "$(array_values config_consumers)" != "${expected_config_consumers}" ]; then
-  fail "config_consumers must place ai-service after admin-service and before apigateway"
-fi
+# PR CI stays an independent, read-only build/test gate.
+require_pattern "$PR_WORKFLOW" '^name:[[:space:]]+CI$' "PR CI name changed"
+require_pattern "$PR_WORKFLOW" '^[[:space:]]+pull_request:$' "PR CI trigger missing"
+require_pattern "$PR_WORKFLOW" '^[[:space:]]+- develop$' "PR CI develop target missing"
+require_pattern "$PR_WORKFLOW" '^[[:space:]]+ci-gate:$' "PR CI Gate missing"
+forbid_pattern "$PR_WORKFLOW" 'push-image:[[:space:]]+true|packages:[[:space:]]+write|reusable-kubernetes-deploy' \
+  "PR CI must remain build/test only"
 
-if ! grep -Eq '^[[:space:]]+- \.github/workflows/cd-selfhosted-kubernetes\.yml$' <<< "${application_manifests_block}"; then
-  fail "Kubernetes CD workflow changes must reconcile application manifests"
-fi
+# Compose remains manual and is the only compatibility path that publishes latest.
+forbid_pattern "$COMPOSE_WORKFLOW" '^  push:$' \
+  "Compose develop push trigger must stay disabled"
+require_pattern "$COMPOSE_WORKFLOW" '^  # push:$' \
+  "Compose workflow must preserve the disabled push trigger comment"
+require_pattern "$COMPOSE_WORKFLOW" 'publish-latest:[[:space:]]+true' \
+  "manual Compose compatibility requires latest"
 
-if grep -Fq 'kubectl rollout status deployment/' <<< "${initial_application_prepare_block}"; then
-  fail "initial application preparation must not block manifest recovery on an existing failed rollout"
-fi
-
-if grep -Eq '^[[:space:]]+settlement-service$' <<< "${deployment_order_block}"; then
-  fail "settlement-service must not be managed as a Deployment"
-fi
-
-if grep -Eq '^[[:space:]]+settlement-service$' <<< "${config_consumers_block}"; then
-  fail "settlement-service must not be restarted as a config consumer Deployment"
-fi
-
-if ! grep -Eq '^[[:space:]]+settlement-service$' <<< "${release_order_block}"; then
-  fail "release_order must retain settlement-service image delivery"
-fi
-
-if grep -Eq '^  push:$' "${COMPOSE_WORKFLOW}"; then
-  fail "Compose CD develop push trigger must stay disabled"
-fi
-
-if ! grep -Eq '^  # push:$' "${COMPOSE_WORKFLOW}"; then
-  fail "Compose CD must preserve the disabled push trigger as a comment"
-fi
-
-echo "Kubernetes CD workflow validation passed."
+echo "CI/CD workflow validation passed."

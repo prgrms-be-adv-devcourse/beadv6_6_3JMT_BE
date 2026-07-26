@@ -53,7 +53,7 @@ Kubernetes 전환과 애플리케이션 구조 변경을 동시에 진행하지 
 - PostgreSQL 초기화 스크립트와 서비스별 Flyway baseline을 유지한다.
 - 서비스별 Gradle 빌드와 Dockerfile을 유지한다.
 - Compose 컨테이너 이름 대신 Kubernetes Service DNS를 사용한다.
-- `latest` 대신 기존 워크플로가 생성하는 짧은 Git SHA 태그를 사용한다.
+- `latest` 대신 CI가 발행한 이미지 digest를 사용한다. 전체 Git SHA 태그는 실행 추적에만 사용한다.
 
 ### 2.4 현재 구현 상태
 
@@ -81,7 +81,7 @@ Discovery, Config, 비즈니스 서비스, API Gateway와 Ingress Controller 매
 1. 클러스터 부트스트랩: EC2 사전 점검, containerd, kubeadm, Flannel, 노드 join과 네트워크 검증
 2. 상태 저장 인프라: Local PV/PVC, PostgreSQL init/Flyway, Redis, Kafka와 재생성 검증
 3. 플랫폼·애플리케이션: Secret, Discovery, Config, 비즈니스 서비스, Spring AI, Gateway와 HTTP/gRPC 검증
-4. 배포 전환: SHA 이미지 rollout, rollback, Config 변경 절차와 GitHub Actions CD 교체
+4. 배포 전환: digest 이미지 rollout, rollback, Config 변경 절차와 GitHub Actions CD 교체
 
 각 단계는 앞 단계의 검증 결과를 입력으로 사용한다. 클러스터가 `Ready`가 아니면 인프라를 배포하지 않고, 인프라가 준비되지 않으면 플랫폼과 애플리케이션 배포로 넘어가지 않는다.
 
@@ -96,7 +96,7 @@ Discovery, Config, 비즈니스 서비스, API Gateway와 Ingress Controller 매
 - 실제 환경변수는 Medium에서 직접 관리하는 Secret YAML로 주입한다.
 - 외부 진입점은 Large에서 `hostNetwork`로 실행하는 F5 NGINX Ingress Controller 하나다.
 - API Gateway Service는 ClusterIP로 유지하며 외부 HTTP 요청은 Ingress를 통해서만 전달한다.
-- 애플리케이션 이미지는 `latest`가 아닌 불변 Git SHA 태그를 사용한다.
+- 애플리케이션 배포 입력은 `latest`나 태그가 아닌 `repository@sha256:...` digest를 사용한다.
 - 매니페스트는 Kustomize base와 현재 EC2 kubeadm 클러스터용 `ec2-kubeadm` overlay로 관리한다.
 - 로그와 메트릭 수집 시스템은 별도 서버에 두며 이 클러스터에 배치하지 않는다.
 - 이 구성은 단일 Control Plane·단일 Worker 환경이다. 노드 장애 고가용성이나 데이터 자동 복구를 제공하지 않는다.
@@ -562,22 +562,23 @@ PostgreSQL의 `init-configmap.yaml`은 루트 `docker-entrypoint-initdb.d/01-ini
 - 초기 requests/limits
 - Secret key 참조 이름
 
-Base 이미지도 `latest`를 사용하지 않는다. 첫 구현 시 동작이 검증된 SHA 태그를 기록하고 overlay가 배포할 SHA로 교체한다.
+Base 이미지도 `latest`를 사용하지 않는다. 첫 구현 시 동작이 검증된 digest를 기록하고 자동 CD가 새로 발행된 모듈만 release digest로 교체한다.
 
 애플리케이션 이미지 이름은 다음 규칙을 사용한다.
 
 ```text
-ghcr.io/prgrms-be-adv-devcourse/prompthub-<module-name>:<short-git-sha>
+ghcr.io/prgrms-be-adv-devcourse/prompthub-<module-name>@sha256:<digest>
 ```
 
-`<module-name>`은 저장소의 Gradle 모듈 이름을 사용한다. AI 이미지도 동일하게
-`prompthub-ai-service:<short-git-sha>`를 사용한다.
+`<module-name>`은 저장소의 Gradle 모듈 이름을 사용한다. GHCR 발행 시에는 추적을 위해
+`prompthub-<module-name>:<full-git-sha>` 태그도 만들지만 Kubernetes는 이 태그가 아니라
+같은 빌드 결과의 digest를 배포한다.
 
 ### 13.2 EC2 kubeadm overlay
 
 `overlays/ec2-kubeadm`은 두 EC2로 직접 구성한 kubeadm 클러스터의 실제 배포값을 가진다.
 
-- GHCR 이미지 이름과 Git SHA 태그
+- GHCR 이미지 이름과 digest
 - 실제 운영 중 조정한 requests/limits patch
 - EC2 공인 DNS를 받는 host 없는 HTTP Gateway Ingress
 - `app.kubernetes.io/instance=ec2-kubeadm` 환경 label
@@ -585,7 +586,7 @@ ghcr.io/prgrms-be-adv-devcourse/prompthub-<module-name>:<short-git-sha>
 
 실제 Secret 리소스는 overlay에 포함하지 않는다. Medium에서 `kubectl apply -f /home/ubuntu/prompthub-secrets/secret.yaml`로 먼저 적용한다.
 
-`overlays/ec2-kubeadm/applications`는 자동 CD가 소유하는 Config, Discovery, 비즈니스 서비스와 Gateway만 묶는다. CD는 이 패키지 위에 실행 시점의 짧은 Git SHA image tag를 주입한 임시 Kustomize overlay를 만들고 server-side dry-run 후 적용한다. 상태 저장 인프라와 Gateway Ingress는 이 적용 단위에 포함하지 않는다.
+`overlays/ec2-kubeadm/applications`는 자동 CD가 소유하는 Config, Discovery, 비즈니스 서비스와 Gateway만 묶는다. CD는 이 패키지 위에 release manifest의 digest를 주입한 임시 Kustomize overlay를 만들고 server-side dry-run 후 적용한다. 새 이미지가 없는 workload는 클러스터의 현재 image ref를 유지하고, 현재 workload가 없을 때만 base digest를 사용한다. 상태 저장 인프라와 Gateway Ingress는 이 적용 단위에 포함하지 않는다.
 
 ### 13.3 적용 단위
 
@@ -761,9 +762,16 @@ Spring JVM과 Kafka heap은 컨테이너 memory limit보다 작게 명시한다.
 
 배포용 YAML을 직접 복사해 환경별 파일을 만들지 않는다. 공통 변경은 base에, 현재 EC2 kubeadm 환경에만 필요한 값은 overlay patch에 둔다.
 
-## 20. GitHub Actions CD 계약
+## 20. GitHub Actions CI/CD 계약
 
-Kubernetes CD는 `.github/workflows/cd-selfhosted-kubernetes.yml` 하나에서 수동 인프라 배포와 자동 애플리케이션 배포를 분리한다. 기존 `.github/workflows/cd-selfhosted-compose.yml`은 rollback을 위한 수동 실행 파일로 유지하되 `develop` push 트리거를 주석 처리하고 `workflow_dispatch`만 허용한다. 두 CD가 같은 `develop` push에 동시에 실행되어 Docker와 Kubernetes 애플리케이션을 함께 갱신하는 상태를 허용하지 않는다.
+PR 검증, develop Release CI, 애플리케이션 CD와 수동 운영 workflow의 책임을 분리한다.
+
+- `.github/workflows/ci.yml`: PR에서 변경 모듈의 빌드·테스트만 수행한다.
+- `.github/workflows/release-develop.yml`: `develop` push에서 변경 모듈을 다시 빌드·테스트하고, 단일 Gate 통과 후 GHCR 이미지와 immutable release manifest를 발행한다.
+- `.github/workflows/reusable-kubernetes-deploy.yml`: release manifest의 digest와 애플리케이션 매니페스트만 배포한다. 이미지를 빌드하거나 push하지 않는다.
+- `.github/workflows/cd-selfhosted-kubernetes.yml`: 수동 인프라와 Ingress 배포만 수행한다.
+
+기존 `.github/workflows/cd-selfhosted-compose.yml`은 rollback을 위한 수동 실행 파일로 유지하되 `develop` push 트리거를 주석 처리하고 `workflow_dispatch`만 허용한다. Compose 호환을 위해 이 수동 경로에서만 `latest`를 함께 발행한다.
 
 ### 20.1 실행 경계
 
@@ -771,7 +779,8 @@ Kubernetes CD는 `.github/workflows/cd-selfhosted-kubernetes.yml` 하나에서 �
 |---|---|---|
 | 수동 `workflow_dispatch`의 `infrastructure` | 운영자가 확인 문자열 `DEPLOY`를 입력하고 실행 | Namespace, StorageClass, PV/PVC, PostgreSQL, Redis, Kafka |
 | 수동 `workflow_dispatch`의 `ingress` | 운영자가 `DEPLOY`를 입력하고 Docker Gateway가 Large의 80을 반납한 뒤 실행 | F5 NGINX Ingress Controller, Gateway Ingress |
-| 자동 `push` | `develop` push | Config, Discovery, 상시 서비스 Deployment, Settlement CronJob, API Gateway의 변경된 이미지와 애플리케이션 매니페스트 |
+| 자동 Release CI | `develop` push | 변경 모듈 빌드·테스트, GHCR push, digest release manifest 생성 |
+| 자동 애플리케이션 CD | Release CI Gate와 이미지 발행 성공 후 같은 Actions DAG에서 실행 | Config, Discovery, 상시 서비스 Deployment, Settlement CronJob, API Gateway의 immutable 이미지와 애플리케이션 매니페스트 |
 
 수동 배포는 SSH에서 명령을 하나씩 실행한다는 뜻이 아니다. 운영자가 GitHub Actions의 `Run workflow`로 위험도가 높은 대상을 승인하면 self-hosted runner가 정해진 `kubectl` 명령과 rollout 검증을 실행한다. 일반 코드 push는 상태 저장 인프라와 Ingress Controller를 수정하지 않는다.
 
@@ -779,15 +788,16 @@ Kubernetes CD는 `.github/workflows/cd-selfhosted-kubernetes.yml` 하나에서 �
 
 자동 배포는 다음 계약을 따른다.
 
-1. 변경된 모듈과 애플리케이션 매니페스트를 별도로 감지한다. 공통 빌드 파일, `common-module`, Kubernetes 플랫폼·서비스·Gateway 매니페스트 또는 Kubernetes CD 워크플로가 바뀌면 모든 애플리케이션 이미지를 대상으로 한다. Kubernetes CD 워크플로 변경은 이전 실행에서 적용하지 못한 선언 상태도 복구할 수 있도록 애플리케이션 매니페스트 변경으로도 분류한다. 따라서 최초 CD 전환 PR을 `develop`에 머지하면 애플리케이션 전체가 첫 배포 대상이 된다.
-2. 기존 `reusable-docker-build.yml`을 사용해 GHCR에 불변 커밋 SHA 태그를 push한다. `latest`는 Kubernetes rollout 입력으로 사용하지 않는다.
-3. self-hosted runner는 대상 클러스터 context와 `prompthub` Namespace의 `postgres-secret`, `runtime-secret`, `jwt-secret`, `payment-secret`, `product-secret`, `ai-secret`, `ghcr-pull-secret`을 확인한다.
-4. 최초 애플리케이션 준비 단계는 누락된 Deployment, Service와 정산 CronJob의 존재만 보장하며 기존 Deployment의 rollout 완료를 선행조건으로 삼지 않는다. 플랫폼·서비스·Gateway 매니페스트 또는 Kubernetes CD 워크플로가 변경되면 상태 저장 인프라와 Ingress를 제외한 `overlays/ec2-kubeadm/applications`를 새 Git SHA image tag와 함께 server-side dry-run 후 적용한다. 따라서 기존 Deployment가 실패한 상태여도 교정 매니페스트를 먼저 적용할 수 있다. 매니페스트가 바뀌지 않은 일반 코드 배포는 변경된 Deployment의 이미지만 교체한다.
-5. 각 Deployment에 `kubectl rollout status`를 실행한다. 실패하면 적용 전 Pod template snapshot과 비교해 이번 실행에서 바뀐 기존 Deployment만 `kubectl rollout undo`로 직전 ReplicaSet에 복구하고, 이번 실행에서 처음 만든 Deployment는 삭제한다. Service처럼 ReplicaSet에 포함되지 않는 선언은 수정 커밋을 되돌린 뒤 CD를 다시 실행해 복구한다.
-6. 애플리케이션 매니페스트 변경 없이 Config 이미지만 바뀌면 Config rollout 성공 후 `user-service`,
+1. 변경된 모듈과 애플리케이션 매니페스트를 별도로 감지한다. `grpc/user/**`는 User와 AI를 함께 대상으로 하고, 공통 빌드 파일과 `common-module` 변경은 모든 애플리케이션을 대상으로 한다. 매니페스트만 바뀌면 이미지 빌드는 수행하지 않는다.
+2. 변경 모듈만 `reusable-build.yml`로 빌드·테스트한다. 모든 matrix 실행이 성공한 Release CI Gate 뒤에만 이미지 발행을 허용한다.
+3. `reusable-docker-build.yml`은 전체 커밋 SHA 태그로 GHCR에 push하고 빌드 digest를 메타데이터 artifact로 남긴다. Release CI는 이를 서비스별 `repository@sha256:...` release manifest로 합친다. `latest`는 Kubernetes rollout 입력으로 사용하지 않는다.
+4. 같은 workflow DAG의 CD job이 release manifest를 `reusable-kubernetes-deploy.yml`에 전달한다. self-hosted runner는 대상 클러스터 context와 `prompthub` Namespace의 `postgres-secret`, `runtime-secret`, `jwt-secret`, `payment-secret`, `product-secret`, `ai-secret`, `ghcr-pull-secret`을 확인한다.
+5. 최초 애플리케이션 준비 단계는 누락된 Deployment, Service와 정산 CronJob의 존재만 보장하며 기존 Deployment의 rollout 완료를 선행조건으로 삼지 않는다. 애플리케이션 매니페스트가 변경되면 상태 저장 인프라와 Ingress를 제외한 `overlays/ec2-kubeadm/applications`를 server-side dry-run 후 적용한다. 새 이미지가 있는 모듈은 release digest, 나머지는 현재 클러스터 image ref, 현재 workload가 없는 경우에만 base digest를 사용한다.
+6. 각 Deployment에 `kubectl rollout status`를 실행한다. 실패하면 적용 전 Pod template snapshot과 비교해 이번 실행에서 바뀐 기존 Deployment만 `kubectl rollout undo`로 직전 ReplicaSet에 복구하고, 이번 실행에서 처음 만든 Deployment는 삭제한다. Service처럼 ReplicaSet에 포함되지 않는 선언은 수정 커밋을 되돌린 뒤 CD를 다시 실행해 복구한다.
+7. 애플리케이션 매니페스트 변경 없이 Config 이미지만 바뀌면 Config rollout 성공 후 `user-service`,
    `product-service`, `order-service`, `payment-service`, `admin-service`, `ai-service`, `apigateway`를
    순차 재시작한다. Settlement CronJob은 다음 Job부터 새 Config를 읽는다. 매니페스트 변경 경로에서는
-   모든 소비자 Deployment가 새 image tag와 함께 rollout되므로 별도 재시작하지 않는다.
+   선언 적용 후 모든 소비자 Deployment의 rollout 상태를 확인하므로 별도 재시작하지 않는다.
 
 `revisionHistoryLimit: 1`은 현재 ReplicaSet 외에 직전 1개를 남기므로 한 단계 rollback을 지원한다. 자동 CD는 전체 `ec2-kubeadm` overlay를 적용하지 않고 `applications` 하위 패키지만 사용하므로 상태 저장 리소스나 Ingress를 함께 변경하지 않는다.
 
@@ -839,7 +849,7 @@ Kubernetes CD는 `.github/workflows/cd-selfhosted-kubernetes.yml` 하나에서 �
 - HTTP와 실제 구현된 gRPC endpoint가 Service DNS로 호출된다.
 - F5 NGINX Ingress Controller Pod가 Large에서 Ready이고 Large의 80을 통한 로그인·상품 조회 스모크 테스트가 성공한다.
 - `apigateway`와 다른 프로젝트 Service에 NodePort 또는 LoadBalancer type이 없다.
-- 잘못된 SHA 이미지 적용 후 직전 SHA로 복구할 수 있다.
+- 잘못된 image digest 적용 후 직전 ReplicaSet의 digest로 복구할 수 있다.
 
 ## 22. 구현 문서 경계
 

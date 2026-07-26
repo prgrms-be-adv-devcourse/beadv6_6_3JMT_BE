@@ -28,7 +28,7 @@ kubectl kustomize k8s/overlays/ec2-kubeadm
 bash scripts/validate-k8s-manifests.sh
 ```
 
-스크립트는 모든 패키지가 렌더링되는지, `latest` 이미지나 미정 placeholder가 없는지, 실제 Secret이 base에 포함되지 않는지를 확인한다. 자동 CD용 `applications` 패키지가 Deployment 8개, Service 8개와 `CronJob/settlement-weekly` 1개만 포함하는지도 검사한다. Ingress Controller의 host network·이미지 digest·필수 인자와 EC2 kubeadm overlay의 Gateway Ingress를 검사하고 NodePort·LoadBalancer 회귀를 차단한다. 또한 Kubernetes CD의 자동·수동 배포 경계, rollback 명령과 기존 Compose CD의 자동 trigger 비활성 상태를 검사한다.
+스크립트는 모든 패키지가 렌더링되는지, `latest` 이미지나 미정 placeholder가 없는지, 실제 Secret이 base에 포함되지 않는지를 확인한다. 자동 CD용 `applications` 패키지가 상시 서비스 Deployment·Service와 `CronJob/settlement-weekly`만 포함하는지도 검사한다. Ingress Controller의 host network·이미지 digest·필수 인자와 EC2 kubeadm overlay의 Gateway Ingress를 검사하고 NodePort·LoadBalancer 회귀를 차단한다. 또한 Release CI, 재사용 애플리케이션 CD, 수동 인프라·Ingress 배포의 책임 경계와 기존 Compose CD의 자동 trigger 비활성 상태를 검사한다.
 
 Kafka Pod는 `enableServiceLinks: false`를 유지한다. 이 값을 제거하면 Kubernetes가 `kafka` Service에서 `KAFKA_PORT=tcp://...`를 자동 생성하고, Confluent 이미지가 이를 레거시 설정으로 해석해 시작 단계에서 종료한다.
 
@@ -60,14 +60,15 @@ kubectl -n prompthub get secret \
   jwt-secret \
   payment-secret \
   product-secret \
+  ai-secret \
   ghcr-pull-secret
 ```
 
 하나라도 `NotFound`면 platform·services·gateway 또는 전체 EC2 kubeadm overlay를 실제 적용하지 않는다.
 
-## GitHub Actions CD
+## GitHub Actions CI/CD
 
-Kubernetes 배포 워크플로는 `.github/workflows/cd-selfhosted-kubernetes.yml`이다. 기존 `.github/workflows/cd-selfhosted-compose.yml`의 `develop` push trigger는 비활성화하며 rollback이 필요할 때만 `workflow_dispatch`로 실행한다.
+`develop` 자동 릴리스의 시작점은 `.github/workflows/release-develop.yml`이다. 이 workflow가 변경 모듈의 빌드·테스트, GHCR 이미지 발행과 release manifest 생성을 담당하고, 같은 실행 안에서 `.github/workflows/reusable-kubernetes-deploy.yml`을 호출해 애플리케이션을 배포한다. `.github/workflows/cd-selfhosted-kubernetes.yml`은 수동 인프라·Ingress 작업만 담당한다. 기존 `.github/workflows/cd-selfhosted-compose.yml`의 `develop` push trigger는 비활성화하며 rollback이 필요할 때만 `workflow_dispatch`로 실행한다.
 
 Self-hosted runner에는 다음 항목이 먼저 준비되어 있어야 한다.
 
@@ -78,7 +79,9 @@ jq
 KUBECONFIG=/home/ubuntu/.kube/config
 ```
 
-`develop`에 push 또는 merge되면 변경된 애플리케이션 이미지를 빌드해 GHCR에 짧은 Git SHA tag로 push한다. 상시 서비스는 Deployment를 순차 갱신하고, settlement-service는 `CronJob/settlement-weekly`의 Job template 이미지만 갱신한다. Kubernetes 플랫폼·서비스·Gateway 매니페스트 변경도 별도로 감지하며, 변경 시 `k8s/overlays/ec2-kubeadm/applications`를 새 image tag와 함께 server-side dry-run 후 자동 적용한다. 공통 빌드 파일, 애플리케이션 매니페스트 또는 Kubernetes CD 워크플로가 바뀌면 애플리케이션 전체를 대상으로 한다.
+`develop`에 push 또는 merge되면 변경된 모듈만 빌드·테스트한다. 모든 대상 모듈이 Release CI Gate를 통과한 뒤에만 같은 모듈의 이미지를 전체 Git SHA tag로 GHCR에 push한다. 이 tag는 실행 추적용이고, 실제 CD 입력은 빌드 결과에서 얻은 `repository@sha256:...` digest다. 상시 서비스는 Deployment를 순차 갱신하고, settlement-service는 `CronJob/settlement-weekly`의 Job template 이미지만 갱신한다.
+
+Kubernetes 플랫폼·서비스·Gateway 매니페스트 변경도 별도로 감지한다. 매니페스트만 바뀐 서비스는 이미지를 다시 빌드하지 않고 클러스터에 배포 중인 image ref를 유지한 채 `k8s/overlays/ec2-kubeadm/applications`를 server-side dry-run 후 적용한다. 클러스터에 해당 workload가 없는 최초 적용에만 base 매니페스트의 digest를 사용한다. 공통 빌드 파일이 바뀌면 애플리케이션 전체를 테스트하고 이미지를 발행한다.
 
 자동 매니페스트 적용 범위에는 Config, Discovery, 상시 비즈니스 서비스 5개와 API Gateway의 Deployment·Service, 그리고 settlement 주간 CronJob이 포함된다. StorageClass, PV/PVC, PostgreSQL, Redis, Kafka, Ingress Controller와 Gateway Ingress는 기존 수동 배포 경계를 유지한다. 별도의 활성화 변수는 사용하지 않으므로 Secret, kubeconfig, 기존 Docker 중지와 cutover 준비가 끝난 뒤에만 Kubernetes CD가 포함된 PR을 `develop`에 머지한다.
 
@@ -291,7 +294,7 @@ imageMaximumGCAge: 0s
 이미지 사용률이 60%를 넘으면 kubelet이 미사용 이미지를 정리해 50% 수준까지 낮춘다.
 기간 기반 강제 삭제와 `crictl rmi --prune`, `ctr images rm` 같은 외부 정리 작업은 사용하지
 않는다. Deployment는 `revisionHistoryLimit: 1`로 직전 ReplicaSet을 보존하고, 로컬 이미지가
-GC된 경우에도 GHCR의 불변 Git SHA 태그를 다시 pull해 롤백한다.
+GC된 경우에도 GHCR의 이전 digest를 다시 pull해 롤백한다.
 
 설정은 Worker, Control Plane 순서로 한 노드씩 적용한다. 각 노드에서 기존 설정을 백업하고
 kubelet만 재시작한 뒤 `systemctl is-active kubelet`, `kubectl get nodes`, 전체 Pod 상태를
