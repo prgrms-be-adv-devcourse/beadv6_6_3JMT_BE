@@ -18,28 +18,6 @@ BEGIN
 END
 $$;
 
-UPDATE order_product op
-SET buyer_id = o.buyer_id
-FROM "order" o
-WHERE op.order_id = o.id
-  AND op.buyer_id IS NULL;
-
-DO $$
-BEGIN
-    IF EXISTS (
-        SELECT 1
-        FROM order_product
-        WHERE buyer_id IS NOT NULL
-          AND order_product_status = 'PENDING'
-        GROUP BY buyer_id, product_id
-        HAVING count(*) > 1
-    ) THEN
-        RAISE EXCEPTION
-            'duplicate PENDING order products exist for buyer_id and product_id';
-    END IF;
-END
-$$;
-
 CREATE UNIQUE INDEX uk_order_product_buyer_product_pending
     ON order_product (buyer_id, product_id)
     WHERE buyer_id IS NOT NULL
