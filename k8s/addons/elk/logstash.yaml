@@ -1,0 +1,243 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-pipeline
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: logstash
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+data:
+  gateway-access.conf: |
+    input {
+      http {
+        port => 8000
+        user => "${LOGSTASH_HTTP_USERNAME}"
+        password => "${LOGSTASH_HTTP_PASSWORD}"
+        codec => json {
+          target => "[ingest]"
+        }
+      }
+    }
+
+    filter {
+      if ![ingest][log] {
+        drop { }
+      }
+
+      json {
+        source => "[ingest][log]"
+        target => "[gateway]"
+        tag_on_failure => ["_gateway_json_parse_failure"]
+      }
+
+      if "_gateway_json_parse_failure" in [tags] or [gateway][eventType] != "GATEWAY_ACCESS" {
+        drop { }
+      }
+
+      date {
+        match => ["[gateway][@timestamp]", "ISO8601"]
+        target => "@timestamp"
+      }
+
+      mutate {
+        rename => { "[ingest][kubernetes]" => "[kubernetes]" }
+        remove_field => ["ingest", "event", "headers", "host", "http", "log", "url", "user_agent", "_p"]
+      }
+    }
+
+    output {
+      elasticsearch {
+        hosts => ["http://elasticsearch.elk.svc.cluster.local:9200"]
+        ilm_enabled => false
+        manage_template => false
+        index => "gateway-access-%{+YYYY.MM.dd}"
+      }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: logstash
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: logstash
+  ports:
+    - name: http-input
+      port: 8000
+      targetPort: http-input
+      protocol: TCP
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gateway-access-ilm-bootstrap
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: gateway-access-ilm-bootstrap
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gateway-access-ilm-bootstrap
+        app.kubernetes.io/part-of: prompthub
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector:
+        prompthub.io/node-pool: control-stateful
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bootstrap
+          image: curlimages/curl:8.14.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+            - |
+              elastic_url=http://elasticsearch.elk.svc.cluster.local:9200
+              until curl --fail --silent --show-error "${elastic_url}/_cluster/health?wait_for_status=yellow&timeout=1s" >/dev/null; do
+                sleep 5
+              done
+
+              curl --fail --silent --show-error -H "Content-Type: application/json" \
+                -X PUT "${elastic_url}/_ilm/policy/gateway-access-14d" \
+                --data '{"policy":{"phases":{"hot":{"actions":{}},"delete":{"min_age":"14d","actions":{"delete":{}}}}}}'
+              curl --fail --silent --show-error -H "Content-Type: application/json" \
+                -X PUT "${elastic_url}/_index_template/gateway-access-template" \
+                --data '{"index_patterns":["gateway-access-*"],"template":{"settings":{"index.lifecycle.name":"gateway-access-14d","number_of_shards":1,"number_of_replicas":0},"mappings":{"dynamic":true,"properties":{"gateway":{"properties":{"status":{"type":"integer"},"durationMs":{"type":"long"},"authenticated":{"type":"boolean"}}}}}}}'
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: logstash
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: logstash
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: logstash
+        app.kubernetes.io/part-of: prompthub
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      nodeSelector:
+        prompthub.io/node-pool: control-stateful
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: logstash
+          image: docker.elastic.co/logstash/logstash:9.4.3
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http-input
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: LS_JAVA_OPTS
+              value: -Xms256m -Xmx256m
+            - name: XPACK_MONITORING_ENABLED
+              value: "false"
+            - name: LOGSTASH_HTTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: logstash-http-credentials
+                  key: username
+            - name: LOGSTASH_HTTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: logstash-http-credentials
+                  key: password
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+          startupProbe:
+            tcpSocket:
+              port: http-input
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket:
+              port: http-input
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: http-input
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: pipeline
+              mountPath: /usr/share/logstash/pipeline/gateway-access.conf
+              subPath: gateway-access.conf
+              readOnly: true
+      volumes:
+        - name: pipeline
+          configMap:
+            name: logstash-pipeline

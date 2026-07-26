@@ -1,8 +1,8 @@
 # Kubernetes 아키텍처 명세
 
-> 상태: 승인된 목표 아키텍처, 상태 저장 인프라 구현·검증 완료, 플랫폼·애플리케이션·Ingress 매니페스트와 Kubernetes CD 작성 완료, 실제 cutover 대기
-> 관련 이슈: [#340](https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/issues/340)
-> 최종 갱신: 2026-07-16
+> 상태: 승인된 목표 아키텍처, 상태 저장 인프라 구현·검증 완료, Gateway access 로그용 ELK add-on 작성 완료, 실제 cutover 대기
+> 관련 이슈: [#340](https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/issues/340), [#565](https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/issues/565)
+> 최종 갱신: 2026-07-24
 
 ## 1. 문서 목적
 
@@ -21,7 +21,7 @@
 - 리소스 label, 파일 이름, 이미지 태그와 변경 규칙
 - 기동, 검증, 장애와 복구의 기본 계약
 
-애플리케이션의 Java 패키지 구조, 도메인 설계, 로그·메트릭 스택은 이 문서의 범위가 아니다.
+애플리케이션의 Java 패키지 구조와 도메인 설계는 이 문서의 범위가 아니다. Gateway access 로그용 ELK add-on의 Kubernetes 배치·보안 경계는 이 문서에서 다룬다.
 
 ## 2. 결정 배경과 전환 범위
 
@@ -37,12 +37,12 @@
 - 다중 Control Plane, 다중 Worker와 자동 장애 조치
 - EKS, AWS Load Balancer Controller와 EBS CSI 동적 프로비저닝
 - 자체 도메인과 TLS 인증서 자동화
-- Elasticsearch, Logstash, Filebeat, Kibana, Prometheus와 Grafana
+- Prometheus와 Grafana
 - Flannel이 제공하지 않는 Kubernetes NetworkPolicy
 - HPA, VPA와 PodDisruptionBudget
 - 첫 단계에서의 서비스별 PostgreSQL 계정 전환
 
-로그와 메트릭 관측 스택은 크레딧이 남는 별도 서버에 구성하며 이 클러스터 전환과 독립적으로 다룬다.
+Prometheus와 Grafana는 별도 서버에 구성하며 이 클러스터 전환과 독립적으로 다룬다. Gateway access 로그용 Elasticsearch, Logstash, Kibana와 Fluent Bit은 [#565](https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/issues/565) 범위에서 Control Plane에 수동 배포한다.
 
 ### 2.3 전환 원칙
 
@@ -54,6 +54,8 @@ Kubernetes 전환과 애플리케이션 구조 변경을 동시에 진행하지 
 - 서비스별 Gradle 빌드와 Dockerfile을 유지한다.
 - Compose 컨테이너 이름 대신 Kubernetes Service DNS를 사용한다.
 - `latest` 대신 CI가 발행한 이미지 digest를 사용한다. 전체 Git SHA 태그는 실행 추적에만 사용한다.
+- Gateway access 로그는 Worker의 Fluent Bit이 수집하고 Control Plane의 Logstash와 Elasticsearch로 전달한다. Elasticsearch는 10Gi Local PV를 사용하고 `gateway-access-*` 인덱스만 14일 보존한다.
+- 현재 Product Service가 Elasticsearch HTTP 무인증 연결을 사용하므로, Product Service 담당자의 HTTPS·인증 전환 전까지 공유 Elasticsearch의 security는 비활성으로 유지한다. 이 기간에는 Elasticsearch와 Kibana를 외부에 공개하지 않는다.
 
 ### 2.4 현재 구현 상태
 
@@ -98,7 +100,7 @@ Discovery, Config, 비즈니스 서비스, API Gateway와 Ingress Controller 매
 - API Gateway Service는 ClusterIP로 유지하며 외부 HTTP 요청은 Ingress를 통해서만 전달한다.
 - 애플리케이션 배포 입력은 `latest`나 태그가 아닌 `repository@sha256:...` digest를 사용한다.
 - 매니페스트는 Kustomize base와 현재 EC2 kubeadm 클러스터용 `ec2-kubeadm` overlay로 관리한다.
-- 로그와 메트릭 수집 시스템은 별도 서버에 두며 이 클러스터에 배치하지 않는다.
+- Prometheus와 Grafana는 별도 서버에 둔다. Gateway access 로그 ELK는 Control Plane에 수동 배포하되 자동 CD 대상에서 제외한다.
 - 이 구성은 단일 Control Plane·단일 Worker 환경이다. 노드 장애 고가용성이나 데이터 자동 복구를 제공하지 않는다.
 
 ### 3.1 채택한 절충점
@@ -117,9 +119,9 @@ Discovery, Config, 비즈니스 서비스, API Gateway와 Ingress Controller 매
 
 | 서버 | Kubernetes 역할 | 사용자 label | 배치 대상 |
 |---|---|---|---|
-| Medium EC2 | Control Plane | `prompthub.io/node-pool=control-stateful` | Control Plane, PostgreSQL, Redis |
+| Medium EC2 | Control Plane | `prompthub.io/node-pool=control-stateful` | Control Plane, PostgreSQL, Redis, Elasticsearch, Logstash, Kibana |
 | Large EC2 | Worker | `prompthub.io/node-pool=application` | Kafka, Discovery, Config, 전체 애플리케이션 |
-| 별도 서버 | 클러스터 외부 | 해당 없음 | 로그·메트릭 관측 스택 |
+| 별도 서버 | 클러스터 외부 | 해당 없음 | Prometheus, Grafana 등 메트릭 관측 스택 |
 
 ```mermaid
 flowchart TB
@@ -130,6 +132,9 @@ flowchart TB
             CP["API Server · etcd · Scheduler · Controller Manager"]
             PG[(PostgreSQL)]
             Redis[(Redis)]
+            ES[(Elasticsearch · 10Gi Local PV)]
+            LS["Logstash · HTTP :8000"]
+            Kibana["Kibana · ClusterIP :5601"]
         end
 
         subgraph Large["Large EC2 · Worker"]
@@ -139,12 +144,13 @@ flowchart TB
             Config["Spring Cloud Config"]
             Apps["User · Product · Order · Payment · Settlement · Admin · Spring AI"]
             Kafka[(Kafka)]
+            FB["Fluent Bit · Gateway container logs"]
         end
 
         Flannel["Flannel VXLAN · Pod CIDR 10.244.0.0/16"]
     end
 
-    Observability["별도 관측 서버"]
+    Metrics["별도 메트릭 관측 서버"]
 
     Client -->|"HTTP 80"| Ingress
     Ingress -->|"Ingress /"| GW
@@ -154,16 +160,19 @@ flowchart TB
     Apps --> PG
     Apps --> Redis
     Apps --> Kafka
+    FB -->|"Gateway JSON access log"| LS
+    LS --> ES
+    Kibana --> ES
     CP --- Flannel
     Apps --- Flannel
-    Apps -.->|로그·메트릭 전송은 별도 설계| Observability
+    Apps -.->|메트릭 전송은 별도 설계| Metrics
 ```
 
 ### 4.1 장애 경계
 
 | 장애 지점 | 영향 |
 |---|---|
-| Medium 중단 | Control Plane, PostgreSQL과 Redis가 동시에 중단된다. 기존 Worker Pod가 남아도 관리와 핵심 요청이 실패한다. |
+| Medium 중단 | Control Plane, PostgreSQL, Redis와 ELK가 동시에 중단된다. 기존 Worker Pod가 남아도 관리와 핵심 요청이 실패하며 Gateway access 로그 적재도 멈춘다. |
 | Large 중단 | Kafka, Discovery, Config와 모든 애플리케이션이 중단된다. |
 | Local PV가 있는 노드 소실 | 다른 노드로 볼륨이나 StatefulSet이 자동 이동하지 않는다. |
 | Config 중단 | 실행 중인 Pod는 기존 설정으로 동작하지만 신규 Pod는 정상 기동하지 못한다. |
@@ -191,7 +200,7 @@ flowchart TB
 
 ### 6.1 Namespace
 
-- 프로젝트 리소스는 `prompthub` namespace에 둔다.
+- 프로젝트 애플리케이션 리소스는 `prompthub` namespace에 둔다. ELK add-on은 독립적인 `elk` namespace에 둔다.
 - `StorageClass`와 `PersistentVolume`은 cluster-scoped 리소스이므로 namespace를 지정하지 않는다.
 - Flannel은 `kube-flannel`, Kubernetes 시스템 Pod는 `kube-system`을 유지한다.
 - 다른 환경이 추가되기 전까지 namespace를 서비스별로 나누지 않는다.
@@ -203,12 +212,14 @@ Control Plane의 기본 `node-role.kubernetes.io/control-plane:NoSchedule` taint
 | 워크로드 | `nodeSelector` | Control Plane toleration |
 |---|---|---|
 | PostgreSQL, Redis | `prompthub.io/node-pool=control-stateful` | 필요 |
+| Elasticsearch, Logstash, Kibana | `prompthub.io/node-pool=control-stateful` | 필요 |
+| Fluent Bit | `prompthub.io/node-pool=application` | 없음 |
 | Kafka | `prompthub.io/node-pool=application` | 없음 |
 | Discovery, Config | `prompthub.io/node-pool=application` | 없음 |
 | 비즈니스 서비스, Spring AI, Gateway | `prompthub.io/node-pool=application` | 없음 |
 | F5 NGINX Ingress Controller | `prompthub.io/node-pool=application` | 없음 |
 
-PostgreSQL과 Redis 이외의 프로젝트 Pod에는 Control Plane toleration을 추가하지 않는다. Local PV의 `nodeAffinity`도 같은 사용자 label을 기준으로 고정한다.
+PostgreSQL·Redis와 ELK add-on 이외의 프로젝트 Pod에는 Control Plane toleration을 추가하지 않는다. Local PV의 `nodeAffinity`도 같은 사용자 label을 기준으로 고정한다.
 
 ## 7. 논리 아키텍처와 통신 책임
 
@@ -265,10 +276,24 @@ sequenceDiagram
 | `postgres` | StatefulSet | Medium | `postgres`, `postgres-headless` | 5432 | `postgres-data` PVC 20Gi |
 | `redis` | StatefulSet | Medium | `redis`, `redis-headless` | 6379 | `redis-data` PVC 5Gi |
 | `kafka` | StatefulSet | Large | `kafka`, `kafka-headless` | 9092, 9093 | `kafka-data` PVC 20Gi |
+| `elasticsearch` | StatefulSet | Medium | `elasticsearch`, `elasticsearch-headless` | 9200, 9300 | `elasticsearch-data` PVC 10Gi |
 
-각 StatefulSet은 Pod network identity를 위한 headless Service와 클라이언트용 ClusterIP Service를 분리한다. Kafka controller identity에는 `kafka-headless`를 사용하고 애플리케이션은 `kafka:9092`로 접속한다.
+각 StatefulSet은 Pod network identity를 위한 headless Service와 클라이언트용 ClusterIP Service를 분리한다. Kafka controller identity에는 `kafka-headless`를 사용하고 애플리케이션은 `kafka:9092`로 접속한다. Elasticsearch는 현재 Product Service와 공유하므로 `elasticsearch.elk.svc.cluster.local:9200`의 HTTP 무인증 계약을 유지한다.
 
-### 8.2 플랫폼과 애플리케이션
+### 8.2 Gateway access 로그 ELK
+
+| Kubernetes 이름 | Kind | 노드 | Service 포트 → Pod 포트 | 역할 |
+|---|---|---|---|---|
+| `fluent-bit` | DaemonSet | Large | 노출 없음 | API Gateway 컨테이너 로그만 tail하고 Kubernetes 메타데이터를 추가 |
+| `logstash` | Deployment | Medium | 8000 → 8000 | Fluent Bit HTTP 입력을 인증하고 Gateway JSON을 파싱해 Elasticsearch에 저장 |
+| `gateway-access-ilm-bootstrap` | Job | Medium | 없음 | `gateway-access-*`의 14일 삭제 ILM policy와 index template 생성 |
+| `kibana` | Deployment | Medium | 5601 → 5601 | Gateway access 로그 조회 UI. ClusterIP 전용 |
+
+Fluent Bit은 `/var/log/containers/apigateway-*_prompthub_apigateway-*.log`만 수집한다. Logstash는 `eventType=GATEWAY_ACCESS`인 JSON 로그만 `gateway-access-YYYY.MM.dd` 인덱스로 저장한다. 따라서 다른 서비스 로그와 Product의 `products-v1` 인덱스는 이 파이프라인의 보존 정책 대상이 아니다.
+
+공유 Elasticsearch는 현재 `xpack.security.enabled=false`와 HTTP를 의도적으로 유지한다. 이는 Product Service의 기존 접속 계약을 보존하기 위한 임시 경계이며, 외부 노출을 허용하는 보안 설정이 아니다. Elasticsearch와 Kibana는 ClusterIP로만 제공하고 운영자 접근은 SSH tunnel로 제한한다. Product Service 담당자가 HTTPS CA·인증을 지원하는 별도 변경과 운영 점검 시간을 준비한 뒤에만 Elasticsearch security를 활성화한다.
+
+### 8.3 플랫폼과 애플리케이션
 
 | Kubernetes 이름 | Kind | replica | Service 포트 → Pod 포트 | Eureka 이름 | 상태 |
 |---|---|---:|---|---|---|
@@ -293,7 +318,7 @@ AI 서비스는 `k8s/base/services/ai`에 Deployment와 Service가 포함돼 있
 `OPENAI_API_KEY`와 `AI_USER_GRPC_TOKEN`을 주입하고, Config Server 기본값과 별도로 배포 매니페스트에서
 reasoning effort `low`, 채팅 활성화 `true`, Pod당 동시 실행 4건을 명시한다.
 
-### 8.3 Gateway 외부 노출
+### 8.4 Gateway 외부 노출
 
 외부 HTTP 요청은 F5 NGINX Ingress Controller와 `apigateway` Ingress를 거쳐 API Gateway로만 전달한다. Ingress Controller는 공개 진입과 L7 전달만 담당하고, 인증·인가와 Eureka 기반 서비스 라우팅은 기존 API Gateway가 담당한다.
 
@@ -439,6 +464,7 @@ reclaimPolicy: Retain
 |---|---|---|---|---|---:|---|
 | `postgres-local-pv` | `postgres-data` | Medium | `/var/lib/prompthub/postgres` | `/var/lib/postgresql` | 20Gi | `ReadWriteOnce` |
 | `redis-local-pv` | `redis-data` | Medium | `/var/lib/prompthub/redis` | `/data` | 5Gi | `ReadWriteOnce` |
+| `elasticsearch-local-pv` | `elasticsearch-data` | Medium | `/var/lib/prompthub/elasticsearch` | `/usr/share/elasticsearch/data` | 10Gi | `ReadWriteOnce` |
 | `kafka-local-pv` | `kafka-data` | Large | `/var/lib/prompthub/kafka` | `/var/lib/kafka/data` | 20Gi | `ReadWriteOnce` |
 
 PV는 사용자 node-pool label을 이용한 `nodeAffinity`를 가져야 한다. 호스트 디렉터리는 매니페스트 적용 전에 SSH로 만들고 컨테이너 UID/GID가 쓸 수 있게 설정한다.
@@ -595,6 +621,7 @@ ghcr.io/prgrms-be-adv-devcourse/prompthub-<module-name>@sha256:<digest>
 | 적용 단위 | 포함 리소스 |
 |---|---|
 | `addons/nginx-ingress` | F5 NGINX Ingress Controller, RBAC, IngressClass |
+| `addons/elk` | `elk` Namespace, Elasticsearch Local PV/PVC·StatefulSet, Logstash, Kibana, Fluent Bit, 14일 ILM bootstrap Job |
 | `base/storage` | StorageClass, PV, PVC |
 | `base/infrastructure` | PostgreSQL, Redis, Kafka |
 | `base/platform` | Discovery, Config |
@@ -624,7 +651,7 @@ Kustomize의 파일 나열 순서는 readiness를 보장하지 않는다. 최초
 ```yaml
 app.kubernetes.io/name: <component-name>
 app.kubernetes.io/part-of: prompthub
-app.kubernetes.io/component: infrastructure|platform|service|gateway
+app.kubernetes.io/component: infrastructure|platform|service|gateway|observability
 app.kubernetes.io/managed-by: kustomize
 ```
 
@@ -656,11 +683,11 @@ Ingress Controller는 Ingress, Service와 EndpointSlice를 감시해야 하므�
 
 - replica: 1
 - `podManagementPolicy: OrderedReady`
-- `updateStrategy: RollingUpdate`
+- `updateStrategy: RollingUpdate`. Elasticsearch는 Local PV의 단일 노드 상태를 보호하기 위해 `OnDelete`를 사용하며, 운영자가 데이터 상태를 확인한 뒤에만 Pod를 재생성한다.
 - 명시적인 PVC mount
 - `spec.serviceName`은 먼저 생성된 headless Service를 참조
 - nodeSelector와 Local PV nodeAffinity 일치
-- PostgreSQL과 Redis는 Control Plane toleration 포함
+- PostgreSQL, Redis와 Elasticsearch는 Control Plane toleration 포함
 - PostgreSQL과 Kafka의 `terminationGracePeriodSeconds`: 60
 
 ### 15.3 Probe
@@ -715,8 +742,11 @@ Kubernetes에는 Compose `depends_on`이 없으므로 init container는 네트�
 |---|---:|---:|
 | PostgreSQL | 300m / 800m | 512Mi / 1Gi |
 | Redis | 50m / 250m | 128Mi / 256Mi |
+| Elasticsearch | 250m / 1 | 1Gi / 1Gi |
+| Logstash | 100m / 500m | 512Mi / 768Mi |
+| Kibana | 250m / 1 | 512Mi / 1Gi |
 
-Control Plane과 OS를 위해 1~1.5GiB 이상의 메모리 여유를 유지한다.
+Control Plane과 OS를 위해 1.5GiB 이상의 메모리 여유를 유지한다. Fluent Bit은 Large에서 50m/200m CPU와 64Mi/192Mi memory를 사용한다.
 
 ### 17.2 Large
 
@@ -745,6 +775,9 @@ Spring JVM과 Kafka heap은 컨테이너 memory limit보다 작게 명시한다.
 - 불필요한 ServiceAccount token mount를 끈다.
 - Flannel 환경에서 NetworkPolicy가 집행된다고 가정하지 않는다.
 - 이미지의 non-root 전환은 이미지 하드닝 작업으로 분리하고, 검증 없이 `runAsNonRoot`를 강제하지 않는다.
+- Elasticsearch security가 비활성인 동안 Elasticsearch와 Kibana는 ClusterIP 이외의 Service, Ingress, NodePort, LoadBalancer를 만들지 않는다. 접근은 운영자 SSH tunnel로 제한한다.
+- Fluent Bit → Logstash 구간은 전용 HTTP basic credential을 사용한다. 이 credential과 Kibana 암호화 키는 `elk` namespace의 별도 Secret으로 관리한다.
+- Product Service의 Elasticsearch HTTPS·인증 전환은 별도 담당자 가이드와 점검 작업으로 진행한다. 이 add-on 범위에서는 Product Service 내부 코드·설정을 수정하지 않는다.
 
 ## 19. 변경 규칙
 
