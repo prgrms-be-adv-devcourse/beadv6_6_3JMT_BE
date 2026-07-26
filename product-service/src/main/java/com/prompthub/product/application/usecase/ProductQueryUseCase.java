@@ -12,6 +12,8 @@ public interface ProductQueryUseCase {
 
 	PageResponse<ProductListItemResponse> getProducts(String q, String productType, String sort, int page, int size);
 
+	List<String> suggest(String q);
+
 	ProductDetailResponse getProduct(UUID productId);
 
 	List<ProductListItemResponse> getRelatedProducts(UUID productId, int limit);

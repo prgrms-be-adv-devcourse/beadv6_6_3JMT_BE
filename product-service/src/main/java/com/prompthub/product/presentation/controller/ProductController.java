@@ -54,6 +54,11 @@ public class ProductController {
 		return productQueryUseCase.getProducts(q, productType, sort, page, size);
 	}
 
+	@GetMapping("/products/suggest")
+	public ApiResult<List<String>> suggest(@RequestParam(defaultValue = "") String q) {
+		return ApiResult.success(productQueryUseCase.suggest(q));
+	}
+
 	@PostMapping("/products")
 	@ResponseStatus(HttpStatus.CREATED)
 	public ApiResult<ProductCreateResponse> createProduct(

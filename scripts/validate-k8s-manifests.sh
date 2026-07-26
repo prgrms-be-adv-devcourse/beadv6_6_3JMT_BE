@@ -273,8 +273,8 @@ for package in "${PACKAGES[@]}"; do
       fi
     done
 
-    if ! require_literal_env "${rendered}" OPENAI_REASONING_EFFORT low; then
-      echo "AI reasoning effort must be low" >&2
+    if ! require_literal_env "${rendered}" OPENAI_REASONING_EFFORT none; then
+      echo "AI reasoning effort must be none" >&2
       exit 1
     fi
 
