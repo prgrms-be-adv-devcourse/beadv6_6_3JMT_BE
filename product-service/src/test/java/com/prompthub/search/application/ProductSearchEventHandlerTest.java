@@ -53,7 +53,8 @@ class ProductSearchEventHandlerTest {
 		FamilyUpsertInput expectedInput = new FamilyUpsertInput(onSale, 10L, 3L, 4.5, onSale.getCreatedAt());
 		given(processedEventRepository.existsByEventIdAndConsumerGroup(EVENT_ID, "product-service-search")).willReturn(false);
 		given(productRepository.findAllByFamilyRootIds(List.of(FAMILY_ROOT_ID))).willReturn(List.of(onSale));
-		given(familyStatsResolver.resolve(FAMILY_ROOT_ID, List.of(onSale), onSale)).willReturn(expectedInput);
+		given(productRepository.getAverageRating(FAMILY_ROOT_ID)).willReturn(4.5);
+		given(familyStatsResolver.resolve(List.of(onSale), onSale, 4.5)).willReturn(expectedInput);
 
 		handler.handleProductChanged(EVENT_ID, LocalDateTime.now(), FAMILY_ROOT_ID);
 
@@ -90,7 +91,8 @@ class ProductSearchEventHandlerTest {
 		given(processedEventRepository.existsByEventIdAndConsumerGroup(EVENT_ID, "product-service-search")).willReturn(false);
 		given(productRepository.findById(stoppedProductId)).willReturn(Optional.of(stopped));
 		given(productRepository.findAllByFamilyRootIds(List.of(FAMILY_ROOT_ID))).willReturn(List.of(stillOnSale, stopped));
-		given(familyStatsResolver.resolve(FAMILY_ROOT_ID, List.of(stillOnSale, stopped), stillOnSale)).willReturn(expectedInput);
+		given(productRepository.getAverageRating(FAMILY_ROOT_ID)).willReturn(4.0);
+		given(familyStatsResolver.resolve(List.of(stillOnSale, stopped), stillOnSale, 4.0)).willReturn(expectedInput);
 
 		handler.handleProductRemovalCandidate(EVENT_ID, LocalDateTime.now(), "PRODUCT_STOPPED", stoppedProductId);
 
