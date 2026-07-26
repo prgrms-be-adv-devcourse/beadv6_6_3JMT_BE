@@ -5,8 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
-import com.prompthub.admin.order.domain.model.SellerNickname;
-import com.prompthub.admin.order.infrastructure.persistence.SellerNicknameRepository;
+import com.prompthub.admin.order.entity.SellerNickname;
+import com.prompthub.admin.order.repository.SellerNicknameRepository;
 import com.prompthub.admin.product.application.dto.AdminProductListQuery;
 import com.prompthub.admin.product.application.dto.AdminProductPageResult;
 import com.prompthub.admin.product.domain.exception.ProductException;
