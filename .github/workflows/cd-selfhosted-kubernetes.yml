@@ -147,7 +147,8 @@ jobs:
       module-name: ${{ matrix.service }}
       module-path: ${{ matrix.service }}
       push-image: true
-      ecr-repository: prompthub-${{ matrix.service }}
+      ghcr-repository: prompthub-${{ matrix.service }}
+      image-tag: ${{ github.sha }}
     secrets: inherit
 
   deploy-applications:
