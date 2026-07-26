@@ -236,3 +236,18 @@ jobs:
 
           [ "$(jq 'length' <<< "$release_manifest")" -eq "$expected_count" ]
           echo "release_manifest=$release_manifest" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy Immutable Release
+    needs:
+      - planning
+      - ci-gate
+      - collect-release-manifest
+    if: >-
+      needs.planning.outputs.deploy == 'true' &&
+      needs.ci-gate.result == 'success' &&
+      needs.collect-release-manifest.result == 'success'
+    uses: ./.github/workflows/reusable-kubernetes-deploy.yml
+    with:
+      release-manifest: ${{ needs.collect-release-manifest.outputs.release_manifest }}
+      application-manifests-changed: ${{ needs.planning.outputs.application_manifests_changed == 'true' }}
