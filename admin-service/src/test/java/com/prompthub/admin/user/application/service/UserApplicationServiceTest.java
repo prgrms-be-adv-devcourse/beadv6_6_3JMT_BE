@@ -1,7 +1,6 @@
 package com.prompthub.admin.user.application.service;
 
-import com.prompthub.admin.auth.application.usecase.SessionRevocationUseCase;
-import com.prompthub.admin.auth.domain.repository.AuthorizationCacheRepository;
+import com.prompthub.admin.auth.service.AuthService;
 import com.prompthub.admin.global.exception.AdminException;
 import com.prompthub.admin.user.application.dto.ChangeUserRoleCommand;
 import com.prompthub.admin.user.application.dto.ChangeUserStatusCommand;
@@ -10,6 +9,7 @@ import com.prompthub.admin.user.application.dto.UserPageResult;
 import com.prompthub.admin.user.application.dto.UserRoleResult;
 import com.prompthub.admin.user.application.dto.UserStatusResult;
 import com.prompthub.admin.user.domain.model.User;
+import com.prompthub.admin.user.domain.model.UserProfile;
 import com.prompthub.admin.user.domain.model.UserRole;
 import com.prompthub.admin.user.domain.model.UserStatus;
 import com.prompthub.admin.user.domain.repository.UserRepository;
@@ -22,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -39,10 +40,7 @@ class UserApplicationServiceTest {
 	private UserRepository userRepository;
 
 	@Mock
-	private AuthorizationCacheRepository authorizationCacheRepository;
-
-	@Mock
-	private SessionRevocationUseCase sessionRevocationUseCase;
+	private AuthService authService;
 
 	@InjectMocks
 	private UserApplicationService userApplicationService;
@@ -69,8 +67,8 @@ class UserApplicationServiceTest {
 			new ChangeUserStatusCommand(userId, UserStatus.WITHDRAWN));
 
 		assertThat(result.status()).isEqualTo(UserStatus.WITHDRAWN);
-		then(sessionRevocationUseCase).should().revoke(userId);
-		then(authorizationCacheRepository).should(never()).evict(any());
+		then(authService).should().revoke(userId);
+		then(authService).should(never()).evictAuthorizationCache(any());
 	}
 
 	@Test
@@ -82,8 +80,8 @@ class UserApplicationServiceTest {
 
 		userApplicationService.changeUserStatus(new ChangeUserStatusCommand(userId, UserStatus.BLOCKED));
 
-		then(authorizationCacheRepository).should().evict(userId);
-		then(sessionRevocationUseCase).should(never()).revoke(any());
+		then(authService).should().evictAuthorizationCache(userId);
+		then(authService).should(never()).revoke(any());
 	}
 
 	@Test
@@ -109,7 +107,7 @@ class UserApplicationServiceTest {
 
 		assertThat(result.role()).isEqualTo(UserRole.SELLER);
 		assertThat(user.getRoles()).contains(UserRole.BUYER, UserRole.SELLER);
-		then(authorizationCacheRepository).should().evict(userId);
+		then(authService).should().evictAuthorizationCache(userId);
 	}
 
 	@Test
@@ -136,6 +134,53 @@ class UserApplicationServiceTest {
 		assertThatThrownBy(() ->
 			userApplicationService.changeUserRole(new ChangeUserRoleCommand(userId, UserRole.SELLER)))
 			.isInstanceOf(AdminException.class);
+	}
+
+	@Test
+	void 이름조회는_ID를_중복제거해_한번에_조회한다() throws Exception {
+		UUID userId = UUID.randomUUID();
+		User user = newUser(userId, UserStatus.ACTIVE);
+		given(userRepository.findAllByIds(List.of(userId))).willReturn(List.of(user));
+
+		Map<UUID, String> result = userApplicationService.findNamesByIds(List.of(userId, userId));
+
+		assertThat(result).containsEntry(userId, "테스트유저");
+		then(userRepository).should().findAllByIds(List.of(userId));
+	}
+
+	@Test
+	void 빈ID목록으로_이름을_조회하면_저장소를_호출하지_않는다() {
+		assertThat(userApplicationService.findNamesByIds(List.of())).isEmpty();
+		then(userRepository).shouldHaveNoInteractions();
+	}
+
+	@Test
+	void 키워드로_이름이_일치하는_사용자ID_목록을_조회한다() throws Exception {
+		UUID userId = UUID.randomUUID();
+		User user = newUser(userId, UserStatus.ACTIVE);
+		given(userRepository.findByNameContainingIgnoreCase("판매자")).willReturn(List.of(user));
+
+		List<UUID> result = userApplicationService.findIdsByNameContainingIgnoreCase("판매자");
+
+		assertThat(result).containsExactly(userId);
+	}
+
+	@Test
+	void 프로필조회는_ID를_중복제거해_한번에_조회한다() {
+		UUID userId = UUID.randomUUID();
+		UserProfile profile = new UserProfile(userId, "구매자A", "https://cdn.example.com/a.png");
+		given(userRepository.findProfilesByIds(List.of(userId))).willReturn(List.of(profile));
+
+		Map<UUID, UserProfile> result = userApplicationService.findProfilesByIds(List.of(userId, userId));
+
+		assertThat(result).containsEntry(userId, profile);
+		then(userRepository).should().findProfilesByIds(List.of(userId));
+	}
+
+	@Test
+	void 빈ID목록으로_프로필을_조회하면_저장소를_호출하지_않는다() {
+		assertThat(userApplicationService.findProfilesByIds(List.of())).isEmpty();
+		then(userRepository).shouldHaveNoInteractions();
 	}
 
 	// 테스트 전용 헬퍼 — User는 domain-model.md 정책상 public 생성자/빌더가 없으므로

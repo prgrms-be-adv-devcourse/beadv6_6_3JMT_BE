@@ -22,6 +22,8 @@ public interface UserJpaRepository extends JpaRepository<User, UUID>, JpaSpecifi
 		""")
 	List<UserProfileProjection> findProfilesByIds(@Param("userIds") List<UUID> userIds);
 
+	List<User> findByNameContainingIgnoreCase(String name);
+
 	interface UserProfileProjection {
 		UUID getUserId();
 		String getName();
