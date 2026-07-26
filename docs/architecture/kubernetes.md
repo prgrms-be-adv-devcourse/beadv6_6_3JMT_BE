@@ -303,21 +303,20 @@ Fluent Bit은 `/var/log/containers/apigateway-*_prompthub_apigateway-*.log`만 �
 | `product-service` | Deployment | 1 | HTTP 8082 → 18082, gRPC 9082 → 9082 | `PRODUCT-SERVICE` | 기존 모듈 |
 | `order-service` | Deployment | 1 | HTTP 8083 → 18083, gRPC 9083 → 9083 | `ORDER-SERVICE` | 기존 모듈 |
 | `payment-service` | Deployment | 1 | HTTP 8084 → 18084, gRPC 9084 → 9084 | `PAYMENT-SERVICE` | 기존 gRPC 서버 포함 |
-| `settlement-service` | Deployment | 1 | HTTP 8085 → 18085 | `SETTLEMENT-SERVICE` | 현재 gRPC 클라이언트만 사용 |
+| `settlement-weekly` | CronJob | 스케줄당 Job 1개 | Service 없음(Web application 비활성) | 등록하지 않음 | 매주 월요일 00:00 KST, order gRPC client와 Kafka producer |
 | `admin-service` | Deployment | 1 | HTTP 8086 → 18086 | `ADMIN-SERVICE` | 기존 모듈 |
-| `spring-ai-service` | Deployment | 1 | HTTP 8087 → 18087 | `SPRING-AI-SERVICE` | 구현·이미지 준비 필요 |
+| `ai-service` | Deployment | 1 | HTTP 8087 → 18087 | `AI-SERVICE` | User gRPC client, Redis DB 1, OpenAI Tool Calling과 SSE |
 | `apigateway` | Deployment | 1 | 8000 → 8000 | `APIGATEWAY` | 기존 모듈 |
 
 HTTP Service의 808x 포트는 기존 내부 호출 계약을 유지하고, 1808x `targetPort`는 Config Server의 현재 `server.port`를 따른다.
 
-Payment는 `PaymentQueryGrpcService` 구현과 gRPC server starter를 가지므로 9084를 Service로 노출한다. Deployment가 `runtime-secret`의 `PAYMENT_GRPC_SERVER_PORT`를 Spring 표준 환경변수 `SPRING_GRPC_SERVER_PORT`로 주입한다. Settlement는 현재 gRPC 클라이언트만 사용하므로 서버 포트 환경변수와 Kubernetes Service의 9085 노출을 두지 않는다.
+Payment는 `PaymentQueryGrpcService` 구현과 gRPC server starter를 가지므로 9084를 Service로 노출한다.
+Settlement는 상시 Deployment가 아니라 `settlement-weekly` CronJob으로 실행하며
+`--spring.main.web-application-type=none`과 Eureka 비활성 설정을 사용한다.
 
-Spring AI는 현재 저장소에 모듈이 없다. 다음 조건을 충족한 이미지가 준비되기 전에는 해당 패키지를 base의 최종 `kustomization.yaml`에 포함하지 않는다.
-
-- 이미지: `ghcr.io/prgrms-be-adv-devcourse/prompthub-spring-ai-service:<git-sha>`
-- `SPRING-AI-SERVICE`로 Eureka 등록
-- HTTP 18087과 Actuator health endpoint 제공
-- `OPENAI_API_KEY`를 `spring-ai-secret`에서 주입
+AI 서비스는 `k8s/base/services/ai`에 Deployment와 Service가 포함돼 있다. `ai-secret`의
+`OPENAI_API_KEY`와 `AI_USER_GRPC_TOKEN`을 주입하고, Config Server 기본값과 별도로 배포 매니페스트에서
+reasoning effort `low`, 채팅 활성화 `true`, Pod당 동시 실행 4건을 명시한다.
 
 ### 8.4 Gateway 외부 노출
 
@@ -415,13 +414,17 @@ PostgreSQL 5432, Redis 6379, Kafka 9092·9093, Eureka 8761, Config 8888, 내부 
 | `jwt-secret` | `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY` | User, Gateway |
 | `payment-secret` | `TOSS_SECRET_KEY`, `TOSS_TEST_MODE` | Payment |
 | `product-secret` | AWS region, S3 bucket | Product |
+| `ai-secret` | `OPENAI_API_KEY`, `AI_USER_GRPC_TOKEN` | AI, User(gRPC 내부 호출 토큰) |
 | `ghcr-pull-secret` | Docker registry credential | GHCR 이미지를 쓰는 Pod |
 
 실제 Secret 파일은 mode 600으로 유지한다. 각 Pod는 필요한 key만 `secretKeyRef`로 참조하고 ServiceAccount token은 Kubernetes API 사용이 없으면 자동 mount하지 않는다.
 
 Product의 `S3Client`와 `S3Presigner`는 AWS SDK 기본 자격증명 체인을 사용한다. 현재 EC2 배포에서는 Large 인스턴스 역할로 S3에 접근하므로 `AWS_ACCESS_KEY_ID`와 `AWS_SECRET_ACCESS_KEY`를 Pod에 주입하지 않는다. `product-secret`에는 Config Server가 읽는 region과 bucket만 두며, Large의 인스턴스 역할에 필요한 S3 권한이 있어야 한다.
 
-예시에는 현재 Config Server의 필수 placeholder와 검토가 끝난 비-Config 런타임 key만 둔다. `scripts/validate-k8s-secret-contract.sh`는 필수 Config placeholder 누락, 실제 매니페스트 소비처가 없는 key, 승인 목록에 없는 비-Config key를 차단한다. Spring AI 모듈과 Deployment가 구현되면 같은 변경에서 `spring-ai-secret`과 `OPENAI_API_KEY` 예시를 추가한다.
+예시에는 현재 Config Server의 필수 placeholder와 검토가 끝난 비-Config 런타임 key만 둔다.
+`scripts/validate-k8s-secret-contract.sh`는 필수 Config placeholder 누락, 실제 매니페스트 소비처가 없는 key,
+승인 목록에 없는 비-Config key를 차단한다. `ai-secret`은
+`OPENAI_API_KEY`, `AI_USER_GRPC_TOKEN` 두 key만 가진다.
 
 ### 10.3 런타임 주소
 
@@ -537,6 +540,7 @@ k8s/
 │   │   ├── payment/
 │   │   ├── settlement/
 │   │   ├── admin/
+│   │   └── ai/
 │   └── gateway/
 │       ├── kustomization.yaml
 │       ├── deployment.yaml
@@ -552,7 +556,7 @@ k8s/
 └── README.md
 ```
 
-`services` 아래 각 워크로드 디렉터리는 기본적으로 다음 세 파일을 가진다.
+`services` 아래 상시 서비스 디렉터리는 기본적으로 다음 세 파일을 가진다.
 
 ```text
 <service>/
@@ -561,7 +565,8 @@ k8s/
 └── service.yaml
 ```
 
-Spring AI 패키지는 이미지와 모듈이 준비될 때 생성하고 상위 `services/kustomization.yaml`에 포함한다. 현재 트리와 Secret 예시에는 구현되지 않은 Spring AI 리소스를 미리 두지 않는다.
+`ai/`도 이 구조로 상위 `services/kustomization.yaml`에 포함된다. `settlement/`는 예외적으로
+`kustomization.yaml`과 `cronjob.yaml`만 가지며 ClusterIP Service와 Deployment를 만들지 않는다.
 
 PostgreSQL의 `init-configmap.yaml`은 루트 `docker-entrypoint-initdb.d/01-init-schemas-and-roles.sh`와 같은 내용을 사용한다. 초기화 스크립트를 바꾸면 두 배포 방식의 입력이 달라지지 않도록 ConfigMap 매니페스트도 같은 커밋에서 갱신하고 차이를 검사한다.
 
@@ -591,7 +596,8 @@ Base 이미지도 `latest`를 사용하지 않는다. 첫 구현 시 동작이 �
 ghcr.io/prgrms-be-adv-devcourse/prompthub-<module-name>:<short-git-sha>
 ```
 
-`<module-name>`은 저장소의 Gradle 모듈 이름을 사용한다. 예외로 Spring AI는 8.2절에 정의한 예약 이름을 사용한다.
+`<module-name>`은 저장소의 Gradle 모듈 이름을 사용한다. AI 이미지도 동일하게
+`prompthub-ai-service:<short-git-sha>`를 사용한다.
 
 ### 13.2 EC2 kubeadm overlay
 
@@ -798,7 +804,7 @@ Kubernetes CD는 `.github/workflows/cd-selfhosted-kubernetes.yml` 하나에서 �
 |---|---|---|
 | 수동 `workflow_dispatch`의 `infrastructure` | 운영자가 확인 문자열 `DEPLOY`를 입력하고 실행 | Namespace, StorageClass, PV/PVC, PostgreSQL, Redis, Kafka |
 | 수동 `workflow_dispatch`의 `ingress` | 운영자가 `DEPLOY`를 입력하고 Docker Gateway가 Large의 80을 반납한 뒤 실행 | F5 NGINX Ingress Controller, Gateway Ingress |
-| 자동 `push` | `develop` push | Config, Discovery, 비즈니스 서비스 6개, API Gateway의 변경된 이미지와 애플리케이션 매니페스트 |
+| 자동 `push` | `develop` push | Config, Discovery, 상시 서비스 Deployment, Settlement CronJob, API Gateway의 변경된 이미지와 애플리케이션 매니페스트 |
 
 수동 배포는 SSH에서 명령을 하나씩 실행한다는 뜻이 아니다. 운영자가 GitHub Actions의 `Run workflow`로 위험도가 높은 대상을 승인하면 self-hosted runner가 정해진 `kubectl` 명령과 rollout 검증을 실행한다. 일반 코드 push는 상태 저장 인프라와 Ingress Controller를 수정하지 않는다.
 
@@ -808,10 +814,13 @@ Kubernetes CD는 `.github/workflows/cd-selfhosted-kubernetes.yml` 하나에서 �
 
 1. 변경된 모듈과 애플리케이션 매니페스트를 별도로 감지한다. 공통 빌드 파일, `common-module`, Kubernetes 플랫폼·서비스·Gateway 매니페스트 또는 Kubernetes CD 워크플로가 바뀌면 모든 애플리케이션 이미지를 대상으로 한다. Kubernetes CD 워크플로 변경은 이전 실행에서 적용하지 못한 선언 상태도 복구할 수 있도록 애플리케이션 매니페스트 변경으로도 분류한다. 따라서 최초 CD 전환 PR을 `develop`에 머지하면 애플리케이션 전체가 첫 배포 대상이 된다.
 2. 기존 `reusable-docker-build.yml`을 사용해 GHCR에 불변 커밋 SHA 태그를 push한다. `latest`는 Kubernetes rollout 입력으로 사용하지 않는다.
-3. self-hosted runner는 대상 클러스터 context와 `prompthub` Namespace의 `postgres-secret`, `runtime-secret`, `jwt-secret`, `payment-secret`, `product-secret`, `ghcr-pull-secret`을 확인한다.
+3. self-hosted runner는 대상 클러스터 context와 `prompthub` Namespace의 `postgres-secret`, `runtime-secret`, `jwt-secret`, `payment-secret`, `product-secret`, `ai-secret`, `ghcr-pull-secret`을 확인한다.
 4. 최초 애플리케이션 준비 단계는 누락된 Deployment, Service와 정산 CronJob의 존재만 보장하며 기존 Deployment의 rollout 완료를 선행조건으로 삼지 않는다. 플랫폼·서비스·Gateway 매니페스트 또는 Kubernetes CD 워크플로가 변경되면 상태 저장 인프라와 Ingress를 제외한 `overlays/ec2-kubeadm/applications`를 새 Git SHA image tag와 함께 server-side dry-run 후 적용한다. 따라서 기존 Deployment가 실패한 상태여도 교정 매니페스트를 먼저 적용할 수 있다. 매니페스트가 바뀌지 않은 일반 코드 배포는 변경된 Deployment의 이미지만 교체한다.
 5. 각 Deployment에 `kubectl rollout status`를 실행한다. 실패하면 적용 전 Pod template snapshot과 비교해 이번 실행에서 바뀐 기존 Deployment만 `kubectl rollout undo`로 직전 ReplicaSet에 복구하고, 이번 실행에서 처음 만든 Deployment는 삭제한다. Service처럼 ReplicaSet에 포함되지 않는 선언은 수정 커밋을 되돌린 뒤 CD를 다시 실행해 복구한다.
-6. 애플리케이션 매니페스트 변경 없이 Config 이미지만 바뀌면 Config rollout 성공 후 `user-service`, `product-service`, `order-service`, `payment-service`, `settlement-service`, `admin-service`, `apigateway`를 순차 재시작한다. 매니페스트 변경 경로에서는 모든 소비자 Deployment가 새 image tag와 함께 rollout되므로 별도 재시작하지 않는다.
+6. 애플리케이션 매니페스트 변경 없이 Config 이미지만 바뀌면 Config rollout 성공 후 `user-service`,
+   `product-service`, `order-service`, `payment-service`, `admin-service`, `ai-service`, `apigateway`를
+   순차 재시작한다. Settlement CronJob은 다음 Job부터 새 Config를 읽는다. 매니페스트 변경 경로에서는
+   모든 소비자 Deployment가 새 image tag와 함께 rollout되므로 별도 재시작하지 않는다.
 
 `revisionHistoryLimit: 1`은 현재 ReplicaSet 외에 직전 1개를 남기므로 한 단계 rollback을 지원한다. 자동 CD는 전체 `ec2-kubeadm` overlay를 적용하지 않고 `applications` 하위 패키지만 사용하므로 상태 저장 리소스나 Ingress를 함께 변경하지 않는다.
 

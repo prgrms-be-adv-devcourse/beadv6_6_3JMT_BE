@@ -119,6 +119,8 @@ spec:
                 secretKeyRef:
                   name: runtime-secret
                   key: KAFKA_BOOTSTRAP_SERVERS
+            - name: USER_SETTLEMENT_KAFKA_LISTENER_ENABLED
+              value: "true"
             - name: JWT_PRIVATE_KEY
               valueFrom:
                 secretKeyRef:
@@ -139,6 +141,11 @@ spec:
                 secretKeyRef:
                   name: runtime-secret
                   key: USER_GRPC_SERVER_PORT
+            - name: AI_USER_GRPC_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ai-secret
+                  key: AI_USER_GRPC_TOKEN
             - name: PRODUCT_GRPC_SERVER_PORT
               valueFrom:
                 secretKeyRef:

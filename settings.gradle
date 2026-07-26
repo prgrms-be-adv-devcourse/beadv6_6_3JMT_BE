@@ -1,6 +1,7 @@
 rootProject.name = 'prompthub-be'
 
 include 'admin-service'
+include 'ai-service'
 include 'apigateway'
 include 'common-module'
 include 'config'

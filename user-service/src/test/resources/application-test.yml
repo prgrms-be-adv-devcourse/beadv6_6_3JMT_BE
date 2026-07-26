@@ -32,6 +32,9 @@ eureka:
     enabled: false
 
 user:
+  grpc:
+    seller-settlement:
+      internal-token: test-ai-user-token
   kafka:
     consumer:
       settlement:
@@ -39,3 +42,7 @@ user:
     listener:
       settlement:
         enabled: false
+
+grpc:
+  server:
+    enabled: false

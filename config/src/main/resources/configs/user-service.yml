@@ -46,4 +46,10 @@ user:
         topic: settlement-events
     listener:
       settlement:
-        enabled: false   # 통합 검증 시 true
+        enabled: ${USER_SETTLEMENT_KAFKA_LISTENER_ENABLED:false}
+    dlt:
+      slack:
+        webhook-url: ${SETTLEMENT_DLT_SLACK_WEBHOOK_URL:}
+  grpc:
+    seller-settlement:
+      internal-token: ${AI_USER_GRPC_TOKEN}

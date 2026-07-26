@@ -26,6 +26,7 @@
 payment-service → order-service
 order-service → settlement-service
 order-service → product-service
+settlement-service → user-service
 ```
 
 ---
@@ -97,6 +98,17 @@ public record EventMessage<T>(
 | `aggregateType` | `String`        | 필수 | 이벤트 대상 도메인. 예: `ORDER`, `PAYMENT`, `PRODUCT`, `SETTLEMENT` |
 | `aggregateId`   | `UUID`          | 필수 | 이벤트 대상 식별자. 예: `orderId`, `paymentId`, `productId`         |
 | `payload`       | `T`             | 필수 | 이벤트별 상세 데이터                                                |
+
+---
+
+### 5.1 Payload 버전
+
+공통 `EventMessage<T>` 자체의 버전이 아니라, 호환성 관리가 필요한 payload 안에 `payloadVersion`을 둔다.
+Consumer는 먼저 JSON tree에서 버전을 확인한 뒤 해당 버전 타입으로 역직렬화한다.
+
+현재 `SETTLEMENT_CREATED` 생산자는 V2만 발행한다. User 소비자는 변경 이력을 남기기 위해 V1 코드도
+유지하지만 신규 V1 유입은 전제하지 않는다. 버전이 없으면 legacy V1으로 해석하고, 지원하지 않는 버전은
+재시도 후 `settlement-events.DLT`로 보낸다.
 
 ---
 
@@ -308,6 +320,9 @@ payment-events.DLT
 
 order-events
 order-events.DLT
+
+settlement-events
+settlement-events.DLT
 ```
 
 ### DLT로 보내는 경우

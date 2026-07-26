@@ -18,6 +18,7 @@ import com.prompthub.apigateway.client.AuthorizeDeniedException;
 import com.prompthub.apigateway.client.AuthorizeResult;
 import com.prompthub.apigateway.client.AuthorizeUnavailableException;
 import com.prompthub.apigateway.client.GatewayRole;
+import com.prompthub.apigateway.config.GatewayRouteAccessPolicy;
 import com.prompthub.apigateway.config.GatewayRoutePolicyProperties;
 
 import reactor.core.publisher.Mono;
@@ -73,8 +74,9 @@ public class ForwardAuthFilter implements GlobalFilter, Ordered {
         exchange.getAttributes().put(USER_ROLE_ATTRIBUTE, result.role());
 
         String path = exchange.getRequest().getPath().value();
-        Optional<GatewayRole> requiredRole = RoutePolicyResolver.requiredRole(path, routePolicyProperties);
-        if (requiredRole.isPresent() && result.role().ordinal() < requiredRole.get().ordinal()) {
+        Optional<GatewayRouteAccessPolicy> requiredPolicy =
+                RoutePolicyResolver.requiredPolicy(path, routePolicyProperties);
+        if (requiredPolicy.isPresent() && !requiredPolicy.orElseThrow().allows(result.role())) {
             return reject(exchange, HttpStatus.FORBIDDEN);
         }
 

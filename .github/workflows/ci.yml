@@ -23,6 +23,7 @@ jobs:
     if: github.event.pull_request.draft == false
     outputs:
       user_service:       ${{ steps.filter.outputs.user_service_any_changed }}
+      ai_service:         ${{ steps.filter.outputs.ai_service_any_changed }}
       product_service:    ${{ steps.filter.outputs.product_service_any_changed }}
       payment_service:    ${{ steps.filter.outputs.payment_service_any_changed }}
       order_service:      ${{ steps.filter.outputs.order_service_any_changed }}
@@ -44,6 +45,10 @@ jobs:
           files_yaml: |
             user_service:
               - user-service/**
+              - grpc/user/**
+            ai_service:
+              - ai-service/**
+              - grpc/user/**
             product_service:
               - product-service/**
             payment_service:
@@ -70,6 +75,14 @@ jobs:
     with:
       module-name: user-service
       module-path: user-service
+
+  ai_service_ci:
+    needs: changes
+    if: needs.changes.outputs.ai_service == 'true' || needs.changes.outputs.common_module == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: ai-service
+      module-path: ai-service
 
   product_service_ci:
     needs: changes
@@ -147,6 +160,7 @@ jobs:
     needs:
       - changes
       - user_service_ci
+      - ai_service_ci
       - product_service_ci
       - payment_service_ci
       - order_service_ci

@@ -1,0 +1,42 @@
+{
+  "eventId": "0f6edb38-73be-4f65-9cc4-20889b0b8461",
+  "eventType": "SETTLEMENT_CREATED",
+  "occurredAt": "2026-07-20T01:12:03",
+  "aggregateType": "SETTLEMENT",
+  "aggregateId": "92fa7fd2-cd34-4ce3-89db-8381096e837b",
+  "payload": {
+    "payloadVersion": 2,
+    "settlementId": "92fa7fd2-cd34-4ce3-89db-8381096e837b",
+    "sellerId": "7c0ae024-86fa-4497-8be1-1440ce8f65de",
+    "periodStart": "2026-07-13",
+    "periodEnd": "2026-07-19",
+    "productCount": 1,
+    "totalAmount": 100.00,
+    "settlementTotalAmount": 51.00,
+    "feeTotalAmount": 9.00,
+    "refundAmount": 40.00,
+    "calculatedAt": "2026-07-20T01:12:02",
+    "details": [
+      {
+        "settlementDetailId": "bba2a583-599e-41a9-88bf-4521c4b5302f",
+        "orderProductId": "286d2ad4-09ff-493c-9013-07becf3db364",
+        "lineType": "SALE",
+        "lineAmount": 100.00,
+        "feeRate": 0.1500,
+        "feeAmount": 15.00,
+        "lineSettlementAmount": 85.00,
+        "occurredAt": "2026-07-14T13:10:00"
+      },
+      {
+        "settlementDetailId": "21f48bec-7b00-44b4-9d8f-5767141a759b",
+        "orderProductId": "286d2ad4-09ff-493c-9013-07becf3db364",
+        "lineType": "REFUND",
+        "lineAmount": -40.00,
+        "feeRate": 0.1500,
+        "feeAmount": -6.00,
+        "lineSettlementAmount": -34.00,
+        "occurredAt": "2026-07-17T09:20:00"
+      }
+    ]
+  }
+}

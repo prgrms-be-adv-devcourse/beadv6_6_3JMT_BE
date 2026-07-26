@@ -59,6 +59,20 @@ class VersionedRouteDefinitionLocatorTest {
     }
 
     @Test
+    void ai_정산은_v2만_AI_service로_라우팅된다() {
+        Map<String, List<String>> config = new LinkedHashMap<>();
+        config.put("ai-service", List.of("v2"));
+
+        List<RouteDefinition> definitions = VersionedRouteDefinitionLocator.buildRouteDefinitions(propertiesOf(config));
+
+        RouteDefinition route = routeById(definitions, "ai-service");
+        assertThat(route.getUri().toString()).isEqualTo("lb://AI-SERVICE");
+        assertThat(route.getOrder()).isEqualTo(5);
+        assertThat(pathPredicateValue(route)).contains("/api/v2/ai/settlement/**");
+        assertThat(pathPredicateValue(route)).doesNotContain("/api/v1/");
+    }
+
+    @Test
     void 서비스_키가_없으면_라우트가_생성되지_않는다_즉_404() {
         Map<String, List<String>> config = new LinkedHashMap<>();
         config.put("order-service", List.of("v1"));
