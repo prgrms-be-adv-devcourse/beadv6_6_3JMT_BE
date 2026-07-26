@@ -12,6 +12,7 @@
 
 ```bash
 kubectl kustomize k8s/addons/nginx-ingress
+kubectl kustomize k8s/addons/elk
 kubectl kustomize k8s/base/storage
 kubectl kustomize k8s/base/infrastructure
 kubectl kustomize k8s/base/platform
@@ -28,7 +29,7 @@ kubectl kustomize k8s/overlays/ec2-kubeadm
 bash scripts/validate-k8s-manifests.sh
 ```
 
-스크립트는 모든 패키지가 렌더링되는지, `latest` 이미지나 미정 placeholder가 없는지, 실제 Secret이 base에 포함되지 않는지를 확인한다. 자동 CD용 `applications` 패키지가 Deployment 8개, Service 8개와 `CronJob/settlement-weekly` 1개만 포함하는지도 검사한다. Ingress Controller의 host network·이미지 digest·필수 인자와 EC2 kubeadm overlay의 Gateway Ingress를 검사하고 NodePort·LoadBalancer 회귀를 차단한다. 또한 Kubernetes CD의 자동·수동 배포 경계, rollback 명령과 기존 Compose CD의 자동 trigger 비활성 상태를 검사한다.
+스크립트는 모든 패키지가 렌더링되는지, `latest` 이미지나 미정 placeholder가 없는지, 실제 Secret이 base에 포함되지 않는지를 확인한다. 자동 CD용 `applications` 패키지가 Deployment 8개, Service 8개와 `CronJob/settlement-weekly` 1개만 포함하는지도 검사한다. ELK의 Local PV, Gateway 전용 Fluent Bit 경로, 14일 ILM과 Product Service 전환 전 Elasticsearch security disabled 계약도 검사한다. Ingress Controller의 host network·이미지 digest·필수 인자와 EC2 kubeadm overlay의 Gateway Ingress를 검사하고 NodePort·LoadBalancer 회귀를 차단한다. 또한 Kubernetes CD의 자동·수동 배포 경계, rollback 명령과 기존 Compose CD의 자동 trigger 비활성 상태를 검사한다.
 
 Kafka Pod는 `enableServiceLinks: false`를 유지한다. 이 값을 제거하면 Kubernetes가 `kafka` Service에서 `KAFKA_PORT=tcp://...`를 자동 생성하고, Confluent 이미지가 이를 레거시 설정으로 해석해 시작 단계에서 종료한다.
 
@@ -45,6 +46,13 @@ mode: 600
 
 ```bash
 kubectl apply -f /home/ubuntu/prompthub-secrets/secret.yaml
+```
+
+Gateway access 로그용 ELK Secret은 별도 파일로 관리한다. `k8s/templates/elk-secrets.example.yaml`의 key와 객체 이름을 따르며, 실제 파일에는 Kibana 암호화 키와 Fluent Bit이 Logstash HTTP input에 인증할 비밀번호를 넣는다.
+
+```text
+/home/ubuntu/prompthub-secrets/elk-secret.yaml
+mode: 600
 ```
 
 Private GHCR 이미지를 배포하기 전에는 `read:packages` 권한을 가진 장기 credential로 `ghcr-pull-secret`을 준비한다. GitHub Actions 작업용 `GITHUB_TOKEN`은 장기 image pull credential로 사용하지 않는다.
@@ -64,6 +72,40 @@ kubectl -n prompthub get secret \
 ```
 
 하나라도 `NotFound`면 platform·services·gateway 또는 전체 EC2 kubeadm overlay를 실제 적용하지 않는다.
+
+## ELK 수동 배포
+
+ELK는 API Gateway access 로그 관측용 add-on이며 자동 CD 대상이 아니다. Elasticsearch가 Product Service 검색 인덱스도 함께 사용하므로, Product Service의 HTTPS·인증 전환이 완료되기 전까지 Elasticsearch HTTP와 security disabled 상태를 유지한다. 이 상태에서는 Elasticsearch와 Kibana를 외부에 공개하지 않고, ClusterIP 또는 운영자 SSH tunnel만 사용한다.
+
+Control Plane에서 적용 전에 Elasticsearch Local PV 경로와 커널 값을 준비한다.
+
+```bash
+sudo install -d -m 0750 /var/lib/prompthub/elasticsearch
+sudo chown 1000:1000 /var/lib/prompthub/elasticsearch
+sudo sysctl -w vm.max_map_count=1048576
+sudo sh -c 'printf "vm.max_map_count=1048576\\n" > /etc/sysctl.d/99-prompthub-elasticsearch.conf'
+sudo sysctl --system
+```
+
+`free -h`, `df -h`, `kubectl describe node k8s-control-plane`으로 PostgreSQL·Redis·ELK requests와 Control Plane/OS의 1.5GiB 이상 여유를 확인한다. 여유가 없으면 적용하지 않고 EC2 용량을 먼저 조정한다.
+
+이미 `elk` namespace에 `deployment/elasticsearch`가 실행 중이면 아래의 새 StatefulSet을 바로 적용하지 않는다. 동일 이름의 Deployment와 StatefulSet이 공존하면 Service가 두 Pod를 모두 선택할 수 있고, 기존 `emptyDir` 데이터가 있는 Pod를 교체하면 `products-v1`을 포함한 기존 인덱스를 잃을 수 있다. 먼저 Product Service 담당자와 점검 시간을 정하고, Elasticsearch snapshot 또는 검증된 export·restore 절차로 기존 인덱스의 복구본을 만든 뒤 복구를 확인한다. 이 전환은 별도 운영 작업으로 승인한 뒤 수행하며, 자동 CD나 이 add-on의 일반 rollout에 포함하지 않는다.
+
+새 설치이거나 위 전환 작업으로 기존 Elasticsearch Deployment가 안전하게 정리된 경우에만 다음을 실행한다.
+
+```bash
+kubectl create namespace elk --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -f /home/ubuntu/prompthub-secrets/elk-secret.yaml
+kubectl apply --dry-run=client -k k8s/addons/elk
+kubectl apply --server-side --dry-run=server -k k8s/addons/elk
+kubectl apply -k k8s/addons/elk
+kubectl -n elk rollout status statefulset/elasticsearch --timeout=10m
+kubectl -n elk rollout status deployment/logstash --timeout=10m
+kubectl -n elk rollout status deployment/kibana --timeout=10m
+kubectl -n elk rollout status daemonset/fluent-bit --timeout=10m
+```
+
+배포 후 정상 요청, 401, 404, 500, 503을 호출해 Kibana에서 `gateway.eventType: GATEWAY_ACCESS`와 응답 `X-Request-Id`가 일치하는지 확인한다. `gateway-access-*`만 14일 후 삭제되고 `products-v1`은 유지되는지도 확인한다. Elasticsearch 보안 전환은 Product Service 담당자가 HTTPS CA·인증을 지원한 뒤 별도 이슈와 점검 시간으로 진행한다.
 
 ## GitHub Actions CD
 
