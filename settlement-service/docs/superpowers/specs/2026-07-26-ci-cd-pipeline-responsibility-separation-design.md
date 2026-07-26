@@ -30,7 +30,7 @@ GHCR에 push한 뒤 Kubernetes에 배포한다.
 ## 3. 비목표
 
 - 기존 PR CI의 trigger, 변경 감지 기준이나 통과 조건을 바꾸지 않는다.
-- `main` 대상 `ci-main.yml`의 검증 정책을 바꾸지 않는다.
+- `main` 대상 `ci-main.yml`의 검증 정책을 바꾸지 않는다. GHCR 입력명 변경에 따른 호출부만 수정한다.
 - Compose CD의 자동 trigger를 다시 활성화하지 않는다.
 - 운영 환경용 승인 배포나 release/tag 전략을 추가하지 않는다.
 - Kubernetes 상태 저장 인프라, Secret, Ingress 배포 방식을 바꾸지 않는다.
@@ -72,13 +72,13 @@ artifact 또는 API로 전달해야 하고, `head_sha`, 권한, 재실행과 중
 | 파일 | 변경 후 책임 |
 | --- | --- |
 | `.github/workflows/ci.yml` | 기존 `develop` 대상 PR 빌드·테스트. 변경하지 않는다. |
-| `.github/workflows/ci-main.yml` | 기존 `main` PR과 `infra` push 검증. 변경하지 않는다. |
+| `.github/workflows/ci-main.yml` | 기존 검증 동작 유지. Docker workflow의 GHCR 입력명만 변경 |
 | `.github/workflows/reusable-build.yml` | PR CI와 Release CI가 함께 쓰는 모듈별 Gradle 빌드·테스트 |
 | `.github/workflows/release-develop.yml` | 신규. 변경 감지, Release CI Gate, 이미지 발행, CD 호출 |
 | `.github/workflows/reusable-docker-build.yml` | CI가 호출하는 모듈별 이미지 빌드·GHCR push |
 | `.github/workflows/reusable-kubernetes-deploy.yml` | 신규. 애플리케이션 배포, rollout 확인과 rollback |
 | `.github/workflows/cd-selfhosted-kubernetes.yml` | 상태 저장 인프라와 Ingress 수동 배포만 담당 |
-| `.github/workflows/cd-selfhosted-compose.yml` | 기존 수동 rollback 경로. 변경하지 않는다. |
+| `.github/workflows/cd-selfhosted-compose.yml` | 기존 수동 rollback 동작 유지. GHCR 입력명과 `latest` 호환 입력만 변경 |
 
 `cd-selfhosted-kubernetes.yml`의 자동 `develop` push trigger, 애플리케이션 변경 감지,
 `parallel-build-and-push`, `deploy-applications`는 제거한다. 애플리케이션 배포 구현은
@@ -131,6 +131,7 @@ planning job은 다음 출력을 만든다.
 config
 discovery
 user-service
+ai-service
 product-service
 order-service
 payment-service
@@ -138,6 +139,8 @@ settlement-service
 admin-service
 apigateway
 ```
+
+`grpc/user/**`가 바뀌면 계약 제공자인 `user-service`와 소비자인 `ai-service`를 함께 포함한다.
 
 다음 공통 입력이 바뀌면 모든 애플리케이션을 테스트하고 이미지를 다시 만든다.
 
@@ -180,12 +183,16 @@ Release CI Gate를 통과한 뒤 `image_matrix`의 이미지를 병렬로 빌드
 ghcr.io/<owner>/prompthub-<service>:<full-git-sha>
 ```
 
-`latest`는 발행하거나 배포 입력으로 사용하지 않는다. 같은 전체 Git SHA tag가 이미 존재하면
-덮어쓰지 않고 기존 digest를 재사용한다.
+Release CI는 `latest`를 발행하거나 배포 입력으로 사용하지 않는다. 전체 Git SHA tag는 source
+traceability를 제공하고, 실제 불변 배포 식별자는 해당 실행의 build 결과 digest를 사용한다.
 
 `reusable-docker-build.yml`의 실제 registry 입력 이름은 잘못된 `ecr-repository`에서
 `ghcr-repository`로 바꾼다. `packages: write`와 GHCR 로그인은 Release CI의 이미지 발행 경로에만
 허용한다.
+
+수동 Compose rollback은 현재 `docker-compose.yml`의 `latest` reference를 유지한다. 재사용 Docker
+workflow는 `publish-latest` 입력이 명시된 Compose 호출에서만 호환용 `latest` tag를 함께 발행한다.
+Kubernetes Release CI는 이 입력을 사용하지 않는다.
 
 ### 7.5 Release manifest
 
@@ -233,7 +240,8 @@ order대로 Deployment를 순차 갱신한다. `settlement-service`는 `CronJob/
 Job template 이미지만 갱신한다.
 
 Config 이미지가 바뀌고 애플리케이션 매니페스트가 바뀌지 않았으면, Config rollout 뒤 이미지가
-바뀌지 않은 소비 Deployment를 순차 재시작한다.
+바뀌지 않은 `user-service`, `product-service`, `order-service`, `payment-service`,
+`admin-service`, `ai-service`, `apigateway` Deployment를 순차 재시작한다.
 
 ### 8.4 매니페스트만 바뀐 배포
 
@@ -265,9 +273,9 @@ Config 이미지가 바뀌고 애플리케이션 매니페스트가 바뀌지 �
 현재 CD의 Deployment template snapshot, 신규 Deployment 추적, Config rollback 후 소비자 재시작과
 settlement CronJob 복구 로직을 유지한다.
 
-같은 GitHub Actions 실행을 재시도하면 기존 Git SHA tag와 digest metadata를 재사용한다. CD는
-workload의 현재 immutable image reference가 목표와 같으면 해당 이미지 갱신을 건너뛴다. 이미 성공한
-rollout을 불필요하게 반복하지 않는다.
+같은 GitHub Actions 실행을 재시도하면 같은 Git SHA tag로 이미지를 다시 검증·발행하고 그 실행에서
+확정된 digest metadata를 사용한다. CD는 workload의 현재 immutable image reference가 목표와 같으면
+해당 이미지 갱신을 건너뛴다. 이미 성공한 rollout을 불필요하게 반복하지 않는다.
 
 ## 10. 검증
 
@@ -281,7 +289,9 @@ rollout을 불필요하게 반복하지 않는다.
 - `reusable-kubernetes-deploy.yml`에 Docker build, GHCR login과 push가 없는지 확인한다.
 - `cd-selfhosted-kubernetes.yml`에 자동 `develop` push와 애플리케이션 배포가 남지 않았는지 확인한다.
 - Compose CD의 자동 trigger가 비활성 상태인지 확인한다.
-- `ecr-repository`, `latest`, 짧은 SHA 배포 입력이 남지 않았는지 확인한다.
+- Kubernetes Release CI와 애플리케이션 CD에 `ecr-repository`, `latest`, 짧은 SHA 입력이 남지
+  않았는지 확인한다.
+- 수동 Compose 호출만 `publish-latest: true`를 사용하고 자동 trigger는 비활성인지 확인한다.
 
 기존 `scripts/validate-k8s-cd-workflow.sh`는 분리된 Release CI와 reusable CD 계약을 함께 검증하도록
 수정한다.
