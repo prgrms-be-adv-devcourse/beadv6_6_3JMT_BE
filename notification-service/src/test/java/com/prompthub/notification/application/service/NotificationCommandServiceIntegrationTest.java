@@ -35,6 +35,8 @@ class NotificationCommandServiceIntegrationTest {
         assertThat(second.id()).isEqualTo(first.id());
         assertThat(second.sequence()).isEqualTo(first.sequence());
         assertThat(first.sequence()).isEqualTo(1L);
+        assertThat(first.created()).isTrue();
+        assertThat(second.created()).isFalse();
     }
 
     @Test

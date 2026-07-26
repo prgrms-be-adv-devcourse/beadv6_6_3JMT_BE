@@ -25,7 +25,7 @@ public class NotificationCommandService {
     public StoredNotification createIfAbsent(CreateNotificationCommand command) {
         return processedEventRepository.findByEventIdAndConsumerGroup(command.eventId(), command.consumerGroup())
             .map(event -> notificationRepository.findById(event.getNotificationId())
-                .map(notification -> new StoredNotification(notification.getId(), notification.getSequence()))
+                .map(notification -> new StoredNotification(notification.getId(), notification.getSequence(), false))
                 .orElseThrow(() -> new IllegalStateException("Processed notification is missing")))
             .orElseGet(() -> create(command));
     }
@@ -39,7 +39,7 @@ public class NotificationCommandService {
             command.message(), command.referenceType(), command.referenceId(), command.occurredAt()
         ));
         processedEventRepository.save(new ProcessedEvent(command.eventId(), command.consumerGroup(), notification.getId(), command.occurredAt()));
-        return new StoredNotification(notification.getId(), notification.getSequence());
+        return new StoredNotification(notification.getId(), notification.getSequence(), true);
     }
 
     @Transactional

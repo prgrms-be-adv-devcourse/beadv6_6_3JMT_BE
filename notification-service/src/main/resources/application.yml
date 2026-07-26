@@ -7,6 +7,11 @@ spring:
       - optional:file:.env[.properties]
 
 notification:
+  kafka:
+    order-topic: ${ORDER_EVENT_TOPIC:order-events}
+    consumer-group: ${ORDER_EVENT_CONSUMER_GROUP:notification-service}
+    retry-interval-ms: ${KAFKA_RETRY_INTERVAL_MS:1000}
+    max-retry-attempts: ${KAFKA_MAX_RETRY_ATTEMPTS:3}
   sse:
     max-connections-per-user: ${SSE_MAX_CONNECTIONS_PER_USER:5}
     timeout-millis: ${SSE_TIMEOUT_MILLIS:1800000}
