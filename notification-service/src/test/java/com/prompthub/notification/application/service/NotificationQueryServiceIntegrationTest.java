@@ -32,6 +32,18 @@ class NotificationQueryServiceIntegrationTest {
         assertThat(queryService.countUnread(ownerId)).isEqualTo(1L);
     }
 
+    @Test
+    void findsOnlyNotificationsCreatedAfterReconnectCursor() {
+        UUID ownerId = UUID.randomUUID();
+        create(ownerId);
+        create(ownerId);
+        create(UUID.randomUUID());
+
+        assertThat(queryService.findCreatedAfter(ownerId, 1L))
+            .extracting(NotificationItem::sequence)
+            .containsExactly(2L);
+    }
+
     private void create(UUID recipientId) {
         commandService.createIfAbsent(new CreateNotificationCommand(
             UUID.randomUUID(), recipientId, NotificationType.ORDER_PAID,

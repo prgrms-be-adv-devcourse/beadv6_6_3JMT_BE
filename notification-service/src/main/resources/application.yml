@@ -6,6 +6,12 @@ spring:
       - ${CONFIG_IMPORT:}
       - optional:file:.env[.properties]
 
+notification:
+  sse:
+    max-connections-per-user: ${SSE_MAX_CONNECTIONS_PER_USER:5}
+    timeout-millis: ${SSE_TIMEOUT_MILLIS:1800000}
+    heartbeat-interval-millis: ${SSE_HEARTBEAT_INTERVAL_MILLIS:30000}
+
 ---
 
 spring:
