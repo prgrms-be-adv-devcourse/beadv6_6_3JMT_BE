@@ -1,6 +1,5 @@
-package com.prompthub.admin.auth.infrastructure.persistence;
+package com.prompthub.admin.auth.repository;
 
-import com.prompthub.admin.auth.domain.repository.RefreshTokenRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
@@ -12,14 +11,13 @@ import java.util.UUID;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class RefreshTokenRepositoryAdapter implements RefreshTokenRepository {
+public class RefreshTokenRepository {
 
 	private static final String CACHE_KEY_PREFIX = "refresh_token:";
 
 	private final RefreshTokenJpaRepository refreshTokenJpaRepository;
 	private final StringRedisTemplate redisTemplate;
 
-	@Override
 	public void deleteByUserId(UUID userId) {
 		refreshTokenJpaRepository.deleteByUserId(userId);
 		evictCache(userId);
