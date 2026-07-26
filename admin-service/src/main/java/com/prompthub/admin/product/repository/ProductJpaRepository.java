@@ -1,0 +1,20 @@
+package com.prompthub.admin.product.repository;
+
+import com.prompthub.admin.product.entity.Product;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+public interface ProductJpaRepository extends JpaRepository<Product, UUID>, JpaSpecificationExecutor<Product> {
+
+	@Query("""
+		select p
+		from Product p
+		where p.id in :familyRootIds
+			or p.parentId in :familyRootIds
+		""")
+	List<Product> findAllByFamilyRootIds(@Param("familyRootIds") List<UUID> familyRootIds);
+}
