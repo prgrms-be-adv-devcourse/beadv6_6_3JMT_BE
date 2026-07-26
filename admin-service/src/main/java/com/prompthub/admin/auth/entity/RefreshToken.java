@@ -1,4 +1,4 @@
-package com.prompthub.admin.auth.domain.model;
+package com.prompthub.admin.auth.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

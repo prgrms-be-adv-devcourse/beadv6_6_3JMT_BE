@@ -1,6 +1,6 @@
-package com.prompthub.admin.auth.infrastructure.persistence;
+package com.prompthub.admin.auth.repository;
 
-import com.prompthub.admin.auth.domain.model.RefreshToken;
+import com.prompthub.admin.auth.entity.RefreshToken;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.UUID;

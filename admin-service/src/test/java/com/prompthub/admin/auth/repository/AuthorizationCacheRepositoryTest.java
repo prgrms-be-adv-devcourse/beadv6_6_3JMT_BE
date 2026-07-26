@@ -1,4 +1,4 @@
-package com.prompthub.admin.auth.infrastructure.redis;
+package com.prompthub.admin.auth.repository;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,7 +14,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 
 @ExtendWith(MockitoExtension.class)
-class RedisAuthorizationCacheAdapterTest {
+class AuthorizationCacheRepositoryTest {
 
 	private static final UUID USER_ID = UUID.randomUUID();
 	private static final String KEY = "user:authz:" + USER_ID;
@@ -22,8 +22,8 @@ class RedisAuthorizationCacheAdapterTest {
 	@Mock
 	private StringRedisTemplate redisTemplate;
 
-	private RedisAuthorizationCacheAdapter adapter() {
-		return new RedisAuthorizationCacheAdapter(redisTemplate);
+	private AuthorizationCacheRepository adapter() {
+		return new AuthorizationCacheRepository(redisTemplate);
 	}
 
 	@Test

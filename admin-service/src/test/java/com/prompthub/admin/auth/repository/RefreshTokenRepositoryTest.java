@@ -1,4 +1,4 @@
-package com.prompthub.admin.auth.infrastructure.persistence;
+package com.prompthub.admin.auth.repository;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,7 +11,7 @@ import java.util.UUID;
 import static org.mockito.BDDMockito.then;
 
 @ExtendWith(MockitoExtension.class)
-class RefreshTokenRepositoryAdapterTest {
+class RefreshTokenRepositoryTest {
 
 	@Mock
 	private RefreshTokenJpaRepository refreshTokenJpaRepository;
@@ -19,8 +19,8 @@ class RefreshTokenRepositoryAdapterTest {
 	@Mock
 	private StringRedisTemplate redisTemplate;
 
-	private RefreshTokenRepositoryAdapter adapter() {
-		return new RefreshTokenRepositoryAdapter(refreshTokenJpaRepository, redisTemplate);
+	private RefreshTokenRepository adapter() {
+		return new RefreshTokenRepository(refreshTokenJpaRepository, redisTemplate);
 	}
 
 	@Test
