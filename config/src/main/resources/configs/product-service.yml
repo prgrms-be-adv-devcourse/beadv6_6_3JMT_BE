@@ -60,4 +60,3 @@ prompthub:
 logging:
   level:
     com.prompthub.product: INFO
-    org.hibernate.SQL: DEBUG
