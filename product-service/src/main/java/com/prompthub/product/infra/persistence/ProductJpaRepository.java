@@ -137,6 +137,14 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 	long sumSalesCountByFamilyRootId(@Param("familyRootId") UUID familyRootId);
 
 	@Query("""
+		select coalesce(sum(p.viewCount), 0)
+		from Product p
+		where coalesce(p.parentId, p.id) = :familyRootId
+			and p.deletedAt is null
+		""")
+	long sumViewCountByFamilyRootId(@Param("familyRootId") UUID familyRootId);
+
+	@Query("""
 		select new com.prompthub.product.domain.model.projection.ProductListProjection(
 			p.id,
 			p.name,
