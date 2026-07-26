@@ -24,7 +24,7 @@ import com.prompthub.admin.settlement.dto.response.SettlementStatusResponse;
 import com.prompthub.admin.settlement.dto.response.SettlementSummaryResponse;
 import com.prompthub.admin.settlement.dto.response.SettlementWeeklyListResponse;
 import com.prompthub.admin.settlement.util.SettlementSummaryAggregator;
-import com.prompthub.admin.user.application.service.UserApplicationService;
+import com.prompthub.admin.user.service.UserService;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
@@ -44,7 +44,7 @@ public class SettlementService {
 	private final SettlementQueryRepository settlementQueryRepository;
 	private final SettlementMonthlyQueryRepository monthlyQueryRepository;
 	private final SettlementWeeklyQueryRepository weeklyQueryRepository;
-	private final UserApplicationService userApplicationService;
+	private final UserService userService;
 	private final SettlementRepository settlementRepository;
 	private final SettlementSourceRepository settlementSourceRepository;
 
@@ -60,7 +60,7 @@ public class SettlementService {
 			.distinct()
 			.toList();
 		Map<UUID, String> sellerNames =
-			userApplicationService.findNamesByIds(sellerIds);
+			userService.findNamesByIds(sellerIds);
 		sellerIds.stream()
 			.filter(sellerId -> !sellerNames.containsKey(sellerId))
 			.forEach(sellerId ->
@@ -78,7 +78,7 @@ public class SettlementService {
 			.toList();
 		Map<UUID, String> sellerNames = sellerIds.isEmpty()
 			? Map.of()
-			: userApplicationService.findNamesByIds(sellerIds);
+			: userService.findNamesByIds(sellerIds);
 		sellerIds.stream()
 			.filter(sellerId -> !sellerNames.containsKey(sellerId))
 			.forEach(sellerId ->
@@ -99,7 +99,7 @@ public class SettlementService {
 		List<Settlement> weeklySettlements = monthlyQueryRepository
 			.findWeeklySettlements(sellerId, settlementMonth);
 		Map<UUID, String> sellerNames =
-			userApplicationService.findNamesByIds(List.of(sellerId));
+			userService.findNamesByIds(List.of(sellerId));
 		String sellerName = sellerNames.get(sellerId);
 		if (sellerName == null) {
 			log.warn("정산 판매자명 조회 누락 - sellerId={}", sellerId);
