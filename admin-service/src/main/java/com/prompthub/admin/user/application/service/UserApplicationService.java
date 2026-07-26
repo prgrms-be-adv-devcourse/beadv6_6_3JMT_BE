@@ -14,7 +14,7 @@ import com.prompthub.admin.user.application.dto.UserSummaryResult;
 import com.prompthub.admin.user.domain.model.User;
 import com.prompthub.admin.user.domain.model.UserProfile;
 import com.prompthub.admin.user.domain.model.UserStatus;
-import com.prompthub.admin.user.domain.repository.UserRepository;
+import com.prompthub.admin.user.infrastructure.persistence.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

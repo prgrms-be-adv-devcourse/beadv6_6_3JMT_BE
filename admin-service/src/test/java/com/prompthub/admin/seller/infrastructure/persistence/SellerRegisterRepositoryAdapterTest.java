@@ -2,7 +2,6 @@ package com.prompthub.admin.seller.infrastructure.persistence;
 
 import com.prompthub.admin.seller.domain.model.SellerRegister;
 import com.prompthub.admin.seller.domain.model.SellerRegisterStatus;
-import com.prompthub.admin.seller.domain.repository.SellerRegisterRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -17,7 +16,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-@Import(SellerRegisterRepositoryAdapter.class)
+@Import(SellerRegisterRepository.class)
 @ActiveProfiles("test")
 @Sql("/sql/seller_registers.sql")
 class SellerRegisterRepositoryAdapterTest {

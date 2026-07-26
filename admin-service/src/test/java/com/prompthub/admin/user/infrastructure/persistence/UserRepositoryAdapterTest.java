@@ -4,7 +4,6 @@ import com.prompthub.admin.user.domain.model.User;
 import com.prompthub.admin.user.domain.model.UserProfile;
 import com.prompthub.admin.user.domain.model.UserRole;
 import com.prompthub.admin.user.domain.model.UserStatus;
-import com.prompthub.admin.user.domain.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -21,7 +20,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-@Import(UserRepositoryAdapter.class)
+@Import(UserRepository.class)
 @ActiveProfiles("test")
 @Sql("/sql/users.sql")
 class UserRepositoryAdapterTest {

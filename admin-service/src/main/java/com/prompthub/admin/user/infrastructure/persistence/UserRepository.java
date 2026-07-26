@@ -4,56 +4,48 @@ import com.prompthub.admin.user.domain.model.User;
 import com.prompthub.admin.user.domain.model.UserProfile;
 import com.prompthub.admin.user.domain.model.UserRole;
 import com.prompthub.admin.user.domain.model.UserStatus;
-import com.prompthub.admin.user.domain.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-@Component
+@Repository
 @RequiredArgsConstructor
-public class UserRepositoryAdapter implements UserRepository {
+public class UserRepository {
 
 	private final UserJpaRepository userJpaRepository;
 
-	@Override
 	public Optional<User> findById(UUID userId) {
 		return userJpaRepository.findById(userId);
 	}
 
-	@Override
 	public User save(User user) {
 		return userJpaRepository.save(user);
 	}
 
-	@Override
 	public List<User> findUsers(UserStatus status, UserRole role, String keyword, int page, int size) {
 		Specification<User> spec = buildSpec(status, role, keyword);
 		return userJpaRepository.findAll(spec, PageRequest.of(page, size)).getContent();
 	}
 
-	@Override
 	public long countUsers(UserStatus status, UserRole role, String keyword) {
 		Specification<User> spec = buildSpec(status, role, keyword);
 		return userJpaRepository.count(spec);
 	}
 
-	@Override
 	public long countCreatedBetween(LocalDateTime from, LocalDateTime to) {
 		return userJpaRepository.countByCreatedAtBetween(from, to);
 	}
 
-	@Override
 	public List<User> findAllByIds(List<UUID> userIds) {
 		return userJpaRepository.findAllById(userIds);
 	}
 
-	@Override
 	public List<UserProfile> findProfilesByIds(List<UUID> userIds) {
 		List<UUID> distinctIds = userIds.stream().distinct().toList();
 		if (distinctIds.isEmpty()) {
@@ -65,7 +57,6 @@ public class UserRepositoryAdapter implements UserRepository {
 			.toList();
 	}
 
-	@Override
 	public List<User> findByNameContainingIgnoreCase(String name) {
 		return userJpaRepository.findByNameContainingIgnoreCase(name);
 	}

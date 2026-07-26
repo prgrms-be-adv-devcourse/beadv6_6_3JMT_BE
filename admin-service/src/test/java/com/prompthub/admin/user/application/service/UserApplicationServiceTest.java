@@ -12,7 +12,7 @@ import com.prompthub.admin.user.domain.model.User;
 import com.prompthub.admin.user.domain.model.UserProfile;
 import com.prompthub.admin.user.domain.model.UserRole;
 import com.prompthub.admin.user.domain.model.UserStatus;
-import com.prompthub.admin.user.domain.repository.UserRepository;
+import com.prompthub.admin.user.infrastructure.persistence.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
