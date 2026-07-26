@@ -86,11 +86,14 @@ Flyway owns the new service schema.
 
 - `event_id` UUID
 - `consumer_group` string
+- `notification_id` UUID
 - `processed_at` timestamp
 - unique `(event_id, consumer_group)`
 
-The sequence is the SSE event id. Reconnect replay queries notifications for the
-authenticated recipient with a sequence greater than `Last-Event-ID`.
+`notification_recipient_sequence` stores one locked counter row per recipient
+to allocate the next sequence safely. The sequence is the SSE event id.
+Reconnect replay queries notifications for the authenticated recipient with a
+sequence greater than `Last-Event-ID`.
 
 ## HTTP and SSE API
 
