@@ -2,8 +2,8 @@ package com.prompthub.admin.order.service;
 
 import com.prompthub.admin.order.dto.DailyTransactionProjection;
 import com.prompthub.admin.order.dto.OrderListProjection;
-import com.prompthub.admin.user.application.service.UserApplicationService;
-import com.prompthub.admin.user.domain.model.UserProfile;
+import com.prompthub.admin.user.service.UserService;
+import com.prompthub.admin.user.dto.UserProfile;
 import com.prompthub.admin.order.entity.enums.OrderStatus;
 import com.prompthub.admin.order.repository.OrderQueryRepository;
 import com.prompthub.admin.order.dto.request.OrderSearchCondition;
@@ -45,7 +45,7 @@ class OrderServiceTest {
 	private OrderQueryRepository orderQueryRepository;
 
 	@Mock
-	private UserApplicationService userApplicationService;
+	private UserService userService;
 
 	@InjectMocks
 	private OrderService orderService;
@@ -61,7 +61,7 @@ class OrderServiceTest {
 			OrderListProjection projection = orderProjection();
 			given(orderQueryRepository.searchOrders(any(), any()))
 				.willReturn(new PageImpl<>(List.of(projection), PageRequest.of(0, 20), 1));
-			given(userApplicationService.findProfilesByIds(List.of(BUYER_ID, SELLER_ID_1, SELLER_ID_2)))
+			given(userService.findProfilesByIds(List.of(BUYER_ID, SELLER_ID_1, SELLER_ID_2)))
 				.willReturn(java.util.Map.of(
 					BUYER_ID, new UserProfile(BUYER_ID, "구매자A", "https://cdn/buyer.png"),
 					SELLER_ID_1, new UserProfile(SELLER_ID_1, "판매자A", "https://cdn/seller-a.png")
@@ -83,7 +83,7 @@ class OrderServiceTest {
 					"프롬프트 상품 2", 15_000, "REFUNDED"
 				)
 			);
-			then(userApplicationService).should().findProfilesByIds(List.of(BUYER_ID, SELLER_ID_1, SELLER_ID_2));
+			then(userService).should().findProfilesByIds(List.of(BUYER_ID, SELLER_ID_1, SELLER_ID_2));
 		}
 
 		@Test
@@ -96,7 +96,7 @@ class OrderServiceTest {
 			Page<OrderListResponse> response = orderService.getOrders(condition.resolve());
 
 			assertThat(response.getContent()).isEmpty();
-			then(userApplicationService).should(never()).findProfilesByIds(any());
+			then(userService).should(never()).findProfilesByIds(any());
 		}
 	}
 

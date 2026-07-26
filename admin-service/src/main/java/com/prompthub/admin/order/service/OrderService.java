@@ -9,8 +9,8 @@ import com.prompthub.admin.order.dto.response.MonthlyTradeAmountResponse;
 import com.prompthub.admin.order.dto.response.OrderListResponse;
 import com.prompthub.admin.order.dto.response.TransactionPeriodResponse;
 import com.prompthub.admin.order.dto.response.WeeklyTransactionResponse;
-import com.prompthub.admin.user.application.service.UserApplicationService;
-import com.prompthub.admin.user.domain.model.UserProfile;
+import com.prompthub.admin.user.service.UserService;
+import com.prompthub.admin.user.dto.UserProfile;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -31,7 +31,7 @@ public class OrderService {
 
 	private static final int RECENT_DAYS = 7;
 	private final OrderQueryRepository orderQueryRepository;
-	private final UserApplicationService userApplicationService;
+	private final UserService userService;
 
 	public Page<OrderListResponse> getOrders(OrderSearchCondition condition) {
 		PageRequest pageable = PageRequest.of(
@@ -43,7 +43,7 @@ public class OrderService {
 		List<UUID> userIds = collectUserIds(orders.getContent());
 		Map<UUID, UserProfile> profiles = userIds.isEmpty()
 			? Map.of()
-			: userApplicationService.findProfilesByIds(userIds);
+			: userService.findProfilesByIds(userIds);
 
 		return orders.map(projection -> toOrderListResponse(projection, profiles));
 	}
