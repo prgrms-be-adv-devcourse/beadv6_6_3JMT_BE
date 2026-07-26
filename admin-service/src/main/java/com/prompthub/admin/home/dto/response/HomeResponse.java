@@ -1,6 +1,6 @@
-package com.prompthub.admin.home.presentation.dto.response;
+package com.prompthub.admin.home.dto.response;
 
-import com.prompthub.admin.home.application.dto.HomeResult;
+import com.prompthub.admin.home.dto.HomeResult;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDate;
