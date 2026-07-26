@@ -61,7 +61,8 @@ public class ProductSearchEventHandler {
 		}
 
 		Product representative = currentOnSale.get();
-		FamilyUpsertInput input = familyStatsResolver.resolve(familyRootId, members, representative);
+		double averageRating = productRepository.getAverageRating(familyRootId);
+		FamilyUpsertInput input = familyStatsResolver.resolve(members, representative, averageRating);
 		productSearchIndexer.upsert(input);
 	}
 
