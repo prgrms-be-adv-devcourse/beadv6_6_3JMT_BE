@@ -6,7 +6,11 @@ import com.prompthub.notification.domain.model.ProcessedEvent;
 import com.prompthub.notification.infra.persistence.NotificationJpaRepository;
 import com.prompthub.notification.infra.persistence.NotificationRecipientSequenceJpaRepository;
 import com.prompthub.notification.infra.persistence.ProcessedEventJpaRepository;
+import com.prompthub.notification.global.exception.NotificationErrorCode;
+import com.prompthub.notification.global.exception.NotificationException;
 import lombok.RequiredArgsConstructor;
+import java.time.Instant;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,5 +40,20 @@ public class NotificationCommandService {
         ));
         processedEventRepository.save(new ProcessedEvent(command.eventId(), command.consumerGroup(), notification.getId(), command.occurredAt()));
         return new StoredNotification(notification.getId(), notification.getSequence());
+    }
+
+    @Transactional
+    public void markRead(UUID requesterId, UUID notificationId) {
+        Notification notification = notificationRepository.findById(notificationId)
+            .orElseThrow(() -> new NotificationException(NotificationErrorCode.NOTIFICATION_NOT_FOUND));
+        if (!notification.getRecipientId().equals(requesterId)) {
+            throw new NotificationException(NotificationErrorCode.NOTIFICATION_ACCESS_DENIED);
+        }
+        notification.markRead(Instant.now());
+    }
+
+    @Transactional
+    public int markAllRead(UUID requesterId) {
+        return notificationRepository.markAllUnreadAsRead(requesterId, Instant.now());
     }
 }
