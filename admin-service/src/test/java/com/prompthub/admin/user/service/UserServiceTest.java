@@ -160,7 +160,7 @@ class UserServiceTest {
 		User user = newUser(userId, UserStatus.ACTIVE);
 		given(userRepository.findByNameContainingIgnoreCase("판매자")).willReturn(List.of(user));
 
-		List<UUID> result = userApplicationService.findIdsByNameContainingIgnoreCase("판매자");
+		List<UUID> result = userService.findIdsByNameContainingIgnoreCase("판매자");
 
 		assertThat(result).containsExactly(userId);
 	}

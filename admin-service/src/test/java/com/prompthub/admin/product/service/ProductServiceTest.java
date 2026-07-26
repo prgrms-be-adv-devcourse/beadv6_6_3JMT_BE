@@ -14,7 +14,7 @@ import com.prompthub.admin.product.entity.enums.AmountType;
 import com.prompthub.admin.product.entity.enums.ProductStatus;
 import com.prompthub.admin.product.entity.enums.ProductType;
 import com.prompthub.admin.product.repository.ProductRepository;
-import com.prompthub.admin.user.application.service.UserApplicationService;
+import com.prompthub.admin.user.service.UserService;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,7 +43,7 @@ class ProductServiceTest {
 	private ProductRepository productRepository;
 
 	@Mock
-	private UserApplicationService userApplicationService;
+	private UserService userService;
 
 	@InjectMocks
 	private ProductService productAdminService;
@@ -59,7 +59,7 @@ class ProductServiceTest {
 			given(productRepository.findProducts(
 				new ProductListFilter(ProductStatus.PENDING_REVIEW, null, List.of()), PAGE_0_20))
 				.willReturn(new PageImpl<>(List.of(pending), PAGE_0_20, 1));
-			given(userApplicationService.findNamesByIds(List.of(SELLER_ID)))
+			given(userService.findNamesByIds(List.of(SELLER_ID)))
 				.willReturn(Map.of(SELLER_ID, "판매자A"));
 
 			AdminProductPageResult result = productAdminService.listProducts(
@@ -77,7 +77,7 @@ class ProductServiceTest {
 			Product pending = product(FAMILY_ROOT_ID, null, ProductStatus.PENDING_REVIEW, (short) 1, (short) 0);
 			given(productRepository.findProducts(new ProductListFilter(null, null, List.of()), PAGE_0_20))
 				.willReturn(new PageImpl<>(List.of(pending), PAGE_0_20, 1));
-			given(userApplicationService.findNamesByIds(List.of(SELLER_ID))).willReturn(Map.of());
+			given(userService.findNamesByIds(List.of(SELLER_ID))).willReturn(Map.of());
 
 			AdminProductPageResult result = productAdminService.listProducts(
 				new AdminProductListQuery(null, null, PAGE_0_20));
@@ -88,7 +88,7 @@ class ProductServiceTest {
 		@Test
 		@DisplayName("keyword가 있으면 닉네임으로 sellerId를 먼저 찾아 리포지토리에 전달한다")
 		void listProducts_keyword_resolvesSellerIdsFirst() {
-			given(userApplicationService.findIdsByNameContainingIgnoreCase("판매자")).willReturn(List.of(SELLER_ID));
+			given(userService.findIdsByNameContainingIgnoreCase("판매자")).willReturn(List.of(SELLER_ID));
 			ProductListFilter filter = new ProductListFilter(null, "판매자", List.of(SELLER_ID));
 			given(productRepository.findProducts(filter, PAGE_0_20))
 				.willReturn(new PageImpl<>(List.of(), PAGE_0_20, 0));
