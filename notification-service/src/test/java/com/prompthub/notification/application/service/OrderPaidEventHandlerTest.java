@@ -1,6 +1,7 @@
 package com.prompthub.notification.application.service;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -8,7 +9,9 @@ import static org.mockito.Mockito.when;
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.notification.infra.sse.SseNotificationPublisher;
 import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -67,9 +70,25 @@ class OrderPaidEventHandlerTest {
         verify(sseNotificationPublisher, never()).publish(any(), any());
     }
 
+    @Test
+    void interpretsOffsetlessOrderTimeAsAsiaSeoul() {
+        when(notificationCommandService.createIfAbsent(any()))
+            .thenReturn(new StoredNotification(UUID.randomUUID(), 1L, true));
+        OrderPaidEventHandler handler = new OrderPaidEventHandler(
+            objectMapper, notificationCommandService, sseNotificationPublisher
+        );
+        TransactionSynchronizationManager.initSynchronization();
+
+        handler.handle(event(UUID.randomUUID()));
+
+        ArgumentCaptor<CreateNotificationCommand> commandCaptor = ArgumentCaptor.forClass(CreateNotificationCommand.class);
+        verify(notificationCommandService).createIfAbsent(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().occurredAt()).isEqualTo(Instant.parse("2026-07-26T01:00:00Z"));
+    }
+
     private EventMessage<JsonNode> event(UUID buyerId) {
         return new EventMessage<>(
-            UUID.randomUUID(), "ORDER_PAID", LocalDateTime.now(), "ORDER", UUID.randomUUID(),
+            UUID.randomUUID(), "ORDER_PAID", LocalDateTime.of(2026, 7, 26, 10, 0), "ORDER", UUID.randomUUID(),
             objectMapper.createObjectNode()
                 .put("orderId", UUID.randomUUID().toString())
                 .put("buyerId", buyerId.toString())

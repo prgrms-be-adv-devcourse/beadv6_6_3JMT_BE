@@ -5,7 +5,7 @@ import com.prompthub.notification.domain.enums.NotificationType;
 import com.prompthub.notification.infra.messaging.kafka.event.OrderRefundPayload;
 import com.prompthub.notification.infra.sse.SseNotificationPublisher;
 import java.time.Instant;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 public class OrderRefundEventHandler {
     private static final String CONSUMER_GROUP = "notification-service";
     private static final String TITLE = "환불이 완료되었습니다.";
+    private static final ZoneId ORDER_EVENT_TIME_ZONE = ZoneId.of("Asia/Seoul");
 
     private final ObjectMapper objectMapper;
     private final NotificationCommandService notificationCommandService;
@@ -62,6 +63,6 @@ public class OrderRefundEventHandler {
         if (message.eventId() == null || message.occurredAt() == null) {
             throw new IllegalArgumentException("주문 이벤트 필수 필드가 누락되었습니다.");
         }
-        return message.occurredAt().atZone(ZoneOffset.UTC).toInstant();
+        return message.occurredAt().atZone(ORDER_EVENT_TIME_ZONE).toInstant();
     }
 }
