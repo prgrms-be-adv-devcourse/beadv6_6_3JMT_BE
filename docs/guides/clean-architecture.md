@@ -60,6 +60,27 @@ com.prompthub.user
 
 기능이 늘어나면 같은 레벨에 새 기능 패키지를 추가한다.
 
+### 2.1 AI 서비스의 HTTP·SSE 어댑터 구분
+
+`ai-service`의 셀러 정산 기능은 일반 REST와 장기 SSE 연결을 구분하고, Spring MVC 조립 책임을
+표현 계층에서 분리한다.
+
+```text
+com.prompthub.ai.settlement
+├── presentation
+│   ├── rest                  ← REST controller와 request/response DTO
+│   └── sse                   ← SSE controller, emitter registry, heartbeat
+└── infrastructure
+    └── web
+        ├── config            ← WebMvcConfigurer와 경로 등록
+        └── interceptor       ← Spring HandlerInterceptor
+```
+
+Controller와 SSE 응답 변환은 외부 요청·응답 표현이므로 `presentation`에 둔다. 반면
+`WebMvcConfigurer`와 `HandlerInterceptor`는 Spring MVC에 종속된 조립·접근 제어 어댑터이므로
+`infrastructure.web`에 둔다. 특정 기능에만 적용되는 설정을 애플리케이션 전체 공통인
+`global.config`로 올리지 않는다.
+
 ## 3. 계층별 책임
 
 | 계층 | 담는 것 | 하면 안 되는 것 |

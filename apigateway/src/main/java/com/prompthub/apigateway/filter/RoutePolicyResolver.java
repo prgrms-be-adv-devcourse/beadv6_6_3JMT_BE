@@ -5,7 +5,7 @@ import java.util.Optional;
 
 import org.springframework.util.AntPathMatcher;
 
-import com.prompthub.apigateway.client.GatewayRole;
+import com.prompthub.apigateway.config.GatewayRouteAccessPolicy;
 import com.prompthub.apigateway.config.GatewayRoutePolicyProperties;
 
 /**
@@ -21,14 +21,17 @@ public final class RoutePolicyResolver {
     private RoutePolicyResolver() {
     }
 
-    public static Optional<GatewayRole> requiredRole(String path, GatewayRoutePolicyProperties properties) {
+    public static Optional<GatewayRouteAccessPolicy> requiredPolicy(
+            String path,
+            GatewayRoutePolicyProperties properties
+    ) {
         if (PATH_MATCHER.match(ADMIN_CATCHALL_PATTERN, path)) {
-            return Optional.of(GatewayRole.ADMIN);
+            return Optional.of(GatewayRouteAccessPolicy.ADMIN);
         }
 
         for (Map.Entry<String, String> entry : properties.getRoutePolicies().entrySet()) {
             if (PATH_MATCHER.match(entry.getKey(), path)) {
-                return Optional.of(GatewayRole.valueOf(entry.getValue()));
+                return Optional.of(GatewayRouteAccessPolicy.valueOf(entry.getValue()));
             }
         }
 

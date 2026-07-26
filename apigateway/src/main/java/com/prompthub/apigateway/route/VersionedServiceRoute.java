@@ -56,10 +56,16 @@ public record VersionedServiceRoute(String id, String uri, List<String> pathSuff
             4
         ),
         new VersionedServiceRoute(
+            "ai-service",
+            "lb://AI-SERVICE",
+            List.of("/ai/settlement/**"),
+            5
+        ),
+        new VersionedServiceRoute(
             "notification-service",
             "lb://NOTIFICATION-SERVICE",
             List.of("/notifications", "/notifications/**"),
-            5
+            6
         )
     );
 

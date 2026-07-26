@@ -121,3 +121,21 @@
 | `SETTLEMENT_ALREADY_PAID` | S001 | 이미 지급이 완료된 정산입니다. | 409 |
 | `SETTLEMENT_NOT_FOUND` | S002 | 정산이 존재하지 않습니다. | 404 |
 | `SETTLEMENT_INVALID_STATUS` | S003 | 현재 상태에서 수행할 수 없는 작업입니다. | 409 |
+
+---
+
+## AI 정산 (AI)
+
+| enum/code | 의미 (message) | HTTP |
+|------|------|------|
+| `INVALID_CHAT_MESSAGE` | 질문은 1자 이상 2,000자 이하여야 합니다. | 400 |
+| `AI_RUN_NOT_FOUND` | AI 실행을 찾을 수 없습니다. | 404 |
+| `RUN_IN_PROGRESS` | 이미 실행 중인 질문이 있습니다. | 409 |
+| `AI_CAPACITY_EXCEEDED` | AI 요청이 많습니다. 잠시 후 다시 시도해 주세요. | 429 |
+| `AI_CHAT_DISABLED` | AI 정산 서비스가 현재 비활성화되어 있습니다. | 503 |
+| `AI_STATE_UNAVAILABLE` | AI 정산 상태를 처리할 수 없습니다. | 503 |
+| `SETTLEMENT_DATA_UNAVAILABLE` | 정산 데이터를 조회할 수 없습니다. | 503 |
+| `AI_PROVIDER_UNAVAILABLE` | AI 답변을 생성할 수 없습니다. | 503 |
+| `TOOL_LOOP_LIMIT_EXCEEDED` | 정확한 답변에 필요한 조회 횟수를 초과했습니다. | 500 |
+| `RUN_TIMEOUT` | AI 답변 생성 시간을 초과했습니다. | 504 |
+| `AI_INTERNAL_ERROR` | 예상하지 못한 AI 서비스 오류가 발생했습니다. | 500 |

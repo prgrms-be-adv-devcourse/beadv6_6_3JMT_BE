@@ -1,12 +1,16 @@
 package com.prompthub.user.sellersettlement.application.service;
 
 import com.prompthub.user.sellersettlement.application.dto.SellerSettlementListQuery;
-import com.prompthub.user.sellersettlement.application.event.SettlementCreatedEvent;
+import com.prompthub.user.sellersettlement.application.event.SettlementCreatedEventV1;
+import com.prompthub.user.sellersettlement.application.event.SettlementCreatedEventV2;
+import com.prompthub.user.sellersettlement.application.event.SettlementDetailEvent;
 import com.prompthub.user.sellersettlement.application.usecase.SeedSellerSettlementUseCase;
 import com.prompthub.user.sellersettlement.application.usecase.SellerSettlementUseCase;
 import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementAccessDeniedException;
 import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementNotFoundException;
 import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
+import com.prompthub.user.sellersettlement.domain.model.SellerSettlementDetail;
+import com.prompthub.user.sellersettlement.domain.model.enums.SellerSettlementLineType;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyAggregate;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyKey;
@@ -34,16 +38,41 @@ public class SellerSettlementApplicationService implements SeedSellerSettlementU
 
     @Override
     @Transactional
-    public void seed(SettlementCreatedEvent event) {
+    public void seed(SettlementCreatedEventV1 event) {
         if (sellerSettlementRepository.existsBySettlementId(event.settlementId())) {
             return;
         }
-        SellerSettlement settlement = SellerSettlement.seed(
+        SellerSettlement settlement = SellerSettlement.seedV1(
                 event.settlementId(), event.sellerId(),
                 event.periodStart(), event.periodEnd(), event.productCount(),
                 event.totalAmount(), event.settlementTotalAmount(),
                 event.feeTotalAmount(), event.refundAmount(), event.calculatedAt());
         sellerSettlementRepository.save(settlement);
+    }
+
+    @Override
+    @Transactional
+    public void seed(SettlementCreatedEventV2 event) {
+        if (sellerSettlementRepository.existsBySettlementId(event.settlementId())) {
+            return;
+        }
+        List<SellerSettlementDetail> details = event.details().stream()
+                .map(this::toDetail)
+                .toList();
+        SellerSettlement settlement = SellerSettlement.seedV2(
+                event.settlementId(), event.sellerId(),
+                event.periodStart(), event.periodEnd(), event.productCount(),
+                event.totalAmount(), event.settlementTotalAmount(),
+                event.feeTotalAmount(), event.refundAmount(), event.calculatedAt(), details);
+        sellerSettlementRepository.save(settlement);
+    }
+
+    private SellerSettlementDetail toDetail(SettlementDetailEvent detail) {
+        return SellerSettlementDetail.seed(
+                detail.settlementDetailId(), detail.orderProductId(),
+                SellerSettlementLineType.valueOf(detail.lineType()),
+                detail.lineAmount(), detail.feeRate(), detail.feeAmount(),
+                detail.lineSettlementAmount(), detail.occurredAt());
     }
 
     @Override
