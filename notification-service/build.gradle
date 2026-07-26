@@ -1,0 +1,7 @@
+dependencies {
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
+}
+
+tasks.named('test') {
+    jvmArgs = ['-Dspring.profiles.active=test']
+}
