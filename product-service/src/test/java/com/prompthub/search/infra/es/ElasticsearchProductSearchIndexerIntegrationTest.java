@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.support.ProductContentFixtures;
+import com.prompthub.search.application.FamilyUpsertInput;
 import com.prompthub.search.support.ElasticsearchIntegrationTestSupport;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -22,7 +23,7 @@ class ElasticsearchProductSearchIndexerIntegrationTest extends ElasticsearchInte
 		UUID familyRootId = UUID.randomUUID();
 		Product product = Product.create(familyRootId, UUID.randomUUID(), ProductContentFixtures.promptContent());
 
-		indexer.upsert(product, 5L, 4.5, LocalDateTime.now());
+		indexer.upsert(new FamilyUpsertInput(product, 5L, 3L, 4.5, LocalDateTime.now()));
 		client.indices().refresh(r -> r.index(ProductIndexBootstrap.ALIAS));
 
 		var response = client.get(
@@ -31,5 +32,12 @@ class ElasticsearchProductSearchIndexerIntegrationTest extends ElasticsearchInte
 		assertThat(response.found()).isTrue();
 		assertThat(response.source()).isNotNull();
 		assertThat(response.source().familyRootId()).isEqualTo(familyRootId);
+	}
+
+	@Test
+	void indexExists_부트스트랩으로_생성된_alias가_있으면_true를_반환한다() {
+		ElasticsearchProductSearchIndexer indexer = new ElasticsearchProductSearchIndexer(client);
+
+		assertThat(indexer.indexExists()).isTrue();
 	}
 }
