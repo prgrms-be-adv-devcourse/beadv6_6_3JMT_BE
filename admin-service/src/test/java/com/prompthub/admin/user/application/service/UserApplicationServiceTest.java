@@ -140,7 +140,6 @@ class UserApplicationServiceTest {
 	void 이름조회는_ID를_중복제거해_한번에_조회한다() throws Exception {
 		UUID userId = UUID.randomUUID();
 		User user = newUser(userId, UserStatus.ACTIVE);
-
 		given(userRepository.findAllByIds(List.of(userId))).willReturn(List.of(user));
 
 		Map<UUID, String> result = userApplicationService.findNamesByIds(List.of(userId, userId));
@@ -153,6 +152,17 @@ class UserApplicationServiceTest {
 	void 빈ID목록으로_이름을_조회하면_저장소를_호출하지_않는다() {
 		assertThat(userApplicationService.findNamesByIds(List.of())).isEmpty();
 		then(userRepository).shouldHaveNoInteractions();
+	}
+
+	@Test
+	void 키워드로_이름이_일치하는_사용자ID_목록을_조회한다() throws Exception {
+		UUID userId = UUID.randomUUID();
+		User user = newUser(userId, UserStatus.ACTIVE);
+		given(userRepository.findByNameContainingIgnoreCase("판매자")).willReturn(List.of(user));
+
+		List<UUID> result = userApplicationService.findIdsByNameContainingIgnoreCase("판매자");
+
+		assertThat(result).containsExactly(userId);
 	}
 
 	@Test

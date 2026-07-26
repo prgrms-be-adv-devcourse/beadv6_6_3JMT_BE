@@ -65,6 +65,11 @@ public class UserRepositoryAdapter implements UserRepository {
 			.toList();
 	}
 
+	@Override
+	public List<User> findByNameContainingIgnoreCase(String name) {
+		return userJpaRepository.findByNameContainingIgnoreCase(name);
+	}
+
 	private Specification<User> buildSpec(UserStatus status, UserRole role, String keyword) {
 		return UserSpecifications.withStatus(status)
 			.and(UserSpecifications.withRole(role))
