@@ -38,7 +38,8 @@ public class OrderRefundEventHandler {
                 @Override
                 public void afterCommit() {
                     sseNotificationPublisher.publish(payload.buyerId(), new NotificationItem(
-                        stored.id(), stored.sequence(), TITLE, "주문 환불이 완료되었습니다.", false, occurredAt
+                        stored.id(), stored.sequence(), NotificationType.ORDER_REFUND, TITLE, "주문 환불이 완료되었습니다.",
+                        "ORDER", payload.orderId(), false, occurredAt
                     ));
                 }
             });

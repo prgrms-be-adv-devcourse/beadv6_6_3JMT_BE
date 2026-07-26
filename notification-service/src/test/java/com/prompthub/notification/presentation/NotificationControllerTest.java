@@ -26,8 +26,18 @@ class NotificationControllerTest {
     @Autowired NotificationCommandService commandService;
     @Test
     void listsNotificationsForAuthenticatedUser() throws Exception {
-        mockMvc.perform(get("/api/v2/notifications").header("X-User-Id", UUID.randomUUID()))
-            .andExpect(status().isOk());
+        UUID userId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        commandService.createIfAbsent(new CreateNotificationCommand(
+            UUID.randomUUID(), userId, NotificationType.ORDER_PAID, "결제 완료", "결제가 완료되었습니다.",
+            "ORDER", orderId, "notification-service", Instant.now()
+        ));
+
+        mockMvc.perform(get("/api/v2/notifications").header("X-User-Id", userId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data[0].type").value("ORDER_PAID"))
+            .andExpect(jsonPath("$.data[0].referenceType").value("ORDER"))
+            .andExpect(jsonPath("$.data[0].referenceId").value(orderId.toString()));
     }
 
     @Test

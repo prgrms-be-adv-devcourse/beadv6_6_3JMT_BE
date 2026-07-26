@@ -38,7 +38,8 @@ public class OrderPaidEventHandler {
                 @Override
                 public void afterCommit() {
                     sseNotificationPublisher.publish(payload.buyerId(), new NotificationItem(
-                        stored.id(), stored.sequence(), TITLE, "주문 결제가 완료되었습니다.", false, occurredAt
+                        stored.id(), stored.sequence(), NotificationType.ORDER_PAID, TITLE, "주문 결제가 완료되었습니다.",
+                        "ORDER", payload.orderId(), false, occurredAt
                     ));
                 }
             });

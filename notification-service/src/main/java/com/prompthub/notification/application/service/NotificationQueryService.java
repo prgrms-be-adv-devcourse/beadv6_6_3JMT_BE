@@ -35,6 +35,9 @@ public class NotificationQueryService {
     }
 
     private NotificationItem toItem(Notification notification) {
-        return new NotificationItem(notification.getId(), notification.getSequence(), notification.getTitle(), notification.getMessage(), notification.getReadAt() != null, notification.getCreatedAt());
+        return new NotificationItem(
+            notification.getId(), notification.getSequence(), notification.getType(), notification.getTitle(), notification.getMessage(),
+            notification.getReferenceType(), notification.getReferenceId(), notification.getReadAt() != null, notification.getCreatedAt()
+        );
     }
 }

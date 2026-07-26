@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.prompthub.notification.application.service.NotificationItem;
+import com.prompthub.notification.domain.enums.NotificationType;
 import com.prompthub.notification.global.exception.NotificationException;
 import java.time.Instant;
 import java.util.UUID;
@@ -38,6 +39,9 @@ class SseConnectionRegistryTest {
     }
 
     private NotificationItem notification(long sequence) {
-        return new NotificationItem(UUID.randomUUID(), sequence, "결제 완료", "결제가 완료되었습니다.", false, Instant.now());
+        return new NotificationItem(
+            UUID.randomUUID(), sequence, NotificationType.ORDER_PAID, "결제 완료", "결제가 완료되었습니다.",
+            "ORDER", UUID.randomUUID(), false, Instant.now()
+        );
     }
 }
