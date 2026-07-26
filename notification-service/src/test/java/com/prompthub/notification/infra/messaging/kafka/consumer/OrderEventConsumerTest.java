@@ -60,6 +60,19 @@ class OrderEventConsumerTest {
     }
 
     @Test
+    void unknownEventWithoutPayloadAcknowledgesWithoutRouting() throws Exception {
+        EventMessage<JsonNode> message = new EventMessage<>(
+            UUID.randomUUID(), "ORDER_CANCELLED", LocalDateTime.now(), "ORDER", UUID.randomUUID(), null
+        );
+
+        consumer.consume(objectMapper.writeValueAsString(message), acknowledgment);
+
+        then(router).should().supports("ORDER_CANCELLED");
+        then(router).should(org.mockito.Mockito.never()).route(any());
+        then(acknowledgment).should().acknowledge();
+    }
+
+    @Test
     void malformedJsonPropagatesWithoutAcknowledging() {
         assertThatThrownBy(() -> consumer.consume("not-json", acknowledgment))
             .isInstanceOf(IllegalArgumentException.class);

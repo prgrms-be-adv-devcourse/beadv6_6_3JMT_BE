@@ -26,13 +26,16 @@ public class OrderEventConsumer {
     )
     public void consume(String rawMessage, Acknowledgment acknowledgment) {
         EventMessage<JsonNode> message = parse(rawMessage);
-        if (message.eventId() == null || message.eventType() == null || message.payload() == null || message.payload().isNull()) {
+        if (message.eventId() == null || message.eventType() == null) {
             throw new IllegalArgumentException("주문 이벤트 필수 필드가 누락되었습니다.");
         }
         if (!router.supports(message.eventType())) {
             log.warn("Unsupported order event. eventId={}, eventType={}", message.eventId(), message.eventType());
             acknowledgment.acknowledge();
             return;
+        }
+        if (message.payload() == null || message.payload().isNull()) {
+            throw new IllegalArgumentException("주문 이벤트 필수 필드가 누락되었습니다.");
         }
         router.route(message);
         acknowledgment.acknowledge();
