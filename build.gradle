@@ -65,7 +65,6 @@ configure([
 
     dependencies {
         implementation 'org.springframework.boot:spring-boot-starter-actuator'
-        implementation project(':common-module')
         testImplementation 'org.springframework.boot:spring-boot-starter-test'
         testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     }
@@ -93,6 +92,9 @@ configure([
     }
 
     dependencies {
+        // ── 프로젝트 공통 모듈 ──────────────────────────────────────────────────
+        implementation project(':common-module')
+
         // ── 코드 생성 (Lombok) ──────────────────────────────────────────────────
         compileOnly 'org.projectlombok:lombok'
         annotationProcessor 'org.projectlombok:lombok'
