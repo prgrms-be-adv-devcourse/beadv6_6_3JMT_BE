@@ -2,6 +2,7 @@ package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.event.order.OrderExpirationCleanupRequestedEvent;
 import com.prompthub.order.application.service.event.ProcessedEventService;
+import com.prompthub.order.application.service.event.OrderOutboxAppender;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
@@ -77,8 +78,25 @@ class OrderFailureCompensationServiceTest {
 	@Mock
 	private ApplicationEventPublisher eventPublisher;
 
+	@Mock
+	private OrderOutboxAppender orderOutboxAppender;
+
 	@InjectMocks
 	private OrderFailureCompensationService service;
+
+	@Test
+	void compensatePaymentFailure_createdOrderAppendsNotificationOutboxEvent() {
+		Order order = createdOrder();
+		stubUnprocessedOrder(order);
+		given(cartRepository.findByBuyerIdForUpdateWithCartProducts(BUYER_ID))
+			.willReturn(Optional.of(Cart.create(BUYER_ID)));
+
+		service.compensatePaymentFailure(EVENT_ID, EVENT_TYPE, FAILED_AT, failedPayload());
+
+		then(orderOutboxAppender).should().appendPaymentFailed(
+			org.mockito.ArgumentMatchers.eq(order), any(), any(), org.mockito.ArgumentMatchers.eq(FAILED_AT)
+		);
+	}
 
 	@Test
 	@DisplayName("결제 실패 보상은 Order 루트를 잠근 뒤 Cart 루트를 잠근다")

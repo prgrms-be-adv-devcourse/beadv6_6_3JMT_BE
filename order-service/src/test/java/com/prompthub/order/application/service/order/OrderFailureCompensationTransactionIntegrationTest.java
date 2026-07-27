@@ -7,10 +7,12 @@ import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.CartProduct;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
+import com.prompthub.order.domain.model.OutboxEvent;
 import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.domain.repository.ProcessedEventRepository;
 import com.prompthub.order.infra.persistence.cart.CartPersistence;
 import com.prompthub.order.infra.persistence.order.OrderPersistence;
+import com.prompthub.order.infra.persistence.outbox.OutboxEventPersistence;
 import com.prompthub.order.support.PostgreSqlIntegrationTestSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +53,9 @@ class OrderFailureCompensationTransactionIntegrationTest extends PostgreSqlInteg
 
 	@Autowired
 	private CartPersistence cartPersistence;
+
+	@Autowired
+	private OutboxEventPersistence outboxEventPersistence;
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -96,6 +101,9 @@ class OrderFailureCompensationTransactionIntegrationTest extends PostgreSqlInteg
 
 		assertFailedStateAndRestoredCart();
 		assertThat(processedEventRepository.count()).isEqualTo(1);
+		assertThat(outboxEventPersistence.findAll())
+			.extracting(OutboxEvent::getEventType)
+			.containsExactly("ORDER_PAYMENT_FAILED");
 		then(orderExpirationStore).should().removeExpiration(ORDER_A);
 		then(orderExpirationStore).should().clearRetryCount(ORDER_A);
 	}
@@ -117,6 +125,7 @@ class OrderFailureCompensationTransactionIntegrationTest extends PostgreSqlInteg
 
 		assertCreatedStateAndUnchangedCart();
 		assertThat(processedEventRepository.count()).isZero();
+		assertThat(outboxEventPersistence.count()).isZero();
 		then(orderExpirationStore).shouldHaveNoInteractions();
 	}
 
@@ -137,6 +146,7 @@ class OrderFailureCompensationTransactionIntegrationTest extends PostgreSqlInteg
 
 		assertCreatedStateAndUnchangedCart();
 		assertThat(processedEventRepository.count()).isZero();
+		assertThat(outboxEventPersistence.count()).isZero();
 		then(orderExpirationStore).shouldHaveNoInteractions();
 	}
 
@@ -160,6 +170,9 @@ class OrderFailureCompensationTransactionIntegrationTest extends PostgreSqlInteg
 
 		assertFailedStateAndRestoredCart();
 		assertThat(processedEventRepository.count()).isEqualTo(1);
+		assertThat(outboxEventPersistence.findAll())
+			.extracting(OutboxEvent::getEventType)
+			.containsExactly("ORDER_PAYMENT_FAILED");
 		then(orderExpirationStore).should(times(2)).removeExpiration(ORDER_A);
 	}
 
@@ -173,6 +186,9 @@ class OrderFailureCompensationTransactionIntegrationTest extends PostgreSqlInteg
 
 		assertFailedStateAndRestoredCart();
 		assertThat(processedEventRepository.count()).isZero();
+		assertThat(outboxEventPersistence.findAll())
+			.extracting(OutboxEvent::getEventType)
+			.containsExactly("ORDER_EXPIRED");
 		then(orderExpirationStore).should(times(2)).removeExpiration(ORDER_A);
 	}
 

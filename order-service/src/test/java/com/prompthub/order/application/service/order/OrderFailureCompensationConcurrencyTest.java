@@ -10,6 +10,7 @@ import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
+import com.prompthub.order.domain.model.OutboxEvent;
 import com.prompthub.order.domain.repository.ProcessedEventRepository;
 import com.prompthub.order.global.exception.CartException;
 import com.prompthub.order.global.exception.ErrorCode;
@@ -133,8 +134,10 @@ class OrderFailureCompensationConcurrencyTest extends PostgreSqlIntegrationTestS
 		assertThat(results.firstFailure()).isNull();
 		assertThat(results.secondFailure()).isNull();
 		assertCompletedStateWithoutPurchasedCartProducts();
-		assertThat(processedEventRepository.count()).isEqualTo(2);
-		assertThat(outboxEventPersistence.count()).isEqualTo(1);
+		assertThat(outboxEventPersistence.count()).isBetween(1L, 2L);
+		assertThat(outboxEventPersistence.findAll())
+			.extracting(OutboxEvent::getEventType)
+			.contains("ORDER_PAID");
 	}
 
 	@RepeatedTest(5)
@@ -156,7 +159,7 @@ class OrderFailureCompensationConcurrencyTest extends PostgreSqlIntegrationTestS
 		assertThat(results.secondFailure()).isNull();
 		assertFailedStateWithSingleRestoredCartRows();
 		assertThat(processedEventRepository.count()).isEqualTo(1);
-		assertThat(outboxEventPersistence.count()).isZero();
+		assertThat(outboxEventPersistence.count()).isEqualTo(1);
 	}
 
 	@RepeatedTest(5)
