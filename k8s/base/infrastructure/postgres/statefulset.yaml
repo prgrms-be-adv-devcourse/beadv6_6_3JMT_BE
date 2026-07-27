@@ -39,7 +39,7 @@ spec:
         - name: ghcr-pull-secret
       containers:
         - name: postgres
-          image: ghcr.io/prgrms-be-adv-devcourse/postgres:18.4-alpine-pgvector0.8.5
+          image: ghcr.io/prgrms-be-adv-devcourse/prompthub-postgres:18.4-alpine-pgvector0.8.5
           imagePullPolicy: IfNotPresent
           args:
             - -c
