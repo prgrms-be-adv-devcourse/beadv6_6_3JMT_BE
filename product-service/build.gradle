@@ -1,6 +1,11 @@
 apply plugin: 'com.google.protobuf'
 
 dependencies {
+    // 임베딩 생성 (#378). ai-service와 같은 스타터로, chat뿐 아니라 embedding 오토컨피그도
+    // 함께 제공한다 — spring.ai.openai.api-key만 주면 EmbeddingModel 빈이 주입된다.
+    implementation platform('org.springframework.ai:spring-ai-bom:2.0.0')
+    implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+
     // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
 

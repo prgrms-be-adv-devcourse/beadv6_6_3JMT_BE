@@ -37,11 +37,15 @@ class ProductReindexServiceTest {
 	@Mock
 	private FamilyStatsResolver familyStatsResolver;
 
+	@Mock
+	private ProductEmbeddingUpdater productEmbeddingUpdater;
+
 	private ProductReindexService reindexService;
 
 	@BeforeEach
 	void setUp() {
-		reindexService = new ProductReindexService(productRepository, productSearchIndexer, familyStatsResolver);
+		reindexService = new ProductReindexService(
+			productRepository, productSearchIndexer, familyStatsResolver, productEmbeddingUpdater);
 	}
 
 	@Test
