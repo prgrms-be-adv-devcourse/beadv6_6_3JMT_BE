@@ -113,17 +113,12 @@ public class SpringAiSettlementAgent implements SettlementAgent {
         executionGuard.assertRunning(guardContext);
         Prompt finalPrompt = new Prompt(finalMessages, finalOptions());
         request.progressListener().onStage(RunStage.GENERATING_ANSWER);
-        List<ChatResponse> streamedResponses = retryExecutor.execute(
+        String candidate = retryExecutor.execute(
                 request.runId(),
                 request.deadlineAt(),
-                () -> bufferFinalStream(finalPrompt, request.deadlineAt()));
+                () -> bufferFinalAnswer(finalPrompt, request.deadlineAt()));
         executionGuard.assertRunning(guardContext);
-        recordStreamUsage(streamedResponses);
 
-        String candidate = streamedResponses.stream()
-                .map(this::responseText)
-                .reduce(new StringBuilder(), StringBuilder::append, StringBuilder::append)
-                .toString();
         FinalAnswerPolicy.ValidatedAnswer validated = finalAnswerPolicy.validateAndChunk(candidate);
         log.info("AI settlement agent completed. runId={}, model={}, toolRounds={}",
                 request.runId(), properties.model(), toolRounds);
@@ -204,7 +199,7 @@ public class SpringAiSettlementAgent implements SettlementAgent {
         return null;
     }
 
-    private List<ChatResponse> bufferFinalStream(Prompt finalPrompt, Instant deadlineAt) {
+    private String bufferFinalAnswer(Prompt finalPrompt, Instant deadlineAt) {
         Duration remaining = Duration.between(clock.instant(), deadlineAt);
         if (remaining.isZero() || remaining.isNegative()) {
             throw new AiException(AiErrorCode.RUN_TIMEOUT);
@@ -216,7 +211,22 @@ public class SpringAiSettlementAgent implements SettlementAgent {
         if (responses == null || responses.isEmpty()) {
             throw new AiException(AiErrorCode.AI_PROVIDER_UNAVAILABLE);
         }
-        return List.copyOf(responses);
+        recordStreamUsage(responses);
+
+        StringBuilder answer = new StringBuilder();
+        for (ChatResponse response : responses) {
+            if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
+                continue;
+            }
+            String text = response.getResult().getOutput().getText();
+            if (text != null) {
+                answer.append(text);
+            }
+        }
+        if (answer.isEmpty() || answer.toString().isBlank()) {
+            throw new AiException(AiErrorCode.AI_PROVIDER_UNAVAILABLE);
+        }
+        return answer.toString();
     }
 
     private AssistantMessage requireAssistantMessage(ChatResponse response) {
@@ -226,14 +236,13 @@ public class SpringAiSettlementAgent implements SettlementAgent {
         return response.getResult().getOutput();
     }
 
-    private String responseText(ChatResponse response) {
-        AssistantMessage message = requireAssistantMessage(response);
-        return message.getText() == null ? "" : message.getText();
-    }
-
     private void recordStreamUsage(List<ChatResponse> responses) {
         for (int index = responses.size() - 1; index >= 0; index--) {
-            Usage usage = responses.get(index).getMetadata().getUsage();
+            ChatResponse response = responses.get(index);
+            if (response == null || response.getMetadata() == null) {
+                continue;
+            }
+            Usage usage = response.getMetadata().getUsage();
             if (usage != null && usage.getTotalTokens() != null && usage.getTotalTokens() > 0) {
                 recordUsage(usage);
                 return;
