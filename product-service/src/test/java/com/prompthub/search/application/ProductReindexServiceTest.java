@@ -37,11 +37,15 @@ class ProductReindexServiceTest {
 	@Mock
 	private FamilyStatsResolver familyStatsResolver;
 
+	@Mock
+	private ProductEmbeddingUpdater productEmbeddingUpdater;
+
 	private ProductReindexService reindexService;
 
 	@BeforeEach
 	void setUp() {
-		reindexService = new ProductReindexService(productRepository, productSearchIndexer, familyStatsResolver);
+		reindexService = new ProductReindexService(
+			productRepository, productSearchIndexer, familyStatsResolver, productEmbeddingUpdater);
 	}
 
 	@Test
@@ -49,12 +53,12 @@ class ProductReindexServiceTest {
 	void reconcileAll_ON_SALE_family는_upsert_대상에_담는다() {
 		UUID familyRootId = UUID.randomUUID();
 		Product onSale = product(familyRootId, ProductStatus.ON_SALE);
-		FamilyUpsertInput expectedInput = new FamilyUpsertInput(onSale, 5L, 9L, 4.0, onSale.getCreatedAt());
+		FamilyUpsertInput expectedInput = new FamilyUpsertInput(onSale, 5L, 9L, 4.0, onSale.getCreatedAt(), null);
 		given(productSearchIndexer.indexExists()).willReturn(true);
 		given(productRepository.findAllByStatus(ProductStatus.ON_SALE)).willReturn(List.of(onSale));
 		given(productRepository.findAllByFamilyRootIds(List.of(familyRootId))).willReturn(List.of(onSale));
 		given(productRepository.getAverageRatings(List.of(familyRootId))).willReturn(Map.of(familyRootId, 4.0));
-		given(familyStatsResolver.resolve(List.of(onSale), onSale, 4.0)).willReturn(expectedInput);
+		given(familyStatsResolver.resolve(List.of(onSale), onSale, 4.0, null)).willReturn(expectedInput);
 		given(productSearchIndexer.findAllIndexedFamilyRootIds()).willReturn(Set.of(familyRootId));
 
 		reindexService.reconcileAll();
@@ -92,8 +96,8 @@ class ProductReindexServiceTest {
 		given(productRepository.findAllByFamilyRootIds(anyList())).willReturn(List.of(first, second));
 		given(productRepository.getAverageRatings(anyList()))
 			.willReturn(Map.of(firstRootId, 4.0, secondRootId, 3.0));
-		given(familyStatsResolver.resolve(anyList(), any(), anyDouble()))
-			.willReturn(new FamilyUpsertInput(first, 0L, 0L, 0.0, first.getCreatedAt()));
+		given(familyStatsResolver.resolve(anyList(), any(), anyDouble(), any()))
+			.willReturn(new FamilyUpsertInput(first, 0L, 0L, 0.0, first.getCreatedAt(), null));
 		given(productSearchIndexer.findAllIndexedFamilyRootIds()).willReturn(Set.of());
 
 		reindexService.reconcileAll();
@@ -133,12 +137,12 @@ class ProductReindexServiceTest {
 		LocalDateTime since = LocalDateTime.now().minusSeconds(20);
 		UUID changedRootId = UUID.randomUUID();
 		Product onSale = product(changedRootId, ProductStatus.ON_SALE);
-		FamilyUpsertInput expectedInput = new FamilyUpsertInput(onSale, 3L, 7L, 5.0, onSale.getCreatedAt());
+		FamilyUpsertInput expectedInput = new FamilyUpsertInput(onSale, 3L, 7L, 5.0, onSale.getCreatedAt(), null);
 		given(productSearchIndexer.indexExists()).willReturn(true);
 		given(productRepository.findChangedFamilyRootIds(since)).willReturn(List.of(changedRootId));
 		given(productRepository.findAllByFamilyRootIds(List.of(changedRootId))).willReturn(List.of(onSale));
 		given(productRepository.getAverageRatings(List.of(changedRootId))).willReturn(Map.of(changedRootId, 5.0));
-		given(familyStatsResolver.resolve(List.of(onSale), onSale, 5.0)).willReturn(expectedInput);
+		given(familyStatsResolver.resolve(List.of(onSale), onSale, 5.0, null)).willReturn(expectedInput);
 
 		reindexService.reconcileChanged(since);
 

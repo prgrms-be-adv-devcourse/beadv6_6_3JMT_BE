@@ -11,10 +11,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.StringJoiner;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 @RequiredArgsConstructor
@@ -110,5 +113,52 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	@Override
 	public List<UUID> findChangedFamilyRootIds(LocalDateTime since) {
 		return productJpaRepository.findChangedFamilyRootIds(since);
+	}
+
+	@Override
+	public Map<UUID, String> findEmbeddingSourceHashes(List<UUID> productIds) {
+		if (productIds.isEmpty()) {
+			return Map.of();
+		}
+		return productJpaRepository.findEmbeddingSourceHashRows(productIds).stream()
+			.collect(Collectors.toMap(row -> (UUID) row[0], row -> (String) row[1]));
+	}
+
+	/**
+	 * 상품 하나당 트랜잭션 하나다. 배치가 수십 건을 도는 동안 하나가 실패해도 앞서 저장한
+	 * 임베딩까지 되돌아가지 않게 한다.
+	 */
+	@Override
+	@Transactional
+	public void updateEmbedding(UUID productId, float[] embedding, String sourceHash) {
+		productJpaRepository.updateEmbedding(productId, toVectorLiteral(embedding), sourceHash);
+	}
+
+	/** pgvector는 {@code [0.1,0.2,...]} 형태의 텍스트를 vector로 캐스팅해 받는다. */
+	private String toVectorLiteral(float[] embedding) {
+		StringJoiner joiner = new StringJoiner(",", "[", "]");
+		for (float value : embedding) {
+			joiner.add(Float.toString(value));
+		}
+		return joiner.toString();
+	}
+
+	@Override
+	public Map<UUID, float[]> findEmbeddings(List<UUID> productIds) {
+		if (productIds.isEmpty()) {
+			return Map.of();
+		}
+		return productJpaRepository.findEmbeddingRows(productIds).stream()
+			.collect(Collectors.toMap(row -> (UUID) row[0], row -> fromVectorLiteral((String) row[1])));
+	}
+
+	/** {@link #toVectorLiteral}의 역변환. 우리 시스템이 쓴 값을 그대로 읽는 왕복이라 별도 검증은 두지 않는다. */
+	private float[] fromVectorLiteral(String literal) {
+		String[] parts = literal.substring(1, literal.length() - 1).split(",");
+		float[] embedding = new float[parts.length];
+		for (int i = 0; i < parts.length; i++) {
+			embedding[i] = Float.parseFloat(parts[i]);
+		}
+		return embedding;
 	}
 }

@@ -8,6 +8,7 @@ public record FamilyUpsertInput(
 	long familySalesCount,
 	long familyViewCount,
 	double averageRating,
-	LocalDateTime firstPublishedAt
+	LocalDateTime firstPublishedAt,
+	float[] embedding
 ) {
 }

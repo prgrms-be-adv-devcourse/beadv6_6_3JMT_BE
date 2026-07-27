@@ -13,6 +13,7 @@ import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.support.ProductContentFixtures;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,11 +51,27 @@ class ProductSearchEventHandlerTest {
 	@Test
 	void handleProductChanged_ON_SALE_멤버가_있으면_그걸_대표로_upsert한다() {
 		Product onSale = product(FAMILY_ROOT_ID, ProductStatus.ON_SALE);
-		FamilyUpsertInput expectedInput = new FamilyUpsertInput(onSale, 10L, 3L, 4.5, onSale.getCreatedAt());
+		FamilyUpsertInput expectedInput = new FamilyUpsertInput(onSale, 10L, 3L, 4.5, onSale.getCreatedAt(), null);
 		given(processedEventRepository.existsByEventIdAndConsumerGroup(EVENT_ID, "product-service-search")).willReturn(false);
 		given(productRepository.findAllByFamilyRootIds(List.of(FAMILY_ROOT_ID))).willReturn(List.of(onSale));
 		given(productRepository.getAverageRating(FAMILY_ROOT_ID)).willReturn(4.5);
-		given(familyStatsResolver.resolve(List.of(onSale), onSale, 4.5)).willReturn(expectedInput);
+		given(familyStatsResolver.resolve(List.of(onSale), onSale, 4.5, null)).willReturn(expectedInput);
+
+		handler.handleProductChanged(EVENT_ID, LocalDateTime.now(), FAMILY_ROOT_ID);
+
+		verify(productSearchIndexer).upsert(expectedInput);
+	}
+
+	@Test
+	void handleProductChanged_저장된_embedding이_있으면_대표_상품_id로_읽어_실어보낸다() {
+		Product onSale = product(FAMILY_ROOT_ID, ProductStatus.ON_SALE);
+		float[] embedding = new float[] {0.1f, 0.2f};
+		FamilyUpsertInput expectedInput = new FamilyUpsertInput(onSale, 10L, 3L, 4.5, onSale.getCreatedAt(), embedding);
+		given(processedEventRepository.existsByEventIdAndConsumerGroup(EVENT_ID, "product-service-search")).willReturn(false);
+		given(productRepository.findAllByFamilyRootIds(List.of(FAMILY_ROOT_ID))).willReturn(List.of(onSale));
+		given(productRepository.getAverageRating(FAMILY_ROOT_ID)).willReturn(4.5);
+		given(productRepository.findEmbeddings(List.of(onSale.getId()))).willReturn(Map.of(onSale.getId(), embedding));
+		given(familyStatsResolver.resolve(List.of(onSale), onSale, 4.5, embedding)).willReturn(expectedInput);
 
 		handler.handleProductChanged(EVENT_ID, LocalDateTime.now(), FAMILY_ROOT_ID);
 
@@ -87,12 +104,12 @@ class ProductSearchEventHandlerTest {
 		UUID stoppedProductId = UUID.randomUUID();
 		Product stillOnSale = product(FAMILY_ROOT_ID, ProductStatus.ON_SALE);
 		Product stopped = product(FAMILY_ROOT_ID, ProductStatus.STOPPED);
-		FamilyUpsertInput expectedInput = new FamilyUpsertInput(stillOnSale, 1L, 2L, 4.0, stillOnSale.getCreatedAt());
+		FamilyUpsertInput expectedInput = new FamilyUpsertInput(stillOnSale, 1L, 2L, 4.0, stillOnSale.getCreatedAt(), null);
 		given(processedEventRepository.existsByEventIdAndConsumerGroup(EVENT_ID, "product-service-search")).willReturn(false);
 		given(productRepository.findById(stoppedProductId)).willReturn(Optional.of(stopped));
 		given(productRepository.findAllByFamilyRootIds(List.of(FAMILY_ROOT_ID))).willReturn(List.of(stillOnSale, stopped));
 		given(productRepository.getAverageRating(FAMILY_ROOT_ID)).willReturn(4.0);
-		given(familyStatsResolver.resolve(List.of(stillOnSale, stopped), stillOnSale, 4.0)).willReturn(expectedInput);
+		given(familyStatsResolver.resolve(List.of(stillOnSale, stopped), stillOnSale, 4.0, null)).willReturn(expectedInput);
 
 		handler.handleProductRemovalCandidate(EVENT_ID, LocalDateTime.now(), "PRODUCT_STOPPED", stoppedProductId);
 

@@ -16,7 +16,6 @@
       },
       "description": { "type": "text" },
       "content": { "type": "text" },
-      "extractedText": { "type": "text" },
       "tags": {
         "type": "keyword",
         "fields": {
