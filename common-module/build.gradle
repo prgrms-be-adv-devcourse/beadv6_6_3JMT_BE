@@ -12,10 +12,14 @@ dependencyManagement {
 dependencies {
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+    compileOnly 'jakarta.servlet:jakarta.servlet-api'
 
     // 공개 타입(ErrorResponse 등)이 HttpStatus를 시그니처에 노출하므로 api로 전파
     api 'org.springframework:spring-web'
+    implementation 'org.springframework.boot:spring-boot-autoconfigure'
+    implementation 'org.slf4j:slf4j-api'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-json'
+    testImplementation 'org.springframework.boot:spring-boot-starter-web'
 }
