@@ -3,7 +3,6 @@ package com.prompthub.product.exception;
 import com.prompthub.exception.BusinessException;
 import com.prompthub.exception.response.ErrorResponse;
 import com.prompthub.product.exception.enums.ProductErrorCode;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -17,21 +16,10 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 public class ProductExceptionHandler {
 
-	private static final String REQUEST_ID_HEADER = "X-Request-Id";
-
 	@ExceptionHandler(BusinessException.class)
-	public ResponseEntity<ErrorResponse> handleBusinessException(
-		BusinessException exception,
-		HttpServletRequest request
-	) {
+	public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException exception) {
 		com.prompthub.exception.ErrorCode errorCode = exception.getErrorCode();
-
-		log.warn(
-			"[{}] Product 비즈니스 예외가 발생했습니다. code={}, message={}",
-			getRequestId(request),
-			errorCode.getCode(),
-			exception.getMessage()
-		);
+		log.warn("Product 비즈니스 예외 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
 
 		return ResponseEntity
 			.status(errorCode.getStatus())
@@ -40,12 +28,11 @@ public class ProductExceptionHandler {
 
 	@ExceptionHandler(IllegalStateException.class)
 	public ResponseEntity<ErrorResponse> handleIllegalStateException(
-		IllegalStateException exception,
-		HttpServletRequest request
+		IllegalStateException exception
 	) {
 		ProductErrorCode errorCode = ProductErrorCode.PRODUCT_INVALID_STATUS;
 
-		log.warn("[{}] Product 상태 오류가 발생했습니다. reason={}", getRequestId(request), exception.getMessage());
+		log.warn("Product 상태 오류 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
 
 		return ResponseEntity
 			.status(errorCode.getStatus())
@@ -57,10 +44,10 @@ public class ProductExceptionHandler {
 		ConstraintViolationException.class,
 		MethodArgumentTypeMismatchException.class
 	})
-	public ResponseEntity<ErrorResponse> handleValidationException(Exception exception, HttpServletRequest request) {
+	public ResponseEntity<ErrorResponse> handleValidationException(Exception exception) {
 		ProductErrorCode errorCode = ProductErrorCode.INVALID_INPUT_VALUE;
 
-		log.warn("[{}] Product 요청 값 검증에 실패했습니다. reason={}", getRequestId(request), exception.getMessage());
+		log.warn("Product 요청 값 검증 실패 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
 
 		return ResponseEntity
 			.status(errorCode.getStatus())
@@ -76,12 +63,11 @@ public class ProductExceptionHandler {
 	 */
 	@ExceptionHandler(NoResourceFoundException.class)
 	public ResponseEntity<ErrorResponse> handleNoResourceFound(
-		NoResourceFoundException exception,
-		HttpServletRequest request
+		NoResourceFoundException exception
 	) {
 		ProductErrorCode errorCode = ProductErrorCode.ENDPOINT_NOT_FOUND;
 
-		log.warn("[{}] 존재하지 않는 경로 요청입니다. path={}", getRequestId(request), exception.getResourcePath());
+		log.warn("존재하지 않는 경로 요청 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
 
 		return ResponseEntity
 			.status(errorCode.getStatus())
@@ -89,23 +75,14 @@ public class ProductExceptionHandler {
 	}
 
 	@ExceptionHandler(Exception.class)
-	public ResponseEntity<ErrorResponse> handleException(Exception exception, HttpServletRequest request) {
+	public ResponseEntity<ErrorResponse> handleException(Exception exception) {
 		ProductErrorCode errorCode = ProductErrorCode.INTERNAL_SERVER_ERROR;
 
-		log.error("[{}] Product 예상하지 못한 서버 오류가 발생했습니다.", getRequestId(request), exception);
+		log.error("Product 예상하지 못한 서버 오류 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
 
 		return ResponseEntity
 			.status(errorCode.getStatus())
 			.body(ErrorResponse.of(errorCode));
 	}
 
-	private String getRequestId(HttpServletRequest request) {
-		String requestId = request.getHeader(REQUEST_ID_HEADER);
-
-		if (requestId == null || requestId.isBlank()) {
-			return "요청 ID 없음";
-		}
-
-		return requestId;
-	}
 }
