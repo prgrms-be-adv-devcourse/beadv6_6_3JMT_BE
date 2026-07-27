@@ -14,13 +14,18 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.prompthub.product.support.PostgresIntegrationTestSupport;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
+// replace = NONE — @DataJpaTest 기본값은 내장 DB로 갈아끼우는데, 여기서는
+// PostgresIntegrationTestSupport가 띄운 컨테이너를 그대로 써야 한다.
 @DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
-class ProductJpaRepositoryTest {
+class ProductJpaRepositoryTest extends PostgresIntegrationTestSupport {
 
 	@Autowired
 	private ProductJpaRepository productJpaRepository;
