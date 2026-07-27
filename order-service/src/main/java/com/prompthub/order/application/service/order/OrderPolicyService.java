@@ -36,9 +36,7 @@ public class OrderPolicyService {
 		for (CreateOrderCommand.Product product : command.products()) {
 			if (product == null
 				|| product.productId() == null
-				|| product.productTitle() == null
-				|| product.productTitle().isBlank()
-				|| product.productTitle().length() > MAX_PRODUCT_TITLE_LENGTH
+				|| (product.productTitle() != null && product.productTitle().length() > MAX_PRODUCT_TITLE_LENGTH)
 				|| !uniqueProductIds.add(product.productId())) {
 				throw invalidInput();
 			}
