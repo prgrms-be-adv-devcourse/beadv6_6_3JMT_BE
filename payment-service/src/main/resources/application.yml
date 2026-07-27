@@ -13,3 +13,13 @@ spring:
         initial-interval: 1000
         max-interval: 2000
         multiplier: 1.1
+
+logging:
+  structured:
+    format:
+      console: logstash
+    json:
+      add:
+        serviceName: ${spring.application.name}
+  level:
+    root: INFO

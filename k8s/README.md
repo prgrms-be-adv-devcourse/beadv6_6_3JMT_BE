@@ -29,7 +29,7 @@ kubectl kustomize k8s/overlays/ec2-kubeadm
 bash scripts/validate-k8s-manifests.sh
 ```
 
-스크립트는 모든 패키지가 렌더링되는지, `latest` 이미지나 미정 placeholder가 없는지, 실제 Secret이 base에 포함되지 않는지를 확인한다. 자동 CD용 `applications` 패키지가 상시 서비스 Deployment·Service와 `CronJob/settlement-weekly`만 포함하는지도 검사한다. ELK의 Local PV, Gateway 전용 Fluent Bit 경로, 14일 ILM과 Product Service 전환 전 Elasticsearch security disabled 계약도 검사한다. Ingress Controller의 host network·이미지 digest·필수 인자와 EC2 kubeadm overlay의 Gateway Ingress를 검사하고 NodePort·LoadBalancer 회귀를 차단한다. 또한 Release CI, 재사용 애플리케이션 CD, 수동 인프라·Ingress 배포의 책임 경계와 기존 Compose CD의 자동 trigger 비활성 상태를 검사한다.
+스크립트는 모든 패키지가 렌더링되는지, `latest` 이미지나 미정 placeholder가 없는지, 실제 Secret이 base에 포함되지 않는지를 확인한다. 자동 CD용 `applications` 패키지가 상시 서비스 Deployment·Service와 `CronJob/settlement-weekly`만 포함하는지도 검사한다. ELK의 Local PV, Gateway access 및 allowlist 애플리케이션 로그 경로, Gateway 14일·애플리케이션 7일 ILM, Product Service 전환 전 Elasticsearch security disabled 계약도 검사한다. Ingress Controller의 host network·이미지 digest·필수 인자와 EC2 kubeadm overlay의 Gateway Ingress를 검사하고 NodePort·LoadBalancer 회귀를 차단한다. 또한 Release CI, 재사용 애플리케이션 CD, 수동 인프라·Ingress 배포의 책임 경계와 기존 Compose CD의 자동 trigger 비활성 상태를 검사한다.
 
 Kafka Pod는 `enableServiceLinks: false`를 유지한다. 이 값을 제거하면 Kubernetes가 `kafka` Service에서 `KAFKA_PORT=tcp://...`를 자동 생성하고, Confluent 이미지가 이를 레거시 설정으로 해석해 시작 단계에서 종료한다.
 
@@ -76,7 +76,7 @@ kubectl -n prompthub get secret \
 
 ## ELK 수동 배포
 
-ELK는 API Gateway access 로그 관측용 add-on이며 자동 CD 대상이 아니다. Elasticsearch가 Product Service 검색 인덱스도 함께 사용하므로, Product Service의 HTTPS·인증 전환이 완료되기 전까지 Elasticsearch HTTP와 security disabled 상태를 유지한다. 이 상태에서는 Elasticsearch와 Kibana를 외부에 공개하지 않고, ClusterIP 또는 운영자 SSH tunnel만 사용한다.
+ELK는 Gateway access 로그와 애플리케이션 구조화 로그를 수집하는 add-on이다. 애플리케이션 allowlist는 `user-service`, `product-service`, `order-service`, `payment-service`, `admin-service`, `ai-service`, `settlement-service`, `notification-service`이며 `config`·`discovery`는 제외한다. `notification-service`는 아직 Kubernetes workload가 없으므로 배포 전에는 로그가 발생하지 않는다. Gateway access는 `gateway-access-*`에 14일, 애플리케이션 로그는 `application-logs-*`에 7일 보관한다. Elasticsearch가 Product Service 검색 인덱스도 함께 사용하므로, Product Service의 HTTPS·인증 전환이 완료되기 전까지 Elasticsearch HTTP와 security disabled 상태를 유지한다. 이 상태에서는 Elasticsearch와 Kibana를 외부에 공개하지 않고, ClusterIP 또는 운영자 SSH tunnel만 사용한다.
 
 ELK를 처음 배포하고 Gateway 요청부터 Kibana 조회까지 직접 확인하려면 [AWS EC2 ELK 테스트 가이드](addons/elk/README.md)를 먼저 따른다.
 
@@ -111,7 +111,9 @@ kubectl -n elk rollout status deployment/kibana --timeout=10m
 kubectl -n elk rollout status daemonset/fluent-bit --timeout=10m
 ```
 
-배포 후 정상 요청, 401, 404, 500, 503을 호출해 Kibana에서 `gateway.eventType: GATEWAY_ACCESS`와 응답 `X-Request-Id`가 일치하는지 확인한다. `gateway-access-*`만 14일 후 삭제되고 `products-v1`은 유지되는지도 확인한다. Elasticsearch 보안 전환은 Product Service 담당자가 HTTPS CA·인증을 지원한 뒤 별도 이슈와 점검 시간으로 진행한다.
+배포 후 정상 요청, 401, 404, 500, 503을 호출해 Kibana에서 `gateway.eventType: GATEWAY_ACCESS`와 응답 `X-Request-Id`가 일치하는지 확인한다. 애플리케이션 로그는 `Application Logs` Data View에서 같은 ID를 `requestId`로 검색하고 `service.name`, `level`, `kubernetes.container_name`을 확인한다. `gateway-access-*`는 14일, `application-logs-*`는 7일 후 삭제되며 `products-v1`에는 두 ILM 정책이 적용되지 않아야 한다.
+
+운영 적용은 수동 workflow의 `elk` 대상으로 전체 allowlist를 한 번에 반영한다. `notification-service`는 배포 전까지 로그가 발생하지 않으며, workload가 추가되면 별도 collector 변경 없이 수집된다. 민감 키·Bearer/JWT·Cookie·password·secret·API key·body 값이 검색되지 않는지 확인한다. 이 과정에서 ELK Service는 계속 ClusterIP로 유지한다.
 
 ## GitHub Actions CI/CD
 
@@ -140,6 +142,7 @@ Kubernetes 플랫폼·서비스·Gateway 매니페스트 변경도 서비스별�
 |---|---|---|
 | `infrastructure` | Namespace, StorageClass, PV/PVC, PostgreSQL, Redis, Kafka | Local PV 디렉터리와 `postgres-secret` 준비 |
 | `ingress` | F5 NGINX Ingress Controller, Gateway Ingress | Docker Gateway 중지, Gateway Ready, 80·443·18080·18081 listener 반환 |
+| `elk` | Elasticsearch, Logstash, Kibana, Fluent Bit 및 ILM bootstrap | Local PV 경로, `vm.max_map_count`, `elk-secret` 준비 |
 
 `develop`의 현재 소스로 선택 서비스만 다시 발행하려면 GitHub의 `Actions > Release - Develop > Run workflow`에서 branch를 `develop`으로 선택한다. `release-services`에는 테스트·이미지 발행 대상을 쉼표로 입력하고, YAML도 다시 적용할 서비스만 `manifest-services`에 입력한 뒤 `confirmation`에 `RELEASE`를 입력한다. Config와 AI 이미지를 다시 발행하면서 AI YAML도 적용하는 값은 각각 `config,ai-service`, `ai-service`, `RELEASE`다. 이 방식은 과거 실패 실행을 재실행하지 않고 최신 `develop` SHA로 새 Release를 만든다.
 
