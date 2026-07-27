@@ -1,4 +1,4 @@
-# AWS EC2에서 Gateway와 애플리케이션 ELK 로그 직접 테스트하기
+# AWS EC2에서 Gateway ELK 로그 직접 테스트하기
 
 이 문서는 ELK를 처음 접하는 개발자가 기존 AWS EC2 kubeadm 클러스터에 이 add-on을 배포하고, Gateway access 로그 한 건을 Kibana에서 직접 조회할 때까지 따라 하는 실습 가이드다.
 
@@ -6,15 +6,15 @@
 
 로그는 다음 순서로 이동한다.
 
-`Gateway/Application → Fluent Bit → Logstash → Elasticsearch → Kibana`
+`Gateway → Fluent Bit → Logstash → Elasticsearch → Kibana`
 
 - **Gateway**는 요청이 끝날 때 `GATEWAY_ACCESS` 형식의 JSON 로그를 표준 출력에 남긴다.
-- **Fluent Bit**은 Gateway와 allowlist 애플리케이션 컨테이너의 로그 파일을 하나의 HTTP output으로 Logstash에 전송한다.
-- **Logstash**는 JSON을 파싱해 Gateway access와 allowlist 애플리케이션 로그를 분기하고 민감 값을 마스킹한다.
-- **Elasticsearch**는 `gateway-access-YYYY.MM.dd`를 14일, `application-logs-YYYY.MM.dd`를 7일 보관한다.
+- **Fluent Bit**은 Worker 노드의 Gateway 컨테이너 로그 파일만 읽어 Logstash로 전송한다.
+- **Logstash**는 JSON을 파싱하고 Gateway access 로그만 골라 Elasticsearch에 저장한다.
+- **Elasticsearch**는 `gateway-access-YYYY.MM.dd` 인덱스에 로그를 보관한다.
 - **Kibana**는 Elasticsearch에 저장된 로그를 검색하는 화면을 제공한다.
 
-애플리케이션 allowlist는 `user-service`, `product-service`, `order-service`, `payment-service`, `admin-service`, `ai-service`, `settlement-service`, `config`, `discovery`, 예정된 `notification-service`다. `apigateway`, `wait-for-dependencies`, `kube-system`, `elk`는 application index 대상이 아니다. Servlet 서비스는 `X-Request-Id`를 MDC `requestId`로 기록하고, 없으면 UUID를 생성한다. Gateway와 Settlement CronJob은 이 Servlet 필터의 대상이 아니다.
+현재 지원 범위는 **Gateway access 로그만**이다. User, Product, Order, Payment 등 각 서비스 내부의 Java 애플리케이션 로그는 수집하지 않는다. 해당 범위가 필요하면 Fluent Bit 입력 경로, Logstash 파이프라인, 인덱스·보존 정책을 별도 설계해야 한다.
 
 ## 시작 전 안전 원칙
 

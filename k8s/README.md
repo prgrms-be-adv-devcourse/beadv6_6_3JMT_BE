@@ -76,7 +76,7 @@ kubectl -n prompthub get secret \
 
 ## ELK 수동 배포
 
-ELK는 Gateway access 로그와 애플리케이션 구조화 로그를 수집하는 add-on이다. 기본 allowlist는 현재 9개 서비스와 예정된 `notification-service`를 포함한다. Gateway access는 `gateway-access-*`에 14일, 애플리케이션 로그는 `application-logs-*`에 7일 보관한다. Elasticsearch가 Product Service 검색 인덱스도 함께 사용하므로, Product Service의 HTTPS·인증 전환이 완료되기 전까지 Elasticsearch HTTP와 security disabled 상태를 유지한다. 이 상태에서는 Elasticsearch와 Kibana를 외부에 공개하지 않고, ClusterIP 또는 운영자 SSH tunnel만 사용한다.
+ELK는 API Gateway access 로그 관측용 add-on이며 자동 CD 대상이 아니다. Elasticsearch가 Product Service 검색 인덱스도 함께 사용하므로, Product Service의 HTTPS·인증 전환이 완료되기 전까지 Elasticsearch HTTP와 security disabled 상태를 유지한다. 이 상태에서는 Elasticsearch와 Kibana를 외부에 공개하지 않고, ClusterIP 또는 운영자 SSH tunnel만 사용한다.
 
 ELK를 처음 배포하고 Gateway 요청부터 Kibana 조회까지 직접 확인하려면 [AWS EC2 ELK 테스트 가이드](addons/elk/README.md)를 먼저 따른다.
 
@@ -111,9 +111,7 @@ kubectl -n elk rollout status deployment/kibana --timeout=10m
 kubectl -n elk rollout status daemonset/fluent-bit --timeout=10m
 ```
 
-배포 후 정상 요청, 401, 404, 500, 503을 호출해 Kibana에서 `gateway.eventType: GATEWAY_ACCESS`와 응답 `X-Request-Id`가 일치하는지 확인한다. 애플리케이션 로그는 `Application Logs` Data View에서 같은 ID를 `requestId`로 검색하고 `serviceName`, `level`, `kubernetes.container_name`을 확인한다. `gateway-access-*`는 14일, `application-logs-*`는 7일 후 삭제되며 `products-v1`에는 두 ILM 정책이 적용되지 않아야 한다.
-
-운영 적용은 수동 workflow의 `elk` 대상으로 전체 allowlist를 한 번에 반영한다. 예정된 `notification-service`는 배포 전까지 로그가 발생하지 않으며, 서비스가 추가되면 동일한 JSON 로그 설정과 common-module 의존성을 적용한다. 민감 키·Bearer/JWT·Cookie·password·secret·API key·body 값이 검색되지 않는지 확인한다. 이 과정에서 ELK Service는 계속 ClusterIP로 유지한다.
+배포 후 정상 요청, 401, 404, 500, 503을 호출해 Kibana에서 `gateway.eventType: GATEWAY_ACCESS`와 응답 `X-Request-Id`가 일치하는지 확인한다. `gateway-access-*`만 14일 후 삭제되고 `products-v1`은 유지되는지도 확인한다. Elasticsearch 보안 전환은 Product Service 담당자가 HTTPS CA·인증을 지원한 뒤 별도 이슈와 점검 시간으로 진행한다.
 
 ## GitHub Actions CI/CD
 
