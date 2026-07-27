@@ -82,6 +82,14 @@ data:
     ALTER SCHEMA payment_service OWNER TO payment_service;
     ALTER SCHEMA settlement_service OWNER TO settlement_service;
 
+    -- ── pgvector 확장 (#378 상품 임베딩) ────────────────────────────────────
+    -- 슈퍼유저만 만들 수 있다(vector.control에 trusted 설정이 없음). product_service
+    -- 계정으로 접속하는 Flyway는 만들지 못하므로 여기서 미리 만들어 둔다. 이미 있으면
+    -- V3의 CREATE EXTENSION IF NOT EXISTS는 권한 검사 없이 건너뛴다.
+    -- public이 아니라 product_service 스키마에 만든다 — 바로 아래에서 public 접근을
+    -- 막기 때문에, public에 있으면 product_service가 vector 타입을 쓰지 못한다.
+    CREATE EXTENSION IF NOT EXISTS vector SCHEMA product_service;
+
     -- ── 기본 권한 설정: public 스키마 차단 ──────────────────────────────────
     REVOKE ALL ON SCHEMA public FROM user_service;
     REVOKE ALL ON SCHEMA public FROM product_service;

@@ -1,0 +1,36 @@
+name: Publish - Postgres pgvector Image
+
+# docker/postgres/Dockerfile을 빌드해 GHCR에 올린다.
+# 서비스 이미지와 달리 코드 변경으로 자동 재빌드할 이유가 없어(base 이미지·pgvector 버전이
+# 바뀔 때만 필요) 수동 dispatch로 둔다.
+#
+# 여기서 올린 태그는 아래 두 곳이 참조한다. 태그를 바꾸면 둘 다 함께 고쳐야 한다.
+#   - k8s/base/infrastructure/postgres/statefulset.yaml
+#   - docker-compose.yml (postgres 서비스)
+
+on:
+  workflow_dispatch:
+    inputs:
+      image-tag:
+        description: "이미지 태그 (k8s·compose의 태그와 반드시 일치)"
+        required: true
+        type: string
+        default: "18.4-alpine-pgvector0.8.5"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: postgres
+      module-path: docker/postgres
+      dockerfile-path: docker/postgres/Dockerfile
+      ghcr-repository: postgres
+      image-tag: ${{ inputs.image-tag }}
+      push-image: true
