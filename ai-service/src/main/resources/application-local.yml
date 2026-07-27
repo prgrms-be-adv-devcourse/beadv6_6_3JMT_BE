@@ -19,6 +19,9 @@ spring:
           target: static://${USER_GRPC_HOST:localhost}:${USER_GRPC_PORT:9081}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
     consumer:
       group-id: ai-service
       auto-offset-reset: earliest

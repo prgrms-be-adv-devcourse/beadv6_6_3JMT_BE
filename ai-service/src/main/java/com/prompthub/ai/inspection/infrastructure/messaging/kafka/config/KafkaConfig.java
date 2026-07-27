@@ -3,65 +3,44 @@ package com.prompthub.ai.inspection.infrastructure.messaging.kafka.config;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.util.backoff.FixedBackOff;
 
-@EnableKafka
+/**
+ * 프로듀서/KafkaTemplate은 Boot autoconfig에 위임한다(serializer는 application-*.yml
+ * spring.kafka.producer.* 참조). 컨슈머만 product-events 파싱 요구(String 수동 파싱)에 맞춰 오버라이드한다.
+ */
 @Configuration
 public class KafkaConfig {
 
-	@Value("${spring.kafka.bootstrap-servers}")
-	private String bootstrapServers;
+	private final String bootstrapServers;
 
-	@Value("${spring.kafka.consumer.group-id}")
-	private String groupId;
-
-	@Value("${spring.kafka.consumer.auto-offset-reset:earliest}")
-	private String autoOffsetReset;
-
-	@Value("${spring.kafka.consumer.enable-auto-commit:false}")
-	private boolean enableAutoCommit;
-
-	@Bean
-	public ProducerFactory<String, Object> producerFactory() {
-		Map<String, Object> config = new HashMap<>();
-		config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-		config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-		config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class);
-		return new DefaultKafkaProducerFactory<>(config);
-	}
-
-	@Bean
-	public KafkaTemplate<String, Object> kafkaTemplate(ProducerFactory<String, Object> producerFactory) {
-		return new KafkaTemplate<>(producerFactory);
+	public KafkaConfig(@Value("${spring.kafka.bootstrap-servers}") String bootstrapServers) {
+		this.bootstrapServers = bootstrapServers;
 	}
 
 	@Bean
 	public ConsumerFactory<String, String> productEventConsumerFactory() {
 		Map<String, Object> config = new HashMap<>();
 		config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-		config.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
-		config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset);
-		config.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, enableAutoCommit);
-		config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-		config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+		config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+		config.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+		config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+		config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+		config.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
+		config.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, StringDeserializer.class);
 		return new DefaultKafkaConsumerFactory<>(config);
 	}
 
