@@ -1,4 +1,3 @@
 dependencies {
-    implementation project(':common-module')
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-server'
 }

@@ -193,29 +193,16 @@ expected_deployment_order=$'config\ndiscovery\nuser-service\nproduct-service\nor
 [ "$(array_values "$APPLICATION_WORKFLOW" deployment_order)" = "$expected_deployment_order" ] ||
   fail "deployment_order changed"
 
-# The manual Kubernetes workflow supports infrastructure, Ingress, and ELK.
+# The old Kubernetes workflow is now manual infrastructure and Ingress only.
 manual_patterns=(
   '^name:[[:space:]]+CD - Self-hosted Kubernetes$'
   '^[[:space:]]+workflow_dispatch:$'
   '^[[:space:]]+deploy-infrastructure:$'
   '^[[:space:]]+deploy-ingress:$'
-  '^[[:space:]]+deploy-elk:$'
-  '^[[:space:]]+- elk$'
-  'inputs\.target == '\''elk'\'''
   'kubectl apply -k k8s/base/storage'
   'kubectl apply -k k8s/base/infrastructure'
   'kubectl apply -k k8s/addons/nginx-ingress'
   'kubectl apply -f k8s/overlays/ec2-kubeadm/gateway-ingress.yaml'
-  'kubectl get namespace elk'
-  'kubectl get secret logstash-http-credentials -n elk'
-  'kubectl get secret kibana-encryption -n elk'
-  'kubectl apply --server-side --dry-run=server -k k8s/addons/elk'
-  'kubectl delete job application-logs-ilm-bootstrap application-logs-kibana-bootstrap -n elk --ignore-not-found'
-  'kubectl apply --server-side -k k8s/addons/elk'
-  'kubectl rollout restart deployment/logstash -n elk'
-  'kubectl rollout restart daemonset/fluent-bit -n elk'
-  'kubectl wait --for=condition=complete job/application-logs-ilm-bootstrap -n elk --timeout=10m'
-  'kubectl wait --for=condition=complete job/application-logs-kibana-bootstrap -n elk --timeout=10m'
 )
 
 for pattern in "${manual_patterns[@]}"; do
