@@ -35,10 +35,8 @@ public class SellerService {
 	private final AuthService authService;
 
 	public SellerRegisterPageResult listSellerRegisters(SellerRegisterListQuery query) {
-		int zeroBasedPage = query.page() - 1;
-
 		List<SellerRegister> registers = sellerRegisterRepository.findAll(
-			query.status(), zeroBasedPage, query.size());
+			query.status(), query.page(), query.size());
 		long total = sellerRegisterRepository.count(query.status());
 
 		List<UUID> userIds = registers.stream()
@@ -53,7 +51,7 @@ public class SellerService {
 			.map(r -> SellerRegisterSummaryResult.of(r, userMap.get(r.getUserId())))
 			.toList();
 
-		boolean hasNext = total > (long) query.page() * query.size();
+		boolean hasNext = total > (long) (query.page() + 1) * query.size();
 
 		return new SellerRegisterPageResult(items, query.page(), query.size(), total, hasNext);
 	}
