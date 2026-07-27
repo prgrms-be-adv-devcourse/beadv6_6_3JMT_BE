@@ -119,7 +119,22 @@ Expected: PASS (4개 신규 테스트 포함 전체 통과)
 ```bash
 git add product-service/src/main/java/com/prompthub/product/domain/model/entity/Product.java \
   product-service/src/test/java/com/prompthub/product/domain/model/entity/ProductTest.java
-git commit -m "feat: Product에 AI 검수 결과 반영용 approve/reject 도메인 메서드 추가"
+git commit -m "$(cat <<'EOF'
+feat: Product에 AI 검수 결과 반영용 approve/reject 도메인 메서드 추가
+
+submitForReview()로 PENDING_REVIEW까지는 가지만 이 상태를 ON_SALE/REJECTED로
+바꾸는 소비자가 지금까지 하나도 없었다(#597) — 검수 이후 단계가 통째로
+비어 있었다. approve()/reject(reason)을 추가해 이 전이를 도메인 메서드로
+명시한다.
+
+supersede()와 동일하게 현재 상태가 PENDING_REVIEW가 아니면
+IllegalStateException을 던진다. 조용히 무시하지 않는 이유는, "이미 처리된
+중복 이벤트라 스킵"이라는 판단은 도메인이 아니라 Kafka 컨슈머/handler
+계층의 관심사이기 때문이다 — 도메인 메서드는 상태 전이 규칙만 지키고,
+멱등 처리는 이후 Task(ProductInspectionResultHandler)에서 이 예외를
+잡아서 한다.
+EOF
+)"
 ```
 
 ---
@@ -278,7 +293,19 @@ Expected: PASS
 ```bash
 git add product-service/src/main/java/com/prompthub/product/infra/messaging/producer/ \
   product-service/src/test/java/com/prompthub/product/infra/messaging/producer/ProductEventProducerTest.java
-git commit -m "feat: PRODUCT_REVIEW_REQUESTED 이벤트 발행 추가"
+git commit -m "$(cat <<'EOF'
+feat: PRODUCT_REVIEW_REQUESTED 이벤트 발행 추가
+
+AI 자동 검수(#597)를 위해 ai-service가 재조회 없이 바로 판정할 수 있도록
+상품 콘텐츠 스냅샷(name/description/content/tags/thumbnailUrl/imageUrls)을
+payload에 통째로 담아 기존 product-events 토픽에 발행한다. 이벤트 타입만
+새로 쪼개는 대신 kafka-event.md 컨벤션대로 토픽은 도메인당 하나로 유지한다.
+
+thumbnailUrl/imageUrls는 아직 raw S3 key 그대로다 — presign은 이 이벤트를
+실제로 발행하는 지점(submitForReview, 다음 Task)에서 하므로 여기 producer
+메서드는 이미 presign된 URL을 그대로 받아 담기만 한다.
+EOF
+)"
 ```
 
 ---
@@ -381,7 +408,21 @@ Expected: PASS
 ```bash
 git add product-service/src/main/java/com/prompthub/product/application/service/ProductSellerService.java \
   product-service/src/test/java/com/prompthub/product/application/service/ProductSellerServiceTest.java
-git commit -m "feat: submitForReview 시 이미지 presign 후 검수 요청 이벤트 발행"
+git commit -m "$(cat <<'EOF'
+feat: submitForReview 시 이미지 presign 후 검수 요청 이벤트 발행
+
+Product 엔티티의 thumbnailUrl/imageUrls는 raw S3 key라 ai-service가 그대로는
+못 받아온다(비공개 버킷). 기존 응답 변환 시점마다 하던 것과 동일하게
+StorageClient.generatePresignedDownloadUrl로 presign한 뒤에야 이벤트
+payload에 넣는다.
+
+30분 GET presign 만료 안에 정상 처리되면 문제 없고, DLT 재처리처럼 지연되는
+예외 상황에서만 걸린다 — 기존 시스템도 동일 TTL로 돌고 있어 별도 대응 없이
+감수하기로 결정했다(설계 문서 참고).
+
+썸네일이 없는 상품은 presign 호출 자체를 생략하고 null로 발행한다.
+EOF
+)"
 ```
 
 ---
@@ -850,7 +891,24 @@ git add product-service/src/main/java/com/prompthub/product/infra/messaging/cons
   product-service/src/main/java/com/prompthub/product/application/service/ProductInspectionResultHandler.java \
   product-service/src/test/java/com/prompthub/product/application/service/ProductInspectionResultHandlerTest.java \
   product-service/src/main/java/com/prompthub/product/infra/messaging/config/KafkaConfig.java
-git commit -m "feat: ai-events(PRODUCT_INSPECTION_COMPLETED) 소비 후 상품 상태 반영"
+git commit -m "$(cat <<'EOF'
+feat: ai-events(PRODUCT_INSPECTION_COMPLETED) 소비 후 상품 상태 반영
+
+ai-service의 검수 판정을 반영하는 마지막 고리다. OrderEventConsumer와
+동일하게 컨슈머는 얇게 유지하고(EventMessage<JsonNode> 파싱 → eventType
+확인 → handler 호출), 상태 전이 자체는 ProductInspectionResultHandler가
+Product.approve()/reject()로 처리한다.
+
+별도 이벤트 처리 이력 테이블은 두지 않았다 — approve()/reject()가 이미
+PENDING_REVIEW 가드로 자연 멱등이라, handler에서 IllegalStateException만
+잡아 중복 이벤트를 스킵하면 충분하다(kafka-event.md §7의 "자연 멱등이면
+이력 불필요" 조건). 이 예외는 처리 실패가 아니라 정상적인 중복 케이스라
+DLT로 보내지 않고 로그만 남기고 ack한다 — 미지원 eventType과 같은 취급이다.
+
+product-events 소비(order-events)와는 별도 consumer factory(ai-events용
+DLT 파트너 `ai-events.DLT`)를 KafkaConfig에 추가했다.
+EOF
+)"
 ```
 
 ---
@@ -1009,7 +1067,23 @@ Expected: BUILD SUCCESSFUL (Kafka 의존성 다운로드 + `KafkaConfig` 컴파�
 ```bash
 git add build.gradle ai-service/src/main/resources/application-local.yml \
   ai-service/src/main/java/com/prompthub/ai/inspection/infrastructure/messaging/kafka/config/KafkaConfig.java
-git commit -m "feat: ai-service에 Kafka 의존성/설정 추가(product-events 소비, ai-events 발행 준비)"
+git commit -m "$(cat <<'EOF'
+feat: ai-service에 Kafka 의존성/설정 추가(product-events 소비, ai-events 발행 준비)
+
+AI 상품 자동 검수(#597)를 위해 ai-service가 처음으로 Kafka consumer+producer를
+동시에 갖는다. 지금까지 ai-service는 정산 도메인에서 Redis pub/sub(SSE
+스트리밍용)과 gRPC(user-service 동기 조회)만 썼고 Kafka는 전혀 쓰지
+않았다 — 루트 build.gradle의 "Kafka 사용 서비스" 목록에도 빠져 있었다.
+
+product-service KafkaConfig와 동일한 패턴(EventMessage 봉투, JacksonJsonSerializer,
+MANUAL ack, FixedBackOff 1s×2 재시도 후 {topic}.DLT)을 그대로 재사용한다 —
+서비스마다 다른 재시도/DLT 정책을 만들지 않기 위해서다.
+
+이 커밋은 순수 설정/스캐폴딩이라 분기 로직이 없다. product-service의
+KafkaConfig도 전용 단위 테스트가 없는 것과 동일하게, 이 클래스는 모듈
+빌드로만 검증한다.
+EOF
+)"
 ```
 
 ---
@@ -1205,7 +1279,20 @@ Expected: PASS
 ```bash
 git add ai-service/src/main/java/com/prompthub/ai/inspection/infrastructure/messaging/kafka/producer/ \
   ai-service/src/test/java/com/prompthub/ai/inspection/infrastructure/messaging/kafka/producer/
-git commit -m "feat: ai-service에 PRODUCT_INSPECTION_COMPLETED 이벤트 발행 추가"
+git commit -m "$(cat <<'EOF'
+feat: ai-service에 PRODUCT_INSPECTION_COMPLETED 이벤트 발행 추가
+
+검수 판정을 product-service에 돌려주는 발행측이다. 실패 시 별도 "검수 실패"
+이벤트는 만들지 않는다 — 상품은 PENDING_REVIEW에 그대로 남는 게 안전한
+기본값이고, 자동 ON_SALE(위험)도 거짓 REJECTED(오탐 신호)도 실패의 대안이
+될 수 없다. 실패는 컨슈머 쪽 재시도/DLT로만 신호한다(설계 문서 "실패 처리"
+참고).
+
+product-service의 ProductEventProducer와 달리 AFTER_COMMIT 지연 발행을
+하지 않는다 — 이 발행 앞에 DB 트랜잭션이 없는 무상태 검수라 즉시 발행이
+곧 정확한 시점이다.
+EOF
+)"
 ```
 
 ---
@@ -1420,7 +1507,20 @@ Expected: PASS
 git add ai-service/src/main/java/com/prompthub/ai/inspection/domain/ \
   ai-service/src/main/java/com/prompthub/ai/inspection/application/ \
   ai-service/src/test/java/com/prompthub/ai/inspection/application/
-git commit -m "feat: 상품 검수 유스케이스(ProductInspectionService) 추가"
+git commit -m "$(cat <<'EOF'
+feat: 상품 검수 유스케이스(ProductInspectionService) 추가
+
+검수 요청 → AI 판정 → 결과 발행을 조율하는 오케스트레이션 계층이다.
+실제 AI 호출은 ProductInspectionAiPort 포트 뒤로 숨겨 아직 구현체가 없어도
+(다음 Task에서 Spring AI 어댑터로 구현) 이 조율 로직을 독립적으로
+테스트할 수 있게 했다 — settlement 도메인의 SettlementAgent 포트 패턴과
+동일하다.
+
+AI 포트 호출이 실패하면 예외를 그대로 전파하고 이벤트를 발행하지 않는다.
+이 예외는 Kafka 컨슈머까지 올라가 재시도/DLT로 처리된다 — 서비스 계층에서
+잡아 흡수하지 않는다.
+EOF
+)"
 ```
 
 ---
@@ -1683,7 +1783,18 @@ Expected: PASS
 ```bash
 git add ai-service/src/main/java/com/prompthub/ai/inspection/infrastructure/messaging/kafka/consumer/ \
   ai-service/src/test/java/com/prompthub/ai/inspection/infrastructure/messaging/kafka/consumer/
-git commit -m "feat: product-events(PRODUCT_REVIEW_REQUESTED) 소비 후 상품 검수 실행"
+git commit -m "$(cat <<'EOF'
+feat: product-events(PRODUCT_REVIEW_REQUESTED) 소비 후 상품 검수 실행
+
+product-events 토픽에는 PRODUCT_STOPPED/DELETED/PRICE_CHANGED/CHANGED도
+함께 흐른다. ai-service는 이 중 PRODUCT_REVIEW_REQUESTED만 관심 있으므로
+product-service의 ProductEventType을 그대로 가져다 쓰지 않고, ai-service
+로컬 ProductReviewEventType으로 지원 타입만 별도 정의한다(kafka-event.md §4,
+OrderEventType이 product-service 안에서 order-service 계약을 로컬로
+미러링하는 것과 같은 패턴). 나머지 타입은 로그+ack로 넘기고 DLT로 보내지
+않는다.
+EOF
+)"
 ```
 
 ---
@@ -1995,7 +2106,25 @@ Expected: BUILD SUCCESSFUL(두 모듈 모두, checkstyle 포함)
 ```bash
 git add ai-service/src/main/java/com/prompthub/ai/inspection/infrastructure/client/openai/ \
   ai-service/src/test/java/com/prompthub/ai/inspection/infrastructure/client/openai/
-git commit -m "feat: Spring AI vision으로 상품 검수 판정하는 어댑터 추가"
+git commit -m "$(cat <<'EOF'
+feat: Spring AI vision으로 상품 검수 판정하는 어댑터 추가
+
+ProductInspectionAiPort의 실제 구현체다. SpringAiSettlementAgent처럼 raw
+ChatModel + Prompt/ChatResponse를 직접 다룬다(ChatClient 고수준 API 아님) —
+기존 코드베이스 관례를 그대로 따른다. 구조화 출력은 ChatClient 전용
+.entity()가 아니라 BeanOutputConverter로 JSON 포맷 지시문을 system prompt에
+넣고 응답 텍스트를 직접 파싱하는 방식이다.
+
+이미지는 presigned URL을 다운로드하지 않고 Media(mimeType, URI)로 그대로
+전달한다 — OpenAI가 URL을 직접 fetch하므로 ai-service가 이미지 바이트를
+들고 있을 필요가 없다. mimeType은 presigned URL 경로의 확장자로 추정한다
+(FileUploadController가 업로드를 허용하는 jpg/jpeg/png/gif/webp만 지원).
+
+프롬프트에는 "위반 여부가 확실하지 않으면 반려로 판단"을 명시해 애매한
+케이스가 승인 쪽으로 새지 않게 한다(설계 문서에서 정한 보수적 기본값
+정책) — 판정 스키마 자체는 승인/반려 이진값 그대로 유지한다.
+EOF
+)"
 ```
 
 ---
