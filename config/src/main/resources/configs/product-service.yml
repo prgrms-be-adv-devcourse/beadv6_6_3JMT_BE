@@ -68,3 +68,6 @@ prompthub:
 logging:
   level:
     com.prompthub.product: INFO
+    # search 패키지가 빠져 있어 임베딩 생성·재조정 동작을 운영에서 확인할 수 없었다.
+    # ProductEmbeddingUpdater·QueryEmbeddingCache가 여기에 속한다.
+    com.prompthub.search: INFO
