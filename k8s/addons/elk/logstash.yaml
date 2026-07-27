@@ -15,6 +15,7 @@ data:
         port => 8000
         user => "${LOGSTASH_HTTP_USERNAME}"
         password => "${LOGSTASH_HTTP_PASSWORD}"
+        additional_codecs => {}
         codec => json {
           target => "[ingest]"
         }
