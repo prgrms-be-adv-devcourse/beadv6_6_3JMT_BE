@@ -10,6 +10,27 @@ if ! grep -Fxq 'ENV TZ=Asia/Seoul' "${ROOT_DIR}/Dockerfile" \
   exit 1
 fi
 
+APPLICATION_LOG_CONFIGS=(
+  "admin-service/src/main/resources/application.yml"
+  "ai-service/src/main/resources/application.yml"
+  "config/src/main/resources/application.yml"
+  "discovery/src/main/resources/application.yaml"
+  "order-service/src/main/resources/application.yml"
+  "payment-service/src/main/resources/application.yml"
+  "product-service/src/main/resources/application.yml"
+  "settlement-service/src/main/resources/application.yml"
+  "user-service/src/main/resources/application.yml"
+)
+
+for config in "${APPLICATION_LOG_CONFIGS[@]}"; do
+  if ! grep -Fq 'console: logstash' "${ROOT_DIR}/${config}" \
+    || ! grep -Fq 'serviceName: ${spring.application.name}' "${ROOT_DIR}/${config}" \
+    || ! grep -Eq 'root:[[:space:]]+INFO$' "${ROOT_DIR}/${config}"; then
+    echo "application structured logging contract missing: ${config}" >&2
+    exit 1
+  fi
+done
+
 PACKAGES=(
   "k8s/addons/nginx-ingress"
   "k8s/addons/elk"
@@ -383,6 +404,13 @@ for package in "${PACKAGES[@]}"; do
       'gateway-access-[*]'
       'min_age.*14d'
       'index.lifecycle.name.*gateway-access-14d'
+      'application-logs-[*]'
+      'min_age.*7d'
+      'index.lifecycle.name.*application-logs-7d'
+      'APPLICATION_LOG_CONTAINER_REGEX'
+      'user-service[|]product-service[|]order-service[|]payment-service[|]admin-service[|]ai-service[|]settlement-service[|]config[|]discovery[|]notification-service'
+      'application-logs-saved-objects'
+      'Application Logs'
       'delete'
       '^[[:space:]]+name:[[:space:]]+fluent-bit$'
       'apigateway-[*]_prompthub_apigateway-[*][.]log'
@@ -405,6 +433,11 @@ for package in "${PACKAGES[@]}"; do
 
     if ! grep -Fq 'additional_codecs => {}' "${rendered}"; then
       echo "Logstash HTTP input must disable content-type codec overrides" >&2
+      exit 1
+    fi
+
+    if [[ "$(grep -Fc 'storage.total_limit_size 512M' "${rendered}")" -ne 1 ]]; then
+      echo "Fluent Bit must retain exactly one 512M output storage limit" >&2
       exit 1
     fi
 

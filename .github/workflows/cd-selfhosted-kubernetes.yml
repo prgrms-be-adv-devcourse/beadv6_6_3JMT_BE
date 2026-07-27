@@ -10,6 +10,7 @@ on:
         options:
           - infrastructure
           - ingress
+          - elk
       confirmation:
         description: "실행하려면 DEPLOY 입력"
         required: true
@@ -131,3 +132,49 @@ jobs:
 
           kubectl get pods -n nginx-ingress -o wide
           kubectl get ingress apigateway -n "$NAMESPACE"
+
+  deploy-elk:
+    name: Manually Deploy ELK
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'elk'
+    runs-on: [self-hosted, linux, deploy]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: 수동 실행 확인
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "DEPLOY" ]; then
+            echo "confirmation에 DEPLOY를 입력해야 합니다." >&2
+            exit 1
+          fi
+
+      - name: 클러스터와 매니페스트 확인
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v kubectl >/dev/null
+          test -r "$KUBECONFIG"
+          kubectl config current-context
+          kubectl get namespace elk >/dev/null
+          kubectl get secret logstash-http-credentials -n elk >/dev/null
+          kubectl get secret kibana-encryption -n elk >/dev/null
+          bash scripts/validate-k8s-manifests.sh
+
+      - name: ELK application log 수집 적용
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl kustomize k8s/addons/elk >/dev/null
+          kubectl apply --server-side --dry-run=server -k k8s/addons/elk
+          kubectl delete job application-logs-ilm-bootstrap application-logs-kibana-bootstrap -n elk --ignore-not-found
+          kubectl apply --server-side -k k8s/addons/elk
+          kubectl rollout restart deployment/logstash -n elk
+          kubectl rollout restart daemonset/fluent-bit -n elk
+          kubectl rollout status deployment/logstash -n elk --timeout=10m
+          kubectl rollout status daemonset/fluent-bit -n elk --timeout=10m
+          kubectl wait --for=condition=complete job/application-logs-ilm-bootstrap -n elk --timeout=10m
+          kubectl wait --for=condition=complete job/application-logs-kibana-bootstrap -n elk --timeout=10m
