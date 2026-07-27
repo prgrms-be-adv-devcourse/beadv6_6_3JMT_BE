@@ -78,6 +78,8 @@ kubectl -n prompthub get secret \
 
 ELK는 API Gateway access 로그 관측용 add-on이며 자동 CD 대상이 아니다. Elasticsearch가 Product Service 검색 인덱스도 함께 사용하므로, Product Service의 HTTPS·인증 전환이 완료되기 전까지 Elasticsearch HTTP와 security disabled 상태를 유지한다. 이 상태에서는 Elasticsearch와 Kibana를 외부에 공개하지 않고, ClusterIP 또는 운영자 SSH tunnel만 사용한다.
 
+ELK를 처음 배포하고 Gateway 요청부터 Kibana 조회까지 직접 확인하려면 [AWS EC2 ELK 테스트 가이드](addons/elk/README.md)를 먼저 따른다.
+
 Control Plane에서 적용 전에 Elasticsearch Local PV 경로와 커널 값을 준비한다.
 
 ```bash
@@ -100,7 +102,10 @@ kubectl apply -f /home/ubuntu/prompthub-secrets/elk-secret.yaml
 kubectl apply --dry-run=client -k k8s/addons/elk
 kubectl apply --server-side --dry-run=server -k k8s/addons/elk
 kubectl apply -k k8s/addons/elk
-kubectl -n elk rollout status statefulset/elasticsearch --timeout=10m
+kubectl -n elk rollout restart deployment/logstash
+kubectl -n elk rollout restart daemonset/fluent-bit
+kubectl -n elk wait --for=create pod/elasticsearch-0 --timeout=5m
+kubectl -n elk wait --for=condition=Ready pod/elasticsearch-0 --timeout=10m
 kubectl -n elk rollout status deployment/logstash --timeout=10m
 kubectl -n elk rollout status deployment/kibana --timeout=10m
 kubectl -n elk rollout status daemonset/fluent-bit --timeout=10m
