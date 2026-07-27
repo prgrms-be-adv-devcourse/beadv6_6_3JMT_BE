@@ -1,10 +1,8 @@
 package com.prompthub.order.application.service.refund;
 
-import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.application.dto.RefundResult;
-import com.prompthub.order.application.service.event.OrderEventMessageFactory;
-import com.prompthub.order.application.service.event.OrderEventMessageFactory.RefundRequestedPayload;
-import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
+import com.prompthub.order.application.service.event.OrderOutboxAppender;
+import com.prompthub.order.infra.messaging.kafka.event.OrderRefundRequestedPayload;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.OrderRepository;
@@ -29,8 +27,7 @@ public class OrderRefundService {
 	private static final String REQUESTED_STATUS = "REQUESTED";
 
 	private final OrderRepository orderRepository;
-	private final OrderEventMessageFactory orderEventMessageFactory;
-	private final OutboxEventAppender outboxEventAppender;
+	private final OrderOutboxAppender orderOutboxAppender;
 	private final Clock clock;
 
 	public RefundResult requestRefund(UUID buyerId, UUID orderId, List<UUID> orderProductIds) {
@@ -54,15 +51,15 @@ public class OrderRefundService {
 			.sum();
 
 		order.requestRefund(orderProductIds);
-		RefundRequestedPayload payload = new RefundRequestedPayload(
+		OrderRefundRequestedPayload payload = new OrderRefundRequestedPayload(
 			orderId,
+			order.getBuyerId(),
+			order.getOrderNumber(),
 			refundRequestId,
 			refundAmount,
 			requestedAt
 		);
-		EventMessage<RefundRequestedPayload> message =
-			orderEventMessageFactory.createOrderRefundRequestedMessage(orderId, payload);
-		outboxEventAppender.append(message);
+		orderOutboxAppender.appendRefundRequested(orderId, payload);
 
 		log.info(
 			"부분 환불 요청 접수 완료. orderId={}, refundRequestId={}, productCount={}, refundAmount={}",
