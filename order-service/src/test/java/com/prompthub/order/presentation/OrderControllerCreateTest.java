@@ -200,6 +200,22 @@ class OrderControllerCreateTest {
 		verifyNoInteractions(createOrderUseCase);
 	}
 
+	@Test
+	@DisplayName("productTitle이 생략되거나 null이어도 정상 주문이 허용된다")
+	void createOrderWithoutProductTitleIsAccepted() throws Exception {
+		given(createOrderUseCase.createOrder(eq(BUYER_ID), any(CreateOrderCommand.class)))
+			.willReturn(result());
+		String body = """
+			{"products":[{"productId":"%s"}]}
+			""".formatted(PRODUCT_A1);
+
+		mockMvc.perform(post("/api/v2/orders")
+				.header(AuthHeaders.USER_ID, BUYER_ID.toString())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(body))
+			.andExpect(status().isOk());
+	}
+
 	private static Stream<org.junit.jupiter.params.provider.Arguments> invalidBodies() {
 		String longTitle = "가".repeat(201);
 		return Stream.of(
@@ -209,14 +225,6 @@ class OrderControllerCreateTest {
 			org.junit.jupiter.params.provider.Arguments.of(
 				"productId null",
 				"{\"products\":[{\"productId\":null,\"productTitle\":\"제목\"}]}"
-			),
-			org.junit.jupiter.params.provider.Arguments.of(
-				"title null",
-				"{\"products\":[{\"productId\":\"%s\",\"productTitle\":null}]}".formatted(PRODUCT_A1)
-			),
-			org.junit.jupiter.params.provider.Arguments.of(
-				"title blank",
-				"{\"products\":[{\"productId\":\"%s\",\"productTitle\":\"   \"}]}".formatted(PRODUCT_A1)
 			),
 			org.junit.jupiter.params.provider.Arguments.of(
 				"title too long",
