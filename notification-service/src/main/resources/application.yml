@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: notification-service
+  config:
+    import: ${CONFIG_IMPORT:}

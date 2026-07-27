@@ -6,14 +6,22 @@ import java.util.UUID;
 
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
+import com.prompthub.order.domain.enums.OrderStatus;
 
 public record OrderRefundPayload(
         UUID orderId,
         UUID buyerId,
+        String orderNumber,
+        OrderStatus orderStatus,
         int totalOrderAmount,
         LocalDateTime refundedAt,
         List<OrderPaidProductPayload> products
 ) {
+    public OrderRefundPayload(UUID orderId, UUID buyerId, int totalOrderAmount, LocalDateTime refundedAt,
+                              List<OrderPaidProductPayload> products) {
+        this(orderId, buyerId, null, null, totalOrderAmount, refundedAt, products);
+    }
+
     public static OrderRefundPayload from(
         Order order,
         OrderProduct refundedProduct,
@@ -30,6 +38,8 @@ public record OrderRefundPayload(
         return new OrderRefundPayload(
                 order.getId(),
                 order.getBuyerId(),
+                order.getOrderNumber(),
+                order.getOrderStatus(),
                 order.getTotalOrderAmount(),
                 refundedAt,
 				refundedProducts.stream().map(OrderPaidProductPayload::from).toList()

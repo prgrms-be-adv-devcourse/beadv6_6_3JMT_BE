@@ -1,13 +1,10 @@
 package com.prompthub.order.application.service.event;
 
-import com.prompthub.common.event.EventMessage;
-import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.OrderRepository;
-import com.prompthub.order.infra.messaging.kafka.event.OrderRefundPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,9 +36,7 @@ class PaymentRefundedProcessorTest {
 	@Mock
 	private OrderRepository orderRepository;
 	@Mock
-	private OrderEventMessageFactory orderEventMessageFactory;
-	@Mock
-	private OutboxEventAppender outboxEventAppender;
+	private OrderOutboxAppender orderOutboxAppender;
 	@Spy
 	private PaymentEventValidator validator = new PaymentEventValidator();
 	@InjectMocks
@@ -54,9 +49,6 @@ class PaymentRefundedProcessorTest {
 		order.requestRefund(List.of(target.getId()));
 		UUID eventId = UUID.randomUUID();
 		given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId())).willReturn(Optional.of(order));
-		given(orderEventMessageFactory.createOrderRefundMessage(eq(order.getId()), any()))
-			.willReturn(new EventMessage<>(UUID.randomUUID(), "ORDER_REFUND", REFUNDED_AT, "ORDER", order.getId(), null));
-
 		processor.process(
 			eventId,
 			"PAYMENT_REFUNDED",
@@ -66,11 +58,10 @@ class PaymentRefundedProcessorTest {
 
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PARTIAL_REFUNDED);
 		assertThat(target.getOrderStatus()).isEqualTo(OrderProductStatus.REFUNDED);
-		ArgumentCaptor<OrderRefundPayload> payloadCaptor = ArgumentCaptor.forClass(OrderRefundPayload.class);
-		then(orderEventMessageFactory).should().createOrderRefundMessage(eq(order.getId()), payloadCaptor.capture());
-		assertThat(payloadCaptor.getValue().products()).singleElement()
-			.satisfies(product -> assertThat(product.orderProductId()).isEqualTo(target.getId()));
-		then(outboxEventAppender).should().append(any());
+		ArgumentCaptor<List<OrderProduct>> productsCaptor = ArgumentCaptor.forClass(List.class);
+		then(orderOutboxAppender).should().appendRefunded(eq(order), productsCaptor.capture(), eq(REFUNDED_AT));
+		assertThat(productsCaptor.getValue()).singleElement()
+			.satisfies(product -> assertThat(product.getId()).isEqualTo(target.getId()));
 		then(processedEventService).should().markProcessed(eventId, "order-service", "PAYMENT_REFUNDED", REFUNDED_AT);
 	}
 
@@ -95,6 +86,7 @@ class PaymentRefundedProcessorTest {
 
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.REFUND_REQUESTED);
 		assertThat(target.getOrderStatus()).isEqualTo(OrderProductStatus.REFUND_REQUESTED);
+		then(orderOutboxAppender).should().appendRefundFailed(order, PRODUCT_AMOUNT_1, REFUNDED_AT);
 		then(processedEventService).should()
 			.markProcessed(eventId, "order-service", "PAYMENT_REFUND_FAILED", REFUNDED_AT);
 	}

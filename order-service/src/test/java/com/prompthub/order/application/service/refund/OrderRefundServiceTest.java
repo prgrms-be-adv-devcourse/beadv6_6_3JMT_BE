@@ -1,10 +1,8 @@
 package com.prompthub.order.application.service.refund;
 
-import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.application.dto.RefundResult;
-import com.prompthub.order.application.service.event.OrderEventMessageFactory;
-import com.prompthub.order.application.service.event.OrderEventMessageFactory.RefundRequestedPayload;
-import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
+import com.prompthub.order.application.service.event.OrderOutboxAppender;
+import com.prompthub.order.infra.messaging.kafka.event.OrderRefundRequestedPayload;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
@@ -39,9 +37,7 @@ class OrderRefundServiceTest {
 	@Mock
 	private OrderRepository orderRepository;
 	@Mock
-	private OrderEventMessageFactory orderEventMessageFactory;
-	@Mock
-	private OutboxEventAppender outboxEventAppender;
+	private OrderOutboxAppender orderOutboxAppender;
 
 	private OrderRefundService service;
 
@@ -49,8 +45,7 @@ class OrderRefundServiceTest {
 	void setUp() {
 		service = new OrderRefundService(
 			orderRepository,
-			orderEventMessageFactory,
-			outboxEventAppender,
+			orderOutboxAppender,
 			Clock.fixed(Instant.parse("2026-07-21T03:00:00Z"), ZoneId.of("Asia/Seoul"))
 		);
 	}
@@ -60,16 +55,6 @@ class OrderRefundServiceTest {
 		Order order = createPaidOrderWithProducts();
 		List<UUID> productIds = order.getOrderProducts().stream().map(OrderProduct::getId).toList();
 		given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId())).willReturn(Optional.of(order));
-		given(orderEventMessageFactory.createOrderRefundRequestedMessage(any(), any()))
-			.willAnswer(invocation -> new EventMessage<>(
-				UUID.randomUUID(),
-				"ORDER_REFUND_REQUESTED",
-				invocation.<RefundRequestedPayload>getArgument(1).requestedAt(),
-				"ORDER",
-				order.getId(),
-				invocation.getArgument(1)
-			));
-
 		RefundResult result = service.requestRefund(BUYER_ID, order.getId(), productIds);
 
 		assertThat(result.refundAmount()).isEqualTo(PRODUCT_AMOUNT_1 + PRODUCT_AMOUNT_2);
@@ -78,12 +63,13 @@ class OrderRefundServiceTest {
 		assertThat(order.getOrderProducts())
 			.extracting(OrderProduct::getOrderStatus)
 			.containsOnly(OrderProductStatus.REFUND_REQUESTED);
-		ArgumentCaptor<RefundRequestedPayload> payloadCaptor =
-			ArgumentCaptor.forClass(RefundRequestedPayload.class);
-		then(orderEventMessageFactory).should()
-			.createOrderRefundRequestedMessage(org.mockito.ArgumentMatchers.eq(order.getId()), payloadCaptor.capture());
+		ArgumentCaptor<OrderRefundRequestedPayload> payloadCaptor =
+			ArgumentCaptor.forClass(OrderRefundRequestedPayload.class);
+		then(orderOutboxAppender).should()
+			.appendRefundRequested(org.mockito.ArgumentMatchers.eq(order.getId()), payloadCaptor.capture());
 		assertThat(payloadCaptor.getValue().refundRequestId()).isEqualTo(result.refundRequestId());
 		assertThat(payloadCaptor.getValue().refundAmount()).isEqualTo(PRODUCT_AMOUNT_1 + PRODUCT_AMOUNT_2);
-		then(outboxEventAppender).should().append(any());
+		assertThat(payloadCaptor.getValue().buyerId()).isEqualTo(BUYER_ID);
+		assertThat(payloadCaptor.getValue().orderNumber()).isEqualTo(order.getOrderNumber());
 	}
 }
