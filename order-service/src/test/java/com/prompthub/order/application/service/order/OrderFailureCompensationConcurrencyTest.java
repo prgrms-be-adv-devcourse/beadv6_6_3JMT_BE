@@ -10,6 +10,7 @@ import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
+import com.prompthub.order.domain.model.OutboxEvent;
 import com.prompthub.order.domain.repository.ProcessedEventRepository;
 import com.prompthub.order.global.exception.CartException;
 import com.prompthub.order.global.exception.ErrorCode;
