@@ -83,16 +83,14 @@ class OrderPolicyServiceTest {
 		}
 
 		@Test
-		@DisplayName("공백 제목이 있으면 입력값 검증 예외가 발생한다")
-		void blankTitleThrowsException() {
-			CreateOrderCommand blank = new CreateOrderCommand(List.of(
-				new CreateOrderCommand.Product(PRODUCT_A1, "   ")
+		@DisplayName("상품 제목이 null이거나 공백이어도 검증을 통과한다")
+		void nullOrBlankTitleSuccess() {
+			CreateOrderCommand command = new CreateOrderCommand(List.of(
+				new CreateOrderCommand.Product(PRODUCT_A1, null),
+				new CreateOrderCommand.Product(PRODUCT_B1, "   ")
 			));
 
-			assertThatThrownBy(() -> orderPolicyService.validateCreateOrderCommand(blank))
-				.isInstanceOf(OrderException.class)
-				.satisfies(exception -> assertThat(((OrderException) exception).getErrorCode())
-					.isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+			orderPolicyService.validateCreateOrderCommand(command);
 		}
 	}
 

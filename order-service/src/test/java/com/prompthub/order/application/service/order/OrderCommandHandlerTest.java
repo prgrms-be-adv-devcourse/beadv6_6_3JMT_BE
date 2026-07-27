@@ -122,16 +122,24 @@ class OrderCommandHandlerTest {
 	}
 
 	@Test
-	@DisplayName("공백 제목은 외부 호출과 저장을 수행하지 않는다")
-	void blankTitleFailsBeforeRemoteCall() {
-		CreateOrderCommand blankTitle = new CreateOrderCommand(List.of(
-			new CreateOrderCommand.Product(PRODUCT_A1, "   ")
+	@DisplayName("null 또는 공백 제목도 주문 생성을 진행한다")
+	void nullOrBlankTitleProceedsToOrderCreation() {
+		CreateOrderResult expected = result();
+		CreateOrderCommand command = new CreateOrderCommand(List.of(
+			new CreateOrderCommand.Product(PRODUCT_A1, null),
+			new CreateOrderCommand.Product(PRODUCT_B1, "   "),
+			new CreateOrderCommand.Product(PRODUCT_A2, REQUEST_TITLE_A2),
+			new CreateOrderCommand.Product(com.prompthub.order.fixture.OrderV2Fixture.PRODUCT_C1, com.prompthub.order.fixture.OrderV2Fixture.REQUEST_TITLE_C1)
 		));
+		given(productClient.getOrderSnapshots(requestedProductIds()))
+			.willReturn(shuffledSnapshots());
+		given(orderCreator.create(eq(BUYER_ID), anyList()))
+			.willReturn(expected);
 
-		assertInvalidInput(() -> orderCommandHandler.createOrder(BUYER_ID, blankTitle));
+		CreateOrderResult actual = orderCommandHandler.createOrder(BUYER_ID, command);
 
-		then(productClient).shouldHaveNoInteractions();
-		then(orderCreator).shouldHaveNoInteractions();
+		assertThat(actual).isSameAs(expected);
+		then(productClient).should().getOrderSnapshots(requestedProductIds());
 	}
 
 	@Test
