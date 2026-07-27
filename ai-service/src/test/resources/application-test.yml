@@ -12,6 +12,12 @@ spring:
       api-key: test-openai-key
     retry:
       max-attempts: 1
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: ai-service-test
+      auto-offset-reset: earliest
+      enable-auto-commit: false
 
 eureka:
   client:
