@@ -16,6 +16,11 @@ on:
         required: true
         type: string
         default: "18.4-alpine-pgvector0.8.5"
+      ghcr-repository:
+        description: "GHCR 패키지 이름. 서비스 이미지와 같은 prompthub- 접두어를 쓴다"
+        required: true
+        type: string
+        default: "prompthub-postgres"
 
 permissions:
   contents: read
@@ -31,6 +36,6 @@ jobs:
       module-name: postgres
       module-path: docker/postgres
       dockerfile-path: docker/postgres/Dockerfile
-      ghcr-repository: postgres
+      ghcr-repository: ${{ inputs.ghcr-repository }}
       image-tag: ${{ inputs.image-tag }}
       push-image: true
