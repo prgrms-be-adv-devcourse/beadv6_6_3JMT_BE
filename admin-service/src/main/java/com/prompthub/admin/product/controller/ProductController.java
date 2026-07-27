@@ -38,6 +38,9 @@ public class ProductController {
 		@RequestParam(defaultValue = "0") int page,
 		@RequestParam(defaultValue = "20") int size
 	) {
+		if (page < 0) {
+			throw new AdminException(AdminErrorCode.INVALID_INPUT_VALUE);
+		}
 		// Pageable 자동 리졸버를 쓰지 않고 직접 조립 — 문서에 없는 sort 파라미터가 열리는 것을 막는다.
 		Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 		AdminProductListQuery query = new AdminProductListQuery(parseStatusFilter(status), keyword, pageable);

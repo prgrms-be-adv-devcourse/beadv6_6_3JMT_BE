@@ -6,7 +6,12 @@ services:
 
   # ----- 인프라 -----
   postgres:
-    image: postgres:18.4-alpine
+    # pgvector 확장이 필요하다(#378 임베딩 저장, #380 kNN 추천).
+    # image와 build를 함께 둔다 — 로컬에서는 Dockerfile로 빌드해 이 태그를 붙이고,
+    # GHCR 퍼블리시 후에는 같은 태그를 pull하게 되어 로컬과 운영이 갈라지지 않는다.
+    image: ghcr.io/prgrms-be-adv-devcourse/postgres:18.4-alpine-pgvector0.8.5
+    build:
+      context: ./docker/postgres
     container_name: prompthub-postgres
     command: ["postgres", "-c", "timezone=Asia/Seoul"]
     environment:
