@@ -36,17 +36,15 @@ public class UserService {
 	private final AuthService authService;
 
 	public UserPageResult listUsers(UserListQuery query) {
-		int zeroBasedPage = query.page() - 1;
-
 		List<User> users = userRepository.findUsers(
-			query.status(), query.role(), query.keyword(), zeroBasedPage, query.size());
+			query.status(), query.role(), query.keyword(), query.page(), query.size());
 		long total = userRepository.countUsers(query.status(), query.role(), query.keyword());
 
 		List<UserSummaryResult> results = users.stream()
 			.map(UserSummaryResult::from)
 			.toList();
 
-		boolean hasNext = total > (long) query.page() * query.size();
+		boolean hasNext = total > (long) (query.page() + 1) * query.size();
 
 		return new UserPageResult(results, query.page(), query.size(), total, hasNext);
 	}
