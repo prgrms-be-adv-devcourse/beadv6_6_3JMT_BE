@@ -1,4 +1,4 @@
-# AWS EC2에서 Gateway ELK 로그 직접 테스트하기
+# AWS EC2에서 Gateway와 애플리케이션 ELK 로그 직접 테스트하기
 
 이 문서는 ELK를 처음 접하는 개발자가 기존 AWS EC2 kubeadm 클러스터에 이 add-on을 배포하고, Gateway access 로그 한 건을 Kibana에서 직접 조회할 때까지 따라 하는 실습 가이드다.
 
@@ -6,15 +6,15 @@
 
 로그는 다음 순서로 이동한다.
 
-`Gateway → Fluent Bit → Logstash → Elasticsearch → Kibana`
+`Gateway/Application → Fluent Bit → Logstash → Elasticsearch → Kibana`
 
 - **Gateway**는 요청이 끝날 때 `GATEWAY_ACCESS` 형식의 JSON 로그를 표준 출력에 남긴다.
-- **Fluent Bit**은 Worker 노드의 Gateway 컨테이너 로그 파일만 읽어 Logstash로 전송한다.
-- **Logstash**는 JSON을 파싱하고 Gateway access 로그만 골라 Elasticsearch에 저장한다.
-- **Elasticsearch**는 `gateway-access-YYYY.MM.dd` 인덱스에 로그를 보관한다.
+- **Fluent Bit**은 Gateway와 allowlist 애플리케이션 컨테이너의 로그 파일을 하나의 HTTP output으로 Logstash에 전송한다.
+- **Logstash**는 JSON을 파싱해 Gateway access와 allowlist 애플리케이션 로그를 분기하고 민감 값을 마스킹한다.
+- **Elasticsearch**는 `gateway-access-YYYY.MM.dd`를 14일, `application-logs-YYYY.MM.dd`를 7일 보관한다.
 - **Kibana**는 Elasticsearch에 저장된 로그를 검색하는 화면을 제공한다.
 
-현재 지원 범위는 **Gateway access 로그만**이다. User, Product, Order, Payment 등 각 서비스 내부의 Java 애플리케이션 로그는 수집하지 않는다. 해당 범위가 필요하면 Fluent Bit 입력 경로, Logstash 파이프라인, 인덱스·보존 정책을 별도 설계해야 한다.
+애플리케이션 allowlist는 `user-service`, `product-service`, `order-service`, `payment-service`, `admin-service`, `ai-service`, `settlement-service`, `notification-service`다. `config`, `discovery`, `apigateway`, init container, `kube-system`, `elk`는 application index 대상이 아니다. `notification-service`는 아직 Kubernetes workload가 없어 로그를 내보내지 않지만, 배포되는 즉시 같은 allowlist로 수집된다. Servlet 서비스는 `X-Request-Id`를 MDC `requestId`로 기록하고, 없으면 UUID를 생성한다. Gateway와 Settlement CronJob은 이 Servlet 필터의 대상이 아니다.
 
 ## 시작 전 안전 원칙
 
@@ -84,7 +84,7 @@ local-storage   kubernetes.io/no-provisioner   Retain          WaitForFirstConsu
 
 하나라도 다르면 적용하지 않는다. 특히 label이 없으면 Elasticsearch와 Fluent Bit이 원하는 노드에 배치되지 않는다.
 
-관련 문서: [12. Gateway 전용 범위와 원본 동기화](trouble-shooting/12-gateway-only-scope-and-source-sync.md)
+관련 문서: [12. 애플리케이션 로그 범위와 원본 동기화](trouble-shooting/12-gateway-only-scope-and-source-sync.md)
 
 ---
 
@@ -414,7 +414,7 @@ kubectl -n prompthub logs \
   grep 'GATEWAY_ACCESS'
 ```
 
-Gateway 이외 서비스의 내부 로그까지 기대했다면 [12. Gateway 전용 수집 범위](trouble-shooting/12-gateway-only-scope-and-source-sync.md)를 확인한다.
+애플리케이션 로그가 보이지 않으면 [12. 애플리케이션 로그 범위와 원본 동기화](trouble-shooting/12-gateway-only-scope-and-source-sync.md)를 확인한다.
 
 ---
 
@@ -661,7 +661,7 @@ curl -fsS \
 - policy delete phase의 `min_age`가 `14d`다.
 - `products-v1`에는 `gateway-access-14d`가 없다.
 
-정책이 다르거나 서비스 내부 로그까지 같은 인덱스에 넣으려 했다면 [12. Gateway 전용 범위와 원본 동기화](trouble-shooting/12-gateway-only-scope-and-source-sync.md)를 확인한다.
+정책이 다르거나 서비스 내부 로그가 보이지 않으면 [12. 애플리케이션 로그 범위와 원본 동기화](trouble-shooting/12-gateway-only-scope-and-source-sync.md)를 확인한다.
 
 ---
 
@@ -697,7 +697,7 @@ curl -fsS \
 | 09 | Discover에서 `Unknown column [@timestamp]` 오류가 남 | [ES|QL timestamp 오류](trouble-shooting/09-kibana-esql-unknown-timestamp.md) |
 | 10 | Mac에서 private Kibana에 접속할 수 없음 | [SSH tunnel 접속](trouble-shooting/10-private-kibana-ssh-tunnel.md) |
 | 11 | 표나 YAML 출력 내용을 Bash 명령으로 실행함 | [터미널 출력 붙여넣기](trouble-shooting/11-terminal-output-pasted-as-command.md) |
-| 12 | 각 서비스 내부 로그가 보이지 않거나 EC2 수정이 원본과 다름 | [Gateway 전용 범위와 원본 동기화](trouble-shooting/12-gateway-only-scope-and-source-sync.md) |
+| 12 | 각 서비스 내부 로그가 보이지 않거나 EC2 수정이 원본과 다름 | [애플리케이션 로그 범위와 원본 동기화](trouble-shooting/12-gateway-only-scope-and-source-sync.md) |
 
 ## 실습 범위 밖의 작업
 
