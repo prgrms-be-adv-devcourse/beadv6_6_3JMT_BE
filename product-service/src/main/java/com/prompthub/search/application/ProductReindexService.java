@@ -35,6 +35,7 @@ public class ProductReindexService {
 	private final ProductRepository productRepository;
 	private final ProductSearchIndexer productSearchIndexer;
 	private final FamilyStatsResolver familyStatsResolver;
+	private final ProductEmbeddingUpdater productEmbeddingUpdater;
 
 	/**
 	 * 마지막 실행 이후 변경된 family만 재조정한다.
@@ -91,6 +92,9 @@ public class ProductReindexService {
 	/**
 	 * 대상 family들의 멤버·평점을 배치로 조회해 upsert/delete 목록을 만든다.
 	 * family 수와 무관하게 쿼리는 2건(멤버 일괄 조회 + 평점 일괄 조회)이다.
+	 *
+	 * <p>임베딩 갱신도 여기서 함께 돈다. 이 서비스에 {@code @Transactional}이 없어 OpenAI
+	 * 호출이 트랜잭션을 물고 늘어지지 않으므로, 배치가 임베딩을 채우기에 적합한 자리다.
 	 */
 	private Reconciliation buildReconciliation(Collection<UUID> familyRootIds) {
 		List<UUID> targets = List.copyOf(familyRootIds);
@@ -113,6 +117,8 @@ public class ProductReindexService {
 				() -> toDelete.add(familyRootId)
 			);
 		}
+
+		productEmbeddingUpdater.refresh(toUpsert.stream().map(FamilyUpsertInput::onSale).toList());
 		return new Reconciliation(toUpsert, toDelete);
 	}
 

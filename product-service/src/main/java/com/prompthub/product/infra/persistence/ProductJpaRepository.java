@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -273,4 +274,34 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 		changed.addAll(findFamilyRootIdsByReviewUpdatedSince(since));
 		return List.copyOf(changed);
 	}
+
+	/**
+	 * {@code embedding}은 pgvector 타입이라 엔티티에 매핑돼 있지 않다. 짝이 되는
+	 * {@code embedding_source_hash}도 같은 네이티브 쿼리로 다뤄 한쪽만 JPA로 새는 일이 없게 한다.
+	 */
+	@Query(value = """
+		select id, embedding_source_hash
+		from product
+		where id in (:productIds)
+			and embedding_source_hash is not null
+		""", nativeQuery = true)
+	List<Object[]> findEmbeddingSourceHashRows(@Param("productIds") List<UUID> productIds);
+
+	/**
+	 * 네이티브 UPDATE라 JPA auditing이 타지 않아 {@code updated_at}이 그대로 남는다. 이게
+	 * 중요하다 — 임베딩을 쓸 때마다 updated_at이 바뀌면 그 상품이 다음 증분 재조정 대상으로
+	 * 다시 걸려 배치가 자기 꼬리를 무는 루프가 된다.
+	 */
+	@Modifying
+	@Query(value = """
+		update product
+		set embedding = cast(:embedding as vector),
+			embedding_source_hash = :sourceHash
+		where id = :productId
+		""", nativeQuery = true)
+	void updateEmbedding(
+		@Param("productId") UUID productId,
+		@Param("embedding") String embedding,
+		@Param("sourceHash") String sourceHash
+	);
 }

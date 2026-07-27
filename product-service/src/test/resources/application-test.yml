@@ -13,6 +13,11 @@ spring:
     open-in-view: false
   kafka:
     bootstrap-servers: localhost:9092
+  ai:
+    openai:
+      # 오토컨피그가 EmbeddingModel 빈을 만들 때만 쓰는 더미다. 테스트는 실제 호출을 하지
+      # 않는다 — EmbeddingClient를 fake로 대체한다.
+      api-key: test-openai-key
 
 eureka:
   client:
