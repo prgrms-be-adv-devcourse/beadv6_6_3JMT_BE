@@ -15,3 +15,13 @@ management:
     web:
       exposure:
         include: health, info
+
+logging:
+  structured:
+    format:
+      console: logstash
+    json:
+      add:
+        serviceName: ${spring.application.name}
+  level:
+    root: INFO
