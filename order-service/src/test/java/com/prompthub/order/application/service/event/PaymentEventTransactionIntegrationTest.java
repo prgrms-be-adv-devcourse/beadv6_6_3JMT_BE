@@ -334,10 +334,56 @@ class PaymentEventTransactionIntegrationTest {
 			.extracting(OrderProduct::getOrderStatus)
 			.containsOnly(OrderProductStatus.FAILED);
 		assertThat(cartProductIds()).containsExactlyElementsOf(allCartProductIds());
-		assertThat(outboxEventPersistence.count()).isZero();
+		assertThat(outboxEventPersistence.findAll())
+			.extracting(OutboxEvent::getEventType)
+			.containsExactly("ORDER_PAYMENT_FAILED");
 		assertThat(processedEventRepository.count()).isEqualTo(1);
 		then(orderExpirationStore).should().removeExpiration(ORDER_A);
 		then(orderExpirationStore).should().clearRetryCount(ORDER_A);
+	}
+
+	@Test
+	void refundFailedEvent_keepsRefundRequestAndCommitsNotificationOutboxAndProcessedEvent() {
+		Order paidOrder = prepareRefund(saveAndApproveScenario(), ORDER_PRODUCT_A);
+
+		refundedProcessor.processFailed(
+			UUID.randomUUID(),
+			"PAYMENT_REFUND_FAILED",
+			REFUNDED_AT,
+			new PaymentRefundedEventHandler.RefundFailedPayload(
+				paidOrder.getId(), 10_000, REFUNDED_AT_OFFSET
+			)
+		);
+
+		Order reloaded = reloadOrder();
+		assertThat(reloaded.getOrderStatus()).isEqualTo(OrderStatus.REFUND_REQUESTED);
+		assertThat(findProduct(reloaded, ORDER_PRODUCT_A).getOrderStatus())
+			.isEqualTo(OrderProductStatus.REFUND_REQUESTED);
+		assertThat(outboxEventPersistence.findAll())
+			.extracting(OutboxEvent::getEventType)
+			.containsExactlyInAnyOrder("ORDER_PAID", "ORDER_REFUND_FAILED");
+		assertThat(processedEventRepository.count()).isEqualTo(2);
+	}
+
+	@Test
+	void refundFailedEvent_outboxFailureRollsBackProcessedEventAndKeepsOnlyExistingPaidOutbox() {
+		Order paidOrder = prepareRefund(saveAndApproveScenario(), ORDER_PRODUCT_A);
+		willThrow(new RuntimeException("refund failed outbox failure"))
+			.given(outboxEventRepository).save(any());
+
+		assertThatThrownBy(() -> refundedProcessor.processFailed(
+			UUID.randomUUID(),
+			"PAYMENT_REFUND_FAILED",
+			REFUNDED_AT,
+			new PaymentRefundedEventHandler.RefundFailedPayload(
+				paidOrder.getId(), 10_000, REFUNDED_AT_OFFSET
+			)
+		))
+			.isInstanceOf(RuntimeException.class)
+			.hasMessageContaining("refund failed outbox failure");
+
+		entityManager.clear();
+		assertRefundRequestedStateAndNoResultSideEffects();
 	}
 
 	@Test

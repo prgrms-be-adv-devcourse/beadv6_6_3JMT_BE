@@ -6,11 +6,13 @@ import java.util.Arrays;
 import java.util.Optional;
 
 public enum OrderEventType implements EventType {
-	ORDER_PAID,
-	ORDER_REFUND_REQUESTED,
-	ORDER_REFUND,
-	ORDER_CANCELED,
-	ORDER_FAILED;
+    ORDER_CREATED,
+    ORDER_PAID,
+    ORDER_PAYMENT_FAILED,
+    ORDER_EXPIRED,
+    ORDER_REFUND_REQUESTED,
+    ORDER_REFUND,
+    ORDER_REFUND_FAILED;
 
 	@Override
 	public String code() {

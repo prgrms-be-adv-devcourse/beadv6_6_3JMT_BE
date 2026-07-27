@@ -7,7 +7,9 @@ public enum GatewayRouteAccessPolicy {
     BUYER {
         @Override
         public boolean allows(GatewayRole actualRole) {
-            return true;
+            return actualRole == GatewayRole.BUYER
+                || actualRole == GatewayRole.SELLER
+                || actualRole == GatewayRole.ADMIN;
         }
     },
     SELLER {
