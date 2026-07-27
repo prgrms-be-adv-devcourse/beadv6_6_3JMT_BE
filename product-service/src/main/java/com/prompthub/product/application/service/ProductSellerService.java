@@ -171,6 +171,21 @@ public class ProductSellerService implements ProductSellerUseCase {
 		Product product = getProductForSeller(sellerId, productId);
 		product.submitForReview();
 		productRepository.save(product);
+
+		String presignedThumbnailUrl = presignOrNull(product.getThumbnailUrl());
+		List<String> presignedImageUrls = presignAll(product.getImageUrls());
+		productEventProducer.publishReviewRequested(product, presignedThumbnailUrl, presignedImageUrls);
+	}
+
+	private String presignOrNull(String key) {
+		return (key == null || key.isBlank()) ? null : storageClient.generatePresignedDownloadUrl(key);
+	}
+
+	private List<String> presignAll(List<String> keys) {
+		if (keys == null || keys.isEmpty()) {
+			return List.of();
+		}
+		return keys.stream().map(storageClient::generatePresignedDownloadUrl).toList();
 	}
 
 	@Override

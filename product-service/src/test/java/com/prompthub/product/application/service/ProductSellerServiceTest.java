@@ -46,6 +46,42 @@ class ProductSellerServiceTest {
 	private ProductSellerService productSellerService;
 
 	@Nested
+	@DisplayName("검수 제출")
+	class SubmitForReview {
+
+		@Test
+		@DisplayName("썸네일/이미지를 presign해 PRODUCT_REVIEW_REQUESTED를 발행한다")
+		void submitForReview_presignsImagesAndPublishesEvent() {
+			Product product = product(PRODUCT_ID, null, ProductStatus.DRAFT, (short) 1, (short) 0);
+			ReflectionTestUtils.setField(product, "thumbnailUrl", "products/1/thumbnail/a.png");
+			ReflectionTestUtils.setField(product, "imageUrls", List.of("products/1/image/b.png"));
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+			given(storageClient.generatePresignedDownloadUrl("products/1/thumbnail/a.png"))
+				.willReturn("https://s3/presigned-thumb");
+			given(storageClient.generatePresignedDownloadUrl("products/1/image/b.png"))
+				.willReturn("https://s3/presigned-image");
+
+			productSellerService.submitForReview(SELLER_ID, PRODUCT_ID);
+
+			assertThat(product.getStatus()).isEqualTo(ProductStatus.PENDING_REVIEW);
+			then(productEventProducer).should().publishReviewRequested(
+				product, "https://s3/presigned-thumb", List.of("https://s3/presigned-image"));
+		}
+
+		@Test
+		@DisplayName("썸네일이 없으면 presign 없이 null로 발행한다")
+		void submitForReview_withoutThumbnail_publishesNullThumbnail() {
+			Product product = product(PRODUCT_ID, null, ProductStatus.DRAFT, (short) 1, (short) 0);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+
+			productSellerService.submitForReview(SELLER_ID, PRODUCT_ID);
+
+			then(productEventProducer).should().publishReviewRequested(product, null, List.of());
+			then(storageClient).shouldHaveNoInteractions();
+		}
+	}
+
+	@Nested
 	@DisplayName("상품 수정")
 	class UpdateProduct {
 
