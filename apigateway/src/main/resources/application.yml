@@ -62,6 +62,13 @@ spring:
               filters:
                 - RewritePath=/ai-service/v3/api-docs, /v3/api-docs
 
+            - id: notification-service-docs
+              uri: lb://NOTIFICATION-SERVICE
+              predicates:
+                - Path=/notification-service/v3/api-docs
+              filters:
+                - RewritePath=/notification-service/v3/api-docs, /v3/api-docs
+
 gateway:
   # 서비스별 활성 API 버전 리스트. 병행 서빙이 필요해지면 [v1, v2]로 바꾼다.
   # 리스트를 비우거나 서비스 키를 지우면 해당 서비스의 라우트/화이트리스트는 사라지고 404가 된다. (ADR-0007)
@@ -72,8 +79,9 @@ gateway:
     payment-service: [ v1, v2 ]
     user-service: [ v1, v2 ]
     ai-service: [ v2 ]
-    notification-service: [ v2 ]
+    notification-service: [ v1 ]
   route-policies:
+    /api/*/notifications/**: BUYER
     /api/*/sellers/me/**: SELLER
     /api/*/ai/settlement/**: SELLER_OR_ADMIN
 
@@ -95,6 +103,8 @@ springdoc:
         url: /payment-service/v3/api-docs
       - name: ai-service
         url: /ai-service/v3/api-docs
+      - name: notification-service
+        url: /notification-service/v3/api-docs
   api-docs:
     enabled: true
 
