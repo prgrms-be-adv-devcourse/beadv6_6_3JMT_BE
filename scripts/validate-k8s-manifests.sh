@@ -381,10 +381,14 @@ for package in "${PACKAGES[@]}"; do
       'node-role.kubernetes.io/control-plane'
       'xpack.security.enabled'
       'gateway-access-[*]'
+      'min_age.*14d'
+      'index.lifecycle.name.*gateway-access-14d'
       'delete'
       '^[[:space:]]+name:[[:space:]]+fluent-bit$'
       'apigateway-[*]_prompthub_apigateway-[*][.]log'
       'logstash.elk.svc.cluster.local'
+      'HTTP_User.*[$][{]LOGSTASH_HTTP_USERNAME[}]'
+      'HTTP_Passwd.*[$][{]LOGSTASH_HTTP_PASSWORD[}]'
     )
 
     for pattern in "${required_patterns[@]}"; do
@@ -396,6 +400,38 @@ for package in "${PACKAGES[@]}"; do
 
     if grep -Eq 'emptyDir:[[:space:]]*\\{\\}' "${rendered}"; then
       echo "ELK must not use ephemeral emptyDir storage" >&2
+      exit 1
+    fi
+
+    if ! grep -Fq 'additional_codecs => {}' "${rendered}"; then
+      echo "Logstash HTTP input must disable content-type codec overrides" >&2
+      exit 1
+    fi
+
+    if ! awk '
+      /^[[:space:]]*\[INPUT\][[:space:]]*$/ {
+        section = "input"
+        next
+      }
+      /^[[:space:]]*\[FILTER\][[:space:]]*$/ {
+        section = "filter"
+        next
+      }
+      /^[[:space:]]*\[OUTPUT\][[:space:]]*$/ {
+        section = "output"
+        next
+      }
+      /storage[.]total_limit_size/ {
+        if (section == "input") {
+          input_limit = 1
+        }
+        if (section == "output" && $NF == "512M") {
+          output_limit = 1
+        }
+      }
+      END { exit input_limit || !output_limit }
+    ' "${rendered}"; then
+      echo "Fluent Bit storage.total_limit_size must exist only in HTTP OUTPUT" >&2
       exit 1
     fi
 
