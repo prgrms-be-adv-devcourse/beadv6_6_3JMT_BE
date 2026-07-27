@@ -35,9 +35,9 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.model.tool.ToolExecutionResult;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import reactor.core.publisher.Flux;
 
 @DisplayName("Spring AI 판매자 정산 수동 agent loop")
@@ -116,7 +116,8 @@ class SpringAiSettlementAgentTest {
         verify(model, times(2)).call(callPrompt.capture());
         Prompt initialPrompt = callPrompt.getAllValues().getFirst();
         Prompt postToolPrompt = callPrompt.getAllValues().get(1);
-        ToolCallingChatOptions initialOptions = (ToolCallingChatOptions) initialPrompt.getOptions();
+        OpenAiChatOptions initialOptions = (OpenAiChatOptions) initialPrompt.getOptions();
+        assertThat(initialOptions.getParallelToolCalls()).isTrue();
         assertThat(initialOptions.getToolCallbacks()).hasSize(4);
         assertThat(initialOptions.getToolContext())
                 .containsEntry("actorId", actorId.toString())
@@ -129,7 +130,8 @@ class SpringAiSettlementAgentTest {
 
         ArgumentCaptor<Prompt> finalPrompt = ArgumentCaptor.forClass(Prompt.class);
         verify(model).stream(finalPrompt.capture());
-        ToolCallingChatOptions finalOptions = (ToolCallingChatOptions) finalPrompt.getValue().getOptions();
+        OpenAiChatOptions finalOptions = (OpenAiChatOptions) finalPrompt.getValue().getOptions();
+        assertThat(finalOptions.getParallelToolCalls()).isNull();
         assertThat(finalOptions.getToolCallbacks()).isEmpty();
         assertThat(finalOptions.getToolContext()).isEmpty();
     }
