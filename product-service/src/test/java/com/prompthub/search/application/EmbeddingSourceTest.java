@@ -1,6 +1,5 @@
 package com.prompthub.search.application;
 
-import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.prompthub.product.domain.model.entity.Product;

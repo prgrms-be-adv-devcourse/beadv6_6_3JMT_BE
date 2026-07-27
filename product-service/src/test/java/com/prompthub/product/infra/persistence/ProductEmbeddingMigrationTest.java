@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -26,11 +27,18 @@ import org.springframework.test.util.ReflectionTestUtils;
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Import(ProductRepositoryAdapter.class)
 @ActiveProfiles("test")
 class ProductEmbeddingMigrationTest extends PostgresIntegrationTestSupport {
 
+	/** V3 마이그레이션의 vector(1536)과 같아야 한다. */
+	private static final int DIMENSIONS = 1536;
+
 	@Autowired
 	private ProductJpaRepository productJpaRepository;
+
+	@Autowired
+	private ProductRepositoryAdapter productRepositoryAdapter;
 
 	@Autowired
 	private EntityManager entityManager;
@@ -50,20 +58,38 @@ class ProductEmbeddingMigrationTest extends PostgresIntegrationTestSupport {
 	void storesAndOrdersByCosineDistance() {
 		Product near = save(ProductStatus.ON_SALE);
 		Product far = save(ProductStatus.ON_SALE);
-		setEmbedding(near, "[1,0,0]");
-		setEmbedding(far, "[0,1,0]");
+		setEmbedding(near, 0);
+		setEmbedding(far, 1);
 
 		@SuppressWarnings("unchecked")
 		List<UUID> ordered = entityManager
 			.createNativeQuery("""
 				SELECT id FROM product
 				 WHERE embedding IS NOT NULL
-				 ORDER BY embedding <=> CAST(:probe AS vector)
+				 ORDER BY embedding <=> (SELECT embedding FROM product WHERE id = :probeId)
 				""")
-			.setParameter("probe", pad("[1,0,0]"))
+			.setParameter("probeId", near.getId())
 			.getResultList();
 
 		assertThat(ordered).containsExactly(near.getId(), far.getId());
+	}
+
+	@Test
+	@DisplayName("아주 작은 값도 저장된다 — Float.toString이 지수 표기(1.0E-5)를 낸다")
+	void storesValuesInScientificNotation() {
+		Product product = save(ProductStatus.ON_SALE);
+		float[] embedding = new float[DIMENSIONS];
+		// 임베딩 벡터는 이런 크기의 값을 실제로 포함한다. 리터럴이 "1.0E-5"로 나가는데
+		// pgvector가 이걸 못 읽으면 캐스팅에서 터진다.
+		embedding[0] = 0.00001f;
+
+		productRepositoryAdapter.updateEmbedding(product.getId(), embedding, "해시");
+
+		Object stored = entityManager
+			.createNativeQuery("SELECT embedding IS NOT NULL FROM product WHERE id = :id")
+			.setParameter("id", product.getId())
+			.getSingleResult();
+		assertThat((Boolean) stored).isTrue();
 	}
 
 	@Test
@@ -89,21 +115,10 @@ class ProductEmbeddingMigrationTest extends PostgresIntegrationTestSupport {
 		return productJpaRepository.save(product);
 	}
 
-	private void setEmbedding(Product product, String prefix) {
-		entityManager
-			.createNativeQuery("UPDATE product SET embedding = CAST(:v AS vector) WHERE id = :id")
-			.setParameter("v", pad(prefix))
-			.setParameter("id", product.getId())
-			.executeUpdate();
-	}
-
-	/** 컬럼이 vector(1536)이라 나머지 차원을 0으로 채운다. */
-	private static String pad(String prefix) {
-		String head = prefix.substring(1, prefix.length() - 1);
-		StringBuilder sb = new StringBuilder("[").append(head);
-		for (int i = head.split(",").length; i < 1536; i++) {
-			sb.append(",0");
-		}
-		return sb.append("]").toString();
+	/** 프로덕션 쓰기 경로를 그대로 쓴다 — 어댑터가 만드는 벡터 리터럴까지 함께 검증된다. */
+	private void setEmbedding(Product product, int hotDimension) {
+		float[] embedding = new float[DIMENSIONS];
+		embedding[hotDimension] = 1f;
+		productRepositoryAdapter.updateEmbedding(product.getId(), embedding, "해시-" + hotDimension);
 	}
 }

@@ -1,5 +1,6 @@
 package com.prompthub.search.application;
 
+import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -8,9 +9,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
 import com.prompthub.product.domain.model.entity.Product;
-import com.prompthub.product.domain.model.enums.AmountType;
-import com.prompthub.product.domain.model.enums.ProductType;
-import com.prompthub.product.domain.model.vo.ProductContent;
 import com.prompthub.product.domain.repository.ProductRepository;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +39,7 @@ class ProductEmbeddingUpdaterTest {
 	@Test
 	@DisplayName("저장된 해시가 원문 해시와 같으면 임베딩을 다시 만들지 않는다")
 	void skipsWhenHashUnchanged() {
-		Product product = product("이름", "설명", "본문");
+		Product product = product("이름");
 		String currentHash = EmbeddingSource.of(product).hash();
 		given(productRepository.findEmbeddingSourceHashes(List.of(product.getId())))
 			.willReturn(Map.of(product.getId(), currentHash));
@@ -57,7 +55,7 @@ class ProductEmbeddingUpdaterTest {
 	@Test
 	@DisplayName("저장된 해시가 없으면 임베딩을 만들어 저장한다")
 	void embedsWhenNeverEmbedded() {
-		Product product = product("이름", "설명", "본문");
+		Product product = product("이름");
 		given(productRepository.findEmbeddingSourceHashes(List.of(product.getId()))).willReturn(Map.of());
 		given(embeddingClient.embed(anyString())).willReturn(new float[] {0.1f, 0.2f});
 
@@ -71,7 +69,7 @@ class ProductEmbeddingUpdaterTest {
 	@Test
 	@DisplayName("텍스트가 바뀌어 해시가 달라지면 다시 만든다")
 	void embedsWhenHashChanged() {
-		Product product = product("이름", "설명", "본문");
+		Product product = product("이름");
 		given(productRepository.findEmbeddingSourceHashes(List.of(product.getId())))
 			.willReturn(Map.of(product.getId(), "옛날해시"));
 		given(embeddingClient.embed(anyString())).willReturn(new float[] {0.3f});
@@ -84,7 +82,7 @@ class ProductEmbeddingUpdaterTest {
 	@Test
 	@DisplayName("임베딩 생성이 실패하면 해시를 저장하지 않아 다음 사이클에 다시 시도된다")
 	void skipsSaveWhenEmbeddingFails() {
-		Product product = product("이름", "설명", "본문");
+		Product product = product("이름");
 		given(productRepository.findEmbeddingSourceHashes(List.of(product.getId()))).willReturn(Map.of());
 		given(embeddingClient.embed(anyString())).willReturn(null);
 
@@ -96,8 +94,8 @@ class ProductEmbeddingUpdaterTest {
 	@Test
 	@DisplayName("한 상품이 실패해도 나머지는 계속 처리한다")
 	void continuesAfterFailure() {
-		Product failing = product("실패", "설명", "본문");
-		Product succeeding = product("성공", "설명", "본문");
+		Product failing = product("실패");
+		Product succeeding = product("성공");
 		given(productRepository.findEmbeddingSourceHashes(any())).willReturn(Map.of());
 		given(embeddingClient.embed(EmbeddingSource.of(failing).text())).willReturn(null);
 		given(embeddingClient.embed(EmbeddingSource.of(succeeding).text())).willReturn(new float[] {0.5f});
@@ -117,10 +115,8 @@ class ProductEmbeddingUpdaterTest {
 		then(embeddingClient).shouldHaveNoInteractions();
 	}
 
-	private Product product(String name, String description, String content) {
-		ProductContent productContent = new ProductContent(
-			ProductType.PROMPT, name, description, "gpt-5", AmountType.PAID, 1000,
-			null, List.of(), content, null, null, List.of("태그"));
-		return Product.create(UUID.randomUUID(), UUID.randomUUID(), productContent);
+	/** 원문 내용은 이 테스트와 무관하다 — 해시 비교만 본다. */
+	private Product product(String name) {
+		return Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent(name, 1000));
 	}
 }
