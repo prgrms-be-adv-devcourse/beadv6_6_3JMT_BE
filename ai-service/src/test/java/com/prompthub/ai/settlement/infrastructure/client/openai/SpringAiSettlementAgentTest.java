@@ -31,13 +31,15 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.metadata.DefaultUsage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.model.tool.ToolExecutionResult;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import reactor.core.publisher.Flux;
 
 @DisplayName("Spring AI 판매자 정산 수동 agent loop")
@@ -116,7 +118,8 @@ class SpringAiSettlementAgentTest {
         verify(model, times(2)).call(callPrompt.capture());
         Prompt initialPrompt = callPrompt.getAllValues().getFirst();
         Prompt postToolPrompt = callPrompt.getAllValues().get(1);
-        ToolCallingChatOptions initialOptions = (ToolCallingChatOptions) initialPrompt.getOptions();
+        OpenAiChatOptions initialOptions = (OpenAiChatOptions) initialPrompt.getOptions();
+        assertThat(initialOptions.getParallelToolCalls()).isTrue();
         assertThat(initialOptions.getToolCallbacks()).hasSize(4);
         assertThat(initialOptions.getToolContext())
                 .containsEntry("actorId", actorId.toString())
@@ -129,9 +132,113 @@ class SpringAiSettlementAgentTest {
 
         ArgumentCaptor<Prompt> finalPrompt = ArgumentCaptor.forClass(Prompt.class);
         verify(model).stream(finalPrompt.capture());
-        ToolCallingChatOptions finalOptions = (ToolCallingChatOptions) finalPrompt.getValue().getOptions();
+        OpenAiChatOptions finalOptions = (OpenAiChatOptions) finalPrompt.getValue().getOptions();
+        assertThat(finalOptions.getParallelToolCalls()).isNull();
         assertThat(finalOptions.getToolCallbacks()).isEmpty();
         assertThat(finalOptions.getToolContext()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("final stream의 usage 전용 응답은 답변 조립에서 제외하고 토큰 사용량은 기록한다")
+    void ignoresUsageOnlyResponseWhileRecordingTokenUsage() {
+        ChatModel model = mock(ChatModel.class);
+        ToolCallingManager manager = mock(ToolCallingManager.class);
+        SettlementConversationHistorySelector historySelector = mock(SettlementConversationHistorySelector.class);
+        given(historySelector.select(List.of())).willReturn(List.of());
+        given(model.call(any(Prompt.class))).willReturn(textResponse("최종 응답 준비"));
+        given(model.stream(any(Prompt.class))).willReturn(Flux.just(
+                textResponse("7월 정산은 "),
+                textResponse("부분 집계입니다."),
+                usageOnlyResponse(120, 30)));
+        AiSettlementProperties properties = properties();
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        SpringAiSettlementAgent agent = new SpringAiSettlementAgent(
+                model,
+                manager,
+                mock(SellerSettlementAnalysisTools.class),
+                historySelector,
+                new SettlementPromptFactory(CLOCK),
+                new OpenAiCallRetryExecutor(
+                        properties.model(), meterRegistry, CLOCK, duration -> { }, providerCallExecutor),
+                new FinalAnswerPolicy(),
+                mock(ToolExecutionGuard.class),
+                properties,
+                meterRegistry,
+                CLOCK);
+
+        SettlementAgent.AgentResult result = agent.answer(new SettlementAgent.AgentRequest(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "7월 정산을 요약해줘",
+                List.of(),
+                NOW.plusSeconds(90),
+                stage -> { }));
+
+        assertThat(result.answer()).isEqualTo("7월 정산은 부분 집계입니다.");
+        assertThat(meterRegistry.get("ai.openai.tokens")
+                .tag("model", properties.model())
+                .tag("type", "input")
+                .counter()
+                .count()).isEqualTo(120);
+        assertThat(meterRegistry.get("ai.openai.tokens")
+                .tag("model", properties.model())
+                .tag("type", "output")
+                .counter()
+                .count()).isEqualTo(30);
+    }
+
+    @Test
+    @DisplayName("final stream에 답변 없이 usage만 있으면 provider 실패로 기록한다")
+    void failsWhenFinalStreamContainsOnlyUsage() {
+        ChatModel model = mock(ChatModel.class);
+        ToolCallingManager manager = mock(ToolCallingManager.class);
+        SettlementConversationHistorySelector historySelector = mock(SettlementConversationHistorySelector.class);
+        given(historySelector.select(List.of())).willReturn(List.of());
+        given(model.call(any(Prompt.class))).willReturn(textResponse("최종 응답 준비"));
+        given(model.stream(any(Prompt.class))).willReturn(Flux.just(usageOnlyResponse(80, 20)));
+        AiSettlementProperties properties = properties();
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        SpringAiSettlementAgent agent = new SpringAiSettlementAgent(
+                model,
+                manager,
+                mock(SellerSettlementAnalysisTools.class),
+                historySelector,
+                new SettlementPromptFactory(CLOCK),
+                new OpenAiCallRetryExecutor(
+                        properties.model(), meterRegistry, CLOCK, duration -> { }, providerCallExecutor),
+                new FinalAnswerPolicy(),
+                mock(ToolExecutionGuard.class),
+                properties,
+                meterRegistry,
+                CLOCK);
+
+        assertThatThrownBy(() -> agent.answer(new SettlementAgent.AgentRequest(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "7월 정산을 요약해줘",
+                List.of(),
+                NOW.plusSeconds(90),
+                stage -> { })))
+                .isInstanceOf(AiException.class)
+                .extracting(exception -> ((AiException) exception).getErrorCode())
+                .isEqualTo(AiErrorCode.AI_PROVIDER_UNAVAILABLE);
+
+        assertThat(meterRegistry.get("ai.openai.calls")
+                .tag("model", properties.model())
+                .tag("outcome", "failure")
+                .tag("error.code", AiErrorCode.AI_PROVIDER_UNAVAILABLE.getCode())
+                .counter()
+                .count()).isEqualTo(1);
+        assertThat(meterRegistry.get("ai.openai.tokens")
+                .tag("model", properties.model())
+                .tag("type", "input")
+                .counter()
+                .count()).isEqualTo(80);
+        assertThat(meterRegistry.get("ai.openai.tokens")
+                .tag("model", properties.model())
+                .tag("type", "output")
+                .counter()
+                .count()).isEqualTo(20);
     }
 
     @Test
@@ -181,6 +288,14 @@ class SpringAiSettlementAgentTest {
         return ChatResponse.builder()
                 .generations(List.of(new Generation(new AssistantMessage(text))))
                 .build();
+    }
+
+    private ChatResponse usageOnlyResponse(int promptTokens, int completionTokens) {
+        return new ChatResponse(
+                List.of(),
+                ChatResponseMetadata.builder()
+                        .usage(new DefaultUsage(promptTokens, completionTokens))
+                        .build());
     }
 
     private ChatResponse toolResponse() {

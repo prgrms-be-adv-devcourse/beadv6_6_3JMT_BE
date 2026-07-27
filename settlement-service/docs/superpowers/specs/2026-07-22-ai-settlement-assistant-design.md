@@ -397,7 +397,8 @@ Protobuf에는 금융용 decimal scalar가 없고 `double`은 이진 부동소�
 | 비교 가능 | `bool` | `false` |
 
 프론트와 제품이 항상 원화로 표시하므로 `currency_code`는 넣지 않는다. AI system prompt에는 전달된
-금액이 모두 KRW임을 고정해 자연어 답변에서 원 단위로 설명하게 한다.
+금액이 모두 KRW임을 고정해 통화 해석이 흔들리지 않게 한다. 자연어 답변에 통화 표현을 반복할지는
+응답 품질 영역이며 gRPC 계약에는 영향을 주지 않는다.
 
 ### 8.4 집계와 기간 의미
 
@@ -1207,3 +1208,12 @@ consumer offset을 운영 runbook에 따라 정리한다. 애플리케이션 mig
 - OpenAI account의 RPM·TPM 한도
 - 동시 부하 테스트 후 `AI_MAX_CONCURRENT_RUNS` 최종 조정값
 - 과거 어느 완료 주차까지 backfill할지에 대한 실행 목록
+
+## 22. 구현 계획
+
+구현은 아래 네 계획을 순서대로 실행한다.
+
+1. `settlement-service/docs/superpowers/plans/2026-07-22-ai-settlement-data-pipeline-implementation.md`
+2. `settlement-service/docs/superpowers/plans/2026-07-22-ai-settlement-grpc-query-implementation.md`
+3. `settlement-service/docs/superpowers/plans/2026-07-22-ai-settlement-service-implementation.md`
+4. `settlement-service/docs/superpowers/plans/2026-07-22-ai-settlement-platform-rollout-implementation.md`

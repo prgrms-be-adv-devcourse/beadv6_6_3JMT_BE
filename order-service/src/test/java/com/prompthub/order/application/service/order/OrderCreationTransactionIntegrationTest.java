@@ -122,8 +122,8 @@ class OrderCreationTransactionIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("단일 주문·상품·장바구니 제거를 저장하고 주문 생성 Outbox는 저장하지 않는다")
-	void createsOneOrderFourProductsWithoutOrderCreatedOutbox() {
+	@DisplayName("단일 주문·상품·장바구니 제거와 ORDER_CREATED Outbox를 한 트랜잭션으로 저장한다")
+	void createsOneOrderFourProductsAndStoresOrderCreatedOutbox() {
 		saveCart();
 
 		CreateOrderResult result = orderCommandHandler.createOrder(BUYER_ID, command());
@@ -132,13 +132,16 @@ class OrderCreationTransactionIntegrationTest {
 		assertThat(result.order()).isNotNull();
 		assertThat(orderPersistence.count()).isEqualTo(1);
 		assertThat(countOrderProducts()).isEqualTo(4);
-		assertThat(outboxEventPersistence.count()).isZero();
+		assertThat(outboxEventPersistence.findAll()).singleElement().satisfies(event -> {
+			assertThat(event.getEventType()).isEqualTo("ORDER_CREATED");
+			assertThat(event.getPayload()).contains("\"orderNumber\"");
+		});
 		assertThat(productIds(loadCart())).containsExactly(UNRELATED_PRODUCT);
 	}
 
 	@Test
-	@DisplayName("무료 주문은 완료·장바구니 제거·ORDER_PAID Outbox를 한 트랜잭션으로 반영한다")
-	void freeOrderCompletesAndStoresPaidOutboxAtomically() {
+	@DisplayName("무료 주문은 완료·장바구니 제거·ORDER_CREATED와 ORDER_PAID Outbox를 한 트랜잭션으로 반영한다")
+	void freeOrderCompletesAndStoresCreatedAndPaidOutboxAtomically() {
 		saveCart();
 		given(productClient.getOrderSnapshots(requestedProductIds())).willReturn(freeSnapshots());
 
@@ -150,10 +153,9 @@ class OrderCreationTransactionIntegrationTest {
 		assertThat(saved.getCompletedAt()).isNotNull();
 		assertThat(saved.getOrderProducts()).extracting(product -> product.getOrderStatus())
 			.containsOnly(OrderProductStatus.PAID);
-		assertThat(outboxEventPersistence.findAll()).singleElement().satisfies(event -> {
-			assertThat(event.getEventType()).isEqualTo("ORDER_PAID");
-			assertThat(event.getPayload()).contains("\"totalOrderAmount\":0");
-		});
+		assertThat(outboxEventPersistence.findAll()).hasSize(2)
+			.extracting(event -> event.getEventType())
+			.containsExactlyInAnyOrder("ORDER_CREATED", "ORDER_PAID");
 		assertThat(productIds(loadCart())).containsExactly(UNRELATED_PRODUCT);
 		then(orderExpirationStore).shouldHaveNoInteractions();
 	}

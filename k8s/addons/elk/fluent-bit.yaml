@@ -88,7 +88,6 @@ data:
         Mem_Buf_Limit            10MB
         Skip_Long_Lines          On
         storage.type             filesystem
-        storage.total_limit_size 512M
 
     [FILTER]
         Name                kubernetes
@@ -114,6 +113,7 @@ data:
         HTTP_User           ${LOGSTASH_HTTP_USERNAME}
         HTTP_Passwd         ${LOGSTASH_HTTP_PASSWORD}
         Retry_Limit         False
+        storage.total_limit_size 512M
         workers             1
 ---
 apiVersion: apps/v1

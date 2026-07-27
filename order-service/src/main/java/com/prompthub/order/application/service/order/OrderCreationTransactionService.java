@@ -3,7 +3,7 @@ package com.prompthub.order.application.service.order;
 import com.prompthub.order.application.dto.CreateOrderResult;
 import com.prompthub.order.application.event.order.OrderCreatedEvent;
 import com.prompthub.order.application.event.order.OrderProductReservationCleanupEvent;
-import com.prompthub.order.application.service.event.OrderPaidOutboxAppender;
+import com.prompthub.order.application.service.event.OrderOutboxAppender;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.CartRepository;
@@ -23,7 +23,7 @@ public class OrderCreationTransactionService {
 	private final OrderRepository orderRepository;
 	private final CartRepository cartRepository;
 	private final ApplicationEventPublisher applicationEventPublisher;
-	private final OrderPaidOutboxAppender orderPaidOutboxAppender;
+	private final OrderOutboxAppender orderOutboxAppender;
 	private final OrderProductPurchasePolicy purchasePolicy;
 
 	@Transactional
@@ -37,8 +37,9 @@ public class OrderCreationTransactionService {
 
 		Order savedOrder = orderRepository.saveAndFlush(order);
 		removeOrderedProductsFromCart(savedOrder);
+		orderOutboxAppender.appendCreated(savedOrder);
 		if (savedOrder.isFree()) {
-			orderPaidOutboxAppender.append(savedOrder);
+			orderOutboxAppender.appendPaid(savedOrder);
 			applicationEventPublisher.publishEvent(
 				OrderProductReservationCleanupEvent.from(savedOrder)
 			);

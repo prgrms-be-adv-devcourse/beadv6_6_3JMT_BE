@@ -3,6 +3,7 @@ package com.prompthub.order.application.service.order;
 import com.prompthub.order.application.event.order.OrderExpirationCleanupRequestedEvent;
 import com.prompthub.order.application.event.order.OrderProductReservationCleanupEvent;
 import com.prompthub.order.application.service.event.ProcessedEventService;
+import com.prompthub.order.application.service.event.OrderOutboxAppender;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
@@ -36,6 +37,7 @@ public class OrderFailureCompensationService {
 	private final ProcessedEventService processedEventService;
 	private final OrderExpirationPolicy expirationPolicy;
 	private final ApplicationEventPublisher eventPublisher;
+	private final OrderOutboxAppender orderOutboxAppender;
 
 	@Transactional
 	public void compensatePaymentFailure(
@@ -65,6 +67,9 @@ public class OrderFailureCompensationService {
 		}
 
 		CompensationResult result = compensateCreatedOrder(order, failedAt);
+		if (result.beforeStatus() == OrderStatus.CREATED) {
+			orderOutboxAppender.appendPaymentFailed(order, payload.failureCode(), payload.failureReason(), failedAt);
+		}
 		processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
 		publishCleanup(order);
 		logPaymentFailure(eventId, payload, failedAt, order, result);
@@ -91,6 +96,9 @@ public class OrderFailureCompensationService {
 			return false;
 		}
 		CompensationResult result = compensateCreatedOrder(order, timedOutAt);
+		if (result.beforeStatus() == OrderStatus.CREATED) {
+			orderOutboxAppender.appendExpired(order, timedOutAt);
+		}
 		publishCleanup(order);
 		log.info(
 			"결제 결과 미수신 주문 보상 완료. orderId={}, timedOutAt={}, beforeStatus={}, afterStatus={}, targetCount={}, addedCount={}",

@@ -47,7 +47,7 @@ public class PaymentController {
                       "message": "success"
                     }
                     """))),
-        @ApiResponse(responseCode = "400", description = "입력값 오류(V001), 금액 불일치(PAY012) 또는 PG사 결제 실패(PAY_FAILED)",
+        @ApiResponse(responseCode = "400", description = "입력값 오류(V001) 또는 금액 불일치(PAY012)",
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = ErrorResponse.class),
                 examples = {
@@ -66,16 +66,19 @@ public class PaymentController {
                           "message": "결제 금액이 주문 금액과 일치하지 않습니다.",
                           "code": "PAY012"
                         }
-                        """),
-                    @ExampleObject(name = "PG사 결제 실패", value = """
-                        {
-                          "success": false,
-                          "data": null,
-                          "message": "PG사 결제가 실패했습니다.",
-                          "code": "PAY_FAILED"
-                        }
                         """)
                 })),
+        @ApiResponse(responseCode = "422", description = "PG사 결제 실패(PAY_FAILED)",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponse.class),
+                examples = @ExampleObject(value = """
+                    {
+                      "success": false,
+                      "data": null,
+                      "message": "PG사 결제가 실패했습니다.",
+                      "code": "PAY_FAILED"
+                    }
+                    """))),
         @ApiResponse(responseCode = "409", description = "이미 결제된 주문(PAY002)",
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = ErrorResponse.class),
@@ -109,28 +112,66 @@ public class PaymentController {
                       "code": "PAY008"
                     }
                     """))),
-        @ApiResponse(responseCode = "503", description = "주문 정보 확보 불가(PAY009)",
+        @ApiResponse(responseCode = "503",
+            description = "주문 정보 확보 불가(PAY009), PG사 서킷브레이커 OPEN(PAY011), "
+                + "PG사 Bulkhead 포화(PAY013) 또는 PG사 RateLimiter 거절(PAY014)",
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = ErrorResponse.class),
-                examples = @ExampleObject(value = """
-                    {
-                      "success": false,
-                      "data": null,
-                      "message": "주문 정보를 확보할 수 없습니다.",
-                      "code": "PAY009"
-                    }
-                    """))),
-        @ApiResponse(responseCode = "502", description = "PG사 처리 오류(PAY003)",
+                examples = {
+                    @ExampleObject(name = "주문 정보 확보 불가", value = """
+                        {
+                          "success": false,
+                          "data": null,
+                          "message": "주문 정보를 확보할 수 없습니다.",
+                          "code": "PAY009"
+                        }
+                        """),
+                    @ExampleObject(name = "PG사 서킷브레이커 OPEN", value = """
+                        {
+                          "success": false,
+                          "data": null,
+                          "message": "PG사 서비스에 일시적으로 연결할 수 없습니다.",
+                          "code": "PAY011"
+                        }
+                        """),
+                    @ExampleObject(name = "PG사 Bulkhead 포화", value = """
+                        {
+                          "success": false,
+                          "data": null,
+                          "message": "결제 승인 요청이 많아 일시적으로 처리할 수 없습니다. 잠시 후 다시 시도해주세요.",
+                          "code": "PAY013"
+                        }
+                        """),
+                    @ExampleObject(name = "PG사 RateLimiter 거절", value = """
+                        {
+                          "success": false,
+                          "data": null,
+                          "message": "결제 승인 요청이 많아 일시적으로 제한되었습니다. 잠시 후 다시 시도해주세요.",
+                          "code": "PAY014"
+                        }
+                        """)
+                })),
+        @ApiResponse(responseCode = "502", description = "PG사 처리 오류(PAY003) 또는 PG사 5xx 오류(PAY_PG_5XX)",
             content = @Content(mediaType = "application/json",
                 schema = @Schema(implementation = ErrorResponse.class),
-                examples = @ExampleObject(value = """
-                    {
-                      "success": false,
-                      "data": null,
-                      "message": "PG사 처리 중 오류가 발생했습니다.",
-                      "code": "PAY003"
-                    }
-                    """)))
+                examples = {
+                    @ExampleObject(name = "PG사 처리 오류", value = """
+                        {
+                          "success": false,
+                          "data": null,
+                          "message": "PG사 처리 중 오류가 발생했습니다.",
+                          "code": "PAY003"
+                        }
+                        """),
+                    @ExampleObject(name = "PG사 5xx 오류", value = """
+                        {
+                          "success": false,
+                          "data": null,
+                          "message": "PG사 서버 오류가 발생했습니다.",
+                          "code": "PAY_PG_5XX"
+                        }
+                        """)
+                }))
     })
     @PostMapping("/confirm")
     public ResponseEntity<ApiResult<ConfirmPaymentResponse>> confirm(
