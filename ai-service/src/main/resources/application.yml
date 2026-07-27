@@ -19,13 +19,3 @@ spring:
 
 server:
   port: 8087
-
-logging:
-  structured:
-    format:
-      console: logstash
-    json:
-      add:
-        serviceName: ${spring.application.name}
-  level:
-    root: INFO

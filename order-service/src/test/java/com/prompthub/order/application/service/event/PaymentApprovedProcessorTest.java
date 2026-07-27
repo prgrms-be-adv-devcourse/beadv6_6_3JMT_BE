@@ -58,7 +58,7 @@ class PaymentApprovedProcessorTest {
 	private CartRepository cartRepository;
 
 	@Mock
-	private OrderPaidOutboxAppender orderPaidOutboxAppender;
+	private OrderOutboxAppender orderOutboxAppender;
 
 	@Mock
 	private ApplicationEventPublisher applicationEventPublisher;
@@ -89,13 +89,13 @@ class PaymentApprovedProcessorTest {
 			.extracting(CartProduct::getProductId)
 			.containsExactly(UNRELATED_PRODUCT);
 
-		then(orderPaidOutboxAppender).should().append(order);
+		then(orderOutboxAppender).should().appendPaid(order);
 
 		var processingOrder = org.mockito.Mockito.inOrder(
 			processedEventService,
 			orderRepository,
 			cartRepository,
-			orderPaidOutboxAppender,
+			orderOutboxAppender,
 			applicationEventPublisher
 		);
 		processingOrder.verify(processedEventService).isProcessed(eventId, CONSUMER_GROUP);
@@ -103,7 +103,7 @@ class PaymentApprovedProcessorTest {
 		processingOrder.verify(processedEventService).isProcessed(eventId, CONSUMER_GROUP);
 		processingOrder.verify(cartRepository).findByBuyerIdForUpdateWithCartProducts(BUYER_ID);
 		processingOrder.verify(cartRepository).save(cart);
-		processingOrder.verify(orderPaidOutboxAppender).append(order);
+		processingOrder.verify(orderOutboxAppender).appendPaid(order);
 		processingOrder.verify(processedEventService)
 			.markProcessed(eventId, CONSUMER_GROUP, EVENT_TYPE, APPROVED_AT);
 		processingOrder.verify(applicationEventPublisher)
@@ -144,7 +144,7 @@ class PaymentApprovedProcessorTest {
 
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
 		then(cartRepository).should(never()).save(any());
-		then(orderPaidOutboxAppender).should().append(order);
+		then(orderOutboxAppender).should().appendPaid(order);
 		then(processedEventService).should()
 			.markProcessed(eventId, CONSUMER_GROUP, EVENT_TYPE, APPROVED_AT);
 		then(applicationEventPublisher).should()
@@ -166,7 +166,7 @@ class PaymentApprovedProcessorTest {
 		processor.process(eventId, EVENT_TYPE, APPROVED_AT, payload);
 
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
-		then(orderPaidOutboxAppender).should().append(order);
+		then(orderOutboxAppender).should().appendPaid(order);
 	}
 
 	@ParameterizedTest
@@ -179,7 +179,7 @@ class PaymentApprovedProcessorTest {
 
 		processor.process(eventId, EVENT_TYPE, APPROVED_AT, approvedPayload(order));
 
-		then(orderPaidOutboxAppender).shouldHaveNoInteractions();
+		then(orderOutboxAppender).shouldHaveNoInteractions();
 		then(cartRepository).shouldHaveNoInteractions();
 		then(processedEventService).should()
 			.markProcessed(eventId, CONSUMER_GROUP, EVENT_TYPE, APPROVED_AT);
@@ -198,7 +198,7 @@ class PaymentApprovedProcessorTest {
 		assertThatThrownBy(() -> processor.process(eventId, EVENT_TYPE, APPROVED_AT, approvedPayload(order)))
 			.isInstanceOf(OrderException.class)
 			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_NOT_FOUND);
-		then(orderPaidOutboxAppender).shouldHaveNoInteractions();
+		then(orderOutboxAppender).shouldHaveNoInteractions();
 		then(applicationEventPublisher).shouldHaveNoInteractions();
 	}
 
@@ -211,7 +211,7 @@ class PaymentApprovedProcessorTest {
 
 		then(orderRepository).shouldHaveNoInteractions();
 		then(cartRepository).shouldHaveNoInteractions();
-		then(orderPaidOutboxAppender).shouldHaveNoInteractions();
+		then(orderOutboxAppender).shouldHaveNoInteractions();
 		then(applicationEventPublisher).should()
 			.publishEvent(new OrderExpirationCleanupRequestedEvent(ORDER_A));
 	}
@@ -229,7 +229,7 @@ class PaymentApprovedProcessorTest {
 		assertThat(order.getOrderProducts())
 			.extracting(OrderProduct::getOrderStatus)
 			.containsOnly(OrderProductStatus.PENDING);
-		then(orderPaidOutboxAppender).shouldHaveNoInteractions();
+		then(orderOutboxAppender).shouldHaveNoInteractions();
 		then(cartRepository).shouldHaveNoInteractions();
 		then(processedEventService).should(never()).markProcessed(any(), any(), any(), any());
 		then(applicationEventPublisher).should()

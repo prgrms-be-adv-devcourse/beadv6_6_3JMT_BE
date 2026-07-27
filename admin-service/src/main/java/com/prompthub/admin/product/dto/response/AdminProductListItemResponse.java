@@ -12,6 +12,7 @@ public record AdminProductListItemResponse(
 	String model,
 	int amount,
 	String status,
+	String rejectionReason,
 	LocalDateTime createdAt
 ) {
 	public static AdminProductListItemResponse from(Product product, String sellerNickname) {
@@ -23,6 +24,7 @@ public record AdminProductListItemResponse(
 			product.getModel(),
 			product.getAmount(),
 			product.getStatus().name(),
+			product.getRejectionReason(),
 			product.getCreatedAt()
 		);
 	}

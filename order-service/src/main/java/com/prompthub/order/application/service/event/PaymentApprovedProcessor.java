@@ -30,7 +30,7 @@ public class PaymentApprovedProcessor {
 	private final ProcessedEventService processedEventService;
 	private final OrderRepository orderRepository;
 	private final CartRepository cartRepository;
-	private final OrderPaidOutboxAppender orderPaidOutboxAppender;
+	private final OrderOutboxAppender orderOutboxAppender;
 	private final PaymentEventValidator validator;
 	private final ApplicationEventPublisher applicationEventPublisher;
 
@@ -60,7 +60,7 @@ public class PaymentApprovedProcessor {
 		if (transitioned) {
 			order.markCompleted(approvedAt);
 			removePurchasedProductsFromCart(order.getBuyerId(), order);
-			orderPaidOutboxAppender.append(order);
+			orderOutboxAppender.appendPaid(order);
 		}
 
 		processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);

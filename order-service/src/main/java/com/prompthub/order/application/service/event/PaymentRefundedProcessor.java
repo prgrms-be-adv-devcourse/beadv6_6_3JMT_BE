@@ -1,13 +1,10 @@
 package com.prompthub.order.application.service.event;
 
-import com.prompthub.common.event.EventMessage;
-import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.infra.messaging.kafka.event.OrderRefundPayload;
 import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,8 +24,7 @@ public class PaymentRefundedProcessor {
 
 	private final ProcessedEventService processedEventService;
 	private final OrderRepository orderRepository;
-	private final OrderEventMessageFactory orderEventMessageFactory;
-	private final OutboxEventAppender outboxEventAppender;
+	private final OrderOutboxAppender orderOutboxAppender;
 	private final PaymentEventValidator validator;
 
 	@Transactional
@@ -46,10 +42,7 @@ public class PaymentRefundedProcessor {
 		}
 		List<OrderProduct> refundedProducts = order.completeRequestedRefund(payload.refundAmount(), refundedAt);
 
-		OrderRefundPayload orderRefundPayload = OrderRefundPayload.from(order, refundedProducts, refundedAt);
-		EventMessage<OrderRefundPayload> orderRefundMessage =
-			orderEventMessageFactory.createOrderRefundMessage(order.getId(), orderRefundPayload);
-		outboxEventAppender.append(orderRefundMessage);
+		orderOutboxAppender.appendRefunded(order, refundedProducts, refundedAt);
 		processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
 
 		log.info(
@@ -77,6 +70,7 @@ public class PaymentRefundedProcessor {
 			return;
 		}
 		order.validateRequestedRefundAmount(payload.refundAmount());
+		orderOutboxAppender.appendRefundFailed(order, payload.refundAmount(), failedAt);
 		processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
 
 		log.warn(
