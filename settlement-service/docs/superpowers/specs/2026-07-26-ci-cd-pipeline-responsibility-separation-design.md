@@ -166,12 +166,12 @@ apigateway
 - `common-module/**`
 - 루트 `Dockerfile`
 - 루트 Gradle build, settings, wrapper와 `gradle/**`
-- `reusable-build.yml`
-- `reusable-docker-build.yml`
 
-Release workflow, 대상 계산 스크립트와 Kubernetes reusable workflow 변경은 pipeline 변경으로
-분류한다. pipeline 변경만 있는 PR은 애플리케이션 이미지 빌드와 Kubernetes 배포를 실행하지 않는다.
-따라서 이 설계를 도입하는 `#588 (PR)` 머지 자체가 전체 workload rollout을 일으키지 않는다.
+PR·Release·Docker·Kubernetes reusable workflow와 대상 계산·검증 스크립트 변경은 pipeline
+변경으로 분류한다. pipeline 변경만 있는 PR은 애플리케이션 이미지 빌드와 Kubernetes 배포를
+실행하지 않는다. 따라서 이 설계를 도입하는 `#588 (PR)` 머지 자체가 전체 workload rollout을
+일으키지 않는다. pipeline 변경으로 애플리케이션 이미지를 다시 발행해야 한다면 머지 후 선택
+서비스 수동 Release를 명시적으로 실행한다.
 
 애플리케이션 매니페스트는 다음과 같이 서비스별 `manifest_matrix`로 계산한다.
 
