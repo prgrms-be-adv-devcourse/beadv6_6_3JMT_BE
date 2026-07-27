@@ -3,6 +3,7 @@ package com.prompthub.product.exception;
 import com.prompthub.exception.BusinessException;
 import com.prompthub.exception.response.ErrorResponse;
 import com.prompthub.product.exception.enums.ProductErrorCode;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -63,7 +64,8 @@ public class ProductExceptionHandler {
 	 */
 	@ExceptionHandler(NoResourceFoundException.class)
 	public ResponseEntity<ErrorResponse> handleNoResourceFound(
-		NoResourceFoundException exception
+		NoResourceFoundException exception,
+		HttpServletRequest request
 	) {
 		ProductErrorCode errorCode = ProductErrorCode.ENDPOINT_NOT_FOUND;
 
@@ -75,7 +77,7 @@ public class ProductExceptionHandler {
 	}
 
 	@ExceptionHandler(Exception.class)
-	public ResponseEntity<ErrorResponse> handleException(Exception exception) {
+	public ResponseEntity<ErrorResponse> handleException(Exception exception, HttpServletRequest request) {
 		ProductErrorCode errorCode = ProductErrorCode.INTERNAL_SERVER_ERROR;
 
 		log.error("Product 예상하지 못한 서버 오류 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
