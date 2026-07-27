@@ -8,6 +8,7 @@ import com.prompthub.search.application.ProductSearchPageResult;
 import com.prompthub.search.application.ProductSearchQueryService;
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,23 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryServ
 			return new ProductSearchPageResult(hits, total);
 		} catch (IOException | RuntimeException e) {
 			throw new IllegalStateException("ES 검색에 실패했습니다.", e);
+		}
+	}
+
+	@Override
+	public List<String> suggest(String keyword, int limit) {
+		SearchRequest request = queryBuilder.buildSuggest(keyword, limit);
+		try {
+			SearchResponse<ProductSearchDocument> response = client.search(request, ProductSearchDocument.class);
+			return response.hits().hits().stream()
+				.map(hit -> hit.source())
+				.filter(Objects::nonNull)
+				.map(ProductSearchDocument::name)
+				.filter(Objects::nonNull)
+				.distinct()
+				.toList();
+		} catch (IOException | RuntimeException e) {
+			throw new IllegalStateException("ES 자동완성 조회에 실패했습니다.", e);
 		}
 	}
 

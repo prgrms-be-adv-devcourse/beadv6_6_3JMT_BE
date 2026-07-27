@@ -1,27 +1,7 @@
 {
   "settings": {
     "number_of_shards": 1,
-    "number_of_replicas": 0,
-    "analysis": {
-      "tokenizer": {
-        "autocomplete_edge_ngram": {
-          "type": "edge_ngram",
-          "min_gram": 1,
-          "max_gram": 20,
-          "token_chars": ["letter", "digit"]
-        }
-      },
-      "analyzer": {
-        "korean": {
-          "type": "custom",
-          "tokenizer": "nori_tokenizer"
-        },
-        "autocomplete": {
-          "type": "custom",
-          "tokenizer": "autocomplete_edge_ngram"
-        }
-      }
-    }
+    "number_of_replicas": 0
   },
   "mappings": {
     "properties": {
@@ -30,20 +10,17 @@
       "sellerId": { "type": "keyword" },
       "name": {
         "type": "text",
-        "analyzer": "korean",
         "fields": {
-          "keyword": { "type": "keyword" },
-          "jamo": { "type": "text", "analyzer": "autocomplete" },
-          "chosung": { "type": "text", "analyzer": "autocomplete" }
+          "keyword": { "type": "keyword" }
         }
       },
-      "description": { "type": "text", "analyzer": "korean" },
-      "content": { "type": "text", "analyzer": "korean" },
-      "extractedText": { "type": "text", "analyzer": "korean" },
+      "description": { "type": "text" },
+      "content": { "type": "text" },
+      "extractedText": { "type": "text" },
       "tags": {
         "type": "keyword",
         "fields": {
-          "text": { "type": "text", "analyzer": "korean" }
+          "text": { "type": "text" }
         }
       },
       "productType": { "type": "keyword" },

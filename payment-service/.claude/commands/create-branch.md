@@ -72,7 +72,7 @@ git status --short
 
 ```bash
 git fetch origin develop
-git switch -c <브랜치명> origin/develop
+git branch <브랜치명> origin/develop
 ```
 
-실행 후 생성된 브랜치명과 현재 위치(`git branch --show-current`)를 보고한다.
+**생성만 하고 전환하지 않는다** — 현재 작업 브랜치는 그대로 유지한다. 실행 후 생성된 브랜치명과 현재 위치(`git branch --show-current`, 변경 없음)를 보고하고, 전환하려면 `git switch <브랜치명>`을 안내한다.

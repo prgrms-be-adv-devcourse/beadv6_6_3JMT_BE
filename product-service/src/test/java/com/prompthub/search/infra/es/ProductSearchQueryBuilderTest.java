@@ -3,6 +3,7 @@ package com.prompthub.search.infra.es;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import co.elastic.clients.elasticsearch._types.SortOptions;
+import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.FunctionScoreQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.MultiMatchQuery;
@@ -97,5 +98,37 @@ class ProductSearchQueryBuilderTest {
 		assertThat(request.size()).isEqualTo(10);
 		assertThat(request.trackTotalHits().isEnabled()).isTrue();
 		assertThat(request.trackTotalHits().enabled()).isTrue();
+	}
+
+	@Test
+	void buildSuggest_name에_match_phrase_prefix를_쓴다() {
+		SearchRequest request = queryBuilder.buildSuggest("프롬", 5);
+
+		Query query = request.query();
+		assertThat(query).isNotNull();
+		assertThat(query.isMatchPhrasePrefix()).isTrue();
+		assertThat(query.matchPhrasePrefix().field()).isEqualTo("name");
+		assertThat(query.matchPhrasePrefix().query()).isEqualTo("프롬");
+	}
+
+	@Test
+	void buildSuggest_salesCount_내림차순으로_정렬한다() {
+		SearchRequest request = queryBuilder.buildSuggest("프롬", 5);
+
+		// 목록의 popular 정렬(function_score)을 재사용하지 않는다 —
+		// 자동완성은 타이핑 중 수 ms 응답이 요건이라 점수 계산을 얹지 않는다
+		assertThat(request.sort()).hasSize(1);
+		assertThat(request.sort().get(0).field().field()).isEqualTo("salesCount");
+		assertThat(request.sort().get(0).field().order()).isEqualTo(SortOrder.Desc);
+	}
+
+	@Test
+	void buildSuggest_limit만큼만_요청하고_name만_가져온다() {
+		SearchRequest request = queryBuilder.buildSuggest("프롬", 5);
+
+		assertThat(request.index()).containsExactly(ProductIndexBootstrap.ALIAS);
+		assertThat(request.size()).isEqualTo(5);
+		// 제안어만 필요하므로 문서 전체를 가져오지 않는다
+		assertThat(request.source().filter().includes()).containsExactly("name");
 	}
 }

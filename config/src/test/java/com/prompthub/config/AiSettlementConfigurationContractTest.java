@@ -25,6 +25,8 @@ class AiSettlementConfigurationContractTest {
         assertThat(ai.getProperty("spring.grpc.client.channel.user-service.target"))
             .isEqualTo("static://user-service:${USER_GRPC_SERVER_PORT}");
         assertThat(ai.getProperty("ai.model")).isEqualTo("${OPENAI_MODEL:gpt-5.6-luna}");
+        assertThat(ai.getProperty("ai.reasoning-effort"))
+            .isEqualTo("${OPENAI_REASONING_EFFORT:none}");
         assertThat(ai.getProperty("ai.settlement.chat.enabled"))
             .isEqualTo("${AI_SETTLEMENT_CHAT_ENABLED:false}");
         assertThat(ai.getProperty("spring.ai.openai.api-key")).isEqualTo("${OPENAI_API_KEY}");

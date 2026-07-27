@@ -8,6 +8,7 @@ import com.prompthub.product.domain.model.entity.Review;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ReviewStatus;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -94,6 +95,58 @@ class ProductJpaRepositoryTest {
 		List<Product> result = productJpaRepository.findAllByFamilyRootIds(List.of(root.getId()));
 
 		assertThat(result).extracting(Product::getId).containsExactlyInAnyOrder(root.getId(), child.getId());
+	}
+
+	@Test
+	void findChangedFamilyRootIds_변경이_없으면_빈_목록을_반환한다() {
+		Product product = product(null, ProductStatus.ON_SALE, (short) 1, (short) 0);
+		ReflectionTestUtils.setField(product, "updatedAt", LocalDateTime.now().minusHours(1));
+		productJpaRepository.save(product);
+
+		List<UUID> result = productJpaRepository.findChangedFamilyRootIds(LocalDateTime.now().minusMinutes(1));
+
+		assertThat(result).isEmpty();
+	}
+
+	@Test
+	void findChangedFamilyRootIds_자식_버전이_바뀌어도_family_루트_id를_반환한다() {
+		Product root = product(null, ProductStatus.SUPERSEDED, (short) 1, (short) 0);
+		Product child = product(root.getId(), ProductStatus.ON_SALE, (short) 2, (short) 0);
+		ReflectionTestUtils.setField(root, "updatedAt", LocalDateTime.now().minusHours(1));
+		ReflectionTestUtils.setField(child, "updatedAt", LocalDateTime.now());
+		productJpaRepository.saveAll(List.of(root, child));
+
+		List<UUID> result = productJpaRepository.findChangedFamilyRootIds(LocalDateTime.now().minusMinutes(1));
+
+		// 바뀐 건 child지만 재조정 단위는 family이므로 루트 id가 나와야 한다
+		assertThat(result).containsExactly(root.getId());
+	}
+
+	@Test
+	void findChangedFamilyRootIds_리뷰가_바뀌면_그_family도_대상에_포함한다() {
+		Product root = product(null, ProductStatus.ON_SALE, (short) 1, (short) 0);
+		ReflectionTestUtils.setField(root, "updatedAt", LocalDateTime.now().minusHours(1));
+		productJpaRepository.save(root);
+
+		Review review = Review.create(UUID.randomUUID(), root, (short) 5);
+		reviewJpaRepository.save(review);
+
+		List<UUID> result = productJpaRepository.findChangedFamilyRootIds(LocalDateTime.now().minusMinutes(1));
+
+		// 상품 자체는 안 바뀌었지만 평점이 달라졌으므로 재색인 대상이다
+		assertThat(result).containsExactly(root.getId());
+	}
+
+	@Test
+	void findChangedFamilyRootIds_삭제된_상품은_제외한다() {
+		Product deleted = product(null, ProductStatus.ON_SALE, (short) 1, (short) 0);
+		ReflectionTestUtils.setField(deleted, "updatedAt", LocalDateTime.now());
+		ReflectionTestUtils.setField(deleted, "deletedAt", LocalDateTime.now());
+		productJpaRepository.save(deleted);
+
+		List<UUID> result = productJpaRepository.findChangedFamilyRootIds(LocalDateTime.now().minusMinutes(1));
+
+		assertThat(result).isEmpty();
 	}
 
 	private Product product(UUID parentId, ProductStatus status, short majorVersion, short patchVersion) {

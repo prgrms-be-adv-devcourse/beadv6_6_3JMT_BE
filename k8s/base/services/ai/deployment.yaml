@@ -108,7 +108,7 @@ spec:
                   name: ai-secret
                   key: AI_USER_GRPC_TOKEN
             - name: OPENAI_REASONING_EFFORT
-              value: "low"
+              value: "none"
             - name: AI_SETTLEMENT_CHAT_ENABLED
               value: "true"
             - name: AI_MAX_CONCURRENT_RUNS
