@@ -53,6 +53,9 @@ release_patterns=(
   '^[[:space:]]+push:$'
   'branches:[[:space:]]+\["develop"\]'
   '^[[:space:]]+planning:$'
+  '^[[:space:]]+workflow_dispatch:$'
+  'release-services:'
+  'manifest-services:'
   '^[[:space:]]+build-and-test:$'
   '^[[:space:]]+ci-gate:$'
   '^    name:[[:space:]]+Release CI Gate$'
@@ -66,7 +69,10 @@ release_patterns=(
   '^[[:space:]]+- grpc/user/\*\*$'
   'test_matrix:'
   'image_matrix:'
-  'application_manifests_changed:'
+  'manifest_matrix:'
+  'deploy_matrix:'
+  'config_consumer_matrix:'
+  'apply_all_manifests:'
   'needs\.ci-gate\.result == '\''success'\'''
   'push-image:[[:space:]]+true'
   'publish-latest:[[:space:]]+false'
@@ -74,6 +80,13 @@ release_patterns=(
   'pattern:[[:space:]]+image-metadata-\*'
   'release_manifest:'
   'release-manifest:[[:space:]]+\$\{\{ needs\.collect-release-manifest\.outputs\.release_manifest \}\}'
+  'manifest-matrix:[[:space:]]+\$\{\{ needs\.planning\.outputs\.manifest_matrix \}\}'
+  'deploy-matrix:[[:space:]]+\$\{\{ needs\.planning\.outputs\.deploy_matrix \}\}'
+  'config-consumer-matrix:[[:space:]]+\$\{\{ needs\.planning\.outputs\.config_consumer_matrix \}\}'
+  'apply-all-manifests:'
+  'manifest_ai:'
+  'k8s/base/services/ai/\*\*'
+  'pipeline:'
 )
 
 for pattern in "${release_patterns[@]}"; do
@@ -122,25 +135,29 @@ application_patterns=(
   '^name:[[:space:]]+Reusable Kubernetes Application Deploy$'
   '^[[:space:]]+workflow_call:$'
   '^[[:space:]]+release-manifest:$'
-  '^[[:space:]]+application-manifests-changed:$'
-  'Validate immutable release manifest'
+  '^[[:space:]]+manifest-matrix:$'
+  '^[[:space:]]+deploy-matrix:$'
+  '^[[:space:]]+config-consumer-matrix:$'
+  '^[[:space:]]+apply-all-manifests:$'
+  'Validate release inputs'
   'immutableRef'
   '\^sha256:\[0-9a-f\]\{64\}\$'
   'current_or_base_image\(\)'
   '\.\[\$service\]\.immutableRef'
   'digest:[[:space:]]+\$value'
-  'snapshot_manifest_deployments'
-  'track_manifest_deployment_changes'
-  'rollback_deployments'
+  'render_application_overlay'
+  'snapshot_workloads'
+  'track_deployment_change'
+  'apply_service_manifest'
+  'app\.kubernetes\.io/name=\$service'
+  'kubectl apply --dry-run=server'
+  'kubectl apply -n "\$NAMESPACE" -l "\$selector" -f "\$rendered_manifest"'
+  'dump_failure_diagnostics'
+  'trap rollback ERR'
   'kubectl rollout undo deployment/'
-  'ensure_settlement_cronjob'
-  'snapshot_settlement_cronjob'
-  'rollback_settlement_cronjob'
   'kubectl set image cronjob/'
   'kubectl delete deployment/settlement-service'
   'kubectl delete service/settlement-service'
-  'kubectl apply --dry-run=server -k "\$runtime_overlay"'
-  'kubectl apply -k "\$runtime_overlay"'
   '^[[:space:]]+ai-secret$'
 )
 
@@ -156,6 +173,10 @@ forbid_pattern "$APPLICATION_WORKFLOW" 'kubectl apply -k k8s/addons/nginx-ingres
   "application CD must not reconcile Ingress"
 forbid_pattern "$APPLICATION_WORKFLOW" 'kubectl create job|--from=cronjob/settlement-weekly' \
   "application CD must not start settlement jobs"
+forbid_pattern "$APPLICATION_WORKFLOW" 'application-manifests-changed|APPLICATION_MANIFESTS_CHANGED' \
+  "application CD must use service-scoped manifest matrices"
+forbid_pattern "$APPLICATION_WORKFLOW" 'kubectl apply -k "\$runtime_overlay"' \
+  "application CD must not apply the full application overlay at once"
 
 array_values() {
   local file="$1"
@@ -167,14 +188,10 @@ array_values() {
 
 expected_release_order=$'config\ndiscovery\nuser-service\nproduct-service\norder-service\npayment-service\nsettlement-service\nadmin-service\nai-service\napigateway'
 expected_deployment_order=$'config\ndiscovery\nuser-service\nproduct-service\norder-service\npayment-service\nadmin-service\nai-service\napigateway'
-expected_config_consumers=$'user-service\nproduct-service\norder-service\npayment-service\nadmin-service\nai-service\napigateway'
-
 [ "$(array_values "$APPLICATION_WORKFLOW" release_order)" = "$expected_release_order" ] ||
   fail "release_order changed"
 [ "$(array_values "$APPLICATION_WORKFLOW" deployment_order)" = "$expected_deployment_order" ] ||
   fail "deployment_order changed"
-[ "$(array_values "$APPLICATION_WORKFLOW" config_consumers)" = "$expected_config_consumers" ] ||
-  fail "config_consumers changed"
 
 # The old Kubernetes workflow is now manual infrastructure and Ingress only.
 manual_patterns=(

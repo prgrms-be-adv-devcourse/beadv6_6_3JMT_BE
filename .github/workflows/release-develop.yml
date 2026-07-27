@@ -3,6 +3,20 @@ name: Release - Develop
 on:
   push:
     branches: ["develop"]
+  workflow_dispatch:
+    inputs:
+      release-services:
+        description: "다시 테스트·발행할 서비스(쉼표 구분)"
+        required: true
+        type: string
+      manifest-services:
+        description: "현재 develop 매니페스트도 적용할 서비스(쉼표 구분)"
+        required: false
+        type: string
+      confirmation:
+        description: "실행하려면 RELEASE 입력"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -19,7 +33,10 @@ jobs:
       test_matrix: ${{ steps.plan.outputs.test_matrix }}
       image_matrix: ${{ steps.plan.outputs.image_matrix }}
       deploy: ${{ steps.plan.outputs.deploy }}
-      application_manifests_changed: ${{ steps.plan.outputs.application_manifests_changed }}
+      manifest_matrix: ${{ steps.plan.outputs.manifest_matrix }}
+      deploy_matrix: ${{ steps.plan.outputs.deploy_matrix }}
+      config_consumer_matrix: ${{ steps.plan.outputs.config_consumer_matrix }}
+      apply_all_manifests: ${{ steps.plan.outputs.apply_all_manifests }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -32,27 +49,54 @@ jobs:
         with:
           files_yaml: |
             user_service:
-              - user-service/**
+              - user-service/src/**
+              - user-service/build.gradle
               - grpc/user/**
             ai_service:
-              - ai-service/**
+              - ai-service/src/**
+              - ai-service/build.gradle
               - grpc/user/**
             product_service:
-              - product-service/**
+              - product-service/src/**
+              - product-service/build.gradle
             order_service:
-              - order-service/**
+              - order-service/src/**
+              - order-service/build.gradle
             payment_service:
-              - payment-service/**
+              - payment-service/src/**
+              - payment-service/build.gradle
             settlement_service:
-              - settlement-service/**
+              - settlement-service/src/**
+              - settlement-service/build.gradle
             admin_service:
-              - admin-service/**
+              - admin-service/src/**
+              - admin-service/build.gradle
             apigateway:
-              - apigateway/**
+              - apigateway/src/**
+              - apigateway/build.gradle
             config:
-              - config/**
+              - config/src/**
+              - config/build.gradle
             discovery:
-              - discovery/**
+              - discovery/src/**
+              - discovery/build.gradle
+            config_ai:
+              - config/src/main/resources/configs/ai-service.yml
+            config_user:
+              - config/src/main/resources/configs/user-service.yml
+            config_product:
+              - config/src/main/resources/configs/product-service.yml
+            config_order:
+              - config/src/main/resources/configs/order-service.yml
+            config_payment:
+              - config/src/main/resources/configs/payment-service.yml
+            config_admin:
+              - config/src/main/resources/configs/admin-service.yml
+            config_shared:
+              - config/src/main/java/**
+              - config/src/main/resources/application.yml
+              - config/src/main/resources/configs/application.yml
+              - config/build.gradle
             shared_build:
               - common-module/**
               - Dockerfile
@@ -64,16 +108,40 @@ jobs:
               - settings.gradle
               - settings.gradle.kts
               - gradle/**
+            manifest_config:
+              - k8s/base/platform/config/**
+            manifest_discovery:
+              - k8s/base/platform/discovery/**
+            manifest_user:
+              - k8s/base/services/user/**
+            manifest_product:
+              - k8s/base/services/product/**
+            manifest_order:
+              - k8s/base/services/order/**
+            manifest_payment:
+              - k8s/base/services/payment/**
+            manifest_settlement:
+              - k8s/base/services/settlement/**
+            manifest_admin:
+              - k8s/base/services/admin/**
+            manifest_ai:
+              - k8s/base/services/ai/**
+            manifest_apigateway:
+              - k8s/base/gateway/**
+            manifest_all:
+              - k8s/overlays/ec2-kubeadm/applications/**
+            pipeline:
+              - .github/workflows/ci.yml
+              - .github/workflows/ci-main.yml
               - .github/workflows/reusable-build.yml
               - .github/workflows/reusable-docker-build.yml
               - .github/workflows/release-develop.yml
               - scripts/plan-release-targets.sh
-            application_manifests:
-              - k8s/base/platform/**
-              - k8s/base/services/**
-              - k8s/base/gateway/**
-              - k8s/overlays/ec2-kubeadm/applications/**
+              - scripts/test-plan-release-targets.sh
+              - scripts/validate-k8s-cd-workflow.sh
               - .github/workflows/reusable-kubernetes-deploy.yml
+              - .github/workflows/cd-selfhosted-kubernetes.yml
+              - .github/workflows/cd-selfhosted-compose.yml
 
       - name: Plan test, image, and deploy targets
         id: plan
@@ -90,7 +158,28 @@ jobs:
           CONFIG_CHANGED: ${{ steps.changed.outputs.config_any_changed }}
           DISCOVERY_CHANGED: ${{ steps.changed.outputs.discovery_any_changed }}
           SHARED_BUILD_CHANGED: ${{ steps.changed.outputs.shared_build_any_changed }}
-          APPLICATION_MANIFESTS_CHANGED: ${{ steps.changed.outputs.application_manifests_any_changed }}
+          CONFIG_MANIFEST_CHANGED: ${{ steps.changed.outputs.manifest_config_any_changed }}
+          DISCOVERY_MANIFEST_CHANGED: ${{ steps.changed.outputs.manifest_discovery_any_changed }}
+          USER_MANIFEST_CHANGED: ${{ steps.changed.outputs.manifest_user_any_changed }}
+          PRODUCT_MANIFEST_CHANGED: ${{ steps.changed.outputs.manifest_product_any_changed }}
+          ORDER_MANIFEST_CHANGED: ${{ steps.changed.outputs.manifest_order_any_changed }}
+          PAYMENT_MANIFEST_CHANGED: ${{ steps.changed.outputs.manifest_payment_any_changed }}
+          SETTLEMENT_MANIFEST_CHANGED: ${{ steps.changed.outputs.manifest_settlement_any_changed }}
+          ADMIN_MANIFEST_CHANGED: ${{ steps.changed.outputs.manifest_admin_any_changed }}
+          AI_MANIFEST_CHANGED: ${{ steps.changed.outputs.manifest_ai_any_changed }}
+          APIGATEWAY_MANIFEST_CHANGED: ${{ steps.changed.outputs.manifest_apigateway_any_changed }}
+          ALL_APPLICATION_MANIFESTS_CHANGED: ${{ steps.changed.outputs.manifest_all_any_changed }}
+          USER_CONFIG_CHANGED: ${{ steps.changed.outputs.config_user_any_changed }}
+          PRODUCT_CONFIG_CHANGED: ${{ steps.changed.outputs.config_product_any_changed }}
+          ORDER_CONFIG_CHANGED: ${{ steps.changed.outputs.config_order_any_changed }}
+          PAYMENT_CONFIG_CHANGED: ${{ steps.changed.outputs.config_payment_any_changed }}
+          ADMIN_CONFIG_CHANGED: ${{ steps.changed.outputs.config_admin_any_changed }}
+          AI_CONFIG_CHANGED: ${{ steps.changed.outputs.config_ai_any_changed }}
+          SHARED_CONFIG_CHANGED: ${{ steps.changed.outputs.config_shared_any_changed }}
+          PIPELINE_CHANGED: ${{ steps.changed.outputs.pipeline_any_changed }}
+          MANUAL_CONFIRMATION: ${{ inputs.confirmation || '' }}
+          MANUAL_RELEASE_SERVICES: ${{ inputs['release-services'] || '' }}
+          MANUAL_MANIFEST_SERVICES: ${{ inputs['manifest-services'] || '' }}
         run: bash scripts/plan-release-targets.sh
 
   build-and-test:
@@ -250,4 +339,7 @@ jobs:
     uses: ./.github/workflows/reusable-kubernetes-deploy.yml
     with:
       release-manifest: ${{ needs.collect-release-manifest.outputs.release_manifest }}
-      application-manifests-changed: ${{ needs.planning.outputs.application_manifests_changed == 'true' }}
+      manifest-matrix: ${{ needs.planning.outputs.manifest_matrix }}
+      deploy-matrix: ${{ needs.planning.outputs.deploy_matrix }}
+      config-consumer-matrix: ${{ needs.planning.outputs.config_consumer_matrix }}
+      apply-all-manifests: ${{ needs.planning.outputs.apply_all_manifests == 'true' }}

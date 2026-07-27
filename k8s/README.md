@@ -123,7 +123,9 @@ KUBECONFIG=/home/ubuntu/.kube/config
 
 `develop`에 push 또는 merge되면 변경된 모듈만 빌드·테스트한다. 모든 대상 모듈이 Release CI Gate를 통과한 뒤에만 같은 모듈의 이미지를 전체 Git SHA tag로 GHCR에 push한다. 이 tag는 실행 추적용이고, 실제 CD 입력은 빌드 결과에서 얻은 `repository@sha256:...` digest다. 상시 서비스는 Deployment를 순차 갱신하고, settlement-service는 `CronJob/settlement-weekly`의 Job template 이미지만 갱신한다.
 
-Kubernetes 플랫폼·서비스·Gateway 매니페스트 변경도 별도로 감지한다. 매니페스트만 바뀐 서비스는 이미지를 다시 빌드하지 않고 클러스터에 배포 중인 image ref를 유지한 채 `k8s/overlays/ec2-kubeadm/applications`를 server-side dry-run 후 적용한다. 클러스터에 해당 workload가 없는 최초 적용에만 base 매니페스트의 digest를 사용한다. 공통 빌드 파일이 바뀌면 애플리케이션 전체를 테스트하고 이미지를 발행한다.
+Kubernetes 플랫폼·서비스·Gateway 매니페스트 변경도 서비스별로 감지한다. 예를 들어 `k8s/base/services/ai/**`만 바뀌면 AI 이미지를 다시 빌드하지 않고, 클러스터에 배포 중인 AI image ref를 유지한 채 AI 리소스만 server-side dry-run 후 적용하고 rollout을 기다린다. 코드와 매니페스트가 함께 바뀌면 새 digest를 주입한 매니페스트를 한 번만 적용한다. 클러스터에 대상 workload가 없는 최초 적용에만 base 매니페스트의 digest를 사용한다.
+
+`k8s/overlays/ec2-kubeadm/applications/**` 공통 오버레이가 바뀌면 전체 애플리케이션이 대상이 되지만 동시에 적용하지 않고 고정된 서비스 순서로 하나씩 적용·검증한다. CI/CD workflow와 대상 계산 스크립트만 바뀐 push는 애플리케이션을 빌드하거나 배포하지 않는다. 공통 빌드 파일이 바뀌면 애플리케이션 전체를 테스트하고 이미지를 발행한다.
 
 자동 매니페스트 적용 범위에는 Config, Discovery, 상시 비즈니스 서비스 5개와 API Gateway의 Deployment·Service, 그리고 settlement 주간 CronJob이 포함된다. StorageClass, PV/PVC, PostgreSQL, Redis, Kafka, Ingress Controller와 Gateway Ingress는 기존 수동 배포 경계를 유지한다. 별도의 활성화 변수는 사용하지 않으므로 Secret, kubeconfig, 기존 Docker 중지와 cutover 준비가 끝난 뒤에만 Kubernetes CD가 포함된 PR을 `develop`에 머지한다.
 
@@ -134,7 +136,9 @@ Kubernetes 플랫폼·서비스·Gateway 매니페스트 변경도 별도로 감
 | `infrastructure` | Namespace, StorageClass, PV/PVC, PostgreSQL, Redis, Kafka | Local PV 디렉터리와 `postgres-secret` 준비 |
 | `ingress` | F5 NGINX Ingress Controller, Gateway Ingress | Docker Gateway 중지, Gateway Ready, 80·443·18080·18081 listener 반환 |
 
-워크플로는 Docker 컨테이너를 자동으로 중지하거나 삭제하지 않는다. 애플리케이션 rollout이 실패하면 적용 전 Pod template과 비교해 이번 실행에서 바뀐 기존 Deployment만 `kubectl rollout undo`로 복구하고, 이번 실행에서 처음 생성한 Deployment는 삭제한다. settlement CronJob은 적용 전 이미지를 별도로 기록해 실패 시 복구하며, 이번 실행에서 처음 생성했다면 CronJob만 삭제한다. Service 선언 복구가 필요하면 원인 커밋을 되돌린 뒤 CD를 다시 실행한다.
+`develop`의 현재 소스로 선택 서비스만 다시 발행하려면 GitHub의 `Actions > Release - Develop > Run workflow`에서 branch를 `develop`으로 선택한다. `release-services`에는 테스트·이미지 발행 대상을 쉼표로 입력하고, YAML도 다시 적용할 서비스만 `manifest-services`에 입력한 뒤 `confirmation`에 `RELEASE`를 입력한다. Config와 AI 이미지를 다시 발행하면서 AI YAML도 적용하는 값은 각각 `config,ai-service`, `ai-service`, `RELEASE`다. 이 방식은 과거 실패 실행을 재실행하지 않고 최신 `develop` SHA로 새 Release를 만든다.
+
+워크플로는 Docker 컨테이너를 자동으로 중지하거나 삭제하지 않는다. 애플리케이션 rollout이 실패하면 대상 Deployment·ReplicaSet·Pod·이벤트와 노드 할당량을 먼저 로그에 남긴다. 그 뒤 적용 전 Pod template과 비교해 이번 실행에서 바뀐 기존 Deployment만 `kubectl rollout undo`로 복구하고, 이번 실행에서 처음 생성한 Deployment는 삭제한다. settlement CronJob은 적용 전 이미지를 별도로 기록해 실패 시 복구하며, 이번 실행에서 처음 생성했다면 CronJob만 삭제한다. Service 선언 복구가 필요하면 원인 커밋을 되돌린 뒤 CD를 다시 실행한다.
 
 ## 정산 주간 CronJob 확인
 

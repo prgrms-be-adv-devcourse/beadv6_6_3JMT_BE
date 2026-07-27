@@ -18,9 +18,9 @@ develop merge/push
      └─ 서비스별 image digest를 release manifest로 수집
           └─ CD (`reusable-kubernetes-deploy.yml`)
               ├─ release manifest 검증
-              ├─ Kubernetes 매니페스트 적용
-              ├─ digest 기준 순차 rollout
-              └─ 실패 시 rollback
+              ├─ 변경 서비스 매니페스트만 적용
+              ├─ 서비스별 digest 기준 순차 rollout
+              └─ 실패 진단 로그 수집 후 rollback
 ```
 
 PR CI와 develop Release CI는 목적이 다르므로 둘 다 실행한다. PR CI는 머지 가능성을 미리 검증하고,
@@ -46,7 +46,8 @@ Release CI는 실제로 머지된 커밋을 기준으로 배포할 산출물을 
 5. 서비스별 `repository@sha256:...` 값을 release manifest로 합친다.
 
 공통 빌드 파일이나 `common-module`이 바뀌면 전체 애플리케이션을 대상으로 한다. Kubernetes
-매니페스트만 바뀐 경우에는 이미지를 다시 빌드하지 않는다.
+매니페스트만 바뀐 경우에는 이미지를 다시 빌드하지 않는다. CI/CD workflow와 대상 계산 스크립트만
+바뀌면 애플리케이션 배포는 실행하지 않는다.
 
 ## CD 책임
 
@@ -55,9 +56,16 @@ Release CI는 실제로 머지된 커밋을 기준으로 배포할 산출물을 
 
 - CD는 Docker 이미지를 빌드하거나 registry에 push하지 않는다.
 - release manifest에 포함된 모듈은 immutable digest로 배포한다.
-- 매니페스트만 변경된 모듈은 현재 클러스터 image ref를 유지한다.
+- 매니페스트만 변경된 모듈은 현재 클러스터 image ref를 유지하고 해당 모듈만 적용한다.
+- 코드와 매니페스트가 함께 바뀐 모듈은 새 digest를 포함한 매니페스트를 한 번만 적용한다.
+- 공통 애플리케이션 overlay 변경은 전체 모듈을 대상으로 하되 한 모듈씩 순차 적용한다.
 - Settlement는 Deployment가 아니라 `CronJob/settlement-weekly`의 Job template 이미지를 갱신한다.
-- rollout 실패 시 이번 실행에서 변경된 Deployment와 Settlement CronJob을 복구한다.
+- rollout 실패 시 Pod·이벤트·노드 리소스 로그를 먼저 남기고 이번 실행에서 변경된 Deployment와 Settlement CronJob을 복구한다.
+
+최신 `develop` 소스로 일부 서비스만 다시 발행하려면 `Release - Develop`을 수동 실행한다.
+`release-services`에 이미지 대상을, `manifest-services`에 YAML 적용 대상을 쉼표로 입력하고
+`confirmation`에는 `RELEASE`를 입력한다. Config와 AI를 다시 발행하면서 AI YAML도 반영할 때는
+각각 `config,ai-service`, `ai-service`, `RELEASE`를 사용한다.
 
 `.github/workflows/cd-selfhosted-kubernetes.yml`은 자동 애플리케이션 CD가 아니다. Storage·상태 저장
 인프라와 Ingress를 운영자가 `workflow_dispatch`로 승인해 적용하는 수동 workflow다.
