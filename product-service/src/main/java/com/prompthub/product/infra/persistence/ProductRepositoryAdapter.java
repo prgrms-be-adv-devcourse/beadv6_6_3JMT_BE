@@ -142,4 +142,23 @@ public class ProductRepositoryAdapter implements ProductRepository {
 		}
 		return joiner.toString();
 	}
+
+	@Override
+	public Map<UUID, float[]> findEmbeddings(List<UUID> productIds) {
+		if (productIds.isEmpty()) {
+			return Map.of();
+		}
+		return productJpaRepository.findEmbeddingRows(productIds).stream()
+			.collect(Collectors.toMap(row -> (UUID) row[0], row -> fromVectorLiteral((String) row[1])));
+	}
+
+	/** {@link #toVectorLiteral}의 역변환. 우리 시스템이 쓴 값을 그대로 읽는 왕복이라 별도 검증은 두지 않는다. */
+	private float[] fromVectorLiteral(String literal) {
+		String[] parts = literal.substring(1, literal.length() - 1).split(",");
+		float[] embedding = new float[parts.length];
+		for (int i = 0; i < parts.length; i++) {
+			embedding[i] = Float.parseFloat(parts[i]);
+		}
+		return embedding;
+	}
 }

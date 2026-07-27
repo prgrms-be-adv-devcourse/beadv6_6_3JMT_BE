@@ -304,4 +304,13 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 		@Param("embedding") String embedding,
 		@Param("sourceHash") String sourceHash
 	);
+
+	/** {@code embedding::text}로 캐스팅해 드라이버·타입 매핑과 무관하게 항상 문자열로 받는다. */
+	@Query(value = """
+		select id, embedding::text
+		from product
+		where id in (:productIds)
+			and embedding is not null
+		""", nativeQuery = true)
+	List<Object[]> findEmbeddingRows(@Param("productIds") List<UUID> productIds);
 }

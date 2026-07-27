@@ -8,6 +8,7 @@ import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.support.PostgresIntegrationTestSupport;
 import jakarta.persistence.EntityManager;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -90,6 +91,23 @@ class ProductEmbeddingMigrationTest extends PostgresIntegrationTestSupport {
 			.setParameter("id", product.getId())
 			.getSingleResult();
 		assertThat((Boolean) stored).isTrue();
+	}
+
+	@Test
+	@DisplayName("저장한 임베딩을 findEmbeddings로 다시 읽으면 원래 값과 같다")
+	void findEmbeddingsRoundTrips() {
+		Product withEmbedding = save(ProductStatus.ON_SALE);
+		Product withoutEmbedding = save(ProductStatus.ON_SALE);
+		float[] embedding = new float[DIMENSIONS];
+		embedding[0] = 0.00001f;
+		embedding[1] = -0.25f;
+		productRepositoryAdapter.updateEmbedding(withEmbedding.getId(), embedding, "해시");
+
+		Map<UUID, float[]> result = productRepositoryAdapter.findEmbeddings(
+			List.of(withEmbedding.getId(), withoutEmbedding.getId()));
+
+		assertThat(result).containsOnlyKeys(withEmbedding.getId());
+		assertThat(result.get(withEmbedding.getId())).containsExactly(embedding);
 	}
 
 	@Test

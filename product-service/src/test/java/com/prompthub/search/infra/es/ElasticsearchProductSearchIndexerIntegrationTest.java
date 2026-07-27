@@ -14,6 +14,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 class ElasticsearchProductSearchIndexerIntegrationTest extends ElasticsearchIntegrationTestSupport {
 
+	/** ES 매핑의 dense_vector dims와 같아야 한다(products-v1-mapping.json). */
+	private static final int EMBEDDING_DIMENSIONS = 1536;
+
 	@Autowired
 	private ElasticsearchClient client;
 
@@ -23,7 +26,10 @@ class ElasticsearchProductSearchIndexerIntegrationTest extends ElasticsearchInte
 		UUID familyRootId = UUID.randomUUID();
 		Product product = Product.create(familyRootId, UUID.randomUUID(), ProductContentFixtures.promptContent());
 
-		indexer.upsert(new FamilyUpsertInput(product, 5L, 3L, 4.5, LocalDateTime.now()));
+		float[] embedding = new float[EMBEDDING_DIMENSIONS];
+		embedding[0] = 0.1f;
+		embedding[1] = 0.2f;
+		indexer.upsert(new FamilyUpsertInput(product, 5L, 3L, 4.5, LocalDateTime.now(), embedding));
 		client.indices().refresh(r -> r.index(ProductIndexBootstrap.ALIAS));
 
 		var response = client.get(

@@ -108,7 +108,8 @@ public class ElasticsearchProductSearchIndexer implements ProductSearchIndexer {
 			0,
 			input.averageRating(),
 			input.firstPublishedAt(),
-			onSale.getUpdatedAt()
+			onSale.getUpdatedAt(),
+			input.embedding()
 		);
 	}
 }

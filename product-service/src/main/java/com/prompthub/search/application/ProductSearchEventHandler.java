@@ -62,7 +62,8 @@ public class ProductSearchEventHandler {
 
 		Product representative = currentOnSale.get();
 		double averageRating = productRepository.getAverageRating(familyRootId);
-		FamilyUpsertInput input = familyStatsResolver.resolve(members, representative, averageRating);
+		float[] embedding = productRepository.findEmbeddings(List.of(representative.getId())).get(representative.getId());
+		FamilyUpsertInput input = familyStatsResolver.resolve(members, representative, averageRating, embedding);
 		productSearchIndexer.upsert(input);
 	}
 

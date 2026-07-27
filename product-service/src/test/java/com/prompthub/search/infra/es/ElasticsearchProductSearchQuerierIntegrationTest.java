@@ -29,7 +29,7 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 
 	private void index(Product product, long salesCount, long viewCount, double ratingAvg) {
 		ElasticsearchProductSearchIndexer indexer = new ElasticsearchProductSearchIndexer(client);
-		indexer.upsert(new FamilyUpsertInput(product, salesCount, viewCount, ratingAvg, LocalDateTime.now()));
+		indexer.upsert(new FamilyUpsertInput(product, salesCount, viewCount, ratingAvg, LocalDateTime.now(), null));
 	}
 
 	private void refresh() throws Exception {
