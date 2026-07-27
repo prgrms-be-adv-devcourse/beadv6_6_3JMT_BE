@@ -57,11 +57,14 @@ public class SellerController {
 	public PageResponse<SellerRegisterResponse> listSellerRegisters(
 		@Parameter(description = "신청 상태 필터 (PENDING | APPROVED | REJECTED | ALL)", example = "ALL")
 		@RequestParam(defaultValue = "ALL") String status,
-		@Parameter(description = "페이지 번호 (1부터 시작)", example = "1")
-		@RequestParam(defaultValue = "1") int page,
+		@Parameter(description = "페이지 번호 (0부터 시작)", example = "0")
+		@RequestParam(defaultValue = "0") int page,
 		@Parameter(description = "페이지당 항목 수", example = "20")
 		@RequestParam(defaultValue = "20") int size
 	) {
+		if (page < 0) {
+			throw new AdminException(AdminErrorCode.INVALID_INPUT_VALUE);
+		}
 		SellerRegisterListQuery query = new SellerRegisterListQuery(parseStatus(status), page, size);
 
 		SellerRegisterPageResult result = sellerService.listSellerRegisters(query);

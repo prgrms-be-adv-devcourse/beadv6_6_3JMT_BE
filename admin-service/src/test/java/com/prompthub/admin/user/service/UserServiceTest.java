@@ -46,13 +46,13 @@ class UserServiceTest {
 	private UserService userService;
 
 	@Test
-	void 목록_조회는_0base_페이지로_변환해서_리포지토리에_전달한다() {
+	void 목록_조회는_0base_페이지를_그대로_리포지토리에_전달한다() {
 		given(userRepository.findUsers(null, null, null, 0, 20)).willReturn(List.of());
 		given(userRepository.countUsers(null, null, null)).willReturn(0L);
 
-		UserPageResult result = userService.listUsers(new UserListQuery(null, null, null, 1, 20));
+		UserPageResult result = userService.listUsers(new UserListQuery(null, null, null, 0, 20));
 
-		assertThat(result.page()).isEqualTo(1);
+		assertThat(result.page()).isEqualTo(0);
 		assertThat(result.hasNext()).isFalse();
 	}
 

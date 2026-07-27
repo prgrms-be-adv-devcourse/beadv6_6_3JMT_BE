@@ -67,11 +67,14 @@ public class UserController {
 		@RequestParam(defaultValue = "ALL") String role,
 		@Parameter(description = "이름·이메일 검색 키워드")
 		@RequestParam(required = false) String keyword,
-		@Parameter(description = "페이지 번호 (1부터 시작)", example = "1")
-		@RequestParam(defaultValue = "1") int page,
+		@Parameter(description = "페이지 번호 (0부터 시작)", example = "0")
+		@RequestParam(defaultValue = "0") int page,
 		@Parameter(description = "페이지당 항목 수", example = "20")
 		@RequestParam(defaultValue = "20") int size
 	) {
+		if (page < 0) {
+			throw new AdminException(AdminErrorCode.INVALID_INPUT_VALUE);
+		}
 		UserListQuery query = new UserListQuery(parseStatusFilter(status), parseRoleFilter(role), keyword, page, size);
 		UserPageResult result = userService.listUsers(query);
 
