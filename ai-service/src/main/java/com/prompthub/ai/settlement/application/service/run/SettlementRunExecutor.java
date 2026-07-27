@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 @Component
@@ -46,15 +47,20 @@ public class SettlementRunExecutor {
 
     public void execute(AgentRun run, List<ChatPair> completedHistory) {
         Timer.Sample sample = Timer.start(meterRegistry);
+        AtomicReference<RunStage> currentStage = new AtomicReference<>(run.stage());
         try {
             advanceStage(run, RunStage.ANALYZING);
+            currentStage.set(RunStage.ANALYZING);
             SettlementAgent.AgentResult result = settlementAgent.answer(new SettlementAgent.AgentRequest(
                     run.actorId(),
                     run.runId(),
                     run.question(),
                     completedHistory,
                     run.deadlineAt(),
-                    stage -> advanceStage(run, stage)
+                    stage -> {
+                        advanceStage(run, stage);
+                        currentStage.set(stage);
+                    }
             ));
             Instant completedAt = clock.instant();
             if (completedAt.isAfter(run.deadlineAt())) {
@@ -75,7 +81,11 @@ public class SettlementRunExecutor {
         } catch (RunFencedException exception) {
             log.info("AI settlement run fenced before terminal commit. runId={}", run.runId());
         } catch (RuntimeException exception) {
-            failSafely(run, errorCode(exception), clock.instant(), sample);
+            AiErrorCode errorCode = errorCode(exception);
+            log.warn("AI settlement run failed. runId={}, stage={}, errorCode={}, category={}",
+                    run.runId(), currentStage.get(), errorCode.getCode(),
+                    exception.getClass().getSimpleName());
+            failSafely(run, errorCode, clock.instant(), sample);
         }
     }
 
