@@ -101,6 +101,23 @@ class ProductServiceTest {
 		}
 
 		@Test
+		@DisplayName("REJECTED 상품은 rejectionReason을 함께 반환한다")
+		void listProducts_rejected_includesRejectionReason() {
+			Product rejected = product(FAMILY_ROOT_ID, null, ProductStatus.REJECTED, (short) 1, (short) 0);
+			ReflectionTestUtils.setField(rejected, "rejectionReason", "콘텐츠 미흡");
+			given(productRepository.findProducts(
+				new ProductListFilter(ProductStatus.REJECTED, null, List.of()), PAGE_0_20))
+				.willReturn(new PageImpl<>(List.of(rejected), PAGE_0_20, 1));
+			given(userService.findNamesByIds(List.of(SELLER_ID)))
+				.willReturn(Map.of(SELLER_ID, "판매자A"));
+
+			AdminProductPageResult result = productAdminService.listProducts(
+				new AdminProductListQuery(ProductStatus.REJECTED, null, PAGE_0_20));
+
+			assertThat(result.items().get(0).rejectionReason()).isEqualTo("콘텐츠 미흡");
+		}
+
+		@Test
 		@DisplayName("total이 페이지 범위를 넘으면 hasNext가 true다")
 		void listProducts_hasNext_whenTotalExceedsPage() {
 			given(productRepository.findProducts(new ProductListFilter(null, null, List.of()), PAGE_0_20))
