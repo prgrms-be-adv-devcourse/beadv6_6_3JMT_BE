@@ -60,4 +60,7 @@ public interface ProductRepository {
 
 	/** 임베딩과 그 원문 해시를 함께 저장한다. 둘은 항상 같이 바뀌어야 한다. */
 	void updateEmbedding(UUID productId, float[] embedding, String sourceHash);
+
+	/** ES 문서에 실을 임베딩을 상품 ID로 묶어 돌려준다. 아직 임베딩이 없는 상품은 결과에 없다. */
+	Map<UUID, float[]> findEmbeddings(List<UUID> productIds);
 }

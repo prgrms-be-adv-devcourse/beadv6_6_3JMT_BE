@@ -7,6 +7,7 @@ import com.prompthub.product.domain.repository.ProductRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -106,16 +107,29 @@ public class ProductReindexService {
 			.collect(Collectors.groupingBy(Product::familyRootId));
 		Map<UUID, Double> averageRatings = productRepository.getAverageRatings(targets);
 
-		List<FamilyUpsertInput> toUpsert = new ArrayList<>();
+		Map<UUID, Product> onSaleByFamily = new LinkedHashMap<>();
 		List<UUID> toDelete = new ArrayList<>();
 		for (UUID familyRootId : targets) {
 			List<Product> members = membersByFamily.getOrDefault(familyRootId, List.of());
-			ProductFamily family = ProductFamily.of(familyRootId, members);
-			family.currentOnSale().ifPresentOrElse(
-				onSale -> toUpsert.add(familyStatsResolver.resolve(
-					members, onSale, averageRatings.getOrDefault(familyRootId, 0.0))),
+			ProductFamily.of(familyRootId, members).currentOnSale().ifPresentOrElse(
+				onSale -> onSaleByFamily.put(familyRootId, onSale),
 				() -> toDelete.add(familyRootId)
 			);
+		}
+
+		// ponytail: 이번 사이클에 막 계산되는 임베딩(아래 refresh)은 여기서 못 읽어 한 사이클
+		// 더 늦게 ES에 반영된다. 임베딩 생성 자체가 이미 최대 20초 지연을 받아들이는 설계라
+		// 같은 예산 안이다 — 실측으로 문제되면 refresh를 이 조회보다 앞으로 옮긴다.
+		Map<UUID, float[]> embeddings = productRepository.findEmbeddings(
+			onSaleByFamily.values().stream().map(Product::getId).toList());
+
+		List<FamilyUpsertInput> toUpsert = new ArrayList<>();
+		for (Map.Entry<UUID, Product> entry : onSaleByFamily.entrySet()) {
+			UUID familyRootId = entry.getKey();
+			Product onSale = entry.getValue();
+			List<Product> members = membersByFamily.getOrDefault(familyRootId, List.of());
+			toUpsert.add(familyStatsResolver.resolve(
+				members, onSale, averageRatings.getOrDefault(familyRootId, 0.0), embeddings.get(onSale.getId())));
 		}
 
 		productEmbeddingUpdater.refresh(toUpsert.stream().map(FamilyUpsertInput::onSale).toList());
