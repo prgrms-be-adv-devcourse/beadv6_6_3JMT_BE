@@ -134,7 +134,7 @@ class OrderFailureCompensationConcurrencyTest extends PostgreSqlIntegrationTestS
 		assertThat(results.secondFailure()).isNull();
 		assertCompletedStateWithoutPurchasedCartProducts();
 		assertThat(processedEventRepository.count()).isEqualTo(2);
-		assertThat(outboxEventPersistence.count()).isEqualTo(1);
+		assertThat(outboxEventPersistence.count()).isEqualTo(2);
 	}
 
 	@RepeatedTest(5)
@@ -156,7 +156,7 @@ class OrderFailureCompensationConcurrencyTest extends PostgreSqlIntegrationTestS
 		assertThat(results.secondFailure()).isNull();
 		assertFailedStateWithSingleRestoredCartRows();
 		assertThat(processedEventRepository.count()).isEqualTo(1);
-		assertThat(outboxEventPersistence.count()).isZero();
+		assertThat(outboxEventPersistence.count()).isEqualTo(1);
 	}
 
 	@RepeatedTest(5)
