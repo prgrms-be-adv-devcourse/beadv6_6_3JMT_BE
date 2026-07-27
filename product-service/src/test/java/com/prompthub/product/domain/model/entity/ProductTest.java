@@ -100,6 +100,41 @@ class ProductTest {
 	}
 
 	@Test
+	void approve_pendingReview_transitionsToOnSale() {
+		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
+		ReflectionTestUtils.setField(product, "status", ProductStatus.PENDING_REVIEW);
+
+		product.approve();
+
+		assertThat(product.getStatus()).isEqualTo(ProductStatus.ON_SALE);
+	}
+
+	@Test
+	void approve_nonPendingReview_throws() {
+		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
+
+		assertThatThrownBy(product::approve).isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	void reject_pendingReview_transitionsToRejectedWithReason() {
+		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
+		ReflectionTestUtils.setField(product, "status", ProductStatus.PENDING_REVIEW);
+
+		product.reject("금지 콘텐츠 포함");
+
+		assertThat(product.getStatus()).isEqualTo(ProductStatus.REJECTED);
+		assertThat(product.getRejectionReason()).isEqualTo("금지 콘텐츠 포함");
+	}
+
+	@Test
+	void reject_nonPendingReview_throws() {
+		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
+
+		assertThatThrownBy(() -> product.reject("사유")).isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
 	void create_notion_withExternalUrl_succeeds() {
 		Product product = Product.create(
 			UUID.randomUUID(), UUID.randomUUID(), notionContent("제목", 1000)
