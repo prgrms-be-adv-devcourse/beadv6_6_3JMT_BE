@@ -162,7 +162,6 @@ public class SpringAiSettlementAgent implements SettlementAgent {
                 .maxCompletionTokens(properties.maxCompletionTokens())
                 .maxRetries(0)
                 .store(false)
-                .parallelToolCalls(false)
                 .streamUsage(true)
                 .toolCallbacks(List.of())
                 .toolContext(Map.of())
