@@ -29,7 +29,7 @@ kubectl kustomize k8s/overlays/ec2-kubeadm
 bash scripts/validate-k8s-manifests.sh
 ```
 
-스크립트는 모든 패키지가 렌더링되는지, `latest` 이미지나 미정 placeholder가 없는지, 실제 Secret이 base에 포함되지 않는지를 확인한다. 자동 CD용 `applications` 패키지가 Deployment 8개, Service 8개와 `CronJob/settlement-weekly` 1개만 포함하는지도 검사한다. ELK의 Local PV, Gateway 전용 Fluent Bit 경로, 14일 ILM과 Product Service 전환 전 Elasticsearch security disabled 계약도 검사한다. Ingress Controller의 host network·이미지 digest·필수 인자와 EC2 kubeadm overlay의 Gateway Ingress를 검사하고 NodePort·LoadBalancer 회귀를 차단한다. 또한 Kubernetes CD의 자동·수동 배포 경계, rollback 명령과 기존 Compose CD의 자동 trigger 비활성 상태를 검사한다.
+스크립트는 모든 패키지가 렌더링되는지, `latest` 이미지나 미정 placeholder가 없는지, 실제 Secret이 base에 포함되지 않는지를 확인한다. 자동 CD용 `applications` 패키지가 상시 서비스 Deployment·Service와 `CronJob/settlement-weekly`만 포함하는지도 검사한다. ELK의 Local PV, Gateway 전용 Fluent Bit 경로, 14일 ILM과 Product Service 전환 전 Elasticsearch security disabled 계약도 검사한다. Ingress Controller의 host network·이미지 digest·필수 인자와 EC2 kubeadm overlay의 Gateway Ingress를 검사하고 NodePort·LoadBalancer 회귀를 차단한다. 또한 Release CI, 재사용 애플리케이션 CD, 수동 인프라·Ingress 배포의 책임 경계와 기존 Compose CD의 자동 trigger 비활성 상태를 검사한다.
 
 Kafka Pod는 `enableServiceLinks: false`를 유지한다. 이 값을 제거하면 Kubernetes가 `kafka` Service에서 `KAFKA_PORT=tcp://...`를 자동 생성하고, Confluent 이미지가 이를 레거시 설정으로 해석해 시작 단계에서 종료한다.
 
@@ -68,6 +68,7 @@ kubectl -n prompthub get secret \
   jwt-secret \
   payment-secret \
   product-secret \
+  ai-secret \
   ghcr-pull-secret
 ```
 
@@ -107,9 +108,9 @@ kubectl -n elk rollout status daemonset/fluent-bit --timeout=10m
 
 배포 후 정상 요청, 401, 404, 500, 503을 호출해 Kibana에서 `gateway.eventType: GATEWAY_ACCESS`와 응답 `X-Request-Id`가 일치하는지 확인한다. `gateway-access-*`만 14일 후 삭제되고 `products-v1`은 유지되는지도 확인한다. Elasticsearch 보안 전환은 Product Service 담당자가 HTTPS CA·인증을 지원한 뒤 별도 이슈와 점검 시간으로 진행한다.
 
-## GitHub Actions CD
+## GitHub Actions CI/CD
 
-Kubernetes 배포 워크플로는 `.github/workflows/cd-selfhosted-kubernetes.yml`이다. 기존 `.github/workflows/cd-selfhosted-compose.yml`의 `develop` push trigger는 비활성화하며 rollback이 필요할 때만 `workflow_dispatch`로 실행한다.
+`develop` 자동 릴리스의 시작점은 `.github/workflows/release-develop.yml`이다. 이 workflow가 변경 모듈의 빌드·테스트, GHCR 이미지 발행과 release manifest 생성을 담당하고, 같은 실행 안에서 `.github/workflows/reusable-kubernetes-deploy.yml`을 호출해 애플리케이션을 배포한다. `.github/workflows/cd-selfhosted-kubernetes.yml`은 수동 인프라·Ingress 작업만 담당한다. 기존 `.github/workflows/cd-selfhosted-compose.yml`의 `develop` push trigger는 비활성화하며 rollback이 필요할 때만 `workflow_dispatch`로 실행한다.
 
 Self-hosted runner에는 다음 항목이 먼저 준비되어 있어야 한다.
 
@@ -120,7 +121,11 @@ jq
 KUBECONFIG=/home/ubuntu/.kube/config
 ```
 
-`develop`에 push 또는 merge되면 변경된 애플리케이션 이미지를 빌드해 GHCR에 짧은 Git SHA tag로 push한다. 상시 서비스는 Deployment를 순차 갱신하고, settlement-service는 `CronJob/settlement-weekly`의 Job template 이미지만 갱신한다. Kubernetes 플랫폼·서비스·Gateway 매니페스트 변경도 별도로 감지하며, 변경 시 `k8s/overlays/ec2-kubeadm/applications`를 새 image tag와 함께 server-side dry-run 후 자동 적용한다. 공통 빌드 파일, 애플리케이션 매니페스트 또는 Kubernetes CD 워크플로가 바뀌면 애플리케이션 전체를 대상으로 한다.
+`develop`에 push 또는 merge되면 변경된 모듈만 빌드·테스트한다. 모든 대상 모듈이 Release CI Gate를 통과한 뒤에만 같은 모듈의 이미지를 전체 Git SHA tag로 GHCR에 push한다. 이 tag는 실행 추적용이고, 실제 CD 입력은 빌드 결과에서 얻은 `repository@sha256:...` digest다. 상시 서비스는 Deployment를 순차 갱신하고, settlement-service는 `CronJob/settlement-weekly`의 Job template 이미지만 갱신한다.
+
+Kubernetes 플랫폼·서비스·Gateway 매니페스트 변경도 서비스별로 감지한다. 예를 들어 `k8s/base/services/ai/**`만 바뀌면 AI 이미지를 다시 빌드하지 않고, 클러스터에 배포 중인 AI image ref를 유지한 채 AI 리소스만 server-side dry-run 후 적용하고 rollout을 기다린다. 코드와 매니페스트가 함께 바뀌면 새 digest를 주입한 매니페스트를 한 번만 적용한다. 클러스터에 대상 workload가 없는 최초 적용에만 base 매니페스트의 digest를 사용한다.
+
+`k8s/overlays/ec2-kubeadm/applications/**` 공통 오버레이가 바뀌면 전체 애플리케이션이 대상이 되지만 동시에 적용하지 않고 고정된 서비스 순서로 하나씩 적용·검증한다. CI/CD workflow와 대상 계산 스크립트만 바뀐 push는 애플리케이션을 빌드하거나 배포하지 않는다. 공통 빌드 파일이 바뀌면 애플리케이션 전체를 테스트하고 이미지를 발행한다.
 
 자동 매니페스트 적용 범위에는 Config, Discovery, 상시 비즈니스 서비스 5개와 API Gateway의 Deployment·Service, 그리고 settlement 주간 CronJob이 포함된다. StorageClass, PV/PVC, PostgreSQL, Redis, Kafka, Ingress Controller와 Gateway Ingress는 기존 수동 배포 경계를 유지한다. 별도의 활성화 변수는 사용하지 않으므로 Secret, kubeconfig, 기존 Docker 중지와 cutover 준비가 끝난 뒤에만 Kubernetes CD가 포함된 PR을 `develop`에 머지한다.
 
@@ -131,7 +136,9 @@ KUBECONFIG=/home/ubuntu/.kube/config
 | `infrastructure` | Namespace, StorageClass, PV/PVC, PostgreSQL, Redis, Kafka | Local PV 디렉터리와 `postgres-secret` 준비 |
 | `ingress` | F5 NGINX Ingress Controller, Gateway Ingress | Docker Gateway 중지, Gateway Ready, 80·443·18080·18081 listener 반환 |
 
-워크플로는 Docker 컨테이너를 자동으로 중지하거나 삭제하지 않는다. 애플리케이션 rollout이 실패하면 적용 전 Pod template과 비교해 이번 실행에서 바뀐 기존 Deployment만 `kubectl rollout undo`로 복구하고, 이번 실행에서 처음 생성한 Deployment는 삭제한다. settlement CronJob은 적용 전 이미지를 별도로 기록해 실패 시 복구하며, 이번 실행에서 처음 생성했다면 CronJob만 삭제한다. Service 선언 복구가 필요하면 원인 커밋을 되돌린 뒤 CD를 다시 실행한다.
+`develop`의 현재 소스로 선택 서비스만 다시 발행하려면 GitHub의 `Actions > Release - Develop > Run workflow`에서 branch를 `develop`으로 선택한다. `release-services`에는 테스트·이미지 발행 대상을 쉼표로 입력하고, YAML도 다시 적용할 서비스만 `manifest-services`에 입력한 뒤 `confirmation`에 `RELEASE`를 입력한다. Config와 AI 이미지를 다시 발행하면서 AI YAML도 적용하는 값은 각각 `config,ai-service`, `ai-service`, `RELEASE`다. 이 방식은 과거 실패 실행을 재실행하지 않고 최신 `develop` SHA로 새 Release를 만든다.
+
+워크플로는 Docker 컨테이너를 자동으로 중지하거나 삭제하지 않는다. 애플리케이션 rollout이 실패하면 대상 Deployment·ReplicaSet·Pod·이벤트와 노드 할당량을 먼저 로그에 남긴다. 그 뒤 적용 전 Pod template과 비교해 이번 실행에서 바뀐 기존 Deployment만 `kubectl rollout undo`로 복구하고, 이번 실행에서 처음 생성한 Deployment는 삭제한다. settlement CronJob은 적용 전 이미지를 별도로 기록해 실패 시 복구하며, 이번 실행에서 처음 생성했다면 CronJob만 삭제한다. Service 선언 복구가 필요하면 원인 커밋을 되돌린 뒤 CD를 다시 실행한다.
 
 ## 정산 주간 CronJob 확인
 
@@ -333,7 +340,7 @@ imageMaximumGCAge: 0s
 이미지 사용률이 60%를 넘으면 kubelet이 미사용 이미지를 정리해 50% 수준까지 낮춘다.
 기간 기반 강제 삭제와 `crictl rmi --prune`, `ctr images rm` 같은 외부 정리 작업은 사용하지
 않는다. Deployment는 `revisionHistoryLimit: 1`로 직전 ReplicaSet을 보존하고, 로컬 이미지가
-GC된 경우에도 GHCR의 불변 Git SHA 태그를 다시 pull해 롤백한다.
+GC된 경우에도 GHCR의 이전 digest를 다시 pull해 롤백한다.
 
 설정은 Worker, Control Plane 순서로 한 노드씩 적용한다. 각 노드에서 기존 설정을 백업하고
 kubelet만 재시작한 뒤 `systemctl is-active kubelet`, `kubectl get nodes`, 전체 Pod 상태를
