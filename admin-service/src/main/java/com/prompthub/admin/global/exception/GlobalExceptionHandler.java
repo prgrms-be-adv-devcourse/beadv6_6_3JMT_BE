@@ -23,9 +23,9 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException exception) {
 		ErrorCode errorCode = exception.getErrorCode();
 		if (errorCode.getStatus().is5xxServerError()) {
-			log.error("비즈니스 예외 처리 실패 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
+			log.error("비즈니스 예외(5xx) - code={}", errorCode.getCode(), exception);
 		} else {
-			log.warn("비즈니스 예외 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
+			log.warn("비즈니스 예외 - code={}, message={}", errorCode.getCode(), exception.getMessage());
 		}
 		return ResponseEntity.status(errorCode.getStatus())
 			.body(ErrorResponse.of(errorCode, exception.getMessage()));
@@ -33,14 +33,14 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(SettlementInvalidStateException.class)
 	public ResponseEntity<ErrorResponse> handleSettlementInvalidState(SettlementInvalidStateException exception) {
-		log.warn("정산 상태 전이 충돌 - code={}, type={}", AdminErrorCode.SETTLEMENT_INVALID_STATE.getCode(), exception.getClass().getSimpleName());
+		log.warn("정산 상태 전이 충돌 - {}", exception.getMessage());
 		ErrorCode errorCode = AdminErrorCode.SETTLEMENT_INVALID_STATE;
 		return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
 	}
 
 	@ExceptionHandler(SettlementAlreadyPaidException.class)
 	public ResponseEntity<ErrorResponse> handleSettlementAlreadyPaid(SettlementAlreadyPaidException exception) {
-		log.warn("정산 취소 거부 - code={}, type={}", AdminErrorCode.SETTLEMENT_ALREADY_PAID.getCode(), exception.getClass().getSimpleName());
+		log.warn("정산 취소 불가(이미 지급 완료) - {}", exception.getMessage());
 		ErrorCode errorCode = AdminErrorCode.SETTLEMENT_ALREADY_PAID;
 		return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
 	}
@@ -48,14 +48,14 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(SettlementAlreadyCancelledException.class)
 	public ResponseEntity<ErrorResponse> handleSettlementAlreadyCancelled(
 		SettlementAlreadyCancelledException exception) {
-		log.warn("정산 취소 거부 - code={}, type={}", AdminErrorCode.SETTLEMENT_ALREADY_CANCELLED.getCode(), exception.getClass().getSimpleName());
+		log.warn("정산 취소 불가(이미 취소됨) - {}", exception.getMessage());
 		ErrorCode errorCode = AdminErrorCode.SETTLEMENT_ALREADY_CANCELLED;
 		return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
 	}
 
 	@ExceptionHandler(IllegalStateException.class)
 	public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException exception) {
-		log.warn("상태 전이 충돌 - code={}, type={}", AdminErrorCode.PRODUCT_INVALID_STATUS.getCode(), exception.getClass().getSimpleName());
+		log.warn("상태 전이 충돌 - {}", exception.getMessage());
 		ErrorCode errorCode = AdminErrorCode.PRODUCT_INVALID_STATUS;
 		return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
 	}
@@ -67,14 +67,14 @@ public class GlobalExceptionHandler {
 		MethodArgumentTypeMismatchException.class
 	})
 	public ResponseEntity<ErrorResponse> handleInvalidInput(Exception exception) {
-		log.warn("요청 값 검증 실패 - code={}, type={}", AdminErrorCode.INVALID_INPUT_VALUE.getCode(), exception.getClass().getSimpleName());
+		log.warn("요청 값 검증 실패 - reason={}", exception.getMessage());
 		ErrorCode errorCode = AdminErrorCode.INVALID_INPUT_VALUE;
 		return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
 	}
 
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleException(Exception exception) {
-		log.error("예상하지 못한 서버 오류 - code={}, type={}", AdminErrorCode.INTERNAL_SERVER_ERROR.getCode(), exception.getClass().getSimpleName());
+		log.error("예상하지 못한 서버 오류", exception);
 		ErrorCode errorCode = AdminErrorCode.INTERNAL_SERVER_ERROR;
 		return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
 	}

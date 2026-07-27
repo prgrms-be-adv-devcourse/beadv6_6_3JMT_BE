@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
@@ -26,7 +27,8 @@ class ProductExceptionHandlerTest {
 		NoResourceFoundException exception = new NoResourceFoundException(
 			HttpMethod.POST, "/internal/search/reindex", "/internal/search/reindex");
 
-		ResponseEntity<ErrorResponse> response = handler.handleNoResourceFound(exception);
+		ResponseEntity<ErrorResponse> response = handler.handleNoResourceFound(
+			exception, new MockHttpServletRequest());
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
 		assertThat(response.getBody()).isNotNull();
@@ -36,7 +38,8 @@ class ProductExceptionHandlerTest {
 	@Test
 	@DisplayName("예상하지 못한 예외는 500으로 응답한다")
 	void handleException_returns500() {
-		ResponseEntity<ErrorResponse> response = handler.handleException(new RuntimeException("boom"));
+		ResponseEntity<ErrorResponse> response = handler.handleException(
+			new RuntimeException("boom"), new MockHttpServletRequest());
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
 		assertThat(response.getBody()).isNotNull();
