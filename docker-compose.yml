@@ -167,6 +167,7 @@ services:
       USER_GRPC_SERVER_PORT: "9081"                                        # user gRPC 서버 포트
       AWS_REGION: ${AWS_REGION}                                            # S3 리전
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}                                      # S3 버킷명
+      OPENAI_API_KEY: ${OPENAI_API_KEY}                                    # 상품 임베딩 생성용
     depends_on:
       postgres:
         condition: service_started

@@ -131,6 +131,13 @@ spec:
                 secretKeyRef:
                   name: runtime-secret
                   key: ES_URIS
+            # 상품 임베딩 생성(#378)에 쓴다. 새 시크릿을 만들지 않고 기존 ai-secret을
+            # 참조한다 — user-service도 같은 방식으로 ai-secret을 쓴다.
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-secret
+                  key: OPENAI_API_KEY
             - name: MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED
               value: "true"
             - name: JAVA_TOOL_OPTIONS
