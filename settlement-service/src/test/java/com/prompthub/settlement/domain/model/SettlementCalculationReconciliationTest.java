@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -139,6 +140,23 @@ class SettlementCalculationReconciliationTest {
                 List.of(SALE_SOURCE_ID));
 
         assertMismatch(result, "source line 연결 NULL");
+    }
+
+    @Test
+    @DisplayName("실패 사유가 DB 컬럼 길이를 넘어도 저장 가능한 길이로 제한한다")
+    void verify_manyMissingSourceLines_truncatesFailureReason() {
+        List<UUID> sourceLineIds = IntStream.range(0, 100)
+                .mapToObj(index -> new UUID(0L, index))
+                .toList();
+
+        SettlementCalculationReconciliation result = verify(
+                summary(0, "0.00", "0.00", "0.00", "0.00"),
+                List.of(),
+                sourceLineIds);
+
+        assertThat(result.getFailureReason())
+                .hasSizeLessThanOrEqualTo(2000)
+                .contains("source line 연결 누락");
     }
 
     private SettlementCalculationReconciliation verify(

@@ -37,6 +37,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SettlementCalculationReconciliation extends BaseEntity {
 
+    private static final int FAILURE_REASON_MAX_LENGTH = 2_000;
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "reconciliation_id")
@@ -148,7 +150,9 @@ public class SettlementCalculationReconciliation extends BaseEntity {
         result.status = failures.isEmpty()
                 ? SettlementCalculationReconciliationStatus.MATCHED
                 : SettlementCalculationReconciliationStatus.MISMATCHED;
-        result.failureReason = failures.isEmpty() ? null : String.join("; ", failures);
+        result.failureReason = failures.isEmpty()
+                ? null
+                : truncate(String.join("; ", failures));
         return result;
     }
 
@@ -247,5 +251,12 @@ public class SettlementCalculationReconciliation extends BaseEntity {
         return details.stream()
                 .map(field)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private static String truncate(String reason) {
+        if (reason.length() <= FAILURE_REASON_MAX_LENGTH) {
+            return reason;
+        }
+        return reason.substring(0, FAILURE_REASON_MAX_LENGTH);
     }
 }
