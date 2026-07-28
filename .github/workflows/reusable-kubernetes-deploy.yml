@@ -157,6 +157,8 @@ jobs:
             kubectl get secret "$secret" -n "$NAMESPACE" >/dev/null
           done
 
+          NAMESPACE="$NAMESPACE" bash scripts/validate-live-k8s-secret-keys.sh k8s/base
+
       - name: 변경 서비스 순차 배포, 실패 진단 후 rollback
         shell: bash
         env:
