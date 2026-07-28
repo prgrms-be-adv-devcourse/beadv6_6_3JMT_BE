@@ -210,7 +210,7 @@ git commit -m "feat: 감사로그 Kafka 발행 컴포넌트 추가"
 
 ---
 
-### Task 2: AuditLogEventListener — 저장 성공 시 Kafka 발행
+### Task 2: AuditLogEventListener — 저장 성공 시 Kafka 발행 ✅
 
 **Files:**
 - Modify: `payment-service/src/main/java/com/prompthub/payment/infrastructure/persistence/AuditLogEventListener.java`
@@ -219,7 +219,7 @@ git commit -m "feat: 감사로그 Kafka 발행 컴포넌트 추가"
 **Interfaces:**
 - Consumes: `AuditLogKafkaPublisher.publish(AuditLog): void`(Task 1)
 
-- [ ] **Step 1: 실패하는 테스트로 갱신**
+- [x] **Step 1: 실패하는 테스트로 갱신**
 
 `AuditLogEventListenerTest.java` 전체를 아래로 교체(생성자에 `auditLogKafkaPublisher` 추가, `save` 스텁을 입력값 그대로 반환하도록 전역 설정, 발행 검증 추가):
 
@@ -410,12 +410,12 @@ class AuditLogEventListenerTest {
 }
 ```
 
-- [ ] **Step 2: 테스트 실패 확인**
+- [x] **Step 2: 테스트 실패 확인**
 
 Run: `JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.persistence.AuditLogEventListenerTest"`
 Expected: FAIL — 생성자 시그니처 불일치로 컴파일 실패.
 
-- [ ] **Step 3: 최소 구현**
+- [x] **Step 3: 최소 구현**
 
 `AuditLogEventListener.java` 전체 교체:
 
@@ -493,12 +493,12 @@ public class AuditLogEventListener {
 
 Step 1에서 만든 테스트 파일 중 마지막 `Kafka_발행_실패해도_예외를_전파하지_않는다` 테스트에서 모순되는 `verify(auditLogRepository, never()).save(any())` 줄을 삭제한다(같은 테스트에 `times(1)` 검증이 이미 있음).
 
-- [ ] **Step 4: 테스트 통과 확인**
+- [x] **Step 4: 테스트 통과 확인**
 
 Run: `JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.persistence.AuditLogEventListenerTest"`
 Expected: PASS (7개 테스트)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add payment-service/src/main/java/com/prompthub/payment/infrastructure/persistence/AuditLogEventListener.java \
