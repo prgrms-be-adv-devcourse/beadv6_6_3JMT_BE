@@ -39,11 +39,12 @@ class ProductInspectionServiceTest {
 	@DisplayName("AI가 승인하면 approved=true, 사유 없이 이벤트를 발행한다")
 	void inspect_approved_publishesApprovedEvent() {
 		given(aiPort.inspect(any())).willReturn(
-			new InspectionVerdict(true, null, false, false, false, false, false, false, false));
+			new InspectionVerdict(true, null, true, true, false, false, true, false, true));
 
 		productInspectionService.inspect(request());
 
-		then(inspectionEventProducer).should().publish(PRODUCT_ID, true, null);
+		then(inspectionEventProducer).should().publish(
+			PRODUCT_ID, true, null, true, true, false, false, true, false, true);
 	}
 
 	@Test
@@ -54,7 +55,8 @@ class ProductInspectionServiceTest {
 
 		productInspectionService.inspect(request());
 
-		then(inspectionEventProducer).should().publish(PRODUCT_ID, false, "금지 콘텐츠 포함");
+		then(inspectionEventProducer).should().publish(
+			PRODUCT_ID, false, "금지 콘텐츠 포함", false, false, false, false, false, false, false);
 	}
 
 	@Test
