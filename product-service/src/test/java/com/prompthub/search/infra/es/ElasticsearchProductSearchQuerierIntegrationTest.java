@@ -305,6 +305,44 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 		assertThat(result.hits()).extracting(ProductSearchHit::name).containsExactly(notion.getName());
 	}
 
+	@Test
+	void 하이브리드_글자도_안_맞고_의미도_멀면_0건이다() throws Exception {
+		// #645 — kNN은 관련도와 무관하게 상위 k건을 채워 돌려준다. 유사도 하한이 없으면
+		// 어떤 질의든 색인 문서 전체가 결과가 되어 "검색 결과 없음"이 발생할 수 없다.
+		//
+		// 질의 벡터는 다른 테스트가 쓰지 않는 축을 쓴다. 공유 ES 컨테이너의 기존 문서는
+		// vector(0)·vector(1)이라 이 축과 직교(코사인 0)해 하한에 걸려 전부 빠진다.
+		String unique = UUID.randomUUID().toString().substring(0, 8);
+		index(product(unique + " 먼상품"), 0, 0, 0, vector(9));
+		refresh();
+
+		String query = "글자도안맞고의미도먼질의" + unique;
+		ProductSearchPageResult result = querier(new RecordingEmbeddingClient(vector(8)))
+			.search(query, "all", "popular", PageRequest.of(0, 20));
+
+		assertThat(result.hits()).isEmpty();
+		assertThat(result.total()).isZero();
+	}
+
+	@Test
+	void 하이브리드_total은_실제_반환_건수보다_작지_않다() throws Exception {
+		// #645 — total을 글자 기반 레그에서만 가져오면 의미 기반만 찾은 문서가 빠져
+		// total < 실제 목록이 되고, hasNext가 false로 굳어 다음 페이지로 넘어갈 수 없다.
+		String unique = UUID.randomUUID().toString().substring(0, 8);
+		Product lexicalHit = product(unique + " 글자로걸림");
+		Product semanticOnly = product("글자로안걸림" + unique + "X");
+		index(lexicalHit, 0, 0, 0, vector(1));
+		index(semanticOnly, 0, 0, 0, vector(0));
+		refresh();
+
+		ProductSearchPageResult result = querier(new RecordingEmbeddingClient(vector(0)))
+			.search(unique, "all", "popular", PageRequest.of(0, 20));
+
+		assertThat(result.hits()).extracting(ProductSearchHit::name)
+			.contains(lexicalHit.getName(), semanticOnly.getName());
+		assertThat(result.total()).isGreaterThanOrEqualTo(result.hits().size());
+	}
+
 	private Product product(String name) {
 		return Product.create(UUID.randomUUID(), UUID.randomUUID(), ProductContentFixtures.promptContent(name, 1000));
 	}
