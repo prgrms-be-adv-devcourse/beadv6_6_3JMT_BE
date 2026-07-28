@@ -53,6 +53,7 @@ Secret 계약 검증은 저장소 전체에서 key가 한 번이라도 소비되
 - `scripts/validate-k8s-secret-contract.sh`
 - `scripts/test-validate-k8s-secret-contract.sh`
 - `scripts/validate-k8s-manifests.sh`
+- `.github/workflows/ci.yml`
 - `k8s/addons/elk/README.md`
 - 서비스별 Release workflow 실행과 운영 확인
 

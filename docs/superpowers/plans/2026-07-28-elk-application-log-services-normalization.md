@@ -582,6 +582,7 @@ git commit -m "docs: elk 서비스별 순차 배포 검증 절차 추가"
 - Verify: `scripts/validate-k8s-secret-contract.sh`
 - Verify: `k8s/base/services/ai/deployment.yaml`
 - Verify: `k8s/addons/elk/README.md`
+- Modify: `.github/workflows/ci.yml`
 - Verify: `docs/superpowers/specs/2026-07-28-elk-application-log-services-normalization-design.md`
 - Verify: `docs/superpowers/plans/2026-07-28-elk-application-log-services-normalization.md`
 
@@ -589,6 +590,26 @@ git commit -m "docs: elk 서비스별 순차 배포 검증 절차 추가"
 - Consumes: the Task 1 and Task 2 commits.
 - Produces: a reviewable PR targeting `develop`, related to issue #648 without prematurely
   closing it before operational rollout is verified.
+
+- [ ] **Step 0: Add a read-only Kubernetes CI gate**
+
+Extend `.github/workflows/ci.yml` with a `kubernetes` changed-file output and a
+`kubernetes_contract_ci` job. Run the job only when `k8s/**`, the Kubernetes validation scripts,
+or the CI/release workflow definitions change. The job must checkout the repository and run:
+
+```yaml
+      - name: Validate shell scripts
+        run: bash -n scripts/test-validate-k8s-secret-contract.sh scripts/validate-k8s-secret-contract.sh scripts/validate-k8s-manifests.sh
+
+      - name: Validate Secret contract regression
+        run: bash scripts/test-validate-k8s-secret-contract.sh
+
+      - name: Validate Kubernetes manifests and workflows
+        run: bash scripts/validate-k8s-manifests.sh
+```
+
+Add `kubernetes_contract_ci` to the existing `ci-gate.needs` list. Do not add image publishing,
+Kubernetes deploy calls, `packages: write`, or a reusable deploy workflow to PR CI.
 
 - [ ] **Step 1: Run all source verification commands**
 
