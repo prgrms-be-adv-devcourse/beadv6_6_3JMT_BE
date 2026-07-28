@@ -52,6 +52,7 @@ Secret 계약 검증은 저장소 전체에서 key가 한 번이라도 소비되
 - `k8s/base/services/ai/deployment.yaml`
 - `scripts/validate-k8s-secret-contract.sh`
 - `scripts/test-validate-k8s-secret-contract.sh`
+- `scripts/validate-k8s-manifests.sh`
 - `k8s/addons/elk/README.md`
 - 서비스별 Release workflow 실행과 운영 확인
 
@@ -71,9 +72,10 @@ Secret 계약 검증은 저장소 전체에서 key가 한 번이라도 소비되
 `ai-service` Deployment의 애플리케이션 컨테이너에
 `KAFKA_BOOTSTRAP_SERVERS`를 `runtime-secret`의 동일한 key로 주입한다.
 
-기존 의존성 대기 init container에는 `until nc -z kafka 9092`를 추가한다. 이 대기는
-Kafka 접속 정보 누락을 대체하지 않으며, Kafka Service가 연결 가능한 상태가 된 뒤
-애플리케이션 기동을 시작하도록 순서만 보장한다.
+기존 AI init container는 Discovery, Config, Redis만 기다린다. 저장소의 AI 매니페스트
+정책은 init container가 PostgreSQL·Kafka·User 서비스에 의존하지 않도록 보장하므로,
+Kafka 대기를 추가하지 않는다. Kafka 연결 정보는 애플리케이션 컨테이너의 환경 변수로
+주입하고 Spring Kafka가 애플리케이션 기동 단계에서 처리한다.
 
 운영 Secret 값은 저장소에 추가하지 않는다. 기존 Secret 이름과 key 계약만 사용한다.
 
@@ -116,6 +118,10 @@ Secret 계약 테스트 fixture에 다음 시나리오를 추가한다.
 
 이 테스트는 전역 key 존재 여부만 확인하던 기존 검증의 사각지대를 재현하고, 이번
 수정이 같은 회귀를 차단함을 증명한다.
+
+AI 매니페스트 정적 검증은 전체 Deployment에 `KAFKA_`가 존재하는지를 검사하지 않고,
+init container 블록 안에 `POSTGRES_`·`KAFKA_`·User 의존성이 없는지만 검사해야 한다.
+애플리케이션 컨테이너의 `KAFKA_BOOTSTRAP_SERVERS` 주입은 허용한다.
 
 ### 4.4 순차 배포
 

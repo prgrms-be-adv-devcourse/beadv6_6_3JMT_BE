@@ -29,6 +29,7 @@
 **Files:**
 - Modify: `scripts/test-validate-k8s-secret-contract.sh:21-105`
 - Modify: `scripts/validate-k8s-secret-contract.sh:19-62`
+- Modify: `scripts/validate-k8s-manifests.sh:329-337`
 - Modify: `k8s/base/services/ai/deployment.yaml:43-46,74-109`
 
 **Interfaces:**
@@ -252,12 +253,22 @@ Add this block in `k8s/base/services/ai/deployment.yaml` after `REDIS_PORT` and 
                   key: KAFKA_BOOTSTRAP_SERVERS
 ```
 
-- [ ] **Step 9: Add Kafka to the AI dependency readiness gate**
+- [ ] **Step 9: Preserve the AI init dependency policy**
 
-Add this command after the Redis wait in the existing `wait-for-dependencies` script.
+Do not add a Kafka wait to the AI init container. The existing repository policy intentionally
+allows only Discovery, Config, and Redis waits there. Keep the current init commands unchanged
+and verify that no `POSTGRES_`, `KAFKA_`, or `user-service` reference is present in that block.
 
-```yaml
-              until nc -z kafka 9092; do sleep 2; done
+Fix the policy check in `scripts/validate-k8s-manifests.sh` so it scopes the forbidden-variable
+search to `init_container_block`, while still allowing the application container to receive
+`KAFKA_BOOTSTRAP_SERVERS`:
+
+```bash
+    init_container_block="$(sed -n -E '/^[[:space:]]+initContainers:/,/^[[:space:]]+nodeSelector:/p' "${rendered}")"
+    if grep -Eq 'POSTGRES_|KAFKA_' <<< "${init_container_block}"; then
+      echo "AI service must not depend on PostgreSQL, Kafka, or User during Pod initialization" >&2
+      exit 1
+    fi
 ```
 
 - [ ] **Step 10: Run the focused validator test and verify GREEN**
@@ -297,6 +308,7 @@ and `git diff --check` produces no output.
 git add \
   scripts/test-validate-k8s-secret-contract.sh \
   scripts/validate-k8s-secret-contract.sh \
+  scripts/validate-k8s-manifests.sh \
   k8s/base/services/ai/deployment.yaml
 git commit -m "fix: ai-service Kafka 런타임 계약 검증 추가"
 ```
