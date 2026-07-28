@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class LoadSettlementSourceApplicationService implements LoadSettlementSourceUseCase {
+public class SettlementSourceApplicationService implements LoadSettlementSourceUseCase {
 
     private final SettlementSourceRepository settlementSourceRepository;
     private final OrderSettlementQuery orderSettlementQuery;

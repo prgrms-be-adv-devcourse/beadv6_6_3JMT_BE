@@ -9,7 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
-import com.prompthub.settlement.application.port.OutboxEventAppender;
+import com.prompthub.settlement.application.usecase.OutboxEventUseCase;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
@@ -29,7 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
-class CalculateSettlementApplicationServiceTest {
+class SettlementCalculationApplicationServiceTest {
 
     private static final SettlementPeriod PERIOD = SettlementPeriod.of(
             LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 7));
@@ -41,10 +41,10 @@ class CalculateSettlementApplicationServiceTest {
     private SettlementRepository settlementRepository;
 
     @Mock
-    private OutboxEventAppender outboxEventAppender;
+    private OutboxEventUseCase outboxEventUseCase;
 
     @InjectMocks
-    private CalculateSettlementApplicationService service;
+    private SettlementCalculationApplicationService service;
 
     private SettlementSourceLine paidLine(UUID sellerId, String amount) {
         return SettlementSourceLine.paid(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
@@ -120,7 +120,7 @@ class CalculateSettlementApplicationServiceTest {
         // then
         assertThat(settlement).isNull();
         verify(settlementRepository, never()).save(any());
-        then(outboxEventAppender).shouldHaveNoInteractions();
+        then(outboxEventUseCase).shouldHaveNoInteractions();
     }
 
     @Test
@@ -137,7 +137,7 @@ class CalculateSettlementApplicationServiceTest {
         Settlement settlement = service.calculate(command);
 
         // then : 저장된 정산 ID로 이벤트가 적재된다
-        then(outboxEventAppender).should().appendSettlementCreated(
+        then(outboxEventUseCase).should().appendSettlementCreated(
                 eq(command.settlementBatchId()),
                 org.mockito.ArgumentMatchers.argThat(
                         payload -> payload.settlementId().equals(settlement.getId())));

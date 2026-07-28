@@ -2,8 +2,8 @@ package com.prompthub.settlement.application.service;
 
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
 import com.prompthub.settlement.application.event.SettlementCreatedEvent;
-import com.prompthub.settlement.application.port.OutboxEventAppender;
 import com.prompthub.settlement.application.usecase.CalculateSettlementUseCase;
+import com.prompthub.settlement.application.usecase.OutboxEventUseCase;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementDetail;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
@@ -18,13 +18,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class CalculateSettlementApplicationService implements CalculateSettlementUseCase {
+public class SettlementCalculationApplicationService implements CalculateSettlementUseCase {
 
     private static final BigDecimal DEFAULT_FEE_RATE = new BigDecimal("0.15");
 
     private final SettlementSourceRepository settlementSourceRepository;
     private final SettlementRepository settlementRepository;
-    private final OutboxEventAppender outboxEventAppender;
+    private final OutboxEventUseCase outboxEventUseCase;
 
     @Override
     @Transactional
@@ -46,7 +46,7 @@ public class CalculateSettlementApplicationService implements CalculateSettlemen
         UUID settlementId = settlement.getId();
         lines.forEach(line -> line.markSettled(settlementId));
 
-        outboxEventAppender.appendSettlementCreated(
+        outboxEventUseCase.appendSettlementCreated(
                 command.settlementBatchId(),
                 SettlementCreatedEvent.from(settlement));
 

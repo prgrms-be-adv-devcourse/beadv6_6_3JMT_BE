@@ -1,16 +1,12 @@
 package com.prompthub.settlement.infrastructure.batch.listener;
 
-import com.prompthub.settlement.domain.model.SettlementBatch;
-import com.prompthub.settlement.domain.repository.SettlementBatchRepository;
-import com.prompthub.settlement.global.exception.SettlementErrorCode;
-import com.prompthub.settlement.global.exception.SettlementException;
+import com.prompthub.settlement.application.usecase.SettlementBatchLifecycleUseCase;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.listener.JobExecutionListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
@@ -18,25 +14,19 @@ public class SettlementBatchStateJobExecutionListener implements JobExecutionLis
 
     private static final String BATCH_ID_KEY = "settlementBatchId";
 
-    private final SettlementBatchRepository settlementBatchRepository;
+    private final SettlementBatchLifecycleUseCase settlementBatchLifecycleUseCase;
 
     @Override
-    @Transactional
     public void beforeJob(JobExecution jobExecution) {
         String batchId = jobExecution.getExecutionContext().getString(BATCH_ID_KEY, null);
         if (batchId == null) {
             return;
         }
 
-        SettlementBatch batch = settlementBatchRepository.findById(UUID.fromString(batchId))
-                .orElseThrow(() -> new SettlementException(
-                        SettlementErrorCode.SETTLEMENT_BATCH_NOT_FOUND));
-        batch.startRetry();
-        settlementBatchRepository.save(batch);
+        settlementBatchLifecycleUseCase.startRetry(UUID.fromString(batchId));
     }
 
     @Override
-    @Transactional
     public void afterJob(JobExecution jobExecution) {
         if (jobExecution.getStatus() == BatchStatus.COMPLETED) {
             return;
@@ -47,13 +37,9 @@ public class SettlementBatchStateJobExecutionListener implements JobExecutionLis
             return;
         }
 
-        settlementBatchRepository.findById(UUID.fromString(batchId)).ifPresent(batch -> {
-            if (!batch.isProcessing()) {
-                return;
-            }
-            batch.fail(resolveFailureReason(jobExecution));
-            settlementBatchRepository.save(batch);
-        });
+        settlementBatchLifecycleUseCase.fail(
+                UUID.fromString(batchId),
+                resolveFailureReason(jobExecution));
     }
 
     private String resolveFailureReason(JobExecution jobExecution) {

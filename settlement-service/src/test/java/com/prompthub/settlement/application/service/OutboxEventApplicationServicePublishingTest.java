@@ -7,6 +7,8 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 
+import com.prompthub.settlement.application.port.OutboxEventAppender;
+import com.prompthub.settlement.application.port.RequiresNewTransactionExecutor;
 import com.prompthub.settlement.application.port.SettlementEventPublisher;
 import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
 import com.prompthub.settlement.domain.model.enums.OutboxEventStatus;
@@ -20,17 +22,27 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class OutboxEventPublishServiceTest {
+class OutboxEventApplicationServicePublishingTest {
 
     private OutboxEventRepository repository;
+    private OutboxEventAppender appender;
     private SettlementEventPublisher publisher;
-    private OutboxEventPublishService service;
+    private RequiresNewTransactionExecutor transactionExecutor;
+    private OutboxEventApplicationService service;
 
     @BeforeEach
     void setUp() {
         repository = mock(OutboxEventRepository.class);
+        appender = mock(OutboxEventAppender.class);
         publisher = mock(SettlementEventPublisher.class);
-        service = new OutboxEventPublishService(repository, publisher, 3);
+        transactionExecutor = action -> action.run();
+        service = new OutboxEventApplicationService(
+                repository,
+                appender,
+                publisher,
+                transactionExecutor,
+                100,
+                3);
     }
 
     @Test

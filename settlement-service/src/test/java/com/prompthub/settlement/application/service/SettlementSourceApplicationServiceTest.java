@@ -29,7 +29,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class LoadSettlementSourceApplicationServiceTest {
+class SettlementSourceApplicationServiceTest {
 
     private static final SettlementPeriod PERIOD = SettlementPeriod.of(
             LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 7));
@@ -41,7 +41,7 @@ class LoadSettlementSourceApplicationServiceTest {
     private OrderSettlementQuery orderSettlementQuery;
 
     @InjectMocks
-    private LoadSettlementSourceApplicationService service;
+    private SettlementSourceApplicationService service;
 
     @Captor
     private ArgumentCaptor<List<SettlementSourceLine>> savedLinesCaptor;
