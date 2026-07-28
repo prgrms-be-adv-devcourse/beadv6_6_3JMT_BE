@@ -186,8 +186,8 @@ array_values() {
     sed '1d;$d;s/^[[:space:]]*//;s/[[:space:]]*$//'
 }
 
-expected_release_order=$'config\ndiscovery\nuser-service\nproduct-service\norder-service\npayment-service\nsettlement-service\nadmin-service\nai-service\napigateway'
-expected_deployment_order=$'config\ndiscovery\nuser-service\nproduct-service\norder-service\npayment-service\nadmin-service\nai-service\napigateway'
+expected_release_order=$'config\ndiscovery\nuser-service\nproduct-service\norder-service\npayment-service\nsettlement-service\nadmin-service\nai-service\nnotification-service\napigateway'
+expected_deployment_order=$'config\ndiscovery\nuser-service\nproduct-service\norder-service\npayment-service\nadmin-service\nai-service\nnotification-service\napigateway'
 [ "$(array_values "$APPLICATION_WORKFLOW" release_order)" = "$expected_release_order" ] ||
   fail "release_order changed"
 [ "$(array_values "$APPLICATION_WORKFLOW" deployment_order)" = "$expected_deployment_order" ] ||

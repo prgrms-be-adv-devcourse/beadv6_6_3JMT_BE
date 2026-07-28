@@ -14,7 +14,7 @@
 - **Elasticsearch**는 `gateway-access-YYYY.MM.dd`를 14일, `application-logs-YYYY.MM.dd`를 7일 보관한다.
 - **Kibana**는 Elasticsearch에 저장된 로그를 검색하는 화면을 제공한다.
 
-애플리케이션 allowlist는 `user-service`, `product-service`, `order-service`, `payment-service`, `admin-service`, `ai-service`, `settlement-service`, `notification-service`다. `config`, `discovery`, `apigateway`, init container, `kube-system`, `elk`는 application index 대상이 아니다. `notification-service`는 아직 Kubernetes workload가 없어 로그를 내보내지 않지만, 배포되는 즉시 같은 allowlist로 수집된다. Servlet 서비스는 `X-Request-Id`를 MDC `requestId`로 기록하고, 없으면 UUID를 생성한다. Gateway와 Settlement CronJob은 이 Servlet 필터의 대상이 아니다.
+애플리케이션 allowlist는 `user-service`, `product-service`, `order-service`, `payment-service`, `admin-service`, `ai-service`, `settlement-service`, `notification-service`다. `config`, `discovery`, `apigateway`, init container, `kube-system`, `elk`는 application index 대상이 아니다. Servlet 서비스는 `X-Request-Id`를 MDC `requestId`로 기록하고, 없으면 UUID를 생성한다. Gateway와 Settlement CronJob은 이 Servlet 필터의 대상이 아니다.
 
 ## 시작 전 안전 원칙
 

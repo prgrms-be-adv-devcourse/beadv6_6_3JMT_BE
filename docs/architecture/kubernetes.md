@@ -306,6 +306,7 @@ Fluent Bit은 `/var/log/containers/apigateway-*_prompthub_apigateway-*.log`만 �
 | `settlement-weekly` | CronJob | 스케줄당 Job 1개 | Service 없음(Web application 비활성) | 등록하지 않음 | 매주 월요일 00:00 KST, order gRPC client와 Kafka producer |
 | `admin-service` | Deployment | 1 | HTTP 8086 → 18086 | `ADMIN-SERVICE` | 기존 모듈 |
 | `ai-service` | Deployment | 1 | HTTP 8087 → 18087 | `AI-SERVICE` | User gRPC client, Redis DB 1, OpenAI Tool Calling과 SSE |
+| `notification-service` | Deployment | 1 | HTTP 8088 → 18088 | `NOTIFICATION-SERVICE` | PostgreSQL, Redis Pub/Sub, Kafka 주문 이벤트 소비와 SSE |
 | `apigateway` | Deployment | 1 | 8000 → 8000 | `APIGATEWAY` | 기존 모듈 |
 
 HTTP Service의 808x 포트는 기존 내부 호출 계약을 유지하고, 1808x `targetPort`는 Config Server의 현재 `server.port`를 따른다.
@@ -829,7 +830,7 @@ PR 검증, develop Release CI, 애플리케이션 CD와 수동 운영 workflow�
 5. CD는 `overlays/ec2-kubeadm/applications`를 현재 image ref와 새 release digest로 한 번 렌더링한다. 서비스 매니페스트 변경은 `app.kubernetes.io/name` selector로 해당 서비스 리소스만 server-side dry-run 후 적용한다. 코드와 매니페스트가 함께 바뀐 서비스는 새 digest를 주입해 한 번만 apply한다. 현재 workload가 없는 경우에는 매니페스트 적용을 강제하고 base digest를 fallback으로 사용한다.
 6. `overlays/ec2-kubeadm/applications/**` 공통 변경은 전 서비스를 대상으로 확장하지만 `config`, `discovery`, 비즈니스 서비스, Settlement CronJob, Gateway의 고정 순서로 하나씩 apply하고 rollout을 확인한다. 여러 서비스의 리소스를 한 번에 apply한 뒤 전체 rollout을 기다리지 않는다.
 7. 각 Deployment에 `kubectl rollout status`를 실행한다. 실패하면 해당 Deployment·ReplicaSet·Pod, 최근 이벤트와 노드 할당량을 먼저 로그로 수집한다. 그 뒤 적용 전 Pod template snapshot과 비교해 이번 실행에서 바뀐 기존 Deployment만 `kubectl rollout undo`로 직전 ReplicaSet에 복구하고, 이번 실행에서 처음 만든 Deployment는 삭제한다. Service처럼 ReplicaSet에 포함되지 않는 선언은 수정 커밋을 되돌린 뒤 CD를 다시 실행해 복구한다.
-8. Config 파일 변경은 Config 이미지를 새로 발행한 뒤 변경된 profile의 소비자만 순차 재시작한다. 공통 Config 변경은 `user-service`, `product-service`, `order-service`, `payment-service`, `admin-service`, `ai-service`, `apigateway` 전체를 대상으로 한다. 이미 같은 실행에서 새 이미지나 매니페스트로 rollout한 소비자는 중복 재시작하지 않는다. Settlement CronJob은 다음 Job부터 새 Config를 읽는다.
+8. Config 파일 변경은 Config 이미지를 새로 발행한 뒤 변경된 profile의 소비자만 순차 재시작한다. 공통 Config 변경은 `user-service`, `product-service`, `order-service`, `payment-service`, `admin-service`, `ai-service`, `notification-service`, `apigateway` 전체를 대상으로 한다. 이미 같은 실행에서 새 이미지나 매니페스트로 rollout한 소비자는 중복 재시작하지 않는다. Settlement CronJob은 다음 Job부터 새 Config를 읽는다.
 9. 과거 실행을 재실행하지 않고 최신 `develop`에서 일부 서비스를 다시 발행하려면 `Release - Develop`을 수동 실행한다. `release-services`는 이미지 대상, `manifest-services`는 YAML 적용 대상이며 `confirmation=RELEASE`가 필요하다. 예를 들어 Config와 AI를 다시 빌드하고 AI YAML도 적용할 때는 `release-services=config,ai-service`, `manifest-services=ai-service`를 사용한다.
 
 `revisionHistoryLimit: 1`은 현재 ReplicaSet 외에 직전 1개를 남기므로 한 단계 rollback을 지원한다. 자동 CD는 전체 `ec2-kubeadm` overlay를 적용하지 않고 `applications` 하위 패키지만 사용하므로 상태 저장 리소스나 Ingress를 함께 변경하지 않는다.
@@ -859,7 +860,7 @@ PR 검증, develop Release CI, 애플리케이션 CD와 수동 운영 workflow�
 ### 21.1 정적 검증
 
 - 모든 패키지가 `kubectl kustomize`로 독립 렌더링된다.
-- 자동 CD용 `applications` 패키지는 Deployment 9개와 Service 9개만 렌더링하고 수동 관리 Kind를 포함하지 않는다.
+- 자동 CD용 `applications` 패키지는 Deployment 10개와 Service 10개만 렌더링하고 수동 관리 Kind를 포함하지 않는다.
 - `kubectl apply --dry-run=client`가 성공한다.
 - 클러스터 연결 후 `kubectl apply --server-side --dry-run=server`가 성공한다.
 - 렌더링 결과에 `latest`, 실제 Secret 값, 미정 placeholder가 없다.
