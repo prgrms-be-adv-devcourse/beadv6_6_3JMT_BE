@@ -1149,12 +1149,12 @@ git commit -m "feat: 감사로그 전용 격리 Logstash 파이프라인 추가"
 
 ---
 
-### Task 7: Kibana — payment-audit-log 데이터뷰 부트스트랩
+### Task 7: Kibana — payment-audit-log 데이터뷰 부트스트랩 ✅
 
 **Files:**
 - Modify: `k8s/addons/elk/kibana.yaml`
 
-- [ ] **Step 1: saved objects ConfigMap 추가**
+- [x] **Step 1: saved objects ConfigMap 추가**
 
 `application-logs-saved-objects` ConfigMap 정의 바로 뒤(`---` 다음)에 추가:
 
@@ -1176,7 +1176,7 @@ data:
     {"type":"search","id":"payment-audit-log-search","attributes":{"title":"Payment Audit Log","description":"결제/환불 감사로그 — CS·장애분석·감사대응 조회","columns":["orderId","entityType","eventType","newStatus","failureCode","occurredAt"],"sort":[["@timestamp","desc"]],"kibanaSavedObjectMeta":{"searchSourceJSON":"{\"index\":\"payment-audit-log\",\"query\":{\"language\":\"kuery\",\"query\":\"\"},\"filter\":[]}"}}}
 ```
 
-- [ ] **Step 2: 부트스트랩 Job 추가**
+- [x] **Step 2: 부트스트랩 Job 추가**
 
 `application-logs-kibana-bootstrap` Job 정의 바로 뒤(`---` 다음)에 추가(기존 Job과 동일 패턴, `successCount`는 saved object 2개이므로 동일하게 2):
 
@@ -1256,12 +1256,12 @@ spec:
             name: payment-audit-log-saved-objects
 ```
 
-- [ ] **Step 3: 로컬 렌더링 검증(kubectl 설치돼 있는 경우)**
+- [x] **Step 3: 로컬 렌더링 검증(kubectl 설치돼 있는 경우)**
 
 Run: `kubectl kustomize k8s/addons/elk | grep -A3 "name: payment-audit-log-kibana-bootstrap"`
 Expected: Job 정의가 렌더링 결과에 출력됨.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add k8s/addons/elk/kibana.yaml
