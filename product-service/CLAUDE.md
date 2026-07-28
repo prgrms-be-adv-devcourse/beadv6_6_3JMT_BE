@@ -64,7 +64,7 @@
 
 - `GET /api/v1/products`
 - `GET /api/v1/products/{productId}`
-- `GET /api/v1/products/{productId}/related`
+- `GET /api/v2/products/{productId}/recommends`
 - `GET /api/v1/products/{productId}/reviews`
 
 판매자/관리자 쓰기 API는 Gateway/Auth 흐름이 확정된 뒤 별도 이슈에서 처리한다.

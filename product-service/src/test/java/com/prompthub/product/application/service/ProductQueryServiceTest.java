@@ -16,6 +16,7 @@ import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import com.prompthub.presentation.dto.PageResponse;
 import com.prompthub.search.application.ProductSearchHit;
 import com.prompthub.search.application.ProductSearchPageResult;
+import com.prompthub.recommendation.application.ProductRecommender;
 import com.prompthub.search.application.ProductSearchQueryService;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -49,7 +50,7 @@ import static org.mockito.Mockito.never;
 class ProductQueryServiceTest {
 
 	private static final UUID PRODUCT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
-	private static final UUID RELATED_PRODUCT_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
+	private static final UUID RECOMMENDED_PRODUCT_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
 	private static final UUID SELLER_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
 	private static final LocalDateTime CREATED_AT = LocalDateTime.of(2026, 5, 1, 0, 0);
 	private static final LocalDateTime UPDATED_AT = LocalDateTime.of(2026, 6, 1, 0, 0);
@@ -63,12 +64,16 @@ class ProductQueryServiceTest {
 	@Mock
 	private ProductSearchQueryService productSearchQueryService;
 
+	@Mock
+	private ProductRecommender productRecommender;
+
 	private ProductQueryService productQueryService;
 
 	@BeforeEach
 	void setUp() {
 		productQueryService = new ProductQueryService(
-			productRepository, storageClient, new ProductFamilyResolver(productRepository), productSearchQueryService);
+			productRepository, storageClient, new ProductFamilyResolver(productRepository), productSearchQueryService,
+			productRecommender);
 		// getProducts를 호출하지 않는 테스트에서는 불필요한 스텁 경고를 피하기 위해 lenient 처리.
 		lenient().when(productSearchQueryService.search(any(), any(), any(), any()))
 			.thenThrow(new IllegalStateException("테스트 기본값: ES 실패 가정, RDB 폴백 경로를 검증한다"));
@@ -274,7 +279,7 @@ class ProductQueryServiceTest {
 		@DisplayName("SUPERSEDED된 옛 id로 조회해도 family의 현재 ON_SALE row로 resolve한다")
 		void getProduct_oldSupersededId_resolvesToCurrentOnSale() {
 			UUID oldId = PRODUCT_ID;
-			UUID currentId = RELATED_PRODUCT_ID;
+			UUID currentId = RECOMMENDED_PRODUCT_ID;
 			Product old = productFixture(oldId, null, ProductStatus.SUPERSEDED, (short) 1, (short) 0);
 			Product current = productFixture(currentId, oldId, ProductStatus.ON_SALE, (short) 2, (short) 0);
 
@@ -293,7 +298,7 @@ class ProductQueryServiceTest {
 		@DisplayName("상세 조회 시 salesCount를 family 전체 합산으로 반환한다")
 		void getProduct_salesCount_isFamilySum() {
 			UUID oldId = PRODUCT_ID;
-			UUID currentId = RELATED_PRODUCT_ID;
+			UUID currentId = RECOMMENDED_PRODUCT_ID;
 			Product old = productFixture(oldId, null, ProductStatus.SUPERSEDED, (short) 1, (short) 0);
 			Product current = productFixture(currentId, oldId, ProductStatus.ON_SALE, (short) 2, (short) 0);
 
@@ -332,27 +337,64 @@ class ProductQueryServiceTest {
 	}
 
 	@Nested
-	@DisplayName("연관 상품 조회")
-	class GetRelatedProducts {
+	@DisplayName("추천 상품 조회")
+	class GetRecommendedProducts {
 
 		@Test
-		@DisplayName("동일 productType의 판매 중인 연관 상품을 조회한다")
-		void getRelatedProducts_success() {
+		@DisplayName("추천기가 고른 상품을 표시용 정보로 채워 반환한다")
+		void getRecommendedProducts_success() {
 			Product product = product(ProductStatus.ON_SALE, null);
-			Product related = product(ProductStatus.ON_SALE, null);
-			ReflectionTestUtils.setField(related, "id", RELATED_PRODUCT_ID);
+			Product recommended = product(ProductStatus.ON_SALE, null);
+			ReflectionTestUtils.setField(recommended, "id", RECOMMENDED_PRODUCT_ID);
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
-			given(productRepository.findRelatedProducts(PRODUCT_ID, ProductType.PROMPT, 4))
-				.willReturn(List.of(productListProjection(RELATED_PRODUCT_ID, "PROMPT")));
-			given(productRepository.findAllByIdIn(List.of(RELATED_PRODUCT_ID)))
-				.willReturn(List.of(related));
+			given(productRecommender.recommend(PRODUCT_ID, PRODUCT_ID, "PROMPT", 4))
+				.willReturn(List.of(RECOMMENDED_PRODUCT_ID));
+			given(productRepository.findProjectionsByIds(List.of(RECOMMENDED_PRODUCT_ID)))
+				.willReturn(List.of(productListProjection(RECOMMENDED_PRODUCT_ID, "PROMPT")));
+			given(productRepository.findAllByIdIn(List.of(RECOMMENDED_PRODUCT_ID)))
+				.willReturn(List.of(recommended));
 
-			List<ProductListItemResponse> response = productQueryService.getRelatedProducts(PRODUCT_ID, 0);
+			List<ProductListItemResponse> response = productQueryService.getRecommendedProducts(PRODUCT_ID, 0);
 
 			assertThat(response).hasSize(1);
-			assertThat(response.getFirst().id()).isEqualTo(RELATED_PRODUCT_ID);
-			then(productRepository).should().findRelatedProducts(PRODUCT_ID, ProductType.PROMPT, 4);
+			assertThat(response.getFirst().id()).isEqualTo(RECOMMENDED_PRODUCT_ID);
+			then(productRecommender).should().recommend(PRODUCT_ID, PRODUCT_ID, "PROMPT", 4);
+		}
+
+		@Test
+		@DisplayName("추천 순서를 그대로 유지한다 — 조회는 순서를 보장하지 않는다")
+		void getRecommendedProducts_preservesOrder() {
+			UUID second = UUID.fromString("33333333-3333-3333-3333-333333333333");
+			Product product = product(ProductStatus.ON_SALE, null);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRecommender.recommend(PRODUCT_ID, PRODUCT_ID, "PROMPT", 4))
+				.willReturn(List.of(RECOMMENDED_PRODUCT_ID, second));
+			// 조회가 역순으로 돌려줘도 추천 순서가 이겨야 한다.
+			given(productRepository.findProjectionsByIds(List.of(RECOMMENDED_PRODUCT_ID, second)))
+				.willReturn(List.of(
+					productListProjection(second, "PROMPT"),
+					productListProjection(RECOMMENDED_PRODUCT_ID, "PROMPT")));
+			given(productRepository.findAllByIdIn(List.of(RECOMMENDED_PRODUCT_ID, second)))
+				.willReturn(List.of());
+
+			List<ProductListItemResponse> response = productQueryService.getRecommendedProducts(PRODUCT_ID, 4);
+
+			assertThat(response).extracting(ProductListItemResponse::id)
+				.containsExactly(RECOMMENDED_PRODUCT_ID, second);
+		}
+
+		@Test
+		@DisplayName("추천 결과가 없으면 조회하지 않고 빈 목록을 준다")
+		void getRecommendedProducts_empty() {
+			Product product = product(ProductStatus.ON_SALE, null);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRecommender.recommend(PRODUCT_ID, PRODUCT_ID, "PROMPT", 4)).willReturn(List.of());
+
+			assertThat(productQueryService.getRecommendedProducts(PRODUCT_ID, 4)).isEmpty();
+			then(productRepository).should(org.mockito.Mockito.never()).findProjectionsByIds(any());
 		}
 	}
 

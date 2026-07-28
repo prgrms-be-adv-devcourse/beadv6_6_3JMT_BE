@@ -447,13 +447,13 @@ class ProductControllerTest {
 
 	@Nested
 	@DisplayName("GET /api/v2/products/{productId}/recommends")
-	class GetRelatedProducts {
+	class GetRecommendedProducts {
 
 		@Test
 		@DisplayName("로그인 없이 연관 상품을 조회한다")
-		void getRelatedProducts_success() throws Exception {
+		void getRecommendedProducts_success() throws Exception {
 			ProductListItemResponse item = productListItemResponse(PRODUCT_ID, "PROMPT");
-			given(productQueryUseCase.getRelatedProducts(PRODUCT_ID, 4)).willReturn(List.of(item));
+			given(productQueryUseCase.getRecommendedProducts(PRODUCT_ID, 4)).willReturn(List.of(item));
 
 			mockMvc.perform(get("/api/v2/products/{productId}/recommends", PRODUCT_ID))
 				.andExpect(status().isOk())
@@ -463,14 +463,14 @@ class ProductControllerTest {
 
 		@Test
 		@DisplayName("limit 값을 service에 전달한다")
-		void getRelatedProducts_withLimit() throws Exception {
-			given(productQueryUseCase.getRelatedProducts(PRODUCT_ID, 2)).willReturn(List.of());
+		void getRecommendedProducts_withLimit() throws Exception {
+			given(productQueryUseCase.getRecommendedProducts(PRODUCT_ID, 2)).willReturn(List.of());
 
 			mockMvc.perform(get("/api/v2/products/{productId}/recommends", PRODUCT_ID)
 					.param("limit", "2"))
 				.andExpect(status().isOk());
 
-			org.mockito.Mockito.verify(productQueryUseCase).getRelatedProducts(eq(PRODUCT_ID), eq(2));
+			org.mockito.Mockito.verify(productQueryUseCase).getRecommendedProducts(eq(PRODUCT_ID), eq(2));
 		}
 	}
 

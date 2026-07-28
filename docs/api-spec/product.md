@@ -344,10 +344,12 @@
 
 ---
 
-### GET /products/{productId}/recommends — 연관 상품 조회
+### GET /products/{productId}/recommends — 추천 상품 조회
 
 - 인증: 불필요
-- 동일 productType 상품 배열 반환
+- 판매 중(ON_SALE) 상품 배열 반환
+- **임베딩이 가까운 순으로 고른다.** 같은 상품의 다른 버전은 제외된다
+- 같은 `productType`이 소폭 가산점을 받지만 하드 필터가 아니다 — 내용이 정말 비슷하면 다른 유형도 올라온다
 
 #### Query Parameters
 

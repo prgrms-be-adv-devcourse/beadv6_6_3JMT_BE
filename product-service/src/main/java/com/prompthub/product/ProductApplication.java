@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @EnableScheduling
-@SpringBootApplication(scanBasePackages = {"com.prompthub.product", "com.prompthub.search"})
+@SpringBootApplication(scanBasePackages = {"com.prompthub.product", "com.prompthub.search", "com.prompthub.recommendation"})
 public class ProductApplication {
 
 	public static void main(String[] args) {

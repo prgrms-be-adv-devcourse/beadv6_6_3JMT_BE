@@ -76,7 +76,7 @@ custom repository, Querydsl, 직접 작성한 query가 있으면 persistence 테
 
 - `GET /api/v1/products`
 - `GET /api/v1/products/{productId}`
-- `GET /api/v1/products/{productId}/related`
+- `GET /api/v2/products/{productId}/recommends`
 - `GET /api/v1/products/{productId}/reviews`
 
 최소 검증:
