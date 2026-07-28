@@ -85,8 +85,11 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryServ
 	/**
 	 * 글자 기반과 의미 기반을 한 번의 왕복으로 동시에 조회해 순위를 병합한다.
 	 *
-	 * <p>총 건수는 <b>글자 기반 레그의 값을 그대로 쓴다.</b> 의미 기반은 상위 k건만 돌려주므로
-	 * 전체 건수를 알 수 없고, 호출자가 이 값으로 다음 페이지 존재 여부를 계산한다.
+	 * <p>총 건수는 <b>글자 기반 레그의 전체 건수와 병합 결과 크기 중 큰 값</b>이다. 호출자가
+	 * 이 값으로 다음 페이지 존재 여부를 계산하므로 실제로 돌려주는 결과 수보다 작으면 안 된다.
+	 * 글자 기반 값만 쓰면 의미 기반만 찾은 문서가 총 건수에서 빠져 {@code total}과 실제 목록이
+	 * 어긋나고, 글자 기반이 0건일 때 다음 페이지로 넘어갈 수 없다(#645). 반대로 병합 결과
+	 * 크기만 쓰면 병합 창({@link #FUSION_WINDOW})을 넘는 글자 기반 결과가 잘려 과소 집계된다.
 	 */
 	private ProductSearchPageResult hybridSearch(
 		String keyword, String productType, String sort, Pageable pageable, float[] queryVector
@@ -123,7 +126,7 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryServ
 				.map(this::toHit)
 				.toList();
 
-			return new ProductSearchPageResult(page, totalOf(lexicalResult, fused.size()));
+			return new ProductSearchPageResult(page, Math.max(totalOf(lexicalResult, 0), fused.size()));
 		} catch (IOException | RuntimeException e) {
 			throw new IllegalStateException("ES 하이브리드 검색에 실패했습니다.", e);
 		}
