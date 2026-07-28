@@ -16,6 +16,7 @@ stringData:
   ORDER_SERVICE_PASSWORD: example-order-role-password
   PAYMENT_SERVICE_PASSWORD: example-payment-role-password
   SETTLEMENT_SERVICE_PASSWORD: example-settlement-role-password
+  NOTIFICATION_SERVICE_PASSWORD: example-notification-role-password
 ---
 apiVersion: v1
 kind: Secret
