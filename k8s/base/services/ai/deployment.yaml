@@ -92,6 +92,11 @@ spec:
                 secretKeyRef:
                   name: runtime-secret
                   key: REDIS_PORT
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secret
+                  key: KAFKA_BOOTSTRAP_SERVERS
             - name: USER_GRPC_SERVER_PORT
               valueFrom:
                 secretKeyRef:

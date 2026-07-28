@@ -18,6 +18,7 @@ fail() {
 
 declare -a required_config_files=("${CONFIG_ROOT}/application.yml")
 declare -a seen_services=()
+declare -a deployed_service_contracts=()
 
 service_entries="$(
   awk '
@@ -238,5 +239,83 @@ while IFS= read -r key; do
     fail "Config Server requires a missing example key: ${key}"
   fi
 done <<< "${required_config_keys}"
+
+for service in "${seen_services[@]}"; do
+  profile_relative="config/src/main/resources/configs/${service}-service.yml"
+  workload_relative="k8s/base/services/${service}/deployment.yaml"
+  if [[ "${service}" == "settlement" ]]; then
+    workload_relative="k8s/base/services/settlement/cronjob.yaml"
+  fi
+  workload="${ROOT_DIR}/${workload_relative}"
+  [[ -f "${workload}" ]] ||
+    fail "missing Kubernetes workload for deployed service: ${service}-service"
+
+  deployed_service_contracts+=(
+    "${service}-service|${profile_relative}|${workload_relative}"
+  )
+done
+
+application_env_names() {
+  local manifest="$1"
+  local container_name="$2"
+
+  awk -v target="${container_name}" '
+    function indentation(value) {
+      match(value, /^[[:space:]]*/)
+      return RLENGTH
+    }
+    {
+      indent = indentation($0)
+
+      if (in_container && $0 !~ /^[[:space:]]*$/ && indent <= container_indent) {
+        in_container = 0
+        in_env = 0
+      }
+
+      if ($0 ~ "^[[:space:]]*- name:[[:space:]]+" target "[[:space:]]*$") {
+        in_container = 1
+        in_env = 0
+        container_indent = indent
+        next
+      }
+
+      if (in_container && $0 ~ "^[[:space:]]+env:[[:space:]]*$") {
+        in_env = 1
+        env_indent = indent
+        next
+      }
+
+      if (in_env && $0 !~ /^[[:space:]]*$/ && indent <= env_indent) {
+        in_env = 0
+      }
+
+      if (in_env &&
+          $0 ~ "^[[:space:]]*- name:[[:space:]]+[A-Z][A-Z0-9_]*[[:space:]]*$") {
+        print $3
+      }
+    }
+  ' "${manifest}" | sort -u
+}
+
+for contract in "${deployed_service_contracts[@]}"; do
+  IFS='|' read -r service_name profile_relative workload_relative <<< "${contract}"
+  profile="${ROOT_DIR}/${profile_relative}"
+  workload="${ROOT_DIR}/${workload_relative}"
+
+  service_required_keys="$(
+    grep -hoE '\$\{[A-Z][A-Z0-9_]*\}' "${profile}" \
+      | sed -e 's/^${//' -e 's/}$//' \
+      | sort -u ||
+      true
+  )"
+  service_env_names="$(application_env_names "${workload}" "${service_name}")"
+
+  while IFS= read -r key; do
+    [[ -n "${key}" ]] || continue
+    if ! grep -Fxq -- "${key}" <<< "${service_env_names}"; then
+      fail "deployed service ${service_name} requires ${key} from ${profile_relative} but ${workload_relative} does not inject it into container ${service_name}"
+    fi
+  done <<< "${service_required_keys}"
+done
 
 echo "Kubernetes Secret contract validation passed."
