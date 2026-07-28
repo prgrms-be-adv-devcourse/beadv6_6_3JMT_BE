@@ -5,6 +5,7 @@ import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
+import com.prompthub.product.domain.model.projection.SimilarProductProjection;
 import com.prompthub.product.domain.repository.ProductRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -66,8 +67,8 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	}
 
 	@Override
-	public List<ProductListProjection> findRelatedProducts(UUID productId, ProductType productType, int limit) {
-		return productJpaRepository.findRelatedProducts(productId, productType, limit);
+	public List<ProductListProjection> findProjectionsByIds(List<UUID> productIds) {
+		return productJpaRepository.findProjectionsByIds(productIds);
 	}
 
 	@Override
@@ -113,6 +114,14 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	@Override
 	public List<UUID> findChangedFamilyRootIds(LocalDateTime since) {
 		return productJpaRepository.findChangedFamilyRootIds(since);
+	}
+
+	@Override
+	public List<SimilarProductProjection> findSimilarProducts(UUID productId, UUID familyRootId, int candidates) {
+		return productJpaRepository.findSimilarProductRows(productId, familyRootId, candidates).stream()
+			.map(row -> new SimilarProductProjection(
+				(UUID) row[0], (String) row[1], ((Number) row[2]).doubleValue()))
+			.toList();
 	}
 
 	@Override

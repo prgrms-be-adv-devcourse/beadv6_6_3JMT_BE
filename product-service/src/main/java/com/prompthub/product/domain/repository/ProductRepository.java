@@ -5,6 +5,7 @@ import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
+import com.prompthub.product.domain.model.projection.SimilarProductProjection;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +31,8 @@ public interface ProductRepository {
 
 	long sumViewCountByFamilyRootId(UUID familyRootId);
 
-	List<ProductListProjection> findRelatedProducts(UUID productId, ProductType productType, int limit);
+	/** 주어진 id들의 목록 표시용 정보(평점·family 판매수 포함). 순서는 보장하지 않는다. */
+	List<ProductListProjection> findProjectionsByIds(List<UUID> productIds);
 
 	List<ProductReviewProjection> findActiveReviews(UUID productId);
 
@@ -57,6 +59,13 @@ public interface ProductRepository {
 	 * "원문이 그대로면 다시 만들지 않는다"를 판단한다.
 	 */
 	Map<UUID, String> findEmbeddingSourceHashes(List<UUID> productIds);
+
+	/**
+	 * 기준 상품과 임베딩이 가까운 상품을 유사도 순으로 돌려준다.
+	 *
+	 * <p>자기 family의 다른 버전, 판매 중이 아닌 상품, 아직 임베딩이 없는 상품은 제외된다.
+	 */
+	List<SimilarProductProjection> findSimilarProducts(UUID productId, UUID familyRootId, int candidates);
 
 	/** 임베딩과 그 원문 해시를 함께 저장한다. 둘은 항상 같이 바뀌어야 한다. */
 	void updateEmbedding(UUID productId, float[] embedding, String sourceHash);

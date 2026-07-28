@@ -117,11 +117,11 @@ public class ProductController {
 	}
 
 	@GetMapping("/products/{productId}/recommends")
-	public ApiResult<List<ProductListItemResponse>> getRelatedProducts(
+	public ApiResult<List<ProductListItemResponse>> getRecommendedProducts(
 		@PathVariable UUID productId,
 		@RequestParam(defaultValue = "4") int limit
 	) {
-		return ApiResult.success(productQueryUseCase.getRelatedProducts(productId, limit));
+		return ApiResult.success(productQueryUseCase.getRecommendedProducts(productId, limit));
 	}
 
 	@GetMapping("/products/{productId}/reviews")

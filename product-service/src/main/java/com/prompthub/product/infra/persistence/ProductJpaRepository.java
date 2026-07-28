@@ -145,6 +145,12 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 		""")
 	long sumViewCountByFamilyRootId(@Param("familyRootId") UUID familyRootId);
 
+	/**
+	 * 주어진 id들의 목록 표시용 정보를 한 번에 가져온다.
+	 *
+	 * <p>평점 평균과 family 판매수 합산이 필요해 엔티티만으로는 만들 수 없다. 정렬은 걸지
+	 * 않는다 — 순서는 호출자가 정하고(추천 순위 등) 여기서 덮으면 안 된다.
+	 */
 	@Query("""
 		select new com.prompthub.product.domain.model.projection.ProductListProjection(
 			p.id,
@@ -162,34 +168,21 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 		)
 		from Product p
 		left join Review r on r.product.id = coalesce(p.parentId, p.id) and r.status = :activeReviewStatus and r.deletedAt is null
-		where p.status = :onSaleStatus
+		where p.id in :productIds
 			and p.deletedAt is null
-			and p.id <> :productId
-			and p.productType = :productType
 		group by p.id, p.parentId, p.name, p.productType, p.model, p.amount, p.salesCount, p.sellerId,
 			p.description, p.thumbnailUrl, p.createdAt, p.updatedAt
-		order by coalesce((select sum(m.salesCount) from Product m where coalesce(m.parentId, m.id) = coalesce(p.parentId, p.id) and m.deletedAt is null), 0) desc, p.createdAt desc
 		""")
-	List<ProductListProjection> findRelatedProducts(
-		@Param("productId") UUID productId,
-		@Param("productType") ProductType productType,
-		@Param("onSaleStatus") ProductStatus onSaleStatus,
-		@Param("activeReviewStatus") ReviewStatus activeReviewStatus,
-		Pageable pageable
+	List<ProductListProjection> findProjectionsByIds(
+		@Param("productIds") List<UUID> productIds,
+		@Param("activeReviewStatus") ReviewStatus activeReviewStatus
 	);
 
-	default List<ProductListProjection> findRelatedProducts(
-		UUID productId,
-		ProductType productType,
-		int limit
-	) {
-		return findRelatedProducts(
-			productId,
-			productType,
-			ProductStatus.ON_SALE,
-			ReviewStatus.ACTIVE,
-			PageRequest.of(0, limit)
-		);
+	default List<ProductListProjection> findProjectionsByIds(List<UUID> productIds) {
+		if (productIds.isEmpty()) {
+			return List.of();
+		}
+		return findProjectionsByIds(productIds, ReviewStatus.ACTIVE);
 	}
 
 	@Query("""
@@ -286,6 +279,32 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			and embedding_source_hash is not null
 		""", nativeQuery = true)
 	List<Object[]> findEmbeddingSourceHashRows(@Param("productIds") List<UUID> productIds);
+
+	/**
+	 * 기준 상품과 임베딩이 가까운 순으로 후보를 돌려준다.
+	 *
+	 * <p>정렬식을 순수 거리 연산자로 두어야 ON_SALE 부분 HNSW 인덱스를 탄다. 여기에 유형
+	 * 가산점 같은 산술을 얹으면 표현식이 되어 인덱스를 못 쓰고 풀스캔이 된다 — 그래서 재정렬은
+	 * 앱에서 한다.
+	 *
+	 * @return {@code [id(UUID), productType(String), distance(Double)]} 행 목록
+	 */
+	@Query(value = """
+		select p.id, p.product_type,
+		       p.embedding <=> (select embedding from product where id = :productId) as distance
+		from product p
+		where p.status = 'ON_SALE'
+			and p.deleted_at is null
+			and p.embedding is not null
+			and coalesce(p.parent_id, p.id) <> :familyRootId
+		order by p.embedding <=> (select embedding from product where id = :productId)
+		limit :candidates
+		""", nativeQuery = true)
+	List<Object[]> findSimilarProductRows(
+		@Param("productId") UUID productId,
+		@Param("familyRootId") UUID familyRootId,
+		@Param("candidates") int candidates
+	);
 
 	/**
 	 * 네이티브 UPDATE라 JPA auditing이 타지 않아 {@code updated_at}이 그대로 남는다. 이게

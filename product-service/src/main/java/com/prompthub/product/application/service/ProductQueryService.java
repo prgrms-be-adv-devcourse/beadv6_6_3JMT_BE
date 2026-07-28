@@ -16,12 +16,14 @@ import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
 import com.prompthub.product.presentation.dto.response.ProductVersionResponse;
 import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import com.prompthub.presentation.dto.PageResponse;
+import com.prompthub.recommendation.application.ProductRecommender;
 import com.prompthub.search.application.ProductSearchHit;
 import com.prompthub.search.application.ProductSearchPageResult;
 import com.prompthub.search.application.ProductSearchQueryService;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +47,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 	private final StorageClient storageClient;
 	private final ProductFamilyResolver productFamilyResolver;
 	private final ProductSearchQueryService productSearchQueryService;
+	private final ProductRecommender productRecommender;
 
 	public PageResponse<ProductListItemResponse> getProducts(
 		String q,
@@ -157,19 +160,26 @@ public class ProductQueryService implements ProductQueryUseCase {
 		);
 	}
 
-	public List<ProductListItemResponse> getRelatedProducts(UUID productId, int limit) {
+	public List<ProductListItemResponse> getRecommendedProducts(UUID productId, int limit) {
 		Product product = getOnSaleProduct(productId);
 		int normalizedLimit = limit > 0 ? limit : DEFAULT_LIMIT;
 
-		List<ProductListProjection> related = productRepository.findRelatedProducts(
-			product.getId(), product.getProductType(), normalizedLimit);
+		List<UUID> recommendedIds = productRecommender.recommend(
+			product.getId(), product.familyRootId(), product.getProductType().name(), normalizedLimit);
+		if (recommendedIds.isEmpty()) {
+			return List.of();
+		}
 
-		Map<UUID, List<String>> tagsByProductId = productRepository
-			.findAllByIdIn(related.stream().map(ProductListProjection::id).toList())
-			.stream()
+		// 조회는 순서를 보장하지 않는다. 추천 순위대로 다시 세우지 않으면 어렵게 계산한
+		// 순서가 DB가 돌려준 순서로 덮인다.
+		Map<UUID, ProductListProjection> byId = productRepository.findProjectionsByIds(recommendedIds).stream()
+			.collect(Collectors.toMap(ProductListProjection::id, p -> p));
+		Map<UUID, List<String>> tagsByProductId = productRepository.findAllByIdIn(recommendedIds).stream()
 			.collect(Collectors.toMap(Product::getId, Product::getTags));
 
-		return related.stream()
+		return recommendedIds.stream()
+			.map(byId::get)
+			.filter(Objects::nonNull)
 			.map(p -> toListItemResponse(p, tagsByProductId.getOrDefault(p.id(), List.of())))
 			.toList();
 	}
