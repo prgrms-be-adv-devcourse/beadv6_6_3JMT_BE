@@ -57,6 +57,29 @@ new_fixture
 baseline_output="${fixture_dir}/baseline.out"
 assert_passes "baseline" "${baseline_output}"
 
+printf '%s\n' \
+  'apiVersion: v1' \
+  'kind: Pod' \
+  'metadata:' \
+  '  name: reversed-order-fixture' \
+  'spec:' \
+  '  containers:' \
+  '    - name: fixture' \
+  '      image: busybox:1.37.0' \
+  '      env:' \
+  '        - name: REVERSED_ORDER' \
+  '          valueFrom:' \
+  '            secretKeyRef:' \
+  '              key: REVERSED_MISSING_KEY' \
+  '              name: runtime-secret' \
+  > "${fixture_dir}/k8s/base/services/reversed-order.yaml"
+reversed_order_output="${fixture_dir}/reversed-order.out"
+assert_fails_with \
+  "reversed name/key order" \
+  "Kubernetes Secret contract validation failed: manifest secretKeyRef is missing from the example: runtime-secret.REVERSED_MISSING_KEY" \
+  "${reversed_order_output}"
+rm "${fixture_dir}/k8s/base/services/reversed-order.yaml"
+
 printf '%s\n' 'server:' '  port: 18100' 'spring:' '  datasource:' '    password: ${FUTURE_SERVICE_PASSWORD}' \
   > "${fixture_dir}/config/src/main/resources/configs/future-service.yml"
 

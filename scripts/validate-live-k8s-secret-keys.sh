@@ -19,26 +19,40 @@ command -v jq >/dev/null 2>&1 || fail "jq is required"
 manifest_secret_pairs="$(
   while IFS= read -r manifest; do
     awk '
-      /secretKeyRef:/ {
-        in_secret_ref = 1
-        secret_name = ""
-        next
-      }
-      in_secret_ref && $1 == "name:" {
-        secret_name = $2
-        next
-      }
-      in_secret_ref && $1 == "key:" {
-        if (secret_name != "") {
-          print secret_name "|" $2
+      function emit_pair() {
+        if (secret_name != "" && secret_key != "") {
+          print secret_name "|" secret_key
         }
-        in_secret_ref = 0
       }
-      in_secret_ref && /^[^[:space:]]/ {
+      function close_secret_ref() {
+        emit_pair()
         in_secret_ref = 0
+        secret_indent = -1
+        secret_name = ""
+        secret_key = ""
       }
+      /secretKeyRef:/ {
+        close_secret_ref()
+        match($0, /^[[:space:]]*/)
+        secret_indent = RLENGTH
+        in_secret_ref = 1
+        next
+      }
+      in_secret_ref {
+        match($0, /^[[:space:]]*/)
+        if ($0 !~ /^[[:space:]]*$/ && RLENGTH <= secret_indent) {
+          close_secret_ref()
+          next
+        }
+        if ($1 == "name:") {
+          secret_name = $2
+        } else if ($1 == "key:") {
+          secret_key = $2
+        }
+      }
+      END { close_secret_ref() }
     ' "${manifest}"
-  done < <(find "${MANIFEST_ROOT}" -type f \( -name '*.yaml' -o -name '*.yml' \) | sort)
+  done < <(find "${MANIFEST_ROOT}" -type f \( -name '*.yaml' -o -name '*.yml' \) | sort) | sort -u
 )"
 
 while IFS= read -r pair; do

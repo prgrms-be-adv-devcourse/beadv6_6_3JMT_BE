@@ -60,6 +60,30 @@ printf '%s\n' \
   'apiVersion: v1' \
   'kind: Pod' \
   'metadata:' \
+  '  name: reversed-order-fixture' \
+  'spec:' \
+  '  containers:' \
+  '    - name: fixture' \
+  '      image: busybox:1.37.0' \
+  '      env:' \
+  '        - name: REVERSED_ORDER' \
+  '          valueFrom:' \
+  '            secretKeyRef:' \
+  '              key: REVERSED_MISSING_KEY' \
+  '              name: runtime-secret' \
+  > "${fixture_dir}/manifests/reversed-order.yaml"
+
+if run_checker; then
+  fail "reversed name/key order expected failure"
+fi
+grep -Fq -- 'Kubernetes Secret key preflight failed: runtime-secret.REVERSED_MISSING_KEY' "${output_file}" ||
+  fail "reversed name/key order error was not reported: $(<"${output_file}")"
+rm "${fixture_dir}/manifests/reversed-order.yaml"
+
+printf '%s\n' \
+  'apiVersion: v1' \
+  'kind: Pod' \
+  'metadata:' \
   '  name: missing-fixture' \
   'spec:' \
   '  containers:' \
