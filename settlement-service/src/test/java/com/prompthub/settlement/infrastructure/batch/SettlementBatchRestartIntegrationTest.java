@@ -18,13 +18,16 @@ import com.prompthub.settlement.application.usecase.RestartSettlementBatchUseCas
 import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementBatch;
+import com.prompthub.settlement.domain.model.SettlementCalculationReconciliation;
 import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
 import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.model.enums.OutboxEventStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementBatchStatus;
+import com.prompthub.settlement.domain.model.enums.SettlementCalculationReconciliationStatus;
 import com.prompthub.settlement.domain.repository.OutboxEventRepository;
 import com.prompthub.settlement.infrastructure.persistence.SettlementBatchJpaRepository;
+import com.prompthub.settlement.infrastructure.persistence.SettlementCalculationReconciliationJpaRepository;
 import com.prompthub.settlement.infrastructure.persistence.SettlementJpaRepository;
 import com.prompthub.settlement.infrastructure.persistence.SettlementSourceLineJpaRepository;
 import com.prompthub.settlement.infrastructure.persistence.outbox.OutboxEventJpaRepository;
@@ -46,6 +49,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @SpringBootTest(properties = {
     "spring.cloud.config.enabled=false",
@@ -62,6 +66,9 @@ class SettlementBatchRestartIntegrationTest {
     private static final SettlementPeriod SOURCE_LOAD_FAILURE_PERIOD = SettlementPeriod.of(
             LocalDate.of(2030, 1, 14),
             LocalDate.of(2030, 1, 20));
+    private static final SettlementPeriod RECONCILIATION_FAILURE_PERIOD = SettlementPeriod.of(
+            LocalDate.of(2030, 1, 21),
+            LocalDate.of(2030, 1, 27));
     private static final UUID ACTOR_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000601");
 
@@ -76,6 +83,9 @@ class SettlementBatchRestartIntegrationTest {
 
     @Autowired
     private SettlementJpaRepository settlementJpaRepository;
+
+    @Autowired
+    private SettlementCalculationReconciliationJpaRepository reconciliationJpaRepository;
 
     @Autowired
     private SettlementSourceLineJpaRepository sourceLineJpaRepository;
@@ -104,9 +114,80 @@ class SettlementBatchRestartIntegrationTest {
     @BeforeEach
     void setUp() {
         outboxEventJpaRepository.deleteAll();
+        reconciliationJpaRepository.deleteAll();
         settlementJpaRepository.deleteAll();
         sourceLineJpaRepository.deleteAll();
         settlementBatchJpaRepository.deleteAll();
+    }
+
+    @Test
+    @DisplayName("계산 대사 실패 후 같은 배치를 재시작하면 실패 정산을 다시 계산하고 결과를 누적한다")
+    void restart_afterReconciliationFailure_recalculatesMismatchedSettlement() {
+        saveSourceLines(RECONCILIATION_FAILURE_PERIOD, 1);
+        AtomicBoolean corruptCalculation = new AtomicBoolean(true);
+        doAnswer(invocation -> {
+            Settlement settlement = (Settlement) invocation.callRealMethod();
+            if (corruptCalculation.get() && settlement != null) {
+                ReflectionTestUtils.setField(
+                        settlement,
+                        "totalAmount",
+                        settlement.getTotalAmount().add(BigDecimal.ONE));
+            }
+            return settlement;
+        }).when(calculationService).calculate(any(CalculateSettlementCommand.class));
+
+        SettlementJobResult firstResult = runSettlementBatchUseCase.run(
+                RunSettlementBatchCommand.scheduled(RECONCILIATION_FAILURE_PERIOD));
+
+        entityManager.clear();
+        SettlementBatch failedBatch = onlyBatch();
+        UUID originalBatchId = failedBatch.getId();
+        long originalJobInstanceId = failedBatch.getJobInstanceId();
+        assertThat(firstResult.status()).isEqualTo("FAILED");
+        assertThat(failedBatch.getStatus()).isEqualTo(SettlementBatchStatus.FAILED);
+        assertThat(settlementJpaRepository.count()).isZero();
+        assertThat(sourceLineJpaRepository.findAll())
+                .noneMatch(SettlementSourceLine::isSettled);
+        assertThat(outboxEventJpaRepository.count()).isZero();
+        assertThat(reconciliationJpaRepository.findAll())
+                .singleElement()
+                .extracting(SettlementCalculationReconciliation::getStatus)
+                .isEqualTo(SettlementCalculationReconciliationStatus.MISMATCHED);
+        then(settlementEventPublisher).shouldHaveNoInteractions();
+
+        failedBatch.requestRetry();
+        settlementBatchJpaRepository.saveAndFlush(failedBatch);
+        entityManager.clear();
+        corruptCalculation.set(false);
+
+        SettlementJobResult restartedResult = restartSettlementBatchUseCase.restart(
+                new RestartSettlementBatchCommand(originalBatchId, ACTOR_ID));
+
+        entityManager.clear();
+        SettlementBatch completedBatch =
+                settlementBatchJpaRepository.findById(originalBatchId).orElseThrow();
+        JobInstance jobInstance = jobRepository.getJobInstance(originalJobInstanceId);
+        assertThat(restartedResult.status()).isEqualTo("COMPLETED");
+        assertThat(completedBatch.getStatus()).isEqualTo(SettlementBatchStatus.COMPLETED);
+        assertThat(jobRepository.getJobExecutions(jobInstance)).hasSize(2);
+        assertThat(settlementJpaRepository.findBySettlementBatchId(originalBatchId))
+                .hasSize(1);
+        assertThat(sourceLineJpaRepository.findAll())
+                .allMatch(SettlementSourceLine::isSettled);
+        assertThat(outboxEventJpaRepository.findAll())
+                .singleElement()
+                .extracting(SettlementOutboxEvent::getStatus)
+                .isEqualTo(OutboxEventStatus.PUBLISHED);
+        assertThat(reconciliationJpaRepository
+                .findBySettlementBatchIdOrderByVerifiedAtAsc(originalBatchId))
+                .extracting(SettlementCalculationReconciliation::getStatus)
+                .containsExactly(
+                        SettlementCalculationReconciliationStatus.MISMATCHED,
+                        SettlementCalculationReconciliationStatus.MATCHED);
+        then(calculationService).should(times(2))
+                .calculate(any(CalculateSettlementCommand.class));
+        then(settlementEventPublisher).should()
+                .publish(any(String.class), any(UUID.class), any(String.class));
     }
 
     @Test

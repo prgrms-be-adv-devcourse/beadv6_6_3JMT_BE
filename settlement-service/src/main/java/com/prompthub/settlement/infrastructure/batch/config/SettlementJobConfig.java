@@ -24,6 +24,7 @@ public class SettlementJobConfig {
 		Step retryPendingOutboxStep,
 		Step loadSettlementSourceStep,
 		Step settlementStep,
+		Step reconcileSettlementCalculationStep,
 		Step completeSettlementBatchStep,
 		Step flushCurrentBatchOutboxStep
 	) {
@@ -33,6 +34,7 @@ public class SettlementJobConfig {
 			.next(retryPendingOutboxStep)
 			.next(loadSettlementSourceStep)
 			.next(settlementStep)
+			.next(reconcileSettlementCalculationStep)
 			.next(completeSettlementBatchStep)
 			.next(flushCurrentBatchOutboxStep)
 			.build();

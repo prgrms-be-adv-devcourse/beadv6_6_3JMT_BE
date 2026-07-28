@@ -27,6 +27,7 @@ class OutboxJobConfigTest {
                 step("retryPendingOutboxStep"),
                 step("loadSettlementSourceStep"),
                 step("settlementStep"),
+                step("reconcileSettlementCalculationStep"),
                 step("completeSettlementBatchStep"),
                 step("flushCurrentBatchOutboxStep"));
 
@@ -36,6 +37,7 @@ class OutboxJobConfigTest {
                 "retryPendingOutboxStep",
                 "loadSettlementSourceStep",
                 "settlementStep",
+                "reconcileSettlementCalculationStep",
                 "completeSettlementBatchStep",
                 "flushCurrentBatchOutboxStep");
     }
