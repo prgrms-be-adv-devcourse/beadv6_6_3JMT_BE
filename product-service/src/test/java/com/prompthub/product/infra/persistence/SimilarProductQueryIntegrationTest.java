@@ -88,6 +88,17 @@ class SimilarProductQueryIntegrationTest extends PostgresIntegrationTestSupport 
 	}
 
 	@Test
+	@DisplayName("기준 상품에 임베딩이 아직 없으면 빈 결과다")
+	void returnsEmptyWhenBaseHasNoEmbedding() {
+		// 기준 상품의 임베딩이 없으면 서브쿼리가 NULL이고 `<=> NULL`도 NULL이라, 가드가 없으면
+		// 후보 행이 distance=NULL로 돌아와 primitive double 매핑에서 NPE가 난다.
+		Product base = productJpaRepository.saveAndFlush(onSale(promptContent("임베딩없는기준상품", 1000)));
+		save(promptContent("후보상품", 1000), 0);
+
+		assertThat(productRepository.findSimilarProducts(base.getId(), base.familyRootId(), 10)).isEmpty();
+	}
+
+	@Test
 	@DisplayName("다른 유형도 후보에 포함된다 — 유형 판단은 SQL이 아니라 재정렬의 몫이다")
 	void includesOtherTypes() {
 		Product base = save(promptContent("기준상품", 1000), 0);

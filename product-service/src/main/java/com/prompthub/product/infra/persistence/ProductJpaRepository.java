@@ -287,6 +287,11 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 	 * 가산점 같은 산술을 얹으면 표현식이 되어 인덱스를 못 쓰고 풀스캔이 된다 — 그래서 재정렬은
 	 * 앱에서 한다.
 	 *
+	 * <p>마지막 exists는 <b>기준 상품</b>에 임베딩이 있는지 본다. 없으면 서브쿼리가 NULL이 되고
+	 * {@code <=> NULL}도 NULL이라 후보 행이 distance=NULL로 그대로 돌아온다(제외되지 않는다) —
+	 * 이걸 primitive double로 받으면 NPE가 난다. 승인 직후 재조정 배치가 임베딩을 채우기 전까지
+	 * 실제로 생기는 상태다. WHERE에만 두어 ORDER BY 식은 건드리지 않는다.
+	 *
 	 * @return {@code [id(UUID), productType(String), distance(Double)]} 행 목록
 	 */
 	@Query(value = """
@@ -297,6 +302,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			and p.deleted_at is null
 			and p.embedding is not null
 			and coalesce(p.parent_id, p.id) <> :familyRootId
+			and exists (select 1 from product b where b.id = :productId and b.embedding is not null)
 		order by p.embedding <=> (select embedding from product where id = :productId)
 		limit :candidates
 		""", nativeQuery = true)
