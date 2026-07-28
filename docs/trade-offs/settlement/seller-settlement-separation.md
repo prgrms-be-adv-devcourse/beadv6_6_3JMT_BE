@@ -7,7 +7,7 @@
 접은/택한 이유를 남긴다.
 
 > 어드민 쪽 데이터 접근 결정은 `admin-data-access.md`(직접 DB), 모듈 분리 전체 그림은
-> `../architecture/admin-module-separation.md` 를 본다. 이 문서는 **셀러 쪽 + 운영 상태를
+> `../../architecture/settlement/admin-module-separation.md` 를 본다. 이 문서는 **셀러 쪽 + 운영 상태를
 > 어느 모듈이 소유하느냐** 를 다룬다.
 
 ## 결정을 몰고 간 제약
@@ -108,7 +108,7 @@ payout: PAYOUT_REQUESTED→PAID …). 운영 테이블에 상태 컬럼 하나�
 
 > **현황(#258 구현됨):** 발행측(`SettlementEventPublisher`←`KafkaSettlementEventPublisher`, `SETTLEMENT_CREATED`)과
 > 소비측(user `sellersettlement` 컨슈머 → `SeedSellerSettlementUseCase`, `settlementId` 유니크 멱등)이 붙어 있다.
-> 아래 "발행 유실 대비" 아웃박스 flush 만 아직 미구현이다. 실제 통신 현황은 `../architecture/settlement-internal-comm-topology.md`.
+> 아래 "발행 유실 대비" 아웃박스 flush 만 아직 미구현이다. 실제 통신 현황은 `../../architecture/settlement/settlement-internal-comm-topology.md`.
 
 배치가 `settlement`(로그)를 만들 때 seller_settlement 운영행을 누가 만드나. 세 갈래를 봤다.
 

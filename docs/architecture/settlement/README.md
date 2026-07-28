@@ -26,7 +26,7 @@ Kubernetes CronJob 전환을 목표로 한다. 연동 카탈로그 §4.)
 | 문서 | 내용 |
 | --- | --- |
 | [admin-module-separation.md](admin-module-separation.md) | 어드민 API(`SettlementController`)를 admin-service로 이관한 당시 설계. 문서의 예약 테이블·폴링 방식은 이전 안이며, 현재 운영 배치 목표는 `final-roadmap.md`의 Kubernetes CronJob 전환을 따른다. |
-| [../final-roadmap.md](../final-roadmap.md) | 파이널 고도화 전체 로드맵 — 어드민 분리, Kubernetes CronJob 전환, AI 정산 어시스턴트(아이디어), 통계·대시보드. |
+| [../../planning/settlement-final-roadmap.md](../../planning/settlement-final-roadmap.md) | 파이널 고도화 전체 로드맵 — 어드민 분리, Kubernetes CronJob 전환, AI 정산 어시스턴트(아이디어), 통계·대시보드. |
 
 ## 배포 (CI/CD)
 
@@ -42,18 +42,18 @@ Kubernetes CronJob 전환을 목표로 한다. 연동 카탈로그 §4.)
 
 | 문서 | 다루는 결정 |
 | --- | --- |
-| [../trade-offs/internal-sync-transport.md](../trade-offs/internal-sync-transport.md) | 서비스 간 동기 호출을 REST(HTTP/JSON)로 할지 gRPC로 할지 |
-| [../trade-offs/order-data-sourcing.md](../trade-offs/order-data-sourcing.md) | 정산 대상 주문 데이터(PAID·미정산 order_product)를 어떻게 수급할지 |
-| [../trade-offs/settlement-batch-granularity.md](../trade-offs/settlement-batch-granularity.md) | 정산 배치를 판매자 단위 집계 3-step으로 둘지, 단일 chunk 스트리밍으로 둘지 |
-| [../trade-offs/user-identity-propagation.md](../trade-offs/user-identity-propagation.md) | 인증/인가를 게이트웨이가 처리하고 각 서비스는 전달된 식별 정보(헤더)만 읽는 구조 |
-| [../trade-offs/source-line-release-on-cancel.md](../trade-offs/source-line-release-on-cancel.md) | 정산 취소 시 묶인 원천소스(source line)를 행 단위 dirty checking으로 풀지, 단일 벌크 UPDATE로 풀지 |
-| [../trade-offs/negative-settlement-carryforward.md](../trade-offs/negative-settlement-carryforward.md) | 환불 초과로 음수가 된 판매자 정산액을 어떻게 처리할지 — 다음 정산으로 이월(carry-forward) |
-| [../trade-offs/admin-data-access.md](../trade-offs/admin-data-access.md) | 어드민(admin-service)이 정산 데이터를 직접 DB 커넥션으로 접근할지, gRPC 로 조회할지 — 직접 DB 채택 |
+| [../../trade-offs/settlement/internal-sync-transport.md](../../trade-offs/settlement/internal-sync-transport.md) | 서비스 간 동기 호출을 REST(HTTP/JSON)로 할지 gRPC로 할지 |
+| [../../trade-offs/settlement/order-data-sourcing.md](../../trade-offs/settlement/order-data-sourcing.md) | 정산 대상 주문 데이터(PAID·미정산 order_product)를 어떻게 수급할지 |
+| [../../trade-offs/settlement/settlement-batch-granularity.md](../../trade-offs/settlement/settlement-batch-granularity.md) | 정산 배치를 판매자 단위 집계 3-step으로 둘지, 단일 chunk 스트리밍으로 둘지 |
+| [../../trade-offs/settlement/user-identity-propagation.md](../../trade-offs/settlement/user-identity-propagation.md) | 인증/인가를 게이트웨이가 처리하고 각 서비스는 전달된 식별 정보(헤더)만 읽는 구조 |
+| [../../trade-offs/settlement/source-line-release-on-cancel.md](../../trade-offs/settlement/source-line-release-on-cancel.md) | 정산 취소 시 묶인 원천소스(source line)를 행 단위 dirty checking으로 풀지, 단일 벌크 UPDATE로 풀지 |
+| [../../trade-offs/settlement/negative-settlement-carryforward.md](../../trade-offs/settlement/negative-settlement-carryforward.md) | 환불 초과로 음수가 된 판매자 정산액을 어떻게 처리할지 — 다음 정산으로 이월(carry-forward) |
+| [../../trade-offs/settlement/admin-data-access.md](../../trade-offs/settlement/admin-data-access.md) | 어드민(admin-service)이 정산 데이터를 직접 DB 커넥션으로 접근할지, gRPC 로 조회할지 — 직접 DB 채택 |
 
 ## 이 폴더 밖에 있는 관련 문서
 
-- 설계 의사결정(trade-offs): [../trade-offs/](../trade-offs/)
-- API 명세(로컬 수동 검증): [../settlement-api-for-frontend.md](../settlement-api-for-frontend.md)
+- 설계 의사결정(trade-offs): [../../trade-offs/settlement/](../../trade-offs/settlement/)
+- API 명세(로컬 수동 검증): [../../planning/settlement-api-for-frontend.md](../../planning/settlement-api-for-frontend.md)
 - 트러블슈팅: [../trouble-shooting/](../trouble-shooting/)
 - 기능 설계·계획(스펙/플랜): [../superpowers/](../superpowers/)
 - 코드 컨벤션(계층·도메인·예외·스타일 등): `.claude/rules/`

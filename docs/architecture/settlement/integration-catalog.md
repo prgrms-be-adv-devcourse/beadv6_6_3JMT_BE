@@ -226,9 +226,9 @@ summary는 `totalRevenueAmount`, `totalSettlementAmount`만 반환한다.
 
 > **현재 범위 아님.** 파이널에서 어드민 API 가 admin-service 로 이관되지만
 > (`admin-module-separation.md`), 어드민은 gRPC 로 호출하지 않고 **DB 를 직접 바라본다**
-> (결정 배경: `../trade-offs/admin-data-access.md`). 운영 조회·상태변경은 운영 단일 진실인
+> (결정 배경: `../../trade-offs/settlement/admin-data-access.md`). 운영 조회·상태변경은 운영 단일 진실인
 > `seller_settlement`(유저 DB), 배치 예약·잡 상태는 정산 DB 를 본다(셀러 분리 배경:
-> `../trade-offs/seller-settlement-separation.md`). 따라서 정산이 어드민에 제공하는 gRPC
+> `../../trade-offs/settlement/seller-settlement-separation.md`). 따라서 정산이 어드민에 제공하는 gRPC
 > 서버·proto 는 없다. 이 절은 rpc 계약이 없다는 사실과, 그 대신 계약 역할을 하는 것을 기록한다.
 
 | 어드민 동작 | 경로 | 계약 |

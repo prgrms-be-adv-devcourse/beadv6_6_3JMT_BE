@@ -8,10 +8,10 @@
 > admin-service 는 전사 어드민 모듈이다. 추후 다른 도메인(유저·상품·주문) 어드민도
 > 이 모듈로 모이지만, 여기서는 정산 몫만 다룬다.
 > 어드민이 정산 데이터를 gRPC 로 조회하지 않고 **각 도메인 DB 를 직접 바라보기로** 한
-> 결정 배경은 `../trade-offs/admin-data-access.md` 를 본다.
+> 결정 배경은 `../../trade-offs/settlement/admin-data-access.md` 를 본다.
 
 > **운영 상태의 단일 진실은 `seller_settlement`(셀러/유저 모듈 테이블)다.** 셀러 정산 분리
-> (`../trade-offs/seller-settlement-separation.md`)로 운영 lifecycle 이 유저 모듈로 옮겨가면서,
+> (`../../trade-offs/settlement/seller-settlement-separation.md`)로 운영 lifecycle 이 유저 모듈로 옮겨가면서,
 > 어드민의 **운영 조회(목록·요약·상세)와 상태변경(승인·지급 등)은 `seller_settlement`(유저 DB)
 > 를 직접 read/write** 한다. 정산의 `settlement` 테이블은 배치가 만든 **계산 이력(로그)** 로
 > 남고, 어드민이 여기 직접 접근하는 것은 **배치 예약·잡 상태**(정산 DB) 뿐이다. 상태 모델은
@@ -82,7 +82,7 @@ user-service (셀러 모듈 — 운영 소유, #236)
 
 ## 배치 예약 실행 — 예약 테이블 + 폴링
 
-수동 정산은 "즉시 실행"에서 "시간 지정 예약 실행"으로 바뀐다(`../final-roadmap.md` §2).
+수동 정산은 "즉시 실행"에서 "시간 지정 예약 실행"으로 바뀐다(`../../planning/settlement-final-roadmap.md` §2).
 어드민이 정산 프로세스를 호출할 수 없으므로, 예약 테이블이 그 사이를 잇는다.
 
 ```
@@ -123,8 +123,8 @@ admin-service                          settlement-service
 
 ## 관련 문서
 
-- 셀러 정산 분리·운영 단일 진실(seller_settlement) 결정: `../trade-offs/seller-settlement-separation.md`
-- 접근 방식 결정(직접 DB vs gRPC): `../trade-offs/admin-data-access.md`
-- 내부 동기 호출 전송 결정(REST vs gRPC — 서비스 간 호출에 계속 적용): `../trade-offs/internal-sync-transport.md`
+- 셀러 정산 분리·운영 단일 진실(seller_settlement) 결정: `../../trade-offs/settlement/seller-settlement-separation.md`
+- 접근 방식 결정(직접 DB vs gRPC): `../../trade-offs/settlement/admin-data-access.md`
+- 내부 동기 호출 전송 결정(REST vs gRPC — 서비스 간 호출에 계속 적용): `../../trade-offs/settlement/internal-sync-transport.md`
 - 연동 카탈로그(어드민 절 — rpc 계약 없음): `integration-catalog.md`
-- 파이널 전체 로드맵: `../final-roadmap.md`
+- 파이널 전체 로드맵: `../../planning/settlement-final-roadmap.md`

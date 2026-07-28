@@ -2,11 +2,11 @@
 
 payment-service가 **발행(Publish)** 및 **구독(Consume)** 하는 Kafka 이벤트 목록.
 
-모든 이벤트는 모노레포 공통 규칙(`../../../docs/architecture/common-event-message.md`)의 `EventMessage<T>` 봉투를 따른다.
+모든 이벤트는 모노레포 공통 규칙(`../../architecture/common-event-message.md`)의 `EventMessage<T>` 봉투를 따른다.
 
 각 이벤트의 payload 상세 스키마는 이 문서의 "Payload 스키마" 섹션을 참조.
 
-모노레포 전체 이벤트 흐름: `../../../docs/architecture/event-flow.md`
+모노레포 전체 이벤트 흐름: `../../architecture/event-flow.md`
 
 ---
 
