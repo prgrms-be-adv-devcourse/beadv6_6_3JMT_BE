@@ -2,8 +2,12 @@ package com.prompthub.order.application.service.event;
 
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.infra.messaging.kafka.event.OrderEventType;
+import com.prompthub.order.infra.messaging.kafka.event.OrderExpiredPayload;
 import com.prompthub.order.infra.messaging.kafka.event.OrderPaidPayload;
+import com.prompthub.order.infra.messaging.kafka.event.OrderPaymentFailedPayload;
+import com.prompthub.order.infra.messaging.kafka.event.OrderRefundFailedPayload;
 import com.prompthub.order.infra.messaging.kafka.event.OrderRefundPayload;
+import com.prompthub.order.infra.messaging.kafka.event.OrderRefundRequestedPayload;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -12,12 +16,18 @@ import java.util.UUID;
 @Component
 public class OrderEventMessageFactory {
 
-    public record RefundRequestedPayload(
-            UUID orderId,
-            UUID refundRequestId,
-            int refundAmount,
-            LocalDateTime requestedAt
-    ) {
+    public record OrderCreatedPayload(UUID orderId, UUID buyerId, String orderNumber, LocalDateTime createdAt) {
+    }
+
+    public EventMessage<OrderCreatedPayload> createOrderCreatedMessage(UUID orderId, OrderCreatedPayload payload) {
+        return new EventMessage<>(
+            UUID.randomUUID(),
+            OrderEventType.ORDER_CREATED.code(),
+            payload.createdAt(),
+            "ORDER",
+            orderId,
+            payload
+        );
     }
 
     public EventMessage<OrderPaidPayload> createOrderPaidMessage(
@@ -48,9 +58,9 @@ public class OrderEventMessageFactory {
         );
     }
 
-    public EventMessage<RefundRequestedPayload> createOrderRefundRequestedMessage(
+    public EventMessage<OrderRefundRequestedPayload> createOrderRefundRequestedMessage(
             UUID orderId,
-            RefundRequestedPayload payload
+            OrderRefundRequestedPayload payload
     ) {
         return new EventMessage<>(
                 UUID.randomUUID(),
@@ -59,6 +69,30 @@ public class OrderEventMessageFactory {
                 "ORDER",
                 orderId,
                 payload
+        );
+    }
+
+    public EventMessage<OrderPaymentFailedPayload> createOrderPaymentFailedMessage(
+        UUID orderId,
+        OrderPaymentFailedPayload payload
+    ) {
+        return new EventMessage<>(
+            UUID.randomUUID(), OrderEventType.ORDER_PAYMENT_FAILED.code(), payload.failedAt(), "ORDER", orderId, payload
+        );
+    }
+
+    public EventMessage<OrderExpiredPayload> createOrderExpiredMessage(UUID orderId, OrderExpiredPayload payload) {
+        return new EventMessage<>(
+            UUID.randomUUID(), OrderEventType.ORDER_EXPIRED.code(), payload.expiredAt(), "ORDER", orderId, payload
+        );
+    }
+
+    public EventMessage<OrderRefundFailedPayload> createOrderRefundFailedMessage(
+        UUID orderId,
+        OrderRefundFailedPayload payload
+    ) {
+        return new EventMessage<>(
+            UUID.randomUUID(), OrderEventType.ORDER_REFUND_FAILED.code(), payload.failedAt(), "ORDER", orderId, payload
         );
     }
 }

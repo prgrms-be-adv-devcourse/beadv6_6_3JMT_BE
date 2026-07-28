@@ -13,6 +13,16 @@ spring:
     config:
       enabled: true
 
+logging:
+  structured:
+    format:
+      console: logstash
+    json:
+      add:
+        serviceName: ${spring.application.name}
+  level:
+    root: INFO
+
 ---
 
 spring:

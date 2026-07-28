@@ -114,6 +114,9 @@
 | view_count | INT | ✓ | 0 | 조회 수 |
 | wish_count | INT | ✓ | 0 | 찜 수 |
 | tags | TEXT | | NULL | 판매자 지정 태그 (쉼표 구분 문자열, TagsConverter 사용) |
+| content_hash | VARCHAR(64) | | NULL | 본문 SHA-256(PROMPT 전용). 복제 탐지용 — 검수 주체가 같은 값을 가진 타 판매자 상품을 조회한다. embedding_source_hash와 다른 값 |
+| embedding | vector(1536) | | NULL | 상품 임베딩 (text-embedding-3-small). pgvector 타입이라 엔티티 미매핑, 네이티브 쿼리로만 접근. ON_SALE 부분 HNSW 인덱스 |
+| embedding_source_hash | VARCHAR(64) | | NULL | 임베딩 원문의 SHA-256. 값이 같으면 재생성을 건너뛴다 |
 | created_at | TIMESTAMPTZ | ✓ | | |
 | updated_at | TIMESTAMPTZ | ✓ | | |
 | deleted_at | TIMESTAMPTZ | | NULL | 소프트 삭제 일시 |

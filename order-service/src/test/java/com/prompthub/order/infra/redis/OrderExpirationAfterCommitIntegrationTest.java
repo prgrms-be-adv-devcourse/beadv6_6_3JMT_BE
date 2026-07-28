@@ -92,7 +92,7 @@ class OrderExpirationAfterCommitIntegrationTest {
 		assertThat(orderIdCaptor.getAllValues()).hasSize(1).doesNotContainNull();
 		assertThat(createdAtCaptor.getAllValues()).hasSize(1).doesNotContainNull();
 		assertThat(orderPersistence.count()).isEqualTo(1);
-		assertThat(outboxEventPersistence.count()).isZero();
+		assertThat(outboxEventPersistence.count()).isEqualTo(1);
 	}
 
 	@Test

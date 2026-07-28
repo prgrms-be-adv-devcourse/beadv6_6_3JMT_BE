@@ -3,7 +3,7 @@ package com.prompthub.order.application.service.order;
 import com.prompthub.order.application.dto.CreateOrderResult;
 import com.prompthub.order.application.event.order.OrderCreatedEvent;
 import com.prompthub.order.application.event.order.OrderProductReservationCleanupEvent;
-import com.prompthub.order.application.service.event.OrderPaidOutboxAppender;
+import com.prompthub.order.application.service.event.OrderOutboxAppender;
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
@@ -64,7 +64,7 @@ class OrderCreationTransactionServiceTest {
 	private ApplicationEventPublisher applicationEventPublisher;
 
 	@Mock
-	private OrderPaidOutboxAppender orderPaidOutboxAppender;
+	private OrderOutboxAppender orderOutboxAppender;
 
 	@Mock
 	private OrderProductPurchasePolicy purchasePolicy;
@@ -129,7 +129,8 @@ class OrderCreationTransactionServiceTest {
 				assertThat(event.createdAt()).isEqualTo(CREATED_AT);
 			}
 		);
-		then(orderPaidOutboxAppender).shouldHaveNoInteractions();
+		then(orderOutboxAppender).should().appendCreated(order);
+		then(orderOutboxAppender).should(never()).appendPaid(order);
 	}
 
 	@Test
@@ -140,7 +141,8 @@ class OrderCreationTransactionServiceTest {
 
 		service.create(order);
 
-		then(orderPaidOutboxAppender).should().append(order);
+		then(orderOutboxAppender).should().appendCreated(order);
+		then(orderOutboxAppender).should().appendPaid(order);
 		then(applicationEventPublisher).should().publishEvent(
 			OrderProductReservationCleanupEvent.from(order)
 		);
@@ -164,7 +166,7 @@ class OrderCreationTransactionServiceTest {
 			.isSameAs(failure);
 
 		then(applicationEventPublisher).shouldHaveNoInteractions();
-		then(orderPaidOutboxAppender).shouldHaveNoInteractions();
+		then(orderOutboxAppender).shouldHaveNoInteractions();
 	}
 
 	@Test
@@ -183,7 +185,7 @@ class OrderCreationTransactionServiceTest {
 		then(orderRepository).shouldHaveNoInteractions();
 		then(cartRepository).shouldHaveNoInteractions();
 		then(applicationEventPublisher).shouldHaveNoInteractions();
-		then(orderPaidOutboxAppender).shouldHaveNoInteractions();
+		then(orderOutboxAppender).shouldHaveNoInteractions();
 	}
 
 	private Order paidOrder() {

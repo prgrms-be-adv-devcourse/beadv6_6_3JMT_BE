@@ -28,3 +28,13 @@ settlement:
     chunk-size: ${SETTLEMENT_BATCH_CHUNK_SIZE:100}
   manual-api:
     enabled: false
+
+logging:
+  structured:
+    format:
+      console: logstash
+    json:
+      add:
+        serviceName: ${spring.application.name}
+  level:
+    root: INFO

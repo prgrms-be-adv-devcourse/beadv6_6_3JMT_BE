@@ -10,6 +10,32 @@ if ! grep -Fxq 'ENV TZ=Asia/Seoul' "${ROOT_DIR}/Dockerfile" \
   exit 1
 fi
 
+APPLICATION_LOG_CONFIGS=(
+  "admin-service/src/main/resources/application.yml"
+  "ai-service/src/main/resources/application.yml"
+  "notification-service/src/main/resources/application.yml"
+  "order-service/src/main/resources/application.yml"
+  "payment-service/src/main/resources/application.yml"
+  "product-service/src/main/resources/application.yml"
+  "settlement-service/src/main/resources/application.yml"
+  "user-service/src/main/resources/application.yml"
+)
+
+for config in "${APPLICATION_LOG_CONFIGS[@]}"; do
+  if ! grep -Fq 'console: logstash' "${ROOT_DIR}/${config}" \
+    || ! grep -Fq 'serviceName: ${spring.application.name}' "${ROOT_DIR}/${config}" \
+    || ! grep -Eq 'root:[[:space:]]+INFO$' "${ROOT_DIR}/${config}"; then
+    echo "application structured logging contract missing: ${config}" >&2
+    exit 1
+  fi
+done
+
+if grep -Fq 'config/src/main/resources/application.yml' <<< "${APPLICATION_LOG_CONFIGS[*]}" \
+  || grep -Fq 'discovery/src/main/resources/application.yaml' <<< "${APPLICATION_LOG_CONFIGS[*]}"; then
+  echo "platform services must not be application log collection targets" >&2
+  exit 1
+fi
+
 PACKAGES=(
   "k8s/addons/nginx-ingress"
   "k8s/addons/elk"
@@ -28,6 +54,7 @@ PACKAGES=(
   "k8s/base/services/settlement"
   "k8s/base/services/admin"
   "k8s/base/services/ai"
+  "k8s/base/services/notification"
   "k8s/base/services"
   "k8s/base/gateway"
   "k8s/base"
@@ -318,6 +345,42 @@ for package in "${PACKAGES[@]}"; do
     fi
   fi
 
+  if [[ "${package}" == "k8s/base/services/notification" ]]; then
+    required_patterns=(
+      '^kind:[[:space:]]+Deployment$'
+      '^kind:[[:space:]]+Service$'
+      '^[[:space:]]+name:[[:space:]]+notification-service$'
+      'ghcr.io/prgrms-be-adv-devcourse/prompthub-notification-service@sha256:'
+      '^[[:space:]]+replicas:[[:space:]]+1$'
+      'containerPort:[[:space:]]+18088$'
+      '^[[:space:]]+port:[[:space:]]+8088$'
+      'until wget -q -O /dev/null http://discovery:8761/actuator/health'
+      'until wget -q -O /dev/null http://config:8888/actuator/health'
+      'until nc -z postgres 5432'
+      'until nc -z redis 6379'
+      'until nc -z kafka 9092'
+      '^[[:space:]]+- name:[[:space:]]+NOTIFICATION_SERVICE_PASSWORD$'
+      '^[[:space:]]+automountServiceAccountToken:[[:space:]]+false$'
+      '^[[:space:]]+enableServiceLinks:[[:space:]]+false$'
+      '^[[:space:]]+prompthub.io/node-pool:[[:space:]]+application$'
+      '^[[:space:]]+- name:[[:space:]]+ghcr-pull-secret$'
+      '^[[:space:]]+allowPrivilegeEscalation:[[:space:]]+false$'
+      '^[[:space:]]+- ALL$'
+    )
+
+    for pattern in "${required_patterns[@]}"; do
+      if ! grep -Eq -- "${pattern}" "${rendered}"; then
+        echo "missing notification service contract: ${pattern}" >&2
+        exit 1
+      fi
+    done
+
+    if ! require_secret_env "${rendered}" NOTIFICATION_SERVICE_PASSWORD postgres-secret NOTIFICATION_SERVICE_PASSWORD; then
+      echo "notification password must reference postgres-secret.NOTIFICATION_SERVICE_PASSWORD" >&2
+      exit 1
+    fi
+  fi
+
   if [[ "${package}" == "k8s/base/services/user" ]]; then
     required_patterns=(
       '^[[:space:]]+- name:[[:space:]]+AI_USER_GRPC_TOKEN$'
@@ -381,10 +444,23 @@ for package in "${PACKAGES[@]}"; do
       'node-role.kubernetes.io/control-plane'
       'xpack.security.enabled'
       'gateway-access-[*]'
+      'min_age.*14d'
+      'index.lifecycle.name.*gateway-access-14d'
+      'application-logs-[*]'
+      'min_age.*7d'
+      'index.lifecycle.name.*application-logs-7d'
+      'APPLICATION_LOG_CONTAINER_REGEX'
+      'user-service[|]product-service[|]order-service[|]payment-service[|]admin-service[|]ai-service[|]settlement-service[|]notification-service'
+      'application-logs-saved-objects'
+      'Application Logs'
+      'service[.]name'
+      '[[]REDACTED[]]'
       'delete'
       '^[[:space:]]+name:[[:space:]]+fluent-bit$'
       'apigateway-[*]_prompthub_apigateway-[*][.]log'
       'logstash.elk.svc.cluster.local'
+      'HTTP_User.*[$][{]LOGSTASH_HTTP_USERNAME[}]'
+      'HTTP_Passwd.*[$][{]LOGSTASH_HTTP_PASSWORD[}]'
     )
 
     for pattern in "${required_patterns[@]}"; do
@@ -396,6 +472,48 @@ for package in "${PACKAGES[@]}"; do
 
     if grep -Eq 'emptyDir:[[:space:]]*\\{\\}' "${rendered}"; then
       echo "ELK must not use ephemeral emptyDir storage" >&2
+      exit 1
+    fi
+
+    if ! grep -Fq 'additional_codecs => {}' "${rendered}"; then
+      echo "Logstash HTTP input must disable content-type codec overrides" >&2
+      exit 1
+    fi
+
+    if [[ "$(grep -Fc 'storage.total_limit_size 512M' "${rendered}")" -ne 1 ]]; then
+      echo "Fluent Bit must retain exactly one 512M output storage limit" >&2
+      exit 1
+    fi
+
+    if grep -Eq 'APPLICATION_LOG_CONTAINER_REGEX.*(config|discovery)' "${rendered}"; then
+      echo "platform services must not be included in the application log allowlist" >&2
+      exit 1
+    fi
+
+    if ! awk '
+      /^[[:space:]]*\[INPUT\][[:space:]]*$/ {
+        section = "input"
+        next
+      }
+      /^[[:space:]]*\[FILTER\][[:space:]]*$/ {
+        section = "filter"
+        next
+      }
+      /^[[:space:]]*\[OUTPUT\][[:space:]]*$/ {
+        section = "output"
+        next
+      }
+      /storage[.]total_limit_size/ {
+        if (section == "input") {
+          input_limit = 1
+        }
+        if (section == "output" && $NF == "512M") {
+          output_limit = 1
+        }
+      }
+      END { exit input_limit || !output_limit }
+    ' "${rendered}"; then
+      echo "Fluent Bit storage.total_limit_size must exist only in HTTP OUTPUT" >&2
       exit 1
     fi
 
@@ -419,8 +537,8 @@ for package in "${PACKAGES[@]}"; do
     cronjob_count="$(awk '$1 == "kind:" && $2 == "CronJob" { count++ } END { print count + 0 }' "${rendered}")"
     unexpected_kinds="$(awk '$1 == "kind:" && $2 != "Deployment" && $2 != "Service" && $2 != "CronJob" { print $2 }' "${rendered}" | sort -u)"
 
-    if [[ "${deployment_count}" -ne 9 || "${service_count}" -ne 9 || "${cronjob_count}" -ne 1 ]]; then
-      echo "application CD package must render 9 Deployments, 9 Services, and 1 CronJob" >&2
+    if [[ "${deployment_count}" -ne 10 || "${service_count}" -ne 10 || "${cronjob_count}" -ne 1 ]]; then
+      echo "application CD package must render 10 Deployments, 10 Services, and 1 CronJob" >&2
       exit 1
     fi
 

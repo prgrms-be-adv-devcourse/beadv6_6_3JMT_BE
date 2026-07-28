@@ -23,6 +23,7 @@ public record ProductSearchDocument(
 	int reviewCount,
 	double ratingAvg,
 	LocalDateTime firstPublishedAt,
-	LocalDateTime currentVersionAt
+	LocalDateTime currentVersionAt,
+	float[] embedding
 ) {
 }

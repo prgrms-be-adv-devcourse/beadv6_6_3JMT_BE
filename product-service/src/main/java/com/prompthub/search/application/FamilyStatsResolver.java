@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class FamilyStatsResolver {
 
-	public FamilyUpsertInput resolve(List<Product> members, Product representative, double averageRating) {
+	public FamilyUpsertInput resolve(List<Product> members, Product representative, double averageRating, float[] embedding) {
 		List<Product> alive = members.stream()
 			.filter(member -> member.getDeletedAt() == null)
 			.toList();
@@ -32,6 +32,6 @@ public class FamilyStatsResolver {
 			.min(Comparator.naturalOrder())
 			.orElse(representative.getCreatedAt());
 
-		return new FamilyUpsertInput(representative, familySalesCount, familyViewCount, averageRating, firstPublishedAt);
+		return new FamilyUpsertInput(representative, familySalesCount, familyViewCount, averageRating, firstPublishedAt, embedding);
 	}
 }

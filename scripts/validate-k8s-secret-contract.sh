@@ -100,22 +100,22 @@ required_config_keys="$(
 
 has_template_key() {
   local expected="$1"
-  printf '%s\n' "${template_keys}" | grep -Fxq -- "${expected}"
+  grep -Fxq -- "${expected}" <<< "${template_keys}"
 }
 
 has_template_secret_pair() {
   local expected="$1"
-  printf '%s\n' "${template_secret_pairs}" | grep -Fxq -- "${expected}"
+  grep -Fxq -- "${expected}" <<< "${template_secret_pairs}"
 }
 
 has_manifest_secret_pair() {
   local expected="$1"
-  printf '%s\n' "${manifest_secret_pairs}" | grep -Fxq -- "${expected}"
+  grep -Fxq -- "${expected}" <<< "${manifest_secret_pairs}"
 }
 
 is_required_config_key() {
   local key="$1"
-  printf '%s\n' "${required_config_keys}" | grep -Fxq -- "${key}"
+  grep -Fxq -- "${key}" <<< "${required_config_keys}"
 }
 
 is_approved_non_config_key() {

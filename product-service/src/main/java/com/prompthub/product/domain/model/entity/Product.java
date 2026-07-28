@@ -4,6 +4,7 @@ import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.model.vo.ProductContent;
+import com.prompthub.product.domain.model.vo.ProductContentHash;
 import com.prompthub.product.infra.persistence.converter.TagsConverter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
@@ -80,6 +81,15 @@ public class Product {
 
 	@Column(name = "external_url", columnDefinition = "TEXT")
 	private String externalUrl;
+
+	/**
+	 * 복제 판정용 본문 해시(PROMPT 전용). 검수 주체가 같은 값을 가진 타 판매자 상품을 찾는다.
+	 *
+	 * <p>{@code embedding_source_hash}와 다른 값이다 — 그쪽은 "글이 바뀌었나", 이쪽은
+	 * "같은 글이 이미 있나"를 묻는다. {@link ProductContentHash} 주석 참고.
+	 */
+	@Column(name = "content_hash", length = 64)
+	private String contentHash;
 
 	@Column(name = "badge", length = 50)
 	private String badge;
@@ -254,5 +264,9 @@ public class Product {
 		this.fileUrl = productContent.fileUrl();
 		this.externalUrl = productContent.externalUrl();
 		this.tags = productContent.tags();
+		// 여기서 계산해야 create·update(MAJOR)·nextVersion(MAJOR) 세 경로가 모두 덮인다.
+		// submitForReview()에만 두면 뒤의 둘이 새서, 그 경로로 올라온 상품은 검사도 안 받고
+		// 나중에 남이 복제해도 대조에 걸리지 않는다.
+		this.contentHash = ProductContentHash.of(productContent);
 	}
 }

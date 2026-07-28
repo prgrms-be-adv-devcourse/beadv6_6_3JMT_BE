@@ -1,0 +1,33 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+  datasource:
+    url: jdbc:h2:mem:notification-service-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: notification-service-test
+      auto-offset-reset: earliest
+    listener:
+      auto-startup: false
+eureka:
+  client:
+    enabled: false
+
+prompthub:
+  notification:
+    kafka:
+      order-events-topic: order-events-test
+      listener-auto-startup: false
+    redis-pubsub:
+      enabled: false

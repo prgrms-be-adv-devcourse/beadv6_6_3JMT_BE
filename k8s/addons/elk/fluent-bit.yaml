@@ -88,7 +88,6 @@ data:
         Mem_Buf_Limit            10MB
         Skip_Long_Lines          On
         storage.type             filesystem
-        storage.total_limit_size 512M
 
     [FILTER]
         Name                kubernetes
@@ -101,9 +100,40 @@ data:
         Labels              On
         Annotations         Off
 
+    [INPUT]
+        Name                     tail
+        Tag                      kube.application.*
+        Path                     /var/log/containers/*_prompthub_*.log
+        Exclude_Path             /var/log/containers/apigateway-*_prompthub_apigateway-*.log,/var/log/containers/*_prompthub_wait-for-dependencies-*.log,/var/log/containers/*_prompthub_wait-for-platform-*.log
+        multiline.parser         docker, cri
+        DB                       /var/lib/fluent-bit/application.db
+        DB.Sync                  Normal
+        Read_from_Head           Off
+        Refresh_Interval         5
+        Rotate_Wait              30
+        Mem_Buf_Limit            10MB
+        Skip_Long_Lines          On
+        storage.type             filesystem
+
+    [FILTER]
+        Name                kubernetes
+        Match               kube.application.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix     kube.application.var.log.containers.
+        Merge_Log           Off
+        Labels              On
+        Annotations         Off
+
+    [FILTER]
+        Name                grep
+        Match               kube.application.*
+        Regex               $kubernetes['container_name'] ${APPLICATION_LOG_CONTAINER_REGEX}
+
     [OUTPUT]
         Name                http
-        Match               kube.apigateway.*
+        Match               kube.*
         Host                logstash.elk.svc.cluster.local
         Port                8000
         URI                 /
@@ -114,6 +144,7 @@ data:
         HTTP_User           ${LOGSTASH_HTTP_USERNAME}
         HTTP_Passwd         ${LOGSTASH_HTTP_PASSWORD}
         Retry_Limit         False
+        storage.total_limit_size 512M
         workers             1
 ---
 apiVersion: apps/v1
@@ -173,6 +204,8 @@ spec:
                 secretKeyRef:
                   name: logstash-http-credentials
                   key: password
+            - name: APPLICATION_LOG_CONTAINER_REGEX
+              value: ^(user-service|product-service|order-service|payment-service|admin-service|ai-service|settlement-service|notification-service)$
           securityContext:
             runAsUser: 0
             allowPrivilegeEscalation: false

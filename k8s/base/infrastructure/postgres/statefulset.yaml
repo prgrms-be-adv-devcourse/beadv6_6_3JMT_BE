@@ -35,9 +35,11 @@ spec:
       securityContext:
         fsGroup: 70
         fsGroupChangePolicy: OnRootMismatch
+      imagePullSecrets:
+        - name: ghcr-pull-secret
       containers:
         - name: postgres
-          image: postgres:18.4-alpine
+          image: ghcr.io/prgrms-be-adv-devcourse/prompthub-postgres:18.4-alpine-pgvector0.8.5
           imagePullPolicy: IfNotPresent
           args:
             - -c
@@ -89,6 +91,11 @@ spec:
                 secretKeyRef:
                   name: postgres-secret
                   key: SETTLEMENT_SERVICE_PASSWORD
+            - name: NOTIFICATION_SERVICE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: NOTIFICATION_SERVICE_PASSWORD
           resources:
             requests:
               cpu: 300m

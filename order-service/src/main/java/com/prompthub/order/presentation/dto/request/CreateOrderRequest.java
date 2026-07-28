@@ -33,7 +33,6 @@ public record CreateOrderRequest(
 			example = "면접 준비 프롬프트",
 			deprecated = true
 		)
-		@NotBlank(message = "상품 제목은 비어 있을 수 없습니다.")
 		@Size(max = 200, message = "상품 제목은 200자를 초과할 수 없습니다.")
 		String productTitle
 	) {

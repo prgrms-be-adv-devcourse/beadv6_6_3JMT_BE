@@ -26,13 +26,20 @@ public class ProductSearchQueryBuilder {
 
 	private static final List<String> MATCH_FIELDS = List.of("name^3", "tags.text^2", "description^1.5", "content");
 	private static final String ALL_PRODUCT_TYPES = "all";
-	private static final String SORT_POPULAR = "popular";
+	static final String SORT_POPULAR = "popular";
 	private static final String SORT_RATING = "rating";
 	private static final String SORT_PRICE_ASC = "price-asc";
 
 	private final SearchRankingProperties rankingProperties;
 
 	public SearchRequest build(String keyword, String productType, String sort, Pageable pageable) {
+		return build(keyword, productType, sort, (int) pageable.getOffset(), pageable.getPageSize());
+	}
+
+	/**
+	 * 하이브리드 검색은 페이지가 아니라 병합용 창(상위 N건)을 받아야 해서 from·size를 직접 받는다.
+	 */
+	public SearchRequest build(String keyword, String productType, String sort, int from, int size) {
 		Query query = buildQuery(keyword, productType, sort);
 		List<SortOptions> sortOptions = buildSort(sort);
 
@@ -40,8 +47,8 @@ public class ProductSearchQueryBuilder {
 			.index(ProductIndexBootstrap.ALIAS)
 			.query(query)
 			.sort(sortOptions)
-			.from((int) pageable.getOffset())
-			.size(pageable.getPageSize())
+			.from(from)
+			.size(size)
 			.trackTotalHits(t -> t.enabled(true)));
 	}
 
@@ -65,11 +72,41 @@ public class ProductSearchQueryBuilder {
 			.size(limit));
 	}
 
-	Query buildQuery(String keyword, String productType, String sort) {
+	/**
+	 * 의미 기반 레그 요청을 구성한다. 글자 기반 레그와 <b>같은 필터</b>를 걸어야 한다 —
+	 * 두 레그의 대상 집합이 다르면 병합 결과에 필터 밖 문서가 섞인다.
+	 *
+	 * <p>정렬을 걸지 않는다. kNN은 유사도 순으로 돌아오고 그 순서 자체가 이 레그의 순위다.
+	 */
+	public SearchRequest buildKnn(float[] queryVector, String productType, int size) {
+		List<Float> vector = new ArrayList<>(queryVector.length);
+		for (float value : queryVector) {
+			vector.add(value);
+		}
+		List<Query> filters = buildFilters(productType);
+
+		return SearchRequest.of(s -> s
+			.index(ProductIndexBootstrap.ALIAS)
+			.knn(k -> k
+				.field("embedding")
+				.queryVector(vector)
+				.k(size)
+				// 후보를 넉넉히 훑어야 근사 탐색(HNSW)이 상위 k를 놓치지 않는다.
+				.numCandidates(size * 2)
+				.filter(filters))
+			.size(size));
+	}
+
+	private List<Query> buildFilters(String productType) {
 		List<Query> filters = new ArrayList<>();
 		if (productType != null && !ALL_PRODUCT_TYPES.equals(productType)) {
 			filters.add(Query.of(q -> q.term(t -> t.field("productType").value(productType))));
 		}
+		return filters;
+	}
+
+	Query buildQuery(String keyword, String productType, String sort) {
+		List<Query> filters = buildFilters(productType);
 
 		Query base = (keyword == null || keyword.isBlank())
 			? Query.of(q -> q.matchAll(m -> m))

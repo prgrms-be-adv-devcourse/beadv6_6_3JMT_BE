@@ -13,15 +13,19 @@ on:
         required: false
         type: string
         default: Dockerfile
-      ecr-repository:
+      ghcr-repository:
         required: false
         type: string
         default: ''
-      aws-region:
+      image-tag:
         required: false
         type: string
-        default: ap-northeast-2
+        default: ''
       push-image:
+        required: false
+        type: boolean
+        default: false
+      publish-latest:
         required: false
         type: boolean
         default: false
@@ -29,6 +33,12 @@ on:
       image_uri:
         description: Built Docker image URI or local image tag
         value: ${{ jobs.docker_build.outputs.image_uri }}
+      image_digest:
+        description: Pushed Docker image digest
+        value: ${{ jobs.docker_build.outputs.image_digest }}
+      immutable_ref:
+        description: Immutable Docker image reference
+        value: ${{ jobs.docker_build.outputs.immutable_ref }}
 
 jobs:
   docker_build:
@@ -41,6 +51,8 @@ jobs:
 
     outputs:
       image_uri: ${{ steps.image.outputs.image_uri }}
+      image_digest: ${{ steps.metadata.outputs.image_digest }}
+      immutable_ref: ${{ steps.metadata.outputs.immutable_ref }}
 
     steps:
       - name: Checkout code
@@ -60,35 +72,91 @@ jobs:
       - name: Set image tag
         id: image
         shell: bash
+        env:
+          GHCR_REPOSITORY: ${{ inputs.ghcr-repository }}
+          IMAGE_TAG_INPUT: ${{ inputs.image-tag }}
+          MODULE_NAME: ${{ inputs.module-name }}
+          PUBLISH_LATEST: ${{ inputs.publish-latest }}
+          PUSH_IMAGE: ${{ inputs.push-image }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
-          SHORT_SHA="${GITHUB_SHA::7}"
+          image_tag="${IMAGE_TAG_INPUT:-${GITHUB_SHA}}"
 
-          if [ "${{ inputs.push-image }}" = "true" ]; then
-            if [ -z "${{ inputs.ecr-repository }}" ]; then
-              echo "ecr-repository is required when push-image is true"
+          if [ "$PUSH_IMAGE" = "true" ]; then
+            if [ -z "$GHCR_REPOSITORY" ]; then
+              echo "ghcr-repository is required when push-image is true"
               exit 1
             fi
 
-            OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-            IMAGE_URI="ghcr.io/${OWNER_LC}/${{ inputs.ecr-repository }}:${SHORT_SHA}"
+            owner_lc="$(echo "$REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
+            repository="ghcr.io/${owner_lc}/${GHCR_REPOSITORY}"
+            image_uri="${repository}:${image_tag}"
           else
-            IMAGE_URI="${{ inputs.module-name }}:${SHORT_SHA}"
+            repository="$MODULE_NAME"
+            image_uri="${repository}:${image_tag}"
           fi
 
-          echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
-          echo "IMAGE_URI=${IMAGE_URI}"
+          {
+            echo "image_uri=${image_uri}"
+            echo "tags<<EOF"
+            echo "$image_uri"
+            if [ "$PUSH_IMAGE" = "true" ] && [ "$PUBLISH_LATEST" = "true" ]; then
+              echo "${repository}:latest"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "IMAGE_URI=${image_uri}"
 
       - name: Build Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./${{ inputs.dockerfile-path }}
           push: ${{ inputs.push-image }}
-          tags: |
-            ${{ steps.image.outputs.image_uri }}
-            ghcr.io/${{ github.repository_owner }}/${{ inputs.ecr-repository }}:latest
+          tags: ${{ steps.image.outputs.tags }}
           build-args: |
             MODULE_NAME=${{ inputs.module-name }}
             MODULE_PATH=${{ inputs.module-path }}
           cache-from: type=gha,scope=${{ inputs.module-name }}
           cache-to: type=gha,mode=max,scope=${{ inputs.module-name }}
+
+      - name: Create immutable image metadata
+        id: metadata
+        if: inputs.push-image == true
+        shell: bash
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE_URI: ${{ steps.image.outputs.image_uri }}
+          MODULE_NAME: ${{ inputs.module-name }}
+        run: |
+          if [[ ! "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Invalid image digest: $IMAGE_DIGEST"
+            exit 1
+          fi
+
+          repository="${IMAGE_URI%:*}"
+          immutable_ref="${repository}@${IMAGE_DIGEST}"
+          metadata_file="${RUNNER_TEMP}/${MODULE_NAME}.json"
+
+          jq -n -c \
+            --arg service "$MODULE_NAME" \
+            --arg imageUri "$IMAGE_URI" \
+            --arg digest "$IMAGE_DIGEST" \
+            --arg immutableRef "$immutable_ref" \
+            '{service: $service, imageUri: $imageUri, digest: $digest, immutableRef: $immutableRef}' \
+            > "$metadata_file"
+
+          {
+            echo "image_digest=${IMAGE_DIGEST}"
+            echo "immutable_ref=${immutable_ref}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload immutable image metadata
+        if: inputs.push-image == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-metadata-${{ inputs.module-name }}
+          path: ${{ runner.temp }}/${{ inputs.module-name }}.json
+          retention-days: 1
