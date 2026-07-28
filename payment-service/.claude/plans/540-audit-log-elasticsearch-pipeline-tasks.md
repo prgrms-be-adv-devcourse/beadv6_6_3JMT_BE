@@ -1320,13 +1320,13 @@ git commit -m "chore: payment-audit-log ELK 부트스트랩 Job 배포 단계 �
 
 ---
 
-### Task 9: 문서 갱신
+### Task 9: 문서 갱신 ✅
 
 **Files:**
 - Modify: `payment-service/.claude/docs/db-schema.md`
 - Modify: `payment-service/.claude/docs/events.md`
 
-- [ ] **Step 1: db-schema.md의 audit_log 섹션에 ES 파이프라인 한 줄 추가**
+- [x] **Step 1: db-schema.md의 audit_log 섹션에 ES 파이프라인 한 줄 추가**
 
 `## audit_log 테이블` 섹션의 첫 문단(“결제·환불의 시도/종결 상태 전이... 저장까지만 구현됨.”) 바로 뒤에 문단 추가:
 
@@ -1334,7 +1334,7 @@ git commit -m "chore: payment-audit-log ELK 부트스트랩 Job 배포 단계 �
 이 테이블 데이터는 Kafka(`payment-audit-log` 토픽, 실시간)와 Logstash `http_poller`(`/internal/audit-logs`, 5분 간격 재조정)를 통해 Elasticsearch(`payment-audit-log-*` 인덱스)로 미러링된다(#540). Postgres가 유일한 source of truth이고 ES는 Kibana 검색 전용 미러다.
 ```
 
-- [ ] **Step 2: events.md에 내부 전용 토픽 섹션 추가**
+- [x] **Step 2: events.md에 내부 전용 토픽 섹션 추가**
 
 기존 "발행/소비 매트릭스" 섹션 뒤에 새 절 추가:
 
@@ -1346,7 +1346,7 @@ git commit -m "chore: payment-audit-log ELK 부트스트랩 Job 배포 단계 �
 | `payment-audit-log` | payment-service(`AuditLogKafkaPublisher`) | Logstash(ELK, k8s/addons/elk) | 감사로그를 Elasticsearch로 실시간 미러링(#540). 타 서비스는 이 토픽을 구독하지 않는다 — 외부 서비스 계약(`payment-events`)과 분리된 내부 전용 채널. |
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add payment-service/.claude/docs/db-schema.md payment-service/.claude/docs/events.md
