@@ -5,6 +5,7 @@ import com.prompthub.settlement.domain.model.enums.OutboxEventStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementBatchStatus;
 import com.prompthub.settlement.domain.repository.OutboxEventRepository;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -60,14 +61,25 @@ public class OutboxEventRepositoryAdapter implements OutboxEventRepository {
                 ? jpaRepository.findPendingByBatchId(
                         settlementBatchId,
                         OutboxEventStatus.PENDING,
+                        SettlementBatchStatus.COMPLETED,
                         PageRequest.of(0, limit))
                 : jpaRepository.findPendingByBatchIdAfterCursor(
                         settlementBatchId,
                         OutboxEventStatus.PENDING,
+                        SettlementBatchStatus.COMPLETED,
                         cursorOccurredAt,
                         cursorEventId,
                         PageRequest.of(0, limit));
         return toCandidates(events);
+    }
+
+    @Override
+    public void deletePendingBySettlementIds(Collection<UUID> settlementIds) {
+        if (settlementIds.isEmpty()) {
+            return;
+        }
+        jpaRepository.deleteBySettlementIdsAndStatus(
+                settlementIds, OutboxEventStatus.PENDING);
     }
 
     private List<OutboxCandidate> toCandidates(List<SettlementOutboxEvent> events) {
