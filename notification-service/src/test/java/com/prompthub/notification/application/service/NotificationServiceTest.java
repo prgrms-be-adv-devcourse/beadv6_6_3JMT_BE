@@ -8,6 +8,8 @@ import com.prompthub.notification.domain.enums.NotificationCategory;
 import com.prompthub.notification.domain.enums.NotificationType;
 import com.prompthub.notification.domain.model.Notification;
 import com.prompthub.notification.domain.repository.NotificationRepository;
+import com.prompthub.notification.global.exception.NotificationCustomException;
+import com.prompthub.notification.global.exception.NotificationErrorCode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,10 +22,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
@@ -59,6 +64,52 @@ class NotificationServiceTest {
         then(eventPublisher).should().publishEvent(argThat((Object event) ->
             event instanceof NotificationCreatedEvent created && created.recipientId().equals(RECIPIENT_ID)
         ));
+    }
+
+    @Test
+    void deleteNotification_ownedActiveNotificationDeletesEntityOnly() {
+        UUID notificationId = UUID.randomUUID();
+        Notification notification = org.mockito.Mockito.mock(Notification.class);
+        given(notificationRepository.findByIdAndRecipientIdAndExpiresAtAfter(
+            eq(notificationId),
+            eq(RECIPIENT_ID),
+            any(Instant.class)
+        )).willReturn(Optional.of(notification));
+
+        service.deleteNotification(RECIPIENT_ID, notificationId);
+
+        then(notificationRepository).should().delete(notification);
+        then(eventPublisher).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void deleteNotification_missingOwnedActiveNotificationThrowsN001() {
+        UUID notificationId = UUID.randomUUID();
+        given(notificationRepository.findByIdAndRecipientIdAndExpiresAtAfter(
+            eq(notificationId),
+            eq(RECIPIENT_ID),
+            any(Instant.class)
+        )).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.deleteNotification(RECIPIENT_ID, notificationId))
+            .isInstanceOf(NotificationCustomException.class)
+            .hasFieldOrPropertyWithValue(
+                "errorCode",
+                NotificationErrorCode.NOTIFICATION_NOT_FOUND
+            );
+
+        then(notificationRepository).should(never()).delete(any());
+    }
+
+    @Test
+    void deleteAllNotifications_delegatesOneActiveOnlyBulkDelete() {
+        service.deleteAllNotifications(RECIPIENT_ID);
+
+        then(notificationRepository).should().deleteAllActiveByRecipientId(
+            eq(RECIPIENT_ID),
+            any(Instant.class)
+        );
+        then(eventPublisher).shouldHaveNoInteractions();
     }
 
     private CreateNotificationCommand command(NotificationCategory category) {

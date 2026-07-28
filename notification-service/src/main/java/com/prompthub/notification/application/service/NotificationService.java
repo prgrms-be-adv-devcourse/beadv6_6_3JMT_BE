@@ -71,6 +71,19 @@ public class NotificationService implements NotificationUseCase {
 
     @Override
     @Transactional
+    public void deleteNotification(UUID recipientId, UUID notificationId) {
+        Notification notification = findOwnedActiveNotification(recipientId, notificationId);
+        notificationRepository.delete(notification);
+    }
+
+    @Override
+    @Transactional
+    public void deleteAllNotifications(UUID recipientId) {
+        notificationRepository.deleteAllActiveByRecipientId(recipientId, Instant.now());
+    }
+
+    @Override
+    @Transactional
     public Optional<NotificationResponse> createNotification(CreateNotificationCommand command) {
         if (!notificationSettingUseCase.canReceive(command.recipientId(), command.category())) {
             return Optional.empty();
