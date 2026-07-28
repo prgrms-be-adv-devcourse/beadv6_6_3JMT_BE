@@ -19,13 +19,13 @@ public class SettlementJobConfig {
 
 	@Bean
 	public Job settlementJob(
+		SettlementBatchStateJobExecutionListener settlementBatchStateJobExecutionListener,
+		Step createSettlementBatchStep,
 		Step retryPendingOutboxStep,
 		Step loadSettlementSourceStep,
-		Step createSettlementBatchStep,
 		Step settlementStep,
 		Step completeSettlementBatchStep,
-		Step flushCurrentBatchOutboxStep,
-		SettlementBatchStateJobExecutionListener settlementBatchStateJobExecutionListener
+		Step flushCurrentBatchOutboxStep
 	) {
 		return new JobBuilder(SETTLEMENT_JOB_NAME, jobRepository)
 			.listener(settlementBatchStateJobExecutionListener)

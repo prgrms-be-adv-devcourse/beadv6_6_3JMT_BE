@@ -22,13 +22,13 @@ class OutboxJobConfigTest {
 
         // when
         Job job = config.settlementJob(
+                mock(SettlementBatchStateJobExecutionListener.class),
+                step("createSettlementBatchStep"),
                 step("retryPendingOutboxStep"),
                 step("loadSettlementSourceStep"),
-                step("createSettlementBatchStep"),
                 step("settlementStep"),
                 step("completeSettlementBatchStep"),
-                step("flushCurrentBatchOutboxStep"),
-                mock(SettlementBatchStateJobExecutionListener.class));
+                step("flushCurrentBatchOutboxStep"));
 
         // then
         assertThat(((AbstractJob) job).getStepNames()).containsExactly(

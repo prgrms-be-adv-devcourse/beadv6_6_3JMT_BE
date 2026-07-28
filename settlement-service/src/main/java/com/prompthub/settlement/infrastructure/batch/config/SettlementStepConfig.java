@@ -40,6 +40,13 @@ public class SettlementStepConfig {
 	}
 
 	@Bean
+	public Step createSettlementBatchStep(CreateSettlementBatchTasklet createSettlementBatchTasklet) {
+		return new StepBuilder("createSettlementBatchStep", jobRepository)
+			.tasklet(createSettlementBatchTasklet, transactionManager)
+			.build();
+	}
+
+	@Bean
 	public Step retryPendingOutboxStep(RetryPendingOutboxTasklet retryPendingOutboxTasklet) {
 		return new StepBuilder("retryPendingOutboxStep", jobRepository)
 			.tasklet(retryPendingOutboxTasklet, transactionManager)
@@ -50,13 +57,6 @@ public class SettlementStepConfig {
 	public Step loadSettlementSourceStep(LoadSettlementSourceTasklet loadSettlementSourceTasklet) {
 		return new StepBuilder("loadSettlementSourceStep", jobRepository)
 			.tasklet(loadSettlementSourceTasklet, transactionManager)
-			.build();
-	}
-
-	@Bean
-	public Step createSettlementBatchStep(CreateSettlementBatchTasklet createSettlementBatchTasklet) {
-		return new StepBuilder("createSettlementBatchStep", jobRepository)
-			.tasklet(createSettlementBatchTasklet, transactionManager)
 			.build();
 	}
 
