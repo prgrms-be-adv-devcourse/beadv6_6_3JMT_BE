@@ -1,16 +1,16 @@
 package com.prompthub.settlement.infrastructure.batch.config;
 
 import com.prompthub.settlement.domain.model.Settlement;
-import com.prompthub.settlement.infrastructure.batch.model.SettlementTarget;
-import com.prompthub.settlement.infrastructure.batch.processor.SettlementProcessor;
-import com.prompthub.settlement.infrastructure.batch.reader.SettlementTargetReader;
+import com.prompthub.settlement.infrastructure.batch.settlement.SettlementProcessor;
+import com.prompthub.settlement.infrastructure.batch.settlement.SettlementTarget;
+import com.prompthub.settlement.infrastructure.batch.settlement.SettlementTargetReader;
+import com.prompthub.settlement.infrastructure.batch.settlement.SettlementWriter;
 import com.prompthub.settlement.infrastructure.batch.tasklet.CompleteSettlementBatchTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.CreateSettlementBatchTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.FlushCurrentBatchOutboxTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.LoadSettlementSourceTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.RedriveOutboxTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.RetryPendingOutboxTasklet;
-import com.prompthub.settlement.infrastructure.batch.writer.SettlementWriter;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;

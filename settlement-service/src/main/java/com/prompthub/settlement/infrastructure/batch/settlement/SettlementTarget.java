@@ -1,4 +1,4 @@
-package com.prompthub.settlement.infrastructure.batch.model;
+package com.prompthub.settlement.infrastructure.batch.settlement;
 
 import com.prompthub.settlement.domain.model.SettlementPeriod;
 import java.util.UUID;

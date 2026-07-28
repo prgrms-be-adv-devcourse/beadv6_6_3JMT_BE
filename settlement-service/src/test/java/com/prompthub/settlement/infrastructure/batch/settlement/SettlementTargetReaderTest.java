@@ -1,4 +1,4 @@
-package com.prompthub.settlement.infrastructure.batch.reader;
+package com.prompthub.settlement.infrastructure.batch.settlement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
@@ -7,7 +7,6 @@ import static org.mockito.Mockito.mock;
 
 import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
-import com.prompthub.settlement.infrastructure.batch.model.SettlementTarget;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;

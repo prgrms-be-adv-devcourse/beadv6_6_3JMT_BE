@@ -1,9 +1,8 @@
-package com.prompthub.settlement.infrastructure.batch.processor;
+package com.prompthub.settlement.infrastructure.batch.settlement;
 
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
 import com.prompthub.settlement.application.usecase.CalculateSettlementUseCase;
 import com.prompthub.settlement.domain.model.Settlement;
-import com.prompthub.settlement.infrastructure.batch.model.SettlementTarget;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.infrastructure.item.ItemProcessor;
 import org.springframework.stereotype.Component;

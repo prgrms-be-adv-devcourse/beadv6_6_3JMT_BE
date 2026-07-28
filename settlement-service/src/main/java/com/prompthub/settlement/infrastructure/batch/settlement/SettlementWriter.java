@@ -1,4 +1,4 @@
-package com.prompthub.settlement.infrastructure.batch.writer;
+package com.prompthub.settlement.infrastructure.batch.settlement;
 
 import com.prompthub.settlement.domain.model.Settlement;
 import lombok.extern.slf4j.Slf4j;
