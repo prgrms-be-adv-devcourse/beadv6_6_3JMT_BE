@@ -56,6 +56,9 @@ jobs:
               - ai-service/src/**
               - ai-service/build.gradle
               - grpc/user/**
+            notification_service:
+              - notification-service/src/**
+              - notification-service/build.gradle
             product_service:
               - product-service/src/**
               - product-service/build.gradle
@@ -92,6 +95,8 @@ jobs:
               - config/src/main/resources/configs/payment-service.yml
             config_admin:
               - config/src/main/resources/configs/admin-service.yml
+            config_notification:
+              - config/src/main/resources/configs/notification-service.yml
             config_shared:
               - config/src/main/java/**
               - config/src/main/resources/application.yml
@@ -126,6 +131,8 @@ jobs:
               - k8s/base/services/admin/**
             manifest_ai:
               - k8s/base/services/ai/**
+            manifest_notification:
+              - k8s/base/services/notification/**
             manifest_apigateway:
               - k8s/base/gateway/**
             manifest_all:
@@ -149,6 +156,7 @@ jobs:
         env:
           USER_SERVICE_CHANGED: ${{ steps.changed.outputs.user_service_any_changed }}
           AI_SERVICE_CHANGED: ${{ steps.changed.outputs.ai_service_any_changed }}
+          NOTIFICATION_SERVICE_CHANGED: ${{ steps.changed.outputs.notification_service_any_changed }}
           PRODUCT_SERVICE_CHANGED: ${{ steps.changed.outputs.product_service_any_changed }}
           ORDER_SERVICE_CHANGED: ${{ steps.changed.outputs.order_service_any_changed }}
           PAYMENT_SERVICE_CHANGED: ${{ steps.changed.outputs.payment_service_any_changed }}
@@ -167,6 +175,7 @@ jobs:
           SETTLEMENT_MANIFEST_CHANGED: ${{ steps.changed.outputs.manifest_settlement_any_changed }}
           ADMIN_MANIFEST_CHANGED: ${{ steps.changed.outputs.manifest_admin_any_changed }}
           AI_MANIFEST_CHANGED: ${{ steps.changed.outputs.manifest_ai_any_changed }}
+          NOTIFICATION_MANIFEST_CHANGED: ${{ steps.changed.outputs.manifest_notification_any_changed }}
           APIGATEWAY_MANIFEST_CHANGED: ${{ steps.changed.outputs.manifest_apigateway_any_changed }}
           ALL_APPLICATION_MANIFESTS_CHANGED: ${{ steps.changed.outputs.manifest_all_any_changed }}
           USER_CONFIG_CHANGED: ${{ steps.changed.outputs.config_user_any_changed }}
@@ -175,6 +184,7 @@ jobs:
           PAYMENT_CONFIG_CHANGED: ${{ steps.changed.outputs.config_payment_any_changed }}
           ADMIN_CONFIG_CHANGED: ${{ steps.changed.outputs.config_admin_any_changed }}
           AI_CONFIG_CHANGED: ${{ steps.changed.outputs.config_ai_any_changed }}
+          NOTIFICATION_CONFIG_CHANGED: ${{ steps.changed.outputs.config_notification_any_changed }}
           SHARED_CONFIG_CHANGED: ${{ steps.changed.outputs.config_shared_any_changed }}
           PIPELINE_CHANGED: ${{ steps.changed.outputs.pipeline_any_changed }}
           MANUAL_CONFIRMATION: ${{ inputs.confirmation || '' }}

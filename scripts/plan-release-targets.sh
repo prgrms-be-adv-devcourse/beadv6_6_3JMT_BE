@@ -14,6 +14,7 @@ release_order=(
   settlement-service
   admin-service
   ai-service
+  notification-service
   apigateway
 )
 
@@ -32,7 +33,7 @@ append_service() {
 
 require_service() {
   case "$1" in
-    config|discovery|user-service|product-service|order-service|payment-service|settlement-service|admin-service|ai-service|apigateway)
+    config|discovery|user-service|product-service|order-service|payment-service|settlement-service|admin-service|ai-service|notification-service|apigateway)
       ;;
     *)
       echo "허용되지 않은 Release 서비스: $1" >&2
@@ -123,6 +124,13 @@ if [ "$manual_requested" = "true" ]; then
   test_services="$(parse_manual_services "${MANUAL_RELEASE_SERVICES:-}")"
   image_services="$test_services"
   manifest_services="$(parse_manual_services "${MANUAL_MANIFEST_SERVICES:-}")"
+
+  if [[ " ${manifest_services} " == *" notification-service "* ]] \
+    && [[ " ${image_services} " != *" notification-service "* ]]; then
+    # The notification-service manifest has no previously published base image.
+    # A manifest-only manual release must build it and inject that digest first.
+    add_image_target notification-service
+  fi
 else
   if is_true "${SHARED_BUILD_CHANGED:-false}"; then
     for service in "${release_order[@]}"; do
@@ -138,6 +146,7 @@ else
     is_true "${SETTLEMENT_SERVICE_CHANGED:-false}" && add_image_target settlement-service
     is_true "${ADMIN_SERVICE_CHANGED:-false}" && add_image_target admin-service
     is_true "${AI_SERVICE_CHANGED:-false}" && add_image_target ai-service
+    is_true "${NOTIFICATION_SERVICE_CHANGED:-false}" && add_image_target notification-service
     is_true "${APIGATEWAY_CHANGED:-false}" && add_image_target apigateway
   fi
 
@@ -150,6 +159,13 @@ else
   is_true "${SETTLEMENT_MANIFEST_CHANGED:-false}" && add_manifest_target settlement-service
   is_true "${ADMIN_MANIFEST_CHANGED:-false}" && add_manifest_target admin-service
   is_true "${AI_MANIFEST_CHANGED:-false}" && add_manifest_target ai-service
+  if is_true "${NOTIFICATION_MANIFEST_CHANGED:-false}"; then
+    # notification-service has no previously published base image. Publish its
+    # image whenever its manifest is introduced or changed so CD injects the
+    # release digest instead of applying the bootstrap reference.
+    add_image_target notification-service
+    add_manifest_target notification-service
+  fi
   is_true "${APIGATEWAY_MANIFEST_CHANGED:-false}" && add_manifest_target apigateway
 
   if is_true "${ALL_APPLICATION_MANIFESTS_CHANGED:-false}"; then
@@ -163,9 +179,10 @@ else
   is_true "${PAYMENT_CONFIG_CHANGED:-false}" && add_config_consumer payment-service
   is_true "${ADMIN_CONFIG_CHANGED:-false}" && add_config_consumer admin-service
   is_true "${AI_CONFIG_CHANGED:-false}" && add_config_consumer ai-service
+  is_true "${NOTIFICATION_CONFIG_CHANGED:-false}" && add_config_consumer notification-service
 
   if is_true "${SHARED_CONFIG_CHANGED:-false}"; then
-    for service in user-service product-service order-service payment-service admin-service ai-service apigateway; do
+    for service in user-service product-service order-service payment-service admin-service ai-service notification-service apigateway; do
       add_config_consumer "$service"
     done
   fi
