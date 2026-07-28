@@ -16,14 +16,18 @@ class SettlementDetailTest {
     @Test
     @DisplayName("판매 상세는 수수료와 실정산액을 계산한다")
     void sale_calculatesFeeAndSettlementAmount() {
+        UUID sourceLineId = UUID.randomUUID();
+
         // when
         SettlementDetail detail = SettlementDetail.sale(
+                sourceLineId,
                 UUID.randomUUID(),
                 new BigDecimal("100.00"),
                 new BigDecimal("0.15"),
                 OCCURRED_AT);
 
         // then
+        assertThat(detail.getSettlementSourceLineId()).isEqualTo(sourceLineId);
         assertThat(detail.getFeeAmount()).isEqualByComparingTo("15.00");
         assertThat(detail.getLineSettlementAmount()).isEqualByComparingTo("85.00");
         assertThat(detail.getLineAmount()).isEqualByComparingTo("100.00");
@@ -35,6 +39,7 @@ class SettlementDetailTest {
         // given 10.00 * 0.1525 = 1.525000 -> HALF_UP scale 2 = 1.53
         // when
         SettlementDetail detail = SettlementDetail.sale(
+                UUID.randomUUID(),
                 UUID.randomUUID(),
                 new BigDecimal("10.00"),
                 new BigDecimal("0.1525"),
@@ -51,6 +56,7 @@ class SettlementDetailTest {
         // when
         SettlementDetail detail = SettlementDetail.sale(
                 UUID.randomUUID(),
+                UUID.randomUUID(),
                 new BigDecimal("50.00"),
                 new BigDecimal("0.15"),
                 OCCURRED_AT);
@@ -66,6 +72,7 @@ class SettlementDetailTest {
         // given 거래 금액은 양수로 들어오고, 환불은 정산에서 빠져야 한다
         // when
         SettlementDetail detail = SettlementDetail.refund(
+                UUID.randomUUID(),
                 UUID.randomUUID(),
                 new BigDecimal("100.00"),
                 new BigDecimal("0.15"),
