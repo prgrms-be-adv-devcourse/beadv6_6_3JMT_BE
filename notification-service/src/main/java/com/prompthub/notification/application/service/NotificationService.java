@@ -9,6 +9,7 @@ import com.prompthub.notification.application.dto.NotificationReplayResult;
 import com.prompthub.notification.application.dto.NotificationSseEvent;
 import com.prompthub.notification.application.dto.NotificationSsePayload;
 import com.prompthub.notification.application.event.NotificationCreatedEvent;
+import com.prompthub.notification.application.usecase.NotificationSettingUseCase;
 import com.prompthub.notification.application.usecase.NotificationUseCase;
 import com.prompthub.notification.domain.enums.NotificationCategory;
 import com.prompthub.notification.domain.model.Notification;
@@ -24,8 +25,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.UUID;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +35,7 @@ public class NotificationService implements NotificationUseCase {
 
     private final NotificationRepository notificationRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final NotificationSettingUseCase notificationSettingUseCase;
 
     @Override
     @Transactional(readOnly = true)
@@ -68,12 +71,28 @@ public class NotificationService implements NotificationUseCase {
 
     @Override
     @Transactional
-    public NotificationResponse createNotification(CreateNotificationCommand command) {
+    public void deleteNotification(UUID recipientId, UUID notificationId) {
+        Notification notification = findOwnedActiveNotification(recipientId, notificationId);
+        notificationRepository.delete(notification);
+    }
+
+    @Override
+    @Transactional
+    public void deleteAllNotifications(UUID recipientId) {
+        notificationRepository.deleteAllActiveByRecipientId(recipientId, Instant.now());
+    }
+
+    @Override
+    @Transactional
+    public Optional<NotificationResponse> createNotification(CreateNotificationCommand command) {
+        if (!notificationSettingUseCase.canReceive(command.recipientId(), command.category())) {
+            return Optional.empty();
+        }
         Notification notification = Notification.create(command.recipientId(), command.type(), command.category(), command.title(),
             command.content(), command.linkUrl(), command.referenceType(), command.referenceId(), command.occurredAt(), command.deduplicationKey());
         Notification saved = notificationRepository.save(notification);
         eventPublisher.publishEvent(new NotificationCreatedEvent(saved.getId(), saved.getRecipientId()));
-        return NotificationResponse.from(saved);
+        return Optional.of(NotificationResponse.from(saved));
     }
 
     @Override
