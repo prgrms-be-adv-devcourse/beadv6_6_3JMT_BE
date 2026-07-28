@@ -38,7 +38,8 @@ class ProductInspectionServiceTest {
 	@Test
 	@DisplayName("AI가 승인하면 approved=true, 사유 없이 이벤트를 발행한다")
 	void inspect_approved_publishesApprovedEvent() {
-		given(aiPort.inspect(any())).willReturn(new InspectionVerdict(true, null));
+		given(aiPort.inspect(any())).willReturn(
+			new InspectionVerdict(true, null, false, false, false, false, false, false, false));
 
 		productInspectionService.inspect(request());
 
@@ -48,7 +49,8 @@ class ProductInspectionServiceTest {
 	@Test
 	@DisplayName("AI가 반려하면 approved=false, 사유와 함께 이벤트를 발행한다")
 	void inspect_rejected_publishesRejectedEventWithReason() {
-		given(aiPort.inspect(any())).willReturn(new InspectionVerdict(false, "금지 콘텐츠 포함"));
+		given(aiPort.inspect(any())).willReturn(
+			new InspectionVerdict(false, "금지 콘텐츠 포함", false, false, false, false, false, false, false));
 
 		productInspectionService.inspect(request());
 

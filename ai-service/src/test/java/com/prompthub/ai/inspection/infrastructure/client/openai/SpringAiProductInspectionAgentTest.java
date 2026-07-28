@@ -32,7 +32,9 @@ class SpringAiProductInspectionAgentTest {
 	void inspect_withImages_attachesMedia() {
 		ChatModel chatModel = mock(ChatModel.class);
 		given(chatModel.call(any(Prompt.class))).willReturn(textResponse(
-			"{\"approved\":true,\"rejectionReason\":null}"));
+			"{\"approved\":true,\"rejectionReason\":null,"
+				+ "\"hasContext\":true,\"hasObjective\":true,\"hasNuance\":false,"
+				+ "\"hasTone\":false,\"hasExamples\":true,\"hasExecution\":false,\"hasRoleAssignment\":true}"));
 		SpringAiProductInspectionAgent agent = new SpringAiProductInspectionAgent(
 			chatModel, new InspectionPromptFactory(), properties());
 
@@ -40,6 +42,13 @@ class SpringAiProductInspectionAgentTest {
 
 		assertThat(verdict.approved()).isTrue();
 		assertThat(verdict.rejectionReason()).isNull();
+		assertThat(verdict.hasContext()).isTrue();
+		assertThat(verdict.hasObjective()).isTrue();
+		assertThat(verdict.hasNuance()).isFalse();
+		assertThat(verdict.hasTone()).isFalse();
+		assertThat(verdict.hasExamples()).isTrue();
+		assertThat(verdict.hasExecution()).isFalse();
+		assertThat(verdict.hasRoleAssignment()).isTrue();
 		ArgumentCaptor<Prompt> captor = ArgumentCaptor.forClass(Prompt.class);
 		verify(chatModel).call(captor.capture());
 		UserMessage userMessage = (UserMessage) captor.getValue().getInstructions().stream()
@@ -55,7 +64,9 @@ class SpringAiProductInspectionAgentTest {
 	void inspect_rejected_parsesReason() {
 		ChatModel chatModel = mock(ChatModel.class);
 		given(chatModel.call(any(Prompt.class))).willReturn(textResponse(
-			"{\"approved\":false,\"rejectionReason\":\"금지 콘텐츠 포함\"}"));
+			"{\"approved\":false,\"rejectionReason\":\"금지 콘텐츠 포함\","
+				+ "\"hasContext\":false,\"hasObjective\":false,\"hasNuance\":false,"
+				+ "\"hasTone\":false,\"hasExamples\":false,\"hasExecution\":false,\"hasRoleAssignment\":false}"));
 		SpringAiProductInspectionAgent agent = new SpringAiProductInspectionAgent(
 			chatModel, new InspectionPromptFactory(), properties());
 
@@ -63,6 +74,7 @@ class SpringAiProductInspectionAgentTest {
 
 		assertThat(verdict.approved()).isFalse();
 		assertThat(verdict.rejectionReason()).isEqualTo("금지 콘텐츠 포함");
+		assertThat(verdict.hasContext()).isFalse();
 	}
 
 	@Test
