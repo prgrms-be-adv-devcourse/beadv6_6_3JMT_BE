@@ -147,7 +147,7 @@
 - `@KafkaListener`·`KafkaTemplate`·`@GrpcService`·`BlockingStub`·`@ImportGrpcClients`·proto 모두 없음.
 - `SettlementApplicationService` 는 `SettlementRepository`·`SettlementQueryRepository`·`SettlementSourceRepository`(JPA)만 의존 — 외부 client/messaging import 없음.
 - 어드민 정산은 정산 테이블을 **JPA read-side 로 직접 조회**한다. 정산 본체의 발행 이벤트를 구독하지도, gRPC 로 조회하지도 않는다. 데이터 동기화는 DB 스키마에 의존한다.
-- 결정 배경: `../trade-offs/admin-data-access.md`. (어드민이 gRPC 가 아니라 DB 를 직접 보는 이유 — 스키마가 사실상 계약이다.)
+- 결정 배경: `../../trade-offs/settlement/admin-data-access.md`. (어드민이 gRPC 가 아니라 DB 를 직접 보는 이유 — 스키마가 사실상 계약이다.)
 
 ---
 
@@ -168,7 +168,7 @@
 
 - 계약 상세(proto 전문·필드표): `integration-catalog.md`
 - 공통 이벤트 래퍼 규칙: `common-kafka-event-message.md`
-- order 원천 pull 결정 배경: `../trade-offs/order-data-sourcing.md`
-- 동기 전송(gRPC) 선택 근거: `../trade-offs/internal-sync-transport.md`
-- 어드민 DB 직접 접근 배경: `../trade-offs/admin-data-access.md`
-- 셀러 정산 user-service 이관 배경: `../trade-offs/seller-settlement-separation.md`
+- order 원천 pull 결정 배경: `../../trade-offs/settlement/order-data-sourcing.md`
+- 동기 전송(gRPC) 선택 근거: `../../trade-offs/settlement/internal-sync-transport.md`
+- 어드민 DB 직접 접근 배경: `../../trade-offs/settlement/admin-data-access.md`
+- 셀러 정산 user-service 이관 배경: `../../trade-offs/settlement/seller-settlement-separation.md`

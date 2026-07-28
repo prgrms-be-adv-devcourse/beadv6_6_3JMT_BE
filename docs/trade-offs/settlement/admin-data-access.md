@@ -1,7 +1,7 @@
 # 어드민 데이터 접근 — 직접 DB 커넥션 vs gRPC 조회
 
 파이널에서 어드민 페이지 전용 모듈(admin-service)이 생기고, 정산 어드민 API 가 1호로
-이관된다(`../architecture/admin-module-separation.md`). 그러면 어드민이 정산 데이터를
+이관된다(`../../architecture/settlement/admin-module-separation.md`). 그러면 어드민이 정산 데이터를
 어떻게 읽느냐가 문제가 된다 — 정산 DB 에 **직접 커넥션**을 맺어 읽을 것인가, 정산
 서비스에 **gRPC 로 물어** 받을 것인가.
 
@@ -61,7 +61,7 @@ DB 에 커넥션을 다 맺어놓고 필요한 걸 직접 읽으라는 취지다
 - **"쓰기는 어차피 정산 호출" 논거는 예약 테이블이 해소한다.** 배치 실행은 어드민이 정산
   DB 의 **배치 예약 테이블에 INSERT** 하고 정산의 폴링 스케줄러가 집어 실행하는 방식으로,
   쓰기까지 DB 단일 경로에 얹는다. 정산 프로세스를 직접 호출할 일이 없다.
-  (구조는 `../architecture/admin-module-separation.md`)
+  (구조는 `../../architecture/settlement/admin-module-separation.md`)
 
 ### 감수하는 비용
 
@@ -105,4 +105,4 @@ DB 에 커넥션을 다 맺어놓고 필요한 걸 직접 읽으라는 취지다
 - gRPC 조회의 장점(스키마 결합 회피·기존 유스케이스 재사용·도메인 규칙의 정산 측 보장)은
   인정하되 비용으로 감수한다. 스키마 변경 시 어드민 영향 확인, 상태 전이 규칙 단일 출처
   문서화, 어드민 전용 최소 권한 DB 계정을 관리 규칙으로 둔다.
-- 배치 예약 테이블 구조·폴링 방식은 `../architecture/admin-module-separation.md` 에 정리한다.
+- 배치 예약 테이블 구조·폴링 방식은 `../../architecture/settlement/admin-module-separation.md` 에 정리한다.

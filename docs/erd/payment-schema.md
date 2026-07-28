@@ -2,7 +2,7 @@
 
 payment-service가 소유하는 테이블 요약. 스키마는 **Flyway 마이그레이션(`src/main/resources/db/migration/V{n}__*.sql`)** 으로 관리되고, Hibernate는 `ddl-auto: validate`로 엔티티-스키마 일치만 검증한다. 상세 규칙은 [`flyway-migration.md`](../rules/flyway-migration.md) 참조.
 
-모노레포 전체 ERD: `../../../docs/erd/schema.md`
+모노레포 전체 ERD: `schema.md`
 
 ---
 

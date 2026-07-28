@@ -13,7 +13,7 @@
 > 아래는 이 흐름이 정산 본체에 살아 있던 시점의 코드 기준이며, 트레이드오프(행 단위 dirty checking
 > vs 벌크 UPDATE)는 취소가 실제로 도는 곳(admin-service) 기준의 설계 근거로 보존한다. 세부 구현
 > 방식(dirty checking/벌크)이 admin 코드에서 정확히 어느 쪽인지는 admin-service 기준으로 확인한다.
-> (어드민 데이터 접근 배경: `admin-data-access.md`, 모듈 분리: `../architecture/admin-module-separation.md`)
+> (어드민 데이터 접근 배경: `admin-data-access.md`, 모듈 분리: `../../architecture/settlement/admin-module-separation.md`)
 
 ## 원래 구조 (정산 본체 기준 — 현재 admin-service 로 이관)
 
