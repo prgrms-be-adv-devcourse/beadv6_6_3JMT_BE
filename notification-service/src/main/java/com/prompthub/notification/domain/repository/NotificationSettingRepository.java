@@ -31,7 +31,11 @@ public interface NotificationSettingRepository
         ON CONFLICT (recipient_id, category)
         DO UPDATE SET
             enabled = EXCLUDED.enabled,
-            updated_at = EXCLUDED.updated_at
+            updated_at = CASE
+                WHEN notification_setting.enabled = EXCLUDED.enabled
+                    THEN notification_setting.updated_at
+                ELSE EXCLUDED.updated_at
+            END
         """, nativeQuery = true)
     int upsert(
         @Param("settingId") UUID settingId,
