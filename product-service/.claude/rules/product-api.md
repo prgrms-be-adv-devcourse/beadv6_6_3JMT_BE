@@ -6,7 +6,7 @@
 
 - `GET /api/v1/products`
 - `GET /api/v1/products/{productId}`
-- `GET /api/v1/products/{productId}/related`
+- `GET /api/v2/products/{productId}/recommends`
 - `GET /api/v1/products/{productId}/reviews`
 
 API 명세에서 다르게 정의하지 않는 한, 공개 상품 목록/상세/관련 상품 조회는 `ON_SALE` 상태 상품만 노출한다.
