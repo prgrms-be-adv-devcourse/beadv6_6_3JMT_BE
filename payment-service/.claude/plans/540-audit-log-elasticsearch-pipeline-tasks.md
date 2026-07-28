@@ -1270,12 +1270,12 @@ git commit -m "feat: payment-audit-log Kibana 데이터뷰 부트스트랩 추�
 
 ---
 
-### Task 8: CD 워크플로 — 신규 Job delete/wait 라인 추가
+### Task 8: CD 워크플로 — 신규 Job delete/wait 라인 추가 ✅
 
 **Files:**
 - Modify: `.github/workflows/cd-selfhosted-kubernetes.yml`
 
-- [ ] **Step 1: `deploy-elk` job의 "ELK application log 수집 적용" 스텝에 새 줄 추가**
+- [x] **Step 1: `deploy-elk` job의 "ELK application log 수집 적용" 스텝에 새 줄 추가**
 
 기존 라인(**절대 수정하지 않음**):
 
@@ -1303,7 +1303,7 @@ git commit -m "feat: payment-audit-log Kibana 데이터뷰 부트스트랩 추�
           kubectl wait --for=condition=complete job/payment-audit-log-kibana-bootstrap -n elk --timeout=10m
 ```
 
-- [ ] **Step 2: 검증 스크립트 통과 확인**
+- [x] **Step 2: 검증 스크립트 통과 확인**
 
 Run: `bash scripts/validate-k8s-cd-workflow.sh`
 Expected: `CI/CD workflow validation passed.` — 기존 3개 anchor 라인이 원문 그대로 남아있어야 `require_pattern` 통과.
@@ -1311,7 +1311,7 @@ Expected: `CI/CD workflow validation passed.` — 기존 3개 anchor 라인이 �
 Run(`kubectl` 설치돼 있는 경우): `bash scripts/validate-k8s-manifests.sh`
 Expected: `Kubernetes manifest validation passed.`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add .github/workflows/cd-selfhosted-kubernetes.yml
