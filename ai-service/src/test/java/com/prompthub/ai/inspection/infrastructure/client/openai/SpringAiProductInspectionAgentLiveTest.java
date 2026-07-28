@@ -1,5 +1,5 @@
-// package com.prompthub.ai.inspection.infrastructure.client.openai;
-//
+package com.prompthub.ai.inspection.infrastructure.client.openai;
+
 // import static org.assertj.core.api.Assertions.assertThat;
 //
 // import com.prompthub.ai.inspection.application.dto.ProductInspectionRequest;
@@ -19,12 +19,11 @@
 // import org.springframework.test.context.DynamicPropertySource;
 // import org.springframework.test.context.bean.override.mockito.MockitoBean;
 //
-// /**
-//  * 실제 OpenAI를 호출하는 수동 검증용 테스트. Kafka/product-service 없이 AI 검수 어댑터만 단독 확인한다.
-//  * OPENAI_API_KEY 환경변수가 실제 키로 설정된 경우에만 실행된다(없으면 스킵, CI에서는 항상 스킵).
-//  *
-//  * 실행: OPENAI_API_KEY=sk-... ./gradlew :ai-service:test --tests SpringAiProductInspectionAgentLiveTest
-//  */
+// 실제 OpenAI를 호출하는 수동 검증용 테스트. Kafka/product-service 없이 AI 검수 어댑터만 단독 확인한다.
+// OPENAI_API_KEY 환경변수가 실제 키로 설정된 경우에만 실행된다(없으면 스킵, CI에서는 항상 스킵).
+//
+// 실행: OPENAI_API_KEY=sk-... ./gradlew :ai-service:test --tests SpringAiProductInspectionAgentLiveTest
+//
 // @SpringBootTest
 // @ActiveProfiles("test")
 // @EnabledIfEnvironmentVariable(named = "OPENAI_API_KEY", matches = ".+")
@@ -60,6 +59,10 @@
 // 		System.out.println("정상 상품 판정: " + verdict);
 // 		assertThat(verdict.approved()).isTrue();
 // 		assertThat(verdict.rejectionReason()).isNull();
+// 		// 본문에 "역할: SEO 전문 카피라이터", "출력: ...(각 50자 이내)"가 명시되어 있어
+// 		// 역할 부여/실행 형식 요소는 확실히 존재한다고 판단되어야 한다.
+// 		assertThat(verdict.hasRoleAssignment()).isTrue();
+// 		assertThat(verdict.hasExecution()).isTrue();
 // 	}
 //
 // 	@Test
@@ -76,6 +79,14 @@
 // 		System.out.println("스팸 상품 판정: " + verdict);
 // 		assertThat(verdict.approved()).isFalse();
 // 		assertThat(verdict.rejectionReason()).isNotBlank();
+// 		// 본문("내용 없음...")에 7개 요소 중 어느 것도 없다.
+// 		assertThat(verdict.hasContext()).isFalse();
+// 		assertThat(verdict.hasObjective()).isFalse();
+// 		assertThat(verdict.hasNuance()).isFalse();
+// 		assertThat(verdict.hasTone()).isFalse();
+// 		assertThat(verdict.hasExamples()).isFalse();
+// 		assertThat(verdict.hasExecution()).isFalse();
+// 		assertThat(verdict.hasRoleAssignment()).isFalse();
 // 	}
 //
 // 	@Test
@@ -90,5 +101,13 @@
 //
 // 		System.out.println("프롬프트 인젝션 판정: " + verdict);
 // 		assertThat(verdict.approved()).isFalse();
+// 		// 본문("본문")이 단어 하나뿐이라 7개 요소 중 어느 것도 없다.
+// 		assertThat(verdict.hasContext()).isFalse();
+// 		assertThat(verdict.hasObjective()).isFalse();
+// 		assertThat(verdict.hasNuance()).isFalse();
+// 		assertThat(verdict.hasTone()).isFalse();
+// 		assertThat(verdict.hasExamples()).isFalse();
+// 		assertThat(verdict.hasExecution()).isFalse();
+// 		assertThat(verdict.hasRoleAssignment()).isFalse();
 // 	}
 // }
