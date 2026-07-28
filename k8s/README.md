@@ -52,6 +52,9 @@ notification-service를 처음 배포하기 전에는 `postgres-secret`에
 `NOTIFICATION_SERVICE_PASSWORD`를 추가하고 적용해야 한다. 기존 PostgreSQL PVC는 init
 스크립트를 다시 실행하지 않으므로, schema·role·권한을 별도로 반영해야 한다. 정확한 순서와
 검증 항목은 [notification-service PostgreSQL rollout](notification-service-rollout.md)을 따른다.
+애플리케이션 CD는 배포 전에 모든 `secretKeyRef`의 key 존재 여부를 자동으로 확인하며,
+Secret 값 자체는 출력하지 않는다. 운영자는 실제 Secret 파일과 기존 PVC의 DB 계약을
+별도로 준비해야 한다.
 
 Gateway access 로그용 ELK Secret은 별도 파일로 관리한다. `k8s/templates/elk-secrets.example.yaml`의 key와 객체 이름을 따르며, 실제 파일에는 Kibana 암호화 키와 Fluent Bit이 Logstash HTTP input에 인증할 비밀번호를 넣는다.
 
