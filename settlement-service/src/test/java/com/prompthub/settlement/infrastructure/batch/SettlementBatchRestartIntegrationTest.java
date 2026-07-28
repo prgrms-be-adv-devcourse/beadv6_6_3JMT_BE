@@ -11,9 +11,11 @@ import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
 import com.prompthub.settlement.application.dto.RestartSettlementBatchCommand;
 import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
 import com.prompthub.settlement.application.dto.SettlementJobResult;
+import com.prompthub.settlement.application.dto.SettlementSourceReconciliationResult;
 import com.prompthub.settlement.application.port.SettlementEventPublisher;
 import com.prompthub.settlement.application.service.SettlementCalculationApplicationService;
 import com.prompthub.settlement.application.usecase.LoadSettlementSourceUseCase;
+import com.prompthub.settlement.application.usecase.ReconcileSettlementSourceUseCase;
 import com.prompthub.settlement.application.usecase.RestartSettlementBatchUseCase;
 import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
 import com.prompthub.settlement.domain.model.Settlement;
@@ -24,6 +26,7 @@ import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.model.enums.OutboxEventStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementBatchStatus;
 import com.prompthub.settlement.domain.repository.OutboxEventRepository;
+import com.prompthub.settlement.domain.repository.SettlementSourceAggregate;
 import com.prompthub.settlement.infrastructure.persistence.SettlementBatchJpaRepository;
 import com.prompthub.settlement.infrastructure.persistence.SettlementJpaRepository;
 import com.prompthub.settlement.infrastructure.persistence.SettlementSourceLineJpaRepository;
@@ -96,6 +99,9 @@ class SettlementBatchRestartIntegrationTest {
     private LoadSettlementSourceUseCase loadSettlementSourceUseCase;
 
     @MockitoBean
+    private ReconcileSettlementSourceUseCase reconcileSettlementSourceUseCase;
+
+    @MockitoBean
     private SettlementEventPublisher settlementEventPublisher;
 
     @MockitoSpyBean
@@ -107,6 +113,11 @@ class SettlementBatchRestartIntegrationTest {
         settlementJpaRepository.deleteAll();
         sourceLineJpaRepository.deleteAll();
         settlementBatchJpaRepository.deleteAll();
+        SettlementSourceAggregate emptyAggregate = SettlementSourceAggregate.zero();
+        given(reconcileSettlementSourceUseCase.reconcile(any(SettlementPeriod.class)))
+                .willReturn(SettlementSourceReconciliationResult.compare(
+                        emptyAggregate,
+                        emptyAggregate));
     }
 
     @Test
