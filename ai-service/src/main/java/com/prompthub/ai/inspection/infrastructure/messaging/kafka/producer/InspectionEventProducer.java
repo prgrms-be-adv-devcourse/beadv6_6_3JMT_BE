@@ -22,14 +22,20 @@ public class InspectionEventProducer {
 
 	private final KafkaTemplate<String, Object> kafkaTemplate;
 
-	public void publish(UUID productId, boolean approved, String rejectionReason) {
+	public void publish(
+		UUID productId, boolean approved, String rejectionReason,
+		boolean hasContext, boolean hasObjective, boolean hasNuance,
+		boolean hasTone, boolean hasExamples, boolean hasExecution, boolean hasRoleAssignment
+	) {
 		EventMessage<Object> message = new EventMessage<>(
 			UUID.randomUUID(),
 			InspectionEventType.PRODUCT_INSPECTION_COMPLETED.code(),
 			LocalDateTime.now(),
 			AGGREGATE_TYPE,
 			productId,
-			ProductInspectionCompletedPayload.of(productId, approved, rejectionReason)
+			ProductInspectionCompletedPayload.of(
+				productId, approved, rejectionReason,
+				hasContext, hasObjective, hasNuance, hasTone, hasExamples, hasExecution, hasRoleAssignment)
 		);
 		kafkaTemplate.send(TOPIC, productId.toString(), message);
 	}

@@ -42,7 +42,9 @@ class InspectionEventProducerTest {
 		@Test
 		@DisplayName("승인 결과를 EventMessage 봉투로 감싸 ai-events에 발행한다")
 		void publish_approved_sendsEnvelope() {
-			inspectionEventProducer.publish(PRODUCT_ID, true, null);
+			inspectionEventProducer.publish(
+				PRODUCT_ID, true, null,
+				true, true, false, false, true, false, true);
 
 			EventMessage<?> message = captureMessage();
 			assertThat(message.eventId()).isNotNull();
@@ -54,17 +56,27 @@ class InspectionEventProducerTest {
 			assertThat(payload.productId()).isEqualTo(PRODUCT_ID);
 			assertThat(payload.approved()).isTrue();
 			assertThat(payload.rejectionReason()).isNull();
+			assertThat(payload.hasContext()).isTrue();
+			assertThat(payload.hasObjective()).isTrue();
+			assertThat(payload.hasNuance()).isFalse();
+			assertThat(payload.hasTone()).isFalse();
+			assertThat(payload.hasExamples()).isTrue();
+			assertThat(payload.hasExecution()).isFalse();
+			assertThat(payload.hasRoleAssignment()).isTrue();
 		}
 
 		@Test
 		@DisplayName("반려 결과를 사유와 함께 발행한다")
 		void publish_rejected_sendsEnvelopeWithReason() {
-			inspectionEventProducer.publish(PRODUCT_ID, false, "금지 콘텐츠 포함");
+			inspectionEventProducer.publish(
+				PRODUCT_ID, false, "금지 콘텐츠 포함",
+				false, false, false, false, false, false, false);
 
 			EventMessage<?> message = captureMessage();
 			ProductInspectionCompletedPayload payload = (ProductInspectionCompletedPayload) message.payload();
 			assertThat(payload.approved()).isFalse();
 			assertThat(payload.rejectionReason()).isEqualTo("금지 콘텐츠 포함");
+			assertThat(payload.hasContext()).isFalse();
 		}
 	}
 }

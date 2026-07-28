@@ -20,7 +20,10 @@ public class ProductInspectionService implements ProductInspectionUseCase {
 	@Override
 	public void inspect(ProductInspectionRequest request) {
 		InspectionVerdict verdict = aiPort.inspect(request);
-		inspectionEventProducer.publish(request.productId(), verdict.approved(), verdict.rejectionReason());
+		inspectionEventProducer.publish(
+			request.productId(), verdict.approved(), verdict.rejectionReason(),
+			verdict.hasContext(), verdict.hasObjective(), verdict.hasNuance(),
+			verdict.hasTone(), verdict.hasExamples(), verdict.hasExecution(), verdict.hasRoleAssignment());
 		log.info("상품 검수 완료. productId={}, approved={}", request.productId(), verdict.approved());
 	}
 }
