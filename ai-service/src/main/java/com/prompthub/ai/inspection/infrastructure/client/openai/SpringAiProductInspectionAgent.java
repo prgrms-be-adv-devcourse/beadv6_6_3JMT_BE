@@ -27,9 +27,6 @@ import org.springframework.util.MimeType;
 @Component
 public class SpringAiProductInspectionAgent implements ProductInspectionAiPort {
 
-	// 체크리스트 7개 필드가 추가되며 판단 항목이 늘어, reasoning 모델이 추론에 토큰을 더 쓰고도
-	// 답변 텍스트를 끝까지 생성할 여유가 필요해 300에서 상향했다(애매한 케이스에서 답변이 잘려 빈 응답이 되는 문제 발생).
-	private static final int MAX_COMPLETION_TOKENS = 800;
 	private static final Map<String, MimeType> IMAGE_MIME_TYPES = Map.of(
 		"jpg", Media.Format.IMAGE_JPEG,
 		"jpeg", Media.Format.IMAGE_JPEG,
@@ -61,7 +58,8 @@ public class SpringAiProductInspectionAgent implements ProductInspectionAiPort {
 
 		OpenAiChatOptions options = OpenAiChatOptions.builder()
 			.model(properties.model())
-			.maxCompletionTokens(MAX_COMPLETION_TOKENS)
+			.reasoningEffort(properties.reasoningEffort())
+			.maxCompletionTokens(properties.maxCompletionTokens())
 			.build();
 		ChatResponse response = chatModel.call(new Prompt(messages, options));
 		String text = requireAssistantText(response);

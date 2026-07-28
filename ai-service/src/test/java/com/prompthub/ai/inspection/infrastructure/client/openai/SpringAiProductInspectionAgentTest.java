@@ -22,6 +22,7 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.openai.OpenAiChatOptions;
 
 class SpringAiProductInspectionAgentTest {
 
@@ -86,6 +87,26 @@ class SpringAiProductInspectionAgentTest {
 			chatModel, new InspectionPromptFactory(), properties());
 
 		assertThatThrownBy(() -> agent.inspect(request(List.of()))).isInstanceOf(AiException.class);
+	}
+
+	@Test
+	@DisplayName("설정된 reasoningEffort와 maxCompletionTokens를 옵션에 전달한다")
+	void inspect_passesReasoningEffortAndMaxCompletionTokensFromProperties() {
+		ChatModel chatModel = mock(ChatModel.class);
+		given(chatModel.call(any(Prompt.class))).willReturn(textResponse(
+			"{\"approved\":true,\"rejectionReason\":null,"
+				+ "\"hasContext\":true,\"hasObjective\":true,\"hasNuance\":true,"
+				+ "\"hasTone\":true,\"hasExamples\":true,\"hasExecution\":true,\"hasRoleAssignment\":true}"));
+		SpringAiProductInspectionAgent agent = new SpringAiProductInspectionAgent(
+			chatModel, new InspectionPromptFactory(), properties());
+
+		agent.inspect(request(List.of()));
+
+		ArgumentCaptor<Prompt> captor = ArgumentCaptor.forClass(Prompt.class);
+		verify(chatModel).call(captor.capture());
+		OpenAiChatOptions options = (OpenAiChatOptions) captor.getValue().getOptions();
+		assertThat(options.getReasoningEffort()).isEqualTo("none");
+		assertThat(options.getMaxCompletionTokens()).isEqualTo(2000);
 	}
 
 	private ChatResponse textResponse(String text) {
