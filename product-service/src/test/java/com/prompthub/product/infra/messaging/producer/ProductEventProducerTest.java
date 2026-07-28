@@ -1,10 +1,15 @@
 package com.prompthub.product.infra.messaging.producer;
 
 import com.prompthub.common.event.EventMessage;
+import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.infra.messaging.producer.event.ProductChangedPayload;
 import com.prompthub.product.infra.messaging.producer.event.ProductPriceChangedPayload;
+import com.prompthub.product.infra.messaging.producer.event.ProductReviewRequestedPayload;
 import com.prompthub.product.infra.messaging.producer.event.ProductStoppedPayload;
+import java.util.List;
 import java.util.UUID;
+
+import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -110,6 +115,32 @@ class ProductEventProducerTest {
 			assertThat(message.aggregateId()).isEqualTo(PRODUCT_ID);
 			assertThat(message.payload()).isInstanceOf(ProductChangedPayload.class);
 			assertThat(((ProductChangedPayload) message.payload()).familyRootId()).isEqualTo(PRODUCT_ID);
+		}
+	}
+
+	@Nested
+	@DisplayName("PRODUCT_REVIEW_REQUESTED 이벤트 발행")
+	class PublishReviewRequested {
+
+		@Test
+		@DisplayName("상품 스냅샷과 presign된 이미지 URL을 payload로 담아 발행한다")
+		void publishReviewRequested_sendsEnvelopeWithSnapshot() {
+			Product product = Product.create(PRODUCT_ID, UUID.randomUUID(), promptContent());
+
+			productEventProducer.publishReviewRequested(
+				product, "https://s3/presigned-thumb", List.of("https://s3/presigned-1"));
+
+			EventMessage<?> message = captureMessage();
+			assertThat(message.eventType()).isEqualTo("PRODUCT_REVIEW_REQUESTED");
+			assertThat(message.aggregateType()).isEqualTo("PRODUCT");
+			assertThat(message.aggregateId()).isEqualTo(PRODUCT_ID);
+			assertThat(message.payload()).isInstanceOf(ProductReviewRequestedPayload.class);
+			ProductReviewRequestedPayload payload = (ProductReviewRequestedPayload) message.payload();
+			assertThat(payload.productId()).isEqualTo(PRODUCT_ID);
+			assertThat(payload.productType()).isEqualTo("PROMPT");
+			assertThat(payload.name()).isEqualTo("제목");
+			assertThat(payload.thumbnailUrl()).isEqualTo("https://s3/presigned-thumb");
+			assertThat(payload.imageUrls()).containsExactly("https://s3/presigned-1");
 		}
 	}
 }

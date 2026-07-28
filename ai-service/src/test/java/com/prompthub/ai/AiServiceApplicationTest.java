@@ -29,11 +29,9 @@ class AiServiceApplicationTest {
     private RedisMessageListenerContainer redisMessageListenerContainer;
 
     @Test
-    void startsWithoutPersistenceOrKafkaInfrastructure() {
+    void startsWithoutPersistenceInfrastructure() {
         assertThat(applicationContext.containsBean("dataSource")).isFalse();
         assertThat(applicationContext.containsBean("entityManagerFactory")).isFalse();
         assertThat(applicationContext.containsBean("flyway")).isFalse();
-        assertThat(applicationContext.getBeanDefinitionNames())
-                .noneMatch(beanName -> beanName.toLowerCase().contains("kafka"));
     }
 }
