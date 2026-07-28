@@ -139,10 +139,6 @@ jobs:
           kubectl config current-context
           kubectl wait --for=condition=Ready node --all --timeout=60s
 
-          for statefulset in postgres redis kafka; do
-            kubectl rollout status statefulset/"$statefulset" -n "$NAMESPACE" --timeout=5m
-          done
-
           required_secrets=(
             postgres-secret
             runtime-secret
@@ -158,6 +154,10 @@ jobs:
           done
 
           NAMESPACE="$NAMESPACE" bash scripts/validate-live-k8s-secret-keys.sh k8s/base
+
+          for statefulset in postgres redis kafka; do
+            kubectl rollout status statefulset/"$statefulset" -n "$NAMESPACE" --timeout=5m
+          done
 
       - name: 변경 서비스 순차 배포, 실패 진단 후 rollback
         shell: bash
