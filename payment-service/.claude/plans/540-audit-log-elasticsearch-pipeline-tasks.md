@@ -21,7 +21,7 @@
 
 ---
 
-### Task 1: Kafka 토픽 설정 + AuditLogMessage + AuditLogKafkaPublisher
+### Task 1: Kafka 토픽 설정 + AuditLogMessage + AuditLogKafkaPublisher ✅
 
 **Files:**
 - Modify: `payment-service/src/main/java/com/prompthub/payment/infrastructure/messaging/config/PaymentTopic.java`
@@ -33,7 +33,7 @@
 **Interfaces:**
 - Produces: `PaymentTopic.AUDIT_LOG`(String 상수), `AuditLogMessage`(record, 필드는 `AuditLog` getter와 1:1 대응), `AuditLogKafkaPublisher.publish(AuditLog auditLog): void`(Task 2가 사용).
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 `AuditLogKafkaPublisherTest.java`:
 
@@ -103,12 +103,12 @@ class AuditLogKafkaPublisherTest {
 }
 ```
 
-- [ ] **Step 2: 테스트 실패 확인**
+- [x] **Step 2: 테스트 실패 확인**
 
 Run: `JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.messaging.AuditLogKafkaPublisherTest"`
 Expected: FAIL — `AuditLogMessage`/`AuditLogKafkaPublisher` 클래스가 없어 컴파일 실패.
 
-- [ ] **Step 3: 최소 구현**
+- [x] **Step 3: 최소 구현**
 
 `PaymentTopic.java`에 추가:
 
@@ -192,12 +192,12 @@ public class AuditLogKafkaPublisher {
 }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
+- [x] **Step 4: 테스트 통과 확인**
 
 Run: `JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.messaging.AuditLogKafkaPublisherTest"`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add payment-service/src/main/java/com/prompthub/payment/infrastructure/messaging/config/PaymentTopic.java \
