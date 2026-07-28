@@ -81,6 +81,19 @@ class SettlementBatchLifecycleApplicationServiceTest {
     }
 
     @Test
+    @DisplayName("처리 중인 배치의 원천 대사 실패를 별도 업무 상태로 저장한다")
+    void failReconciliation_processingBatch_savesReconciliationFailedState() {
+        SettlementBatch batch = processingBatch();
+        given(repository.findById(batch.getId())).willReturn(Optional.of(batch));
+
+        service.failReconciliation(batch.getId(), "PAID_AMOUNT(order=2000, source=1000)");
+
+        assertThat(batch.getStatus()).isEqualTo(SettlementBatchStatus.RECONCILIATION_FAILED);
+        assertThat(batch.getFailureReason()).isEqualTo("PAID_AMOUNT(order=2000, source=1000)");
+        then(repository).should().save(batch);
+    }
+
+    @Test
     @DisplayName("재시작 시작 전 실패는 RETRY_REQUESTED 배치를 FAILED로 복원한다")
     void fail_retryRequestedBatch_restoresFailedState() {
         SettlementBatch batch = retryRequestedBatch();
