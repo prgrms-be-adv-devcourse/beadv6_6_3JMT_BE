@@ -3,7 +3,7 @@
   "evals": [
     {
       "id": 0,
-      "prompt": "ProductController에 GET /products/{productId}/related 엔드포인트를 추가했어. 테스트 만들어줘.",
+      "prompt": "ProductController에 GET /products/{productId}/recommends 엔드포인트를 추가했어. 테스트 만들어줘.",
       "expected_output": "presentation/controller 변경으로 분류하고 ProductControllerTest에 요청 경로/파라미터/공통 응답 포맷/성공 status를 검증하는 테스트를 제안한다. 공개 API이므로 인증 헤더는 넣지 않는다.",
       "files": []
     },
