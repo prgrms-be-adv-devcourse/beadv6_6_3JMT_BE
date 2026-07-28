@@ -101,6 +101,25 @@ class ProductSearchQueryBuilderTest {
 	}
 
 	@Test
+	void buildKnn_유사도_하한을_건다() {
+		SearchRequest request = queryBuilder.buildKnn(new float[] {0.1f, 0.2f}, "all", 100);
+
+		// 하한이 없으면 색인 문서가 k보다 적을 때 어떤 질의든 전체 문서가 후보로 들어온다 (#645)
+		assertThat(request.knn()).hasSize(1);
+		assertThat(request.knn().get(0).similarity()).isNotNull().isPositive();
+	}
+
+	@Test
+	void buildKnn_같은_productType_필터를_어휘_레그와_동일하게_건다() {
+		SearchRequest request = queryBuilder.buildKnn(new float[] {0.1f, 0.2f}, "PROMPT", 100);
+
+		List<Query> filters = request.knn().get(0).filter();
+		assertThat(filters).hasSize(1);
+		assertThat(filters.get(0).term().field()).isEqualTo("productType");
+		assertThat(filters.get(0).term().value().stringValue()).isEqualTo("PROMPT");
+	}
+
+	@Test
 	void buildSuggest_name에_match_phrase_prefix를_쓴다() {
 		SearchRequest request = queryBuilder.buildSuggest("프롬", 5);
 
