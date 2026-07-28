@@ -797,7 +797,7 @@ git commit -m "feat: 감사로그 since 조회 UseCase 추가"
 
 ---
 
-### Task 5: AuditLogQueryController — 내부 재조정 엔드포인트
+### Task 5: AuditLogQueryController — 내부 재조정 엔드포인트 ✅
 
 **Files:**
 - Create: `payment-service/src/main/java/com/prompthub/payment/presentation/dto/response/AuditLogResponse.java`
@@ -808,7 +808,7 @@ git commit -m "feat: 감사로그 since 조회 UseCase 추가"
 - Consumes: `GetAuditLogsSinceUseCase.getSince(OffsetDateTime): List<AuditLogResult>`(Task 4)
 - Produces: `GET /internal/audit-logs?since={ISO8601}`(생략 시 `now-15분`). 응답 바디: `{"success":true,"data":[{...}],"message":"success"}` — Task 6 Logstash http_poller가 이 모양을 그대로 소비한다.
 
-- [ ] **Step 1: 실패하는 통합 테스트 작성**
+- [x] **Step 1: 실패하는 통합 테스트 작성**
 
 ```java
 package com.prompthub.payment;
@@ -875,12 +875,12 @@ class AuditLogQueryControllerIntegrationTest extends AbstractIntegrationTest {
 }
 ```
 
-- [ ] **Step 2: 테스트 실패 확인**
+- [x] **Step 2: 테스트 실패 확인**
 
 Run: `JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test --tests "com.prompthub.payment.AuditLogQueryControllerIntegrationTest"`
 Expected: FAIL — 404(컨트롤러 없음).
 
-- [ ] **Step 3: 최소 구현**
+- [x] **Step 3: 최소 구현**
 
 `AuditLogResponse.java`:
 
@@ -957,12 +957,12 @@ public class AuditLogQueryController {
 }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
+- [x] **Step 4: 테스트 통과 확인**
 
 Run: `JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test --tests "com.prompthub.payment.AuditLogQueryControllerIntegrationTest"`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add payment-service/src/main/java/com/prompthub/payment/presentation/dto/response/AuditLogResponse.java \
