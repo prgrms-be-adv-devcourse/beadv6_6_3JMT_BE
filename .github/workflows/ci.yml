@@ -34,6 +34,7 @@ jobs:
       config:             ${{ steps.filter.outputs.config_any_changed }}
       discovery:          ${{ steps.filter.outputs.discovery_any_changed }}
       common_module:      ${{ steps.filter.outputs.common_module_any_changed }}
+      kubernetes:         ${{ steps.filter.outputs.kubernetes_any_changed }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -70,6 +71,12 @@ jobs:
               - discovery/**
             common_module:
               - common-module/**
+            kubernetes:
+              - k8s/**
+              - scripts/validate-k8s-*.sh
+              - scripts/test-validate-k8s-secret-contract.sh
+              - .github/workflows/ci.yml
+              - .github/workflows/release-develop.yml
 
   user_service_ci:
     needs: changes
@@ -167,6 +174,22 @@ jobs:
       module-name: common-module
       module-path: common-module
 
+  kubernetes_contract_ci:
+    needs: changes
+    if: needs.changes.outputs.kubernetes == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate shell scripts
+        run: bash -n scripts/test-validate-k8s-secret-contract.sh scripts/validate-k8s-secret-contract.sh scripts/validate-k8s-manifests.sh
+
+      - name: Validate Secret contract regression
+        run: bash scripts/test-validate-k8s-secret-contract.sh
+
+      - name: Validate Kubernetes manifests and workflows
+        run: bash scripts/validate-k8s-manifests.sh
+
   ci-gate:
     needs:
       - changes
@@ -182,6 +205,7 @@ jobs:
       - config_ci
       - discovery_ci
       - common_module_ci
+      - kubernetes_contract_ci
     if: always()
     runs-on: ubuntu-latest
     steps:
