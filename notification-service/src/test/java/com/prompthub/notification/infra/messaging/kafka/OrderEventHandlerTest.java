@@ -13,9 +13,13 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
@@ -55,6 +59,37 @@ class OrderEventHandlerTest {
 
         then(orderEventAdapter).shouldHaveNoInteractions();
         then(notificationService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void claimedEvent_withSuppressedNotificationCompletesNormally() {
+        EventMessage<JsonNode> message = message();
+        OrderEventAdapter.OrderEvent event = event(message);
+        CreateNotificationCommand command = org.mockito.Mockito.mock(CreateNotificationCommand.class);
+        given(processedEventRepository.claim(any(), eq(message.eventId()), eq("notification-service"), eq("ORDER_PAID"), any()))
+            .willReturn(1);
+        given(orderEventAdapter.adapt(message)).willReturn(event);
+        given(templateFactory.create(event)).willReturn(command);
+        given(notificationService.createNotification(command)).willReturn(Optional.empty());
+
+        assertThatCode(() -> handler.handle(message)).doesNotThrowAnyException();
+
+        then(notificationService).should().createNotification(command);
+    }
+
+    @Test
+    void claimedEvent_creationFailurePropagatesForKafkaRetry() {
+        EventMessage<JsonNode> message = message();
+        OrderEventAdapter.OrderEvent event = event(message);
+        CreateNotificationCommand command = org.mockito.Mockito.mock(CreateNotificationCommand.class);
+        given(processedEventRepository.claim(any(), eq(message.eventId()), eq("notification-service"), eq("ORDER_PAID"), any()))
+            .willReturn(1);
+        given(orderEventAdapter.adapt(message)).willReturn(event);
+        given(templateFactory.create(event)).willReturn(command);
+        given(notificationService.createNotification(command))
+            .willThrow(new IllegalStateException("setting repository unavailable"));
+
+        assertThatThrownBy(() -> handler.handle(message)).isInstanceOf(IllegalStateException.class);
     }
 
     private EventMessage<JsonNode> message() {
