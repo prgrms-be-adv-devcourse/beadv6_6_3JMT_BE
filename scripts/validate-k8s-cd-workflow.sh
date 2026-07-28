@@ -159,6 +159,7 @@ application_patterns=(
   'kubectl delete deployment/settlement-service'
   'kubectl delete service/settlement-service'
   '^[[:space:]]+ai-secret$'
+  'NAMESPACE="\$NAMESPACE" bash scripts/validate-live-k8s-secret-keys\.sh k8s/base'
 )
 
 for pattern in "${application_patterns[@]}"; do

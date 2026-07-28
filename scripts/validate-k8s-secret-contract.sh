@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEMPLATE="${ROOT_DIR}/k8s/templates/runtime-values.example.yaml"
 MANIFEST_ROOT="${ROOT_DIR}/k8s/base"
 CONFIG_ROOT="${ROOT_DIR}/config/src/main/resources/configs"
+SERVICES_KUSTOMIZATION="${MANIFEST_ROOT}/services/kustomization.yaml"
 
 fail() {
   echo "Kubernetes Secret contract validation failed: $1" >&2
@@ -13,6 +14,52 @@ fail() {
 }
 
 [[ -f "${TEMPLATE}" ]] || fail "missing k8s/templates/runtime-values.example.yaml"
+[[ -f "${SERVICES_KUSTOMIZATION}" ]] || fail "missing k8s/base/services/kustomization.yaml"
+
+declare -a required_config_files=("${CONFIG_ROOT}/application.yml")
+declare -a seen_services=()
+
+service_entries="$(
+  awk '
+    /^resources:[[:space:]]*$/ {
+      in_resources = 1
+      next
+    }
+    in_resources && /^[^[:space:]]/ {
+      in_resources = 0
+    }
+    in_resources && /^[[:space:]]*-[[:space:]]*/ {
+      value = $0
+      sub(/^[[:space:]]*-[[:space:]]*/, "", value)
+      sub(/[[:space:]]+#.*$/, "", value)
+      if (value != "") {
+        print value
+      }
+    }
+  ' "${SERVICES_KUSTOMIZATION}"
+)"
+
+while IFS= read -r service; do
+  [[ -n "${service}" ]] || continue
+  service="${service#./}"
+  service="${service%/}"
+
+  if [[ "${service}" == *"/"* || "${service}" == "." || "${service}" == ".." ]]; then
+    fail "unsupported service resource in k8s/base/services/kustomization.yaml: ${service}"
+  fi
+  if [[ ${#seen_services[@]} -gt 0 ]]; then
+    for seen_service in "${seen_services[@]}"; do
+      if [[ "${seen_service}" == "${service}" ]]; then
+        fail "duplicate service resource in k8s/base/services/kustomization.yaml: ${service}"
+      fi
+    done
+  fi
+
+  seen_services+=("${service}")
+  profile="${CONFIG_ROOT}/${service}-service.yml"
+  [[ -f "${profile}" ]] || fail "missing Config Server profile for deployed service: ${service}-service"
+  required_config_files+=("${profile}")
+done <<< "${service_entries}"
 
 template_secret_pairs="$(
   awk '
@@ -54,23 +101,40 @@ template_keys="$(
 manifest_secret_pairs="$(
   while IFS= read -r manifest; do
     awk '
-      /secretKeyRef:/ {
-        in_secret_ref = 1
-        secret_name = ""
-        next
-      }
-      in_secret_ref && $1 == "name:" {
-        secret_name = $2
-        next
-      }
-      in_secret_ref && $1 == "key:" {
-        if (secret_name != "") {
-          print secret_name "|" $2
+      function emit_pair() {
+        if (secret_name != "" && secret_key != "") {
+          print secret_name "|" secret_key
         }
-        in_secret_ref = 0
       }
+      function close_secret_ref() {
+        emit_pair()
+        in_secret_ref = 0
+        secret_indent = -1
+        secret_name = ""
+        secret_key = ""
+      }
+      /secretKeyRef:/ {
+        close_secret_ref()
+        match($0, /^[[:space:]]*/)
+        secret_indent = RLENGTH
+        in_secret_ref = 1
+        next
+      }
+      in_secret_ref {
+        match($0, /^[[:space:]]*/)
+        if ($0 !~ /^[[:space:]]*$/ && RLENGTH <= secret_indent) {
+          close_secret_ref()
+          next
+        }
+        if ($1 == "name:") {
+          secret_name = $2
+        } else if ($1 == "key:") {
+          secret_key = $2
+        }
+      }
+      END { close_secret_ref() }
     ' "${manifest}"
-  done < <(find "${MANIFEST_ROOT}" -type f \( -name '*.yaml' -o -name '*.yml' \) | sort)
+  done < <(find "${MANIFEST_ROOT}" -type f \( -name '*.yaml' -o -name '*.yml' \) | sort) | sort -u
 )"
 
 manifest_pull_secret_names="$(
@@ -93,7 +157,7 @@ if [[ "${ai_secret_keys}" != "${expected_ai_secret_keys}" ]]; then
 fi
 
 required_config_keys="$(
-  grep -RhoE '\$\{[A-Z][A-Z0-9_]*\}' "${CONFIG_ROOT}" \
+  grep -hoE '\$\{[A-Z][A-Z0-9_]*\}' "${required_config_files[@]}" \
     | sed -e 's/^${//' -e 's/}$//' \
     | sort -u
 )"

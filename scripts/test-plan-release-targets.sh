@@ -152,6 +152,18 @@ run_case \
   CONFIG_CHANGED=true NOTIFICATION_CONFIG_CHANGED=true
 
 run_case \
+  "notification code manifest and config" \
+  '["config","notification-service"]' \
+  '["config","notification-service"]' \
+  '["notification-service"]' \
+  '["config","notification-service"]' \
+  '["notification-service"]' false true \
+  CONFIG_CHANGED=true \
+  NOTIFICATION_SERVICE_CHANGED=true \
+  NOTIFICATION_MANIFEST_CHANGED=true \
+  NOTIFICATION_CONFIG_CHANGED=true
+
+run_case \
   "shared config" \
   '["config"]' \
   '["config"]' \
