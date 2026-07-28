@@ -631,7 +631,7 @@ git commit -m "feat: 감사로그 재조정 조회(findAllCreatedAfter) 계약 �
 
 ---
 
-### Task 4: GetAuditLogsSinceUseCase + Service
+### Task 4: GetAuditLogsSinceUseCase + Service ✅
 
 **Files:**
 - Create: `payment-service/src/main/java/com/prompthub/payment/application/dto/result/AuditLogResult.java`
@@ -643,7 +643,7 @@ git commit -m "feat: 감사로그 재조정 조회(findAllCreatedAfter) 계약 �
 - Consumes: `AuditLogRepository.findAllCreatedAfter(OffsetDateTime, int): List<AuditLog>`(Task 3)
 - Produces: `GetAuditLogsSinceUseCase.getSince(OffsetDateTime since): List<AuditLogResult>`(Task 5가 사용)
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```java
 package com.prompthub.payment.application.service;
@@ -696,12 +696,12 @@ class GetAuditLogsSinceServiceTest {
 }
 ```
 
-- [ ] **Step 2: 테스트 실패 확인**
+- [x] **Step 2: 테스트 실패 확인**
 
 Run: `JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test --tests "com.prompthub.payment.application.service.GetAuditLogsSinceServiceTest"`
 Expected: FAIL — 클래스 없어 컴파일 실패.
 
-- [ ] **Step 3: 최소 구현**
+- [x] **Step 3: 최소 구현**
 
 `AuditLogResult.java`:
 
@@ -780,12 +780,12 @@ public class GetAuditLogsSinceService implements GetAuditLogsSinceUseCase {
 }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
+- [x] **Step 4: 테스트 통과 확인**
 
 Run: `JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test --tests "com.prompthub.payment.application.service.GetAuditLogsSinceServiceTest"`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add payment-service/src/main/java/com/prompthub/payment/application/dto/result/AuditLogResult.java \
