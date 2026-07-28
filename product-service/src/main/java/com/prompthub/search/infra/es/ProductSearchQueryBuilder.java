@@ -30,6 +30,19 @@ public class ProductSearchQueryBuilder {
 	private static final String SORT_RATING = "rating";
 	private static final String SORT_PRICE_ASC = "price-asc";
 
+	/**
+	 * 의미 기반 레그가 문서를 후보로 올리는 코사인 유사도 하한.
+	 *
+	 * <p>{@code products-v1} 매핑이 {@code similarity: cosine}이라 이 값은 코사인 그대로다.
+	 * 설정으로 빼지 않는다 — {@code configs/}가 config server 이미지에 구워져 yml을 고쳐도
+	 * 머지·재배포가 필요해서 노브로 만들어도 조정이 빨라지지 않는다({@code TYPE_BONUS}와 같은 이유).
+	 *
+	 * <p>ponytail: 실측 없이 잡은 첫 컷이다. 질의 벡터를 만들려면 OpenAI 호출이 필요해 배포
+	 * 전에는 분포를 잴 수 없었다. 조정 신호는 두 방향 모두 검색 결과로 드러난다 — 무관한 질의에
+	 * 결과가 남으면 올리고, 글자가 안 겹치는데 의미로 찾아야 할 상품이 안 나오면 내린다.
+	 */
+	private static final float MIN_SEMANTIC_SIMILARITY = 0.35f;
+
 	private final SearchRankingProperties rankingProperties;
 
 	public SearchRequest build(String keyword, String productType, String sort, Pageable pageable) {
@@ -77,6 +90,10 @@ public class ProductSearchQueryBuilder {
 	 * 두 레그의 대상 집합이 다르면 병합 결과에 필터 밖 문서가 섞인다.
 	 *
 	 * <p>정렬을 걸지 않는다. kNN은 유사도 순으로 돌아오고 그 순서 자체가 이 레그의 순위다.
+	 *
+	 * <p>{@code similarity} 하한을 반드시 건다. kNN은 관련도와 무관하게 상위 {@code k}건을
+	 * 채워 돌려주므로, 하한이 없으면 색인 문서가 {@code k}보다 적을 때 어떤 질의든 전체 문서가
+	 * 후보로 들어와 검색 결과 0건이 발생할 수 없게 된다(#645).
 	 */
 	public SearchRequest buildKnn(float[] queryVector, String productType, int size) {
 		List<Float> vector = new ArrayList<>(queryVector.length);
@@ -93,6 +110,7 @@ public class ProductSearchQueryBuilder {
 				.k(size)
 				// 후보를 넉넉히 훑어야 근사 탐색(HNSW)이 상위 k를 놓치지 않는다.
 				.numCandidates(size * 2)
+				.similarity(MIN_SEMANTIC_SIMILARITY)
 				.filter(filters))
 			.size(size));
 	}
