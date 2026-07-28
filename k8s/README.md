@@ -48,6 +48,11 @@ mode: 600
 kubectl apply -f /home/ubuntu/prompthub-secrets/secret.yaml
 ```
 
+notification-service를 처음 배포하기 전에는 `postgres-secret`에
+`NOTIFICATION_SERVICE_PASSWORD`를 추가하고 적용해야 한다. 기존 PostgreSQL PVC는 init
+스크립트를 다시 실행하지 않으므로, schema·role·권한을 별도로 반영해야 한다. 정확한 순서와
+검증 항목은 [notification-service PostgreSQL rollout](notification-service-rollout.md)을 따른다.
+
 Gateway access 로그용 ELK Secret은 별도 파일로 관리한다. `k8s/templates/elk-secrets.example.yaml`의 key와 객체 이름을 따르며, 실제 파일에는 Kibana 암호화 키와 Fluent Bit이 Logstash HTTP input에 인증할 비밀번호를 넣는다.
 
 ```text
@@ -76,7 +81,7 @@ kubectl -n prompthub get secret \
 
 ## ELK 수동 배포
 
-ELK는 Gateway access 로그와 애플리케이션 구조화 로그를 수집하는 add-on이다. 애플리케이션 allowlist는 `user-service`, `product-service`, `order-service`, `payment-service`, `admin-service`, `ai-service`, `settlement-service`, `notification-service`이며 `config`·`discovery`는 제외한다. `notification-service`는 아직 Kubernetes workload가 없으므로 배포 전에는 로그가 발생하지 않는다. Gateway access는 `gateway-access-*`에 14일, 애플리케이션 로그는 `application-logs-*`에 7일 보관한다. Elasticsearch가 Product Service 검색 인덱스도 함께 사용하므로, Product Service의 HTTPS·인증 전환이 완료되기 전까지 Elasticsearch HTTP와 security disabled 상태를 유지한다. 이 상태에서는 Elasticsearch와 Kibana를 외부에 공개하지 않고, ClusterIP 또는 운영자 SSH tunnel만 사용한다.
+ELK는 Gateway access 로그와 애플리케이션 구조화 로그를 수집하는 add-on이다. 애플리케이션 allowlist는 `user-service`, `product-service`, `order-service`, `payment-service`, `admin-service`, `ai-service`, `settlement-service`, `notification-service`이며 `config`·`discovery`는 제외한다. Gateway access는 `gateway-access-*`에 14일, 애플리케이션 로그는 `application-logs-*`에 7일 보관한다. Elasticsearch가 Product Service 검색 인덱스도 함께 사용하므로, Product Service의 HTTPS·인증 전환이 완료되기 전까지 Elasticsearch HTTP와 security disabled 상태를 유지한다. 이 상태에서는 Elasticsearch와 Kibana를 외부에 공개하지 않고, ClusterIP 또는 운영자 SSH tunnel만 사용한다.
 
 ELK를 처음 배포하고 Gateway 요청부터 Kibana 조회까지 직접 확인하려면 [AWS EC2 ELK 테스트 가이드](addons/elk/README.md)를 먼저 따른다.
 
@@ -113,7 +118,7 @@ kubectl -n elk rollout status daemonset/fluent-bit --timeout=10m
 
 배포 후 정상 요청, 401, 404, 500, 503을 호출해 Kibana에서 `gateway.eventType: GATEWAY_ACCESS`와 응답 `X-Request-Id`가 일치하는지 확인한다. 애플리케이션 로그는 `Application Logs` Data View에서 같은 ID를 `requestId`로 검색하고 `service.name`, `level`, `kubernetes.container_name`을 확인한다. `gateway-access-*`는 14일, `application-logs-*`는 7일 후 삭제되며 `products-v1`에는 두 ILM 정책이 적용되지 않아야 한다.
 
-운영 적용은 수동 workflow의 `elk` 대상으로 전체 allowlist를 한 번에 반영한다. `notification-service`는 배포 전까지 로그가 발생하지 않으며, workload가 추가되면 별도 collector 변경 없이 수집된다. 민감 키·Bearer/JWT·Cookie·password·secret·API key·body 값이 검색되지 않는지 확인한다. 이 과정에서 ELK Service는 계속 ClusterIP로 유지한다.
+운영 적용은 수동 workflow의 `elk` 대상으로 전체 allowlist를 한 번에 반영한다. notification-service를 포함한 모든 workload는 별도 collector 변경 없이 수집된다. 민감 키·Bearer/JWT·Cookie·password·secret·API key·body 값이 검색되지 않는지 확인한다. 이 과정에서 ELK Service는 계속 ClusterIP로 유지한다.
 
 ## GitHub Actions CI/CD
 
@@ -134,7 +139,7 @@ Kubernetes 플랫폼·서비스·Gateway 매니페스트 변경도 서비스별�
 
 `k8s/overlays/ec2-kubeadm/applications/**` 공통 오버레이가 바뀌면 전체 애플리케이션이 대상이 되지만 동시에 적용하지 않고 고정된 서비스 순서로 하나씩 적용·검증한다. CI/CD workflow와 대상 계산 스크립트만 바뀐 push는 애플리케이션을 빌드하거나 배포하지 않는다. 공통 빌드 파일이 바뀌면 애플리케이션 전체를 테스트하고 이미지를 발행한다.
 
-자동 매니페스트 적용 범위에는 Config, Discovery, 상시 비즈니스 서비스 5개와 API Gateway의 Deployment·Service, 그리고 settlement 주간 CronJob이 포함된다. StorageClass, PV/PVC, PostgreSQL, Redis, Kafka, Ingress Controller와 Gateway Ingress는 기존 수동 배포 경계를 유지한다. 별도의 활성화 변수는 사용하지 않으므로 Secret, kubeconfig, 기존 Docker 중지와 cutover 준비가 끝난 뒤에만 Kubernetes CD가 포함된 PR을 `develop`에 머지한다.
+자동 매니페스트 적용 범위에는 Config, Discovery, 상시 비즈니스 서비스 7개와 API Gateway의 Deployment·Service, 그리고 settlement 주간 CronJob이 포함된다. StorageClass, PV/PVC, PostgreSQL, Redis, Kafka, Ingress Controller와 Gateway Ingress는 기존 수동 배포 경계를 유지한다. 별도의 활성화 변수는 사용하지 않으므로 Secret, kubeconfig, 기존 Docker 중지와 cutover 준비가 끝난 뒤에만 Kubernetes CD가 포함된 PR을 `develop`에 머지한다.
 
 상태 저장 인프라와 Ingress는 코드 push로 자동 적용하지 않는다. GitHub의 `Actions > CD - Self-hosted Kubernetes > Run workflow`에서 다음 target과 확인 문자열 `DEPLOY`를 사용한다.
 
