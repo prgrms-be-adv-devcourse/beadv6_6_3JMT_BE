@@ -973,19 +973,19 @@ git commit -m "feat: 감사로그 재조정용 내부 조회 엔드포인트 추
 
 ---
 
-### Task 6: Logstash — 격리된 payment-audit-log 파이프라인 추가
+### Task 6: Logstash — 격리된 payment-audit-log 파이프라인 추가 ✅
 
 **Files:**
 - Modify: `k8s/addons/elk/logstash.yaml`
 
 **설계 근거(왜 기존 `gateway-access.conf`를 고치지 않는가):** 이 ConfigMap이 마운트되는 방식(개별 `subPath` volumeMount, `pipelines.yml` 없음) 때문에 지금은 Logstash 기본 동작으로 파이프라인 디렉터리 전체가 **하나의 병합 파이프라인**으로 실행된다. 만약 kafka/http_poller 입력을 `gateway-access.conf`에 같이 넣거나 같은 디렉터리에 가드 없이 추가하면, 그 파일의 라우팅 ruby 필터(`else event.cancel`)가 새 이벤트를 전부 드롭해버린다. 이를 피하려고 매 이벤트에 `[type]` 가드를 넣어 기존 필터 체인을 감싸는 방법도 가능하지만, 이미 검증된 gateway/application 필터·마스킹 로직을 건드리는 리스크가 있다. 대신 `pipelines.yml`으로 **완전히 독립된 두 번째 파이프라인**을 만들면 기존 파일을 한 글자도 안 건드리고 신규 로직을 그 파일 안에서만 완결시킬 수 있다 — 격리가 더 안전한 선택이다.
 
-- [ ] **Step 1: 플러그인 가용성 확인(검증만, 코드 변경 없음)**
+- [x] **Step 1: 플러그인 가용성 확인(검증만, 코드 변경 없음)**
 
 Run: `docker run --rm docker.elastic.co/logstash/logstash:9.4.3 bin/logstash-plugin list | grep -E "logstash-input-kafka|logstash-input-http_poller|logstash-filter-split"`
 Expected: 3개 플러그인 모두 출력됨(기본 번들에 포함되어 있어야 이 설계가 성립). 하나라도 없으면 이 Task를 진행하기 전에 사용자에게 공유 — Dockerfile 커스터마이징이 추가로 필요해진다.
 
-- [ ] **Step 2: ConfigMap에 신규 파이프라인 conf + pipelines.yml 추가**
+- [x] **Step 2: ConfigMap에 신규 파이프라인 conf + pipelines.yml 추가**
 
 `k8s/addons/elk/logstash.yaml`의 `logstash-pipeline` ConfigMap `data:` 아래, 기존 `gateway-access.conf:` 항목은 그대로 두고 그 뒤에 아래 두 키를 추가한다(YAML 들여쓰기는 기존 `gateway-access.conf:`와 동일 레벨):
 
@@ -1048,7 +1048,7 @@ Expected: 3개 플러그인 모두 출력됨(기본 번들에 포함되어 있�
       path.config: "/usr/share/logstash/pipeline/payment-audit-log.conf"
 ```
 
-- [ ] **Step 3: ILM 부트스트랩 Job 추가**
+- [x] **Step 3: ILM 부트스트랩 Job 추가**
 
 `application-logs-ilm-bootstrap` Job 정의 바로 뒤(`---` 구분자 다음)에 아래 Job을 새로 추가한다(라벨·리소스·nodeSelector는 기존 두 Job과 동일 패턴):
 
@@ -1120,7 +1120,7 @@ spec:
               memory: 128Mi
 ```
 
-- [ ] **Step 4: Logstash Deployment에 volumeMount 2개 추가**
+- [x] **Step 4: Logstash Deployment에 volumeMount 2개 추가**
 
 기존 `containers[0].volumeMounts`(pipeline 볼륨, `gateway-access.conf` subPath)의 형제 항목으로 추가:
 
@@ -1135,12 +1135,12 @@ spec:
               readOnly: true
 ```
 
-- [ ] **Step 5: 로컬 렌더링 검증(kubectl 설치돼 있는 경우)**
+- [x] **Step 5: 로컬 렌더링 검증(kubectl 설치돼 있는 경우)**
 
 Run: `kubectl kustomize k8s/addons/elk | grep -A3 "name: payment-audit-log"`
 Expected: `payment-audit-log-ilm-bootstrap` Job과 ConfigMap 데이터 키가 렌더링 결과에 출력됨. `kubectl` 미설치 환경이면 이 단계는 스킵하고 CI(`deploy-elk` job의 `kubectl kustomize` 스텝)에서 최종 검증한다.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add k8s/addons/elk/logstash.yaml

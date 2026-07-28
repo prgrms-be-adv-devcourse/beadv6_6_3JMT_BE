@@ -128,6 +128,62 @@ data:
         }
       }
     }
+  payment-audit-log.conf: |
+    input {
+      kafka {
+        bootstrap_servers => "kafka.prompthub.svc.cluster.local:9092"
+        topics => ["payment-audit-log"]
+        group_id => "logstash-payment-audit-log"
+        codec => json
+      }
+      http_poller {
+        urls => {
+          recent_audit_logs => "http://payment-service.prompthub.svc.cluster.local:8084/internal/audit-logs"
+        }
+        request_timeout => 10
+        schedule => { every => "5m" }
+        codec => "json"
+      }
+    }
+
+    filter {
+      if [data] {
+        split {
+          field => "[data]"
+        }
+        ruby {
+          code => '
+            row = event.get("[data]")
+            if row.is_a?(Hash)
+              row.each { |k, v| event.set(k, v) }
+            end
+            event.remove("[data]")
+            event.remove("success")
+            event.remove("message")
+          '
+        }
+      }
+
+      date {
+        match => ["[createdAt]", "ISO8601"]
+        target => "@timestamp"
+      }
+    }
+
+    output {
+      elasticsearch {
+        hosts => ["http://elasticsearch.elk.svc.cluster.local:9200"]
+        ilm_enabled => false
+        manage_template => false
+        index => "payment-audit-log-%{+YYYY.MM.dd}"
+        document_id => "%{id}"
+      }
+    }
+  pipelines.yml: |
+    - pipeline.id: main
+      path.config: "/usr/share/logstash/pipeline/gateway-access.conf"
+    - pipeline.id: payment-audit-log
+      path.config: "/usr/share/logstash/pipeline/payment-audit-log.conf"
 ---
 apiVersion: v1
 kind: Service
@@ -279,6 +335,71 @@ spec:
               cpu: 100m
               memory: 128Mi
 ---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: payment-audit-log-ilm-bootstrap
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: payment-audit-log-ilm-bootstrap
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: payment-audit-log-ilm-bootstrap
+        app.kubernetes.io/part-of: prompthub
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector:
+        prompthub.io/node-pool: control-stateful
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bootstrap
+          image: curlimages/curl:8.14.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+            - |
+              elastic_url=http://elasticsearch.elk.svc.cluster.local:9200
+              until curl --fail --silent --show-error "${elastic_url}/_cluster/health?wait_for_status=yellow&timeout=1s" >/dev/null; do
+                sleep 5
+              done
+
+              curl --fail --silent --show-error -H "Content-Type: application/json" \
+                -X PUT "${elastic_url}/_ilm/policy/payment-audit-log-90d" \
+                --data '{"policy":{"phases":{"hot":{"actions":{}},"delete":{"min_age":"90d","actions":{"delete":{}}}}}}'
+              curl --fail --silent --show-error -H "Content-Type: application/json" \
+                -X PUT "${elastic_url}/_index_template/payment-audit-log-template" \
+                --data '{"index_patterns":["payment-audit-log-*"],"template":{"settings":{"index.lifecycle.name":"payment-audit-log-90d","number_of_shards":1,"number_of_replicas":0},"mappings":{"dynamic":true,"properties":{"orderId":{"type":"keyword"},"entityId":{"type":"keyword"},"actorId":{"type":"keyword"},"entityType":{"type":"keyword"},"eventType":{"type":"keyword"},"newStatus":{"type":"keyword"},"failureCode":{"type":"keyword"},"occurredAt":{"type":"date"},"createdAt":{"type":"date"},"detail":{"type":"match_only_text"}}}}}}'
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -374,6 +495,14 @@ spec:
             - name: pipeline
               mountPath: /usr/share/logstash/pipeline/gateway-access.conf
               subPath: gateway-access.conf
+              readOnly: true
+            - name: pipeline
+              mountPath: /usr/share/logstash/pipeline/payment-audit-log.conf
+              subPath: payment-audit-log.conf
+              readOnly: true
+            - name: pipeline
+              mountPath: /usr/share/logstash/config/pipelines.yml
+              subPath: pipelines.yml
               readOnly: true
       volumes:
         - name: pipeline
