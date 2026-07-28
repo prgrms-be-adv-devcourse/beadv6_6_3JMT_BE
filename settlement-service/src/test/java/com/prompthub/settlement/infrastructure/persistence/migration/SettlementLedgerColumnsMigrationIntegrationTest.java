@@ -13,7 +13,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @Testcontainers(disabledWithoutDocker = true)
-class SettlementInitialStatusDefaultsMigrationIntegrationTest {
+class SettlementLedgerColumnsMigrationIntegrationTest {
 
     @Container
     private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18.4-alpine")
@@ -22,23 +22,25 @@ class SettlementInitialStatusDefaultsMigrationIntegrationTest {
             .withPassword("settlement");
 
     @Test
-    @DisplayName("초기 지급과 정산 상태의 DB 기본값을 추가한다")
-    void migrate_addsInitialStatusDefaults() {
+    @DisplayName("계산 원장에는 운영 지급과 정산 상태 컬럼을 남기지 않는다")
+    void migrate_removesOperationalStatusColumnsFromSettlementLedger() {
         Flyway.configure()
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                .target(MigrationVersion.fromVersion("2"))
+                .target(MigrationVersion.fromVersion("4"))
                 .load()
                 .migrate();
-
-        Flyway.configure()
-                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                .load()
-                .migrate();
-
         JdbcTemplate jdbc = jdbcTemplate();
 
-        assertThat(columnDefault(jdbc, "payout_status")).contains("NOT_READY");
-        assertThat(columnDefault(jdbc, "settlement_status")).contains("PENDING_APPROVAL");
+        assertThat(columnExists(jdbc, "payout_status")).isTrue();
+        assertThat(columnExists(jdbc, "settlement_status")).isTrue();
+
+        Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .load()
+                .migrate();
+
+        assertThat(columnExists(jdbc, "payout_status")).isFalse();
+        assertThat(columnExists(jdbc, "settlement_status")).isFalse();
     }
 
     private JdbcTemplate jdbcTemplate() {
@@ -49,15 +51,17 @@ class SettlementInitialStatusDefaultsMigrationIntegrationTest {
         return new JdbcTemplate(dataSource);
     }
 
-    private String columnDefault(JdbcTemplate jdbc, String columnName) {
+    private boolean columnExists(JdbcTemplate jdbc, String columnName) {
         return jdbc.queryForObject("""
-                        select column_default
-                        from information_schema.columns
-                        where table_schema = current_schema()
-                          and table_name = 'settlement'
-                          and column_name = ?
+                        select exists (
+                            select 1
+                            from information_schema.columns
+                            where table_schema = current_schema()
+                              and table_name = 'settlement'
+                              and column_name = ?
+                        )
                         """,
-                String.class,
+                Boolean.class,
                 columnName);
     }
 }
