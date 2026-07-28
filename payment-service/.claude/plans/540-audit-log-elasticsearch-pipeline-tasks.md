@@ -508,7 +508,7 @@ git commit -m "feat: 감사로그 저장 성공 시 Kafka 발행 연동"
 
 ---
 
-### Task 3: AuditLogRepository — 재조정용 조회 계약 추가
+### Task 3: AuditLogRepository — 재조정용 조회 계약 추가 ✅
 
 **Files:**
 - Modify: `payment-service/src/main/java/com/prompthub/payment/domain/repository/AuditLogRepository.java`
@@ -519,7 +519,7 @@ git commit -m "feat: 감사로그 저장 성공 시 Kafka 발행 연동"
 **Interfaces:**
 - Produces: `AuditLogRepository.findAllCreatedAfter(OffsetDateTime since, int limit): List<AuditLog>`(Task 4가 사용)
 
-- [ ] **Step 1: 실패하는 테스트 추가**
+- [x] **Step 1: 실패하는 테스트 추가**
 
 `AuditLogJpaRepositoryTest.java`에 아래 테스트와 import(`java.util.List`, `org.springframework.data.domain.PageRequest`)를 추가:
 
@@ -543,12 +543,12 @@ git commit -m "feat: 감사로그 저장 성공 시 Kafka 발행 연동"
     }
 ```
 
-- [ ] **Step 2: 테스트 실패 확인**
+- [x] **Step 2: 테스트 실패 확인**
 
 Run: `JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.persistence.AuditLogJpaRepositoryTest"`
 Expected: FAIL — 메서드 없어 컴파일 실패.
 
-- [ ] **Step 3: 최소 구현**
+- [x] **Step 3: 최소 구현**
 
 `AuditLogJpaRepository.java`:
 
@@ -614,12 +614,12 @@ public class AuditLogRepositoryAdapter implements AuditLogRepository {
 }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
+- [x] **Step 4: 테스트 통과 확인**
 
 Run: `JAVA_HOME=~/.asdf/installs/java/temurin-21.0.5+11.0.LTS ../gradlew :payment-service:test --tests "com.prompthub.payment.infrastructure.persistence.AuditLogJpaRepositoryTest"`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add payment-service/src/main/java/com/prompthub/payment/domain/repository/AuditLogRepository.java \
