@@ -138,4 +138,41 @@ public class KafkaConfig {
 		);
 		return new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 2L));
 	}
+
+	// ai-events 소비(#597 AI 상품 검수) — order-events/product-events 소비와 다른 별도
+	// consumer group("product-service")을 이미 order-events와 공유하지만, 토픽이 달라 리밸런싱은 분리된다.
+	@Bean
+	public ConsumerFactory<String, String> aiEventConsumerFactory() {
+		Map<String, Object> config = new HashMap<>();
+		config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+		config.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+		config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset);
+		config.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, enableAutoCommit);
+		config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+		config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+		return new DefaultKafkaConsumerFactory<>(config);
+	}
+
+	@Bean
+	public ConcurrentKafkaListenerContainerFactory<String, String> aiEventContainerFactory(
+		ConsumerFactory<String, String> aiEventConsumerFactory,
+		DefaultErrorHandler aiEventErrorHandler
+	) {
+		ConcurrentKafkaListenerContainerFactory<String, String> factory =
+			new ConcurrentKafkaListenerContainerFactory<>();
+		factory.setConsumerFactory(aiEventConsumerFactory);
+		factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
+		factory.setCommonErrorHandler(aiEventErrorHandler);
+		return factory;
+	}
+
+	// 처리 실패 이벤트는 재시도 후 원본 토픽의 DLT(`ai-events.DLT`)로 보낸다. (kafka-event.md §7)
+	@Bean
+	public DefaultErrorHandler aiEventErrorHandler(KafkaTemplate<String, Object> kafkaTemplate) {
+		DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+			kafkaTemplate,
+			(record, exception) -> new TopicPartition(record.topic() + ".DLT", record.partition())
+		);
+		return new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 2L));
+	}
 }

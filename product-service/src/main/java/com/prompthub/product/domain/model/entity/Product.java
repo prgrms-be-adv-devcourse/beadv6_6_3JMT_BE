@@ -234,6 +234,23 @@ public class Product {
 		this.updatedAt = LocalDateTime.now();
 	}
 
+	public void approve() {
+		if (this.status != ProductStatus.PENDING_REVIEW) {
+			throw new IllegalStateException("PENDING_REVIEW 상태의 상품만 승인할 수 있습니다. current=" + this.status);
+		}
+		this.status = ProductStatus.ON_SALE;
+		this.updatedAt = LocalDateTime.now();
+	}
+
+	public void reject(String reason) {
+		if (this.status != ProductStatus.PENDING_REVIEW) {
+			throw new IllegalStateException("PENDING_REVIEW 상태의 상품만 반려할 수 있습니다. current=" + this.status);
+		}
+		this.status = ProductStatus.REJECTED;
+		this.rejectionReason = reason;
+		this.updatedAt = LocalDateTime.now();
+	}
+
 	private void applyContent(ProductContent productContent) {
 		this.productType = productContent.productType();
 		this.name = productContent.name();

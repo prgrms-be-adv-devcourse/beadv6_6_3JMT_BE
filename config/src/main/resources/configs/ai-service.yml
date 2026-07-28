@@ -12,6 +12,15 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
       database: 1
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+    consumer:
+      group-id: ai-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
   ai:
     openai:
       api-key: ${OPENAI_API_KEY}
