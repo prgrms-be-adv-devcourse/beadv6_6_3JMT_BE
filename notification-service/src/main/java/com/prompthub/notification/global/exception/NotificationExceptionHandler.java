@@ -4,9 +4,11 @@ import com.prompthub.exception.BusinessException;
 import com.prompthub.exception.response.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
@@ -19,7 +21,12 @@ public class NotificationExceptionHandler {
         return ResponseEntity.status(exception.getErrorCode().getStatus()).body(ErrorResponse.of(exception.getErrorCode()));
     }
 
-    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingRequestHeaderException.class})
+    @ExceptionHandler({
+        MethodArgumentTypeMismatchException.class,
+        MissingRequestHeaderException.class,
+        MethodArgumentNotValidException.class,
+        HttpMessageNotReadableException.class
+    })
     ResponseEntity<ErrorResponse> invalidInput(Exception exception) {
         log.warn("알림 요청 값 검증 실패 - code={}, type={}",
                 NotificationErrorCode.INVALID_INPUT_VALUE.getCode(), exception.getClass().getSimpleName());
