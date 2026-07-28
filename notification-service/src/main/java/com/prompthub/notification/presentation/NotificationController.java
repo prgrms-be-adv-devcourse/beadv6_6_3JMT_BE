@@ -80,8 +80,7 @@ public class NotificationController {
     @ApiResponses({
         @ApiResponse(
             responseCode = "200",
-            description = "조회 성공",
-            content = @Content(schema = @Schema(implementation = NotificationSettingsResponse.class))
+            description = "조회 성공"
         ),
         @ApiResponse(
             responseCode = "400",
@@ -103,8 +102,7 @@ public class NotificationController {
     @ApiResponses({
         @ApiResponse(
             responseCode = "200",
-            description = "변경 성공",
-            content = @Content(schema = @Schema(implementation = NotificationSettingUpdateResponse.class))
+            description = "변경 성공"
         ),
         @ApiResponse(
             responseCode = "400",
