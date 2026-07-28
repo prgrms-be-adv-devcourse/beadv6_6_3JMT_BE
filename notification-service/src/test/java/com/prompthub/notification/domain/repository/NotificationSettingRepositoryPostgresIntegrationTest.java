@@ -6,6 +6,7 @@ import com.prompthub.notification.application.dto.NotificationSettingUpdateRespo
 import com.prompthub.notification.application.service.NotificationSettingService;
 import com.prompthub.notification.domain.enums.NotificationCategory;
 import com.prompthub.notification.domain.model.NotificationSetting;
+import com.prompthub.notification.infra.persistence.config.QuerydslConfig;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -27,7 +28,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
-@Import(NotificationSettingService.class)
+@Import({NotificationSettingService.class, QuerydslConfig.class})
 @Testcontainers(disabledWithoutDocker = true)
 class NotificationSettingRepositoryPostgresIntegrationTest {
 

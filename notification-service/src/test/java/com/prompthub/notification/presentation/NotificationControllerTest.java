@@ -155,6 +155,19 @@ class NotificationControllerTest {
     }
 
     @Test
+    void updateSetting_nullJsonBodyReturnsV001WithoutCallingUseCases() throws Exception {
+        mockMvc.perform(put("/api/v1/notifications/settings/{category}", "MARKETING")
+                .header("X-User-Id", RECIPIENT_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("null"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("V001"));
+
+        then(notificationUseCase).shouldHaveNoInteractions();
+        then(notificationSettingUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
     void updateSetting_mandatoryCategoryReturnsN003() throws Exception {
         willThrow(new NotificationCustomException(
             NotificationErrorCode.NOTIFICATION_SETTING_NOT_CONFIGURABLE
