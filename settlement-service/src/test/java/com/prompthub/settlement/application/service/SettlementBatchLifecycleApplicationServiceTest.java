@@ -145,6 +145,21 @@ class SettlementBatchLifecycleApplicationServiceTest {
     }
 
     @Test
+    @DisplayName("Delivery Step 실패로 Job만 실패한 완료 배치는 상태 변경 없이 재시작한다")
+    void completedBatch_allowsDeliveryStepRestartWithoutStatusChange() {
+        SettlementBatch batch = processingBatch();
+        batch.complete();
+        given(repository.findById(batch.getId())).willReturn(Optional.of(batch));
+
+        long result = service.requireRetryJobInstanceId(batch.getId());
+        service.startRetry(batch.getId());
+
+        assertThat(result).isEqualTo(11L);
+        assertThat(batch.getStatus()).isEqualTo(SettlementBatchStatus.COMPLETED);
+        then(repository).should(never()).save(batch);
+    }
+
+    @Test
     @DisplayName("RETRY_REQUESTED가 아닌 배치는 재시작할 수 없다")
     void requireRetryJobInstanceId_failedBatch_throwsException() {
         SettlementBatch batch = failedBatch();

@@ -140,6 +140,10 @@ public class SettlementBatch extends BaseEntity {
 		return this.status == SettlementBatchStatus.PROCESSING;
 	}
 
+	public boolean isCompleted() {
+		return this.status == SettlementBatchStatus.COMPLETED;
+	}
+
 	public boolean isRetryRequested() {
 		return this.status == SettlementBatchStatus.RETRY_REQUESTED;
 	}

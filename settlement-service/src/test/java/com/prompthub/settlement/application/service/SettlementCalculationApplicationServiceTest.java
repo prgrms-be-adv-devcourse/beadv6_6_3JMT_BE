@@ -2,19 +2,18 @@ package com.prompthub.settlement.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
-import com.prompthub.settlement.application.usecase.OutboxEventUseCase;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementDetail;
 import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.repository.SettlementRepository;
+import com.prompthub.settlement.domain.repository.SettlementDeliveryRepository;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -42,7 +41,7 @@ class SettlementCalculationApplicationServiceTest {
     private SettlementRepository settlementRepository;
 
     @Mock
-    private OutboxEventUseCase outboxEventUseCase;
+    private SettlementDeliveryRepository settlementDeliveryRepository;
 
     @InjectMocks
     private SettlementCalculationApplicationService service;
@@ -130,12 +129,12 @@ class SettlementCalculationApplicationServiceTest {
         // then
         assertThat(settlement).isNull();
         verify(settlementRepository, never()).save(any());
-        then(outboxEventUseCase).shouldHaveNoInteractions();
+        then(settlementDeliveryRepository).shouldHaveNoInteractions();
     }
 
     @Test
-    @DisplayName("정산 저장 후 배치 ID와 생성된 정산 페이로드로 아웃박스를 적재한다")
-    void calculate_appendsSettlementCreatedToOutboxAfterSave() {
+    @DisplayName("정산 저장 후 같은 트랜잭션에서 CALCULATED Delivery를 생성한다")
+    void calculate_createsCalculatedDeliveryAfterSave() {
         // given
         UUID sellerId = UUID.randomUUID();
         CalculateSettlementCommand command = new CalculateSettlementCommand(UUID.randomUUID(), sellerId, PERIOD);
@@ -146,10 +145,11 @@ class SettlementCalculationApplicationServiceTest {
         // when
         Settlement settlement = service.calculate(command);
 
-        // then : 저장된 정산 ID로 이벤트가 적재된다
-        then(outboxEventUseCase).should().appendSettlementCreated(
-                eq(command.settlementBatchId()),
-                org.mockito.ArgumentMatchers.argThat(
-                        payload -> payload.settlementId().equals(settlement.getId())));
+        then(settlementDeliveryRepository).should().save(
+                org.mockito.ArgumentMatchers.argThat(delivery ->
+                        delivery.getSettlementId().equals(settlement.getId())
+                                && delivery.getSettlementBatchId()
+                                .equals(command.settlementBatchId())
+                                && delivery.getDeliveryRequestId() != null));
     }
 }

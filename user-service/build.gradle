@@ -1,10 +1,5 @@
 apply plugin: 'com.google.protobuf'
 
-def settlementServiceMainClasses = files(
-        project(':settlement-service').layout.buildDirectory.dir('classes/java/main')
-)
-settlementServiceMainClasses.builtBy(':settlement-service:compileJava')
-
 dependencies {
     // gRPC 판매자 정산 분석 서버 (버전은 Boot BOM의 grpc-bom이 관리)
     implementation 'io.grpc:grpc-protobuf'
@@ -18,12 +13,6 @@ dependencies {
 
     // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
-
-    // Kafka (settlement.created 소비 — user-service 자체 도입, 루트 build.gradle 미수정)
-    implementation 'org.springframework.boot:spring-boot-starter-kafka'
-    testImplementation 'org.springframework.kafka:spring-kafka-test'
-    // producer-consumer 계약 테스트용 클래스만 참조 (settlement Flyway 리소스의 classpath 유입 방지)
-    testImplementation settlementServiceMainClasses
 
     // Redis (RT 조회 캐시 — ADR-0008 결정3 / authorize 캐시 — 결정6, #289)
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'

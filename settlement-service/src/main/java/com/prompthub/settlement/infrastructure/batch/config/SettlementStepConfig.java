@@ -7,12 +7,10 @@ import com.prompthub.settlement.infrastructure.batch.settlement.SettlementTarget
 import com.prompthub.settlement.infrastructure.batch.settlement.SettlementWriter;
 import com.prompthub.settlement.infrastructure.batch.tasklet.CompleteSettlementBatchTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.CreateSettlementBatchTasklet;
-import com.prompthub.settlement.infrastructure.batch.tasklet.FlushCurrentBatchOutboxTasklet;
+import com.prompthub.settlement.infrastructure.batch.tasklet.DeliverSellerSettlementsTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.LoadSettlementSourceTasklet;
-import com.prompthub.settlement.infrastructure.batch.tasklet.ReconcileSettlementSourceTasklet;
-import com.prompthub.settlement.infrastructure.batch.tasklet.RedriveOutboxTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.ReconcileSettlementCalculationTasklet;
-import com.prompthub.settlement.infrastructure.batch.tasklet.RetryPendingOutboxTasklet;
+import com.prompthub.settlement.infrastructure.batch.tasklet.ReconcileSettlementSourceTasklet;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -20,6 +18,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.interceptor.DefaultTransactionAttribute;
 
 @Configuration
 public class SettlementStepConfig {
@@ -45,13 +45,6 @@ public class SettlementStepConfig {
 	public Step createSettlementBatchStep(CreateSettlementBatchTasklet createSettlementBatchTasklet) {
 		return new StepBuilder("createSettlementBatchStep", jobRepository)
 			.tasklet(createSettlementBatchTasklet, transactionManager)
-			.build();
-	}
-
-	@Bean
-	public Step retryPendingOutboxStep(RetryPendingOutboxTasklet retryPendingOutboxTasklet) {
-		return new StepBuilder("retryPendingOutboxStep", jobRepository)
-			.tasklet(retryPendingOutboxTasklet, transactionManager)
 			.build();
 	}
 
@@ -104,18 +97,14 @@ public class SettlementStepConfig {
 	}
 
 	@Bean
-	public Step flushCurrentBatchOutboxStep(
-		FlushCurrentBatchOutboxTasklet flushCurrentBatchOutboxTasklet
+	public Step deliverSellerSettlementsStep(
+		DeliverSellerSettlementsTasklet deliverSellerSettlementsTasklet
 	) {
-		return new StepBuilder("flushCurrentBatchOutboxStep", jobRepository)
-			.tasklet(flushCurrentBatchOutboxTasklet, transactionManager)
-			.build();
-	}
-
-	@Bean
-	public Step redriveOutboxStep(RedriveOutboxTasklet redriveOutboxTasklet) {
-		return new StepBuilder("redriveOutboxStep", jobRepository)
-			.tasklet(redriveOutboxTasklet, transactionManager)
+		DefaultTransactionAttribute withoutDatabaseTransaction = new DefaultTransactionAttribute();
+		withoutDatabaseTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_NOT_SUPPORTED);
+		return new StepBuilder("deliverSellerSettlementsStep", jobRepository)
+			.tasklet(deliverSellerSettlementsTasklet, transactionManager)
+			.transactionAttribute(withoutDatabaseTransaction)
 			.build();
 	}
 }

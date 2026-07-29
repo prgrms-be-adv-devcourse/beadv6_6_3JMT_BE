@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -38,6 +39,9 @@ public class SellerSettlement extends BaseEntity implements Persistable<UUID> {
 
     @Column(name = "settlement_id", columnDefinition = "uuid", nullable = false, unique = true)
     private UUID settlementId;
+
+    @Column(name = "delivery_request_id", columnDefinition = "uuid", unique = true)
+    private UUID deliveryRequestId;
 
     @Column(name = "seller_id", columnDefinition = "uuid", nullable = false)
     private UUID sellerId;
@@ -148,6 +152,17 @@ public class SellerSettlement extends BaseEntity implements Persistable<UUID> {
         this.payloadVersion = payloadVersion;
         this.details.addAll(details);
         this.status = SettlementDisplayStatus.WAITING;
+    }
+
+    public void linkDeliveryRequestId(UUID requestId) {
+        Objects.requireNonNull(requestId, "deliveryRequestId는 필수입니다.");
+        if (deliveryRequestId == null) {
+            deliveryRequestId = requestId;
+            return;
+        }
+        if (!deliveryRequestId.equals(requestId)) {
+            throw new SellerSettlementInvalidStateException();
+        }
     }
 
     public void approve() {

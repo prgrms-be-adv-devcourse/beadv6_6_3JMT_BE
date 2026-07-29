@@ -21,12 +21,18 @@ spring:
   batch:
     job:
       enabled: false
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-
+  grpc:
+    client:
+      channel:
+        user-service:
+          target: ${USER_GRPC_TARGET:static://localhost:9081}
 settlement:
   execution:
     mode: service
+  delivery:
+    grpc:
+      internal-token: ${SETTLEMENT_USER_GRPC_TOKEN:local-settlement-user-token}
+      deadline: 10s
   manual-api:
     enabled: true
 

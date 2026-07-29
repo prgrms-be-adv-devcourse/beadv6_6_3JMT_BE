@@ -18,11 +18,6 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
-  kafka:
-    bootstrap-servers: localhost:9092
-    consumer:
-      group-id: test-group
-
 jwt:
   access-token-expire-seconds: 900
   refresh-token-expire-seconds: 604800
@@ -35,13 +30,8 @@ user:
   grpc:
     seller-settlement:
       internal-token: test-ai-user-token
-  kafka:
-    consumer:
-      settlement:
-        topic: settlement-events
-    listener:
-      settlement:
-        enabled: false
+    seller-settlement-command:
+      internal-token: test-settlement-user-token
 
 grpc:
   server:
