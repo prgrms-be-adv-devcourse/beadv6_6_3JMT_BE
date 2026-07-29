@@ -17,7 +17,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * product-events 발행 어댑터. (kafka-event.md §6)
+ * product-events 발행 어댑터. (루트 kafka-event.md 참고)
  * 모든 이벤트를 공통 {@link EventMessage} 로 감싸 발행한다. eventType 은 {@link ProductEventType}.code()(UPPER_SNAKE),
  * aggregateType 은 "PRODUCT", Kafka key = aggregateId = productId. 도메인 상태 변경 트랜잭션 커밋 후(AFTER_COMMIT) 발행한다.
  */

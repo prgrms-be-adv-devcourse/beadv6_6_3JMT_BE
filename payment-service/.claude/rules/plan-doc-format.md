@@ -1,8 +1,8 @@
-payment-service `.claude/plans/` 문서 작성 형식 규칙. 새 계획 문서 작성 시 따른다. 기존 `archive/` 파일에는 소급 적용하지 않는다.
+payment-service 계획 문서(`docs/records/plan/payment/`) 작성 형식 규칙. 새 계획 문서 작성 시 따른다. 기존 `archive/` 파일에는 소급 적용하지 않는다.
 
 ## 배경
 
-`.claude/plans/`에는 작업 착수 전 **계획 문서**(`{NN}-{slug}.md`)를 작성한다.
+`docs/records/plan/payment/`에는 작업 착수 전 **계획 문서**(`{이슈번호}-{slug}.md`)를 작성한다.
 
 이 문서는 훗날 포트폴리오·이력서 작성 시 본인이 직접 발췌하는 용도로도 쓰인다. 발췌 시 중요한 것은 기술적 의사결정 근거, 문제해결 서사, 정량적 성과.
 

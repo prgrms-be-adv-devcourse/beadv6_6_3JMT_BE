@@ -8,12 +8,14 @@
 |------|------|---------|:--------:|--------|------|
 | 식별자 * | batch_id | UUID | ✓ | gen_random_uuid() | PK |
 | 배치 번호 * | batch_no | VARCHAR(100) | ✓ | | 사람이 식별하기 위한 번호. 예: SETTLE-202606-001. UNIQUE |
+| Job Instance ID | job_instance_id | BIGINT | | NULL | Spring Batch `batch_job_instance.job_instance_id` 연결. V2에서 추가(기존 배치는 batch_no 접미사로 백필 시도). UNIQUE(NULL 제외 partial index) |
 | 정산 기간 시작 * | period_start | DATE | ✓ | | 정산 대상 기간 시작일 |
 | 정산 기간 종료 * | period_end | DATE | ✓ | | 정산 대상 기간 종료일 |
-| 배치 상태 * | status | settlement_status_type | ✓ | | PROCESSING / COMPLETED / FAILED / CANCELLED |
+| 배치 상태 * | status | settlement_batch_status_type | ✓ | | PROCESSING / COMPLETED / FAILED / RETRY_REQUESTED / CANCELLED |
 | 실행 방식 * | trigger_type | trigger_type_enum | ✓ | | SCHEDULED / MANUAL |
 | 실패 사유 | failure_reason | VARCHAR(1000) | | NULL | status가 FAILED일 때 사용 |
 | 실행 일시 | executed_at | TIMESTAMPTZ | | NULL | |
+| 버전 * | version | BIGINT | ✓ | 0 | 낙관적 락(`@Version`). V2에서 추가 |
 | 생성 일시 * | created_at | TIMESTAMPTZ | ✓ | | |
 | 수정 일시 * | updated_at | TIMESTAMPTZ | ✓ | | |
 
@@ -33,13 +35,14 @@
 | 지급 순액 * | settlement_total_amount | NUMERIC(12,2) | ✓ | 0 | 실제 지급 예정액 |
 | 총 수수료액 * | fee_total_amount | NUMERIC(12,2) | ✓ | | 플랫폼 총 수수료 |
 | 환불 금액 | refund_amount | NUMERIC(12,2) | | NULL | |
-| 정산 상태 * | settlement_status | settlement_status_type | ✓ | | PROCESSING / COMPLETED / FAILED / CANCELLED |
-| 지급 상태 * | payout_status | payout_status_type | ✓ | | PENDING / PAID / FAILED |
+| 정산 상태 * | settlement_status | settlement_status_type | ✓ | PENDING_APPROVAL | PENDING_APPROVAL / SETTLEMENT_ON_HOLD / APPROVED / CANCELLED |
+| 지급 상태 * | payout_status | payout_status_type | ✓ | NOT_READY | NOT_READY / READY / PAYOUT_REQUESTED / PAYOUT_ON_HOLD / PAID |
 | 실패 사유 | failed_reason | VARCHAR(1000) | | NULL | |
 | 산정 일시 * | calculated_at | TIMESTAMPTZ | ✓ | | 배치 실행 시각 |
-| 확정 일시 | confirmed_at | TIMESTAMPTZ | | NULL | |
-| 지급 일시 | paid_at | TIMESTAMPTZ | | NULL | |
-| 지급 참조 ID | payout_reference | VARCHAR(100) | | NULL | 외부 송금 시스템 거래 참조 |
+| 확정 일시 | confirmed_at | TIMESTAMPTZ | | NULL | DB 컬럼만 존재. `Settlement` 엔티티가 매핑하지 않음(애플리케이션 미사용) |
+| 지급 일시 | paid_at | TIMESTAMPTZ | | NULL | DB 컬럼만 존재. `Settlement` 엔티티가 매핑하지 않음(애플리케이션 미사용) |
+| 취소 일시 | canceled_at | TIMESTAMPTZ | | NULL | DB 컬럼만 존재. `Settlement` 엔티티가 매핑하지 않음(애플리케이션 미사용) |
+| 지급 참조 ID | payout_reference | VARCHAR(100) | | NULL | 외부 송금 시스템 거래 참조(설계 의도). DB 컬럼만 존재. `Settlement` 엔티티가 매핑하지 않음(애플리케이션 미사용) |
 | 생성 일시 * | created_at | TIMESTAMPTZ | ✓ | | |
 | 수정 일시 * | updated_at | TIMESTAMPTZ | ✓ | | |
 
@@ -66,18 +69,18 @@ settlement의 하위 엔티티.
 
 ## 정산 소스 라인 (settlement_source_line)
 
-orderProduct 결제·환불 이벤트를 실시간 수신해 적재하는 정산 원장.
+정산 배치가 실행 시점에 order-service를 gRPC로 조회해 적재하는 정산 원장. (실시간 이벤트 수신이 아니라 주간 마감 배치의 pull 방식 — Kafka 소비 제거 #317)
 정산 배치가 미정산 라인(`settlement_id IS NULL`)을 판매자·기간으로 모아 `settlement_detail`로 산정한다.
 
 | 이름 | 영문 | DB 타입 | NOT NULL | 기본값 | 설명 |
 |------|------|---------|:--------:|--------|------|
 | 식별자 * | settlement_source_line_id | UUID | ✓ | gen_random_uuid() | PK |
 | 멱등키 * | event_id | UUID | ✓ | | 이벤트 멱등키. 같은 이벤트 재수신 차단. UNIQUE |
-| 이벤트 유형 * | event_type | VARCHAR(30) | ✓ | | 수신한 원본 이벤트 종류. PAID / REFUND |
+| 이벤트 유형 * | line_type | VARCHAR(30) | ✓ | | 수신한 원본 이벤트 종류. PAID / REFUND. (컬럼명은 settlement_detail.line_type과 같지만 값 집합은 다름 — 원천 이벤트 종류 vs 정산 상세 항목 유형) |
 | 주문 ID | order_id | UUID | | NULL | FK → order.order_id. 참조·추적용 |
 | 주문 상품 ID * | order_product_id | UUID | ✓ | | FK → order_product.order_product_id |
 | 판매자 ID * | seller_id | UUID | ✓ | | FK → seller.seller_id. 정산 기준 |
-| 거래 금액 * | line_amount | NUMERIC(12,2) | ✓ | | 거래 금액(항상 양수). 가산/차감은 event_type으로 구분 |
+| 거래 금액 * | line_amount | NUMERIC(12,2) | ✓ | | 거래 금액(항상 양수). 가산/차감은 line_type으로 구분 |
 | 발생 일시 * | occurred_at | TIMESTAMPTZ | ✓ | | 원천 이벤트 발생 시각. 기간 귀속 판단 기준 |
 | 정산 ID | settlement_id | UUID | | NULL | FK → settlement.settlement_id. NULL이면 미정산, 정산 반영 시 연결 |
 | 생성 일시 * | created_at | TIMESTAMPTZ | ✓ | | 수신 적재 시각 |

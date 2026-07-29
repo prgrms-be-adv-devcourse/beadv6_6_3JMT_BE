@@ -1,21 +1,8 @@
 payment-service 클린 아키텍처 규칙. 코드 배치·레이어·패키지·의존 방향 작업 시 따른다.
 
 > 아래 패키지 구조는 **새 코드의 배치 계약**이다. 새 클래스를 추가할 때 반드시 이 구조를 따른다.
-
-## 아키텍처 개요
-
-**클린 아키텍처(Robert C. Martin)** 기반. 외부 기술 변경이 도메인 로직에 영향을 주지 않도록 레이어 간 의존 방향을 단방향으로 강제한다. 헥사고날의 `port`/`adapter` 대신 클린 아키텍처 용어 `usecase`/`gateway`를 쓴다.
-
-```
-presentation ─┐
-              ├─▶ application ─▶ domain
-infrastructure ─┘
-```
-
-- `domain` — 순수 비즈니스 규칙. 외부 기술 의존 없음
-- `application` — 비즈니스 흐름 조율. `domain`만 의존
-- `presentation` — HTTP 입력 어댑터(REST Controller, ExceptionHandler)
-- `infrastructure` — 앱이 외부(DB, PG사, Kafka)를 호출하는 Driven Adapter
+> 레이어 정의·의존 방향·포트/Gateway 네이밍 등 팀 공통 규칙은 루트 `../../../.claude/rules/clean-architecture.md`를
+> 우선 따른다. 이 문서는 그중 payment-service에만 해당하는 구체화·추가 규칙만 기재한다.
 
 ## 패키지 구조
 
@@ -53,31 +40,32 @@ com.prompthub.paymentservice
         └── consumer   ← Kafka 컨슈머 (order-events 구독 입력 어댑터)
 ```
 
-## 레이어별 핵심 규칙
+## 레이어별 핵심 규칙 (payment-service 고유)
 
-트리 주석에 없는 아키텍처 제약만 기재한다. 패키지별 상세 역할은 위 패키지 구조 참조.
+트리 주석·루트 공통 규칙에 없는, payment-service 고유의 아키텍처 제약만 기재한다.
 
-- **domain.model**: 외부 레이어 전체 의존 금지. 단, 아래 두 가지는 실용적 타협으로 허용한다. 그 외는 확대하지 않는다.
-  - JPA 어노테이션(`@Entity`, `@Column` 등): 영속성 매핑 목적
-  - SLF4J 로깅(`@Slf4j`, `log.debug/info` 등): 상태 전이 추적 목적
-- **domain.repository**: Repository 인터페이스. 도메인이 영속성에 요구하는 계약을 정의한다. `infrastructure`가 구현하며, application 레이어는 이 인터페이스에만 의존한다.
-- **application.usecase**: Input Boundary. UseCase 인터페이스만 위치한다. `presentation`은 이 인터페이스만 의존한다.
-- **application.service**: UseCase 인터페이스 구현체. Spring `@Service` 빈으로 등록되며 비즈니스 흐름을 조율한다.
-- **application.gateway.external**: 외부 API Gateway 출력 경계 인터페이스(DIP). `infrastructure`가 구현하며, application 레이어는 인터페이스에만 의존한다.
-- **예외 패키지**: 도메인 불변 위반은 `domain.exception`, API 에러 코드(HTTP 상태·코드 매핑)는 `application.exception`. common-module의 `ErrorCode`를 구현하는 enum은 `application.exception`에 위치한다.
-- **이벤트 발행**: Service 구현체는 `ApplicationEventPublisher.publishEvent(도메인이벤트)`로 Spring 내부 이벤트를 발행한다. `infrastructure.messaging`의 구현체가 `@TransactionalEventListener(phase = AFTER_COMMIT)`으로 구독해 Kafka로 전달한다. `ApplicationEventPublisher`는 `spring-context` 추상 인터페이스이므로 application 레이어 허용. AFTER_COMMIT이 핵심 — 트랜잭션 롤백 시 Kafka 메시지 발행이 차단된다.
-- **스케줄러 예외**: `@Scheduled` 메서드 내부에서는 중첩 `@TransactionalEventListener` 제한(Spring Boot 4.1)으로 Spring 내부 이벤트를 쓰지 않는다. 대신 `TransactionSynchronizationManager.registerSynchronization().afterCommit()`에서 `KafkaPaymentEventPublisher`를 직접 호출한다.
-- **이벤트 구독(입력 어댑터)**: `infrastructure.messaging.consumer`의 `@KafkaListener`는 외부 이벤트를 받아 애플리케이션 흐름을 개시하는 **입력 어댑터**다(presentation의 Controller와 같은 역할, 위치만 infrastructure). 따라서 예외적으로 `application.usecase` 인터페이스에 의존할 수 있다(예: `OrderEventConsumer` → `RecordOrderSnapshotUseCase`). 메시지 파싱은 `StringDeserializer` + `ObjectMapper` 수동 파싱(order 도메인 계약 record라 타입 헤더 의존 불가). `@EnableKafka`는 명시하지 않고 Spring Boot 자동설정에 맡긴다 — 그래야 `KafkaAutoConfiguration`을 제외한 JPA 슬라이스 테스트에서 리스너 컨테이너가 기동되지 않는다.
-- **presentation**: request DTO → `command` 변환 후 UseCase 호출, `result` → response DTO 변환. 요청 유효성 검증 규칙은 `api-error-handling.md` 참조.
-
-## 의존성 규칙 요약
-
-| 레이어 | import 허용 | import 금지 |
-|---|---|---|
-| `domain` | 없음 | application, presentation, infrastructure |
-| `application` | domain, `ApplicationEventPublisher`(이벤트 발행 전용) | presentation, infrastructure |
-| `presentation` | application.usecase, application.dto | infrastructure |
-| `infrastructure` | application.gateway.external, application.dto, domain.*, (컨슈머 한정) application.usecase | presentation |
+- **domain.model**: JPA 겸용 정책(`../../../.claude/rules/domain-model.md`)에 더해 SLF4J 로깅
+  (`@Slf4j`, `log.debug/info` 등)도 상태 전이 추적 목적으로 허용한다 — payment-service 한정 추가 예외.
+- **예외 패키지**: 도메인 불변 위반은 `domain.exception`, API 에러 코드(HTTP 상태·코드 매핑)는
+  `application.exception`. common-module의 `ErrorCode`를 구현하는 enum도 `application.exception`에
+  위치한다. ⚠ 루트 규칙은 `ErrorCode`·`GlobalExceptionHandler`를 횡단 관심사로 보고 `global/exception`에
+  두도록 하지만, payment-service는 별도 `global` 계층 없이 `application.exception`과
+  `presentation`(`PaymentExceptionHandler`)에 나눠 두고 있다 — 아직 루트 표준과 통일되지 않은 상태.
+- **이벤트 발행**: Service 구현체는 `ApplicationEventPublisher.publishEvent(도메인이벤트)`로 Spring 내부
+  이벤트를 발행한다. `infrastructure.messaging`의 구현체가 `@TransactionalEventListener(phase = AFTER_COMMIT)`
+  으로 구독해 Kafka로 전달한다. `ApplicationEventPublisher`는 `spring-context` 추상 인터페이스이므로
+  application 레이어 허용. AFTER_COMMIT이 핵심 — 트랜잭션 롤백 시 Kafka 메시지 발행이 차단된다.
+- **스케줄러 예외**: `@Scheduled` 메서드 내부에서는 중첩 `@TransactionalEventListener` 제한(Spring Boot 4.1)
+  으로 Spring 내부 이벤트를 쓰지 않는다. 대신 `TransactionSynchronizationManager.registerSynchronization()
+  .afterCommit()`에서 `KafkaPaymentEventPublisher`를 직접 호출한다.
+- **이벤트 구독(입력 어댑터)**: `infrastructure.messaging.consumer`의 `@KafkaListener`는 외부 이벤트를 받아
+  애플리케이션 흐름을 개시하는 **입력 어댑터**다(presentation의 Controller와 같은 역할, 위치만
+  infrastructure). 따라서 예외적으로 `application.usecase` 인터페이스에 의존할 수 있다(예:
+  `OrderEventConsumer` → `RecordOrderSnapshotUseCase`). 메시지 파싱은 `StringDeserializer` +
+  `ObjectMapper` 수동 파싱(order 도메인 계약 record라 타입 헤더 의존 불가). `@EnableKafka`는 명시하지
+  않고 Spring Boot 자동설정에 맡긴다 — 그래야 `KafkaAutoConfiguration`을 제외한 JPA 슬라이스 테스트에서
+  리스너 컨테이너가 기동되지 않는다.
+- **presentation**: 요청 유효성 검증 규칙은 `api-error-handling.md` 참조.
 
 ## 데이터 흐름 예시 (결제 승인)
 
@@ -93,6 +81,6 @@ HTTP POST /payments/confirm
         infrastructure.messaging.KafkaPaymentEventPublisher
             → KafkaTemplate.send("payment.approved", orderId, PaymentApprovedMessage)
   → application.dto.result.PaymentResult 반환
-  → interfaces.web.dto.response.PaymentResponse 변환
+  → presentation.dto.response.PaymentResponse 변환
   → HTTP 200 응답
 ```

@@ -44,8 +44,8 @@ docker-compose up -d                                     # 로컬 PostgreSQL (�
 
 - **코드 배치·레이어·패키지 구조·의존 방향** → `.claude/rules/architecture.md`
 - **REST 컨트롤러·예외 처리·API 응답 형식** → `.claude/rules/api-error-handling.md`
-- **커밋·브랜치·PR** → `.claude/rules/git-conventions.md`
-- **`.claude/plans/`에 새 계획 문서 작성** → `.claude/rules/plan-doc-format.md`
+- **커밋·브랜치·PR** → 루트 `.claude/rules/git-convention.md` (payment-service 전용 규칙 없음)
+- **`docs/records/plan/payment/`에 새 계획 문서 작성** → `.claude/rules/plan-doc-format.md`
 - **DB 마이그레이션(`@Entity` 추가/변경 시 Flyway SQL 작성)** → `.claude/rules/flyway-migration.md`
 - **superpowers 스킬(brainstorming/writing-plans/subagent-driven-development) 사용** → `.claude/rules/superpowers-workflow.md`
 - **트러블슈팅 문서 작성(구현 중 겪은 문제 기록)** → `.claude/rules/troubleshooting-doc-format.md`
@@ -75,9 +75,13 @@ API 설계·DB·이벤트 관련 작업 시 아래 문서를 먼저 확인한다
 ## AI 작업 원칙
 
 - 수정 가능 범위: `payment-service/`(전체)와 `../docs/`(payment-service 변경 반영 목적)에 한정한다.
-  다른 서비스 소스 코드(`common-module/`, `order-service/` 등)는 수정하지 않는다. 변경이 필요한 경우 의도를 먼저 공유한다.
+  다른 서비스 모듈(`order-service/` 등)은 코드·룰·CLAUDE.md 포함 읽지도 않는다(루트 `CLAUDE.md`
+  전역 규칙). `common-module/`은 여러 서비스가 함께 쓰는 공유 라이브러리라 예외이며, 읽을 수는
+  있어도 수정은 다른 서비스에 미치는 영향을 사용자에게 먼저 알리고 승인받은 후 진행한다.
 - 사용자 동의 없이 기존 코드/파일을 삭제·변경하지 않는다(테스트 목적이라도). 변경 전 의도를 먼저 공유.
 - 추측으로 외부 이벤트 계약(Kafka 토픽/스키마)이나 미확정 구조를 임의 구현하지 않는다. 미확정 영역은 질문.
-- 다른 서비스/모듈(order-service 등)의 기존 구현 방식을 그대로 복제하지 않는다. payment-service의 아키텍처·요구사항에 맞는 대안을 먼저 검토하고, 어떤 방식을 택했는지와 이유(또는 다른 모듈과 다르게 구현한 이유)를 사용자에게 공유한 뒤 진행한다.
+- 다른 서비스/모듈의 구현 방식을 보고 베끼지 않는다 — 애초에 열람 대상이 아니다(위 전역 규칙).
+  payment-service의 아키텍처·요구사항에 맞는 방식을 직접 검토해 택하고, 그 이유를 사용자에게
+  공유한 뒤 진행한다.
 - 작업 후 테스트 실행 결과를 사실대로 보고(실패 시 출력 포함).
 - 구현 작업을 완료로 보고하기 전, `.claude/rules/troubleshooting-doc-format.md`의 트리거 조건에 해당하는 문제를 겪었다면 사용자 요청 없이도 그 규칙에 따라 트러블슈팅 문서를 작성한다.

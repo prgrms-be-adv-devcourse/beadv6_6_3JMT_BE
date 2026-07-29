@@ -13,10 +13,13 @@ erDiagram
         VARCHAR email
         VARCHAR profile_image_url
         user_status_type status
-        user_role_type role
         BOOLEAN terms_agreed
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
+    }
+    user_role {
+        UUID user_id PK
+        user_role_type role PK
     }
     auth {
         UUID auth_id PK
@@ -24,16 +27,6 @@ erDiagram
         auth_provider_type provider
         VARCHAR provider_user_id
         TIMESTAMPTZ connected_at
-    }
-    seller {
-        UUID seller_id PK
-        UUID user_id FK
-        VARCHAR seller_name
-        VARCHAR business_number
-        seller_status_type status
-        TIMESTAMPTZ approved_at
-        TIMESTAMPTZ created_at
-        TIMESTAMPTZ updated_at
     }
     wishlist {
         UUID wishlist_id PK
@@ -45,6 +38,8 @@ erDiagram
     %% ───────────────────────────────
     %% Product Service
     %% ───────────────────────────────
+    %% seller_id는 별도 seller 테이블이 아니라 user.user_id를 그대로 담는다(User Service 참고).
+    %% product_image 테이블은 없다 — product.image_urls 컬럼(쉼표 구분 텍스트)로 대체한다.
     product {
         UUID id PK
         UUID seller_id FK
@@ -55,18 +50,13 @@ erDiagram
         VARCHAR status
         VARCHAR amount_type
         INT amount
+        TEXT image_urls
         VARCHAR badge
         TEXT content
         TEXT tags
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
         TIMESTAMPTZ deleted_at
-    }
-    product_image {
-        UUID image_id PK
-        UUID product_id FK
-        VARCHAR image_url
-        INT sort_order
     }
     review {
         UUID review_id PK
@@ -101,15 +91,16 @@ erDiagram
         UUID buyer_id FK
         VARCHAR order_number
         INT total_order_amount
-        INT total_product_count
         order_status_type order_status
+        TIMESTAMPTZ completed_at
+        TIMESTAMPTZ refunded_at
         TIMESTAMPTZ created_at
-        TIMESTAMPTZ paid_at
         TIMESTAMPTZ updated_at
     }
     order_product {
         UUID order_product_id PK
         UUID order_id FK
+        UUID buyer_id FK
         UUID product_id FK
         UUID seller_id FK
         VARCHAR product_title_snapshot
@@ -127,10 +118,9 @@ erDiagram
         UUID payment_id PK
         UUID order_id FK
         UUID user_id FK
-        VARCHAR pg_tx_id
+        VARCHAR payment_key
         payment_status_type status
         INT total_amount
-        VARCHAR idempotency_key
         JSONB request_payload
         JSONB response_payload
         TIMESTAMPTZ approved_at
@@ -140,8 +130,7 @@ erDiagram
     refund {
         UUID refund_id PK
         UUID payment_id FK
-        UUID order_product_id FK
-        UUID user_id FK
+        UUID refund_request_id
         INT refund_amount
         refund_status_type status
         TIMESTAMPTZ requested_at
@@ -153,12 +142,14 @@ erDiagram
     %% ───────────────────────────────
     %% Settlement Service
     %% ───────────────────────────────
+    %% seller_id는 별도 seller 테이블이 아니라 user.user_id를 그대로 담는다(User Service 참고).
     settlement_batch {
         UUID batch_id PK
         VARCHAR batch_no
+        BIGINT job_instance_id
         DATE period_start
         DATE period_end
-        settlement_status_type status
+        settlement_batch_status_type status
         trigger_type_enum trigger_type
         TIMESTAMPTZ executed_at
         TIMESTAMPTZ created_at
@@ -192,23 +183,33 @@ erDiagram
         TIMESTAMPTZ occurred_at
         TIMESTAMPTZ created_at
     }
+    settlement_source_line {
+        UUID settlement_source_line_id PK
+        UUID event_id
+        settlement_source_line_type line_type
+        UUID order_id
+        UUID order_product_id FK
+        UUID seller_id FK
+        NUMERIC line_amount
+        TIMESTAMPTZ occurred_at
+        UUID settlement_id FK
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
 
     %% ───────────────────────────────
     %% Relationships
     %% ───────────────────────────────
+    user ||--o{ user_role : "user_id"
     user ||--o{ auth : "user_id"
-    user ||--o| seller : "user_id"
     user ||--o{ wishlist : "user_id"
     user ||--o| cart : "buyer_id"
     user ||--o{ review : "user_id"
     user ||--o{ order : "buyer_id"
     user ||--o{ payment : "user_id"
-    user ||--o{ refund : "user_id"
+    user ||--o{ product : "seller_id(=user_id)"
+    user ||--o{ settlement : "seller_id(=user_id)"
 
-    seller ||--o{ product : "seller_id"
-    seller ||--o{ settlement : "seller_id"
-
-    product ||--o{ product_image : "product_id"
     product ||--o{ wishlist : "product_id"
     product ||--o{ cart_product : "product_id"
     product ||--o{ review : "product_id"
@@ -220,9 +221,10 @@ erDiagram
     order ||--o| payment : "order_id"
 
     payment ||--o{ refund : "payment_id"
-    order_product ||--o{ refund : "order_product_id"
 
     settlement_batch ||--o{ settlement : "settlement_batch_id"
     settlement ||--o{ settlement_detail : "settlement_id"
     order_product ||--o{ settlement_detail : "order_product_id"
+    settlement ||--o{ settlement_source_line : "settlement_id"
+    order_product ||--o{ settlement_source_line : "order_product_id"
 ```

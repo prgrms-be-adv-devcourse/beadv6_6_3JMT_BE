@@ -74,10 +74,10 @@ custom repository, Querydsl, 직접 작성한 query가 있으면 persistence 테
 
 아래 API를 구현할 때는 최소한 Controller 테스트와 Service 테스트를 포함한다.
 
-- `GET /api/v1/products`
-- `GET /api/v1/products/{productId}`
+- `GET /api/v2/products`
+- `GET /api/v2/products/{productId}`
 - `GET /api/v2/products/{productId}/recommends`
-- `GET /api/v1/products/{productId}/reviews`
+- `GET /api/v2/products/{productId}/reviews`
 
 최소 검증:
 

@@ -15,9 +15,9 @@ payment-service 트러블슈팅 문서 작성 규칙. 구현 중 겪은 문제�
 
 ## 저장 위치 / 파일명
 
-`payment-service/.claude/trouble-shooting/{이슈번호}-{slug}.md`
+`docs/records/troubleshooting/payment/{이슈번호}-{slug}.md`
 
-- `이슈번호`: 이 작업이 속한 브랜치의 이슈 번호([git-conventions.md](git-conventions.md) 브랜치명 규칙과 동일한 값). 관련 계획 문서(`.claude/plans/{이슈번호}-{slug}.md`)가 있으면 같은 번호를 써서 추적성을 유지한다.
+- `이슈번호`: 이 작업이 속한 브랜치의 이슈 번호([git-convention.md](../../../.claude/rules/git-convention.md) 브랜치명 규칙과 동일한 값). 관련 계획 문서(`docs/records/plan/payment/{이슈번호}-{slug}.md`)가 있으면 같은 번호를 써서 추적성을 유지한다.
 - `slug`: 영어 kebab-case로 문제를 요약한 짧은 설명 (예: `flyway-autoconfigure-module`).
 
 ## 문서 형식

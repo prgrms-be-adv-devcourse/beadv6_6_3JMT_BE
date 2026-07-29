@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * ai-events(PRODUCT_INSPECTION_COMPLETED) 처리. (kafka-event.md §7)
+ * ai-events(PRODUCT_INSPECTION_COMPLETED) 처리. (루트 kafka-event.md 참고)
  * Product.approve()/reject()가 PENDING_REVIEW 가드를 갖고 있어 자연 멱등이다 —
  * 이미 처리된 상품에 대한 중복 이벤트는 IllegalStateException을 잡아 조용히 스킵한다.
  */

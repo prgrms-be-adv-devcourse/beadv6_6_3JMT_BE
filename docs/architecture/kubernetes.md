@@ -555,7 +555,8 @@ k8s/
 │   │   ├── payment/
 │   │   ├── settlement/
 │   │   ├── admin/
-│   │   └── ai/
+│   │   ├── ai/
+│   │   └── notification/
 │   └── gateway/
 │       ├── kustomization.yaml
 │       ├── deployment.yaml

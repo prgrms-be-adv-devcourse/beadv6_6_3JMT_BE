@@ -92,7 +92,7 @@ public class KafkaConfig {
 		return factory;
 	}
 
-	// 처리 실패 이벤트는 재시도 후 원본 토픽의 DLT(`order-events.DLT`)로 보낸다. (kafka-event.md §7)
+	// 처리 실패 이벤트는 재시도 후 원본 토픽의 DLT(`order-events.DLT`)로 보낸다. (루트 kafka-event.md 참고)
 	@Bean
 	public DefaultErrorHandler orderEventErrorHandler(KafkaTemplate<String, Object> kafkaTemplate) {
 		DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
@@ -129,7 +129,7 @@ public class KafkaConfig {
 		return factory;
 	}
 
-	// 처리 실패 이벤트는 재시도 후 원본 토픽의 DLT(`product-events.DLT`)로 보낸다. (kafka-event.md §7)
+	// 처리 실패 이벤트는 재시도 후 원본 토픽의 DLT(`product-events.DLT`)로 보낸다. (루트 kafka-event.md 참고)
 	@Bean
 	public DefaultErrorHandler productEventErrorHandler(KafkaTemplate<String, Object> kafkaTemplate) {
 		DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
@@ -166,7 +166,7 @@ public class KafkaConfig {
 		return factory;
 	}
 
-	// 처리 실패 이벤트는 재시도 후 원본 토픽의 DLT(`ai-events.DLT`)로 보낸다. (kafka-event.md §7)
+	// 처리 실패 이벤트는 재시도 후 원본 토픽의 DLT(`ai-events.DLT`)로 보낸다. (루트 kafka-event.md 참고)
 	@Bean
 	public DefaultErrorHandler aiEventErrorHandler(KafkaTemplate<String, Object> kafkaTemplate) {
 		DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
