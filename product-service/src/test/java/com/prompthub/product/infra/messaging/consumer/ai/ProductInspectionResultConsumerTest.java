@@ -1,11 +1,14 @@
 package com.prompthub.product.infra.messaging.consumer.ai;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
 import com.prompthub.product.application.service.ProductInspectionResultHandler;
+import com.prompthub.product.domain.model.vo.InspectionChecklist;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -43,7 +46,7 @@ class ProductInspectionResultConsumerTest {
 
 		consumer.consume(message, acknowledgment);
 
-		then(handler).should().apply(PRODUCT_ID, true, null);
+		then(handler).should().apply(eq(PRODUCT_ID), eq(true), eq((String) null), any());
 		then(acknowledgment).should().acknowledge();
 	}
 
@@ -54,7 +57,23 @@ class ProductInspectionResultConsumerTest {
 
 		consumer.consume(message, acknowledgment);
 
-		then(handler).should().apply(eq(PRODUCT_ID), eq(false), eq("금지 콘텐츠"));
+		then(handler).should().apply(eq(PRODUCT_ID), eq(false), eq("금지 콘텐츠"), any());
+		then(acknowledgment).should().acknowledge();
+	}
+
+	@Test
+	@DisplayName("payload의 체크리스트 7개 필드를 파싱해 handler에 전달한다")
+	void consume_parsesChecklistFromPayload() {
+		String message = "{\"eventId\":\"" + EVENT_ID + "\",\"eventType\":\"PRODUCT_INSPECTION_COMPLETED\","
+			+ "\"aggregateType\":\"PRODUCT\",\"payload\":{\"productId\":\"" + PRODUCT_ID + "\","
+			+ "\"approved\":true,\"rejectionReason\":null,"
+			+ "\"hasContext\":true,\"hasObjective\":false,\"hasNuance\":true,\"hasTone\":false,"
+			+ "\"hasExamples\":true,\"hasExecution\":false,\"hasRoleAssignment\":true}}";
+		InspectionChecklist expected = new InspectionChecklist(true, false, true, false, true, false, true);
+
+		consumer.consume(message, acknowledgment);
+
+		then(handler).should().apply(PRODUCT_ID, true, null, expected);
 		then(acknowledgment).should().acknowledge();
 	}
 
@@ -85,7 +104,7 @@ class ProductInspectionResultConsumerTest {
 
 			assertThatThrownBy(() -> consumer.consume(message, acknowledgment))
 				.isInstanceOf(IllegalArgumentException.class);
-			then(handler).should(never()).apply(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.any());
+			then(handler).should(never()).apply(any(), anyBoolean(), any(), any());
 			then(acknowledgment).should(never()).acknowledge();
 		}
 
@@ -93,7 +112,7 @@ class ProductInspectionResultConsumerTest {
 		@DisplayName("handler가 IllegalStateException(중복 처리됨)을 던지면 acknowledge하고 DLT로 보내지 않는다")
 		void consume_alreadyProcessed_acknowledgesWithoutDlt() {
 			org.mockito.BDDMockito.willThrow(new IllegalStateException("이미 처리됨"))
-				.given(handler).apply(PRODUCT_ID, true, null);
+				.given(handler).apply(eq(PRODUCT_ID), eq(true), eq((String) null), any());
 			String message = eventMessage(true, null);
 
 			consumer.consume(message, acknowledgment);
