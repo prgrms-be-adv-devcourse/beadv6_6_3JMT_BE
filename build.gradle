@@ -133,13 +133,14 @@ configure([
     }
 }
 
-// ── Kafka 사용 서비스 4개 (user-service는 이벤트 미사용) ────────────────────
+// ── Kafka 사용 서비스 5개 (user-service는 이벤트 미사용) ────────────────────
 configure([
     project(':order-service'),
     project(':notification-service'),
     project(':payment-service'),
     project(':product-service'),
-    project(':settlement-service')
+    project(':settlement-service'),
+    project(':ai-service')
 ]) {
     dependencies {
         implementation 'org.springframework.boot:spring-boot-starter-kafka'

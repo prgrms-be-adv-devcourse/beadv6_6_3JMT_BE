@@ -105,8 +105,20 @@ public class SettlementBatch extends BaseEntity {
 		this.executedAt = LocalDateTime.now();
 	}
 
+	public void failReconciliation(String failureReason) {
+		verifyStatus(SettlementBatchStatus.PROCESSING);
+		this.status = SettlementBatchStatus.RECONCILIATION_FAILED;
+		this.failureReason = truncate(failureReason);
+		this.executedAt = LocalDateTime.now();
+	}
+
 	public void requestRetry() {
-		verifyStatus(SettlementBatchStatus.FAILED);
+		if (this.status != SettlementBatchStatus.FAILED
+			&& this.status != SettlementBatchStatus.RECONCILIATION_FAILED) {
+			throw new SettlementBatchInvalidStateException(
+				SettlementBatchStatus.FAILED,
+				this.status);
+		}
 		this.status = SettlementBatchStatus.RETRY_REQUESTED;
 	}
 

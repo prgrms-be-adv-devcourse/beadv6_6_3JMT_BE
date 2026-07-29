@@ -62,6 +62,7 @@ jobs:
             "settlement-service",
             "admin-service",
             "ai-service",
+            "notification-service",
             "apigateway"
           ]'
           allowed_config_consumers='[
@@ -71,6 +72,7 @@ jobs:
             "payment-service",
             "admin-service",
             "ai-service",
+            "notification-service",
             "apigateway"
           ]'
 
@@ -137,10 +139,6 @@ jobs:
           kubectl config current-context
           kubectl wait --for=condition=Ready node --all --timeout=60s
 
-          for statefulset in postgres redis kafka; do
-            kubectl rollout status statefulset/"$statefulset" -n "$NAMESPACE" --timeout=5m
-          done
-
           required_secrets=(
             postgres-secret
             runtime-secret
@@ -153,6 +151,12 @@ jobs:
 
           for secret in "${required_secrets[@]}"; do
             kubectl get secret "$secret" -n "$NAMESPACE" >/dev/null
+          done
+
+          NAMESPACE="$NAMESPACE" bash scripts/validate-live-k8s-secret-keys.sh k8s/base
+
+          for statefulset in postgres redis kafka; do
+            kubectl rollout status statefulset/"$statefulset" -n "$NAMESPACE" --timeout=5m
           done
 
       - name: 변경 서비스 순차 배포, 실패 진단 후 rollback
@@ -176,6 +180,7 @@ jobs:
             settlement-service
             admin-service
             ai-service
+            notification-service
             apigateway
           )
           deployment_order=(
@@ -187,6 +192,7 @@ jobs:
             payment-service
             admin-service
             ai-service
+            notification-service
             apigateway
           )
           settlement_cronjob="settlement-weekly"
@@ -249,6 +255,7 @@ jobs:
               settlement-service) echo "k8s/base/services/settlement/cronjob.yaml" ;;
               admin-service) echo "k8s/base/services/admin/deployment.yaml" ;;
               ai-service) echo "k8s/base/services/ai/deployment.yaml" ;;
+              notification-service) echo "k8s/base/services/notification/deployment.yaml" ;;
               apigateway) echo "k8s/base/gateway/deployment.yaml" ;;
               *)
                 echo "Unknown service: $1" >&2

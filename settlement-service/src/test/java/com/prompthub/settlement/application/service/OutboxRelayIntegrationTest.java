@@ -102,7 +102,7 @@ class OutboxRelayIntegrationTest {
     @DisplayName("한 이벤트 Kafka 실패를 기록하고도 다음 후보 발행을 계속한다")
     void flushBatch_kafkaFailure_continuesNextCandidate() {
         // given
-        UUID batchId = UUID.randomUUID();
+        UUID batchId = completedBatch().getId();
         SettlementOutboxEvent first = event(21, batchId, LocalDateTime.now().minusMinutes(2));
         SettlementOutboxEvent second = event(22, batchId, LocalDateTime.now().minusMinutes(1));
         repository.saveAndFlush(first);

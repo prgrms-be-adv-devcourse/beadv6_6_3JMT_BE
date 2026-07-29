@@ -2,6 +2,7 @@ package com.prompthub.settlement.domain.repository;
 
 import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,6 +24,8 @@ public interface OutboxEventRepository {
             LocalDateTime cursorOccurredAt,
             UUID cursorEventId,
             int limit);
+
+    void deletePendingBySettlementIds(Collection<UUID> settlementIds);
 
     record OutboxCandidate(UUID eventId, LocalDateTime occurredAt) {
     }

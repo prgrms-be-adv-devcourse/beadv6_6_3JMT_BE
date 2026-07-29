@@ -1,6 +1,7 @@
 package com.prompthub.settlement.infrastructure.batch.config;
 
 import com.prompthub.settlement.infrastructure.batch.listener.SettlementBatchStateJobExecutionListener;
+import com.prompthub.settlement.infrastructure.batch.tasklet.ReconcileSettlementSourceTasklet;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -19,22 +20,34 @@ public class SettlementJobConfig {
 
 	@Bean
 	public Job settlementJob(
+		SettlementBatchStateJobExecutionListener settlementBatchStateJobExecutionListener,
+		Step createSettlementBatchStep,
 		Step retryPendingOutboxStep,
 		Step loadSettlementSourceStep,
-		Step createSettlementBatchStep,
+		Step reconcileSettlementSourceStep,
 		Step settlementStep,
+		Step reconcileSettlementCalculationStep,
 		Step completeSettlementBatchStep,
-		Step flushCurrentBatchOutboxStep,
-		SettlementBatchStateJobExecutionListener settlementBatchStateJobExecutionListener
+		Step flushCurrentBatchOutboxStep
 	) {
 		return new JobBuilder(SETTLEMENT_JOB_NAME, jobRepository)
 			.listener(settlementBatchStateJobExecutionListener)
 			.start(createSettlementBatchStep)
 			.next(retryPendingOutboxStep)
 			.next(loadSettlementSourceStep)
-			.next(settlementStep)
+			.next(reconcileSettlementSourceStep)
+			.on(ReconcileSettlementSourceTasklet.RECONCILIATION_FAILED_EXIT_CODE)
+			.fail()
+			.from(reconcileSettlementSourceStep)
+			.on("COMPLETED")
+			.to(settlementStep)
+			.next(reconcileSettlementCalculationStep)
 			.next(completeSettlementBatchStep)
 			.next(flushCurrentBatchOutboxStep)
+			.from(reconcileSettlementSourceStep)
+			.on("*")
+			.fail()
+			.end()
 			.build();
 	}
 }

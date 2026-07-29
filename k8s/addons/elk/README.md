@@ -14,7 +14,7 @@
 - **Elasticsearch**는 `gateway-access-YYYY.MM.dd`를 14일, `application-logs-YYYY.MM.dd`를 7일 보관한다.
 - **Kibana**는 Elasticsearch에 저장된 로그를 검색하는 화면을 제공한다.
 
-애플리케이션 allowlist는 `user-service`, `product-service`, `order-service`, `payment-service`, `admin-service`, `ai-service`, `settlement-service`, `notification-service`다. `config`, `discovery`, `apigateway`, init container, `kube-system`, `elk`는 application index 대상이 아니다. `notification-service`는 아직 Kubernetes workload가 없어 로그를 내보내지 않지만, 배포되는 즉시 같은 allowlist로 수집된다. Servlet 서비스는 `X-Request-Id`를 MDC `requestId`로 기록하고, 없으면 UUID를 생성한다. Gateway와 Settlement CronJob은 이 Servlet 필터의 대상이 아니다.
+애플리케이션 allowlist는 `user-service`, `product-service`, `order-service`, `payment-service`, `admin-service`, `ai-service`, `settlement-service`, `notification-service`다. `config`, `discovery`, `apigateway`, init container, `kube-system`, `elk`는 application index 대상이 아니다. Servlet 서비스는 `X-Request-Id`를 MDC `requestId`로 기록하고, 없으면 UUID를 생성한다. Gateway와 Settlement CronJob은 이 Servlet 필터의 대상이 아니다.
 
 ## 시작 전 안전 원칙
 
@@ -27,6 +27,79 @@
 - 터미널의 명령 블록만 실행한다. 예시 출력이나 YAML 일부를 Bash 프롬프트에 붙여 넣지 않는다.
 
 문제가 생기면 맨 아래 [트러블슈팅 빠른 찾기](#트러블슈팅-빠른-찾기)를 먼저 확인한다.
+
+## 서비스별 구조화 로그 순차 정상화
+
+구조화 로그 이미지를 반영할 때는 여러 서비스를 한 Release에 넣지 않는다. 다음 순서로
+서비스별 `Release - Develop` workflow를 각각 실행한다.
+
+```text
+user-service → order-service → payment-service → admin-service → ai-service → settlement-service
+```
+
+`product-service`와 `notification-service`는 이미 구조화 로그 이미지가 반영된 상태이므로
+이번 재배포 대상에서는 제외하지만, 최종 8개 서비스 검증에는 포함한다.
+
+앞선 서비스의 rollout, 불변 image digest, stdout JSON, Elasticsearch 문서, Kibana 문서를
+모두 확인한 뒤에만 다음 Release를 실행한다. 하나라도 실패하면 다음 Release를 실행하지
+않고 Pod describe, 현재·이전 컨테이너 로그, 이벤트, image digest를 수집해 해당 서비스부터
+재개한다. 수집 확인을 위해 Fluent Bit 또는 Logstash의 JSON·서비스 신원 검증을 완화하지
+않는다.
+
+`develop`에서 다음 명령을 한 번에 하나씩 실행한다. 각 workflow가 성공하고 아래 검증
+게이트를 통과한 뒤 다음 명령으로 이동한다.
+
+```bash
+gh workflow run release-develop.yml \
+  --ref develop \
+  -f release-services=user-service \
+  -f confirmation=RELEASE
+
+gh workflow run release-develop.yml \
+  --ref develop \
+  -f release-services=order-service \
+  -f confirmation=RELEASE
+
+gh workflow run release-develop.yml \
+  --ref develop \
+  -f release-services=payment-service \
+  -f confirmation=RELEASE
+
+gh workflow run release-develop.yml \
+  --ref develop \
+  -f release-services=admin-service \
+  -f confirmation=RELEASE
+
+gh workflow run release-develop.yml \
+  --ref develop \
+  -f release-services=ai-service \
+  -f manifest-services=ai-service \
+  -f confirmation=RELEASE
+
+gh workflow run release-develop.yml \
+  --ref develop \
+  -f release-services=settlement-service \
+  -f confirmation=RELEASE
+```
+
+수동 실행 직후 최신 workflow run을 확인하고 완료까지 기다린다.
+
+```bash
+run_id="$(
+  gh run list \
+    --workflow release-develop.yml \
+    --branch develop \
+    --event workflow_dispatch \
+    --limit 1 \
+    --json databaseId \
+    --jq '.[0].databaseId'
+)"
+gh run watch "${run_id}" --exit-status
+```
+
+`develop` 병합 시 AI 매니페스트 변경이 자동 Release에 포함될 수 있다. 이 경우 merge commit의
+push workflow를 확인하고, AI가 자동 대상에서 빠졌을 때만 `release-services=ai-service`와
+`manifest-services=ai-service`를 함께 지정한 수동 실행으로 보완한다.
 
 ## 준비 환경
 
@@ -486,6 +559,133 @@ curl -fsS \
   }"
 ```
 
+### 애플리케이션 서비스 로그 확인
+
+배포한 서비스의 rollout과 불변 image digest를 확인한다. `settlement-service`는 아래
+settlement 전용 절차를 사용한다.
+
+```bash
+SERVICE=user-service
+
+kubectl -n prompthub rollout status \
+  "deployment/${SERVICE}" \
+  --timeout=10m
+
+kubectl -n prompthub get deployment "${SERVICE}" \
+  -o jsonpath='{.spec.template.spec.containers[?(@.name=="'"${SERVICE}"'")].image}{"\n"}'
+
+kubectl -n prompthub logs "deployment/${SERVICE}" \
+  --since=10m |
+  jq -R -c \
+    --arg service "${SERVICE}" \
+    'fromjson? |
+     select(.serviceName == $service and (.level | type == "string") and (.message | type == "string"))' |
+  head -n 5
+```
+
+`SERVICE`를 `order-service`, `payment-service`, `admin-service`, `ai-service`로 바꿔
+반복한다. Deployment rollout이 완료되고 digest가 고정되어 있으며 `serviceName`, `level`,
+`message`를 가진 JSON stdout이 한 건 이상 있어야 통과다.
+
+Elasticsearch port-forward가 `127.0.0.1:19200`에서 실행 중일 때 서비스별 문서를 확인한다.
+
+```bash
+SERVICE=user-service
+
+curl -fsS \
+  -H 'Content-Type: application/json' \
+  'http://127.0.0.1:19200/application-logs-*/_search' \
+  -d "{
+    \"size\": 3,
+    \"sort\": [{\"@timestamp\": \"desc\"}],
+    \"query\": {
+      \"bool\": {
+        \"filter\": [
+          {\"term\": {\"service.name\": \"${SERVICE}\"}},
+          {\"exists\": {\"field\": \"level\"}},
+          {\"exists\": {\"field\": \"message\"}}
+        ]
+      }
+    }
+  }" |
+  jq '{total: .hits.total.value, documents: [.hits.hits[]._source]}'
+```
+
+8개 allowlist 서비스 각각에서 `total`이 1 이상이어야 한다. Kibana `Application Logs`
+Data View에서 다음 KQL로 레벨별 조회가 가능해야 한다.
+
+```text
+service.name: "user-service" and level: "INFO"
+service.name: "user-service" and level: "WARN"
+service.name: "user-service" and level: "ERROR"
+```
+
+`INFO`는 정상 요청이나 기동 로그로 확인한다. `WARN`은 데이터 변경이 없는 유효하지 않은
+요청을 비운영 환경에서 사용한다. `ERROR`는 기존 로그를 우선 조회하고, 필요할 때만
+비운영 환경의 통제된 실패로 확인한다. 운영 장애를 고의로 만들지 않는다. 특정 레벨이
+0건이면 같은 서비스 전체 로그, `exists:level`, Elasticsearch 원본 문서를 비교해
+이벤트 부재와 mapping/filter 문제를 구분한다.
+
+Gateway를 거치는 HTTP 요청은 UUID 형식의 `X-Request-Id`를 사용한다.
+
+```bash
+REQUEST_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+
+curl -i \
+  -H "X-Request-Id: ${REQUEST_ID}" \
+  http://127.0.0.1:18000/api/v2/products
+
+curl -fsS \
+  -H 'Content-Type: application/json' \
+  'http://127.0.0.1:19200/gateway-access-*,application-logs-*/_search' \
+  -d "{
+    \"size\": 20,
+    \"sort\": [{\"@timestamp\": \"asc\"}],
+    \"query\": {
+      \"bool\": {
+        \"minimum_should_match\": 1,
+        \"should\": [
+          {\"term\": {\"gateway.requestId.keyword\": \"${REQUEST_ID}\"}},
+          {\"term\": {\"requestId\": \"${REQUEST_ID}\"}}
+        ]
+      }
+    }
+  }" |
+  jq '[.hits.hits[] | {index: ._index, source: ._source}]'
+```
+
+Gateway 문서와 Servlet 애플리케이션 문서가 같은 UUID로 함께 조회되어야 한다. Kafka,
+gRPC, Redis Pub/Sub, settlement batch에는 request ID 전파를 요구하지 않는다.
+
+### Settlement CronJob 로그 확인
+
+CronJob schedule은 `0 0 * * 1`, timezone은 `Asia/Seoul`을 유지한다. 배포된 image를 확인한
+뒤 고유 이름의 일회성 Job으로만 검증한다.
+
+```bash
+kubectl -n prompthub get cronjob settlement-weekly \
+  -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[?(@.name=="settlement-service")].image}{"\n"}'
+
+job_name="settlement-elk-verify-$(date +%s)"
+kubectl -n prompthub create job \
+  --from=cronjob/settlement-weekly \
+  "${job_name}"
+
+kubectl -n prompthub wait \
+  --for=condition=complete \
+  "job/${job_name}" \
+  --timeout=2h
+
+kubectl -n prompthub logs "job/${job_name}" |
+  jq -R -c \
+    'fromjson? |
+     select(.serviceName == "settlement-service" and (.level | type == "string") and (.message | type == "string"))' |
+  head -n 5
+```
+
+stdout JSON, `application-logs-*` 문서, Kibana 문서를 확인한 뒤 해당 `${job_name}`만
+삭제한다. schedule과 기존 Job을 삭제하지 않는다.
+
 ### 통과 기준
 
 - Fluent Bit 로그에 Logstash `HTTP status=200`이 있다.
@@ -593,7 +793,36 @@ gateway.durationMs
 gateway.authenticated
 ```
 
-### 10-3. ES|QL로 같은 문서 조회
+### 10-3. Application Logs 조회
+
+Kibana Data View를 `Application Logs`로 선택하고 다음 필드를 표시한다.
+
+```text
+service.name
+level
+requestId
+kubernetes.container_name
+message
+```
+
+서비스 전체를 확인하려면 다음 KQL을 사용한다.
+
+```text
+service.name: ("user-service" or "product-service" or "order-service" or "payment-service" or "admin-service" or "ai-service" or "settlement-service" or "notification-service")
+```
+
+레벨별 확인은 다음 세 검색을 각각 실행한다.
+
+```text
+level: "INFO"
+level: "WARN"
+level: "ERROR"
+```
+
+`level`은 keyword mapping이므로 대문자 정확 일치로 조회한다. 결과가 없을 때는 해당
+레벨 이벤트가 아직 없을 수 있으므로 Data View, mapping, 원본 `_source`를 함께 확인한다.
+
+### 10-4. ES|QL로 같은 문서 조회
 
 ES|QL 화면에서는 기본 `logs*` 쿼리를 지우고 다음을 실행한다.
 
@@ -677,6 +906,10 @@ curl -fsS \
 - [ ] 401 응답의 `X-Request-Id`를 기록했다.
 - [ ] Fluent Bit에서 Logstash HTTP 200을 확인했다.
 - [ ] Elasticsearch에서 같은 `gateway.requestId` 문서를 찾았다.
+- [ ] 8개 allowlist 서비스가 `application-logs-*`에서 각각 조회된다.
+- [ ] `level` 필드로 `INFO`, `WARN`, `ERROR`를 구분해 조회할 수 있다.
+- [ ] Servlet 요청 하나가 Gateway와 애플리케이션에서 같은 `requestId`로 조회된다.
+- [ ] settlement 일회성 Job의 JSON stdout과 Elasticsearch 문서를 확인했다.
 - [ ] SSH tunnel로 Kibana에 접속했다.
 - [ ] Classic Discover와 ES|QL에서 같은 로그를 확인했다.
 - [ ] Gateway 인덱스에만 14일 ILM이 적용된 것을 확인했다.
@@ -704,7 +937,7 @@ curl -fsS \
 다음 작업은 이 입문 실습에서 수행하지 않는다.
 
 - 기존 PVC, PV 또는 `/var/lib/prompthub/elasticsearch` 삭제
-- User, Product, Order, Payment 등 서비스별 Java 상세 로그 수집
+- Kafka, gRPC, Redis Pub/Sub, settlement batch의 request ID 전파
 - Elasticsearch security 활성화, TLS 인증서와 사용자 인증 전환
 - Kibana, Elasticsearch, Logstash 포트의 외부 공개
 - `products-v1` 데이터 마이그레이션이나 복구본 생성

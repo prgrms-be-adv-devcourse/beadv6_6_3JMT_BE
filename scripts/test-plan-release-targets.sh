@@ -68,7 +68,7 @@ run_failure_case() {
   trap - RETURN
 }
 
-all_services='["config","discovery","user-service","product-service","order-service","payment-service","settlement-service","admin-service","ai-service","apigateway"]'
+all_services='["config","discovery","user-service","product-service","order-service","payment-service","settlement-service","admin-service","ai-service","notification-service","apigateway"]'
 
 run_case \
   "settlement only" \
@@ -134,12 +134,42 @@ run_case \
   CONFIG_CHANGED=true AI_CONFIG_CHANGED=true
 
 run_case \
+  "notification code and manifest" \
+  '["notification-service"]' \
+  '["notification-service"]' \
+  '["notification-service"]' \
+  '["notification-service"]' \
+  '[]' false true \
+  NOTIFICATION_SERVICE_CHANGED=true NOTIFICATION_MANIFEST_CHANGED=true
+
+run_case \
+  "notification config profile" \
+  '["config"]' \
+  '["config"]' \
+  '[]' \
+  '["config"]' \
+  '["notification-service"]' false true \
+  CONFIG_CHANGED=true NOTIFICATION_CONFIG_CHANGED=true
+
+run_case \
+  "notification code manifest and config" \
+  '["config","notification-service"]' \
+  '["config","notification-service"]' \
+  '["notification-service"]' \
+  '["config","notification-service"]' \
+  '["notification-service"]' false true \
+  CONFIG_CHANGED=true \
+  NOTIFICATION_SERVICE_CHANGED=true \
+  NOTIFICATION_MANIFEST_CHANGED=true \
+  NOTIFICATION_CONFIG_CHANGED=true
+
+run_case \
   "shared config" \
   '["config"]' \
   '["config"]' \
   '[]' \
   '["config"]' \
-  '["user-service","product-service","order-service","payment-service","admin-service","ai-service","apigateway"]' \
+  '["user-service","product-service","order-service","payment-service","admin-service","ai-service","notification-service","apigateway"]' \
   false true \
   CONFIG_CHANGED=true SHARED_CONFIG_CHANGED=true
 
@@ -162,6 +192,17 @@ run_case \
   MANUAL_CONFIRMATION=RELEASE \
   MANUAL_RELEASE_SERVICES=config,ai-service \
   MANUAL_MANIFEST_SERVICES=ai-service
+
+run_case \
+  "manual notification manifest bootstrap" \
+  '["config","notification-service"]' \
+  '["config","notification-service"]' \
+  '["notification-service"]' \
+  '["config","notification-service"]' \
+  '[]' false true \
+  MANUAL_CONFIRMATION=RELEASE \
+  MANUAL_RELEASE_SERVICES=config \
+  MANUAL_MANIFEST_SERVICES=notification-service
 
 run_case \
   "docs only" \

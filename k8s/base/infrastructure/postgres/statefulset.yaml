@@ -91,6 +91,11 @@ spec:
                 secretKeyRef:
                   name: postgres-secret
                   key: SETTLEMENT_SERVICE_PASSWORD
+            - name: NOTIFICATION_SERVICE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: NOTIFICATION_SERVICE_PASSWORD
           resources:
             requests:
               cpu: 300m

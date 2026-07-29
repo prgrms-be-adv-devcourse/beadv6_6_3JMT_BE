@@ -1,11 +1,14 @@
 package com.prompthub.product.infra.messaging.producer;
 
 import com.prompthub.common.event.EventMessage;
+import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.infra.messaging.producer.event.ProductChangedPayload;
 import com.prompthub.product.infra.messaging.producer.event.ProductDeletedPayload;
 import com.prompthub.product.infra.messaging.producer.event.ProductPriceChangedPayload;
+import com.prompthub.product.infra.messaging.producer.event.ProductReviewRequestedPayload;
 import com.prompthub.product.infra.messaging.producer.event.ProductStoppedPayload;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -42,6 +45,19 @@ public class ProductEventProducer {
 
 	public void publishProductChanged(UUID familyRootId) {
 		publish(ProductEventType.PRODUCT_CHANGED, familyRootId, ProductChangedPayload.of(familyRootId));
+	}
+
+	public void publishReviewRequested(Product product, String presignedThumbnailUrl, List<String> presignedImageUrls) {
+		publish(ProductEventType.PRODUCT_REVIEW_REQUESTED, product.getId(),
+			ProductReviewRequestedPayload.of(
+				product.getId(),
+				product.getProductType().name(),
+				product.getName(),
+				product.getDescription(),
+				product.getContent(),
+				product.getTags(),
+				presignedThumbnailUrl,
+				presignedImageUrls));
 	}
 
 	private void publish(ProductEventType eventType, UUID aggregateId, Object payload) {

@@ -42,7 +42,7 @@
 - HPA, VPA와 PodDisruptionBudget
 - 첫 단계에서의 서비스별 PostgreSQL 계정 전환
 
-Prometheus와 Grafana는 별도 서버에 구성하며 이 클러스터 전환과 독립적으로 다룬다. Gateway access 로그용 Elasticsearch, Logstash, Kibana와 Fluent Bit은 [#565](https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/issues/565) 범위에서 Control Plane에 수동 배포한다.
+Prometheus와 Grafana는 별도 서버에 구성하며 이 클러스터 전환과 독립적으로 다룬다. Gateway access 로그용 Elasticsearch, Logstash, Kibana와 Fluent Bit의 최초 인프라와 Secret은 [#565](https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/issues/565) 범위에서 Control Plane에 준비하고, 이후 매니페스트 변경은 `develop` release에서 자동 배포한다.
 
 ### 2.3 전환 원칙
 
@@ -100,7 +100,7 @@ Discovery, Config, 비즈니스 서비스, API Gateway와 Ingress Controller 매
 - API Gateway Service는 ClusterIP로 유지하며 외부 HTTP 요청은 Ingress를 통해서만 전달한다.
 - 애플리케이션 배포 입력은 `latest`나 태그가 아닌 `repository@sha256:...` digest를 사용한다.
 - 매니페스트는 Kustomize base와 현재 EC2 kubeadm 클러스터용 `ec2-kubeadm` overlay로 관리한다.
-- Prometheus와 Grafana는 별도 서버에 둔다. Gateway access 로그 ELK는 Control Plane에 수동 배포하되 자동 CD 대상에서 제외한다.
+- Prometheus와 Grafana는 별도 서버에 둔다. Gateway access 로그 ELK는 Control Plane에 배치하며, 최초 인프라 준비 후 `k8s/addons/elk/**` 변경을 자동 CD 대상으로 삼는다.
 - 이 구성은 단일 Control Plane·단일 Worker 환경이다. 노드 장애 고가용성이나 데이터 자동 복구를 제공하지 않는다.
 
 ### 3.1 채택한 절충점
@@ -306,6 +306,7 @@ Fluent Bit은 `/var/log/containers/apigateway-*_prompthub_apigateway-*.log`만 �
 | `settlement-weekly` | CronJob | 스케줄당 Job 1개 | Service 없음(Web application 비활성) | 등록하지 않음 | 매주 월요일 00:00 KST, order gRPC client와 Kafka producer |
 | `admin-service` | Deployment | 1 | HTTP 8086 → 18086 | `ADMIN-SERVICE` | 기존 모듈 |
 | `ai-service` | Deployment | 1 | HTTP 8087 → 18087 | `AI-SERVICE` | User gRPC client, Redis DB 1, OpenAI Tool Calling과 SSE |
+| `notification-service` | Deployment | 1 | HTTP 8088 → 18088 | `NOTIFICATION-SERVICE` | PostgreSQL, Redis Pub/Sub, Kafka 주문 이벤트 소비와 SSE |
 | `apigateway` | Deployment | 1 | 8000 → 8000 | `APIGATEWAY` | 기존 모듈 |
 
 HTTP Service의 808x 포트는 기존 내부 호출 계약을 유지하고, 1808x `targetPort`는 Config Server의 현재 `server.port`를 따른다.
@@ -802,7 +803,7 @@ PR 검증, develop Release CI, 애플리케이션 CD와 수동 운영 workflow�
 - `.github/workflows/ci.yml`: PR에서 변경 모듈의 빌드·테스트만 수행한다.
 - `.github/workflows/release-develop.yml`: `develop` push에서 변경 모듈을 다시 빌드·테스트하고, 단일 Gate 통과 후 GHCR 이미지와 immutable release manifest를 발행한다.
 - `.github/workflows/reusable-kubernetes-deploy.yml`: release manifest의 digest와 애플리케이션 매니페스트만 배포한다. 이미지를 빌드하거나 push하지 않는다.
-- `.github/workflows/cd-selfhosted-kubernetes.yml`: 수동 인프라와 Ingress 배포만 수행한다.
+- `.github/workflows/cd-selfhosted-kubernetes.yml`: 수동 인프라·Ingress 배포와 ELK 재적용을 제공하며, `Release - Develop`에서 ELK 자동 배포 절차로도 재사용한다.
 
 기존 `.github/workflows/cd-selfhosted-compose.yml`은 rollback을 위한 수동 실행 파일로 유지하되 `develop` push 트리거를 주석 처리하고 `workflow_dispatch`만 허용한다. Compose 호환을 위해 이 수동 경로에서만 `latest`를 함께 발행한다.
 
@@ -812,8 +813,10 @@ PR 검증, develop Release CI, 애플리케이션 CD와 수동 운영 workflow�
 |---|---|---|
 | 수동 `workflow_dispatch`의 `infrastructure` | 운영자가 확인 문자열 `DEPLOY`를 입력하고 실행 | Namespace, StorageClass, PV/PVC, PostgreSQL, Redis, Kafka |
 | 수동 `workflow_dispatch`의 `ingress` | 운영자가 `DEPLOY`를 입력하고 Docker Gateway가 Large의 80을 반납한 뒤 실행 | F5 NGINX Ingress Controller, Gateway Ingress |
+| 수동 `workflow_dispatch`의 `elk` | 최초 ELK 준비 후 적용하거나 자동 실행을 명시적으로 재적용 | Elasticsearch, Logstash, Kibana, Fluent Bit, bootstrap Job |
 | 자동 Release CI | `develop` push | 변경 모듈 빌드·테스트, GHCR push, digest release manifest 생성 |
 | 자동 애플리케이션 CD | Release CI Gate와 이미지 발행 성공 후 같은 Actions DAG에서 실행 | Config, Discovery, 상시 서비스 Deployment, Settlement CronJob, API Gateway의 immutable 이미지와 애플리케이션 매니페스트 |
+| 자동 ELK CD | `develop` push에서 `k8s/addons/elk/**` 변경, 같은 release gate 성공 | 기존 ELK 매니페스트 apply, Logstash·Fluent Bit restart, ILM·Kibana bootstrap 완료 확인 |
 | 선택 Release 재실행 | `develop`을 선택한 `Release - Develop`의 `workflow_dispatch`, 확인 문자열 `RELEASE` | 입력한 서비스의 최신 `develop` 이미지와 선택한 서비스 매니페스트 |
 
 수동 배포는 SSH에서 명령을 하나씩 실행한다는 뜻이 아니다. 운영자가 GitHub Actions의 `Run workflow`로 위험도가 높은 대상을 승인하면 self-hosted runner가 정해진 `kubectl` 명령과 rollout 검증을 실행한다. 일반 코드 push는 상태 저장 인프라와 Ingress Controller를 수정하지 않는다.
@@ -829,12 +832,13 @@ PR 검증, develop Release CI, 애플리케이션 CD와 수동 운영 workflow�
 5. CD는 `overlays/ec2-kubeadm/applications`를 현재 image ref와 새 release digest로 한 번 렌더링한다. 서비스 매니페스트 변경은 `app.kubernetes.io/name` selector로 해당 서비스 리소스만 server-side dry-run 후 적용한다. 코드와 매니페스트가 함께 바뀐 서비스는 새 digest를 주입해 한 번만 apply한다. 현재 workload가 없는 경우에는 매니페스트 적용을 강제하고 base digest를 fallback으로 사용한다.
 6. `overlays/ec2-kubeadm/applications/**` 공통 변경은 전 서비스를 대상으로 확장하지만 `config`, `discovery`, 비즈니스 서비스, Settlement CronJob, Gateway의 고정 순서로 하나씩 apply하고 rollout을 확인한다. 여러 서비스의 리소스를 한 번에 apply한 뒤 전체 rollout을 기다리지 않는다.
 7. 각 Deployment에 `kubectl rollout status`를 실행한다. 실패하면 해당 Deployment·ReplicaSet·Pod, 최근 이벤트와 노드 할당량을 먼저 로그로 수집한다. 그 뒤 적용 전 Pod template snapshot과 비교해 이번 실행에서 바뀐 기존 Deployment만 `kubectl rollout undo`로 직전 ReplicaSet에 복구하고, 이번 실행에서 처음 만든 Deployment는 삭제한다. Service처럼 ReplicaSet에 포함되지 않는 선언은 수정 커밋을 되돌린 뒤 CD를 다시 실행해 복구한다.
-8. Config 파일 변경은 Config 이미지를 새로 발행한 뒤 변경된 profile의 소비자만 순차 재시작한다. 공통 Config 변경은 `user-service`, `product-service`, `order-service`, `payment-service`, `admin-service`, `ai-service`, `apigateway` 전체를 대상으로 한다. 이미 같은 실행에서 새 이미지나 매니페스트로 rollout한 소비자는 중복 재시작하지 않는다. Settlement CronJob은 다음 Job부터 새 Config를 읽는다.
+8. Config 파일 변경은 Config 이미지를 새로 발행한 뒤 변경된 profile의 소비자만 순차 재시작한다. 공통 Config 변경은 `user-service`, `product-service`, `order-service`, `payment-service`, `admin-service`, `ai-service`, `notification-service`, `apigateway` 전체를 대상으로 한다. 이미 같은 실행에서 새 이미지나 매니페스트로 rollout한 소비자는 중복 재시작하지 않는다. Settlement CronJob은 다음 Job부터 새 Config를 읽는다.
 9. 과거 실행을 재실행하지 않고 최신 `develop`에서 일부 서비스를 다시 발행하려면 `Release - Develop`을 수동 실행한다. `release-services`는 이미지 대상, `manifest-services`는 YAML 적용 대상이며 `confirmation=RELEASE`가 필요하다. 예를 들어 Config와 AI를 다시 빌드하고 AI YAML도 적용할 때는 `release-services=config,ai-service`, `manifest-services=ai-service`를 사용한다.
+10. `k8s/addons/elk/**`가 변경되면 같은 release의 planning, CI gate와 release manifest 수집이 성공한 뒤 기존 self-hosted Kubernetes workflow를 `target=elk`로 호출한다. 애플리케이션 deploy도 필요한 커밋은 그 deploy가 성공한 뒤 ELK를 적용하며, 애플리케이션 deploy가 실패하면 ELK도 적용하지 않는다.
 
 `revisionHistoryLimit: 1`은 현재 ReplicaSet 외에 직전 1개를 남기므로 한 단계 rollback을 지원한다. 자동 CD는 전체 `ec2-kubeadm` overlay를 적용하지 않고 `applications` 하위 패키지만 사용하므로 상태 저장 리소스나 Ingress를 함께 변경하지 않는다.
 
-### 20.3 수동 인프라와 Ingress 배포
+### 20.3 수동 인프라·Ingress와 ELK 재적용
 
 `infrastructure` 실행은 `k8s/base/namespace.yaml`, `k8s/base/storage`, `k8s/base/infrastructure` 순서로 적용하고 PostgreSQL, Redis, Kafka StatefulSet의 rollout을 기다린다. 실제 Secret 파일 생성, EC2 hostPath 디렉터리 생성과 소유권 변경은 GitHub Actions가 수행하지 않으며 실행 전에 운영자가 준비한다.
 
@@ -845,6 +849,8 @@ PR 검증, develop Release CI, 애플리케이션 CD와 수동 운영 workflow�
 - Ingress backend가 `apigateway:8000`을 가리킨다.
 
 조건을 통과하면 `k8s/addons/nginx-ingress`와 `k8s/overlays/ec2-kubeadm/gateway-ingress.yaml`만 적용하고 Controller DaemonSet의 rollout을 확인한다. 워크플로가 Docker 컨테이너를 자동 중지하거나 삭제하지 않는다.
+
+`elk` 실행은 namespace, `logstash-http-credentials`, `kibana-encryption` Secret과 kubeconfig를 확인한 뒤 server-side dry-run과 apply를 수행한다. Logstash와 Fluent Bit을 재시작하고 ILM·Kibana bootstrap Job 완료를 기다린다. Local PV 경로, `vm.max_map_count`, 실제 Secret 생성과 기존 `emptyDir` Elasticsearch의 데이터 전환은 자동화하지 않는다.
 
 ### 20.4 Runner와 credential
 
@@ -859,7 +865,7 @@ PR 검증, develop Release CI, 애플리케이션 CD와 수동 운영 workflow�
 ### 21.1 정적 검증
 
 - 모든 패키지가 `kubectl kustomize`로 독립 렌더링된다.
-- 자동 CD용 `applications` 패키지는 Deployment 9개와 Service 9개만 렌더링하고 수동 관리 Kind를 포함하지 않는다.
+- 자동 CD용 `applications` 패키지는 Deployment 10개와 Service 10개만 렌더링하고 수동 관리 Kind를 포함하지 않는다.
 - `kubectl apply --dry-run=client`가 성공한다.
 - 클러스터 연결 후 `kubectl apply --server-side --dry-run=server`가 성공한다.
 - 렌더링 결과에 `latest`, 실제 Secret 값, 미정 placeholder가 없다.

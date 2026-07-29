@@ -35,5 +35,20 @@ public interface SettlementSourceLineJpaRepository extends JpaRepository<Settlem
     @Query("select l.eventId from SettlementSourceLine l where l.eventId in :eventIds")
     List<UUID> findExistingEventIds(@Param("eventIds") Collection<UUID> eventIds);
 
+    @Query("""
+            select new com.prompthub.settlement.infrastructure.persistence.SettlementSourceLineTypeAggregate(
+                l.lineType,
+                count(l),
+                sum(l.lineAmount)
+            )
+            from SettlementSourceLine l
+            where l.occurredAt >= :start
+              and l.occurredAt < :end
+            group by l.lineType
+            """)
+    List<SettlementSourceLineTypeAggregate> aggregateByPeriod(
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
+
     List<SettlementSourceLine> findBySettlementId(UUID settlementId);
 }

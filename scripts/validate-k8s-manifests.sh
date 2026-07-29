@@ -54,6 +54,7 @@ PACKAGES=(
   "k8s/base/services/settlement"
   "k8s/base/services/admin"
   "k8s/base/services/ai"
+  "k8s/base/services/notification"
   "k8s/base/services"
   "k8s/base/gateway"
   "k8s/base"
@@ -324,12 +325,12 @@ for package in "${PACKAGES[@]}"; do
       exit 1
     fi
 
-    if grep -Eq 'POSTGRES_|KAFKA_' "${rendered}"; then
+    init_container_block="$(sed -n -E '/^[[:space:]]+initContainers:/,/^[[:space:]]+nodeSelector:/p' "${rendered}")"
+    if grep -Eq 'POSTGRES_|KAFKA_' <<< "${init_container_block}"; then
       echo "AI service must not depend on PostgreSQL, Kafka, or User during Pod initialization" >&2
       exit 1
     fi
 
-    init_container_block="$(sed -n -E '/^[[:space:]]+initContainers:/,/^[[:space:]]+nodeSelector:/p' "${rendered}")"
     if grep -Fq 'user-service' <<< "${init_container_block}"; then
       echo "AI init container must not hard-wait for User service" >&2
       exit 1
@@ -340,6 +341,42 @@ for package in "${PACKAGES[@]}"; do
       [[ "$(grep -Ec 'allowPrivilegeEscalation:[[:space:]]+false' "${rendered}")" -ne 2 ]] ||
       [[ "$(grep -Ec '^[[:space:]]+- ALL$' "${rendered}")" -ne 2 ]]; then
       echo "AI application and init containers must both drop capabilities and disable privilege escalation" >&2
+      exit 1
+    fi
+  fi
+
+  if [[ "${package}" == "k8s/base/services/notification" ]]; then
+    required_patterns=(
+      '^kind:[[:space:]]+Deployment$'
+      '^kind:[[:space:]]+Service$'
+      '^[[:space:]]+name:[[:space:]]+notification-service$'
+      'ghcr.io/prgrms-be-adv-devcourse/prompthub-notification-service@sha256:'
+      '^[[:space:]]+replicas:[[:space:]]+1$'
+      'containerPort:[[:space:]]+18088$'
+      '^[[:space:]]+port:[[:space:]]+8088$'
+      'until wget -q -O /dev/null http://discovery:8761/actuator/health'
+      'until wget -q -O /dev/null http://config:8888/actuator/health'
+      'until nc -z postgres 5432'
+      'until nc -z redis 6379'
+      'until nc -z kafka 9092'
+      '^[[:space:]]+- name:[[:space:]]+NOTIFICATION_SERVICE_PASSWORD$'
+      '^[[:space:]]+automountServiceAccountToken:[[:space:]]+false$'
+      '^[[:space:]]+enableServiceLinks:[[:space:]]+false$'
+      '^[[:space:]]+prompthub.io/node-pool:[[:space:]]+application$'
+      '^[[:space:]]+- name:[[:space:]]+ghcr-pull-secret$'
+      '^[[:space:]]+allowPrivilegeEscalation:[[:space:]]+false$'
+      '^[[:space:]]+- ALL$'
+    )
+
+    for pattern in "${required_patterns[@]}"; do
+      if ! grep -Eq -- "${pattern}" "${rendered}"; then
+        echo "missing notification service contract: ${pattern}" >&2
+        exit 1
+      fi
+    done
+
+    if ! require_secret_env "${rendered}" NOTIFICATION_SERVICE_PASSWORD postgres-secret NOTIFICATION_SERVICE_PASSWORD; then
+      echo "notification password must reference postgres-secret.NOTIFICATION_SERVICE_PASSWORD" >&2
       exit 1
     fi
   fi
@@ -500,8 +537,8 @@ for package in "${PACKAGES[@]}"; do
     cronjob_count="$(awk '$1 == "kind:" && $2 == "CronJob" { count++ } END { print count + 0 }' "${rendered}")"
     unexpected_kinds="$(awk '$1 == "kind:" && $2 != "Deployment" && $2 != "Service" && $2 != "CronJob" { print $2 }' "${rendered}" | sort -u)"
 
-    if [[ "${deployment_count}" -ne 9 || "${service_count}" -ne 9 || "${cronjob_count}" -ne 1 ]]; then
-      echo "application CD package must render 9 Deployments, 9 Services, and 1 CronJob" >&2
+    if [[ "${deployment_count}" -ne 10 || "${service_count}" -ne 10 || "${cronjob_count}" -ne 1 ]]; then
+      echo "application CD package must render 10 Deployments, 10 Services, and 1 CronJob" >&2
       exit 1
     fi
 

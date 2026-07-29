@@ -11,7 +11,7 @@ Gateway 로그는 Kibana에서 확인되지만 다음 서비스의 내부 Java �
 - admin-service
 - ai-service
 - settlement-service
-- notification-service (workload 배포 후)
+- notification-service
 
 또는 EC2에서는 파이프라인이 정상인데 같은 Git 매니페스트를 다시 적용하면 기존 문제가 재발한다.
 
@@ -19,7 +19,7 @@ Gateway 로그는 Kibana에서 확인되지만 다음 서비스의 내부 Java �
 
 애플리케이션 이벤트는 Kubernetes container name, Kubernetes label `app.kubernetes.io/name`, Spring JSON 로그의 `serviceName`이 모두 allowlist와 일치해야 `application-logs-*`에 저장된다. 이 검증은 init container·platform 로그·잘못 라벨링된 Pod가 애플리케이션 인덱스에 섞이는 것을 막는다.
 
-`config`, `discovery`, `apigateway`, `elk`, `kube-system`은 의도적으로 수집하지 않는다. `notification-service`는 collector와 애플리케이션 설정에 포함되어 있지만 Kubernetes workload가 아직 없으면 로그가 생성되지 않는다.
+`config`, `discovery`, `apigateway`, `elk`, `kube-system`은 의도적으로 수집하지 않는다. notification-service는 다른 allowlist 서비스와 동일하게 수집한다.
 
 ```bash
 kubectl -n prompthub get pod -l app.kubernetes.io/name=product-service \
@@ -108,4 +108,4 @@ curl -fsS \
 
 ## 주의사항
 
-`notification-service` workload가 없는 상태에서는 해당 서비스 로그가 없더라도 정상이다. workload가 배포된 뒤에는 다른 allowlist 서비스와 동일하게 수집된다.
+notification-service 로그는 다른 allowlist 서비스와 동일하게 `application-logs-*` 인덱스에 수집된다.

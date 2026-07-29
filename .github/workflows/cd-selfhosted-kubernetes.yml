@@ -1,6 +1,16 @@
 name: CD - Self-hosted Kubernetes
 
 on:
+  workflow_call:
+    inputs:
+      target:
+        description: "배포 대상"
+        required: true
+        type: string
+      confirmation:
+        description: "실행 확인 문자열"
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       target:
@@ -30,7 +40,7 @@ env:
 jobs:
   deploy-infrastructure:
     name: Manually Deploy Infrastructure
-    if: github.event_name == 'workflow_dispatch' && inputs.target == 'infrastructure'
+    if: inputs.target == 'infrastructure'
     runs-on: [self-hosted, linux, deploy]
     timeout-minutes: 45
     steps:
@@ -78,7 +88,7 @@ jobs:
 
   deploy-ingress:
     name: Manually Deploy Ingress
-    if: github.event_name == 'workflow_dispatch' && inputs.target == 'ingress'
+    if: inputs.target == 'ingress'
     runs-on: [self-hosted, linux, deploy]
     timeout-minutes: 20
     steps:
@@ -134,8 +144,8 @@ jobs:
           kubectl get ingress apigateway -n "$NAMESPACE"
 
   deploy-elk:
-    name: Manually Deploy ELK
-    if: github.event_name == 'workflow_dispatch' && inputs.target == 'elk'
+    name: Deploy ELK
+    if: inputs.target == 'elk'
     runs-on: [self-hosted, linux, deploy]
     timeout-minutes: 30
     steps:
