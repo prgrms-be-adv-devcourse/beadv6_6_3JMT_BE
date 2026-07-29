@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -338,4 +339,37 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			and embedding is not null
 		""", nativeQuery = true)
 	List<Object[]> findEmbeddingRows(@Param("productIds") List<UUID> productIds);
+
+	/**
+	 * 같은 content_hash를 가진 다른 판매자의 PROMPT 상품 중, {@code productId}보다
+	 * content_hash_at이 이른 순으로 후보를 돌려준다(ADR-0011 복제 탐지).
+	 *
+	 * <p>{@code content_hash_at}은 DB 트리거가 찍으므로, 앱이 든 {@code Product} 엔티티
+	 * 값이 아니라 서브쿼리로 이 상품의 확정 시각을 다시 읽는다.
+	 */
+	@Query("""
+		select p.id
+		from Product p
+		where p.productType = com.prompthub.product.domain.model.enums.ProductType.PROMPT
+			and p.contentHash = :contentHash
+			and p.sellerId <> :sellerId
+			and p.status in :statuses
+			and p.contentHashAt < (select p2.contentHashAt from Product p2 where p2.id = :productId)
+		order by p.contentHashAt asc
+		""")
+	List<UUID> findEarlierDuplicateProductIds(
+		@Param("productId") UUID productId,
+		@Param("contentHash") String contentHash,
+		@Param("sellerId") UUID sellerId,
+		@Param("statuses") List<ProductStatus> statuses,
+		Pageable pageable
+	);
+
+	default Optional<UUID> findDuplicateOfProductId(UUID productId, String contentHash, UUID sellerId) {
+		return findEarlierDuplicateProductIds(
+			productId, contentHash, sellerId,
+			List.of(ProductStatus.ON_SALE, ProductStatus.PENDING_REVIEW),
+			PageRequest.of(0, 1)
+		).stream().findFirst();
+	}
 }

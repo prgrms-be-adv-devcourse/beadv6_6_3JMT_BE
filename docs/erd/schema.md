@@ -128,7 +128,8 @@
 | view_count | INT | ✓ | 0 | 조회 수 |
 | wish_count | INT | ✓ | 0 | 찜 수 |
 | tags | TEXT | | NULL | 판매자 지정 태그 (쉼표 구분 문자열, TagsConverter 사용) |
-| content_hash | VARCHAR(64) | | NULL | 본문 SHA-256(PROMPT 전용). 복제 탐지용 — 검수 주체가 같은 값을 가진 타 판매자 상품을 조회한다. embedding_source_hash와 다른 값 |
+| content_hash | VARCHAR(64) | | NULL | 본문 정규화(공백 축약+trim+소문자화) 후 SHA-256(PROMPT 전용). 복제 탐지용(ADR-0011) — product-service가 이 값으로 같은 해시를 가진 타 판매자 상품을 찾아 duplicateOfProductId를 검수 이벤트(PRODUCT_REVIEW_REQUESTED)에 실어 보내면 ai-service가 자동 반려한다. embedding_source_hash와 다른 값 |
+| content_hash_at | TIMESTAMP | | NULL | content_hash가 확정된 시각. `content_hash`가 실제로 바뀔 때만 DB 트리거(`trg_content_hash_at`)가 갱신 — 복제 판정의 순서 기준(먼저 확정된 쪽이 원본). created_at/updated_at은 콘텐츠와 무관하게 밀릴 수 있어 재사용하지 않는다 |
 | embedding | vector(1536) | | NULL | 상품 임베딩 (text-embedding-3-small). pgvector 타입이라 엔티티 미매핑, 네이티브 쿼리로만 접근. ON_SALE 부분 HNSW 인덱스 |
 | embedding_source_hash | VARCHAR(64) | | NULL | 임베딩 원문의 SHA-256. 값이 같으면 재생성을 건너뛴다 |
 | created_at | TIMESTAMPTZ | ✓ | | |
