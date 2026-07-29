@@ -742,9 +742,9 @@ curl -fsS http://127.0.0.1:5601/api/status
 
 ---
 
-## 10. Data View를 만들고 Kibana에서 로그 조회
+## 10. Data View와 운영 대시보드를 확인하고 로그 조회
 
-### 10-1. Data View 만들기
+### 10-1. 자동 등록된 Data View 확인
 
 Kibana 왼쪽 메뉴에서 `Management → Stack Management`로 들어간 뒤 Kibana 영역의 `Data Views`를 연다. 메뉴가 보이지 않으면 브라우저 주소에 다음 경로를 직접 입력한다.
 
@@ -752,21 +752,37 @@ Kibana 왼쪽 메뉴에서 `Management → Stack Management`로 들어간 뒤 Ki
 http://127.0.0.1:5601/app/management/kibana/dataViews
 ```
 
-`Create data view`를 누르고 다음 값을 입력한다.
+ELK 적용 시 bootstrap Job이 다음 두 Data View를 고정 ID로 등록한다.
 
 ```text
-Name: Gateway Access Logs
-Index pattern: gateway-access-*
-Timestamp field: @timestamp
+Gateway Access
+  ID: gateway-access
+  Index pattern: gateway-access-*
+  Timestamp field: @timestamp
+
+Application Logs
+  ID: application-logs
+  Index pattern: application-logs-*
+  Timestamp field: @timestamp
 ```
 
-`Save data view to Kibana`를 누른다.
+목록에 둘 중 하나가 없으면 수동으로 다른 ID의 Data View를 만들지 않는다. 먼저 bootstrap
+Job의 완료 상태와 로그를 확인한다.
+
+```bash
+kubectl -n elk get job \
+  application-logs-kibana-bootstrap \
+  kibana-operations-dashboards-bootstrap
+
+kubectl -n elk logs job/application-logs-kibana-bootstrap
+kubectl -n elk logs job/kibana-operations-dashboards-bootstrap
+```
 
 ### 10-2. Classic Discover로 조회
 
 1. 왼쪽 메뉴에서 `Discover`를 연다.
 2. 필요하면 오른쪽 위의 `Switch to Classic`을 누른다.
-3. Data View로 `Gateway Access Logs`를 선택한다.
+3. Data View로 `Gateway Access`를 선택한다.
 4. 시간 범위를 `Last 24 hours` 또는 테스트 요청 시각을 포함하도록 설정한다.
 5. KQL 검색창에 다음을 입력한다.
 
@@ -842,9 +858,57 @@ FROM gateway-access-*
 | LIMIT 10
 ```
 
+### 10-5. 운영 대시보드 확인
+
+bootstrap Job은 다음 대시보드를 최근 24시간 범위로 등록한다.
+
+| Dashboard ID | 제목 | 목적 | Data View |
+|---|---|---|---|
+| `prompthub-service-health` | `[PromptHub] Service Health` | 전체 요청·HTTP 상태·Gateway latency·애플리케이션 오류 상태 | Gateway Access, Application Logs |
+| `prompthub-gateway-anomalies` | `[PromptHub] Gateway Anomalies` | 401·403·404·5xx·unknown route·1초 이상 요청 분석 | Gateway Access |
+| `prompthub-runtime-incidents` | `[PromptHub] Runtime Incidents` | WARN/ERROR·영향 서비스와 Pod·stack trace·기동 오류 분석 | Application Logs |
+
+SSH tunnel이 열린 Mac 터미널에서 API 등록 결과를 확인한다.
+
+```bash
+for dashboard_id in \
+  prompthub-service-health \
+  prompthub-gateway-anomalies \
+  prompthub-runtime-incidents; do
+  curl -fsS "http://127.0.0.1:5601/api/dashboards/${dashboard_id}" |
+    jq -r '"\(.id)\t\(.data.title)"'
+done
+```
+
+브라우저에서는 `Analytics → Dashboard` 목록에서 `[PromptHub]`로 검색하거나 다음 경로의
+마지막 ID를 각 Dashboard ID로 바꿔 연다.
+
+```text
+http://127.0.0.1:5601/app/dashboards#/view/prompthub-service-health
+```
+
+같은 정의를 다시 등록해야 하면 Control Plane에서 완료된 Job을 삭제한 뒤 add-on을
+재적용한다.
+
+```bash
+kubectl -n elk delete job \
+  kibana-operations-dashboards-bootstrap \
+  --ignore-not-found
+kubectl apply --server-side -k k8s/addons/elk
+kubectl -n elk wait --for=condition=complete \
+  job/kibana-operations-dashboards-bootstrap \
+  --timeout=10m
+kubectl -n elk logs job/kibana-operations-dashboards-bootstrap
+```
+
+등록은 고정 ID에 대한 PUT이므로 같은 ID의 정의를 갱신하며 중복 Dashboard를 만들지 않는다.
+기존에 수동 생성한 `prompthub dashboard`는 자동으로 삭제하지 않는다. 결제·환불 감사,
+Kafka/Outbox, AI, 인프라 metrics 및 SLO 대시보드는 이 작업 범위에 포함하지 않는다.
+
 ### 통과 기준
 
-- `Gateway Access Logs` Data View가 생성된다.
+- `Gateway Access`, `Application Logs` Data View가 고정 ID로 존재한다.
+- 세 `[PromptHub]` 운영 대시보드가 열리고 패널 오류가 없다.
 - Classic Discover와 ES|QL에서 같은 `gateway.requestId` 문서가 보인다.
 - `_source.gateway.status`가 테스트 응답의 `401`과 일치한다.
 
@@ -911,6 +975,7 @@ curl -fsS \
 - [ ] Servlet 요청 하나가 Gateway와 애플리케이션에서 같은 `requestId`로 조회된다.
 - [ ] settlement 일회성 Job의 JSON stdout과 Elasticsearch 문서를 확인했다.
 - [ ] SSH tunnel로 Kibana에 접속했다.
+- [ ] 두 Data View와 세 `[PromptHub]` 운영 대시보드가 자동 등록됐다.
 - [ ] Classic Discover와 ES|QL에서 같은 로그를 확인했다.
 - [ ] Gateway 인덱스에만 14일 ILM이 적용된 것을 확인했다.
 - [ ] EC2 Security Group에 ELK 포트를 공개하지 않았다.
