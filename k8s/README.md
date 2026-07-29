@@ -117,9 +117,35 @@ kubectl -n elk wait --for=condition=Ready pod/elasticsearch-0 --timeout=10m
 kubectl -n elk rollout status deployment/logstash --timeout=10m
 kubectl -n elk rollout status deployment/kibana --timeout=10m
 kubectl -n elk rollout status daemonset/fluent-bit --timeout=10m
+kubectl -n elk wait --for=condition=complete \
+  job/kibana-operations-dashboards-bootstrap \
+  --timeout=10m
 ```
 
 배포 후 정상 요청, 401, 404, 500, 503을 호출해 Kibana에서 `gateway.eventType: GATEWAY_ACCESS`와 응답 `X-Request-Id`가 일치하는지 확인한다. 애플리케이션 로그는 `Application Logs` Data View에서 같은 ID를 `requestId`로 검색하고 `service.name`, `level`, `kubernetes.container_name`을 확인한다. `gateway-access-*`는 14일, `application-logs-*`는 7일 후 삭제되며 `products-v1`에는 두 ILM 정책이 적용되지 않아야 한다.
+
+Kibana bootstrap은 `Gateway Access` Data View와 다음 세 대시보드를 고정 ID로 등록한다.
+
+| Dashboard ID | 용도 |
+|---|---|
+| `prompthub-service-health` | 서비스 요청·상태·latency·애플리케이션 오류 개요 |
+| `prompthub-gateway-anomalies` | Gateway 인증·routing·upstream 오류와 느린 요청 분석 |
+| `prompthub-runtime-incidents` | 애플리케이션 WARN/ERROR와 영향 서비스·Pod 분석 |
+
+재등록할 때는 완료된 Job을 삭제하고 add-on을 다시 적용한다.
+
+```bash
+kubectl -n elk delete job \
+  kibana-operations-dashboards-bootstrap \
+  --ignore-not-found
+kubectl apply --server-side -k k8s/addons/elk
+kubectl -n elk wait --for=condition=complete \
+  job/kibana-operations-dashboards-bootstrap \
+  --timeout=10m
+```
+
+세 대시보드의 기본 조회 기간은 최근 24시간이다. 기존 수동 `prompthub dashboard`는 삭제하지
+않으며 결제·환불 감사 대시보드는 이 범위에 포함하지 않는다.
 
 최초 준비가 끝난 환경에서는 `k8s/addons/elk/**` 변경을 `develop`에 병합하면 `Release - Develop`이 기존 ELK 배포 절차를 자동 호출해 전체 allowlist를 반영한다. 명시적인 재적용이나 자동 실행 복구가 필요하면 수동 workflow의 `elk` 대상을 사용한다. notification-service를 포함한 모든 workload는 별도 collector 변경 없이 수집된다. 민감 키·Bearer/JWT·Cookie·password·secret·API key·body 값이 검색되지 않는지 확인한다. 이 과정에서 ELK Service는 계속 ClusterIP로 유지한다.
 
