@@ -113,7 +113,12 @@ public class SettlementBatch extends BaseEntity {
 	}
 
 	public void requestRetry() {
-		verifyStatus(SettlementBatchStatus.FAILED);
+		if (this.status != SettlementBatchStatus.FAILED
+			&& this.status != SettlementBatchStatus.RECONCILIATION_FAILED) {
+			throw new SettlementBatchInvalidStateException(
+				SettlementBatchStatus.FAILED,
+				this.status);
+		}
 		this.status = SettlementBatchStatus.RETRY_REQUESTED;
 	}
 

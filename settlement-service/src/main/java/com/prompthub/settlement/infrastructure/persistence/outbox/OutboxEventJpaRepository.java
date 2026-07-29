@@ -4,10 +4,12 @@ import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
 import com.prompthub.settlement.domain.model.enums.OutboxEventStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementBatchStatus;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -60,11 +62,18 @@ public interface OutboxEventJpaRepository extends JpaRepository<SettlementOutbox
             from SettlementOutboxEvent e
             where e.settlementBatchId = :settlementBatchId
               and e.status = :status
+              and exists (
+                  select b.id
+                  from SettlementBatch b
+                  where b.id = e.settlementBatchId
+                    and b.status = :batchStatus
+              )
             order by e.occurredAt asc, e.eventId asc
             """)
     List<SettlementOutboxEvent> findPendingByBatchId(
             @Param("settlementBatchId") UUID settlementBatchId,
             @Param("status") OutboxEventStatus status,
+            @Param("batchStatus") SettlementBatchStatus batchStatus,
             Pageable pageable);
 
     @Query("""
@@ -72,6 +81,12 @@ public interface OutboxEventJpaRepository extends JpaRepository<SettlementOutbox
             from SettlementOutboxEvent e
             where e.settlementBatchId = :settlementBatchId
               and e.status = :status
+              and exists (
+                  select b.id
+                  from SettlementBatch b
+                  where b.id = e.settlementBatchId
+                    and b.status = :batchStatus
+              )
               and (e.occurredAt > :cursorOccurredAt
                    or (e.occurredAt = :cursorOccurredAt and e.eventId > :cursorEventId))
             order by e.occurredAt asc, e.eventId asc
@@ -79,7 +94,19 @@ public interface OutboxEventJpaRepository extends JpaRepository<SettlementOutbox
     List<SettlementOutboxEvent> findPendingByBatchIdAfterCursor(
             @Param("settlementBatchId") UUID settlementBatchId,
             @Param("status") OutboxEventStatus status,
+            @Param("batchStatus") SettlementBatchStatus batchStatus,
             @Param("cursorOccurredAt") LocalDateTime cursorOccurredAt,
             @Param("cursorEventId") UUID cursorEventId,
             Pageable pageable);
+
+    @Modifying
+    @Query("""
+            delete from SettlementOutboxEvent e
+            where e.aggregateType = 'SETTLEMENT'
+              and e.aggregateId in :settlementIds
+              and e.status = :status
+            """)
+    void deleteBySettlementIdsAndStatus(
+            @Param("settlementIds") Collection<UUID> settlementIds,
+            @Param("status") OutboxEventStatus status);
 }

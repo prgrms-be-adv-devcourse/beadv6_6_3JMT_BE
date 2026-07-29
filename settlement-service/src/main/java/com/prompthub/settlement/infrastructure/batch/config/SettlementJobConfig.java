@@ -26,6 +26,7 @@ public class SettlementJobConfig {
 		Step loadSettlementSourceStep,
 		Step reconcileSettlementSourceStep,
 		Step settlementStep,
+		Step reconcileSettlementCalculationStep,
 		Step completeSettlementBatchStep,
 		Step flushCurrentBatchOutboxStep
 	) {
@@ -40,6 +41,7 @@ public class SettlementJobConfig {
 			.from(reconcileSettlementSourceStep)
 			.on("COMPLETED")
 			.to(settlementStep)
+			.next(reconcileSettlementCalculationStep)
 			.next(completeSettlementBatchStep)
 			.next(flushCurrentBatchOutboxStep)
 			.from(reconcileSettlementSourceStep)

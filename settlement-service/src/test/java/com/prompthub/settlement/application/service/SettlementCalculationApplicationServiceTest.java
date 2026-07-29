@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
 import com.prompthub.settlement.application.usecase.OutboxEventUseCase;
 import com.prompthub.settlement.domain.model.Settlement;
+import com.prompthub.settlement.domain.model.SettlementDetail;
 import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.repository.SettlementRepository;
@@ -47,13 +48,19 @@ class SettlementCalculationApplicationServiceTest {
     private SettlementCalculationApplicationService service;
 
     private SettlementSourceLine paidLine(UUID sellerId, String amount) {
-        return SettlementSourceLine.paid(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+        SettlementSourceLine line = SettlementSourceLine.paid(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 sellerId, new BigDecimal(amount), LocalDateTime.of(2026, 6, 15, 10, 0));
+        ReflectionTestUtils.setField(line, "id", UUID.randomUUID());
+        return line;
     }
 
     private SettlementSourceLine refundLine(UUID sellerId, String amount) {
-        return SettlementSourceLine.refunded(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+        SettlementSourceLine line = SettlementSourceLine.refunded(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 sellerId, new BigDecimal(amount), LocalDateTime.of(2026, 6, 16, 10, 0));
+        ReflectionTestUtils.setField(line, "id", UUID.randomUUID());
+        return line;
     }
 
     private void stubSaveAssigningId() {
@@ -85,6 +92,9 @@ class SettlementCalculationApplicationServiceTest {
         assertThat(settlement.getSettlementTotalAmount()).isEqualByComparingTo("170.00");
         assertThat(settlement.getPeriodStart()).isEqualTo(PERIOD.periodStart());
         assertThat(settlement.getPeriodEnd()).isEqualTo(PERIOD.periodEnd());
+        assertThat(settlement.getDetails())
+                .extracting(SettlementDetail::getSettlementSourceLineId)
+                .doesNotContainNull();
         verify(settlementRepository).save(settlement);
     }
 

@@ -55,7 +55,7 @@ public class SettlementBatchLifecycleApplicationService implements SettlementBat
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void failReconciliation(UUID batchId, String reason) {
         SettlementBatch batch = findBatch(batchId);
         batch.failReconciliation(reason);

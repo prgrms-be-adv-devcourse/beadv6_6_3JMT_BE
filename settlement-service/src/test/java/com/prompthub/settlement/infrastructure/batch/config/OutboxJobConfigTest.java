@@ -15,7 +15,7 @@ import org.springframework.batch.core.step.Step;
 class OutboxJobConfigTest {
 
     @Test
-    @DisplayName("settlementJob은 원천 대사를 포함한 정산·Outbox Step을 모두 등록한다")
+    @DisplayName("settlementJob은 원천 대사와 계산 대사를 포함한 Step을 모두 등록한다")
     void settlementJob_hasExpectedSteps() {
         // given
         SettlementJobConfig config = new SettlementJobConfig(mock(JobRepository.class));
@@ -28,6 +28,7 @@ class OutboxJobConfigTest {
                 step("loadSettlementSourceStep"),
                 step("reconcileSettlementSourceStep"),
                 step("settlementStep"),
+                step("reconcileSettlementCalculationStep"),
                 step("completeSettlementBatchStep"),
                 step("flushCurrentBatchOutboxStep"));
 
@@ -38,6 +39,7 @@ class OutboxJobConfigTest {
                 "loadSettlementSourceStep",
                 "reconcileSettlementSourceStep",
                 "settlementStep",
+                "reconcileSettlementCalculationStep",
                 "completeSettlementBatchStep",
                 "flushCurrentBatchOutboxStep");
     }

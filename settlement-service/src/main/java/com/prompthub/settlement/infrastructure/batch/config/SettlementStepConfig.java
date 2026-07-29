@@ -11,6 +11,7 @@ import com.prompthub.settlement.infrastructure.batch.tasklet.FlushCurrentBatchOu
 import com.prompthub.settlement.infrastructure.batch.tasklet.LoadSettlementSourceTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.ReconcileSettlementSourceTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.RedriveOutboxTasklet;
+import com.prompthub.settlement.infrastructure.batch.tasklet.ReconcileSettlementCalculationTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.RetryPendingOutboxTasklet;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
@@ -82,6 +83,16 @@ public class SettlementStepConfig {
 			.processor(settlementProcessor)
 			.writer(settlementWriter)
 			.transactionManager(transactionManager)
+			.allowStartIfComplete(true)
+			.build();
+	}
+
+	@Bean
+	public Step reconcileSettlementCalculationStep(
+		ReconcileSettlementCalculationTasklet reconcileSettlementCalculationTasklet
+	) {
+		return new StepBuilder("reconcileSettlementCalculationStep", jobRepository)
+			.tasklet(reconcileSettlementCalculationTasklet, transactionManager)
 			.build();
 	}
 

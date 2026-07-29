@@ -17,7 +17,7 @@ class SettlementTest {
             LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 7));
 
     private SettlementDetail detail(String lineAmount, String feeRate) {
-        return SettlementDetail.sale(UUID.randomUUID(),
+        return SettlementDetail.sale(UUID.randomUUID(), UUID.randomUUID(),
                 new BigDecimal(lineAmount), new BigDecimal(feeRate), OCCURRED_AT);
     }
 
@@ -45,11 +45,13 @@ class SettlementTest {
         UUID orderProductId = UUID.randomUUID();
         List<SettlementDetail> details = List.of(
                 SettlementDetail.sale(
+                        UUID.randomUUID(),
                         orderProductId,
                         new BigDecimal("100.00"),
                         new BigDecimal("0.1500"),
                         LocalDateTime.of(2026, 7, 14, 13, 10)),
                 SettlementDetail.refund(
+                        UUID.randomUUID(),
                         orderProductId,
                         new BigDecimal("40.00"),
                         new BigDecimal("0.1500"),
