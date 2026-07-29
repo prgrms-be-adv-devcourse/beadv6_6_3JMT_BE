@@ -58,7 +58,7 @@ public class PaymentApprovedProcessor {
 		boolean transitioned = order.getOrderStatus() == OrderStatus.CREATED
 			|| order.getOrderStatus() == OrderStatus.FAILED;
 		if (transitioned) {
-			order.markCompleted(approvedAt);
+			order.completePayment(command.approvedAmount(), approvedAt);
 			removePurchasedProductsFromCart(order.getBuyerId(), order);
 			orderOutboxAppender.appendPaid(order);
 		}

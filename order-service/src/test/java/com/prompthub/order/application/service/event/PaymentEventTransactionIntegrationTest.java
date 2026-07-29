@@ -158,6 +158,24 @@ class PaymentEventTransactionIntegrationTest {
 	}
 
 	@Test
+	void approvedEvent_amountMismatch_rollsBackOrderCartOutboxAndProcessedEvent() {
+		Order order = saveScenario();
+
+		assertThatThrownBy(() -> approvedProcessor.process(
+			UUID.randomUUID(),
+			"PAYMENT_APPROVED",
+			APPROVED_AT,
+			new PaymentApprovedCommand(order.getId(), 30_000, APPROVED_AT)
+		))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
+
+		entityManager.clear();
+		assertCreatedStateAndNoSideEffects();
+		then(orderExpirationStore).shouldHaveNoInteractions();
+	}
+
+	@Test
 	void approvedEvent_processedEventFailure_rollsBackOrderCartOutboxAndSkipsRedisCleanup() {
 		Order order = saveScenario();
 		willThrow(new RuntimeException("processed event failure"))

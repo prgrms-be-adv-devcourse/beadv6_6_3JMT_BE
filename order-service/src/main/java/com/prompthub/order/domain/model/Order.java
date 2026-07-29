@@ -136,6 +136,13 @@ public class Order extends BaseEntity {
         this.orderProducts.forEach(OrderProduct::markPaid);
     }
 
+    public void completePayment(int approvedAmount, LocalDateTime approvedAt) {
+        if (this.totalOrderAmount != approvedAmount) {
+            throw new OrderException(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
+        }
+        markCompleted(approvedAt);
+    }
+
     public void markPaid() {
         markCompleted();
     }

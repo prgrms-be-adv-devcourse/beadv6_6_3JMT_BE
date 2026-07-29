@@ -151,6 +151,50 @@ class PaymentApprovedProcessorTest {
 			.publishEvent(new OrderExpirationCleanupRequestedEvent(ORDER_A));
 	}
 
+	@Test
+	@DisplayName("승인 금액이 없는 승인 이벤트는 거부한다")
+	void process_missingApprovedAmount_rejectsEvent() {
+		Order order = createdOrder();
+		UUID eventId = UUID.randomUUID();
+
+		assertThatThrownBy(() -> processor.process(
+			eventId,
+			EVENT_TYPE,
+			APPROVED_AT,
+			new PaymentApprovedCommand(ORDER_A, -1, APPROVED_AT)
+		))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
+		then(orderOutboxAppender).shouldHaveNoInteractions();
+	}
+
+	@Test
+	@DisplayName("승인 금액이 주문 금액과 다르면 상태와 부수효과를 변경하지 않는다")
+	void process_approvedAmountMismatch_rejectsWithoutMutation() {
+		Order order = createdOrder();
+		UUID eventId = UUID.randomUUID();
+		stubTarget(eventId, order);
+
+		assertThatThrownBy(() -> processor.process(
+			eventId,
+			EVENT_TYPE,
+			APPROVED_AT,
+			new PaymentApprovedCommand(order.getId(), 30_000, APPROVED_AT)
+		))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
+
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
+		assertThat(order.getOrderProducts())
+			.extracting(OrderProduct::getOrderStatus)
+			.containsOnly(OrderProductStatus.PENDING);
+		then(orderOutboxAppender).shouldHaveNoInteractions();
+		then(cartRepository).shouldHaveNoInteractions();
+		then(processedEventService).should(never()).markProcessed(any(), any(), any(), any());
+	}
+
 	@ParameterizedTest
 	@EnumSource(value = OrderStatus.class, names = {"COMPLETED", "PARTIAL_REFUNDED", "ALL_REFUNDED"})
 	@DisplayName("완료·환불 주문의 늦은 승인은 상태·Cart·Outbox를 바꾸지 않고 처리 이력과 cleanup만 남긴다")
