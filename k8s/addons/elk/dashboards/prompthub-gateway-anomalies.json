@@ -1,6 +1,6 @@
 {
-  "title": "[PromptHub] Gateway Anomalies",
-  "description": "Gateway-focused view for authentication failures, routing misses, upstream errors, and slow requests.",
+  "title": "[PromptHub] 게이트웨이 이상 징후",
+  "description": "게이트웨이 인증 실패, 라우팅 누락, 업스트림 오류와 지연 요청을 분석합니다.",
   "options": {
     "auto_apply_filters": true,
     "hide_panel_borders": false,
@@ -29,7 +29,7 @@
         "h": 6
       },
       "config": {
-        "title": "401 responses",
+        "title": "401 응답 수",
         "description": "",
         "hide_title": false,
         "type": "metric",
@@ -51,7 +51,7 @@
               "expression": "gateway.status: 401",
               "language": "kql"
             },
-            "label": "401 responses",
+            "label": "401 응답 수",
             "empty_as_null": false,
             "color": {
               "type": "static",
@@ -83,7 +83,7 @@
         "h": 6
       },
       "config": {
-        "title": "403 responses",
+        "title": "403 응답 수",
         "description": "",
         "hide_title": false,
         "type": "metric",
@@ -105,7 +105,7 @@
               "expression": "gateway.status: 403",
               "language": "kql"
             },
-            "label": "403 responses",
+            "label": "403 응답 수",
             "empty_as_null": false,
             "color": {
               "type": "static",
@@ -137,7 +137,7 @@
         "h": 6
       },
       "config": {
-        "title": "404 responses",
+        "title": "404 응답 수",
         "description": "",
         "hide_title": false,
         "type": "metric",
@@ -159,7 +159,7 @@
               "expression": "gateway.status: 404",
               "language": "kql"
             },
-            "label": "404 responses",
+            "label": "404 응답 수",
             "empty_as_null": false,
             "color": {
               "type": "static",
@@ -191,7 +191,7 @@
         "h": 6
       },
       "config": {
-        "title": "5xx responses",
+        "title": "5xx 응답 수",
         "description": "",
         "hide_title": false,
         "type": "metric",
@@ -213,7 +213,7 @@
               "expression": "gateway.status >= 500 and gateway.status < 600",
               "language": "kql"
             },
-            "label": "5xx responses",
+            "label": "5xx 응답 수",
             "empty_as_null": false,
             "color": {
               "type": "static",
@@ -245,7 +245,7 @@
         "h": 6
       },
       "config": {
-        "title": "UNKNOWN route",
+        "title": "미매칭 라우트 (UNKNOWN)",
         "description": "",
         "hide_title": false,
         "type": "metric",
@@ -267,7 +267,7 @@
               "expression": "gateway.routeId: \"UNKNOWN\"",
               "language": "kql"
             },
-            "label": "UNKNOWN route",
+            "label": "미매칭 라우트 (UNKNOWN)",
             "empty_as_null": false,
             "color": {
               "type": "static",
@@ -299,7 +299,7 @@
         "h": 6
       },
       "config": {
-        "title": "Requests ≥ 1000ms",
+        "title": "1000ms 이상 지연 요청",
         "description": "",
         "hide_title": false,
         "type": "metric",
@@ -321,7 +321,7 @@
               "expression": "gateway.durationMs >= 1000",
               "language": "kql"
             },
-            "label": "Requests ≥ 1000ms",
+            "label": "1000ms 이상 지연 요청",
             "empty_as_null": false,
             "color": {
               "type": "static",
@@ -353,8 +353,8 @@
         "h": 12
       },
       "config": {
-        "title": "Gateway error responses by status",
-        "description": "Authentication, routing, and upstream errors over time.",
+        "title": "상태 코드별 게이트웨이 오류 응답",
+        "description": "인증, 라우팅, 업스트림 오류를 상태 코드별 시계열로 표시합니다.",
         "hide_title": false,
         "type": "xy",
         "query": {
@@ -382,7 +382,7 @@
               {
                 "operation": "count",
                 "empty_as_null": true,
-                "label": "Responses",
+                "label": "응답 수",
                 "filter": {
                   "expression": "",
                   "language": "kql"
@@ -391,7 +391,7 @@
             ],
             "breakdown_by": {
               "operation": "filters",
-              "label": "HTTP status",
+              "label": "HTTP 상태 코드",
               "filters": [
                 {
                   "filter": {
@@ -452,7 +452,7 @@
           },
           "y": {
             "title": {
-              "text": "Responses",
+              "text": "응답 수",
               "visible": true
             },
             "scale": "linear",
@@ -512,8 +512,8 @@
         "h": 12
       },
       "config": {
-        "title": "Unknown route and 404 trend",
-        "description": "Unmatched routes compared with all 404 responses.",
+        "title": "미매칭 라우트와 404 추이",
+        "description": "미매칭 라우트와 전체 404 응답을 비교합니다.",
         "hide_title": false,
         "type": "xy",
         "query": {
@@ -541,7 +541,7 @@
               {
                 "operation": "count",
                 "empty_as_null": true,
-                "label": "Responses",
+                "label": "응답 수",
                 "filter": {
                   "expression": "",
                   "language": "kql"
@@ -550,14 +550,14 @@
             ],
             "breakdown_by": {
               "operation": "filters",
-              "label": "Routing anomaly",
+              "label": "라우팅 이상 유형",
               "filters": [
                 {
                   "filter": {
                     "expression": "gateway.routeId: \"UNKNOWN\"",
                     "language": "kql"
                   },
-                  "label": "UNKNOWN route"
+                  "label": "미매칭 라우트 (UNKNOWN)"
                 },
                 {
                   "filter": {
@@ -597,7 +597,7 @@
           },
           "y": {
             "title": {
-              "text": "Responses",
+              "text": "응답 수",
               "visible": true
             },
             "scale": "linear",
@@ -657,8 +657,8 @@
         "h": 12
       },
       "config": {
-        "title": "Slow requests by route",
-        "description": "Requests taking at least one second, split by route.",
+        "title": "라우트별 지연 요청",
+        "description": "1초 이상 걸린 요청을 라우트별 시계열로 표시합니다.",
         "hide_title": false,
         "type": "xy",
         "query": {
@@ -686,7 +686,7 @@
               {
                 "operation": "count",
                 "empty_as_null": true,
-                "label": "Slow requests",
+                "label": "지연 요청 수",
                 "filter": {
                   "expression": "",
                   "language": "kql"
@@ -698,7 +698,7 @@
               "fields": [
                 "gateway.routeId.keyword"
               ],
-              "label": "Gateway route",
+              "label": "게이트웨이 라우트",
               "limit": 10,
               "other_bucket": {
                 "include_documents_without_field": false
@@ -738,7 +738,7 @@
           },
           "y": {
             "title": {
-              "text": "Slow requests",
+              "text": "지연 요청 수",
               "visible": true
             },
             "scale": "linear",
@@ -798,8 +798,8 @@
         "h": 12
       },
       "config": {
-        "title": "Gateway latency percentiles",
-        "description": "p50, p95, and p99 response time for anomaly correlation.",
+        "title": "게이트웨이 지연 시간 백분위수",
+        "description": "이상 징후와 비교할 수 있도록 p50, p95, p99 응답 시간을 표시합니다.",
         "hide_title": false,
         "type": "xy",
         "query": {
@@ -890,7 +890,7 @@
           },
           "y": {
             "title": {
-              "text": "Response time, ms",
+              "text": "응답 시간 (ms)",
               "visible": true
             },
             "scale": "linear",
@@ -951,8 +951,8 @@
         "h": 14
       },
       "config": {
-        "title": "Top unknown and 404 paths",
-        "description": "Paths most often associated with routing misses.",
+        "title": "미매칭 및 404 요청 경로",
+        "description": "라우팅 누락과 가장 자주 연관된 요청 경로 순으로 표시합니다.",
         "hide_title": false,
         "type": "data_table",
         "data_source": {
@@ -968,7 +968,7 @@
         "metrics": [
           {
             "operation": "count",
-            "label": "Responses",
+            "label": "응답 수",
             "filter": {
               "expression": "",
               "language": "kql"
@@ -982,7 +982,7 @@
             "fields": [
               "gateway.path.keyword"
             ],
-            "label": "Path",
+            "label": "요청 경로",
             "limit": 10,
             "other_bucket": {
               "include_documents_without_field": false
@@ -998,7 +998,7 @@
             "fields": [
               "gateway.status"
             ],
-            "label": "Status",
+            "label": "상태 코드",
             "limit": 3,
             "other_bucket": {
               "include_documents_without_field": false
@@ -1013,7 +1013,7 @@
             "fields": [
               "gateway.method.keyword"
             ],
-            "label": "Method",
+            "label": "HTTP 메서드",
             "limit": 1,
             "other_bucket": {
               "include_documents_without_field": false
@@ -1037,8 +1037,8 @@
         "h": 14
       },
       "config": {
-        "title": "Routes with highest p95 latency",
-        "description": "Gateway routes ranked by p95 response time.",
+        "title": "p95 지연이 높은 라우트",
+        "description": "p95 응답 시간이 높은 게이트웨이 라우트 순으로 표시합니다.",
         "hide_title": false,
         "type": "data_table",
         "data_source": {
@@ -1054,7 +1054,7 @@
         "metrics": [
           {
             "operation": "percentile",
-            "label": "p95, ms",
+            "label": "p95 지연 시간 (ms)",
             "filter": {
               "expression": "",
               "language": "kql"
@@ -1069,7 +1069,7 @@
             "fields": [
               "gateway.routeId.keyword"
             ],
-            "label": "Gateway route",
+            "label": "게이트웨이 라우트",
             "limit": 10,
             "other_bucket": {
               "include_documents_without_field": false
@@ -1085,7 +1085,7 @@
             "fields": [
               "gateway.method.keyword"
             ],
-            "label": "Method",
+            "label": "HTTP 메서드",
             "limit": 1,
             "other_bucket": {
               "include_documents_without_field": false
@@ -1109,8 +1109,8 @@
         "h": 12
       },
       "config": {
-        "title": "Requests by authentication state",
-        "description": "Gateway requests split by authenticated state.",
+        "title": "인증 여부별 요청",
+        "description": "게이트웨이 요청을 인증 여부별로 구분합니다.",
         "hide_title": false,
         "type": "xy",
         "query": {
@@ -1138,7 +1138,7 @@
               {
                 "operation": "count",
                 "empty_as_null": true,
-                "label": "Requests",
+                "label": "요청 수",
                 "filter": {
                   "expression": "",
                   "language": "kql"
@@ -1150,7 +1150,7 @@
               "fields": [
                 "gateway.authenticated"
               ],
-              "label": "Authenticated",
+              "label": "인증 여부",
               "limit": 2,
               "other_bucket": {
                 "include_documents_without_field": false
@@ -1190,7 +1190,7 @@
           },
           "y": {
             "title": {
-              "text": "Requests",
+              "text": "요청 수",
               "visible": true
             },
             "scale": "linear",
@@ -1250,8 +1250,8 @@
         "h": 12
       },
       "config": {
-        "title": "Requests by HTTP method",
-        "description": "Gateway requests split by HTTP method.",
+        "title": "HTTP 메서드별 요청",
+        "description": "게이트웨이 요청을 HTTP 메서드별로 구분합니다.",
         "hide_title": false,
         "type": "xy",
         "query": {
@@ -1279,7 +1279,7 @@
               {
                 "operation": "count",
                 "empty_as_null": true,
-                "label": "Requests",
+                "label": "요청 수",
                 "filter": {
                   "expression": "",
                   "language": "kql"
@@ -1291,7 +1291,7 @@
               "fields": [
                 "gateway.method.keyword"
               ],
-              "label": "HTTP method",
+              "label": "HTTP 메서드",
               "limit": 10,
               "other_bucket": {
                 "include_documents_without_field": false
@@ -1331,7 +1331,7 @@
           },
           "y": {
             "title": {
-              "text": "Requests",
+              "text": "요청 수",
               "visible": true
             },
             "scale": "linear",
@@ -1404,7 +1404,7 @@
         "use_global_filters": true,
         "ignore_validations": false,
         "data_view_id": "gateway-access",
-        "title": "Gateway route",
+        "title": "게이트웨이 라우트",
         "field_name": "gateway.routeId.keyword",
         "exclude": false,
         "sort": {
@@ -1427,7 +1427,7 @@
         "use_global_filters": true,
         "ignore_validations": false,
         "data_view_id": "gateway-access",
-        "title": "HTTP status",
+        "title": "HTTP 상태 코드",
         "field_name": "gateway.status",
         "exclude": false,
         "sort": {

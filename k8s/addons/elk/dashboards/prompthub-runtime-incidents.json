@@ -1,6 +1,6 @@
 {
-  "title": "[PromptHub] Runtime Incidents",
-  "description": "Application-focused view for WARN/ERROR trends, affected services and Pods, stack traces, and startup failures.",
+  "title": "[PromptHub] 런타임 장애 분석",
+  "description": "애플리케이션 WARN·ERROR 추이, 영향 서비스와 Pod, 스택 트레이스 및 기동 실패를 분석합니다.",
   "options": {
     "auto_apply_filters": true,
     "hide_panel_borders": false,
@@ -29,7 +29,7 @@
         "h": 6
       },
       "config": {
-        "title": "WARN logs",
+        "title": "WARN 로그 수",
         "description": "",
         "hide_title": false,
         "type": "metric",
@@ -51,7 +51,7 @@
               "expression": "level: \"WARN\"",
               "language": "kql"
             },
-            "label": "WARN logs",
+            "label": "WARN 로그 수",
             "empty_as_null": false,
             "color": {
               "type": "static",
@@ -83,7 +83,7 @@
         "h": 6
       },
       "config": {
-        "title": "ERROR logs",
+        "title": "ERROR 로그 수",
         "description": "",
         "hide_title": false,
         "type": "metric",
@@ -105,7 +105,7 @@
               "expression": "level: \"ERROR\"",
               "language": "kql"
             },
-            "label": "ERROR logs",
+            "label": "ERROR 로그 수",
             "empty_as_null": false,
             "color": {
               "type": "static",
@@ -137,7 +137,7 @@
         "h": 6
       },
       "config": {
-        "title": "Affected services",
+        "title": "영향받은 서비스 수",
         "description": "",
         "hide_title": false,
         "type": "metric",
@@ -159,7 +159,7 @@
               "expression": "level: (\"WARN\" or \"ERROR\")",
               "language": "kql"
             },
-            "label": "Affected services",
+            "label": "영향받은 서비스 수",
             "empty_as_null": false,
             "field": "service.name",
             "color": {
@@ -192,7 +192,7 @@
         "h": 6
       },
       "config": {
-        "title": "Affected Pods",
+        "title": "영향받은 Pod 수",
         "description": "",
         "hide_title": false,
         "type": "metric",
@@ -214,7 +214,7 @@
               "expression": "level: (\"WARN\" or \"ERROR\")",
               "language": "kql"
             },
-            "label": "Affected Pods",
+            "label": "영향받은 Pod 수",
             "empty_as_null": false,
             "field": "kubernetes.pod_name",
             "color": {
@@ -247,7 +247,7 @@
         "h": 6
       },
       "config": {
-        "title": "ERROR with stack trace",
+        "title": "스택 트레이스 포함 ERROR",
         "description": "",
         "hide_title": false,
         "type": "metric",
@@ -269,7 +269,7 @@
               "expression": "level: \"ERROR\" and stack_trace: *",
               "language": "kql"
             },
-            "label": "ERROR with stack trace",
+            "label": "스택 트레이스 포함 ERROR",
             "empty_as_null": false,
             "color": {
               "type": "static",
@@ -301,7 +301,7 @@
         "h": 6
       },
       "config": {
-        "title": "Startup ERROR",
+        "title": "기동 단계 ERROR",
         "description": "",
         "hide_title": false,
         "type": "metric",
@@ -323,7 +323,7 @@
               "expression": "level: \"ERROR\" and (thread_name: \"main\" or logger_name: (\"org.springframework.boot.SpringApplication\" or *Flyway*))",
               "language": "kql"
             },
-            "label": "Startup ERROR",
+            "label": "기동 단계 ERROR",
             "empty_as_null": false,
             "color": {
               "type": "static",
@@ -355,8 +355,8 @@
         "h": 12
       },
       "config": {
-        "title": "Application logs by level",
-        "description": "Structured application logs over time, split by level.",
+        "title": "레벨별 애플리케이션 로그",
+        "description": "구조화된 애플리케이션 로그를 레벨별 시계열로 표시합니다.",
         "hide_title": false,
         "type": "xy",
         "query": {
@@ -384,7 +384,7 @@
               {
                 "operation": "count",
                 "empty_as_null": true,
-                "label": "Log events",
+                "label": "로그 건수",
                 "filter": {
                   "expression": "",
                   "language": "kql"
@@ -396,7 +396,7 @@
               "fields": [
                 "level"
               ],
-              "label": "Log level",
+              "label": "로그 레벨",
               "limit": 6,
               "other_bucket": {
                 "include_documents_without_field": false
@@ -436,7 +436,7 @@
           },
           "y": {
             "title": {
-              "text": "Log events",
+              "text": "로그 건수",
               "visible": true
             },
             "scale": "linear",
@@ -496,8 +496,8 @@
         "h": 12
       },
       "config": {
-        "title": "WARN and ERROR logs by service",
-        "description": "Potential incidents over time, split by application service.",
+        "title": "서비스별 WARN·ERROR 로그",
+        "description": "잠재적 장애 신호를 애플리케이션 서비스별 시계열로 표시합니다.",
         "hide_title": false,
         "type": "xy",
         "query": {
@@ -525,7 +525,7 @@
               {
                 "operation": "count",
                 "empty_as_null": true,
-                "label": "WARN / ERROR logs",
+                "label": "WARN·ERROR 로그 수",
                 "filter": {
                   "expression": "",
                   "language": "kql"
@@ -537,7 +537,7 @@
               "fields": [
                 "service.name"
               ],
-              "label": "Application service",
+              "label": "애플리케이션 서비스",
               "limit": 10,
               "other_bucket": {
                 "include_documents_without_field": false
@@ -577,7 +577,7 @@
           },
           "y": {
             "title": {
-              "text": "WARN / ERROR logs",
+              "text": "WARN·ERROR 로그 수",
               "visible": true
             },
             "scale": "linear",
@@ -637,8 +637,8 @@
         "h": 12
       },
       "config": {
-        "title": "ERROR logs by Kubernetes Pod",
-        "description": "ERROR logs over time, split by Pod to identify isolated failures.",
+        "title": "Kubernetes Pod별 ERROR 로그",
+        "description": "격리된 장애를 식별할 수 있도록 ERROR 로그를 Pod별 시계열로 표시합니다.",
         "hide_title": false,
         "type": "xy",
         "query": {
@@ -666,7 +666,7 @@
               {
                 "operation": "count",
                 "empty_as_null": true,
-                "label": "ERROR logs",
+                "label": "ERROR 로그 수",
                 "filter": {
                   "expression": "",
                   "language": "kql"
@@ -718,7 +718,7 @@
           },
           "y": {
             "title": {
-              "text": "ERROR logs",
+              "text": "ERROR 로그 수",
               "visible": true
             },
             "scale": "linear",
@@ -778,8 +778,8 @@
         "h": 14
       },
       "config": {
-        "title": "Top ERROR loggers",
-        "description": "Loggers ranked by ERROR occurrence count.",
+        "title": "ERROR 로그 상위 로거",
+        "description": "ERROR 발생 횟수가 많은 로거 순으로 표시합니다.",
         "hide_title": false,
         "type": "data_table",
         "data_source": {
@@ -795,7 +795,7 @@
         "metrics": [
           {
             "operation": "count",
-            "label": "ERROR logs",
+            "label": "ERROR 로그 수",
             "filter": {
               "expression": "",
               "language": "kql"
@@ -809,7 +809,7 @@
             "fields": [
               "logger_name"
             ],
-            "label": "Logger",
+            "label": "로거",
             "limit": 10,
             "other_bucket": {
               "include_documents_without_field": false
@@ -825,7 +825,7 @@
             "fields": [
               "service.name"
             ],
-            "label": "Application service",
+            "label": "애플리케이션 서비스",
             "limit": 1,
             "other_bucket": {
               "include_documents_without_field": false
@@ -849,8 +849,8 @@
         "h": 14
       },
       "config": {
-        "title": "Services and Pods with ERROR logs",
-        "description": "Affected services and Pods ranked by ERROR occurrence count.",
+        "title": "ERROR 발생 서비스와 Pod",
+        "description": "ERROR 발생 횟수가 많은 서비스와 Pod 순으로 표시합니다.",
         "hide_title": false,
         "type": "data_table",
         "data_source": {
@@ -866,7 +866,7 @@
         "metrics": [
           {
             "operation": "count",
-            "label": "ERROR logs",
+            "label": "ERROR 로그 수",
             "filter": {
               "expression": "",
               "language": "kql"
@@ -880,7 +880,7 @@
             "fields": [
               "service.name"
             ],
-            "label": "Application service",
+            "label": "애플리케이션 서비스",
             "limit": 10,
             "other_bucket": {
               "include_documents_without_field": false
@@ -911,7 +911,7 @@
             "fields": [
               "logger_name"
             ],
-            "label": "Logger",
+            "label": "로거",
             "limit": 1,
             "other_bucket": {
               "include_documents_without_field": false
@@ -935,8 +935,8 @@
         "h": 14
       },
       "config": {
-        "title": "Startup ERROR loggers",
-        "description": "Main-thread and Spring startup loggers ranked by ERROR count.",
+        "title": "기동 단계 ERROR 상위 로거",
+        "description": "main 스레드와 Spring 기동 로거를 ERROR 발생 횟수 순으로 표시합니다.",
         "hide_title": false,
         "type": "data_table",
         "data_source": {
@@ -952,7 +952,7 @@
         "metrics": [
           {
             "operation": "count",
-            "label": "Startup ERROR logs",
+            "label": "기동 단계 ERROR 로그 수",
             "filter": {
               "expression": "",
               "language": "kql"
@@ -966,7 +966,7 @@
             "fields": [
               "logger_name"
             ],
-            "label": "Logger",
+            "label": "로거",
             "limit": 10,
             "other_bucket": {
               "include_documents_without_field": false
@@ -982,7 +982,7 @@
             "fields": [
               "service.name"
             ],
-            "label": "Application service",
+            "label": "애플리케이션 서비스",
             "limit": 5,
             "other_bucket": {
               "include_documents_without_field": false
@@ -1012,7 +1012,7 @@
             "fields": [
               "thread_name"
             ],
-            "label": "Thread",
+            "label": "스레드",
             "limit": 1,
             "other_bucket": {
               "include_documents_without_field": false
@@ -1049,7 +1049,7 @@
         "use_global_filters": true,
         "ignore_validations": false,
         "data_view_id": "application-logs",
-        "title": "Application service",
+        "title": "애플리케이션 서비스",
         "field_name": "service.name",
         "exclude": false,
         "sort": {
@@ -1072,7 +1072,7 @@
         "use_global_filters": true,
         "ignore_validations": false,
         "data_view_id": "application-logs",
-        "title": "Log level",
+        "title": "로그 레벨",
         "field_name": "level",
         "exclude": false,
         "sort": {

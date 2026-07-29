@@ -53,6 +53,33 @@ REQUIRED_ROOT_KEYS = %w[
 ].freeze
 
 ALLOWED_VISUALIZATION_TYPES = %w[metric xy data_table].freeze
+LOCALIZED_ROOT_COPY = {
+  "prompthub-service-health" => {
+    title: "[PromptHub] 서비스 상태",
+    description: "PromptHub 전체 요청량, HTTP 상태, 게이트웨이 지연 시간과 애플리케이션 WARN·ERROR 신호를 한 화면에서 확인합니다.",
+  },
+  "prompthub-gateway-anomalies" => {
+    title: "[PromptHub] 게이트웨이 이상 징후",
+    description: "게이트웨이 인증 실패, 라우팅 누락, 업스트림 오류와 지연 요청을 분석합니다.",
+  },
+  "prompthub-runtime-incidents" => {
+    title: "[PromptHub] 런타임 장애 분석",
+    description: "애플리케이션 WARN·ERROR 추이, 영향 서비스와 Pod, 스택 트레이스 및 기동 실패를 분석합니다.",
+  },
+}.freeze
+ALLOWED_TECHNICAL_COPY = %w[
+  2xx
+  4xx
+  5xx
+  401
+  403
+  404
+  p50
+  p95
+  p99
+  Pod
+].freeze
+USER_VISIBLE_KEYS = %w[title description label subtitle text].freeze
 FORBIDDEN_TERMS = [
   /payment[-_ ]audit/i,
   /\berrorCode\b/,
@@ -95,6 +122,21 @@ def all_strings(value)
   end
 end
 
+def user_visible_copy(value)
+  case value
+  when Hash
+    own_copy = USER_VISIBLE_KEYS.map do |key|
+      candidate = value[key]
+      candidate if candidate.is_a?(String)
+    end.compact
+    own_copy + value.values.flat_map { |child| user_visible_copy(child) }
+  when Array
+    value.flat_map { |child| user_visible_copy(child) }
+  else
+    []
+  end
+end
+
 def validate_dashboard(id, contract, errors)
   path = File.join(DASHBOARD_DIR, "#{id}.json")
   unless File.file?(path)
@@ -107,6 +149,14 @@ def validate_dashboard(id, contract, errors)
   errors << "#{id}: missing root keys #{missing_keys.join(", ")}" unless missing_keys.empty?
   errors << "#{id}: title is required" if dashboard["title"].to_s.empty?
   errors << "#{id}: description is required" if dashboard["description"].to_s.empty?
+
+  expected_copy = LOCALIZED_ROOT_COPY.fetch(id)
+  unless dashboard["title"] == expected_copy.fetch(:title)
+    errors << "#{id}: localized title does not match"
+  end
+  unless dashboard["description"] == expected_copy.fetch(:description)
+    errors << "#{id}: localized description does not match"
+  end
 
   expected_time_range = { "from" => "now-24h", "to" => "now" }
   unless dashboard["time_range"] == expected_time_range
@@ -165,6 +215,13 @@ def validate_dashboard(id, contract, errors)
   end
   FORBIDDEN_TERMS.each do |term|
     errors << "#{id}: out-of-scope term #{term.inspect}" if string_values.any? { |value| value.match?(term) }
+  end
+
+  user_visible_copy(dashboard).reject(&:empty?).uniq.each do |copy|
+    next if copy.match?(/[가-힣]/)
+    next if ALLOWED_TECHNICAL_COPY.include?(copy)
+
+    errors << "#{id}: user-facing copy must be Korean or approved technical notation: #{copy.inspect}"
   end
 end
 
