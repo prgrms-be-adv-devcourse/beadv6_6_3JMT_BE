@@ -1,5 +1,6 @@
 package com.prompthub.user.sellersettlement.domain.model;
 
+import com.prompthub.user.sellersettlement.domain.exception.SellerSettlementInvalidStateException;
 import com.prompthub.user.sellersettlement.domain.model.enums.SellerSettlementLineType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -24,6 +25,9 @@ public class SellerSettlementDetail {
     @Id
     @Column(name = "settlement_detail_id", columnDefinition = "uuid")
     private UUID settlementDetailId;
+
+    @Column(name = "settlement_source_line_id", columnDefinition = "uuid")
+    private UUID settlementSourceLineId;
 
     @Column(name = "order_product_id", columnDefinition = "uuid", nullable = false)
     private UUID orderProductId;
@@ -60,12 +64,29 @@ public class SellerSettlementDetail {
             BigDecimal lineSettlementAmount,
             LocalDateTime occurredAt) {
         return new SellerSettlementDetail(
-                settlementDetailId, orderProductId, lineType, lineAmount, feeRate,
+                settlementDetailId, null, orderProductId, lineType, lineAmount, feeRate,
+                feeAmount, lineSettlementAmount, occurredAt, LocalDateTime.now());
+    }
+
+    public static SellerSettlementDetail seed(
+            UUID settlementDetailId,
+            UUID settlementSourceLineId,
+            UUID orderProductId,
+            SellerSettlementLineType lineType,
+            BigDecimal lineAmount,
+            BigDecimal feeRate,
+            BigDecimal feeAmount,
+            BigDecimal lineSettlementAmount,
+            LocalDateTime occurredAt) {
+        return new SellerSettlementDetail(
+                settlementDetailId, Objects.requireNonNull(settlementSourceLineId),
+                orderProductId, lineType, lineAmount, feeRate,
                 feeAmount, lineSettlementAmount, occurredAt, LocalDateTime.now());
     }
 
     private SellerSettlementDetail(
             UUID settlementDetailId,
+            UUID settlementSourceLineId,
             UUID orderProductId,
             SellerSettlementLineType lineType,
             BigDecimal lineAmount,
@@ -75,6 +96,7 @@ public class SellerSettlementDetail {
             LocalDateTime occurredAt,
             LocalDateTime createdAt) {
         this.settlementDetailId = Objects.requireNonNull(settlementDetailId);
+        this.settlementSourceLineId = settlementSourceLineId;
         this.orderProductId = Objects.requireNonNull(orderProductId);
         this.lineType = Objects.requireNonNull(lineType);
         this.lineAmount = Objects.requireNonNull(lineAmount);
@@ -86,6 +108,17 @@ public class SellerSettlementDetail {
         validateSignedAmount(this.lineType, this.lineSettlementAmount, "lineSettlementAmount");
         this.occurredAt = Objects.requireNonNull(occurredAt);
         this.createdAt = Objects.requireNonNull(createdAt);
+    }
+
+    public void linkSettlementSourceLineId(UUID sourceLineId) {
+        Objects.requireNonNull(sourceLineId, "settlementSourceLineId는 필수입니다.");
+        if (settlementSourceLineId == null) {
+            settlementSourceLineId = sourceLineId;
+            return;
+        }
+        if (!settlementSourceLineId.equals(sourceLineId)) {
+            throw new SellerSettlementInvalidStateException();
+        }
     }
 
     private static void validateSignedAmount(

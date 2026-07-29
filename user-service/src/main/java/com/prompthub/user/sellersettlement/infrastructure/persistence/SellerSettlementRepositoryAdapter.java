@@ -31,6 +31,11 @@ public class SellerSettlementRepositoryAdapter implements SellerSettlementReposi
     }
 
     @Override
+    public Optional<SellerSettlement> findByDeliveryRequestId(UUID deliveryRequestId) {
+        return jpaRepository.findByDeliveryRequestId(deliveryRequestId);
+    }
+
+    @Override
     public BigDecimal sumTotalAmountBySeller(UUID sellerId) {
         return jpaRepository.sumTotalAmountBySellerAndStatus(
                 sellerId, SettlementDisplayStatus.PAID);

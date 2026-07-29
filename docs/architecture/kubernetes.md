@@ -303,7 +303,7 @@ Fluent Bit은 `/var/log/containers/apigateway-*_prompthub_apigateway-*.log`만 �
 | `product-service` | Deployment | 1 | HTTP 8082 → 18082, gRPC 9082 → 9082 | `PRODUCT-SERVICE` | 기존 모듈 |
 | `order-service` | Deployment | 1 | HTTP 8083 → 18083, gRPC 9083 → 9083 | `ORDER-SERVICE` | 기존 모듈 |
 | `payment-service` | Deployment | 1 | HTTP 8084 → 18084, gRPC 9084 → 9084 | `PAYMENT-SERVICE` | 기존 gRPC 서버 포함 |
-| `settlement-weekly` | CronJob | 스케줄당 Job 1개 | Service 없음(Web application 비활성) | 등록하지 않음 | 매주 월요일 00:00 KST, order gRPC client와 Kafka producer |
+| `settlement-weekly` | CronJob | 스케줄당 Job 1개 | Service 없음(Web application 비활성) | 등록하지 않음 | 매주 월요일 00:00 KST, Order 조회와 User 정산 등록 gRPC client |
 | `admin-service` | Deployment | 1 | HTTP 8086 → 18086 | `ADMIN-SERVICE` | 기존 모듈 |
 | `ai-service` | Deployment | 1 | HTTP 8087 → 18087 | `AI-SERVICE` | User gRPC client, Redis DB 1, OpenAI Tool Calling과 SSE |
 | `notification-service` | Deployment | 1 | HTTP 8088 → 18088 | `NOTIFICATION-SERVICE` | PostgreSQL, Redis Pub/Sub, Kafka 주문 이벤트 소비와 SSE |
@@ -313,7 +313,8 @@ HTTP Service의 808x 포트는 기존 내부 호출 계약을 유지하고, 1808
 
 Payment는 `PaymentQueryGrpcService` 구현과 gRPC server starter를 가지므로 9084를 Service로 노출한다.
 Settlement는 상시 Deployment가 아니라 `settlement-weekly` CronJob으로 실행하며
-`--spring.main.web-application-type=none`과 Eureka 비활성 설정을 사용한다.
+`--spring.main.web-application-type=none`과 Eureka 비활성 설정을 사용한다. 계산이 끝난
+정산은 User Service에 gRPC로 순차 등록하고 응답 Snapshot을 즉시 대사한다.
 
 AI 서비스는 `k8s/base/services/ai`에 Deployment와 Service가 포함돼 있다. `ai-secret`의
 `OPENAI_API_KEY`와 `AI_USER_GRPC_TOKEN`을 주입하고, Config Server 기본값과 별도로 배포 매니페스트에서
@@ -411,7 +412,7 @@ PostgreSQL 5432, Redis 6379, Kafka 9092·9093, Eureka 8761, Config 8888, 내부 
 | Secret | 주요 key | 소비자 |
 |---|---|---|
 | `postgres-secret` | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, 역할 비밀번호 | PostgreSQL, DB 사용 서비스 |
-| `runtime-secret` | DB·Redis·Kafka·Config·Eureka 주소와 포트 | Spring 워크로드 |
+| `runtime-secret` | DB·Redis·Kafka·Config·Eureka 주소와 포트, Settlement→User gRPC 토큰 | Spring 워크로드 |
 | `jwt-secret` | `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY` | User, Gateway |
 | `payment-secret` | `TOSS_SECRET_KEY`, `TOSS_TEST_MODE` | Payment |
 | `product-secret` | AWS region, S3 bucket | Product |

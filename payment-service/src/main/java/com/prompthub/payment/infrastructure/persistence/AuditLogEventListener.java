@@ -7,6 +7,7 @@ import com.prompthub.payment.domain.event.PaymentRefundedEvent;
 import com.prompthub.payment.domain.event.PaymentRequestedEvent;
 import com.prompthub.payment.domain.model.AuditLog;
 import com.prompthub.payment.domain.repository.AuditLogRepository;
+import com.prompthub.payment.infrastructure.messaging.AuditLogKafkaPublisher;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class AuditLogEventListener {
 
     private final AuditLogRepository auditLogRepository;
+    private final AuditLogKafkaPublisher auditLogKafkaPublisher;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPaymentRequested(PaymentRequestedEvent event) {
@@ -49,10 +51,18 @@ public class AuditLogEventListener {
     }
 
     private void save(AuditLog auditLog, UUID entityId) {
+        AuditLog saved;
         try {
-            auditLogRepository.save(auditLog);
+            saved = auditLogRepository.save(auditLog);
         } catch (Exception e) {
             log.error("감사로그 저장 실패 — entityId={}, eventType={}, cause={}",
+                entityId, auditLog.getEventType(), e.getMessage());
+            return;
+        }
+        try {
+            auditLogKafkaPublisher.publish(saved);
+        } catch (Exception e) {
+            log.error("감사로그 Kafka 발행 실패 — entityId={}, eventType={}, cause={}",
                 entityId, auditLog.getEventType(), e.getMessage());
         }
     }

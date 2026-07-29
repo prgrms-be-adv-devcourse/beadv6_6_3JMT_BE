@@ -79,6 +79,22 @@ class SettlementBatchTest {
     }
 
     @Test
+    @DisplayName("PROCESSING 배치를 원천 대사 실패 처리하면 사유와 실행 시각이 기록된다")
+    void failReconciliation_fromProcessing_becomesReconciliationFailed() {
+        // given
+        SettlementBatch batch = processingBatch();
+
+        // when
+        batch.failReconciliation("PAID_COUNT(order=2, source=1)");
+
+        // then
+        assertThat(batch.getStatus()).isEqualTo(SettlementBatchStatus.RECONCILIATION_FAILED);
+        assertThat(batch.getFailureReason()).isEqualTo("PAID_COUNT(order=2, source=1)");
+        assertThat(batch.getExecutedAt()).isNotNull();
+        assertThat(batch.isProcessing()).isFalse();
+    }
+
+    @Test
     @DisplayName("이미 완료된 배치는 실패 처리할 수 없다")
     void fail_alreadyCompleted_throwsException() {
         // given
@@ -96,6 +112,21 @@ class SettlementBatchTest {
         // given
         SettlementBatch batch = processingBatch();
         batch.fail("첫 실행 실패");
+
+        // when
+        batch.requestRetry();
+
+        // then
+        assertThat(batch.getStatus()).isEqualTo(SettlementBatchStatus.RETRY_REQUESTED);
+        assertThat(batch.isRetryRequested()).isTrue();
+    }
+
+    @Test
+    @DisplayName("RECONCILIATION_FAILED 배치에 재시작을 요청하면 RETRY_REQUESTED가 된다")
+    void requestRetry_fromReconciliationFailed_becomesRetryRequested() {
+        // given
+        SettlementBatch batch = processingBatch();
+        batch.failReconciliation("계산 대사 불일치");
 
         // when
         batch.requestRetry();

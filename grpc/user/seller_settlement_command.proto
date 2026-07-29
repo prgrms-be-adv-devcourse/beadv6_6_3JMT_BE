@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package prompthub.sellersettlement.command;
+
+option java_multiple_files = true;
+option java_package = "com.prompthub.user.grpc.sellersettlement.command";
+option java_outer_classname = "SellerSettlementCommandProto";
+
+service SellerSettlementCommandService {
+  rpc RegisterSellerSettlement(RegisterSellerSettlementRequest)
+      returns (RegisterSellerSettlementResponse);
+}
+
+enum SellerSettlementLineType {
+  SELLER_SETTLEMENT_LINE_TYPE_UNSPECIFIED = 0;
+  SALE = 1;
+  REFUND = 2;
+}
+
+message RegisterSellerSettlementRequest {
+  string delivery_request_id = 1;
+  SellerSettlementSnapshot settlement = 2;
+}
+
+message RegisterSellerSettlementResponse {
+  SellerSettlementSnapshot stored_settlement = 1;
+}
+
+message SellerSettlementSnapshot {
+  optional string delivery_request_id = 1;
+  string settlement_id = 2;
+  string seller_id = 3;
+  string period_start = 4;
+  string period_end = 5;
+  int32 product_count = 6;
+  string gross_sales_amount = 7;
+  string refund_amount = 8;
+  string fee_total_amount = 9;
+  string settlement_total_amount = 10;
+  string calculated_at = 11;
+  repeated SellerSettlementDetailSnapshot details = 12;
+}
+
+message SellerSettlementDetailSnapshot {
+  string settlement_detail_id = 1;
+  string order_product_id = 2;
+  SellerSettlementLineType line_type = 3;
+  string line_amount = 4;
+  string fee_rate = 5;
+  string fee_amount = 6;
+  string line_settlement_amount = 7;
+  string occurred_at = 8;
+  optional string settlement_source_line_id = 9;
+}

@@ -42,6 +42,38 @@ class SellerSettlementSeedTest {
     }
 
     @Test
+    void 기존_정산은_deliveryRequestId를_한번_연결할_수_있다() {
+        SellerSettlement settlement = createSettlement();
+        UUID deliveryRequestId = UUID.randomUUID();
+
+        settlement.linkDeliveryRequestId(deliveryRequestId);
+
+        assertThat(settlement.getDeliveryRequestId()).isEqualTo(deliveryRequestId);
+    }
+
+    @Test
+    void 연결된_deliveryRequestId는_다른_값으로_바꿀_수_없다() {
+        SellerSettlement settlement = createSettlement();
+        settlement.linkDeliveryRequestId(UUID.randomUUID());
+
+        assertThatThrownBy(() -> settlement.linkDeliveryRequestId(UUID.randomUUID()))
+                .isInstanceOf(
+                        com.prompthub.user.sellersettlement.domain.exception
+                                .SellerSettlementInvalidStateException.class);
+    }
+
+    @Test
+    void 같은_deliveryRequestId를_다시_연결하는_것은_멱등하다() {
+        SellerSettlement settlement = createSettlement();
+        UUID deliveryRequestId = UUID.randomUUID();
+
+        settlement.linkDeliveryRequestId(deliveryRequestId);
+        settlement.linkDeliveryRequestId(deliveryRequestId);
+
+        assertThat(settlement.getDeliveryRequestId()).isEqualTo(deliveryRequestId);
+    }
+
+    @Test
     void REFUND_Detail은_양수_금액으로_seed할_수_없다() {
         assertThatThrownBy(() -> SellerSettlementDetail.seed(
                 UUID.randomUUID(),
@@ -53,5 +85,14 @@ class SellerSettlementSeedTest {
                 new BigDecimal("34.00"),
                 LocalDateTime.of(2026, 7, 17, 9, 20)))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    private SellerSettlement createSettlement() {
+        return SellerSettlement.seedV1(
+                UUID.randomUUID(), UUID.randomUUID(),
+                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30),
+                3, new BigDecimal("320000.00"), new BigDecimal("260000.00"),
+                new BigDecimal("48000.00"), new BigDecimal("0.00"),
+                LocalDateTime.of(2026, 7, 1, 4, 0));
     }
 }

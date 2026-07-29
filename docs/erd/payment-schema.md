@@ -94,6 +94,8 @@ payment-service가 소유하는 테이블 요약. 스키마는 **Flyway 마이�
 
 결제·환불의 시도/종결 상태 전이(요청/승인/실패/환불요청/환불완료/환불실패) 6종에 한해 행위자·시각·사유를 append-only로 기록하는 이력 테이블(#484, #539). 조회 API는 아직 없다 — 저장까지만 구현됨.
 
+이 테이블 데이터는 Kafka(`payment-audit-log` 토픽, 실시간)와 Logstash `http_poller`(`/internal/audit-logs`, 5분 간격 재조정)를 통해 Elasticsearch(`payment-audit-log-*` 인덱스)로 미러링된다(#540). Postgres가 유일한 source of truth이고 ES는 Kibana 검색 전용 미러다.
+
 | 컬럼 | 타입 | NOT NULL | 기본값 | 설명 |
 |---|---|---|---|---|
 | `id` | UUID | ✅ | — | PK |
