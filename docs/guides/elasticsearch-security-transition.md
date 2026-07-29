@@ -18,6 +18,47 @@
   지금까지와 똑같이 무인증으로 붙으므로, 이 코드가 배포돼 있어도 동작은 바뀌지 않는다
 - **ES는 아직 보안이 꺼져 있다** (#582 3단계, 미실행). 아래 절차가 그 3단계다
 
+## 누가 뭘 하나 — 3단계 역할 분담
+
+**보안 스위치는 ES 하나에 달려 있다.** 켜는 순간 ES를 쓰는 두 서비스가 동시에 끊긴다.
+
+| 끊기는 것 | 담당 |
+|---|---|
+| product-service 상품 검색·자동완성 | product-service |
+| Logstash → `gateway-access-*` 로그 적재 | #567 |
+
+그래서 각자 자기 쪽에 자격증명을 미리 넣어두고 **같은 시각에 한 번에 넘긴다.**
+
+### product-service 쪽 (`config/`, `k8s/base/services/product/`)
+
+| 할 일 | 시점 |
+|---|---|
+| 인증 연결 코드 (`ElasticsearchClientConfig`) | **완료** — 1단계 |
+| `runtime-secret`에 `ES_USERNAME`·`ES_PASSWORD`·`ES_CA_PATH` 추가, `ES_URIS`를 `https://`로 | 전환 당일 |
+| `deployment.yaml`에 env 3개 + CA 볼륨 마운트 | 미리 준비 가능 |
+| Config Server 재배포 | 전환 당일 (yml이 이미지에 구워지므로 머지만으론 반영되지 않는다) |
+
+### #567 쪽 (`k8s/addons/elk/`)
+
+| 할 일 | 변경안 위치 |
+|---|---|
+| `elasticsearch.yaml` — `xpack.security.enabled=true` + HTTPS 인증서 설정 | 2절 |
+| `logstash.yaml` — `https://` + user/password + cacert | 4절 |
+
+두 파일 모두 #567에서 올라온 것이라 적용 주체를 그쪽으로 본다. 변경안은 이 문서에 적어뒀으니
+그대로 쓰거나 고쳐 쓰면 된다.
+
+### 둘이 정해야 하는 것
+
+1. **전환 시각** — 두 담당자가 같이 붙어 있어야 한다
+2. **인증서 만들 사람 한 명** — ES 파드 안에서 `elasticsearch-certutil`(1절). 만든 CA는
+   `elk`·`prompthub` **두 네임스페이스에 각각** Secret으로 넣는다(Secret은 네임스페이스를
+   넘지 않는다)
+3. **계정 두 개 만들 사람과 비밀번호 전달 방법** — `product_service`·`logstash_writer`(3절)
+4. **ES 파드 메모리를 올릴지** — 2026-07-29 실측 `ram.percent=100`. 보안을 켜면 TLS·인증
+   처리로 더 붙는다(0절)
+5. **롤백 기준** — 어디까지 안 되면 되돌릴지(7절)
+
 ## 0. 전제 — 단일 노드라서 인증서가 한 벌이면 된다
 
 보안을 켜면 **"transport SSL must be enabled if security is enabled"** 부트스트랩 체크가
