@@ -1,9 +1,6 @@
 package com.prompthub.settlement.infrastructure.batch.tasklet;
 
-import com.prompthub.settlement.domain.model.SettlementBatch;
-import com.prompthub.settlement.domain.repository.SettlementBatchRepository;
-import com.prompthub.settlement.global.exception.SettlementErrorCode;
-import com.prompthub.settlement.global.exception.SettlementException;
+import com.prompthub.settlement.application.usecase.SettlementBatchLifecycleUseCase;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.configuration.annotation.StepScope;
@@ -19,7 +16,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class CompleteSettlementBatchTasklet implements Tasklet {
 
-    private final SettlementBatchRepository settlementBatchRepository;
+    private final SettlementBatchLifecycleUseCase settlementBatchLifecycleUseCase;
 
     @Value("#{jobExecutionContext['settlementBatchId']}")
     private String settlementBatchIdParam;
@@ -27,10 +24,7 @@ public class CompleteSettlementBatchTasklet implements Tasklet {
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
         UUID settlementBatchId = UUID.fromString(settlementBatchIdParam);
-        SettlementBatch batch = settlementBatchRepository.findById(settlementBatchId)
-                .orElseThrow(() -> new SettlementException(SettlementErrorCode.SETTLEMENT_BATCH_NOT_FOUND));
-        batch.complete();
-        settlementBatchRepository.save(batch);
+        settlementBatchLifecycleUseCase.complete(settlementBatchId);
         return RepeatStatus.FINISHED;
     }
 }

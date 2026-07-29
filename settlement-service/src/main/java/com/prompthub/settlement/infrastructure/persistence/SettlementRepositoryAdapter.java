@@ -25,6 +25,11 @@ public class SettlementRepositoryAdapter implements SettlementRepository {
     }
 
     @Override
+    public void deleteAll(List<Settlement> settlements) {
+        jpaRepository.deleteAll(settlements);
+    }
+
+    @Override
     public List<Settlement> findBySettlementBatchId(UUID settlementBatchId) {
         return jpaRepository.findBySettlementBatchId(settlementBatchId);
     }

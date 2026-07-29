@@ -54,13 +54,10 @@ com.prompthub.settlement
 │   ├── batch                        ← Spring Batch 어댑터(역할별 하위 패키지로 분리)
 │   │   ├── config                   ← Job / Step / Batch 인프라 설정
 │   │   ├── execution                ← JobOperator·JobRepository 기반 시작·조회·재시작
-│   │   ├── reader                   ← Reader
-│   │   ├── processor                ← Processor
-│   │   ├── writer                   ← Writer
 │   │   ├── tasklet                  ← Tasklet
 │   │   ├── listener                 ← Job/Step 리스너
 │   │   ├── runner                   ← Kubernetes CronJob one-shot 실행 어댑터
-│   │   └── model                    ← 배치 내부 전용 DTO(예: SettlementTarget)
+│   │   └── settlement              ← 정산 Chunk Reader / Processor / Writer / 내부 DTO
 │   ├── messaging/kafka
 │   │   ├── config                   ← Kafka producer 설정
 │   │   └── producer                 ← Outbox 이벤트 발행 어댑터
@@ -178,9 +175,10 @@ SettlementUseCase  ← SettlementApplicationService   getSummary()  (집계 리�
 
 Spring Batch 구성은 기술 세부사항으로 보고 `infrastructure/batch`에 둔다.
 
-- Job / Step / Reader / Processor / Writer / Tasklet / Listener 구성은 모두 `infrastructure/batch` 아래,
-  **역할별 하위 패키지로 분리**한다. (`config` · `execution` · `reader` · `processor` · `writer` ·
-  `tasklet` · `listener` · `runner` · `model`)
+- Job / Step / Tasklet / Listener 구성은 모두 `infrastructure/batch` 아래 역할별 하위 패키지
+  (`config` · `execution` · `tasklet` · `listener` · `runner`)로 분리한다.
+- 정산 Chunk에서 함께 변경되는 Reader / Processor / Writer / 내부 DTO는
+  `infrastructure/batch/settlement`에 모은다.
 - **배치는 흐름 제어만 한다.** 실제 정산 로직은 `application`의 유스케이스를 호출해 수행한다.
 - Reader/Writer가 도메인 모델을 직접 다루더라도, 비즈니스 규칙은 도메인·유스케이스에 위임한다.
 - 잡 시작·상태 조회·재시작처럼 `JobOperator`·`JobRepository`를 직접 다루는 어댑터와 잡 파라미터
@@ -196,14 +194,14 @@ Spring Batch 구성은 기술 세부사항으로 보고 `infrastructure/batch`�
 ```
 infrastructure/batch/config/SettlementJobConfig
 infrastructure/batch/config/SettlementStepConfig
-infrastructure/batch/reader/...
-infrastructure/batch/processor/...   ──▶ application/usecase 호출
-infrastructure/batch/writer/...
+infrastructure/batch/settlement/SettlementTargetReader
+infrastructure/batch/settlement/SettlementProcessor   ──▶ application/usecase 호출
+infrastructure/batch/settlement/SettlementWriter
+infrastructure/batch/settlement/SettlementTarget
 infrastructure/batch/tasklet/...
 infrastructure/batch/listener/...
 infrastructure/batch/execution/...   ──▶ JobOperator / JobRepository 시작·조회·재시작
 infrastructure/batch/runner/...      ──▶ CronJob one-shot 실행·종료 코드 변환
-infrastructure/batch/model/...       ← 배치 내부 전용 DTO
 ```
 
 ## 6. 계층 네이밍 규칙

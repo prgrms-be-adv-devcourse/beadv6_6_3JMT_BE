@@ -1,11 +1,12 @@
 package com.prompthub.settlement.infrastructure.batch.tasklet;
 
-import com.prompthub.settlement.domain.model.SettlementBatch;
+import com.prompthub.settlement.application.dto.CreateSettlementBatchCommand;
+import com.prompthub.settlement.application.usecase.SettlementBatchLifecycleUseCase;
 import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.enums.TriggerType;
-import com.prompthub.settlement.domain.repository.SettlementBatchRepository;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.configuration.annotation.StepScope;
@@ -23,7 +24,7 @@ public class CreateSettlementBatchTasklet implements Tasklet {
 
     private static final String BATCH_ID_KEY = "settlementBatchId";
 
-    private final SettlementBatchRepository settlementBatchRepository;
+    private final SettlementBatchLifecycleUseCase settlementBatchLifecycleUseCase;
 
     @Value("#{jobParameters['periodStart']}")
     private String periodStartParam;
@@ -44,15 +45,13 @@ public class CreateSettlementBatchTasklet implements Tasklet {
         long jobInstanceId = jobExecution.getJobInstance().getInstanceId();
         String batchNo = generateBatchNo(period, triggerType, jobExecutionId);
 
-        SettlementBatch saved = settlementBatchRepository.save(
-                SettlementBatch.start(
-                        batchNo,
-                        jobInstanceId,
-                        period.periodStart(),
-                        period.periodEnd(),
-                        triggerType));
+        UUID batchId = settlementBatchLifecycleUseCase.create(new CreateSettlementBatchCommand(
+                batchNo,
+                jobInstanceId,
+                period,
+                triggerType));
 
-        jobExecution.getExecutionContext().putString(BATCH_ID_KEY, saved.getId().toString());
+        jobExecution.getExecutionContext().putString(BATCH_ID_KEY, batchId.toString());
 
         return RepeatStatus.FINISHED;
     }

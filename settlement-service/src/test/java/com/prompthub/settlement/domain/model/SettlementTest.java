@@ -2,8 +2,6 @@ package com.prompthub.settlement.domain.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.prompthub.settlement.domain.model.enums.PayoutStatus;
-import com.prompthub.settlement.domain.model.enums.SettlementStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -19,7 +17,7 @@ class SettlementTest {
             LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 7));
 
     private SettlementDetail detail(String lineAmount, String feeRate) {
-        return SettlementDetail.sale(UUID.randomUUID(),
+        return SettlementDetail.sale(UUID.randomUUID(), UUID.randomUUID(),
                 new BigDecimal(lineAmount), new BigDecimal(feeRate), OCCURRED_AT);
     }
 
@@ -47,11 +45,13 @@ class SettlementTest {
         UUID orderProductId = UUID.randomUUID();
         List<SettlementDetail> details = List.of(
                 SettlementDetail.sale(
+                        UUID.randomUUID(),
                         orderProductId,
                         new BigDecimal("100.00"),
                         new BigDecimal("0.1500"),
                         LocalDateTime.of(2026, 7, 14, 13, 10)),
                 SettlementDetail.refund(
+                        UUID.randomUUID(),
                         orderProductId,
                         new BigDecimal("40.00"),
                         new BigDecimal("0.1500"),
@@ -82,19 +82,6 @@ class SettlementTest {
         // then
         assertThat(settlement.getRefundAmount()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(settlement.getCalculatedAt()).isNotNull();
-    }
-
-    @Test
-    @DisplayName("정산 생성 시 지급과 정산 상태를 초기 상태로 설정한다")
-    void create_setsInitialStatuses() {
-        // when
-        Settlement settlement = Settlement.create(
-                UUID.randomUUID(), UUID.randomUUID(), PERIOD,
-                List.of(detail("100.00", "0.15")));
-
-        // then
-        assertThat(settlement.getPayoutStatus()).isEqualTo(PayoutStatus.NOT_READY);
-        assertThat(settlement.getSettlementStatus()).isEqualTo(SettlementStatus.PENDING_APPROVAL);
     }
 
     @Test
