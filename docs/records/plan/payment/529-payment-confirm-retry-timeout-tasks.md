@@ -21,7 +21,7 @@
 - 이 작업 범위는 `confirm()`뿐이다. `refund()`는 건드리지 않는다.
 - Config Server(`../config/src/main/resources/configs/payment-service.yml`) 수정은 이번 작업에 한해 사용자가 명시적으로 승인했다.
 
-참고 문서: `.claude/plans/529-payment-confirm-retry-timeout.md` (설계 문서, 이 계획의 근거).
+참고 문서: `529-payment-confirm-retry-timeout.md` (같은 폴더, 설계 문서, 이 계획의 근거).
 
 ---
 

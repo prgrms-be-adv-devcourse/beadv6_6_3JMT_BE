@@ -1,5 +1,5 @@
 ---
-description: .claude/plans/ 태스크 문서를 읽어 완료/미완료 Task를 판별하고, 다음 미완료 Task부터 작업을 재개합니다. 완료 판별은 체크박스와 git log를 교차 확인합니다.
+description: docs/records/plan/payment/ 태스크 문서를 읽어 완료/미완료 Task를 판별하고, 다음 미완료 Task부터 작업을 재개합니다. 완료 판별은 체크박스와 git log를 교차 확인합니다.
 argument-hint: "[태스크 문서명(선택)] 예) 398-refund-flow-redesign-tasks.md (생략 시 최신 문서)"
 ---
 
@@ -9,8 +9,8 @@ argument-hint: "[태스크 문서명(선택)] 예) 398-refund-flow-redesign-task
 
 ## 1단계: 태스크 문서 결정
 
-- `$ARGUMENTS`에 문서명(또는 일부)이 있으면 `.claude/plans/`에서 해당 파일을 찾는다. 부분 일치 허용(예: `398` → `398-refund-flow-redesign-tasks.md`).
-- 생략 시 `.claude/plans/` 직하(archive 제외)에서 가장 최근 수정된 `*-tasks.md`를 선택한다.
+- `$ARGUMENTS`에 문서명(또는 일부)이 있으면 `docs/records/plan/payment/`에서 해당 파일을 찾는다. 부분 일치 허용(예: `398` → `398-refund-flow-redesign-tasks.md`).
+- 생략 시 `docs/records/plan/payment/` 직하(archive 제외)에서 가장 최근 수정된 `*-tasks.md`를 선택한다.
 - `-tasks.md`가 없고 계획 문서(`{번호}-{slug}.md`)만 있으면 그 문서를 사용하되, "태스크 문서가 아니라 계획 문서입니다 — 구현 순서 섹션 기준으로 진행합니다."라고 알린다.
 - 대응하는 계획 문서(`-tasks` 없는 동명 파일)가 있으면 **함께 읽는다** — 설계 결정의 "왜"가 거기에 있다.
 
