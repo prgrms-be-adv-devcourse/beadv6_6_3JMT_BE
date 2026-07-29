@@ -11,6 +11,8 @@ public interface SettlementBatchLifecycleUseCase {
 
     void fail(UUID batchId, String reason);
 
+    void failReconciliation(UUID batchId, String reason);
+
     void requestRetry(UUID batchId);
 
     void startRetry(UUID batchId);

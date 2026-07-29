@@ -79,6 +79,22 @@ class SettlementBatchTest {
     }
 
     @Test
+    @DisplayName("PROCESSING 배치를 원천 대사 실패 처리하면 사유와 실행 시각이 기록된다")
+    void failReconciliation_fromProcessing_becomesReconciliationFailed() {
+        // given
+        SettlementBatch batch = processingBatch();
+
+        // when
+        batch.failReconciliation("PAID_COUNT(order=2, source=1)");
+
+        // then
+        assertThat(batch.getStatus()).isEqualTo(SettlementBatchStatus.RECONCILIATION_FAILED);
+        assertThat(batch.getFailureReason()).isEqualTo("PAID_COUNT(order=2, source=1)");
+        assertThat(batch.getExecutedAt()).isNotNull();
+        assertThat(batch.isProcessing()).isFalse();
+    }
+
+    @Test
     @DisplayName("이미 완료된 배치는 실패 처리할 수 없다")
     void fail_alreadyCompleted_throwsException() {
         // given
