@@ -24,28 +24,32 @@ public class SellerSettlementCommandGrpcResponseMapper {
                 .setFeeTotalAmount(decimal(stored.feeTotalAmount()))
                 .setSettlementTotalAmount(decimal(stored.settlementTotalAmount()))
                 .setCalculatedAt(stored.calculatedAt().toString())
-                .addAllDetails(stored.details().stream().map(detail ->
-                        SellerSettlementDetailSnapshot.newBuilder()
-                                .setSettlementDetailId(
-                                        detail.settlementDetailId().toString())
-                                .setSettlementSourceLineId(
-                                        detail.settlementSourceLineId().toString())
-                                .setOrderProductId(detail.orderProductId().toString())
-                                .setLineType(SellerSettlementLineType.valueOf(
-                                        detail.lineType().name()))
-                                .setLineAmount(decimal(detail.lineAmount()))
-                                .setFeeRate(decimal(detail.feeRate()))
-                                .setFeeAmount(decimal(detail.feeAmount()))
-                                .setLineSettlementAmount(
-                                        decimal(detail.lineSettlementAmount()))
-                                .setOccurredAt(detail.occurredAt().toString())
-                                .build()).toList());
+                .addAllDetails(stored.details().stream().map(this::toDetail).toList());
         if (stored.deliveryRequestId() != null) {
             snapshot.setDeliveryRequestId(stored.deliveryRequestId().toString());
         }
         return RegisterSellerSettlementResponse.newBuilder()
                 .setStoredSettlement(snapshot)
                 .build();
+    }
+
+    private SellerSettlementDetailSnapshot toDetail(
+            RegisteredSellerSettlementSnapshot.Detail detail) {
+        SellerSettlementDetailSnapshot.Builder snapshot =
+                SellerSettlementDetailSnapshot.newBuilder()
+                        .setSettlementDetailId(detail.settlementDetailId().toString())
+                        .setOrderProductId(detail.orderProductId().toString())
+                        .setLineType(SellerSettlementLineType.valueOf(detail.lineType().name()))
+                        .setLineAmount(decimal(detail.lineAmount()))
+                        .setFeeRate(decimal(detail.feeRate()))
+                        .setFeeAmount(decimal(detail.feeAmount()))
+                        .setLineSettlementAmount(decimal(detail.lineSettlementAmount()))
+                        .setOccurredAt(detail.occurredAt().toString());
+        if (detail.settlementSourceLineId() != null) {
+            snapshot.setSettlementSourceLineId(
+                    detail.settlementSourceLineId().toString());
+        }
+        return snapshot.build();
     }
 
     private String decimal(BigDecimal value) {

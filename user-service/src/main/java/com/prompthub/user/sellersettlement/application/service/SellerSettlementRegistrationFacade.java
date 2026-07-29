@@ -31,7 +31,6 @@ public class SellerSettlementRegistrationFacade
             RegisterSellerSettlementCommand command,
             DataIntegrityViolationException exception) {
         return reader.findByDeliveryRequestId(command.deliveryRequestId())
-                .or(() -> reader.findBySettlementId(command.settlementId()))
                 .orElseThrow(() -> exception);
     }
 }

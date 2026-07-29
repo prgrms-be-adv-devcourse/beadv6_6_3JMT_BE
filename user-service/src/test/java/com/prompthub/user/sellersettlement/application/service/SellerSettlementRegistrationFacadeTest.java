@@ -3,6 +3,8 @@ package com.prompthub.user.sellersettlement.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 import com.prompthub.user.sellersettlement.application.dto.RegisterSellerSettlementCommand;
 import com.prompthub.user.sellersettlement.application.dto.RegisteredSellerSettlementSnapshot;
@@ -69,12 +71,26 @@ class SellerSettlementRegistrationFacadeTest {
         given(writer.register(command)).willThrow(failure);
         given(reader.findByDeliveryRequestId(command.deliveryRequestId()))
                 .willReturn(Optional.empty());
-        given(reader.findBySettlementId(command.settlementId()))
+        SellerSettlementRegistrationFacade facade =
+                new SellerSettlementRegistrationFacade(writer, reader);
+
+        assertThatThrownBy(() -> facade.register(command)).isSameAs(failure);
+    }
+
+    @Test
+    @DisplayName("deliveryRequestId가 없으면 settlementId를 충돌 복구 조건으로 사용하지 않는다")
+    void doesNotRecoverConflictBySettlementId() {
+        RegisterSellerSettlementCommand command = command();
+        DataIntegrityViolationException failure =
+                new DataIntegrityViolationException("unrelated constraint violation");
+        given(writer.register(command)).willThrow(failure);
+        given(reader.findByDeliveryRequestId(command.deliveryRequestId()))
                 .willReturn(Optional.empty());
         SellerSettlementRegistrationFacade facade =
                 new SellerSettlementRegistrationFacade(writer, reader);
 
         assertThatThrownBy(() -> facade.register(command)).isSameAs(failure);
+        then(reader).should(never()).findBySettlementId(command.settlementId());
     }
 
     private RegisterSellerSettlementCommand command() {
