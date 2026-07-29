@@ -9,9 +9,11 @@ import com.prompthub.payment.domain.model.Payment;
 import com.prompthub.payment.domain.model.Refund;
 import com.prompthub.payment.support.AbstractJpaTest;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 
 class AuditLogJpaRepositoryTest extends AbstractJpaTest {
 
@@ -64,5 +66,23 @@ class AuditLogJpaRepositoryTest extends AbstractJpaTest {
         assertThat(found.getEventType()).isEqualTo(AuditEventType.REFUND_FAILED);
         assertThat(found.getFailureCode()).isEqualTo("CANCEL_FAILED");
         assertThat(found.getDetail()).isEqualTo("PG 오류");
+    }
+
+    @Test
+    void createdAt_이후_로우를_오름차순으로_상한개수만큼_조회한다() {
+        Payment payment = Payment.create(
+            UUID.randomUUID(), UUID.randomUUID(), "pg-tx-audit-3", "TOSS_PAYMENTS", "CARD", 10_000);
+        payment.markRequested(OffsetDateTime.now());
+        payment.approve(10_000, "CARD", "{}", "{}", OffsetDateTime.now());
+        AuditLog first = auditLogJpaRepository.saveAndFlush(AuditLog.forPaymentApproved(payment));
+        AuditLog second = auditLogJpaRepository.saveAndFlush(AuditLog.forPaymentApproved(payment));
+        AuditLog third = auditLogJpaRepository.saveAndFlush(AuditLog.forPaymentApproved(payment));
+
+        List<AuditLog> result = auditLogJpaRepository.findByCreatedAtGreaterThanEqualOrderByCreatedAtAsc(
+            first.getCreatedAt(), PageRequest.of(0, 2));
+
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(AuditLog::getId).containsExactly(first.getId(), second.getId());
+        assertThat(result).extracting(AuditLog::getId).doesNotContain(third.getId());
     }
 }
