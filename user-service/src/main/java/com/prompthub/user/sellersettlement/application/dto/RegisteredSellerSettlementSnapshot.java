@@ -46,6 +46,7 @@ public record RegisteredSellerSettlementSnapshot(
 
     public record Detail(
             UUID settlementDetailId,
+            UUID settlementSourceLineId,
             UUID orderProductId,
             SellerSettlementLineType lineType,
             BigDecimal lineAmount,
@@ -58,6 +59,7 @@ public record RegisteredSellerSettlementSnapshot(
         private static Detail from(SellerSettlementDetail detail) {
             return new Detail(
                     detail.getSettlementDetailId(),
+                    detail.getSettlementSourceLineId(),
                     detail.getOrderProductId(),
                     detail.getLineType(),
                     detail.getLineAmount(),

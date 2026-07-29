@@ -46,6 +46,9 @@ public class SellerSettlementRegistrationMatcher {
 
     private boolean matchesDetail(Detail expected, SellerSettlementDetail actual) {
         return actual != null
+                && (actual.getSettlementSourceLineId() == null
+                        || expected.settlementSourceLineId()
+                                .equals(actual.getSettlementSourceLineId()))
                 && expected.orderProductId().equals(actual.getOrderProductId())
                 && expected.lineType() == actual.getLineType()
                 && !differs(expected.lineAmount(), actual.getLineAmount())

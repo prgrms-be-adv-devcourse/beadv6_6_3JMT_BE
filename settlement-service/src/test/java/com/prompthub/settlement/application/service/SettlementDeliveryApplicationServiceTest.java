@@ -8,13 +8,16 @@ import static org.mockito.Mockito.times;
 
 import com.prompthub.settlement.application.dto.SellerSettlementRegistrationCommand;
 import com.prompthub.settlement.application.dto.SettlementDeliveryComparison;
+import com.prompthub.settlement.application.dto.SettlementDeliveryAttempt;
 import com.prompthub.settlement.application.exception.SellerSettlementDeliveryException;
-import com.prompthub.settlement.application.port.SellerSettlementRegistrationPort;
+import com.prompthub.settlement.application.port.DeliveryRetrySleeper;
+import com.prompthub.settlement.application.port.SellerSettlementRegistration;
 import com.prompthub.settlement.domain.model.enums.SettlementDeliveryStatus;
 import io.grpc.Status;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,7 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class SettlementDeliveryApplicationServiceTest {
 
     @Mock SettlementDeliveryTransactionService transactions;
-    @Mock SellerSettlementRegistrationPort port;
+    @Mock SellerSettlementRegistration registration;
     @Mock SettlementDeliveryReconciler reconciler;
     @Mock DeliveryRetrySleeper sleeper;
 
@@ -36,8 +39,9 @@ class SettlementDeliveryApplicationServiceTest {
         SellerSettlementRegistrationCommand command =
                 org.mockito.Mockito.mock(SellerSettlementRegistrationCommand.class);
         given(transactions.findCalculatedIds(batchId)).willReturn(List.of(deliveryId));
-        given(transactions.beginAttempt(deliveryId)).willReturn(command);
-        given(port.register(command))
+        given(transactions.beginAttempt(deliveryId)).willReturn(
+                attempt(1, command), attempt(2, command), attempt(3, command));
+        given(registration.register(command))
                 .willThrow(SellerSettlementDeliveryException.from(
                         Status.Code.UNAVAILABLE, "failure"))
                 .willThrow(SellerSettlementDeliveryException.from(
@@ -51,9 +55,9 @@ class SettlementDeliveryApplicationServiceTest {
                 Map.of(SettlementDeliveryStatus.RECONCILED, 1L));
 
         new SettlementDeliveryApplicationService(
-                transactions, port, reconciler, sleeper).deliverBatch(batchId);
+                transactions, registration, reconciler, sleeper).deliverBatch(batchId);
 
-        then(port).should(times(3)).register(command);
+        then(registration).should(times(3)).register(command);
         then(sleeper).should().sleep(Duration.ofSeconds(1));
         then(sleeper).should().sleep(Duration.ofSeconds(3));
         then(transactions).should().markReconciled(deliveryId);
@@ -67,8 +71,9 @@ class SettlementDeliveryApplicationServiceTest {
         SellerSettlementRegistrationCommand command =
                 org.mockito.Mockito.mock(SellerSettlementRegistrationCommand.class);
         given(transactions.findCalculatedIds(batchId)).willReturn(List.of(first, second));
-        given(transactions.beginAttempt(any())).willReturn(command);
-        given(port.register(command))
+        given(transactions.beginAttempt(first)).willReturn(attempt(1, command));
+        given(transactions.beginAttempt(second)).willReturn(attempt(1, command));
+        given(registration.register(command))
                 .willThrow(SellerSettlementDeliveryException.from(
                         Status.Code.INVALID_ARGUMENT, "bad request"))
                 .willReturn(org.mockito.Mockito.mock(
@@ -81,7 +86,7 @@ class SettlementDeliveryApplicationServiceTest {
                 SettlementDeliveryStatus.DELIVERY_FAILED, 1L));
 
         var result = new SettlementDeliveryApplicationService(
-                transactions, port, reconciler, sleeper).deliverBatch(batchId);
+                transactions, registration, reconciler, sleeper).deliverBatch(batchId);
 
         then(transactions).should().markFailed(
                 first, "gRPC INVALID_ARGUMENT: attempts=1");
@@ -103,12 +108,57 @@ class SettlementDeliveryApplicationServiceTest {
                 SettlementDeliveryStatus.MISMATCH, 4L));
 
         var result = new SettlementDeliveryApplicationService(
-                transactions, port, reconciler, sleeper).deliverBatch(batchId);
+                transactions, registration, reconciler, sleeper).deliverBatch(batchId);
 
         assertThat(result.total()).isEqualTo(10);
         assertThat(result.calculated()).isEqualTo(1);
         assertThat(result.reconciled()).isEqualTo(2);
         assertThat(result.deliveryFailed()).isEqualTo(3);
         assertThat(result.mismatch()).isEqualTo(4);
+    }
+
+    @Test
+    void 재실행해도_누적_세번을_넘어_호출하지_않는다() {
+        UUID batchId = UUID.randomUUID();
+        UUID deliveryId = UUID.randomUUID();
+        SellerSettlementRegistrationCommand command =
+                org.mockito.Mockito.mock(SellerSettlementRegistrationCommand.class);
+        given(transactions.findCalculatedIds(batchId)).willReturn(List.of(deliveryId));
+        given(transactions.beginAttempt(deliveryId)).willReturn(
+                attempt(2, command), attempt(3, command));
+        given(registration.register(command))
+                .willThrow(SellerSettlementDeliveryException.from(
+                        Status.Code.UNAVAILABLE, "failure"));
+        given(transactions.countByStatus(batchId)).willReturn(
+                Map.of(SettlementDeliveryStatus.DELIVERY_FAILED, 1L));
+
+        new SettlementDeliveryApplicationService(
+                transactions, registration, reconciler, sleeper).deliverBatch(batchId);
+
+        then(registration).should(times(2)).register(command);
+        then(sleeper).should().sleep(Duration.ofSeconds(3));
+        then(transactions).should().markFailed(
+                deliveryId, "gRPC UNAVAILABLE: attempts=3");
+    }
+
+    @Test
+    void 이미_세번_시도한_CALCULATED는_원격호출하지_않는다() {
+        UUID batchId = UUID.randomUUID();
+        UUID deliveryId = UUID.randomUUID();
+        given(transactions.findCalculatedIds(batchId)).willReturn(List.of(deliveryId));
+        given(transactions.beginAttempt(deliveryId)).willReturn(Optional.empty());
+        given(transactions.countByStatus(batchId)).willReturn(
+                Map.of(SettlementDeliveryStatus.DELIVERY_FAILED, 1L));
+
+        new SettlementDeliveryApplicationService(
+                transactions, registration, reconciler, sleeper).deliverBatch(batchId);
+
+        then(registration).shouldHaveNoInteractions();
+    }
+
+    private Optional<SettlementDeliveryAttempt> attempt(
+            int number,
+            SellerSettlementRegistrationCommand command) {
+        return Optional.of(new SettlementDeliveryAttempt(number, command));
     }
 }

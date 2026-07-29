@@ -1,6 +1,7 @@
 package com.prompthub.settlement.application.service;
 
 import com.prompthub.settlement.application.dto.SellerSettlementRegistrationCommand;
+import com.prompthub.settlement.application.dto.SettlementDeliveryAttempt;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementDelivery;
 import com.prompthub.settlement.domain.model.enums.SettlementDeliveryStatus;
@@ -9,6 +10,7 @@ import com.prompthub.settlement.domain.repository.SettlementRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class SettlementDeliveryTransactionService {
 
+    private static final int MAX_ATTEMPTS = 3;
     private final SettlementDeliveryRepository deliveryRepository;
     private final SettlementRepository settlementRepository;
 
@@ -34,14 +37,18 @@ public class SettlementDeliveryTransactionService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public SellerSettlementRegistrationCommand beginAttempt(UUID deliveryId) {
+    public Optional<SettlementDeliveryAttempt> beginAttempt(UUID deliveryId) {
         SettlementDelivery delivery = deliveryRepository.findById(deliveryId)
                 .orElseThrow();
+        if (!delivery.canAttempt(MAX_ATTEMPTS)) {
+            delivery.fail("gRPC 호출 결과 미확정: attempts=" + delivery.getAttemptCount());
+            return Optional.empty();
+        }
         delivery.recordAttempt(LocalDateTime.now());
         deliveryRepository.save(delivery);
         Settlement settlement = settlementRepository.findById(delivery.getSettlementId())
                 .orElseThrow();
-        return new SellerSettlementRegistrationCommand(
+        SellerSettlementRegistrationCommand command = new SellerSettlementRegistrationCommand(
                 delivery.getDeliveryRequestId(), settlement.getId(), settlement.getSellerId(),
                 settlement.getPeriodStart(), settlement.getPeriodEnd(),
                 settlement.getProductCount(), settlement.getTotalAmount(),
@@ -49,10 +56,13 @@ public class SettlementDeliveryTransactionService {
                 settlement.getSettlementTotalAmount(), settlement.getCalculatedAt(),
                 settlement.getDetails().stream().map(detail ->
                         new SellerSettlementRegistrationCommand.Detail(
-                                detail.getId(), detail.getOrderProductId(), detail.getLineType(),
+                                detail.getId(), detail.getSettlementSourceLineId(),
+                                detail.getOrderProductId(), detail.getLineType(),
                                 detail.getLineAmount(), detail.getFeeRate(), detail.getFeeAmount(),
                                 detail.getLineSettlementAmount(), detail.getOccurredAt()))
                         .toList());
+        return Optional.of(new SettlementDeliveryAttempt(
+                delivery.getAttemptCount(), command));
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

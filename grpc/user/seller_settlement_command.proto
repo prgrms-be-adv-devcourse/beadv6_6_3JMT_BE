@@ -50,4 +50,5 @@ message SellerSettlementDetailSnapshot {
   string fee_amount = 6;
   string line_settlement_amount = 7;
   string occurred_at = 8;
+  optional string settlement_source_line_id = 9;
 }

@@ -8,7 +8,7 @@ import static org.mockito.BDDMockito.then;
 import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
 import com.prompthub.settlement.application.dto.SettlementJobResult;
 import com.prompthub.settlement.application.dto.SettlementSourceReconciliationResult;
-import com.prompthub.settlement.application.port.SellerSettlementRegistrationPort;
+import com.prompthub.settlement.application.port.SellerSettlementRegistration;
 import com.prompthub.settlement.application.usecase.LoadSettlementSourceUseCase;
 import com.prompthub.settlement.application.usecase.ReconcileSettlementSourceUseCase;
 import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
@@ -79,7 +79,7 @@ class SettlementSourceReconciliationBatchIntegrationTest {
     private ReconcileSettlementSourceUseCase reconcileSettlementSourceUseCase;
 
     @MockitoBean
-    private SellerSettlementRegistrationPort sellerSettlementRegistrationPort;
+    private SellerSettlementRegistration sellerSettlementRegistration;
 
     @BeforeEach
     void setUp() {
@@ -136,7 +136,7 @@ class SettlementSourceReconciliationBatchIntegrationTest {
         assertThat(context.getLong("sourceRefundCount")).isEqualTo(1L);
         assertThat(context.getString("sourceRefundAmount")).isEqualTo("500");
         then(reconcileSettlementSourceUseCase).should().reconcile(PERIOD);
-        then(sellerSettlementRegistrationPort).shouldHaveNoInteractions();
+        then(sellerSettlementRegistration).shouldHaveNoInteractions();
         then(loadSettlementSourceUseCase).should().load(any(SettlementPeriod.class));
     }
 
@@ -164,6 +164,6 @@ class SettlementSourceReconciliationBatchIntegrationTest {
         assertThat(settlementDeliveryJpaRepository.count()).isZero();
         assertThat(reconciliationStep.getExitStatus().getExitCode())
                 .isEqualTo("FAILED");
-        then(sellerSettlementRegistrationPort).shouldHaveNoInteractions();
+        then(sellerSettlementRegistration).shouldHaveNoInteractions();
     }
 }

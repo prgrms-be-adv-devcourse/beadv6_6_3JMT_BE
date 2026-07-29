@@ -1,6 +1,7 @@
 package com.prompthub.user.sellersettlement.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
 import com.prompthub.user.sellersettlement.application.dto.RegisterSellerSettlementCommand;
@@ -9,12 +10,14 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class SellerSettlementRegistrationFacadeTest {
@@ -38,6 +41,40 @@ class SellerSettlementRegistrationFacadeTest {
         RegisteredSellerSettlementSnapshot actual = facade.register(command);
 
         assertThat(actual).isSameAs(stored);
+    }
+
+    @Test
+    @DisplayName("동시 중복 등록이면 deliveryRequestId로 이미 커밋된 결과를 반환한다")
+    void recoversKnownDeliveryRequestConflict() {
+        RegisterSellerSettlementCommand command = command();
+        RegisteredSellerSettlementSnapshot stored = snapshot(command);
+        given(writer.register(command))
+                .willThrow(new DataIntegrityViolationException("unique conflict"));
+        given(reader.findByDeliveryRequestId(command.deliveryRequestId()))
+                .willReturn(Optional.of(stored));
+        SellerSettlementRegistrationFacade facade =
+                new SellerSettlementRegistrationFacade(writer, reader);
+
+        RegisteredSellerSettlementSnapshot actual = facade.register(command);
+
+        assertThat(actual).isSameAs(stored);
+    }
+
+    @Test
+    @DisplayName("등록 대상이 없는 무결성 오류는 멱등 충돌로 숨기지 않는다")
+    void propagatesUnrelatedIntegrityViolation() {
+        RegisterSellerSettlementCommand command = command();
+        DataIntegrityViolationException failure =
+                new DataIntegrityViolationException("not-null violation");
+        given(writer.register(command)).willThrow(failure);
+        given(reader.findByDeliveryRequestId(command.deliveryRequestId()))
+                .willReturn(Optional.empty());
+        given(reader.findBySettlementId(command.settlementId()))
+                .willReturn(Optional.empty());
+        SellerSettlementRegistrationFacade facade =
+                new SellerSettlementRegistrationFacade(writer, reader);
+
+        assertThatThrownBy(() -> facade.register(command)).isSameAs(failure);
     }
 
     private RegisterSellerSettlementCommand command() {

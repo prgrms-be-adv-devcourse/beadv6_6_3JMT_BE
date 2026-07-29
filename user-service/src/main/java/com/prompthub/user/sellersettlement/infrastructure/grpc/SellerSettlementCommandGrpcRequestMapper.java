@@ -41,8 +41,12 @@ public class SellerSettlementCommandGrpcRequestMapper {
                         .SellerSettlementLineType.SELLER_SETTLEMENT_LINE_TYPE_UNSPECIFIED) {
             throw new IllegalArgumentException("lineType은 필수입니다.");
         }
+        if (!detail.hasSettlementSourceLineId()) {
+            throw new IllegalArgumentException("settlementSourceLineId는 필수입니다.");
+        }
         return new Detail(
                 UUID.fromString(detail.getSettlementDetailId()),
+                UUID.fromString(detail.getSettlementSourceLineId()),
                 UUID.fromString(detail.getOrderProductId()),
                 SellerSettlementLineType.valueOf(detail.getLineType().name()),
                 decimal(detail.getLineAmount()),

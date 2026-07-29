@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.interceptor.DefaultTransactionAttribute;
 
 @Configuration
 public class SettlementStepConfig {
@@ -98,8 +100,11 @@ public class SettlementStepConfig {
 	public Step deliverSellerSettlementsStep(
 		DeliverSellerSettlementsTasklet deliverSellerSettlementsTasklet
 	) {
+		DefaultTransactionAttribute withoutDatabaseTransaction = new DefaultTransactionAttribute();
+		withoutDatabaseTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_NOT_SUPPORTED);
 		return new StepBuilder("deliverSellerSettlementsStep", jobRepository)
 			.tasklet(deliverSellerSettlementsTasklet, transactionManager)
+			.transactionAttribute(withoutDatabaseTransaction)
 			.build();
 	}
 }

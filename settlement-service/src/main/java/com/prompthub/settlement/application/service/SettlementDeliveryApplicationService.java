@@ -2,9 +2,11 @@ package com.prompthub.settlement.application.service;
 
 import com.prompthub.settlement.application.dto.SellerSettlementRegistrationCommand;
 import com.prompthub.settlement.application.dto.SettlementDeliveryComparison;
+import com.prompthub.settlement.application.dto.SettlementDeliveryAttempt;
 import com.prompthub.settlement.application.dto.SettlementDeliverySummary;
 import com.prompthub.settlement.application.exception.SellerSettlementDeliveryException;
-import com.prompthub.settlement.application.port.SellerSettlementRegistrationPort;
+import com.prompthub.settlement.application.port.DeliveryRetrySleeper;
+import com.prompthub.settlement.application.port.SellerSettlementRegistration;
 import java.time.Duration;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +22,7 @@ public class SettlementDeliveryApplicationService {
             Duration.ofSeconds(1), Duration.ofSeconds(3)
     };
     private final SettlementDeliveryTransactionService transactions;
-    private final SellerSettlementRegistrationPort port;
+    private final SellerSettlementRegistration registration;
     private final SettlementDeliveryReconciler reconciler;
     private final DeliveryRetrySleeper sleeper;
 
@@ -40,13 +42,17 @@ public class SettlementDeliveryApplicationService {
     }
 
     private void deliver(UUID deliveryId) {
-        for (int attempt = 1; attempt <= 3; attempt++) {
-            SellerSettlementRegistrationCommand command =
-                    transactions.beginAttempt(deliveryId);
+        while (true) {
+            var prepared = transactions.beginAttempt(deliveryId);
+            if (prepared.isEmpty()) {
+                return;
+            }
+            SettlementDeliveryAttempt attempt = prepared.get();
+            SellerSettlementRegistrationCommand command = attempt.command();
             long startedAt = System.nanoTime();
             try {
-                var stored = port.register(command);
-                logAttempt(command, attempt, "OK", startedAt);
+                var stored = registration.register(command);
+                logAttempt(command, attempt.attemptNumber(), "OK", startedAt);
                 SettlementDeliveryComparison comparison =
                         reconciler.compare(command, stored);
                 if (comparison.matched()) {
@@ -56,16 +62,17 @@ public class SettlementDeliveryApplicationService {
                 transactions.markMismatch(deliveryId, comparison.reason());
                 return;
             } catch (SellerSettlementDeliveryException exception) {
-                logAttempt(command, attempt, exception.getStatusCode().name(), startedAt);
-                if (!exception.isRetryable() || attempt == 3) {
+                logAttempt(command, attempt.attemptNumber(),
+                        exception.getStatusCode().name(), startedAt);
+                if (!exception.isRetryable() || attempt.attemptNumber() == 3) {
                     transactions.markFailed(deliveryId,
-                            "gRPC " + exception.getStatusCode() + ": attempts=" + attempt);
+                            "gRPC " + exception.getStatusCode()
+                                    + ": attempts=" + attempt.attemptNumber());
                     return;
                 }
-                sleeper.sleep(BACKOFFS[attempt - 1]);
+                sleeper.sleep(BACKOFFS[attempt.attemptNumber() - 1]);
             }
         }
-        throw new IllegalStateException("도달할 수 없는 정산 전달 상태입니다.");
     }
 
     private void logAttempt(

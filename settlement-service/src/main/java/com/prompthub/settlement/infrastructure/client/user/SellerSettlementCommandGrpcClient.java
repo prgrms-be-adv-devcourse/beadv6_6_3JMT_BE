@@ -3,7 +3,7 @@ package com.prompthub.settlement.infrastructure.client.user;
 import com.prompthub.settlement.application.dto.SellerSettlementRegistrationCommand;
 import com.prompthub.settlement.application.dto.SellerSettlementStoredSnapshot;
 import com.prompthub.settlement.application.exception.SellerSettlementDeliveryException;
-import com.prompthub.settlement.application.port.SellerSettlementRegistrationPort;
+import com.prompthub.settlement.application.port.SellerSettlementRegistration;
 import com.prompthub.settlement.infrastructure.client.user.config.SellerSettlementCommandGrpcProperties;
 import com.prompthub.user.grpc.sellersettlement.command.SellerSettlementCommandServiceGrpc;
 import io.grpc.Metadata;
@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class SellerSettlementCommandGrpcClient
-        implements SellerSettlementRegistrationPort {
+        implements SellerSettlementRegistration {
 
     private static final Metadata.Key<String> INTERNAL_TOKEN = Metadata.Key.of(
             "x-internal-service-token", Metadata.ASCII_STRING_MARSHALLER);

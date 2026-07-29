@@ -52,7 +52,8 @@ class SettlementDeliveryReconcilerTest {
                 new BigDecimal("15.00"), new BigDecimal("85.00"),
                 LocalDateTime.of(2026, 7, 8, 2, 0, 0, 123456000),
                 List.of(new Detail(
-                        UUID.randomUUID(), UUID.randomUUID(), SettlementLineType.SALE,
+                        UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                        SettlementLineType.SALE,
                         new BigDecimal("100.00"), new BigDecimal("0.1500"),
                         new BigDecimal("15.00"), new BigDecimal("85.00"),
                         LocalDateTime.of(2026, 7, 3, 12, 0))));
@@ -71,7 +72,8 @@ class SettlementDeliveryReconcilerTest {
                 new BigDecimal(feeTotal), new BigDecimal("85.000"),
                 expected.calculatedAt().plusNanos(999),
                 List.of(new SellerSettlementStoredSnapshot.Detail(
-                        detail.settlementDetailId(), detail.orderProductId(), detail.lineType(),
+                        detail.settlementDetailId(), detail.settlementSourceLineId(),
+                        detail.orderProductId(), detail.lineType(),
                         detail.lineAmount(), detail.feeRate(), detail.feeAmount(),
                         detail.lineSettlementAmount(), detail.occurredAt())));
     }

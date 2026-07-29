@@ -74,6 +74,9 @@ public class SettlementBatchLifecycleApplicationService implements SettlementBat
     @Transactional
     public void startRetry(UUID batchId) {
         SettlementBatch batch = findBatch(batchId);
+        if (batch.isCompleted()) {
+            return;
+        }
         batch.startRetry();
         settlementBatchRepository.save(batch);
     }
@@ -82,7 +85,7 @@ public class SettlementBatchLifecycleApplicationService implements SettlementBat
     @Transactional(readOnly = true)
     public long requireRetryJobInstanceId(UUID batchId) {
         SettlementBatch batch = findBatch(batchId);
-        if (!batch.isRetryRequested()) {
+        if (!batch.isRetryRequested() && !batch.isCompleted()) {
             throw new SettlementBatchInvalidStateException(
                     SettlementBatchStatus.RETRY_REQUESTED,
                     batch.getStatus());

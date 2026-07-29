@@ -52,6 +52,8 @@ public class SettlementDeliveryReconciler {
                 continue;
             }
             String prefix = "settlementDetailId=" + detail.settlementDetailId() + " ";
+            mismatches.value(prefix + "settlementSourceLineId",
+                    detail.settlementSourceLineId(), stored.settlementSourceLineId());
             mismatches.value(prefix + "orderProductId", detail.orderProductId(), stored.orderProductId());
             mismatches.value(prefix + "lineType", detail.lineType(), stored.lineType());
             mismatches.decimal(prefix + "lineAmount", detail.lineAmount(), stored.lineAmount());

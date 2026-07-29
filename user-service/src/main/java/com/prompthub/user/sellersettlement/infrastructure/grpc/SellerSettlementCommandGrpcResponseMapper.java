@@ -28,6 +28,8 @@ public class SellerSettlementCommandGrpcResponseMapper {
                         SellerSettlementDetailSnapshot.newBuilder()
                                 .setSettlementDetailId(
                                         detail.settlementDetailId().toString())
+                                .setSettlementSourceLineId(
+                                        detail.settlementSourceLineId().toString())
                                 .setOrderProductId(detail.orderProductId().toString())
                                 .setLineType(SellerSettlementLineType.valueOf(
                                         detail.lineType().name()))

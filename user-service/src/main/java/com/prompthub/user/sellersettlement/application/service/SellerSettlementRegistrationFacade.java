@@ -19,15 +19,19 @@ public class SellerSettlementRegistrationFacade
     @Override
     public RegisteredSellerSettlementSnapshot register(
             RegisterSellerSettlementCommand command) {
-        UUID settlementId = registerSafely(command);
-        return reader.readBySettlementId(settlementId);
+        try {
+            UUID settlementId = writer.register(command);
+            return reader.readBySettlementId(settlementId);
+        } catch (DataIntegrityViolationException exception) {
+            return recoverKnownRegistrationConflict(command, exception);
+        }
     }
 
-    private UUID registerSafely(RegisterSellerSettlementCommand command) {
-        try {
-            return writer.register(command);
-        } catch (DataIntegrityViolationException exception) {
-            return command.settlementId();
-        }
+    private RegisteredSellerSettlementSnapshot recoverKnownRegistrationConflict(
+            RegisterSellerSettlementCommand command,
+            DataIntegrityViolationException exception) {
+        return reader.findByDeliveryRequestId(command.deliveryRequestId())
+                .or(() -> reader.findBySettlementId(command.settlementId()))
+                .orElseThrow(() -> exception);
     }
 }

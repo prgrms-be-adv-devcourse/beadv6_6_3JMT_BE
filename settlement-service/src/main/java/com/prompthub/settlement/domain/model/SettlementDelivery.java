@@ -78,6 +78,14 @@ public class SettlementDelivery extends BaseEntity {
         attemptCount++;
     }
 
+    public boolean canAttempt(int maxAttempts) {
+        if (maxAttempts <= 0) {
+            throw new IllegalArgumentException("최대 시도 횟수는 1 이상이어야 합니다.");
+        }
+        return status == SettlementDeliveryStatus.CALCULATED
+                && attemptCount < maxAttempts;
+    }
+
     public void reconcile(LocalDateTime completedAt) {
         requireCalculated();
         status = SettlementDeliveryStatus.RECONCILED;

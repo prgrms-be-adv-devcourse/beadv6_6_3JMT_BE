@@ -1,4 +1,4 @@
-package com.prompthub.settlement.application.service;
+package com.prompthub.settlement.application.port;
 
 import java.time.Duration;
 

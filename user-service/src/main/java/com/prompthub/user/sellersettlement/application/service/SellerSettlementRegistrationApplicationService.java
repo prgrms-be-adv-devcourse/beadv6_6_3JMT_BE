@@ -35,6 +35,12 @@ public class SellerSettlementRegistrationApplicationService {
             SellerSettlement existing) {
         if (existing.getDeliveryRequestId() == null && matcher.matches(command, existing)) {
             existing.linkDeliveryRequestId(command.deliveryRequestId());
+            command.details().forEach(expected -> existing.getDetails().stream()
+                    .filter(actual -> actual.getSettlementDetailId()
+                            .equals(expected.settlementDetailId()))
+                    .findFirst()
+                    .orElseThrow()
+                    .linkSettlementSourceLineId(expected.settlementSourceLineId()));
             repository.save(existing);
         }
         return existing.getSettlementId();
@@ -44,6 +50,7 @@ public class SellerSettlementRegistrationApplicationService {
         List<SellerSettlementDetail> details = command.details().stream()
                 .map(detail -> SellerSettlementDetail.seed(
                         detail.settlementDetailId(),
+                        detail.settlementSourceLineId(),
                         detail.orderProductId(),
                         detail.lineType(),
                         detail.lineAmount(),

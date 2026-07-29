@@ -77,7 +77,7 @@ class SellerSettlementRegistrationApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("모든 값이 같은 legacy 정산은 deliveryRequestId만 연결한다")
+    @DisplayName("모든 값이 같은 legacy 정산은 전달 요청과 SourceLine 식별자를 연결한다")
     void linksDeliveryRequestIdToMatchingLegacySettlement() {
         RegisterSellerSettlementCommand command = command();
         SellerSettlement legacy = settlementFrom(command, null);
@@ -89,6 +89,8 @@ class SellerSettlementRegistrationApplicationServiceTest {
         service.register(command);
 
         assertThat(legacy.getDeliveryRequestId()).isEqualTo(command.deliveryRequestId());
+        assertThat(legacy.getDetails().getFirst().getSettlementSourceLineId())
+                .isEqualTo(command.details().getFirst().settlementSourceLineId());
         then(repository).should().save(legacy);
     }
 
@@ -137,6 +139,7 @@ class SellerSettlementRegistrationApplicationServiceTest {
                 new BigDecimal("85.00"),
                 LocalDateTime.of(2026, 7, 8, 2, 0),
                 List.of(new Detail(
+                        UUID.randomUUID(),
                         UUID.randomUUID(),
                         UUID.randomUUID(),
                         SellerSettlementLineType.SALE,

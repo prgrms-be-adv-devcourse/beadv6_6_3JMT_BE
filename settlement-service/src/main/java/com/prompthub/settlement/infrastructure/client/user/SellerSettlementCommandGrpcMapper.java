@@ -32,6 +32,8 @@ public class SellerSettlementCommandGrpcMapper {
                 .addAllDetails(command.details().stream().map(detail ->
                         SellerSettlementDetailSnapshot.newBuilder()
                                 .setSettlementDetailId(detail.settlementDetailId().toString())
+                                .setSettlementSourceLineId(
+                                        detail.settlementSourceLineId().toString())
                                 .setOrderProductId(detail.orderProductId().toString())
                                 .setLineType(SellerSettlementLineType.valueOf(detail.lineType().name()))
                                 .setLineAmount(detail.lineAmount().toPlainString())
@@ -65,6 +67,9 @@ public class SellerSettlementCommandGrpcMapper {
                 stored.getDetailsList().stream().map(detail ->
                         new SellerSettlementStoredSnapshot.Detail(
                                 UUID.fromString(detail.getSettlementDetailId()),
+                                detail.hasSettlementSourceLineId()
+                                        ? UUID.fromString(detail.getSettlementSourceLineId())
+                                        : null,
                                 UUID.fromString(detail.getOrderProductId()),
                                 com.prompthub.settlement.domain.model.enums.SettlementLineType
                                         .valueOf(detail.getLineType().name()),

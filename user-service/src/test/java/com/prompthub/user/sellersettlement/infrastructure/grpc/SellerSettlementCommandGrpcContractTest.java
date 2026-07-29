@@ -57,7 +57,8 @@ class SellerSettlementCommandGrpcContractTest {
                 "fee_rate", 5,
                 "fee_amount", 6,
                 "line_settlement_amount", 7,
-                "occurred_at", 8));
+                "occurred_at", 8,
+                "settlement_source_line_id", 9));
     }
 
     private void assertFields(

@@ -14,7 +14,7 @@ import com.prompthub.settlement.application.dto.SellerSettlementRegistrationComm
 import com.prompthub.settlement.application.dto.SellerSettlementStoredSnapshot;
 import com.prompthub.settlement.application.dto.SettlementJobResult;
 import com.prompthub.settlement.application.dto.SettlementSourceReconciliationResult;
-import com.prompthub.settlement.application.port.SellerSettlementRegistrationPort;
+import com.prompthub.settlement.application.port.SellerSettlementRegistration;
 import com.prompthub.settlement.application.service.SettlementCalculationApplicationService;
 import com.prompthub.settlement.application.usecase.LoadSettlementSourceUseCase;
 import com.prompthub.settlement.application.usecase.ReconcileSettlementSourceUseCase;
@@ -53,6 +53,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @SpringBootTest(properties = {
     "spring.cloud.config.enabled=false",
@@ -72,6 +73,9 @@ class SettlementBatchRestartIntegrationTest {
     private static final SettlementPeriod RECONCILIATION_FAILURE_PERIOD = SettlementPeriod.of(
             LocalDate.of(2030, 2, 4),
             LocalDate.of(2030, 2, 10));
+    private static final SettlementPeriod DELIVERY_FAILURE_PERIOD = SettlementPeriod.of(
+            LocalDate.of(2030, 2, 11),
+            LocalDate.of(2030, 2, 17));
     private static final UUID ACTOR_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000601");
 
@@ -109,7 +113,7 @@ class SettlementBatchRestartIntegrationTest {
     private ReconcileSettlementSourceUseCase reconcileSettlementSourceUseCase;
 
     @MockitoBean
-    private SellerSettlementRegistrationPort sellerSettlementRegistrationPort;
+    private SellerSettlementRegistration sellerSettlementRegistration;
 
     @MockitoSpyBean
     private SettlementCalculationApplicationService calculationService;
@@ -126,9 +130,13 @@ class SettlementBatchRestartIntegrationTest {
                 .willReturn(SettlementSourceReconciliationResult.compare(
                         emptyAggregate,
                         emptyAggregate));
-        given(sellerSettlementRegistrationPort.register(
+        given(sellerSettlementRegistration.register(
                 any(SellerSettlementRegistrationCommand.class)))
-                .willAnswer(invocation -> snapshotOf(invocation.getArgument(0)));
+                .willAnswer(invocation -> {
+                    assertThat(TransactionSynchronizationManager
+                            .isActualTransactionActive()).isFalse();
+                    return snapshotOf(invocation.getArgument(0));
+                });
     }
 
     @Test
@@ -165,7 +173,7 @@ class SettlementBatchRestartIntegrationTest {
                 .singleElement()
                 .extracting(SettlementCalculationReconciliation::getStatus)
                 .isEqualTo(SettlementCalculationReconciliationStatus.MISMATCHED);
-        then(sellerSettlementRegistrationPort).shouldHaveNoInteractions();
+        then(sellerSettlementRegistration).shouldHaveNoInteractions();
 
         failedBatch.requestRetry();
         settlementBatchJpaRepository.saveAndFlush(failedBatch);
@@ -198,7 +206,7 @@ class SettlementBatchRestartIntegrationTest {
                         SettlementCalculationReconciliationStatus.MATCHED);
         then(calculationService).should(times(2))
                 .calculate(any(CalculateSettlementCommand.class));
-        then(sellerSettlementRegistrationPort).should()
+        then(sellerSettlementRegistration).should()
                 .register(any(SellerSettlementRegistrationCommand.class));
     }
 
@@ -233,7 +241,7 @@ class SettlementBatchRestartIntegrationTest {
         assertThat(settlementDeliveryJpaRepository.findAll())
                 .allMatch(delivery ->
                         delivery.getStatus() == SettlementDeliveryStatus.CALCULATED);
-        then(sellerSettlementRegistrationPort).shouldHaveNoInteractions();
+        then(sellerSettlementRegistration).shouldHaveNoInteractions();
 
         failedBatch.requestRetry();
         settlementBatchJpaRepository.saveAndFlush(failedBatch);
@@ -269,7 +277,7 @@ class SettlementBatchRestartIntegrationTest {
                         delivery.getStatus() == SettlementDeliveryStatus.RECONCILED)
                 .extracting(SettlementDelivery::getSettlementId)
                 .doesNotHaveDuplicates();
-        then(sellerSettlementRegistrationPort).should(times(3))
+        then(sellerSettlementRegistration).should(times(3))
                 .register(any(SellerSettlementRegistrationCommand.class));
     }
 
@@ -309,7 +317,50 @@ class SettlementBatchRestartIntegrationTest {
         assertThat(jobRepository.getJobExecutions(jobInstance)).hasSize(2);
         assertThat(settlementJpaRepository.findBySettlementBatchId(originalBatchId)).hasSize(1);
         then(loadSettlementSourceUseCase).should(times(2)).load(SOURCE_LOAD_FAILURE_PERIOD);
-        then(sellerSettlementRegistrationPort).should()
+        then(sellerSettlementRegistration).should()
+                .register(any(SellerSettlementRegistrationCommand.class));
+    }
+
+    @Test
+    @DisplayName("배치 완료 후 Delivery 로컬 실패는 계산 상태를 유지하고 같은 Job에서 전달만 재시작한다")
+    void restart_afterDeliveryLocalFailure_retriesOnlyCalculatedDelivery() {
+        saveSourceLines(DELIVERY_FAILURE_PERIOD, 1);
+        given(sellerSettlementRegistration.register(
+                any(SellerSettlementRegistrationCommand.class)))
+                .willThrow(new IllegalStateException("응답 매핑 실패"))
+                .willAnswer(invocation -> snapshotOf(invocation.getArgument(0)));
+
+        SettlementJobResult firstResult = runSettlementBatchUseCase.run(
+                RunSettlementBatchCommand.scheduled(DELIVERY_FAILURE_PERIOD));
+
+        entityManager.clear();
+        SettlementBatch completedBatch = onlyBatch();
+        UUID batchId = completedBatch.getId();
+        long jobInstanceId = completedBatch.getJobInstanceId();
+        SettlementDelivery calculatedDelivery =
+                settlementDeliveryJpaRepository.findAll().getFirst();
+        assertThat(firstResult.status()).isEqualTo("FAILED");
+        assertThat(completedBatch.getStatus()).isEqualTo(SettlementBatchStatus.COMPLETED);
+        assertThat(calculatedDelivery.getStatus())
+                .isEqualTo(SettlementDeliveryStatus.CALCULATED);
+        assertThat(calculatedDelivery.getAttemptCount()).isEqualTo(1);
+
+        SettlementJobResult restartedResult = restartSettlementBatchUseCase.restart(
+                new RestartSettlementBatchCommand(batchId, ACTOR_ID));
+
+        entityManager.clear();
+        SettlementDelivery reconciledDelivery =
+                settlementDeliveryJpaRepository.findAll().getFirst();
+        JobInstance jobInstance = jobRepository.getJobInstance(jobInstanceId);
+        assertThat(restartedResult.status()).isEqualTo("COMPLETED");
+        assertThat(onlyBatch().getStatus()).isEqualTo(SettlementBatchStatus.COMPLETED);
+        assertThat(reconciledDelivery.getStatus())
+                .isEqualTo(SettlementDeliveryStatus.RECONCILED);
+        assertThat(reconciledDelivery.getAttemptCount()).isEqualTo(2);
+        assertThat(jobRepository.getJobExecutions(jobInstance)).hasSize(2);
+        then(calculationService).should()
+                .calculate(any(CalculateSettlementCommand.class));
+        then(sellerSettlementRegistration).should(times(2))
                 .register(any(SellerSettlementRegistrationCommand.class));
     }
 
@@ -334,6 +385,7 @@ class SettlementBatchRestartIntegrationTest {
                 command.details().stream()
                         .map(detail -> new SellerSettlementStoredSnapshot.Detail(
                                 detail.settlementDetailId(),
+                                detail.settlementSourceLineId(),
                                 detail.orderProductId(),
                                 detail.lineType(),
                                 detail.lineAmount(),

@@ -19,7 +19,8 @@ public record SellerSettlementRegistrationCommand(
     }
 
     public record Detail(
-            UUID settlementDetailId, UUID orderProductId, SettlementLineType lineType,
+            UUID settlementDetailId, UUID settlementSourceLineId,
+            UUID orderProductId, SettlementLineType lineType,
             BigDecimal lineAmount, BigDecimal feeRate, BigDecimal feeAmount,
             BigDecimal lineSettlementAmount, LocalDateTime occurredAt) {
     }

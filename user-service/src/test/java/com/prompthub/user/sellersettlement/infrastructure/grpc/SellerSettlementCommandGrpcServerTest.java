@@ -63,6 +63,8 @@ class SellerSettlementCommandGrpcServerTest {
                         UUID.fromString(request.getSettlement().getDetails(0)
                                 .getSettlementDetailId()),
                         UUID.fromString(request.getSettlement().getDetails(0)
+                                .getSettlementSourceLineId()),
+                        UUID.fromString(request.getSettlement().getDetails(0)
                                 .getOrderProductId()),
                         com.prompthub.user.sellersettlement.domain.model.enums
                                 .SellerSettlementLineType.SALE,
@@ -107,6 +109,7 @@ class SellerSettlementCommandGrpcServerTest {
         SellerSettlementDetailSnapshot detail =
                 SellerSettlementDetailSnapshot.newBuilder()
                         .setSettlementDetailId(UUID.randomUUID().toString())
+                        .setSettlementSourceLineId(UUID.randomUUID().toString())
                         .setOrderProductId(UUID.randomUUID().toString())
                         .setLineType(SellerSettlementLineType.SALE)
                         .setLineAmount("100.00")

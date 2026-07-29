@@ -50,6 +50,7 @@ public record RegisterSellerSettlementCommand(
 
     public record Detail(
             UUID settlementDetailId,
+            UUID settlementSourceLineId,
             UUID orderProductId,
             SellerSettlementLineType lineType,
             BigDecimal lineAmount,
@@ -61,6 +62,8 @@ public record RegisterSellerSettlementCommand(
 
         public Detail {
             Objects.requireNonNull(settlementDetailId, "settlementDetailId는 필수입니다.");
+            Objects.requireNonNull(
+                    settlementSourceLineId, "settlementSourceLineId는 필수입니다.");
             Objects.requireNonNull(orderProductId, "orderProductId는 필수입니다.");
             Objects.requireNonNull(lineType, "lineType은 필수입니다.");
             Objects.requireNonNull(lineAmount, "lineAmount는 필수입니다.");
