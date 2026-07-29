@@ -1,4 +1,8 @@
-# 공통 Kafka Event Message 규칙
+# Kafka 이벤트 컨벤션
+
+> 관련 문서
+> - 발행/소비 어댑터 패키지 위치: `clean-architecture.md` (§2 messaging, §4 포트&어댑터)
+> - 발행·소비 실패 시 예외 처리: `controller-exception.md`
 
 ## 1. 목적
 

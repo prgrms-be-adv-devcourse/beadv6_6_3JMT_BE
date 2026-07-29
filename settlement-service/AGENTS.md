@@ -55,7 +55,7 @@
 - Swagger/OpenAPI 문서화:
   `.claude/rules/swagger.md`(저장소 루트)
 - Kafka 이벤트 구조, 네이밍, 발행·소비:
-  `settlement-service/.claude/rules/kafka-event.md`
+  `.claude/rules/kafka-event.md`(저장소 루트)
 - 커밋 메시지, 브랜치 명명, 병합 전략:
   `.claude/rules/git-convention.md`(저장소 루트)
 

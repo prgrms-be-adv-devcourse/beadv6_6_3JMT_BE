@@ -41,14 +41,16 @@ git log <base>..HEAD --format="%s"         # 커밋 제목 (git 컨벤션 입력
 이름이 검증 단위다 — 같은 이름이 두 위치에 있으면 서비스 쪽이 이긴다.
 
 1. **루트 공용 룰**: `.claude/rules/*.md` (저장소 루트)는 모든 서비스에 기본 적용되는 팀 공용 룰이다.
-   (예: `clean-architecture, domain-model, controller-exception, code-style, swagger, git-convention, security`)
+   (예: `clean-architecture, domain-model, controller-exception, code-style, swagger, git-convention,
+   security, kafka-event`)
 2. **서비스 자체 룰**: `<service>/.claude/rules/*.md` 가 있으면 같은 이름의 루트 룰을 **덮어쓴다**
    (그 서비스에서는 서비스 버전만 적용, 루트 버전은 무시). 서비스에만 있고 루트에 없는 이름은
    그대로 추가된다.
-   (예: `product-service/.claude/rules/{architecture,product-api,testing,git-workflow,kafka-event}.md` —
-   이름이 `architecture`라 루트 `clean-architecture`와 겹치지 않으므로 **둘 다 적용**된다. 이렇게
-   같은 목적의 룰이 다른 이름으로 공존하면 검증이 중복·상충될 수 있으니 발견 시 사용자에게 알린다.
-   `settlement-service/.claude/rules/kafka-event.md`처럼 루트에 없는 이름은 그대로 추가만 된다.)
+   (예: `product-service/.claude/rules/kafka-event.md`는 루트 `kafka-event`와 이름이 겹치므로
+   product-service에서는 자체 버전이 루트 버전을 덮어쓴다. 반대로 `product-service/.claude/rules/
+   architecture.md`는 이름이 `architecture`라 루트 `clean-architecture`와 겹치지 않으므로 **둘 다
+   적용**된다. 이렇게 같은 목적의 룰이 다른 이름으로 공존하면 검증이 중복·상충될 수 있으니 발견 시
+   사용자에게 알린다.)
 3. 최종 룰 목록 = 루트 룰과 서비스 룰의 합집합, 이름이 겹치면 서비스 룰로 대체.
 
 수집 결과를 `RULE_NAME → RULE_FILE` 목록으로 만든다. 이 목록이 검증 단위다.
