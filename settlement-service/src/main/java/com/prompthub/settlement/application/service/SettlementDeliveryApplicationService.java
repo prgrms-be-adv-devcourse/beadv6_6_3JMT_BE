@@ -7,6 +7,7 @@ import com.prompthub.settlement.application.dto.SettlementDeliverySummary;
 import com.prompthub.settlement.application.exception.SellerSettlementDeliveryException;
 import com.prompthub.settlement.application.port.DeliveryRetrySleeper;
 import com.prompthub.settlement.application.port.SellerSettlementRegistration;
+import com.prompthub.settlement.domain.model.enums.SettlementDeliveryStatus;
 import java.time.Duration;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class SettlementDeliveryApplicationService {
 
+    private static final int ATTEMPTS_PER_RUN = 3;
     private static final Duration[] BACKOFFS = {
             Duration.ofSeconds(1), Duration.ofSeconds(3)
     };
@@ -39,6 +41,22 @@ public class SettlementDeliveryApplicationService {
                 batchId, summary.total(), summary.calculated(),
                 summary.reconciled(), summary.deliveryFailed(), summary.mismatch());
         return summary;
+    }
+
+    public SettlementDeliveryStatus retry(UUID deliveryId) {
+        int previousAttempts = transactions.prepareManualRetry(deliveryId);
+        try {
+            deliverManualRetry(
+                    deliveryId,
+                    previousAttempts,
+                    previousAttempts + ATTEMPTS_PER_RUN);
+        } catch (RuntimeException exception) {
+            transactions.markManualRetryFailed(
+                    deliveryId,
+                    "재전송 실행 오류: " + exception.getClass().getSimpleName());
+            throw exception;
+        }
+        return transactions.getStatus(deliveryId);
     }
 
     private void deliver(UUID deliveryId) {
@@ -64,13 +82,58 @@ public class SettlementDeliveryApplicationService {
             } catch (SellerSettlementDeliveryException exception) {
                 logAttempt(command, attempt.attemptNumber(),
                         exception.getStatusCode().name(), startedAt);
-                if (!exception.isRetryable() || attempt.attemptNumber() == 3) {
+                if (!exception.isRetryable()
+                        || attempt.attemptNumber() == ATTEMPTS_PER_RUN) {
                     transactions.markFailed(deliveryId,
                             "gRPC " + exception.getStatusCode()
                                     + ": attempts=" + attempt.attemptNumber());
                     return;
                 }
                 sleeper.sleep(BACKOFFS[attempt.attemptNumber() - 1]);
+            }
+        }
+    }
+
+    private void deliverManualRetry(
+            UUID deliveryId,
+            int attemptOffset,
+            int maxAttempts) {
+        while (true) {
+            var prepared = transactions.beginManualRetryAttempt(
+                    deliveryId,
+                    maxAttempts);
+            if (prepared.isEmpty()) {
+                return;
+            }
+            SettlementDeliveryAttempt attempt = prepared.get();
+            SellerSettlementRegistrationCommand command = attempt.command();
+            long startedAt = System.nanoTime();
+            try {
+                var stored = registration.register(command);
+                logAttempt(command, attempt.attemptNumber(), "OK", startedAt);
+                SettlementDeliveryComparison comparison =
+                        reconciler.compare(command, stored);
+                if (comparison.matched()) {
+                    transactions.markManualRetryReconciled(deliveryId);
+                    return;
+                }
+                transactions.markManualRetryMismatch(
+                        deliveryId,
+                        comparison.reason());
+                return;
+            } catch (SellerSettlementDeliveryException exception) {
+                logAttempt(command, attempt.attemptNumber(),
+                        exception.getStatusCode().name(), startedAt);
+                if (!exception.isRetryable()
+                        || attempt.attemptNumber() == maxAttempts) {
+                    transactions.markManualRetryFailed(
+                            deliveryId,
+                            "gRPC " + exception.getStatusCode()
+                                    + ": attempts=" + attempt.attemptNumber());
+                    return;
+                }
+                int attemptInRun = attempt.attemptNumber() - attemptOffset;
+                sleeper.sleep(BACKOFFS[attemptInRun - 1]);
             }
         }
     }
