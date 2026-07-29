@@ -1,6 +1,7 @@
 package com.prompthub.product.application.service;
 
 import com.prompthub.product.domain.model.entity.Product;
+import com.prompthub.product.domain.model.entity.Review;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.repository.ProductRepository;
@@ -18,14 +19,19 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.never;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class ProductReviewServiceTest {
 
 	private static final UUID PRODUCT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
 	private static final UUID SELLER_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
+	private static final UUID BUYER_A = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+	private static final UUID BUYER_B = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
 	@Mock
 	private ProductRepository productRepository;
@@ -58,6 +64,45 @@ class ProductReviewServiceTest {
 				ArgumentCaptor.forClass(com.prompthub.product.domain.model.entity.Review.class);
 			then(reviewRepository).should().save(captor.capture());
 			assertThat(captor.getValue().getProduct()).isEqualTo(root);
+		}
+
+		@Test
+		@DisplayName("같은 사용자가 다시 요청하면 새 리뷰를 만들지 않고 기존 평점만 수정한다")
+		void upsertReview_updatesExistingReviewInsteadOfCreatingAnother() {
+			Product root = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
+			Review existing = Review.create(BUYER_A, root, (short) 2);
+
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(root));
+			given(reviewRepository.findByUserIdAndProductId(BUYER_A, PRODUCT_ID))
+				.willReturn(Optional.of(existing));
+
+			productReviewService.upsertReview(BUYER_A, PRODUCT_ID, 5);
+
+			// 리뷰가 하나 더 생기면 평균이 (2+5)/2로 왜곡된다. 기존 row를 고쳐야 한다
+			assertThat(existing.getRating()).isEqualTo((short) 5);
+			then(reviewRepository).should(never()).save(any());
+		}
+
+		@Test
+		@DisplayName("같은 상품이라도 사용자가 다르면 각자 리뷰를 갖는다")
+		void upsertReview_createsSeparateReviewPerUser() {
+			Product root = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
+
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(root));
+			given(reviewRepository.findByUserIdAndProductId(BUYER_A, PRODUCT_ID)).willReturn(Optional.empty());
+			given(reviewRepository.findByUserIdAndProductId(BUYER_B, PRODUCT_ID)).willReturn(Optional.empty());
+
+			productReviewService.upsertReview(BUYER_A, PRODUCT_ID, 5);
+			productReviewService.upsertReview(BUYER_B, PRODUCT_ID, 3);
+
+			ArgumentCaptor<Review> captor = ArgumentCaptor.forClass(Review.class);
+			then(reviewRepository).should(times(2)).save(captor.capture());
+			assertThat(captor.getAllValues())
+				.extracting(Review::getUserId)
+				.containsExactly(BUYER_A, BUYER_B);
+			assertThat(captor.getAllValues())
+				.extracting(Review::getRating)
+				.containsExactly((short) 5, (short) 3);
 		}
 	}
 
