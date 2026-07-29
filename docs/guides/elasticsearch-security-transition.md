@@ -18,11 +18,57 @@
   지금까지와 똑같이 무인증으로 붙으므로, 이 코드가 배포돼 있어도 동작은 바뀌지 않는다
 - **ES는 아직 보안이 꺼져 있다** (#582 3단계, 미실행). 아래 절차가 그 3단계다
 
-## 0. 먼저 확인할 것
+## 0. 전제 — 단일 노드라서 인증서가 한 벌이면 된다
 
-**ES 9.4.3에서 `discovery.type=single-node`로 security를 켤 때 transport TLS가 필수인지
-확인한다.** ES 8+는 보안을 켜면 transport 계층 TLS 부트스트랩 체크가 걸리는데, single-node는
-면제되는 것으로 알려져 있으나 버전마다 다르다. 여기 결과에 따라 아래 2단계의 설정이 달라진다.
+보안을 켜면 **"transport SSL must be enabled if security is enabled"** 부트스트랩 체크가
+걸린다. 걸리면 인증서를 두 벌(HTTP용 + 노드 간 통신용) 만들어야 한다.
+
+우리는 걸리지 않는다. [Elastic 부트스트랩 체크 문서](https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html)에
+예외가 명시돼 있다.
+
+> If you are running a single node in production, it is possible to evade the bootstrap
+> checks, either by not binding transport to an external interface, or by **binding transport
+> to an external interface and setting the discovery type to `single-node`**.
+
+노드가 하나면 "노드 간 통신"이 존재하지 않기 때문이다.
+
+**2026-07-29 실측으로 전제를 확인했다.**
+
+```bash
+kubectl -n elk exec statefulset/elasticsearch -c elasticsearch -- curl -s "localhost:9200/_cat/nodes?v"
+# -> elasticsearch-0 한 줄
+
+kubectl -n elk get statefulset elasticsearch -o jsonpath='{.spec.replicas}{"\n"}'
+# -> 1
+
+kubectl -n elk get pod -l app.kubernetes.io/name=elasticsearch -o jsonpath='{range .items[*]}{.metadata.name}{"  discovery.type="}{.spec.containers[0].env[?(@.name=="discovery.type")].value}{"\n"}{end}'
+# -> elasticsearch-0  discovery.type=single-node
+```
+
+**전환 직전에 이 셋을 다시 확인한다.** 매니페스트가 곧 실제는 아니다.
+
+### 이 전제가 깨지는 조건
+
+**`replicas`를 2 이상으로 올리는 순간 transport TLS가 필수가 된다.** `discovery.type:
+single-node`인 채로 스케일업하면 애초에 클러스터를 이루지 못한다. 노드를 늘릴 계획이 생기면
+이 문서의 인증서 절차를 두 벌 기준으로 다시 짜야 한다.
+
+### 메모리 여유도 함께 본다
+
+보안을 켜면 TLS 핸드셰이크와 인증 처리로 메모리가 더 붙는다. 2026-07-29 관측에서 ES 파드의
+`ram.percent`가 **100**이었다(heap은 512m 중 50%). heap 밖이 컨테이너 limit 1Gi를 꽉 쓰고
+있다는 뜻이라, 전환 전에 여유를 확인한다.
+
+```bash
+kubectl -n elk top pod
+kubectl -n elk describe pod elasticsearch-0 | grep -A6 "Last State"
+```
+
+`Last State`가 `OOMKilled`면 보안을 켜기 전에 limit부터 올린다.
+
+### 선택 — 로컬에서 먼저 재보기
+
+문서와 실측으로 확인했지만, 실제 기동까지 보고 싶으면 로컬에서 5분이면 된다.
 
 ```bash
 docker run --rm -e discovery.type=single-node -e xpack.security.enabled=true \
@@ -30,12 +76,10 @@ docker run --rm -e discovery.type=single-node -e xpack.security.enabled=true \
   -p 19200:9200 docker.elastic.co/elasticsearch/elasticsearch:9.4.3
 ```
 
-기동에 성공하면 transport TLS 없이 갈 수 있다. 부트스트랩 체크로 죽으면
-`xpack.security.transport.ssl.enabled=true`와 인증서를 함께 넣어야 한다.
-
 ## 1. 인증서 만들기
 
-ES 내장 도구를 쓴다. 내부 통신 전용이라 공인 CA가 필요 없다.
+ES 내장 도구를 쓴다. 내부 통신 전용이라 공인 CA가 필요 없다. **0단계 전제에 따라 HTTP용
+한 벌만 만든다** — transport용은 필요 없다.
 
 ```bash
 # 실행 중인 ES 파드 안에서
