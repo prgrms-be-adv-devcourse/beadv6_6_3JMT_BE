@@ -1,11 +1,13 @@
 package com.prompthub.payment.infrastructure.messaging.config;
 
 import com.prompthub.payment.domain.exception.InvalidRefundStateException;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -43,6 +45,15 @@ public class KafkaConfig {
         return TopicBuilder.name(PaymentTopic.PAYMENT_EVENTS)
             .partitions(1)
             .replicas(1)
+            .build();
+    }
+
+    @Bean
+    public NewTopic auditLogTopic() {
+        return TopicBuilder.name(PaymentTopic.AUDIT_LOG)
+            .partitions(1)
+            .replicas(1)
+            .config(TopicConfig.RETENTION_MS_CONFIG, String.valueOf(Duration.ofDays(3).toMillis()))
             .build();
     }
 
