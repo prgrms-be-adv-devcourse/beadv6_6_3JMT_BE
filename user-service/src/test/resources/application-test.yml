@@ -35,6 +35,8 @@ user:
   grpc:
     seller-settlement:
       internal-token: test-ai-user-token
+    seller-settlement-command:
+      internal-token: test-settlement-user-token
   kafka:
     consumer:
       settlement:
