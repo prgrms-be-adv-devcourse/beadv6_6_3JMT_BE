@@ -1,22 +1,18 @@
 package com.prompthub.order.application.service.event;
 
+import com.prompthub.order.application.dto.event.PaymentApprovedCommand;
+import com.prompthub.order.application.dto.event.PaymentFailedCommand;
+import com.prompthub.order.application.dto.event.PaymentRefundFailedCommand;
+import com.prompthub.order.application.dto.event.PaymentRefundedCommand;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
 import org.springframework.stereotype.Component;
 
-import java.time.DateTimeException;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.UUID;
 
 @Component
 public class PaymentEventValidator {
-
-	private static final ZoneOffset KOREA_OFFSET = ZoneOffset.ofHours(9);
 
 	public void validateEnvelope(UUID eventId, String eventType, LocalDateTime occurredAt) {
 		if (eventId == null || eventType == null || eventType.isBlank() || occurredAt == null) {
@@ -24,59 +20,42 @@ public class PaymentEventValidator {
 		}
 	}
 
-	public void validate(PaymentFailedPayload payload) {
+	public void validate(PaymentFailedCommand payload) {
 		if (payload == null
 			|| payload.orderId() == null
-			|| payload.failedAmount() < 0) {
+			|| payload.failedAmount() < 0
+			|| payload.failedAt() == null) {
 			throw invalidInput();
 		}
 	}
 
-	public LocalDateTime validate(PaymentApprovedPayload payload) {
+	public LocalDateTime validate(PaymentApprovedCommand payload) {
 		if (payload == null
 			|| payload.orderId() == null
-			|| payload.approvedAtValue() == null
-			|| payload.approvedAtValue().isBlank()) {
+			|| payload.approvedAt() == null) {
 			throw invalidInput();
 		}
-
-		try {
-			return payload.approvedAt();
-		} catch (DateTimeException exception) {
-			throw invalidInput();
-		}
+		return payload.approvedAt();
 	}
 
-	public LocalDateTime validate(PaymentRefundedPayload payload) {
+	public LocalDateTime validate(PaymentRefundedCommand payload) {
 		if (payload == null
 			|| payload.orderId() == null
 			|| payload.refundAmount() <= 0
-			|| payload.refundedAt() == null
-			|| payload.refundedAt().isBlank()) {
+			|| payload.refundedAt() == null) {
 			throw invalidInput();
 		}
-		return parseOffsetTimestamp(payload.refundedAt());
+		return payload.refundedAt();
 	}
 
-	public LocalDateTime validate(PaymentRefundedEventHandler.RefundFailedPayload payload) {
+	public LocalDateTime validate(PaymentRefundFailedCommand payload) {
 		if (payload == null
 			|| payload.orderId() == null
 			|| payload.refundAmount() <= 0
-			|| payload.failedAt() == null
-			|| payload.failedAt().isBlank()) {
+			|| payload.failedAt() == null) {
 			throw invalidInput();
 		}
-		return parseOffsetTimestamp(payload.failedAt());
-	}
-
-	private LocalDateTime parseOffsetTimestamp(String timestamp) {
-		try {
-			return OffsetDateTime.parse(timestamp)
-				.withOffsetSameInstant(KOREA_OFFSET)
-				.toLocalDateTime();
-		} catch (DateTimeException exception) {
-			throw invalidInput();
-		}
+		return payload.failedAt();
 	}
 
 	private OrderException invalidInput() {

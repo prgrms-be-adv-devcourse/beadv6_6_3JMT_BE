@@ -1,10 +1,11 @@
 package com.prompthub.order.application.service.event;
 
+import com.prompthub.order.application.dto.event.PaymentApprovedCommand;
+import com.prompthub.order.application.dto.event.PaymentFailedCommand;
+import com.prompthub.order.application.dto.event.PaymentRefundFailedCommand;
+import com.prompthub.order.application.dto.event.PaymentRefundedCommand;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -21,9 +22,9 @@ class PaymentEventValidatorTest {
 	private final PaymentEventValidator validator = new PaymentEventValidator();
 
 	@Test
-	void validateApproved_convertsOffsetTimestampToKoreanLocalDateTime() {
-		LocalDateTime approvedAt = validator.validate(new PaymentApprovedPayload(
-			ORDER_A, "2026-07-17T01:00:05Z"
+	void validateApproved_acceptsRequiredAmountAndTimestamp() {
+		LocalDateTime approvedAt = validator.validate(new PaymentApprovedCommand(
+			ORDER_A, 100_000, LocalDateTime.of(2026, 7, 17, 10, 0, 5)
 		));
 
 		assertThat(approvedAt).isEqualTo(LocalDateTime.of(2026, 7, 17, 10, 0, 5));
@@ -31,8 +32,8 @@ class PaymentEventValidatorTest {
 
 	@Test
 	void validateRefunded_acceptsCurrentPaymentContract() {
-		LocalDateTime refundedAt = validator.validate(new PaymentRefundedPayload(
-			ORDER_A, 10_000, "2026-07-17T01:00:05Z"
+		LocalDateTime refundedAt = validator.validate(new PaymentRefundedCommand(
+			ORDER_A, 10_000, LocalDateTime.of(2026, 7, 17, 10, 0, 5)
 		));
 
 		assertThat(refundedAt).isEqualTo(LocalDateTime.of(2026, 7, 17, 10, 0, 5));
@@ -40,8 +41,8 @@ class PaymentEventValidatorTest {
 
 	@Test
 	void validateRefundFailed_acceptsCurrentPaymentContract() {
-		LocalDateTime failedAt = validator.validate(new PaymentRefundedEventHandler.RefundFailedPayload(
-			ORDER_A, 10_000, "2026-07-17T01:00:05Z"
+		LocalDateTime failedAt = validator.validate(new PaymentRefundFailedCommand(
+			ORDER_A, 10_000, LocalDateTime.of(2026, 7, 17, 10, 0, 5)
 		));
 
 		assertThat(failedAt).isEqualTo(LocalDateTime.of(2026, 7, 17, 10, 0, 5));
@@ -49,29 +50,29 @@ class PaymentEventValidatorTest {
 
 	@Test
 	void validateRefundEvents_rejectInvalidValues() {
-		assertInvalid(() -> validator.validate(new PaymentRefundedPayload(null, 10_000, "2026-07-17T01:00:05Z")));
-		assertInvalid(() -> validator.validate(new PaymentRefundedPayload(ORDER_A, 0, "2026-07-17T01:00:05Z")));
-		assertInvalid(() -> validator.validate(new PaymentRefundedPayload(ORDER_A, 10_000, "invalid")));
-		assertInvalid(() -> validator.validate(new PaymentRefundedEventHandler.RefundFailedPayload(null, 10_000, "2026-07-17T01:00:05Z")));
-		assertInvalid(() -> validator.validate(new PaymentRefundedEventHandler.RefundFailedPayload(ORDER_A, -1, "2026-07-17T01:00:05Z")));
-		assertInvalid(() -> validator.validate(new PaymentRefundedEventHandler.RefundFailedPayload(ORDER_A, 10_000, " ")));
+		assertInvalid(() -> validator.validate(new PaymentRefundedCommand(null, 10_000, LocalDateTime.now())));
+		assertInvalid(() -> validator.validate(new PaymentRefundedCommand(ORDER_A, 0, LocalDateTime.now())));
+		assertInvalid(() -> validator.validate(new PaymentRefundedCommand(ORDER_A, 10_000, null)));
+		assertInvalid(() -> validator.validate(new PaymentRefundFailedCommand(null, 10_000, LocalDateTime.now())));
+		assertInvalid(() -> validator.validate(new PaymentRefundFailedCommand(ORDER_A, -1, LocalDateTime.now())));
+		assertInvalid(() -> validator.validate(new PaymentRefundFailedCommand(ORDER_A, 10_000, null)));
 	}
 
 	@Test
 	void validateFailed_acceptsSingleOrderPayload() {
-		validator.validate(new PaymentFailedPayload(PAYMENT_ID, ORDER_A, BUYER_ID));
+		validator.validate(new PaymentFailedCommand(PAYMENT_ID, ORDER_A, BUYER_ID, 0, null, null, LocalDateTime.now()));
 	}
 
 	@Test
 	void validateFailed_acceptsReducedPaymentContract() {
-		validator.validate(new PaymentFailedPayload(
+		validator.validate(new PaymentFailedCommand(
 			null,
 			ORDER_A,
 			null,
 			30_000,
 			null,
 			null,
-			"2026-07-17T01:00:05Z"
+			LocalDateTime.now()
 		));
 	}
 

@@ -1,8 +1,9 @@
 package com.prompthub.order.application.service.event;
 
+import com.prompthub.order.application.dto.event.PaymentApprovedCommand;
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
+import com.prompthub.order.infra.messaging.kafka.consumer.payment.PaymentApprovedEventHandler;
 import com.prompthub.order.infra.messaging.kafka.support.EventPayloadMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -61,11 +62,11 @@ class PaymentApprovedEventHandlerTest {
 
 		handler.handle(message);
 
-		ArgumentCaptor<PaymentApprovedPayload> captor = ArgumentCaptor.forClass(PaymentApprovedPayload.class);
+		ArgumentCaptor<PaymentApprovedCommand> captor = ArgumentCaptor.forClass(PaymentApprovedCommand.class);
 		then(processor).should().process(eq(eventId), eq("PAYMENT_APPROVED"), eq(APPROVED_AT), captor.capture());
-		PaymentApprovedPayload payload = captor.getValue();
+		PaymentApprovedCommand payload = captor.getValue();
 		assertThat(payload.orderId()).isEqualTo(ORDER_A);
-		assertThat(payload.approvedAtValue()).isEqualTo("2026-07-17T10:00:05+09:00");
+		assertThat(payload.approvedAmount()).isEqualTo(30_000);
 		assertThat(payload.approvedAt()).isEqualTo(APPROVED_AT);
 	}
 

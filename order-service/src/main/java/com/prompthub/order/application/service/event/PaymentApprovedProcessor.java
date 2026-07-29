@@ -1,5 +1,6 @@
 package com.prompthub.order.application.service.event;
 
+import com.prompthub.order.application.dto.event.PaymentApprovedCommand;
 import com.prompthub.order.application.event.order.OrderExpirationCleanupRequestedEvent;
 import com.prompthub.order.application.event.order.OrderProductReservationCleanupEvent;
 import com.prompthub.order.domain.enums.OrderStatus;
@@ -9,7 +10,6 @@ import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -39,16 +39,16 @@ public class PaymentApprovedProcessor {
 		UUID eventId,
 		String eventType,
 		LocalDateTime occurredAt,
-		PaymentApprovedPayload payload
+		PaymentApprovedCommand command
 	) {
 		validator.validateEnvelope(eventId, eventType, occurredAt);
-		LocalDateTime approvedAt = validator.validate(payload);
+		LocalDateTime approvedAt = validator.validate(command);
 		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
-			publishExpirationCleanup(payload.orderId());
+			publishExpirationCleanup(command.orderId());
 			return;
 		}
 
-		Order order = orderRepository.findByIdWithOrderProductsForUpdate(payload.orderId())
+		Order order = orderRepository.findByIdWithOrderProductsForUpdate(command.orderId())
 			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 
 		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {

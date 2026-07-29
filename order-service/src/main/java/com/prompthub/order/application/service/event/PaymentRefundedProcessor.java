@@ -1,11 +1,12 @@
 package com.prompthub.order.application.service.event;
 
+import com.prompthub.order.application.dto.event.PaymentRefundFailedCommand;
+import com.prompthub.order.application.dto.event.PaymentRefundedCommand;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,26 +29,26 @@ public class PaymentRefundedProcessor {
 	private final PaymentEventValidator validator;
 
 	@Transactional
-	public void process(UUID eventId, String eventType, LocalDateTime occurredAt, PaymentRefundedPayload payload) {
+	public void process(UUID eventId, String eventType, LocalDateTime occurredAt, PaymentRefundedCommand command) {
 		validator.validateEnvelope(eventId, eventType, occurredAt);
-		LocalDateTime refundedAt = validator.validate(payload);
+		LocalDateTime refundedAt = validator.validate(command);
 		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
 			return;
 		}
 
-		Order order = orderRepository.findByIdWithOrderProductsForUpdate(payload.orderId())
+		Order order = orderRepository.findByIdWithOrderProductsForUpdate(command.orderId())
 			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
 			return;
 		}
-		List<OrderProduct> refundedProducts = order.completeRequestedRefund(payload.refundAmount(), refundedAt);
+		List<OrderProduct> refundedProducts = order.completeRequestedRefund(command.refundAmount(), refundedAt);
 
 		orderOutboxAppender.appendRefunded(order, refundedProducts, refundedAt);
 		processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
 
 		log.info(
 			"결제 환불 이벤트 처리 완료. eventId={}, orderId={}, refundAmount={}, status={}",
-			eventId, order.getId(), payload.refundAmount(), order.getOrderStatus()
+			eventId, order.getId(), command.refundAmount(), order.getOrderStatus()
 		);
 	}
 
@@ -56,26 +57,26 @@ public class PaymentRefundedProcessor {
 		UUID eventId,
 		String eventType,
 		LocalDateTime occurredAt,
-		PaymentRefundedEventHandler.RefundFailedPayload payload
+		PaymentRefundFailedCommand command
 	) {
 		validator.validateEnvelope(eventId, eventType, occurredAt);
-		LocalDateTime failedAt = validator.validate(payload);
+		LocalDateTime failedAt = validator.validate(command);
 		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
 			return;
 		}
 
-		Order order = orderRepository.findByIdWithOrderProductsForUpdate(payload.orderId())
+		Order order = orderRepository.findByIdWithOrderProductsForUpdate(command.orderId())
 			.orElseThrow(() -> new OrderException(ErrorCode.ORDER_NOT_FOUND));
 		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
 			return;
 		}
-		order.validateRequestedRefundAmount(payload.refundAmount());
-		orderOutboxAppender.appendRefundFailed(order, payload.refundAmount(), failedAt);
+		order.validateRequestedRefundAmount(command.refundAmount());
+		orderOutboxAppender.appendRefundFailed(order, command.refundAmount(), failedAt);
 		processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
 
 		log.warn(
 			"결제 환불 실패 이벤트 처리 완료. eventId={}, orderId={}, refundAmount={}, failedAt={}",
-			eventId, payload.orderId(), payload.refundAmount(), failedAt
+			eventId, command.orderId(), command.refundAmount(), failedAt
 		);
 	}
 }

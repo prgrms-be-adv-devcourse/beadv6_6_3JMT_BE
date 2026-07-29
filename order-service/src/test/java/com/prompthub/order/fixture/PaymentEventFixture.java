@@ -1,9 +1,10 @@
 package com.prompthub.order.fixture;
 
+import com.prompthub.order.application.dto.event.PaymentApprovedCommand;
+import com.prompthub.order.application.dto.event.PaymentFailedCommand;
+import com.prompthub.order.application.dto.event.PaymentRefundedCommand;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -49,15 +50,20 @@ public final class PaymentEventFixture {
 		return List.of(PRODUCT_A, PRODUCT_B, PRODUCT_C, PRODUCT_D);
 	}
 
-	public static PaymentFailedPayload failedPayload() {
-		return new PaymentFailedPayload(PAYMENT_ID, ORDER_A, BUYER_ID);
+	public static PaymentFailedCommand failedPayload() {
+		return new PaymentFailedCommand(PAYMENT_ID, ORDER_A, BUYER_ID, 0, null, null, FAILED_AT);
 	}
 
-	public static PaymentApprovedPayload approvedPayload(Order order) {
-		return new PaymentApprovedPayload(
-			order.getId(),
-			APPROVED_AT_OFFSET
-		);
+	public static PaymentFailedCommand failedCommand() {
+		return failedPayload();
+	}
+
+	public static PaymentApprovedCommand approvedPayload(Order order) {
+		return new PaymentApprovedCommand(order.getId(), order.getTotalOrderAmount(), APPROVED_AT);
+	}
+
+	public static PaymentApprovedCommand approvedCommand(Order order) {
+		return approvedPayload(order);
 	}
 
 	private static void addProduct(

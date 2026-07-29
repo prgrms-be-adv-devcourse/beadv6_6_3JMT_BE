@@ -1,7 +1,9 @@
 package com.prompthub.order.application.service.event;
 
+import com.prompthub.order.application.dto.event.PaymentRefundFailedCommand;
+import com.prompthub.order.application.dto.event.PaymentRefundedCommand;
 import com.prompthub.common.event.EventMessage;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
+import com.prompthub.order.infra.messaging.kafka.consumer.payment.PaymentRefundedEventHandler;
 import com.prompthub.order.infra.messaging.kafka.support.EventPayloadMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,7 +50,7 @@ class PaymentRefundedEventHandlerTest {
 
 		handler.handle(message);
 
-		ArgumentCaptor<PaymentRefundedPayload> captor = ArgumentCaptor.forClass(PaymentRefundedPayload.class);
+		ArgumentCaptor<PaymentRefundedCommand> captor = ArgumentCaptor.forClass(PaymentRefundedCommand.class);
 		then(processor).should().process(eq(eventId), eq("PAYMENT_REFUNDED"), eq(occurredAt), captor.capture());
 		assertThat(captor.getValue().orderId()).isEqualTo(orderId);
 		assertThat(captor.getValue().refundAmount()).isEqualTo(30_000);
@@ -68,8 +70,8 @@ class PaymentRefundedEventHandlerTest {
 
 		handler.handleFailed(message);
 
-		ArgumentCaptor<PaymentRefundedEventHandler.RefundFailedPayload> captor =
-			ArgumentCaptor.forClass(PaymentRefundedEventHandler.RefundFailedPayload.class);
+		ArgumentCaptor<PaymentRefundFailedCommand> captor =
+			ArgumentCaptor.forClass(PaymentRefundFailedCommand.class);
 		then(processor).should().processFailed(
 			eq(eventId),
 			eq("PAYMENT_REFUND_FAILED"),
