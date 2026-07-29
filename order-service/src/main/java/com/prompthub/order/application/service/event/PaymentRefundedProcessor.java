@@ -71,6 +71,7 @@ public class PaymentRefundedProcessor {
 			return;
 		}
 		order.validateRequestedRefundAmount(command.refundAmount());
+		order.restoreRequestedRefund();
 		orderOutboxAppender.appendRefundFailed(order, command.refundAmount(), failedAt);
 		processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
 

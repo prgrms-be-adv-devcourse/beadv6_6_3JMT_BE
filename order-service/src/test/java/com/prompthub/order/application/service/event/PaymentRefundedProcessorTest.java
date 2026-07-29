@@ -74,7 +74,7 @@ class PaymentRefundedProcessorTest {
 	}
 
 	@Test
-	void processFailed_keepsOrderAndProductRequested() {
+	void processFailed_restoresOrderAndProductForRetry() {
 		Order order = createPaidOrderWithProducts();
 		OrderProduct target = order.getOrderProducts().getFirst();
 		order.requestRefund(List.of(target.getId()));
@@ -92,8 +92,10 @@ class PaymentRefundedProcessorTest {
 			)
 		);
 
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
+		assertThat(target.getOrderStatus()).isEqualTo(OrderProductStatus.PAID);
+		order.requestRefund(List.of(target.getId()));
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.REFUND_REQUESTED);
-		assertThat(target.getOrderStatus()).isEqualTo(OrderProductStatus.REFUND_REQUESTED);
 		then(orderOutboxAppender).should().appendRefundFailed(order, PRODUCT_AMOUNT_1, REFUNDED_AT);
 		then(processedEventService).should()
 			.markProcessed(eventId, "order-service", "PAYMENT_REFUND_FAILED", REFUNDED_AT);

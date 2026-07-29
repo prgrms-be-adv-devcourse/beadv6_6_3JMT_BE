@@ -346,7 +346,7 @@ class PaymentEventTransactionIntegrationTest {
 	}
 
 	@Test
-	void refundFailedEvent_keepsRefundRequestAndCommitsNotificationOutboxAndProcessedEvent() {
+	void refundFailedEvent_restoresPaidProductAndCommitsNotificationOutboxAndProcessedEvent() {
 		Order paidOrder = prepareRefund(saveAndApproveScenario(), ORDER_PRODUCT_A);
 
 		refundedProcessor.processFailed(
@@ -359,9 +359,9 @@ class PaymentEventTransactionIntegrationTest {
 		);
 
 		Order reloaded = reloadOrder();
-		assertThat(reloaded.getOrderStatus()).isEqualTo(OrderStatus.REFUND_REQUESTED);
+		assertThat(reloaded.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
 		assertThat(findProduct(reloaded, ORDER_PRODUCT_A).getOrderStatus())
-			.isEqualTo(OrderProductStatus.REFUND_REQUESTED);
+			.isEqualTo(OrderProductStatus.PAID);
 		assertThat(outboxEventPersistence.findAll())
 			.extracting(OutboxEvent::getEventType)
 			.containsExactlyInAnyOrder("ORDER_PAID", "ORDER_REFUND_FAILED");
