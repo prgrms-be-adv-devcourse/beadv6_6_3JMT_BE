@@ -44,8 +44,8 @@ spec:
                 - |
                   until wget -q -O /dev/null http://config:8888/actuator/health; do sleep 2; done
                   until nc -z postgres 5432; do sleep 2; done
-                  until nc -z kafka 9092; do sleep 2; done
                   until nc -z order-service 9083; do sleep 2; done
+                  until nc -z user-service 9081; do sleep 2; done
               resources:
                 requests:
                   cpu: 5m
@@ -64,6 +64,7 @@ spec:
                 - --eureka.client.enabled=false
                 - --spring.cloud.discovery.enabled=false
                 - --spring.grpc.client.channel.order-service.target=static://order-service:$(ORDER_GRPC_SERVER_PORT)
+                - --spring.grpc.client.channel.user-service.target=static://user-service:$(USER_GRPC_SERVER_PORT)
               securityContext:
                 allowPrivilegeEscalation: false
                 capabilities:
@@ -97,11 +98,11 @@ spec:
                     secretKeyRef:
                       name: postgres-secret
                       key: SETTLEMENT_SERVICE_PASSWORD
-                - name: KAFKA_BOOTSTRAP_SERVERS
+                - name: SETTLEMENT_USER_GRPC_TOKEN
                   valueFrom:
                     secretKeyRef:
                       name: runtime-secret
-                      key: KAFKA_BOOTSTRAP_SERVERS
+                      key: SETTLEMENT_USER_GRPC_TOKEN
                 - name: USER_GRPC_SERVER_PORT
                   valueFrom:
                     secretKeyRef:

@@ -45,7 +45,6 @@ spec:
               until wget -q -O /dev/null http://config:8888/actuator/health; do sleep 2; done
               until nc -z postgres 5432; do sleep 2; done
               until nc -z redis 6379; do sleep 2; done
-              until nc -z kafka 9092; do sleep 2; done
           resources:
             requests:
               cpu: 5m
@@ -114,13 +113,6 @@ spec:
                 secretKeyRef:
                   name: runtime-secret
                   key: REDIS_PORT
-            - name: KAFKA_BOOTSTRAP_SERVERS
-              valueFrom:
-                secretKeyRef:
-                  name: runtime-secret
-                  key: KAFKA_BOOTSTRAP_SERVERS
-            - name: USER_SETTLEMENT_KAFKA_LISTENER_ENABLED
-              value: "true"
             - name: JWT_PRIVATE_KEY
               valueFrom:
                 secretKeyRef:
@@ -146,6 +138,11 @@ spec:
                 secretKeyRef:
                   name: ai-secret
                   key: AI_USER_GRPC_TOKEN
+            - name: SETTLEMENT_USER_GRPC_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secret
+                  key: SETTLEMENT_USER_GRPC_TOKEN
             - name: PRODUCT_GRPC_SERVER_PORT
               valueFrom:
                 secretKeyRef:

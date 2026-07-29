@@ -14,6 +14,7 @@ class AiSettlementConfigurationContractTest {
     void ai_정산_운영_설정과_User_내부_계약을_제공한다() {
         Properties global = load("configs/application.yml");
         Properties ai = load("configs/ai-service.yml");
+        Properties settlement = load("configs/settlement-service.yml");
         Properties user = load("configs/user-service.yml");
 
         assertThat(global.getProperty("gateway.api-versions.ai-service[0]")).isEqualTo("v2");
@@ -31,10 +32,17 @@ class AiSettlementConfigurationContractTest {
             .isEqualTo("${AI_SETTLEMENT_CHAT_ENABLED:false}");
         assertThat(ai.getProperty("spring.ai.openai.api-key")).isEqualTo("${OPENAI_API_KEY}");
 
-        assertThat(user.getProperty("user.kafka.listener.settlement.enabled"))
-            .isEqualTo("${USER_SETTLEMENT_KAFKA_LISTENER_ENABLED:false}");
         assertThat(user.getProperty("user.grpc.seller-settlement.internal-token"))
             .isEqualTo("${AI_USER_GRPC_TOKEN}");
+        assertThat(user.getProperty("user.grpc.seller-settlement-command.internal-token"))
+            .isEqualTo("${SETTLEMENT_USER_GRPC_TOKEN}");
+        assertThat(settlement.getProperty(
+                "spring.grpc.client.channel.user-service.target"))
+            .isEqualTo("${USER_GRPC_TARGET:static://user-service:9081}");
+        assertThat(settlement.getProperty("settlement.delivery.grpc.internal-token"))
+            .isEqualTo("${SETTLEMENT_USER_GRPC_TOKEN}");
+        assertThat(settlement.getProperty("settlement.delivery.grpc.deadline"))
+            .isEqualTo("10s");
     }
 
     private Properties load(String path) {
