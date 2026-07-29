@@ -2,16 +2,23 @@ package com.prompthub.admin.settlement.service;
 
 import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.global.exception.AdminException;
+import com.prompthub.admin.settlement.dto.SettlementDeliveryListQuery;
 import com.prompthub.admin.settlement.dto.SettlementListQuery;
 import com.prompthub.admin.settlement.dto.SettlementWeeklyListQuery;
+import com.prompthub.admin.settlement.dto.response.SettlementDeliveryListResponse;
+import com.prompthub.admin.settlement.dto.response.SettlementDeliverySummaryResponse;
 import com.prompthub.admin.settlement.entity.Settlement;
+import com.prompthub.admin.settlement.entity.SettlementDelivery;
 import com.prompthub.admin.settlement.entity.SettlementSourceLine;
+import com.prompthub.admin.settlement.infrastructure.kubernetes.SettlementDeliveryRetryJobAlreadyExistsException;
+import com.prompthub.admin.settlement.infrastructure.kubernetes.SettlementDeliveryRetryJobClient;
 import com.prompthub.admin.settlement.repository.SettlementMonthlyQueryRepository;
 import com.prompthub.admin.settlement.repository.SettlementMonthlyQueryRepository.MonthlyAggregate;
 import com.prompthub.admin.settlement.repository.SettlementMonthlyQueryRepository.MonthlyKey;
 import com.prompthub.admin.settlement.repository.SettlementMonthlyQueryRepository.MonthlyPage;
 import com.prompthub.admin.settlement.repository.SettlementMonthlyQueryRepository.MonthlyStatusCount;
 import com.prompthub.admin.settlement.repository.SettlementQueryRepository;
+import com.prompthub.admin.settlement.repository.SettlementQueryRepository.DeliveryPage;
 import com.prompthub.admin.settlement.repository.SettlementRepository;
 import com.prompthub.admin.settlement.repository.SettlementSourceRepository;
 import com.prompthub.admin.settlement.repository.SettlementStatusAggregate;
@@ -30,11 +37,13 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -49,6 +58,7 @@ public class SettlementService {
 	private final UserService userService;
 	private final SettlementRepository settlementRepository;
 	private final SettlementSourceRepository settlementSourceRepository;
+	private final SettlementDeliveryRetryJobClient retryJobClient;
 
 	public SettlementListResponse getList(SettlementListQuery query) {
 		MonthlyPage page = monthlyQueryRepository.findMonthlyPage(
@@ -114,6 +124,52 @@ public class SettlementService {
 		List<SettlementStatusAggregate> aggregates =
 			settlementQueryRepository.aggregateByStatus(settlementMonth);
 		return new SettlementSummaryResponse(SettlementSummaryAggregator.toCards(aggregates));
+	}
+
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public SettlementDeliveryListResponse getDeliveryList(
+		SettlementDeliveryListQuery query) {
+		DeliveryPage page = settlementQueryRepository.findDeliveryPage(query);
+		Set<UUID> activeDeliveryIds = retryJobClient.findActiveDeliveryIds();
+		return SettlementDeliveryListResponse.from(
+			page.content(),
+			page.totalElements(),
+			query.page(),
+			query.size(),
+			activeDeliveryIds);
+	}
+
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public SettlementDeliverySummaryResponse getDeliverySummary() {
+		Set<UUID> activeDeliveryIds = retryJobClient.findActiveDeliveryIds();
+		return SettlementDeliverySummaryResponse.from(
+			settlementQueryRepository.countDeliveryByStatus(),
+			activeDeliveryIds.size());
+	}
+
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public void retryDelivery(UUID settlementDeliveryId) {
+		SettlementDelivery delivery = settlementQueryRepository
+			.findDeliveryById(settlementDeliveryId)
+			.orElseThrow(() ->
+				new AdminException(
+					AdminErrorCode.SETTLEMENT_DELIVERY_NOT_FOUND));
+		if (!delivery.canRetry()) {
+			throw new AdminException(
+				AdminErrorCode.SETTLEMENT_DELIVERY_RETRY_NOT_ALLOWED);
+		}
+		if (retryJobClient.isActive(settlementDeliveryId)) {
+			throw new AdminException(
+				AdminErrorCode.SETTLEMENT_DELIVERY_RETRY_ALREADY_RUNNING);
+		}
+		try {
+			retryJobClient.launch(
+				settlementDeliveryId,
+				delivery.getAttemptCount());
+		} catch (SettlementDeliveryRetryJobAlreadyExistsException exception) {
+			throw new AdminException(
+				AdminErrorCode.SETTLEMENT_DELIVERY_RETRY_ALREADY_RUNNING);
+		}
 	}
 
 	@Transactional
