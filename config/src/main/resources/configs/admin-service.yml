@@ -2,6 +2,8 @@ server:
   port: 18086
 
 spring:
+  flyway:
+    enabled: false
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?currentSchema=user_service,product_service,order_service,payment_service,settlement_service
     username: ${POSTGRES_USER}
