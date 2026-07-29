@@ -772,7 +772,14 @@
         "status": "ON_SALE",
         "date": "2026-07-01",
         "changeReason": null,
-        "rejectionReason": null
+        "rejectionReason": null,
+        "hasContext": true,
+        "hasObjective": true,
+        "hasNuance": false,
+        "hasTone": true,
+        "hasExamples": false,
+        "hasExecution": true,
+        "hasRoleAssignment": false
       }
     ]
   },
@@ -792,6 +799,13 @@
 | versions[].date | string | 해당 버전 갱신일(YYYY-MM-DD) |
 | versions[].changeReason | string \| null | 버전업 변경 사유 |
 | versions[].rejectionReason | string \| null | 검수 반려 사유 (반려된 버전만) |
+| versions[].hasContext | boolean | AI 검수 체크리스트: 맥락 명시 여부. 검수 전(PENDING_REVIEW 최초 제출 등)에는 false |
+| versions[].hasObjective | boolean | AI 검수 체크리스트: 목표 명시 여부 |
+| versions[].hasNuance | boolean | AI 검수 체크리스트: 뉘앙스 명시 여부 |
+| versions[].hasTone | boolean | AI 검수 체크리스트: 톤 명시 여부 |
+| versions[].hasExamples | boolean | AI 검수 체크리스트: 예시 포함 여부 |
+| versions[].hasExecution | boolean | AI 검수 체크리스트: 실행 지침 포함 여부 |
+| versions[].hasRoleAssignment | boolean | AI 검수 체크리스트: 역할 부여 포함 여부 (#671) |
 
 ---
 

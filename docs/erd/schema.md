@@ -124,6 +124,13 @@
 | badge | VARCHAR(50) | | NULL | 상품 뱃지 (`신규` 등) |
 | status | VARCHAR(30) | ✓ | DRAFT | DRAFT / PENDING_REVIEW / ON_SALE / REJECTED / STOPPED / SUPERSEDED (CHECK constraint). SUPERSEDED = 버전업 승인 시 밀려난 이전 ON_SALE row |
 | rejection_reason | VARCHAR(1000) | | NULL | 검수 반려 사유. REJECTED 상태에서만 유효 |
+| has_context | BOOLEAN | ✓ | false | AI 검수 체크리스트: 맥락 명시 여부 |
+| has_objective | BOOLEAN | ✓ | false | AI 검수 체크리스트: 목표 명시 여부 |
+| has_nuance | BOOLEAN | ✓ | false | AI 검수 체크리스트: 뉘앙스 명시 여부 |
+| has_tone | BOOLEAN | ✓ | false | AI 검수 체크리스트: 톤 명시 여부 |
+| has_examples | BOOLEAN | ✓ | false | AI 검수 체크리스트: 예시 포함 여부 |
+| has_execution | BOOLEAN | ✓ | false | AI 검수 체크리스트: 실행 지침 포함 여부 |
+| has_role_assignment | BOOLEAN | ✓ | false | AI 검수 체크리스트: 역할 부여 포함 여부. 위 7개는 ai-service PRODUCT_INSPECTION_COMPLETED 이벤트 payload 값을 승인/반려 시 그대로 저장한다(#671) |
 | sales_count | INT | ✓ | 0 | 누적 판매 수 |
 | view_count | INT | ✓ | 0 | 조회 수 |
 | wish_count | INT | ✓ | 0 | 찜 수 |
