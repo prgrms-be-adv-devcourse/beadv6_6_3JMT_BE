@@ -14,7 +14,8 @@ public record SellerProductVersionResponse(
 	boolean hasTone,
 	boolean hasExamples,
 	boolean hasExecution,
-	boolean hasRoleAssignment
+	boolean hasRoleAssignment,
+	boolean checklistRecorded
 ) {
 	public static SellerProductVersionResponse from(Product product) {
 		return new SellerProductVersionResponse(
@@ -29,7 +30,8 @@ public record SellerProductVersionResponse(
 			product.isHasTone(),
 			product.isHasExamples(),
 			product.isHasExecution(),
-			product.isHasRoleAssignment()
+			product.isHasRoleAssignment(),
+			product.isChecklistRecorded()
 		);
 	}
 }

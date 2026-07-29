@@ -111,6 +111,14 @@ class ProductTest {
 		assertThat(product.isHasContext()).isTrue();
 		assertThat(product.isHasNuance()).isFalse();
 		assertThat(product.isHasRoleAssignment()).isFalse();
+		assertThat(product.isChecklistRecorded()).isTrue();
+	}
+
+	@Test
+	void create_beforeInspection_checklistNotRecorded() {
+		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
+
+		assertThat(product.isChecklistRecorded()).isFalse();
 	}
 
 	@Test
@@ -131,6 +139,7 @@ class ProductTest {
 		assertThat(product.getRejectionReason()).isEqualTo("금지 콘텐츠 포함");
 		assertThat(product.isHasObjective()).isTrue();
 		assertThat(product.isHasContext()).isFalse();
+		assertThat(product.isChecklistRecorded()).isTrue();
 	}
 
 	@Test

@@ -365,7 +365,10 @@ class ProductControllerTest {
 				.andExpect(jsonPath("$.data.productType").value("PROMPT"))
 				.andExpect(jsonPath("$.data.tags[0]").value("리액트"))
 				.andExpect(jsonPath("$.data.versions[0].ver").value("v1.3"))
-				.andExpect(jsonPath("$.data.imageUrls[0]").value("https://cdn.example.com/images/1.jpg"));
+				.andExpect(jsonPath("$.data.imageUrls[0]").value("https://cdn.example.com/images/1.jpg"))
+				.andExpect(jsonPath("$.data.hasContext").value(true))
+				.andExpect(jsonPath("$.data.hasNuance").value(false))
+				.andExpect(jsonPath("$.data.checklistRecorded").value(true));
 		}
 
 		@Test
@@ -578,6 +581,14 @@ class ProductControllerTest {
 			List.of("리액트", "리팩터링"),
 			List.of(new ProductVersionResponse("v1.3", "2026-06-01", "테스트 개선")),
 			List.of(),
+			true,
+			true,
+			false,
+			true,
+			false,
+			true,
+			false,
+			true,
 			CREATED_AT,
 			UPDATED_AT
 		);

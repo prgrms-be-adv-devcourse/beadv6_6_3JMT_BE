@@ -155,6 +155,14 @@ public class ProductQueryService implements ProductQueryUseCase {
 			product.getTags(),
 			toVersionHistory(product.familyRootId()),
 			List.of(),
+			product.isHasContext(),
+			product.isHasObjective(),
+			product.isHasNuance(),
+			product.isHasTone(),
+			product.isHasExamples(),
+			product.isHasExecution(),
+			product.isHasRoleAssignment(),
+			product.isChecklistRecorded(),
 			product.getCreatedAt(),
 			product.getUpdatedAt()
 		);
