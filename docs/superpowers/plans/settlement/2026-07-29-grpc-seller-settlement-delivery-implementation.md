@@ -582,7 +582,7 @@ git commit -m "feat: 정산 전달 원장 및 상태 관리 추가"
 - Create: `settlement-service/src/main/java/com/prompthub/settlement/application/dto/SellerSettlementRegistrationCommand.java`
 - Create: `settlement-service/src/main/java/com/prompthub/settlement/application/dto/SellerSettlementStoredSnapshot.java`
 - Create: `settlement-service/src/main/java/com/prompthub/settlement/application/dto/SettlementDeliveryComparison.java`
-- Create: `settlement-service/src/main/java/com/prompthub/settlement/application/port/SellerSettlementRegistrationPort.java`
+- Create: `settlement-service/src/main/java/com/prompthub/settlement/application/port/SellerSettlementRegistration.java`
 - Create: `settlement-service/src/main/java/com/prompthub/settlement/application/service/SettlementDeliveryReconciler.java`
 - Create: `settlement-service/src/main/java/com/prompthub/settlement/application/exception/SellerSettlementDeliveryException.java`
 - Create: `settlement-service/src/main/java/com/prompthub/settlement/infrastructure/client/user/SellerSettlementCommandGrpcClient.java`
@@ -661,7 +661,7 @@ Expected: DTO, port, client, reconciler가 없어 실패.
 금액은 `compareTo`, 시각은 `ChronoUnit.MICROS`로 truncate, 상세는 ID map으로 비교한다. 중복 ID를 map으로 덮어쓰지 말고 별도 mismatch로 집계한다.
 
 ```java
-public interface SellerSettlementRegistrationPort {
+public interface SellerSettlementRegistration {
     SellerSettlementStoredSnapshot register(
             SellerSettlementRegistrationCommand command);
 }
@@ -1175,7 +1175,7 @@ PR 본문 필수 내용:
 
 ## 의존성과 제외 범위
 - base: `feat/#635-settlement-batch-reconciliation`
-- #642가 detail 계약을 확장하면 기존 proto 필드 번호를 유지하고 신규 필드로 통합
+- #642의 `settlementSourceLineId`를 기존 proto 필드 번호를 유지한 9번 필드로 통합
 - #639 SourceLine 대사와 #655 어드민 재전송은 제외
 
 Refs #637

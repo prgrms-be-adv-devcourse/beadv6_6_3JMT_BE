@@ -73,7 +73,7 @@ Settlement 계산이 완료되면 `SettlementBatchStatus`는 `COMPLETED`가 된�
 
 로컬 Delivery 저장 자체가 실패하는 등 결과를 기록할 수 없는 로컬 장애는 Job 실패로 처리한다. 원격 통신 실패와 대사 불일치는 정산 단위로 흡수한다.
 
-배치가 `COMPLETED`된 뒤 Delivery Step에서 로컬 장애가 발생하면 Spring Batch Job은 실패할 수 있지만 도메인 배치 상태는 계산 완료를 의미하므로 되돌리지 않는다. 같은 Job을 재시작하면 현재 배치의 `CALCULATED` Delivery만 다시 처리한다. `RECONCILED`, `MISMATCH`, `DELIVERY_FAILED`는 자동 재처리하지 않는다.
+배치가 `COMPLETED`된 뒤 Delivery Step에서 로컬 장애가 발생하면 Spring Batch Job은 실패할 수 있지만 도메인 배치 상태는 계산 완료를 의미하므로 되돌리지 않는다. 이 경우 `COMPLETED` 상태를 `RETRY_REQUESTED`로 바꾸지 않고 같은 Job을 재시작하며, 완료된 앞 단계는 건너뛰고 현재 배치의 `CALCULATED` Delivery만 다시 처리한다. `RECONCILED`, `MISMATCH`, `DELIVERY_FAILED`는 자동 재처리하지 않는다.
 
 ## 6. Settlement Delivery 모델
 
@@ -164,6 +164,7 @@ message SellerSettlementSnapshot {
 상세는 다음 정보를 포함한다.
 
 - `settlement_detail_id`
+- `settlement_source_line_id`
 - `order_product_id`
 - `line_type`
 - `line_amount`
@@ -176,7 +177,7 @@ UUID, 날짜, 시각과 `BigDecimal`은 기존 공용 proto 관례에 맞춰 문
 
 계약에서는 기존 `totalAmount`의 실제 의미가 드러나도록 `gross_sales_amount`를 사용한다. 이번 이슈에서 기존 Java 필드와 DB의 `total_amount`는 변경하지 않고 매퍼에서 변환한다.
 
-#642가 `settlement_detail`에 SourceLine 식별자를 추가하면 기존 필드 번호를 바꾸지 않고 신규 proto 필드로 통합한다.
+#642가 추가한 `settlementSourceLineId`는 상세의 9번 필드로 통합한다. 기존 proto 필드 번호는 유지한다.
 
 ## 8. User Service 등록과 멱등성
 
@@ -203,7 +204,7 @@ User Service V4에서 `seller_settlement.delivery_request_id`를 nullable UUID�
 
 - 기존 Kafka 행: `delivery_request_id = NULL`
 - 신규 gRPC 행: 애플리케이션에서 반드시 값 저장
-- 기존 행과 신규 요청의 모든 정산 필드와 상세가 일치: 기존 행에 `deliveryRequestId`만 연결
+- 기존 행과 신규 요청의 모든 정산 필드와 상세가 일치: 기존 행에 `deliveryRequestId`와 상세별 `settlementSourceLineId` 연결
 - 하나라도 불일치: 기존 행을 변경하지 않고 기존 Snapshot 반환
 
 기존 데이터 보존을 위해 DB 컬럼 자체에는 NOT NULL을 적용하지 않는다.
@@ -252,6 +253,7 @@ Settlement Service는 User Service가 read-back한 Snapshot을 원본과 비교�
 - 금액과 수수료율: `BigDecimal.compareTo` 기준으로 비교해 scale 차이는 무시
 - 상세 순서: 무시
 - 상세 매칭 키: `settlementDetailId`
+- 상세 원천 추적: `settlementSourceLineId` 정확히 일치
 - 상세 ID 중복: 불일치
 - 한쪽에만 존재하는 상세: 불일치
 - 매칭된 상세의 모든 계약 필드: 직접 비교
@@ -288,6 +290,7 @@ Outbox 데이터 삭제는 사용자가 승인했다.
 
 - `seller_settlement.delivery_request_id UUID NULL` 추가
 - UNIQUE 제약 또는 유니크 인덱스 추가
+- `seller_settlement_detail.settlement_source_line_id UUID NULL` 추가
 
 ### 12.3 코드 제거
 
