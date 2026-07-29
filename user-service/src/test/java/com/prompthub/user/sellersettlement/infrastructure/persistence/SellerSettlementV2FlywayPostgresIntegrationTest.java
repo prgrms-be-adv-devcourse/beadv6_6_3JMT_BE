@@ -61,10 +61,48 @@ class SellerSettlementV2FlywayPostgresIntegrationTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    @Test
+    @DisplayName("V4는 기존 행을 NULL로 보존하고 non-null deliveryRequestId의 중복을 막는다")
+    void migrate_preservesLegacyRowsAndEnforcesUniqueDeliveryRequestId() {
+        migrateThroughV3();
+        JdbcTemplate jdbc = jdbcTemplate();
+        UUID firstSettlementId = UUID.randomUUID();
+        insertSettlement(jdbc, UUID.randomUUID(), firstSettlementId, (short) 2);
+
+        migrateAll();
+
+        assertThat(jdbc.queryForObject(
+                "select delivery_request_id from seller_settlement where settlement_id = ?",
+                UUID.class,
+                firstSettlementId)).isNull();
+
+        UUID deliveryRequestId = UUID.randomUUID();
+        jdbc.update(
+                "update seller_settlement set delivery_request_id = ? where settlement_id = ?",
+                deliveryRequestId,
+                firstSettlementId);
+        UUID secondSettlementId = UUID.randomUUID();
+        insertSettlement(jdbc, UUID.randomUUID(), secondSettlementId, (short) 2);
+
+        assertThatThrownBy(() -> jdbc.update(
+                "update seller_settlement set delivery_request_id = ? where settlement_id = ?",
+                deliveryRequestId,
+                secondSettlementId))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
     private void migrateThroughV2() {
         Flyway.configure()
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .target(MigrationVersion.fromVersion("2"))
+                .load()
+                .migrate();
+    }
+
+    private void migrateThroughV3() {
+        Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .target(MigrationVersion.fromVersion("3"))
                 .load()
                 .migrate();
     }
