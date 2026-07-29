@@ -5,7 +5,7 @@ description: settlement-service에서 계산·상태 전이·중복·권한·예
 
 # 정산 테스트 우선 구현
 
-1. 저장소 루트 기준으로 `settlement-service/CLAUDE.md`, `settlement-service/.claude/rules/clean-architecture.md`, `settlement-service/.claude/rules/domain-model.md`, `settlement-service/.claude/rules/code-style.md`를 읽는다.
+1. 저장소 루트 기준으로 `settlement-service/CLAUDE.md`, `.claude/rules/clean-architecture.md`, `.claude/rules/domain-model.md`, `.claude/rules/code-style.md`를 읽는다.
 2. 성공·실패·경계 규칙을 정리하고 Domain → Application Service 순서로 테스트한다.
 3. 실제 DB·HTTP·Security·Batch·Transaction 검증은 구현 후 통합 테스트로 분리한다.
 4. 첫 규칙 테스트를 작성하고 `./gradlew :settlement-service:test --tests "<test-class>"`로 RED를 확인한다.

@@ -16,7 +16,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * order-events 소비 어댑터. (kafka-event.md §7)
+ * order-events 소비 어댑터. (루트 kafka-event.md 참고)
  * 공통 EventMessage<JsonNode> 로 수신 → eventType 확인 → 지원 타입이면 usecase(핸들러) 호출. 얇게 유지한다.
  * 미지원 eventType 은 로그+Ack(DLT 아님). 역직렬화/필수필드 누락 등은 예외로 던져 컨테이너 에러핸들러가 DLT 로 보낸다.
  */

@@ -2,6 +2,7 @@ package com.prompthub.product.infra.messaging.consumer.ai;
 
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.product.application.service.ProductInspectionResultHandler;
+import com.prompthub.product.domain.model.vo.InspectionChecklist;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +15,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * ai-events 소비 어댑터. (kafka-event.md §7)
+ * ai-events 소비 어댑터. (루트 kafka-event.md 참고)
  * 미지원 eventType 은 로그+Ack(DLT 아님). handler가 던지는 IllegalStateException(중복/이미
  * 처리된 상품)도 로그+Ack로 흡수한다 — 정상적인 중복 이벤트이지 처리 실패가 아니다.
  */
@@ -49,9 +50,18 @@ public class ProductInspectionResultConsumer {
 		UUID productId = UUID.fromString(payload.path("productId").stringValue(null));
 		boolean approved = payload.path("approved").asBoolean(false);
 		String rejectionReason = payload.path("rejectionReason").stringValue(null);
+		InspectionChecklist checklist = new InspectionChecklist(
+			payload.path("hasContext").asBoolean(false),
+			payload.path("hasObjective").asBoolean(false),
+			payload.path("hasNuance").asBoolean(false),
+			payload.path("hasTone").asBoolean(false),
+			payload.path("hasExamples").asBoolean(false),
+			payload.path("hasExecution").asBoolean(false),
+			payload.path("hasRoleAssignment").asBoolean(false)
+		);
 
 		try {
-			productInspectionResultHandler.apply(productId, approved, rejectionReason);
+			productInspectionResultHandler.apply(productId, approved, rejectionReason, checklist);
 		} catch (IllegalStateException e) {
 			log.info("이미 처리된 상품 검수 결과라 스킵함. productId={}", productId);
 		}

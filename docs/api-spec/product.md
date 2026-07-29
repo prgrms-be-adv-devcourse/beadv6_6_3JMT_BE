@@ -327,12 +327,31 @@
       { "ver": "v1.2", "date": "2026-05-10", "note": "배경 제거 옵션 개선" }
     ],
     "features": ["고해상도 출력 지원", "상업적 이용 가능", "버전 업데이트 무료 제공"],
+    "hasContext": true,
+    "hasObjective": true,
+    "hasNuance": false,
+    "hasTone": true,
+    "hasExamples": false,
+    "hasExecution": true,
+    "hasRoleAssignment": false,
+    "checklistRecorded": true,
     "createdAt": "2026-05-01T00:00:00.000Z",
     "updatedAt": "2026-06-01T00:00:00.000Z"
   },
   "message": "success"
 }
 ```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| hasContext | boolean | AI 검수 체크리스트: 맥락 명시 여부 |
+| hasObjective | boolean | AI 검수 체크리스트: 목표 명시 여부 |
+| hasNuance | boolean | AI 검수 체크리스트: 뉘앙스 명시 여부 |
+| hasTone | boolean | AI 검수 체크리스트: 톤 명시 여부 |
+| hasExamples | boolean | AI 검수 체크리스트: 예시 포함 여부 |
+| hasExecution | boolean | AI 검수 체크리스트: 실행 지침 포함 여부 |
+| hasRoleAssignment | boolean | AI 검수 체크리스트: 역할 부여 포함 여부 (#671) |
+| checklistRecorded | boolean | 위 체크리스트 7개가 실제로 검수 이벤트로 기록됐는지 여부. `false`면 7개 값은 무시한다 — "검수 미달"이 아니라 "이 기능 배포 전에 승인/반려되어 기록이 없음"이라는 뜻이다. FE는 이 값이 `false`일 때 체크리스트 섹션 자체를 숨겨야 한다 (#671) |
 
 > `seller`(판매자 이름)·`sellerProfileImageUrl` 필드는 더 이상 내려주지 않는다(#440) — 프론트가
 > `sellerId`로 user-service 배치 조회 API를 직접 호출해 렌더링한다. `sellerProductCount`는
@@ -772,7 +791,15 @@
         "status": "ON_SALE",
         "date": "2026-07-01",
         "changeReason": null,
-        "rejectionReason": null
+        "rejectionReason": null,
+        "hasContext": true,
+        "hasObjective": true,
+        "hasNuance": false,
+        "hasTone": true,
+        "hasExamples": false,
+        "hasExecution": true,
+        "hasRoleAssignment": false,
+        "checklistRecorded": true
       }
     ]
   },
@@ -792,85 +819,21 @@
 | versions[].date | string | 해당 버전 갱신일(YYYY-MM-DD) |
 | versions[].changeReason | string \| null | 버전업 변경 사유 |
 | versions[].rejectionReason | string \| null | 검수 반려 사유 (반려된 버전만) |
+| versions[].hasContext | boolean | AI 검수 체크리스트: 맥락 명시 여부 |
+| versions[].hasObjective | boolean | AI 검수 체크리스트: 목표 명시 여부 |
+| versions[].hasNuance | boolean | AI 검수 체크리스트: 뉘앙스 명시 여부 |
+| versions[].hasTone | boolean | AI 검수 체크리스트: 톤 명시 여부 |
+| versions[].hasExamples | boolean | AI 검수 체크리스트: 예시 포함 여부 |
+| versions[].hasExecution | boolean | AI 검수 체크리스트: 실행 지침 포함 여부 |
+| versions[].hasRoleAssignment | boolean | AI 검수 체크리스트: 역할 부여 포함 여부 (#671) |
+| versions[].checklistRecorded | boolean | 위 체크리스트 7개가 실제로 검수 이벤트로 기록됐는지 여부. `false`면 아직 검수 전(PENDING_REVIEW 최초 제출 등)이거나, 이 기능 배포 전에 이미 처리된 버전이라 기록이 없다는 뜻 (#671) |
 
 ---
 
 ## 상품 검수 (관리자)
 
-### GET /admin/products — 전체 상품 목록 조회
-
-- UC: UC-PRODUCT-05
-- 인증: 필요
-- 필요 역할: ADMIN
-
-#### Response
-
-**200 OK**
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "productId": "uuid",
-      "title": "상품명",
-      "sellerNickname": "김철수",
-      "productType": "PROMPT",
-      "model": "Claude 3.5",
-      "amount": 5000,
-      "status": "PENDING_REVIEW",
-      "createdAt": "2024-01-01T00:00:00"
-    }
-  ],
-  "message": "success"
-}
-```
-
----
-
-### PUT /admin/products/{productId}/approve — 검수 승인
-
-- UC: UC-PRODUCT-05
-- 인증: 필요
-- 필요 역할: ADMIN
-- 상태 전이: PENDING_REVIEW → ON_SALE
-
-#### Path Parameters
-
-| 파라미터 | 타입 | 설명 |
-|---------|------|------|
-| productId | UUID | 상품 ID |
-
-#### Response
-
-**200 OK** — 응답 바디 없음
-
----
-
-### PUT /admin/products/{productId}/reject — 검수 반려
-
-- UC: UC-PRODUCT-05
-- 인증: 필요
-- 필요 역할: ADMIN
-- 상태 전이: PENDING_REVIEW → REJECTED
-
-#### Path Parameters
-
-| 파라미터 | 타입 | 설명 |
-|---------|------|------|
-| productId | UUID | 상품 ID |
-
-#### Request
-
-```json
-{
-  "reason": "반려 사유"
-}
-```
-
-#### Response
-
-**200 OK** — 응답 바디 없음
+관리자 상품 검수 API(목록 조회·승인·반려·되돌리기)는 admin-service로 이관되었다.
+`docs/api-spec/admin.md` 참고.
 
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: .claude/plans/ 태스크 문서를 읽어 완료/미완료 Task를 판별하고, 다음 미완료 Task부터 작업을 재개합니다. 완료 판별은 체크박스와 git log를 교차 확인합니다.
+description: docs/records/plan/payment/ 태스크 문서를 읽어 완료/미완료 Task를 판별하고, 다음 미완료 Task부터 작업을 재개합니다. 완료 판별은 체크박스와 git log를 교차 확인합니다.
 argument-hint: "[태스크 문서명(선택)] 예) 398-refund-flow-redesign-tasks.md (생략 시 최신 문서)"
 ---
 
@@ -9,8 +9,8 @@ argument-hint: "[태스크 문서명(선택)] 예) 398-refund-flow-redesign-task
 
 ## 1단계: 태스크 문서 결정
 
-- `$ARGUMENTS`에 문서명(또는 일부)이 있으면 `.claude/plans/`에서 해당 파일을 찾는다. 부분 일치 허용(예: `398` → `398-refund-flow-redesign-tasks.md`).
-- 생략 시 `.claude/plans/` 직하(archive 제외)에서 가장 최근 수정된 `*-tasks.md`를 선택한다.
+- `$ARGUMENTS`에 문서명(또는 일부)이 있으면 `docs/records/plan/payment/`에서 해당 파일을 찾는다. 부분 일치 허용(예: `398` → `398-refund-flow-redesign-tasks.md`).
+- 생략 시 `docs/records/plan/payment/` 직하(archive 제외)에서 가장 최근 수정된 `*-tasks.md`를 선택한다.
 - `-tasks.md`가 없고 계획 문서(`{번호}-{slug}.md`)만 있으면 그 문서를 사용하되, "태스크 문서가 아니라 계획 문서입니다 — 구현 순서 섹션 기준으로 진행합니다."라고 알린다.
 - 대응하는 계획 문서(`-tasks` 없는 동명 파일)가 있으면 **함께 읽는다** — 설계 결정의 "왜"가 거기에 있다.
 
@@ -52,7 +52,7 @@ Task 3: <제목> — ⬜ 미완료
 
 판별된 Task부터 문서의 Step 순서대로 실행한다.
 
-- **Task = 1 커밋** (`plan-doc-format.md`) — Task 내부를 여러 커밋으로 쪼개지 않고, 마지막 Step에서 `/create-commit` 절차로 커밋한다.
+- **Task = 1 커밋** (`plan-doc-format.md`) — Task 내부를 여러 커밋으로 쪼개지 않고, 마지막 Step에서 루트 `commit` 스킬(`/commit`)로 커밋한다.
 - Step을 완료할 때마다 태스크 문서의 해당 체크박스를 `- [x]`로 갱신한다(2단계 문제의 재발 방지). **단, 체크박스 갱신만으로 별도 커밋을 만들지 않는다** — 갱신 내용은 그대로 두었다가 해당 Task의 마지막 Step(`Commit`)에서 코드 변경분과 함께 한 커밋으로 묶는다.
 - 문서의 Global Constraints 섹션이 있으면 그 제약을 준수한다.
 - 한 Task가 끝나면 완료 보고 후 곧바로 다음 미완료 Task로 진행한다(사용자 확인 대기 없음). 모든 Task가 끝나면 전체 완료를 보고하고 종료한다.

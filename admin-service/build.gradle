@@ -11,6 +11,9 @@ dependencies {
     // Redis — 어드민 액션(상태변경/판매자 승인) 시 user-service 인가 캐시 무효화용
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
+    // Kubernetes — 실패한 정산 전달 건의 단발성 재전송 Job 생성·조회
+    implementation 'io.fabric8:kubernetes-client'
+
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 

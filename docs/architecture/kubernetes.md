@@ -304,7 +304,7 @@ Fluent Bit은 `/var/log/containers/apigateway-*_prompthub_apigateway-*.log`만 �
 | `order-service` | Deployment | 1 | HTTP 8083 → 18083, gRPC 9083 → 9083 | `ORDER-SERVICE` | 기존 모듈 |
 | `payment-service` | Deployment | 1 | HTTP 8084 → 18084, gRPC 9084 → 9084 | `PAYMENT-SERVICE` | 기존 gRPC 서버 포함 |
 | `settlement-weekly` | CronJob | 스케줄당 Job 1개 | Service 없음(Web application 비활성) | 등록하지 않음 | 매주 월요일 00:00 KST, Order 조회와 User 정산 등록 gRPC client |
-| `admin-service` | Deployment | 1 | HTTP 8086 → 18086 | `ADMIN-SERVICE` | 기존 모듈 |
+| `admin-service` | Deployment | 1 | HTTP 8086 → 18086 | `ADMIN-SERVICE` | 실패한 정산 전달 건의 단발성 Job 생성 |
 | `ai-service` | Deployment | 1 | HTTP 8087 → 18087 | `AI-SERVICE` | User gRPC client, Redis DB 1, OpenAI Tool Calling과 SSE |
 | `notification-service` | Deployment | 1 | HTTP 8088 → 18088 | `NOTIFICATION-SERVICE` | PostgreSQL, Redis Pub/Sub, Kafka 주문 이벤트 소비와 SSE |
 | `apigateway` | Deployment | 1 | 8000 → 8000 | `APIGATEWAY` | 기존 모듈 |
@@ -315,6 +315,19 @@ Payment는 `PaymentQueryGrpcService` 구현과 gRPC server starter를 가지므�
 Settlement는 상시 Deployment가 아니라 `settlement-weekly` CronJob으로 실행하며
 `--spring.main.web-application-type=none`과 Eureka 비활성 설정을 사용한다. 계산이 끝난
 정산은 User Service에 gRPC로 순차 등록하고 응답 Snapshot을 즉시 대사한다.
+
+Admin Service는 `DELIVERY_FAILED` 정산 전달 건의 수동 재전송을 위해 현재
+`settlement-weekly` CronJob의 Job template을 복제한 단발성 Job을 생성한다. 재전송
+Job은 같은 `deliveryRequestId`를 유지하고 실행당 최대 3번 호출하며, Kubernetes Job
+재시작은 비활성화한다(`backoffLimit: 0`). 완료 Job은 24시간 뒤 정리한다.
+
+Admin Service의 ServiceAccount는 `prompthub` namespace에서 Job `get/list/create/delete`와
+`settlement-weekly` CronJob `get`만 허용한다. 정산 전달 ID와 기존 시도 횟수로 Job
+이름을 결정하므로 같은 상태에서 들어온 중복 요청은 Kubernetes의 리소스 생성
+원자성으로 차단된다. 같은 이름의 이전 Job이 이미 끝난 경우에만 이를 정리한 뒤 새
+Job을 만들 수 있어, Settlement Pod가 시작하기 전에 실패한 요청도 다시 실행할 수 있다.
+재전송 중 DB 상태는 `DELIVERY_FAILED`로 유지하고 활성 Job으로 진행 여부를 구분한다.
+따라서 Pod가 강제 종료돼도 대상이 재전송 불가능한 중간 상태에 남지 않는다.
 
 AI 서비스는 `k8s/base/services/ai`에 Deployment와 Service가 포함돼 있다. `ai-secret`의
 `OPENAI_API_KEY`와 `AI_USER_GRPC_TOKEN`을 주입하고, Config Server 기본값과 별도로 배포 매니페스트에서
@@ -542,7 +555,8 @@ k8s/
 │   │   ├── payment/
 │   │   ├── settlement/
 │   │   ├── admin/
-│   │   └── ai/
+│   │   ├── ai/
+│   │   └── notification/
 │   └── gateway/
 │       ├── kustomization.yaml
 │       ├── deployment.yaml

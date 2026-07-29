@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.given;
 
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
+import com.prompthub.product.domain.model.vo.InspectionChecklist;
 import com.prompthub.product.domain.repository.ProductRepository;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,6 +23,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 class ProductInspectionResultHandlerTest {
 
 	private static final UUID PRODUCT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
+	private static final InspectionChecklist CHECKLIST =
+		new InspectionChecklist(true, true, false, true, false, true, false);
 
 	@Mock
 	private ProductRepository productRepository;
@@ -39,9 +42,11 @@ class ProductInspectionResultHandlerTest {
 			Product product = pendingReviewProduct();
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 
-			handler.apply(PRODUCT_ID, true, null);
+			handler.apply(PRODUCT_ID, true, null, CHECKLIST);
 
 			assertThat(product.getStatus()).isEqualTo(ProductStatus.ON_SALE);
+			assertThat(product.isHasContext()).isTrue();
+			assertThat(product.isHasNuance()).isFalse();
 		}
 
 		@Test
@@ -51,10 +56,11 @@ class ProductInspectionResultHandlerTest {
 			Product product = pendingReviewProduct();
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 
-			handler.apply(PRODUCT_ID, false, "금지 콘텐츠 포함");
+			handler.apply(PRODUCT_ID, false, "금지 콘텐츠 포함", CHECKLIST);
 
 			assertThat(product.getStatus()).isEqualTo(ProductStatus.REJECTED);
 			assertThat(product.getRejectionReason()).isEqualTo("금지 콘텐츠 포함");
+			assertThat(product.isHasExecution()).isTrue();
 		}
 
 		@Test
@@ -65,7 +71,7 @@ class ProductInspectionResultHandlerTest {
 			ReflectionTestUtils.setField(product, "status", ProductStatus.ON_SALE);
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 
-			handler.apply(PRODUCT_ID, true, null);
+			handler.apply(PRODUCT_ID, true, null, CHECKLIST);
 
 			assertThat(product.getStatus()).isEqualTo(ProductStatus.ON_SALE);
 		}
@@ -76,7 +82,7 @@ class ProductInspectionResultHandlerTest {
 			handler = new ProductInspectionResultHandler(productRepository);
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.empty());
 
-			assertThatCode(() -> handler.apply(PRODUCT_ID, true, null)).doesNotThrowAnyException();
+			assertThatCode(() -> handler.apply(PRODUCT_ID, true, null, CHECKLIST)).doesNotThrowAnyException();
 		}
 	}
 

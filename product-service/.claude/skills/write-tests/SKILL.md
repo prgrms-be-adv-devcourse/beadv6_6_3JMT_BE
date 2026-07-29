@@ -7,7 +7,7 @@ description: Product Service 변경사항에 맞는 테스트 범위를 판단�
 
 ## 1. 사전 확인
 
-`.claude/rules/testing.md`, `.claude/rules/architecture.md`, `.claude/rules/product-api.md`를
+`.claude/rules/testing.md`, `.claude/rules/product-api.md`를
 읽는다.
 
 ## 2. 변경 계층 분류

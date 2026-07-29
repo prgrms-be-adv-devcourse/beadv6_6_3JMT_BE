@@ -9,8 +9,8 @@
 ## 작업 범위
 
 - Product Service 관련 변경은 기본적으로 `product-service/` 하위에서 진행한다.
-- 다른 서비스 모듈은 참고용으로만 읽는다. 쓰기 작업(생성·수정·삭제)은 하지 않는다.
-  자세한 모듈 경계 규칙은 `.claude/rules/architecture.md`를 따른다.
+- 다른 서비스 모듈은 읽지 않는다(코드·룰·CLAUDE.md 포함, 루트 `CLAUDE.md` 전역 규칙). 쓰기
+  작업(생성·수정·삭제)도 당연히 하지 않는다.
 - `common-module/`, 루트 workflow, 공통 docs 변경이 필요한 경우 PR에 변경 이유를 명시하고,
   진행 전 사용자에게 먼저 알린다.
 - 하나의 브랜치에 관련 없는 API 작업을 섞지 않는다.
@@ -28,7 +28,6 @@
 
 구현 전에 아래 문서를 읽는다.
 
-- `.claude/rules/architecture.md` — 계층 책임, 의존 방향, 예외 처리, 모듈 경계
 - `.claude/rules/product-api.md` — API 계약, category/ID 규칙, 응답 wrapper 규칙
 - `.claude/rules/testing.md` — 테스트 기준
 - `.claude/rules/git-workflow.md` — 브랜치 타입, Issue 우선 원칙
@@ -37,14 +36,18 @@
 
 작업 단계마다 아래 skill을 순서대로 쓴다.
 
-1. `.claude/skills/create-github-issue/SKILL.md` — 이슈 생성
-2. `.claude/skills/create-branch/SKILL.md` — 이슈 기반 브랜치 생성
+> 공용 스킬(create-github-issue, create-branch, verify-rules, commit, create-github-pr)은 저장소 루트
+> `.claude/skills/`로 통합됐다. product 전용 스킬(write-tests, sync-product-docs, save-plan-docs)만
+> `product-service/.claude/skills/`에 남는다. 스킬은 이름으로 호출되므로 경로와 무관하게 동작한다.
+
+1. 루트 `.claude/skills/create-github-issue/` — 이슈 생성 (공용)
+2. 루트 `.claude/skills/create-branch/` — 이슈 기반 브랜치 생성 (공용)
 3. (구현)
-4. `.claude/skills/write-tests/SKILL.md` — 테스트 작성
-5. `.claude/skills/sync-product-docs/SKILL.md` — product 관련 docs 동기화
-6. `.claude/skills/verify-rules/SKILL.md` — 규칙 준수 확인
-7. `.claude/skills/commit/SKILL.md` — 커밋 (사전 게이트 포함)
-8. `.claude/skills/create-github-pr/SKILL.md` — PR 생성 (agents/rule-checker 게이트 포함)
+4. `.claude/skills/write-tests/` — 테스트 작성 (product 전용)
+5. `.claude/skills/sync-product-docs/` — product 관련 docs 동기화 (product 전용)
+6. 루트 `.claude/skills/verify-rules/` — 규칙 준수 확인 (공용, 대상 서비스 룰 자동 탐색)
+7. 루트 `.claude/skills/commit/` — 커밋 (사전 게이트 포함, 공용)
+8. 루트 `.claude/skills/create-github-pr/` — PR 생성 (공용)
 
 ## 작업 시작 체크리스트
 
@@ -57,14 +60,3 @@
 7. 규칙 검증 (`verify-rules`)
 8. 커밋 (`commit`)
 9. PR 생성 (`create-github-pr`)
-
-## 우선 작업 범위
-
-로그인 없이 테스트 가능한 Product 공개 조회 API를 먼저 구현한다.
-
-- `GET /api/v1/products`
-- `GET /api/v1/products/{productId}`
-- `GET /api/v2/products/{productId}/recommends`
-- `GET /api/v1/products/{productId}/reviews`
-
-판매자/관리자 쓰기 API는 Gateway/Auth 흐름이 확정된 뒤 별도 이슈에서 처리한다.

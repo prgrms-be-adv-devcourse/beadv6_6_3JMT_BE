@@ -51,4 +51,57 @@ class SettlementDeliveryTest {
                 .isEqualTo(SettlementDeliveryStatus.MISMATCH);
         assertThat(mismatch.getStatusReason()).contains("mismatchCount=1");
     }
+
+    @Test
+    @DisplayName("전달 실패 건은 누적 시도 정보를 유지한 채 수동 재전송을 준비한다")
+    void preparesManualRetryWithoutResettingAttempts() {
+        UUID deliveryRequestId = UUID.randomUUID();
+        SettlementDelivery delivery = SettlementDelivery.calculated(
+                UUID.randomUUID(), UUID.randomUUID(), deliveryRequestId);
+        delivery.recordAttempt(NOW);
+        delivery.recordAttempt(NOW.plusSeconds(1));
+        delivery.recordAttempt(NOW.plusSeconds(2));
+        delivery.fail("gRPC UNAVAILABLE: attempts=3");
+
+        int previousAttempts = delivery.prepareManualRetry();
+
+        assertThat(previousAttempts).isEqualTo(3);
+        assertThat(delivery.getStatus())
+                .isEqualTo(SettlementDeliveryStatus.DELIVERY_FAILED);
+        assertThat(delivery.getAttemptCount()).isEqualTo(3);
+        assertThat(delivery.getDeliveryRequestId()).isEqualTo(deliveryRequestId);
+        assertThat(delivery.getStatusReason())
+                .isEqualTo("gRPC UNAVAILABLE: attempts=3");
+        assertThat(delivery.getFirstAttemptAt()).isEqualTo(NOW);
+        assertThat(delivery.getLastAttemptAt()).isEqualTo(NOW.plusSeconds(2));
+    }
+
+    @Test
+    @DisplayName("전달 실패가 아닌 건은 수동 재전송을 준비할 수 없다")
+    void rejectsManualRetryForNonFailedDelivery() {
+        SettlementDelivery delivery = SettlementDelivery.calculated(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+
+        assertThatThrownBy(delivery::prepareManualRetry)
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("수동 재전송 도중 예외가 발생하면 다시 전달 실패 상태로 복구한다")
+    void restoresFailureWhenManualRetryCrashes() {
+        SettlementDelivery delivery = SettlementDelivery.calculated(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+        delivery.recordAttempt(NOW);
+        delivery.fail("gRPC UNAVAILABLE: attempts=1");
+        delivery.prepareManualRetry();
+        delivery.recordManualRetryAttempt(NOW.plusSeconds(1));
+        delivery.recordManualRetryFailure(
+                "재전송 실행 오류: IllegalStateException");
+
+        assertThat(delivery.getStatus())
+                .isEqualTo(SettlementDeliveryStatus.DELIVERY_FAILED);
+        assertThat(delivery.getStatusReason())
+                .isEqualTo("재전송 실행 오류: IllegalStateException");
+        assertThat(delivery.getAttemptCount()).isEqualTo(2);
+    }
 }

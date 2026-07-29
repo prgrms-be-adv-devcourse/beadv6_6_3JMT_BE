@@ -6,17 +6,22 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.prompthub.admin.global.exception.AdminErrorCode;
 import com.prompthub.admin.global.exception.AdminException;
+import com.prompthub.admin.settlement.dto.SettlementDeliveryListQuery;
 import com.prompthub.admin.settlement.dto.SettlementListQuery;
 import com.prompthub.admin.settlement.dto.SettlementWeeklyListQuery;
 import com.prompthub.admin.settlement.service.SettlementService;
 import com.prompthub.admin.settlement.exception.SettlementInvalidStateException;
+import com.prompthub.admin.settlement.entity.enums.SettlementDeliveryStatus;
 import com.prompthub.admin.settlement.entity.enums.SettlementDisplayStatus;
 import com.prompthub.admin.settlement.dto.response.SettlementDetailResponse;
+import com.prompthub.admin.settlement.dto.response.SettlementDeliveryListResponse;
+import com.prompthub.admin.settlement.dto.response.SettlementDeliverySummaryResponse;
 import com.prompthub.admin.settlement.dto.response.SettlementListResponse;
 import com.prompthub.admin.settlement.dto.response.SettlementResponse;
 import com.prompthub.admin.settlement.dto.response.SettlementStatusResponse;
@@ -50,6 +55,10 @@ class SettlementControllerTest {
 
 	private static final UUID SELLER_ID =
 		UUID.fromString("22222222-2222-2222-2222-222222222222");
+	private static final UUID DELIVERY_ID =
+		UUID.fromString("00000000-0000-0000-0000-000000000663");
+	private static final UUID ACTOR_ID =
+		UUID.fromString("00000000-0000-0000-0000-000000000001");
 
 	@Test
 	void 어드민_월별목록은_v2경로와_기본20을_유지한다() throws Exception {
@@ -194,6 +203,109 @@ class SettlementControllerTest {
 				.header("X-User-Id", actorId.toString()))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("A-004"));
+	}
+
+	@Test
+	void 문제건과_식별자조건으로_정산전달목록을_조회한다() throws Exception {
+		when(settlementApplicationService.getDeliveryList(any()))
+			.thenReturn(new SettlementDeliveryListResponse(
+				List.of(), 0L, 0, 20));
+
+		UUID identifier = UUID.randomUUID();
+		mockMvc.perform(get("/api/v2/admin/settlements/deliveries")
+				.param("problemOnly", "true")
+				.param("identifier", identifier.toString()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.success").value(true))
+			.andExpect(jsonPath("$.data.items").isArray())
+			.andExpect(jsonPath("$.data.totalElements").value(0))
+			.andExpect(jsonPath("$.data.size").value(20));
+
+		ArgumentCaptor<SettlementDeliveryListQuery> captor =
+			ArgumentCaptor.forClass(SettlementDeliveryListQuery.class);
+		verify(settlementApplicationService).getDeliveryList(captor.capture());
+		assertThat(captor.getValue().problemOnly()).isTrue();
+		assertThat(captor.getValue().identifier()).isEqualTo(identifier);
+	}
+
+	@Test
+	void 상태별_정산전달요약을_조회한다() throws Exception {
+		when(settlementApplicationService.getDeliverySummary())
+			.thenReturn(new SettlementDeliverySummaryResponse(2, 8, 3, 1, 1));
+
+		mockMvc.perform(get("/api/v2/admin/settlements/deliveries/summary"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.calculatedCount").value(2))
+			.andExpect(jsonPath("$.data.deliveryFailedCount").value(3))
+			.andExpect(jsonPath("$.data.retryInProgressCount").value(1));
+	}
+
+	@Test
+	void 전달실패_재전송요청을_접수하면_202를_반환한다() throws Exception {
+		mockMvc.perform(post(
+				"/api/v2/admin/settlements/deliveries/{deliveryId}/retry",
+				DELIVERY_ID)
+				.header("X-User-Id", ACTOR_ID))
+			.andExpect(status().isAccepted())
+			.andExpect(jsonPath("$.success").value(true))
+			.andExpect(jsonPath("$.message").value("success"));
+
+		verify(settlementApplicationService).retryDelivery(DELIVERY_ID);
+	}
+
+	@Test
+	void 요청수행자ID가_없으면_재전송요청을_거부한다() throws Exception {
+		mockMvc.perform(post(
+				"/api/v2/admin/settlements/deliveries/{deliveryId}/retry",
+				DELIVERY_ID))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void 재전송대상이_없으면_404를_반환한다() throws Exception {
+		org.mockito.Mockito.doThrow(
+				new AdminException(
+					AdminErrorCode.SETTLEMENT_DELIVERY_NOT_FOUND))
+			.when(settlementApplicationService)
+			.retryDelivery(DELIVERY_ID);
+
+		mockMvc.perform(post(
+				"/api/v2/admin/settlements/deliveries/{deliveryId}/retry",
+				DELIVERY_ID)
+				.header("X-User-Id", ACTOR_ID))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("A-011"));
+	}
+
+	@Test
+	void 재전송불가상태나_중복실행은_409를_반환한다() throws Exception {
+		org.mockito.Mockito.doThrow(
+				new AdminException(
+					AdminErrorCode.SETTLEMENT_DELIVERY_RETRY_NOT_ALLOWED))
+			.when(settlementApplicationService)
+			.retryDelivery(DELIVERY_ID);
+
+		mockMvc.perform(post(
+				"/api/v2/admin/settlements/deliveries/{deliveryId}/retry",
+				DELIVERY_ID)
+				.header("X-User-Id", ACTOR_ID))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("A-012"));
+	}
+
+	@Test
+	void 잘못된_전달필터와_페이지요청은_400을_반환한다() throws Exception {
+		mockMvc.perform(get("/api/v2/admin/settlements/deliveries")
+				.param("status", "NOPE"))
+			.andExpect(status().isBadRequest());
+
+		mockMvc.perform(get("/api/v2/admin/settlements/deliveries")
+				.param("size", "101"))
+			.andExpect(status().isBadRequest());
+
+		mockMvc.perform(get("/api/v2/admin/settlements/deliveries")
+				.param("status", SettlementDeliveryStatus.RECONCILED.name()))
+			.andExpect(status().isOk());
 	}
 
 	private static SettlementDetailResponse emptyDetail(

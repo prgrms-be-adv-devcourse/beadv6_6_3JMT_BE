@@ -6,8 +6,8 @@ payment-service에서 superpowers:brainstorming / writing-plans / subagent-drive
 
 | 스킬 | 산출물 | 저장 위치 | 파일명 |
 |---|---|---|---|
-| brainstorming | 계획 문서 | `.claude/plans/` | `{이슈번호}-{slug}.md` (slug는 [git-conventions.md](git-conventions.md) 브랜치명 규칙과 동일하게 영어 kebab-case) |
-| writing-plans | 태스크 목록 문서 | `.claude/plans/` | brainstorming 문서명 + `-tasks` (예: `15-partial-refund.md` → `15-partial-refund-tasks.md`) |
+| brainstorming | 계획 문서 | `../docs/records/plan/payment/` | `{이슈번호}-{slug}.md` (slug는 [git-convention.md](../../../.claude/rules/git-convention.md) 브랜치명 규칙과 동일하게 영어 kebab-case) |
+| writing-plans | 태스크 목록 문서 | `../docs/records/plan/payment/` | brainstorming 문서명 + `-tasks` (예: `15-partial-refund.md` → `15-partial-refund-tasks.md`) |
 
 ## 구현 단계 자동 호출 제외
 
