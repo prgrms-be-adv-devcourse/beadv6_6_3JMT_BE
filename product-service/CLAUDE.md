@@ -37,14 +37,18 @@
 
 작업 단계마다 아래 skill을 순서대로 쓴다.
 
-1. `.claude/skills/create-github-issue/SKILL.md` — 이슈 생성
-2. `.claude/skills/create-branch/SKILL.md` — 이슈 기반 브랜치 생성
+> 공용 스킬(create-github-issue, create-branch, verify-rules, commit, create-github-pr)은 저장소 루트
+> `.claude/skills/`로 통합됐다. product 전용 스킬(write-tests, sync-product-docs, save-plan-docs)만
+> `product-service/.claude/skills/`에 남는다. 스킬은 이름으로 호출되므로 경로와 무관하게 동작한다.
+
+1. 루트 `.claude/skills/create-github-issue/` — 이슈 생성 (공용)
+2. 루트 `.claude/skills/create-branch/` — 이슈 기반 브랜치 생성 (공용)
 3. (구현)
-4. `.claude/skills/write-tests/SKILL.md` — 테스트 작성
-5. `.claude/skills/sync-product-docs/SKILL.md` — product 관련 docs 동기화
-6. `.claude/skills/verify-rules/SKILL.md` — 규칙 준수 확인
-7. `.claude/skills/commit/SKILL.md` — 커밋 (사전 게이트 포함)
-8. `.claude/skills/create-github-pr/SKILL.md` — PR 생성 (agents/rule-checker 게이트 포함)
+4. `.claude/skills/write-tests/` — 테스트 작성 (product 전용)
+5. `.claude/skills/sync-product-docs/` — product 관련 docs 동기화 (product 전용)
+6. 루트 `.claude/skills/verify-rules/` — 규칙 준수 확인 (공용, 대상 서비스 룰 자동 탐색)
+7. 루트 `.claude/skills/commit/` — 커밋 (사전 게이트 포함, 공용)
+8. 루트 `.claude/skills/create-github-pr/` — PR 생성 (공용)
 
 ## 작업 시작 체크리스트
 

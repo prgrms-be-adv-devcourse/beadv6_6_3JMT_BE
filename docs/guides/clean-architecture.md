@@ -45,10 +45,11 @@ com.prompthub.user
 │   │   └── dto
 │   ├── domain
 │   │   ├── model
-│   │   └── repository
+│   │   ├── repository
+│   │   └── event
 │   ├── infrastructure
 │   │   ├── persistence
-│   │   └── event
+│   │   └── messaging
 │   └── config
 ├── auth                        ← 인증 도메인 (이메일/OAuth 로그인, 토큰)
 │   └── (동일한 4계층 구조)
@@ -100,9 +101,10 @@ Controller와 SSE 응답 변환은 외부 요청·응답 표현이므로 `presen
 | --- | --- | --- |
 | 인바운드(유스케이스) | `application/usecase` | `application/service` |
 | 아웃바운드(영속성) | `domain/repository` | `infrastructure/persistence` |
+| 아웃바운드(외부 시스템) | `application/gateway` | `infrastructure/{연동 대상}` |
 
 - 인바운드: `UserUseCase`(포트) ← `UserApplicationService`(구현)
-- 아웃바운드: `UserRepository`(포트, domain) ← `UserRepositoryAdapter`(구현, infrastructure)
+- 아웃바운드(영속성): `UserRepository`(포트, domain) ← `UserRepositoryAdapter`(구현, infrastructure)
 - 어댑터는 내부에서 `UserJpaRepository`(Spring Data)를 호출한다.
 
 ```
@@ -114,6 +116,28 @@ domain/repository/UserRepository  ◀ implements ◀  infrastructure/persistence
                                                                     ▼
                                                 infrastructure/persistence/UserJpaRepository
 ```
+
+### 4.1 영속성 vs 외부 시스템 — 두 아웃바운드는 다르다
+
+`Repository`는 "모든 아웃바운드 포트"의 이름이 아니라, DDD에서 애그리거트를 컬렉션처럼 다루는
+영속성 전용 패턴이다(`findById`, `save`, `remove`). 도메인 언어로 표현되는 개념이라 `domain`에 둔다.
+
+PG사 결제 승인, 카카오 로그인, 타 서비스 API 호출, 이벤트 발행처럼 **DB가 아닌 외부 시스템/리소스와의
+연동**은 도메인 개념이 아니라 유스케이스를 완수하기 위해 필요한 기술적 의존성이다. 따라서:
+
+- 포트(인터페이스)는 `domain/repository`가 아니라 `application/gateway`에 둔다.
+- 구현(어댑터)은 연동 대상 이름의 패키지로 `infrastructure` 아래 둔다 (예: `infrastructure/external/toss`).
+
+```
+application/service/PaymentApplicationService   호출
+                                │
+                                ▼
+application/gateway/PaymentGateway  ◀ implements ◀  infrastructure/external/toss/TossPaymentGateway
+```
+
+두 종류를 구분하는 기준은 "DB냐 아니냐"다. DB 트랜잭션 안에서 애그리거트를 조회·저장하면 영속성
+포트(`domain/repository`), 그 외 모든 외부 연동(PG사·타 서비스·메시징·써드파티 API)은 외부 시스템
+포트(`application/gateway`)다.
 
 ## 5. 계층 네이밍 규칙
 
@@ -128,9 +152,11 @@ domain/repository/UserRepository  ◀ implements ◀  infrastructure/persistence
 | 유스케이스 구현 | `~ApplicationService` | `UserApplicationService` |
 | 입력 Command | `~Command` | `SignupCommand`, `UpdateProfileCommand` |
 | 출력 Result | `~Result` | `UserResult`, `TokenResult` |
-| 아웃바운드 포트 | `~Repository` | `UserRepository`, `SellerRepository` |
+| 아웃바운드 포트(영속성) | `~Repository` | `UserRepository`, `SellerRepository` |
 | 영속성 어댑터 | `~RepositoryAdapter` | `UserRepositoryAdapter` |
 | Spring Data | `~JpaRepository` | `UserJpaRepository` |
+| 아웃바운드 포트(외부 시스템) | `~Gateway` / `~Client` / `~Publisher`(연동 성격에 따라 선택) | `PaymentGateway`, `KakaoUserInfoClient`, `SettlementEventPublisher` |
+| 외부 시스템 어댑터 | 포트 이름 앞에 연동 대상을 붙인다 | `TossPaymentGateway` |
 | 설정 | `~Config` | `SecurityConfig`, `JwtConfig` |
 | 도메인 예외 | `~Exception` | `UserNotFoundException`, `SellerAlreadyAppliedException` |
 

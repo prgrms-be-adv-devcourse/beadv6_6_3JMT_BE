@@ -828,7 +828,7 @@
 ### 공통 사항
 
 - Order Service Kafka consumer group은 `order-service`이다.
-- Payment 이벤트는 `payment.approved`, `payment.refunded` 토픽을 각각 소비한다.
+- Payment 이벤트는 `payment-events` 단일 토픽을 소비하고, `eventType`(`PAYMENT_APPROVED`/`PAYMENT_REFUNDED`)으로 분기한다.
 - Product 이벤트는 `product-events` 토픽을 소비한다.
 - Order 상태 변경 이벤트는 outbox에 저장한 뒤 `order-events` 토픽으로 발행한다.
 - Outbox relay 기본 설정은 `enabled: true`, `fixed-delay-ms: 5000`, `batch-size: 100`, `max-retry-count: 3`이다.
@@ -841,67 +841,70 @@
 
 | Topic | Event Type | 발행 주체 | Order 처리 내용 |
 |-------|------------|-----------|----------------|
-| `payment.approved` | `payment.approved` | Payment Service | 주문/주문상품을 `PAID`로 변경, `OrderPayment` 저장, Redis 만료 대상 best-effort 제거, `ORDER_PAID` outbox 생성 |
-| `payment.refunded` | `payment.refunded` | Payment Service | 전체 환불 완료 주문/주문상품을 `REFUNDED`로 변경, `ORDER_REFUND` outbox 생성 |
+| `payment-events` | `PAYMENT_APPROVED` | Payment Service | 주문/주문상품을 `PAID`로 변경, `OrderPayment` 저장, Redis 만료 대상 best-effort 제거, `ORDER_PAID` outbox 생성 |
+| `payment-events` | `PAYMENT_REFUNDED` | Payment Service | 환불 완료 주문/주문상품을 `REFUNDED`로 변경, `ORDER_REFUND` outbox 생성 |
 | `product-events` | `PRODUCT_STOPPED` | Product Service | 현재 구현은 상품 판매 중지 이벤트 수신 로그 기록 |
 | `product-events` | `PRODUCT_DELETED` | Product Service | 현재 구현은 상품 삭제 이벤트 수신 로그 기록 |
 | `product-events` | `PRODUCT_PRICE_CHANGED` | Product Service | 현재 구현은 상품 가격 변경 이벤트 수신 로그 기록 |
 
-### payment.approved - 결제 승인 이벤트 소비
+### PAYMENT_APPROVED - 결제 승인 이벤트 소비
 
-- Topic: `payment.approved`
+- Topic: `payment-events`
 - Consumer group: `order-service`
-- 처리 조건: 주문이 `PENDING`이고 승인 금액이 주문 총액과 일치해야 한다.
-- 멱등 처리: 주문이 이미 `PAID`이고 동일 `paymentId`의 결제 내역이 있으면 중복 이벤트로 보고 처리하지 않는다.
+- 처리 조건: 주문이 `PENDING` 상태여야 한다. (금액 검증은 payment-service 승인 단계에서 끝나며 이벤트 payload에는 금액이 포함되지 않는다.)
+- 멱등 처리: 이미 `PAID` 상태면 중복 이벤트로 보고 처리하지 않는다. (멱등 기준: `eventId` + consumerGroup)
 - 후속 이벤트: `ORDER_PAID` outbox 이벤트를 생성한다.
 
+메시지는 공통 `EventMessage<T>` 봉투로 수신하며 payload는 `PaymentApprovedPayload`로 매핑한다.
+
 ```json
 {
-  "eventType": "payment.approved",
-  "paymentId": "550e8400-e29b-41d4-a716-446655440000",
-  "orderId": "660e8400-e29b-41d4-a716-446655440001",
-  "userId": "770e8400-e29b-41d4-a716-446655440002",
-  "amount": 15000,
-  "approvedAt": "2026-06-18T14:35:00Z"
+  "eventId": "c58c0e77-0c12-46b5-b9e1-4fd74d5d6f01",
+  "eventType": "PAYMENT_APPROVED",
+  "occurredAt": "2026-06-18T14:35:00",
+  "aggregateType": "ORDER",
+  "aggregateId": "660e8400-e29b-41d4-a716-446655440001",
+  "payload": {
+    "orderId": "660e8400-e29b-41d4-a716-446655440001",
+    "approvedAt": "2026-06-18T14:35:00Z"
+  }
 }
 ```
 
-| 필드 | 타입 | 필수 | 설명 |
+| payload 필드 | 타입 | 필수 | 설명 |
 |------|------|:----:|------|
-| eventType | String | O | `payment.approved` 고정 |
-| paymentId | UUID | O | Payment Service 결제 ID |
-| orderId | UUID | O | 결제 대상 주문 ID |
-| userId | UUID | O | 결제 사용자 ID. Order Service에서는 구매자 ID로 사용 |
-| amount | Integer | O | 승인 금액 |
+| orderId | UUID | O | 결제 대상 주문 ID (`aggregateId`와 동일) |
 | approvedAt | OffsetDateTime | O | 결제 승인 시각 |
 
-### payment.refunded - 환불 완료 이벤트 소비
+### PAYMENT_REFUNDED - 환불 완료 이벤트 소비
 
-- Topic: `payment.refunded`
+- Topic: `payment-events`
 - Consumer group: `order-service`
 - 처리 조건: 주문이 `PAID` 상태여야 한다.
-- 멱등 처리: 주문이 이미 `REFUNDED`이면 중복 이벤트로 보고 처리하지 않는다.
-- 현재 기준은 전체 환불이며 부분 환불은 별도 확장 대상이다.
+- 멱등 처리: 이미 `REFUNDED` 상태면 중복 이벤트로 보고 처리하지 않는다. (멱등 기준: `eventId` + consumerGroup)
 - 후속 이벤트: `ORDER_REFUND` outbox 이벤트를 생성한다.
+
+메시지는 공통 `EventMessage<T>` 봉투로 수신하며 payload는 `PaymentRefundedPayload`로 매핑한다. `refundAmount`는 이번 환불 금액으로, 선택(부분) 환불에서는 원 결제 금액보다 작을 수 있다.
 
 ```json
 {
-  "eventType": "payment.refunded",
-  "paymentId": "550e8400-e29b-41d4-a716-446655440000",
-  "orderId": "660e8400-e29b-41d4-a716-446655440001",
-  "userId": "770e8400-e29b-41d4-a716-446655440002",
-  "amount": 15000,
-  "refundedAt": "2026-06-18T15:10:00Z"
+  "eventId": "d69d1f88-1d23-57c6-c0f2-5fe85e6e7f12",
+  "eventType": "PAYMENT_REFUNDED",
+  "occurredAt": "2026-06-18T15:10:00",
+  "aggregateType": "ORDER",
+  "aggregateId": "660e8400-e29b-41d4-a716-446655440001",
+  "payload": {
+    "orderId": "660e8400-e29b-41d4-a716-446655440001",
+    "refundAmount": 15000,
+    "refundedAt": "2026-06-18T15:10:00Z"
+  }
 }
 ```
 
-| 필드 | 타입 | 필수 | 설명 |
+| payload 필드 | 타입 | 필수 | 설명 |
 |------|------|:----:|------|
-| eventType | String | O | `payment.refunded` 고정 |
-| paymentId | UUID | O | Payment Service 결제 ID |
-| orderId | UUID | O | 환불 대상 주문 ID |
-| userId | UUID | O | 결제 사용자 ID. Order Service에서는 구매자 ID로 사용 |
-| amount | Integer | O | 환불 금액. 전체 환불 기준으로 원 결제 금액과 동일 |
+| orderId | UUID | O | 환불 대상 주문 ID (`aggregateId`와 동일) |
+| refundAmount | Integer | O | 이번 환불 금액 (부분 환불 시 원 결제 금액보다 작을 수 있음) |
 | refundedAt | OffsetDateTime | O | 환불 완료 시각 |
 
 ### product-events - 상품 이벤트 소비

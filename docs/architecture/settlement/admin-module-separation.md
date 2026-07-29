@@ -123,8 +123,7 @@ admin-service                          settlement-service
 
 ## 관련 문서
 
-- 셀러 정산 분리·운영 단일 진실(seller_settlement) 결정: `../../trade-offs/settlement/seller-settlement-separation.md`
-- 접근 방식 결정(직접 DB vs gRPC): `../../trade-offs/settlement/admin-data-access.md`
-- 내부 동기 호출 전송 결정(REST vs gRPC — 서비스 간 호출에 계속 적용): `../../trade-offs/settlement/internal-sync-transport.md`
-- 연동 카탈로그(어드민 절 — rpc 계약 없음): `integration-catalog.md`
-- 파이널 전체 로드맵: `../../planning/settlement-final-roadmap.md`
+- 셀러 정산 분리·운영 단일 진실(seller_settlement) 결정: `../../records/trade-offs/settlement/seller-settlement-separation.md`
+- 접근 방식 결정(직접 DB vs gRPC): `../../records/trade-offs/settlement/admin-data-access.md`
+- 내부 동기 호출 전송 결정(REST vs gRPC — 서비스 간 호출에 계속 적용): `../../records/trade-offs/settlement/internal-sync-transport.md`
+- 파이널 전체 로드맵: `../../records/planning/settlement-final-roadmap.md`

@@ -15,7 +15,7 @@ git 저장소 루트는 상위 디렉토리(`beadv6_6_3JMT_BE`)지만, 정산 �
 저장소 루트가 아니라 **이 모듈(`settlement-service/`) 안에** 둔다. 담당 소스·테스트·설정은 각 담당 모듈과 패키지 안에 둔다.
 
 - 문서·기획·설계·스펙: `settlement-service/docs/`
-- 스킬 생성: `settlement-service/.claude/skills/`
+- 스킬 생성: 공용 스킬은 저장소 루트 `.claude/skills/`, 정산 전용 스킬만 `settlement-service/.claude/skills/`
 - 에이전트 생성: `settlement-service/.claude/agents/`
 - 그 외 도구·설정 산출물도 동일하게 모듈 하위에 만든다.
 

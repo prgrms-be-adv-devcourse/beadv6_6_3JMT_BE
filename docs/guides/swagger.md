@@ -49,13 +49,17 @@ public class SettlementBatchController {
 
     @PostMapping
     @Operation(summary = "정산 배치잡 실행",
-            description = "정산 기준일의 미정산 PAID 주문을 정산하는 Batch Job을 실행합니다.")
-    public ResponseEntity<SettlementJobResponse> run(
-            @Valid @RequestBody RunSettlementJobRequest request) {
+            description = "정산 기간(월요일~일요일)의 미정산 PAID 주문을 정산하는 Batch Job을 실행합니다.")
+    public ApiResult<SettlementJobResponse> run(
+            @Parameter(hidden = true) @RequestHeader(AuthHeaders.USER_ID) UUID actorId,
+            @Valid @RequestBody RunSettlementBatchRequest request) {
         ...
     }
 }
 ```
+
+> 인증된 사용자 식별자(`actorId`)처럼 Gateway가 주입하는 헤더값은 요청 DTO 필드가 아니라
+> `@RequestHeader`로 받는다. Swagger 문서에는 노출하지 않으므로 `@Parameter(hidden = true)`를 단다.
 
 ## 3. DTO — `@Schema`
 
@@ -72,12 +76,12 @@ public class SettlementBatchController {
 
 ```java
 @Schema(description = "정산 배치잡 실행 요청")
-public record RunSettlementJobRequest(
-        @Schema(description = "정산 기준일", example = "2026-06-03")
-        LocalDate settlementDate,
+public record RunSettlementBatchRequest(
+        @Schema(description = "정산 포함 시작일인 월요일", example = "2026-07-13")
+        @NotNull LocalDate periodStart,
 
-        @Schema(description = "요청 수행자 ID(UUID)")
-        UUID actorId
+        @Schema(description = "정산 포함 종료일인 일요일", example = "2026-07-19")
+        @NotNull LocalDate periodEnd
 ) {
 }
 ```
@@ -85,20 +89,20 @@ public record RunSettlementJobRequest(
 ```java
 @Schema(description = "정산 배치잡 실행 응답")
 public record SettlementJobResponse(
-        @Schema(description = "Job Execution ID")
+        @Schema(description = "Job Execution ID", example = "1024")
         Long jobExecutionId,
 
-        @Schema(description = "Job 이름")
+        @Schema(description = "Job 이름", example = "settlementJob")
         String jobName,
 
-        @Schema(description = "실행 상태")
+        @Schema(description = "실행 상태(비동기 접수 시점에는 STARTING/STARTED)", example = "STARTING")
         String status,
 
-        @Schema(description = "시작 시각")
+        @Schema(description = "시작 시각", example = "2026-06-03T02:00:00")
         LocalDateTime startTime
 ) {
 
-    public static SettlementJobResponse from(JobExecution jobExecution) { ... }
+    public static SettlementJobResponse from(SettlementJobResult result) { ... }
 }
 ```
 

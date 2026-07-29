@@ -16,6 +16,7 @@
 | `settlement-service` | 8085 | - | 주간 정산 CronJob, 정산·Detail 생성과 `SETTLEMENT_CREATED` V2 발행 |
 | `admin-service` | 8086 | - | 어드민 조회·관리 API |
 | `ai-service` | 8087 | user 9081 **클라이언트** | 셀러 정산 Tool Calling, Redis 대화 상태와 SSE 응답 |
+| `notification-service` | 8088 | - | 알림 발송 (이벤트 소비 기반) |
 | `common-module` | - | - | 공용 라이브러리 (`BusinessException`, `ErrorCode`, 공통 응답 래퍼). 루트 `settings.gradle`에 `include 'common-module'`로 서브프로젝트 포함 |
 
 - 포트 근거: 각 모듈 `src/main/resources/application.yml`(또는 `.yaml`)의 `server.port`, `grpc.server.port`.

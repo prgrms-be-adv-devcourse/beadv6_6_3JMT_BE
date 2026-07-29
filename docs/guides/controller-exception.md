@@ -66,4 +66,4 @@ public class GlobalExceptionHandler {
 }
 ```
 
-에러 코드는 `user-service/docs/기획문서.md`의 에러 코드 표를 따른다.
+에러 코드는 `docs/error-codes.md`의 에러 코드 표를 따른다.

@@ -66,7 +66,7 @@ settlement의 하위 엔티티.
 
 ## 정산 소스 라인 (settlement_source_line)
 
-orderProduct 결제·환불 이벤트를 실시간 수신해 적재하는 정산 원장.
+정산 배치가 실행 시점에 order-service를 gRPC로 조회해 적재하는 정산 원장. (실시간 이벤트 수신이 아니라 주간 마감 배치의 pull 방식 — Kafka 소비 제거 #317)
 정산 배치가 미정산 라인(`settlement_id IS NULL`)을 판매자·기간으로 모아 `settlement_detail`로 산정한다.
 
 | 이름 | 영문 | DB 타입 | NOT NULL | 기본값 | 설명 |

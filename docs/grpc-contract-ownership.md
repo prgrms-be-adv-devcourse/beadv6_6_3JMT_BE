@@ -3,10 +3,6 @@
 서비스 간 gRPC proto 계약을 **루트 `grpc/` 디렉토리에서 단일 관리**하는 규칙을 정의한다.
 정산 도메인(정산 본체·셀러 정산·어드민 정산) 범위에서 먼저 적용한다.
 
-> 관련 문서
-> - 연동 계약 상세(proto 전문·필드표): `settlement-service/docs/architecture/integration-catalog.md`
-> - 현재 통신 상태 현황판: `settlement-service/docs/architecture/settlement-internal-comm-topology.md`
-
 ## 1. 배경 — 왜 루트에서 공유하나
 
 기존에는 같은 gRPC 계약을 **서버 모듈과 클라이언트 모듈이 각자 `.proto` 미러로** 들고 있었다.

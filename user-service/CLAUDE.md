@@ -7,8 +7,8 @@ git 저장소 루트는 상위 디렉토리(`beadv6_6_3JMT_BE`)지만, 새로 �
 해석되지 않도록 항상 `user-service/...`를 명시한다.
 
 - 문서·기획·설계·스펙: `user-service/docs/`
-- 스킬 생성: `user-service/.claude/skills/`
-- 에이전트 생성: `user-service/.claude/agents/`
+- 스킬 생성: 공용 스킬은 저장소 루트 `.claude/skills/`, user 전용 스킬만 `user-service/.claude/skills/`
+- 에이전트 생성: `../.claude/agents/`
 - 그 외 도구·설정 산출물도 동일하게 모듈 하위에 만든다.
 
 ## 아키텍처 컨벤션

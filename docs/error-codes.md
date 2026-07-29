@@ -101,16 +101,24 @@
 
 | enum | code | 의미 (message) | HTTP |
 |------|------|----------------|------|
-| `PAYMENT_AMOUNT_MISMATCH` | PAY001 | 결제 금액이 일치하지 않습니다. | 400 |
-| `PAYMENT_ALREADY_PAID` | PAY002 | 이미 결제된 주문입니다. | 409 |
-| `PAYMENT_PG_ERROR` | PAY003 | PG사 처리 중 오류가 발생했습니다. | 502 |
-| `PAYMENT_INVALID_STATUS` | PAY004 | 환불 가능한 상태가 아닙니다. | 400 |
-| `PAYMENT_CANCEL_FAILED` | PAY005 | 결제 취소 처리에 실패했습니다. | 502 |
-| `PAYMENT_REFUND_FAILED` | PAY006 | 환불 처리에 실패했습니다. | 502 |
-| `PAYMENT_PG_REJECTED` | PAY007 | PG사에서 결제를 거부했습니다. | 400 |
-| `PAYMENT_NOT_FOUND` | PAY008 | 결제 건이 존재하지 않습니다. | 404 |
+| `INVALID_INPUT` | V001 | 입력값이 올바르지 않습니다. | 400 |
+| `DUPLICATE_PAYMENT` | PAY002 | 이미 결제된 주문입니다. | 409 |
+| `PG_INVALID_REQUEST` | PAY003 | 잘못된 API 요청으로 인한 PG사 오류입니다. | 502 |
+| `REFUND_NOT_ALLOWED` | PAY004 | 환불 가능한 상태가 아닙니다. | 400 |
+| `PAYMENT_NOT_FOUND` | PAY005 | 결제 건을 찾을 수 없습니다. | 404 |
+| `UNAUTHORIZED_REFUND` | PAY006 | 본인 결제 건만 환불할 수 있습니다. | 403 |
+| `ORDER_NOT_FOUND` | PAY008 | 주문 정보를 찾을 수 없습니다. | 404 |
+| `ORDER_INFO_UNAVAILABLE` | PAY009 | 주문 정보를 확보할 수 없습니다. | 503 |
+| `NOT_ORDER_OWNER` | PAY010 | 본인 주문만 결제할 수 있습니다. | 403 |
+| `PG_UNAVAILABLE` | PAY011 | PG사 서비스에 일시적으로 연결할 수 없습니다. | 503 |
+| `AMOUNT_MISMATCH` | PAY012 | 결제 금액이 주문 금액과 일치하지 않습니다. | 400 |
+| `PG_BUSY` | PAY013 | 결제 승인 요청이 많아 일시적으로 처리할 수 없습니다. | 503 |
+| `PG_RATE_LIMITED` | PAY014 | 결제 승인 요청이 많아 일시적으로 제한되었습니다. | 503 |
+| `PG_SERVER_ERROR` | PAY_PG_5XX | PG사 서버 오류가 발생했습니다. | 502 |
+| `PAYMENT_FAILED` | PAY_FAILED | PG사 결제가 실패했습니다. | 422 |
 
-> PAY003 (502): PG사 서버 오류 / PAY007 (400): PG사 거절 (카드 한도 초과 등 정상 처리된 거부)
+> PAY003 (502): 잘못된 요청으로 인한 PG 오류 / PAY_PG_5XX (502): PG사 서버 오류 / PAY_FAILED (422): PG사 결제 실패(정상 처리된 거부)
+> `INVALID_INPUT`(V001)은 공통 입력 검증 코드를 결제에서도 사용한다.
 
 ---
 
