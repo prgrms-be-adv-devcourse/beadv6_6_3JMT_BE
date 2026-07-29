@@ -31,3 +31,11 @@ management:
 
 api:
   init: /api/v2
+
+settlement:
+  delivery:
+    retry-job:
+      enabled: ${SETTLEMENT_DELIVERY_RETRY_JOB_ENABLED:false}
+      namespace: ${POD_NAMESPACE:prompthub}
+      source-cron-job: settlement-weekly
+      ttl-seconds: 86400

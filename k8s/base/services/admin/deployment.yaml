@@ -26,7 +26,8 @@ spec:
         app.kubernetes.io/component: service
         app.kubernetes.io/managed-by: kustomize
     spec:
-      automountServiceAccountToken: false
+      serviceAccountName: admin-service
+      automountServiceAccountToken: true
       enableServiceLinks: false
       terminationGracePeriodSeconds: 30
       nodeSelector:
@@ -110,6 +111,12 @@ spec:
                 secretKeyRef:
                   name: runtime-secret
                   key: REDIS_PORT
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SETTLEMENT_DELIVERY_RETRY_JOB_ENABLED
+              value: "true"
             - name: MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED
               value: "true"
             - name: JAVA_TOOL_OPTIONS
