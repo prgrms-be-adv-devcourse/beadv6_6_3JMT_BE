@@ -3,4 +3,6 @@ kind: Kustomization
 namespace: prompthub
 resources:
   - service.yaml
+  - service-account.yaml
+  - rbac.yaml
   - deployment.yaml

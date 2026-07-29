@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.times;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.prompthub.settlement.application.dto.SellerSettlementRegistrationCommand;
 import com.prompthub.settlement.application.dto.SettlementDeliveryComparison;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -154,6 +156,116 @@ class SettlementDeliveryApplicationServiceTest {
                 transactions, registration, reconciler, sleeper).deliverBatch(batchId);
 
         then(registration).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("수동 재전송은 누적 횟수에 추가로 최대 세 번 시도하고 같은 요청을 대사한다")
+    void retriesFailedDeliveryWithThreeAdditionalAttempts() {
+        UUID deliveryId = UUID.randomUUID();
+        SellerSettlementRegistrationCommand command =
+                org.mockito.Mockito.mock(SellerSettlementRegistrationCommand.class);
+        given(transactions.prepareManualRetry(deliveryId)).willReturn(3);
+        given(transactions.beginManualRetryAttempt(deliveryId, 6)).willReturn(
+                attempt(4, command), attempt(5, command), attempt(6, command));
+        given(registration.register(command))
+                .willThrow(SellerSettlementDeliveryException.from(
+                        Status.Code.UNAVAILABLE, "failure"))
+                .willThrow(SellerSettlementDeliveryException.from(
+                        Status.Code.DEADLINE_EXCEEDED, "failure"))
+                .willReturn(org.mockito.Mockito.mock(
+                        com.prompthub.settlement.application.dto
+                                .SellerSettlementStoredSnapshot.class));
+        given(reconciler.compare(any(), any()))
+                .willReturn(SettlementDeliveryComparison.success());
+        given(transactions.getStatus(deliveryId))
+                .willReturn(SettlementDeliveryStatus.RECONCILED);
+
+        SettlementDeliveryStatus result = new SettlementDeliveryApplicationService(
+                transactions, registration, reconciler, sleeper)
+                .retry(deliveryId);
+
+        then(registration).should(times(3)).register(command);
+        then(sleeper).should().sleep(Duration.ofSeconds(1));
+        then(sleeper).should().sleep(Duration.ofSeconds(3));
+        then(transactions).should().markManualRetryReconciled(deliveryId);
+        assertThat(result).isEqualTo(SettlementDeliveryStatus.RECONCILED);
+    }
+
+    @Test
+    @DisplayName("수동 재전송 중 예기치 않은 오류가 나면 전달 실패 상태를 복구한다")
+    void restoresFailedStatusWhenManualRetryCrashes() {
+        UUID deliveryId = UUID.randomUUID();
+        SellerSettlementRegistrationCommand command =
+                org.mockito.Mockito.mock(SellerSettlementRegistrationCommand.class);
+        given(transactions.prepareManualRetry(deliveryId)).willReturn(3);
+        given(transactions.beginManualRetryAttempt(deliveryId, 6))
+                .willReturn(attempt(4, command));
+        given(registration.register(command))
+                .willThrow(new IllegalStateException("unexpected"));
+
+        SettlementDeliveryApplicationService service =
+                new SettlementDeliveryApplicationService(
+                        transactions, registration, reconciler, sleeper);
+
+        assertThatThrownBy(() -> service.retry(deliveryId))
+                .isInstanceOf(IllegalStateException.class);
+        then(transactions).should().markManualRetryFailed(
+                deliveryId,
+                "재전송 실행 오류: IllegalStateException");
+    }
+
+    @Test
+    @DisplayName("수동 재전송이 세 번 모두 통신 실패하면 전달 실패로 기록한다")
+    void marksManualRetryAsFailedAfterThreeAttempts() {
+        UUID deliveryId = UUID.randomUUID();
+        SellerSettlementRegistrationCommand command =
+                org.mockito.Mockito.mock(SellerSettlementRegistrationCommand.class);
+        given(transactions.prepareManualRetry(deliveryId)).willReturn(3);
+        given(transactions.beginManualRetryAttempt(deliveryId, 6)).willReturn(
+                attempt(4, command), attempt(5, command), attempt(6, command));
+        given(registration.register(command))
+                .willThrow(SellerSettlementDeliveryException.from(
+                        Status.Code.UNAVAILABLE, "failure"));
+        given(transactions.getStatus(deliveryId))
+                .willReturn(SettlementDeliveryStatus.DELIVERY_FAILED);
+
+        SettlementDeliveryStatus result = new SettlementDeliveryApplicationService(
+                transactions, registration, reconciler, sleeper)
+                .retry(deliveryId);
+
+        then(registration).should(times(3)).register(command);
+        then(transactions).should().markManualRetryFailed(
+                deliveryId, "gRPC UNAVAILABLE: attempts=6");
+        assertThat(result).isEqualTo(SettlementDeliveryStatus.DELIVERY_FAILED);
+    }
+
+    @Test
+    @DisplayName("수동 재전송 응답이 원본과 다르면 불일치로 기록한다")
+    void marksManualRetryAsMismatch() {
+        UUID deliveryId = UUID.randomUUID();
+        SellerSettlementRegistrationCommand command =
+                org.mockito.Mockito.mock(SellerSettlementRegistrationCommand.class);
+        given(transactions.prepareManualRetry(deliveryId)).willReturn(3);
+        given(transactions.beginManualRetryAttempt(deliveryId, 6))
+                .willReturn(attempt(4, command));
+        given(registration.register(command))
+                .willReturn(org.mockito.Mockito.mock(
+                        com.prompthub.settlement.application.dto
+                                .SellerSettlementStoredSnapshot.class));
+        given(reconciler.compare(any(), any()))
+                .willReturn(SettlementDeliveryComparison.mismatched(
+                        "settlementTotalAmount 불일치", 1));
+        given(transactions.getStatus(deliveryId))
+                .willReturn(SettlementDeliveryStatus.MISMATCH);
+
+        SettlementDeliveryStatus result = new SettlementDeliveryApplicationService(
+                transactions, registration, reconciler, sleeper)
+                .retry(deliveryId);
+
+        then(transactions).should().markManualRetryMismatch(
+                deliveryId,
+                "settlementTotalAmount 불일치, mismatchCount=1");
+        assertThat(result).isEqualTo(SettlementDeliveryStatus.MISMATCH);
     }
 
     private Optional<SettlementDeliveryAttempt> attempt(

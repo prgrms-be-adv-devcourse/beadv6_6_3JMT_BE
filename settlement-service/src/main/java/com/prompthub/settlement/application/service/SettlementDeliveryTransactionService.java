@@ -46,6 +46,25 @@ public class SettlementDeliveryTransactionService {
         }
         delivery.recordAttempt(LocalDateTime.now());
         deliveryRepository.save(delivery);
+        return createAttempt(delivery);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Optional<SettlementDeliveryAttempt> beginManualRetryAttempt(
+            UUID deliveryId,
+            int maxAttempts) {
+        SettlementDelivery delivery = deliveryRepository.findById(deliveryId)
+                .orElseThrow();
+        if (!delivery.canManualRetryAttempt(maxAttempts)) {
+            return Optional.empty();
+        }
+        delivery.recordManualRetryAttempt(LocalDateTime.now());
+        deliveryRepository.save(delivery);
+        return createAttempt(delivery);
+    }
+
+    private Optional<SettlementDeliveryAttempt> createAttempt(
+            SettlementDelivery delivery) {
         Settlement settlement = settlementRepository.findById(delivery.getSettlementId())
                 .orElseThrow();
         SellerSettlementRegistrationCommand command = new SellerSettlementRegistrationCommand(
@@ -63,6 +82,38 @@ public class SettlementDeliveryTransactionService {
                         .toList());
         return Optional.of(new SettlementDeliveryAttempt(
                 delivery.getAttemptCount(), command));
+    }
+
+    @Transactional(readOnly = true)
+    public int prepareManualRetry(UUID deliveryId) {
+        SettlementDelivery delivery = deliveryRepository.findById(deliveryId)
+                .orElseThrow();
+        return delivery.prepareManualRetry();
+    }
+
+    @Transactional(readOnly = true)
+    public SettlementDeliveryStatus getStatus(UUID deliveryId) {
+        return deliveryRepository.findById(deliveryId)
+                .orElseThrow()
+                .getStatus();
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markManualRetryReconciled(UUID deliveryId) {
+        deliveryRepository.findById(deliveryId).orElseThrow()
+                .reconcileManualRetry(LocalDateTime.now());
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markManualRetryFailed(UUID deliveryId, String reason) {
+        deliveryRepository.findById(deliveryId).orElseThrow()
+                .recordManualRetryFailure(reason);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markManualRetryMismatch(UUID deliveryId, String reason) {
+        deliveryRepository.findById(deliveryId).orElseThrow()
+                .mismatchManualRetry(reason);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

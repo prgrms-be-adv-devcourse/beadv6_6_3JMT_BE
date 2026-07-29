@@ -105,6 +105,54 @@ public class SettlementDelivery extends BaseEntity {
         statusReason = requireReason(reason);
     }
 
+    public int prepareManualRetry() {
+        requireDeliveryFailed();
+        return attemptCount;
+    }
+
+    public boolean canManualRetryAttempt(int maxAttempts) {
+        if (maxAttempts <= 0) {
+            throw new IllegalArgumentException("최대 시도 횟수는 1 이상이어야 합니다.");
+        }
+        return status == SettlementDeliveryStatus.DELIVERY_FAILED
+                && attemptCount < maxAttempts;
+    }
+
+    public void recordManualRetryAttempt(LocalDateTime attemptedAt) {
+        requireDeliveryFailed();
+        LocalDateTime time = Objects.requireNonNull(attemptedAt);
+        if (firstAttemptAt == null) {
+            firstAttemptAt = time;
+        }
+        lastAttemptAt = time;
+        attemptCount++;
+    }
+
+    public void reconcileManualRetry(LocalDateTime completedAt) {
+        requireDeliveryFailed();
+        status = SettlementDeliveryStatus.RECONCILED;
+        statusReason = null;
+        reconciledAt = Objects.requireNonNull(completedAt);
+    }
+
+    public void recordManualRetryFailure(String reason) {
+        requireDeliveryFailed();
+        statusReason = requireReason(reason);
+    }
+
+    public void mismatchManualRetry(String reason) {
+        requireDeliveryFailed();
+        status = SettlementDeliveryStatus.MISMATCH;
+        statusReason = requireReason(reason);
+    }
+
+    private void requireDeliveryFailed() {
+        if (status != SettlementDeliveryStatus.DELIVERY_FAILED) {
+            throw new IllegalStateException(
+                    "DELIVERY_FAILED Delivery만 수동 재전송할 수 있습니다.");
+        }
+    }
+
     private void requireCalculated() {
         if (status != SettlementDeliveryStatus.CALCULATED) {
             throw new IllegalStateException("CALCULATED Delivery만 변경할 수 있습니다.");

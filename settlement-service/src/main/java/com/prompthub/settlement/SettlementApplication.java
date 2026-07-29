@@ -17,6 +17,7 @@ public class SettlementApplication {
 
 	static boolean isOneShotMode(String executionMode) {
 		return "cronjob".equalsIgnoreCase(executionMode)
-			|| "restart".equalsIgnoreCase(executionMode);
+			|| "restart".equalsIgnoreCase(executionMode)
+			|| "delivery-retry".equalsIgnoreCase(executionMode);
 	}
 }

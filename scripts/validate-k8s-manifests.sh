@@ -269,11 +269,22 @@ for package in "${PACKAGES[@]}"; do
       '^[[:space:]]+key:[[:space:]]+REDIS_HOST$'
       '^[[:space:]]+- name:[[:space:]]+REDIS_PORT$'
       '^[[:space:]]+key:[[:space:]]+REDIS_PORT$'
+      '^[[:space:]]+serviceAccountName:[[:space:]]+admin-service$'
+      '^[[:space:]]+automountServiceAccountToken:[[:space:]]+true$'
+      '^[[:space:]]+- name:[[:space:]]+SETTLEMENT_DELIVERY_RETRY_JOB_ENABLED$'
+      '^[[:space:]]+value:[[:space:]]+"true"$'
+      '^kind:[[:space:]]+ServiceAccount$'
+      '^kind:[[:space:]]+Role$'
+      '^kind:[[:space:]]+RoleBinding$'
+      '^[[:space:]]+- settlement-weekly$'
+      '^[[:space:]]+- create$'
+      '^[[:space:]]+- delete$'
+      '^[[:space:]]+- list$'
     )
 
     for pattern in "${required_patterns[@]}"; do
       if ! grep -Eq -- "${pattern}" "${rendered}"; then
-        echo "missing admin Redis configuration contract: ${pattern}" >&2
+        echo "missing admin service contract: ${pattern}" >&2
         exit 1
       fi
     done
@@ -544,13 +555,17 @@ for package in "${PACKAGES[@]}"; do
   fi
 
   if [[ "${package}" == "k8s/overlays/ec2-kubeadm/applications" ]]; then
-    deployment_count="$(awk '$1 == "kind:" && $2 == "Deployment" { count++ } END { print count + 0 }' "${rendered}")"
-    service_count="$(awk '$1 == "kind:" && $2 == "Service" { count++ } END { print count + 0 }' "${rendered}")"
-    cronjob_count="$(awk '$1 == "kind:" && $2 == "CronJob" { count++ } END { print count + 0 }' "${rendered}")"
-    unexpected_kinds="$(awk '$1 == "kind:" && $2 != "Deployment" && $2 != "Service" && $2 != "CronJob" { print $2 }' "${rendered}" | sort -u)"
+    deployment_count="$(awk '$0 ~ /^kind: Deployment$/ { count++ } END { print count + 0 }' "${rendered}")"
+    service_count="$(awk '$0 ~ /^kind: Service$/ { count++ } END { print count + 0 }' "${rendered}")"
+    cronjob_count="$(awk '$0 ~ /^kind: CronJob$/ { count++ } END { print count + 0 }' "${rendered}")"
+    service_account_count="$(awk '$0 ~ /^kind: ServiceAccount$/ { count++ } END { print count + 0 }' "${rendered}")"
+    role_count="$(awk '$0 ~ /^kind: Role$/ { count++ } END { print count + 0 }' "${rendered}")"
+    role_binding_count="$(awk '$0 ~ /^kind: RoleBinding$/ { count++ } END { print count + 0 }' "${rendered}")"
+    unexpected_kinds="$(awk '$0 ~ /^kind:/ && $2 != "Deployment" && $2 != "Service" && $2 != "CronJob" && $2 != "ServiceAccount" && $2 != "Role" && $2 != "RoleBinding" { print $2 }' "${rendered}" | sort -u)"
 
-    if [[ "${deployment_count}" -ne 10 || "${service_count}" -ne 10 || "${cronjob_count}" -ne 1 ]]; then
-      echo "application CD package must render 10 Deployments, 10 Services, and 1 CronJob" >&2
+    if [[ "${deployment_count}" -ne 10 || "${service_count}" -ne 10 || "${cronjob_count}" -ne 1 \
+      || "${service_account_count}" -ne 1 || "${role_count}" -ne 1 || "${role_binding_count}" -ne 1 ]]; then
+      echo "application CD package must render 10 Deployments, 10 Services, 1 CronJob, and admin retry RBAC" >&2
       exit 1
     fi
 
