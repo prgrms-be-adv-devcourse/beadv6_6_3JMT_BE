@@ -6,11 +6,22 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface SettlementDeliveryJpaRepository
         extends JpaRepository<SettlementDelivery, UUID> {
 
     Optional<SettlementDelivery> findBySettlementId(UUID settlementId);
+
+    @Modifying
+    @Query("""
+            delete from SettlementDelivery delivery
+            where delivery.settlementId in :settlementIds
+            """)
+    int deleteBySettlementIds(
+            @Param("settlementIds") List<UUID> settlementIds);
 
     List<SettlementDelivery> findBySettlementBatchIdAndStatusOrderById(
             UUID settlementBatchId, SettlementDeliveryStatus status);

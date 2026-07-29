@@ -3,10 +3,12 @@ package com.prompthub.settlement.application.service;
 import com.prompthub.settlement.application.dto.SellerSettlementRegistrationCommand;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementDelivery;
+import com.prompthub.settlement.domain.model.enums.SettlementDeliveryStatus;
 import com.prompthub.settlement.domain.repository.SettlementDeliveryRepository;
 import com.prompthub.settlement.domain.repository.SettlementRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,11 @@ public class SettlementDeliveryTransactionService {
     public List<UUID> findCalculatedIds(UUID batchId) {
         return deliveryRepository.findCalculatedByBatchId(batchId).stream()
                 .map(SettlementDelivery::getId).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Map<SettlementDeliveryStatus, Long> countByStatus(UUID batchId) {
+        return deliveryRepository.countByStatus(batchId);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

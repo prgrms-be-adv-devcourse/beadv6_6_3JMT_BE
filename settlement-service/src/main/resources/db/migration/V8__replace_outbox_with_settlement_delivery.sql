@@ -21,3 +21,5 @@ CREATE TABLE settlement_delivery (
 
 CREATE INDEX idx_settlement_delivery_batch_status
     ON settlement_delivery (settlement_batch_id, status);
+
+DROP TABLE settlement_outbox_event;

@@ -25,42 +25,42 @@ public class SettlementDeliveryApplicationService {
     private final DeliveryRetrySleeper sleeper;
 
     public SettlementDeliverySummary deliverBatch(UUID batchId) {
-        int reconciled = 0;
-        int failed = 0;
-        int mismatch = 0;
         var ids = transactions.findCalculatedIds(batchId);
         for (UUID id : ids) {
-            Outcome outcome = deliver(id);
-            reconciled += outcome == Outcome.RECONCILED ? 1 : 0;
-            failed += outcome == Outcome.FAILED ? 1 : 0;
-            mismatch += outcome == Outcome.MISMATCH ? 1 : 0;
+            deliver(id);
         }
         SettlementDeliverySummary summary =
-                new SettlementDeliverySummary(ids.size(), reconciled, failed, mismatch);
-        log.info("정산 전달 배치 완료. batchId={}, total={}, reconciled={}, failed={}, mismatch={}",
-                batchId, ids.size(), reconciled, failed, mismatch);
+                SettlementDeliverySummary.from(transactions.countByStatus(batchId));
+        log.info(
+                "정산 전달 배치 완료. batchId={}, total={}, calculated={}, "
+                        + "reconciled={}, deliveryFailed={}, mismatch={}",
+                batchId, summary.total(), summary.calculated(),
+                summary.reconciled(), summary.deliveryFailed(), summary.mismatch());
         return summary;
     }
 
-    private Outcome deliver(UUID deliveryId) {
+    private void deliver(UUID deliveryId) {
         for (int attempt = 1; attempt <= 3; attempt++) {
             SellerSettlementRegistrationCommand command =
                     transactions.beginAttempt(deliveryId);
+            long startedAt = System.nanoTime();
             try {
                 var stored = port.register(command);
+                logAttempt(command, attempt, "OK", startedAt);
                 SettlementDeliveryComparison comparison =
                         reconciler.compare(command, stored);
                 if (comparison.matched()) {
                     transactions.markReconciled(deliveryId);
-                    return Outcome.RECONCILED;
+                    return;
                 }
                 transactions.markMismatch(deliveryId, comparison.reason());
-                return Outcome.MISMATCH;
+                return;
             } catch (SellerSettlementDeliveryException exception) {
+                logAttempt(command, attempt, exception.getStatusCode().name(), startedAt);
                 if (!exception.isRetryable() || attempt == 3) {
                     transactions.markFailed(deliveryId,
                             "gRPC " + exception.getStatusCode() + ": attempts=" + attempt);
-                    return Outcome.FAILED;
+                    return;
                 }
                 sleeper.sleep(BACKOFFS[attempt - 1]);
             }
@@ -68,7 +68,16 @@ public class SettlementDeliveryApplicationService {
         throw new IllegalStateException("도달할 수 없는 정산 전달 상태입니다.");
     }
 
-    private enum Outcome {
-        RECONCILED, FAILED, MISMATCH
+    private void logAttempt(
+            SellerSettlementRegistrationCommand command,
+            int attempt,
+            String status,
+            long startedAt) {
+        long elapsedMs = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
+        log.info(
+                "정산 전달 호출 완료. settlementId={}, deliveryRequestId={}, "
+                        + "attempt={}, grpcStatus={}, elapsedMs={}",
+                command.settlementId(), command.deliveryRequestId(),
+                attempt, status, elapsedMs);
     }
 }

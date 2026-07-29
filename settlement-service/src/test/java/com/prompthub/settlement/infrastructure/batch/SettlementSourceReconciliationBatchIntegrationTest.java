@@ -8,7 +8,7 @@ import static org.mockito.BDDMockito.then;
 import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
 import com.prompthub.settlement.application.dto.SettlementJobResult;
 import com.prompthub.settlement.application.dto.SettlementSourceReconciliationResult;
-import com.prompthub.settlement.application.port.SettlementEventPublisher;
+import com.prompthub.settlement.application.port.SellerSettlementRegistrationPort;
 import com.prompthub.settlement.application.usecase.LoadSettlementSourceUseCase;
 import com.prompthub.settlement.application.usecase.ReconcileSettlementSourceUseCase;
 import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
@@ -20,7 +20,7 @@ import com.prompthub.settlement.infrastructure.batch.tasklet.ReconcileSettlement
 import com.prompthub.settlement.infrastructure.persistence.SettlementBatchJpaRepository;
 import com.prompthub.settlement.infrastructure.persistence.SettlementJpaRepository;
 import com.prompthub.settlement.infrastructure.persistence.SettlementSourceLineJpaRepository;
-import com.prompthub.settlement.infrastructure.persistence.outbox.OutboxEventJpaRepository;
+import com.prompthub.settlement.infrastructure.persistence.delivery.SettlementDeliveryJpaRepository;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -64,7 +64,7 @@ class SettlementSourceReconciliationBatchIntegrationTest {
     private SettlementSourceLineJpaRepository sourceLineJpaRepository;
 
     @Autowired
-    private OutboxEventJpaRepository outboxEventJpaRepository;
+    private SettlementDeliveryJpaRepository settlementDeliveryJpaRepository;
 
     @Autowired
     private JobRepository jobRepository;
@@ -79,11 +79,11 @@ class SettlementSourceReconciliationBatchIntegrationTest {
     private ReconcileSettlementSourceUseCase reconcileSettlementSourceUseCase;
 
     @MockitoBean
-    private SettlementEventPublisher settlementEventPublisher;
+    private SellerSettlementRegistrationPort sellerSettlementRegistrationPort;
 
     @BeforeEach
     void setUp() {
-        outboxEventJpaRepository.deleteAll();
+        settlementDeliveryJpaRepository.deleteAll();
         settlementJpaRepository.deleteAll();
         sourceLineJpaRepository.deleteAll();
         settlementBatchJpaRepository.deleteAll();
@@ -123,7 +123,7 @@ class SettlementSourceReconciliationBatchIntegrationTest {
         assertThat(batch.getFailureReason()).isEqualTo(mismatch.failureReason());
         assertThat(batch.getExecutedAt()).isNotNull();
         assertThat(settlementJpaRepository.count()).isZero();
-        assertThat(outboxEventJpaRepository.count()).isZero();
+        assertThat(settlementDeliveryJpaRepository.count()).isZero();
         assertThat(reconciliationStep.getExitStatus().getExitCode())
                 .isEqualTo(ReconcileSettlementSourceTasklet.RECONCILIATION_FAILED_EXIT_CODE);
         assertThat(context.getString("reconciliationStatus")).isEqualTo("MISMATCHED");
@@ -136,7 +136,7 @@ class SettlementSourceReconciliationBatchIntegrationTest {
         assertThat(context.getLong("sourceRefundCount")).isEqualTo(1L);
         assertThat(context.getString("sourceRefundAmount")).isEqualTo("500");
         then(reconcileSettlementSourceUseCase).should().reconcile(PERIOD);
-        then(settlementEventPublisher).shouldHaveNoInteractions();
+        then(sellerSettlementRegistrationPort).shouldHaveNoInteractions();
         then(loadSettlementSourceUseCase).should().load(any(SettlementPeriod.class));
     }
 
@@ -161,9 +161,9 @@ class SettlementSourceReconciliationBatchIntegrationTest {
         assertThat(batch.getStatus()).isEqualTo(SettlementBatchStatus.FAILED);
         assertThat(batch.getFailureReason()).contains("order-service 조회 실패");
         assertThat(settlementJpaRepository.count()).isZero();
-        assertThat(outboxEventJpaRepository.count()).isZero();
+        assertThat(settlementDeliveryJpaRepository.count()).isZero();
         assertThat(reconciliationStep.getExitStatus().getExitCode())
                 .isEqualTo("FAILED");
-        then(settlementEventPublisher).shouldHaveNoInteractions();
+        then(sellerSettlementRegistrationPort).shouldHaveNoInteractions();
     }
 }

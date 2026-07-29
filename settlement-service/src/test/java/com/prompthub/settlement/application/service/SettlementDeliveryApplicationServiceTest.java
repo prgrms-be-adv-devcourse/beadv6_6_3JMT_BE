@@ -10,9 +10,11 @@ import com.prompthub.settlement.application.dto.SellerSettlementRegistrationComm
 import com.prompthub.settlement.application.dto.SettlementDeliveryComparison;
 import com.prompthub.settlement.application.exception.SellerSettlementDeliveryException;
 import com.prompthub.settlement.application.port.SellerSettlementRegistrationPort;
+import com.prompthub.settlement.domain.model.enums.SettlementDeliveryStatus;
 import io.grpc.Status;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,6 +47,8 @@ class SettlementDeliveryApplicationServiceTest {
                                 .SellerSettlementStoredSnapshot.class));
         given(reconciler.compare(any(), any()))
                 .willReturn(SettlementDeliveryComparison.success());
+        given(transactions.countByStatus(batchId)).willReturn(
+                Map.of(SettlementDeliveryStatus.RECONCILED, 1L));
 
         new SettlementDeliveryApplicationService(
                 transactions, port, reconciler, sleeper).deliverBatch(batchId);
@@ -72,6 +76,9 @@ class SettlementDeliveryApplicationServiceTest {
                                 .SellerSettlementStoredSnapshot.class));
         given(reconciler.compare(any(), any()))
                 .willReturn(SettlementDeliveryComparison.success());
+        given(transactions.countByStatus(batchId)).willReturn(Map.of(
+                SettlementDeliveryStatus.RECONCILED, 1L,
+                SettlementDeliveryStatus.DELIVERY_FAILED, 1L));
 
         var result = new SettlementDeliveryApplicationService(
                 transactions, port, reconciler, sleeper).deliverBatch(batchId);
@@ -81,5 +88,27 @@ class SettlementDeliveryApplicationServiceTest {
         then(transactions).should().markReconciled(second);
         assertThat(result.deliveryFailed()).isEqualTo(1);
         assertThat(result.reconciled()).isEqualTo(1);
+        assertThat(result.total()).isEqualTo(2);
+        assertThat(result.calculated()).isZero();
+    }
+
+    @Test
+    void 재실행시_현재_배치의_모든_Delivery_상태를_집계한다() {
+        UUID batchId = UUID.randomUUID();
+        given(transactions.findCalculatedIds(batchId)).willReturn(List.of());
+        given(transactions.countByStatus(batchId)).willReturn(Map.of(
+                SettlementDeliveryStatus.CALCULATED, 1L,
+                SettlementDeliveryStatus.RECONCILED, 2L,
+                SettlementDeliveryStatus.DELIVERY_FAILED, 3L,
+                SettlementDeliveryStatus.MISMATCH, 4L));
+
+        var result = new SettlementDeliveryApplicationService(
+                transactions, port, reconciler, sleeper).deliverBatch(batchId);
+
+        assertThat(result.total()).isEqualTo(10);
+        assertThat(result.calculated()).isEqualTo(1);
+        assertThat(result.reconciled()).isEqualTo(2);
+        assertThat(result.deliveryFailed()).isEqualTo(3);
+        assertThat(result.mismatch()).isEqualTo(4);
     }
 }

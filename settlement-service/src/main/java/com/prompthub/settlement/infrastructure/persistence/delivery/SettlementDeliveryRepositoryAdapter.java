@@ -34,6 +34,13 @@ public class SettlementDeliveryRepositoryAdapter
     }
 
     @Override
+    public void deleteBySettlementIds(List<UUID> settlementIds) {
+        if (!settlementIds.isEmpty()) {
+            jpaRepository.deleteBySettlementIds(settlementIds);
+        }
+    }
+
+    @Override
     public List<SettlementDelivery> findCalculatedByBatchId(UUID batchId) {
         return jpaRepository.findBySettlementBatchIdAndStatusOrderById(
                 batchId, SettlementDeliveryStatus.CALCULATED);

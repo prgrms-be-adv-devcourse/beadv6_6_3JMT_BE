@@ -13,8 +13,8 @@ import com.prompthub.settlement.domain.model.SettlementDetail;
 import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.model.enums.SettlementCalculationReconciliationStatus;
-import com.prompthub.settlement.domain.repository.OutboxEventRepository;
 import com.prompthub.settlement.domain.repository.SettlementCalculationReconciliationRepository;
+import com.prompthub.settlement.domain.repository.SettlementDeliveryRepository;
 import com.prompthub.settlement.domain.repository.SettlementRepository;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import java.math.BigDecimal;
@@ -50,7 +50,7 @@ class SettlementCalculationReconciliationApplicationServiceTest {
     private SettlementCalculationReconciliationRepository reconciliationRepository;
 
     @Mock
-    private OutboxEventRepository outboxEventRepository;
+    private SettlementDeliveryRepository deliveryRepository;
 
     private SettlementCalculationReconciliationApplicationService service;
 
@@ -60,7 +60,7 @@ class SettlementCalculationReconciliationApplicationServiceTest {
                 settlementRepository,
                 sourceRepository,
                 reconciliationRepository,
-                outboxEventRepository);
+                deliveryRepository);
     }
 
     @Test
@@ -94,7 +94,7 @@ class SettlementCalculationReconciliationApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("불일치 정산만 PENDING Outbox와 source 연결과 계산 산출물을 정리한다")
+    @DisplayName("불일치 정산만 Delivery와 source 연결과 계산 산출물을 정리한다")
     void reconcile_mismatch_cleansOnlyMismatchedSettlementArtifacts() {
         SettlementSourceLine matchedSource = sourceLine("100.00");
         Settlement matched = settlement(matchedSource, "100.00");
@@ -114,18 +114,18 @@ class SettlementCalculationReconciliationApplicationServiceTest {
 
         assertThat(matchedSource.isSettled()).isTrue();
         assertThat(mismatchedSource.isSettled()).isFalse();
-        then(outboxEventRepository).should()
-                .deletePendingBySettlementIds(List.of(mismatched.getId()));
+        then(deliveryRepository).should()
+                .deleteBySettlementIds(List.of(mismatched.getId()));
         then(settlementRepository).should()
                 .deleteAll(List.of(mismatched));
         InOrder inOrder = inOrder(
                 reconciliationRepository,
-                outboxEventRepository,
+                deliveryRepository,
                 settlementRepository);
         inOrder.verify(reconciliationRepository).saveAll(argThat(
                 results -> results.size() == 2));
-        inOrder.verify(outboxEventRepository)
-                .deletePendingBySettlementIds(List.of(mismatched.getId()));
+        inOrder.verify(deliveryRepository)
+                .deleteBySettlementIds(List.of(mismatched.getId()));
         inOrder.verify(settlementRepository).deleteAll(List.of(mismatched));
     }
 
@@ -145,7 +145,7 @@ class SettlementCalculationReconciliationApplicationServiceTest {
 
         assertThat(report.matched()).isTrue();
         assertThat(source.isSettled()).isTrue();
-        then(outboxEventRepository).shouldHaveNoInteractions();
+        then(deliveryRepository).shouldHaveNoInteractions();
         then(settlementRepository).shouldHaveNoMoreInteractions();
     }
 

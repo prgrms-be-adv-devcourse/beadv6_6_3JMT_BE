@@ -10,9 +10,11 @@ import static org.mockito.Mockito.times;
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
 import com.prompthub.settlement.application.dto.RestartSettlementBatchCommand;
 import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
+import com.prompthub.settlement.application.dto.SellerSettlementRegistrationCommand;
+import com.prompthub.settlement.application.dto.SellerSettlementStoredSnapshot;
 import com.prompthub.settlement.application.dto.SettlementJobResult;
 import com.prompthub.settlement.application.dto.SettlementSourceReconciliationResult;
-import com.prompthub.settlement.application.port.SettlementEventPublisher;
+import com.prompthub.settlement.application.port.SellerSettlementRegistrationPort;
 import com.prompthub.settlement.application.service.SettlementCalculationApplicationService;
 import com.prompthub.settlement.application.usecase.LoadSettlementSourceUseCase;
 import com.prompthub.settlement.application.usecase.ReconcileSettlementSourceUseCase;
@@ -21,23 +23,21 @@ import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
 import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementBatch;
 import com.prompthub.settlement.domain.model.SettlementCalculationReconciliation;
-import com.prompthub.settlement.domain.model.SettlementOutboxEvent;
+import com.prompthub.settlement.domain.model.SettlementDelivery;
 import com.prompthub.settlement.domain.model.SettlementPeriod;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
-import com.prompthub.settlement.domain.model.enums.OutboxEventStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementBatchStatus;
 import com.prompthub.settlement.domain.model.enums.SettlementCalculationReconciliationStatus;
-import com.prompthub.settlement.domain.repository.OutboxEventRepository;
+import com.prompthub.settlement.domain.model.enums.SettlementDeliveryStatus;
 import com.prompthub.settlement.domain.repository.SettlementSourceAggregate;
 import com.prompthub.settlement.infrastructure.persistence.SettlementBatchJpaRepository;
 import com.prompthub.settlement.infrastructure.persistence.SettlementCalculationReconciliationJpaRepository;
 import com.prompthub.settlement.infrastructure.persistence.SettlementJpaRepository;
 import com.prompthub.settlement.infrastructure.persistence.SettlementSourceLineJpaRepository;
-import com.prompthub.settlement.infrastructure.persistence.outbox.OutboxEventJpaRepository;
+import com.prompthub.settlement.infrastructure.persistence.delivery.SettlementDeliveryJpaRepository;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -94,10 +94,7 @@ class SettlementBatchRestartIntegrationTest {
     private SettlementSourceLineJpaRepository sourceLineJpaRepository;
 
     @Autowired
-    private OutboxEventJpaRepository outboxEventJpaRepository;
-
-    @Autowired
-    private OutboxEventRepository outboxEventRepository;
+    private SettlementDeliveryJpaRepository settlementDeliveryJpaRepository;
 
     @Autowired
     private JobRepository jobRepository;
@@ -112,14 +109,14 @@ class SettlementBatchRestartIntegrationTest {
     private ReconcileSettlementSourceUseCase reconcileSettlementSourceUseCase;
 
     @MockitoBean
-    private SettlementEventPublisher settlementEventPublisher;
+    private SellerSettlementRegistrationPort sellerSettlementRegistrationPort;
 
     @MockitoSpyBean
     private SettlementCalculationApplicationService calculationService;
 
     @BeforeEach
     void setUp() {
-        outboxEventJpaRepository.deleteAll();
+        settlementDeliveryJpaRepository.deleteAll();
         reconciliationJpaRepository.deleteAll();
         settlementJpaRepository.deleteAll();
         sourceLineJpaRepository.deleteAll();
@@ -129,6 +126,9 @@ class SettlementBatchRestartIntegrationTest {
                 .willReturn(SettlementSourceReconciliationResult.compare(
                         emptyAggregate,
                         emptyAggregate));
+        given(sellerSettlementRegistrationPort.register(
+                any(SellerSettlementRegistrationCommand.class)))
+                .willAnswer(invocation -> snapshotOf(invocation.getArgument(0)));
     }
 
     @Test
@@ -160,12 +160,12 @@ class SettlementBatchRestartIntegrationTest {
         assertThat(settlementJpaRepository.count()).isZero();
         assertThat(sourceLineJpaRepository.findAll())
                 .noneMatch(SettlementSourceLine::isSettled);
-        assertThat(outboxEventJpaRepository.count()).isZero();
+        assertThat(settlementDeliveryJpaRepository.count()).isZero();
         assertThat(reconciliationJpaRepository.findAll())
                 .singleElement()
                 .extracting(SettlementCalculationReconciliation::getStatus)
                 .isEqualTo(SettlementCalculationReconciliationStatus.MISMATCHED);
-        then(settlementEventPublisher).shouldHaveNoInteractions();
+        then(sellerSettlementRegistrationPort).shouldHaveNoInteractions();
 
         failedBatch.requestRetry();
         settlementBatchJpaRepository.saveAndFlush(failedBatch);
@@ -186,10 +186,10 @@ class SettlementBatchRestartIntegrationTest {
                 .hasSize(1);
         assertThat(sourceLineJpaRepository.findAll())
                 .allMatch(SettlementSourceLine::isSettled);
-        assertThat(outboxEventJpaRepository.findAll())
+        assertThat(settlementDeliveryJpaRepository.findAll())
                 .singleElement()
-                .extracting(SettlementOutboxEvent::getStatus)
-                .isEqualTo(OutboxEventStatus.PUBLISHED);
+                .extracting(SettlementDelivery::getStatus)
+                .isEqualTo(SettlementDeliveryStatus.RECONCILED);
         assertThat(reconciliationJpaRepository
                 .findBySettlementBatchIdOrderByVerifiedAtAsc(originalBatchId))
                 .extracting(SettlementCalculationReconciliation::getStatus)
@@ -198,8 +198,8 @@ class SettlementBatchRestartIntegrationTest {
                         SettlementCalculationReconciliationStatus.MATCHED);
         then(calculationService).should(times(2))
                 .calculate(any(CalculateSettlementCommand.class));
-        then(settlementEventPublisher).should()
-                .publish(any(String.class), any(UUID.class), any(String.class));
+        then(sellerSettlementRegistrationPort).should()
+                .register(any(SellerSettlementRegistrationCommand.class));
     }
 
     @Test
@@ -229,10 +229,11 @@ class SettlementBatchRestartIntegrationTest {
         assertThat(sourceLineJpaRepository.findAll())
                 .filteredOn(SettlementSourceLine::isSettled)
                 .hasSize(1);
-        assertThat(outboxEventJpaRepository.count()).isEqualTo(1);
-        assertThat(outboxEventRepository.findPendingBefore(
-                LocalDateTime.now().plusDays(1), null, null, 10)).isEmpty();
-        then(settlementEventPublisher).shouldHaveNoInteractions();
+        assertThat(settlementDeliveryJpaRepository.count()).isEqualTo(1);
+        assertThat(settlementDeliveryJpaRepository.findAll())
+                .allMatch(delivery ->
+                        delivery.getStatus() == SettlementDeliveryStatus.CALCULATED);
+        then(sellerSettlementRegistrationPort).shouldHaveNoInteractions();
 
         failedBatch.requestRetry();
         settlementBatchJpaRepository.saveAndFlush(failedBatch);
@@ -248,7 +249,7 @@ class SettlementBatchRestartIntegrationTest {
         JobInstance jobInstance = jobRepository.getJobInstance(originalJobInstanceId);
         List<Settlement> settlements = settlementJpaRepository.findBySettlementBatchId(originalBatchId);
         List<SettlementSourceLine> sourceLines = sourceLineJpaRepository.findAll();
-        List<SettlementOutboxEvent> outboxEvents = outboxEventJpaRepository.findAll();
+        List<SettlementDelivery> deliveries = settlementDeliveryJpaRepository.findAll();
         assertThat(restartedResult.status()).isEqualTo("COMPLETED");
         assertThat(completedBatch.getStatus()).isEqualTo(SettlementBatchStatus.COMPLETED);
         assertThat(completedBatch.getJobInstanceId()).isEqualTo(originalJobInstanceId);
@@ -262,13 +263,14 @@ class SettlementBatchRestartIntegrationTest {
                 .allMatch(SettlementSourceLine::isSettled)
                 .extracting(SettlementSourceLine::getSettlementId)
                 .doesNotHaveDuplicates();
-        assertThat(outboxEvents)
+        assertThat(deliveries)
                 .hasSize(3)
-                .allMatch(event -> event.getStatus() == OutboxEventStatus.PUBLISHED)
-                .extracting(SettlementOutboxEvent::getAggregateId)
+                .allMatch(delivery ->
+                        delivery.getStatus() == SettlementDeliveryStatus.RECONCILED)
+                .extracting(SettlementDelivery::getSettlementId)
                 .doesNotHaveDuplicates();
-        then(settlementEventPublisher).should(times(3))
-                .publish(any(String.class), any(UUID.class), any(String.class));
+        then(sellerSettlementRegistrationPort).should(times(3))
+                .register(any(SellerSettlementRegistrationCommand.class));
     }
 
     @Test
@@ -307,14 +309,39 @@ class SettlementBatchRestartIntegrationTest {
         assertThat(jobRepository.getJobExecutions(jobInstance)).hasSize(2);
         assertThat(settlementJpaRepository.findBySettlementBatchId(originalBatchId)).hasSize(1);
         then(loadSettlementSourceUseCase).should(times(2)).load(SOURCE_LOAD_FAILURE_PERIOD);
-        then(settlementEventPublisher).should().publish(
-                any(String.class),
-                any(UUID.class),
-                any(String.class));
+        then(sellerSettlementRegistrationPort).should()
+                .register(any(SellerSettlementRegistrationCommand.class));
     }
 
     private SettlementBatch onlyBatch() {
         return settlementBatchJpaRepository.findAll().getFirst();
+    }
+
+    private SellerSettlementStoredSnapshot snapshotOf(
+            SellerSettlementRegistrationCommand command) {
+        return new SellerSettlementStoredSnapshot(
+                command.deliveryRequestId(),
+                command.settlementId(),
+                command.sellerId(),
+                command.periodStart(),
+                command.periodEnd(),
+                command.productCount(),
+                command.grossSalesAmount(),
+                command.refundAmount(),
+                command.feeTotalAmount(),
+                command.settlementTotalAmount(),
+                command.calculatedAt(),
+                command.details().stream()
+                        .map(detail -> new SellerSettlementStoredSnapshot.Detail(
+                                detail.settlementDetailId(),
+                                detail.orderProductId(),
+                                detail.lineType(),
+                                detail.lineAmount(),
+                                detail.feeRate(),
+                                detail.feeAmount(),
+                                detail.lineSettlementAmount(),
+                                detail.occurredAt()))
+                        .toList());
     }
 
     private void saveSourceLines(SettlementPeriod period, int count) {

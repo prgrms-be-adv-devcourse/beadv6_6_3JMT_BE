@@ -28,13 +28,6 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    consumer:
-      group-id: user-service
-      auto-offset-reset: earliest
-      enable-auto-commit: false
-
 jwt:
   private-key: ${JWT_PRIVATE_KEY}
   public-key: ${JWT_PUBLIC_KEY}
@@ -52,13 +45,5 @@ user:
   grpc:
     seller-settlement:
       internal-token: ${AI_USER_GRPC_TOKEN:local-ai-user-token}
-  kafka:
-    dlt:
-      slack:
-        webhook-url: ${SETTLEMENT_DLT_SLACK_WEBHOOK_URL:}
-    consumer:
-      settlement:
-        topic: settlement-events
-    listener:
-      settlement:
-        enabled: false   # 통합 검증 시 true
+    seller-settlement-command:
+      internal-token: ${SETTLEMENT_USER_GRPC_TOKEN:local-settlement-user-token}

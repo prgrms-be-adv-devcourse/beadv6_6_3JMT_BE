@@ -15,6 +15,8 @@ public interface SettlementDeliveryRepository {
 
     Optional<SettlementDelivery> findBySettlementId(UUID settlementId);
 
+    void deleteBySettlementIds(List<UUID> settlementIds);
+
     List<SettlementDelivery> findCalculatedByBatchId(UUID settlementBatchId);
 
     Map<SettlementDeliveryStatus, Long> countByStatus(UUID settlementBatchId);

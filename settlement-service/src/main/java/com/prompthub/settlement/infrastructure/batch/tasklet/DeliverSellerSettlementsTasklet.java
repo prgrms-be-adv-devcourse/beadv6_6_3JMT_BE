@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.batch.tasklet;
 
-import com.prompthub.settlement.application.usecase.OutboxEventUseCase;
+import com.prompthub.settlement.application.service.SettlementDeliveryApplicationService;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.configuration.annotation.StepScope;
@@ -14,16 +14,17 @@ import org.springframework.stereotype.Component;
 @Component
 @StepScope
 @RequiredArgsConstructor
-public class FlushCurrentBatchOutboxTasklet implements Tasklet {
+public class DeliverSellerSettlementsTasklet implements Tasklet {
 
-    private final OutboxEventUseCase outboxEventUseCase;
+    private final SettlementDeliveryApplicationService deliveryService;
 
     @Value("#{jobExecutionContext['settlementBatchId']}")
     private String settlementBatchIdParam;
 
     @Override
-    public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
-        outboxEventUseCase.flushBatch(UUID.fromString(settlementBatchIdParam));
+    public RepeatStatus execute(
+            StepContribution contribution, ChunkContext chunkContext) {
+        deliveryService.deliverBatch(UUID.fromString(settlementBatchIdParam));
         return RepeatStatus.FINISHED;
     }
 }
