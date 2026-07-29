@@ -52,6 +52,12 @@ cloud:
 
 elasticsearch:
   uris: ${ES_URIS}
+  # 인증·TLS는 값이 있을 때만 적용된다(#582). ES 보안을 켜기 전까지는 비어 있는 채로
+  # 두면 되고, 그동안은 지금과 똑같이 무인증 HTTP로 연결된다.
+  # 기본값이 있어 Secret 계약 검증(scripts/validate-k8s-secret-contract.sh)의 필수 키가 아니다.
+  username: ${ES_USERNAME:}
+  password: ${ES_PASSWORD:}
+  ca-path: ${ES_CA_PATH:}
 
 prompthub:
   search:
