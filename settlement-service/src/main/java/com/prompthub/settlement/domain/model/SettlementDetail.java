@@ -12,6 +12,7 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -32,6 +33,9 @@ public class SettlementDetail {
 
     @Column(name = "order_product_id")
     private UUID orderProductId;
+
+    @Column(name = "settlement_source_line_id")
+    private UUID settlementSourceLineId;
 
     @Column(name = "line_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal lineAmount;
@@ -55,19 +59,26 @@ public class SettlementDetail {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    public static SettlementDetail sale(UUID orderProductId, BigDecimal lineAmount, BigDecimal feeRate,
+    public static SettlementDetail sale(UUID settlementSourceLineId, UUID orderProductId,
+                                        BigDecimal lineAmount, BigDecimal feeRate,
                                         LocalDateTime occurredAt) {
-        return create(orderProductId, lineAmount, feeRate, SettlementLineType.SALE, occurredAt);
+        return create(settlementSourceLineId, orderProductId, lineAmount, feeRate,
+                SettlementLineType.SALE, occurredAt);
     }
 
-    public static SettlementDetail refund(UUID orderProductId, BigDecimal lineAmount, BigDecimal feeRate,
+    public static SettlementDetail refund(UUID settlementSourceLineId, UUID orderProductId,
+                                          BigDecimal lineAmount, BigDecimal feeRate,
                                           LocalDateTime occurredAt) {
-        return create(orderProductId, lineAmount.negate(), feeRate, SettlementLineType.REFUND, occurredAt);
+        return create(settlementSourceLineId, orderProductId, lineAmount.negate(), feeRate,
+                SettlementLineType.REFUND, occurredAt);
     }
 
-    private static SettlementDetail create(UUID orderProductId, BigDecimal lineAmount, BigDecimal feeRate,
+    private static SettlementDetail create(UUID settlementSourceLineId, UUID orderProductId,
+                                           BigDecimal lineAmount, BigDecimal feeRate,
                                            SettlementLineType lineType, LocalDateTime occurredAt) {
         SettlementDetail detail = new SettlementDetail();
+        detail.settlementSourceLineId = Objects.requireNonNull(
+                settlementSourceLineId, "settlementSourceLineId는 필수입니다.");
         detail.orderProductId = orderProductId;
         detail.lineAmount = lineAmount;
         detail.feeRate = feeRate;

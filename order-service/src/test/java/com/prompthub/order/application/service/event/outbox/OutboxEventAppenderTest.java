@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.prompthub.order.infra.messaging.kafka.producer.JacksonOutboxPayloadSerializer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -39,7 +40,10 @@ class OutboxEventAppenderTest {
 	@Test
 	@DisplayName("ORDER_PAID EventMessage 전체를 JSON으로 직렬화해 Outbox에 저장한다")
 	void append_savesSerializedOutboxEvent() throws Exception {
-		OutboxEventAppender appender = new OutboxEventAppender(objectMapper, outboxEventRepository);
+		OutboxEventAppender appender = new OutboxEventAppender(
+			new JacksonOutboxPayloadSerializer(objectMapper),
+			outboxEventRepository
+		);
 
 		UUID eventId = UUID.randomUUID();
 		UUID orderId = UUID.randomUUID();

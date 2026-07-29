@@ -1,8 +1,9 @@
 package com.prompthub.order.application.service.event;
 
+import com.prompthub.order.application.dto.event.PaymentFailedCommand;
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
+import com.prompthub.order.infra.messaging.kafka.consumer.payment.PaymentFailedEventHandler;
 import com.prompthub.order.infra.messaging.kafka.support.EventPayloadMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,7 +49,7 @@ class PaymentFailedEventHandlerTest {
 			{
 			  "orderId": "%s",
 			  "failedAmount": 30000,
-			  "failedAt": "2026-07-17T10:00:05+09:00"
+			  "failedAt": "2026-07-17T10:00:06+09:00"
 			}
 			""".formatted(ORDER_A));
 		EventMessage<JsonNode> message = new EventMessage<>(
@@ -62,13 +63,13 @@ class PaymentFailedEventHandlerTest {
 
 		handler.handle(message);
 
-		ArgumentCaptor<PaymentFailedPayload> captor = ArgumentCaptor.forClass(PaymentFailedPayload.class);
+		ArgumentCaptor<PaymentFailedCommand> captor = ArgumentCaptor.forClass(PaymentFailedCommand.class);
 		then(processor).should().process(eq(eventId), eq("PAYMENT_FAILED"), eq(FAILED_AT), captor.capture());
 		assertThat(captor.getValue().paymentId()).isNull();
 		assertThat(captor.getValue().orderId()).isEqualTo(ORDER_A);
 		assertThat(captor.getValue().buyerId()).isNull();
 		assertThat(captor.getValue().failedAmount()).isEqualTo(30_000);
-		assertThat(captor.getValue().failedAtValue()).isEqualTo("2026-07-17T10:00:05+09:00");
+		assertThat(captor.getValue().failedAt()).isEqualTo(FAILED_AT);
 	}
 
 	@Test

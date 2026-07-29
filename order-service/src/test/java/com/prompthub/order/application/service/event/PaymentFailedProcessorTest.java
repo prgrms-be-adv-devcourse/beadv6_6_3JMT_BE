@@ -1,7 +1,7 @@
 package com.prompthub.order.application.service.event;
 
+import com.prompthub.order.application.dto.event.PaymentFailedCommand;
 import com.prompthub.order.application.service.order.OrderFailureCompensationService;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,7 +39,7 @@ class PaymentFailedProcessorTest {
 	@Test
 	@DisplayName("결제 실패 metadata와 payload를 공통 보상 서비스에 그대로 위임한다")
 	void process_delegatesMetadataAndPayload() {
-		PaymentFailedPayload payload = failedPayload();
+		PaymentFailedCommand payload = failedPayload();
 
 		processor.process(EVENT_ID, EVENT_TYPE, FAILED_AT, payload);
 
@@ -55,7 +55,7 @@ class PaymentFailedProcessorTest {
 			UUID.class,
 			String.class,
 			LocalDateTime.class,
-			PaymentFailedPayload.class
+			PaymentFailedCommand.class
 		);
 
 		assertThat(AnnotatedElementUtils.hasAnnotation(PaymentFailedProcessor.class, Transactional.class)).isFalse();

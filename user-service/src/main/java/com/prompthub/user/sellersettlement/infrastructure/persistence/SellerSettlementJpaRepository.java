@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,7 +16,11 @@ public interface SellerSettlementJpaRepository extends JpaRepository<SellerSettl
 
     boolean existsBySettlementId(UUID settlementId);
 
+    @EntityGraph(attributePaths = "details")
     Optional<SellerSettlement> findBySettlementId(UUID settlementId);
+
+    @EntityGraph(attributePaths = "details")
+    Optional<SellerSettlement> findByDeliveryRequestId(UUID deliveryRequestId);
 
     @Query("""
             select s from SellerSettlement s

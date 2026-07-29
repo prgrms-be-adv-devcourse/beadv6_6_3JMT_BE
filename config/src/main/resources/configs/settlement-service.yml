@@ -20,17 +20,14 @@ spring:
   batch:
     job:
       enabled: false
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
-    consumer:
-      group-id: settlement-service
-      auto-offset-reset: earliest
-      enable-auto-commit: false
+  grpc:
+    client:
+      channel:
+        user-service:
+          target: ${USER_GRPC_TARGET:static://user-service:9081}
 
 grpc:
   client:
-    user-service:
-      address: user-service:${USER_GRPC_SERVER_PORT}
     product-service:
       address: product-service:${PRODUCT_GRPC_SERVER_PORT}
     order-service:
@@ -38,9 +35,7 @@ grpc:
       negotiation-type: plaintext
 
 settlement:
-  kafka:
-    producer:
-      topic: settlement-events
-    listener:
-      order:
-        enabled: false
+  delivery:
+    grpc:
+      internal-token: ${SETTLEMENT_USER_GRPC_TOKEN}
+      deadline: 10s

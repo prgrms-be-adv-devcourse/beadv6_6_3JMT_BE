@@ -1,9 +1,9 @@
 package com.prompthub.order.infra.messaging.kafka;
 
 import com.prompthub.common.event.EventMessage;
-import com.prompthub.order.application.service.event.PaymentApprovedEventHandler;
-import com.prompthub.order.application.service.event.PaymentFailedEventHandler;
-import com.prompthub.order.application.service.event.PaymentRefundedEventHandler;
+import com.prompthub.order.infra.messaging.kafka.consumer.payment.PaymentApprovedEventHandler;
+import com.prompthub.order.infra.messaging.kafka.consumer.payment.PaymentFailedEventHandler;
+import com.prompthub.order.infra.messaging.kafka.consumer.payment.PaymentRefundedEventHandler;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -117,18 +117,11 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	@DisplayName("결제 환불 이벤트를 수신하면 PaymentRefundedEventHandler가 호출된다")
 	void consumePaymentRefundedEvent() {
 		// given
-		UUID paymentId = UUID.randomUUID();
 		UUID orderId = UUID.randomUUID();
-		UUID userId = UUID.randomUUID();
-		UUID orderProductId = UUID.randomUUID();
 
 		Map<String, Object> payload = new HashMap<>();
-		payload.put("paymentId", paymentId.toString());
 		payload.put("orderId", orderId.toString());
-		payload.put("userId", userId.toString());
-		payload.put("orderProductId", orderProductId.toString());
-		payload.put("amount", 10000);
-		payload.put("paymentStatus", "PARTIAL_REFUNDED");
+		payload.put("refundAmount", 10000);
 		payload.put("refundedAt", "2026-07-17T11:00:00+09:00");
 
 		Map<String, Object> message = new HashMap<>();
@@ -151,12 +144,8 @@ class PaymentEventConsumerIntegrationTest extends KafkaIntegrationTest {
 		assertThat(capturedMessage.aggregateType()).isEqualTo("ORDER");
 		assertThat(capturedMessage.aggregateId()).isEqualTo(orderId);
 		JsonNode capturedPayload = capturedMessage.payload();
-		assertThat(capturedPayload.path("paymentId").asText()).isEqualTo(paymentId.toString());
 		assertThat(capturedPayload.path("orderId").asText()).isEqualTo(orderId.toString());
-		assertThat(capturedPayload.path("userId").asText()).isEqualTo(userId.toString());
-		assertThat(capturedPayload.path("orderProductId").asText()).isEqualTo(orderProductId.toString());
-		assertThat(capturedPayload.path("amount").asInt()).isEqualTo(10_000);
-		assertThat(capturedPayload.path("paymentStatus").asText()).isEqualTo("PARTIAL_REFUNDED");
+		assertThat(capturedPayload.path("refundAmount").asInt()).isEqualTo(10_000);
 		assertThat(capturedPayload.path("refundedAt").asText())
 			.isEqualTo("2026-07-17T11:00:00+09:00");
 	}

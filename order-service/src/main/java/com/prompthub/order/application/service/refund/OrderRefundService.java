@@ -1,8 +1,8 @@
 package com.prompthub.order.application.service.refund;
 
 import com.prompthub.order.application.dto.RefundResult;
+import com.prompthub.order.application.dto.event.order.OrderRefundRequestedPayload;
 import com.prompthub.order.application.service.event.OrderOutboxAppender;
-import com.prompthub.order.infra.messaging.kafka.event.OrderRefundRequestedPayload;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.OrderRepository;

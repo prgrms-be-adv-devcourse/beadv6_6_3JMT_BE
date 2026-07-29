@@ -1,7 +1,7 @@
 package com.prompthub.order.application.service.event;
 
+import com.prompthub.order.application.dto.event.PaymentFailedCommand;
 import com.prompthub.order.application.service.order.OrderFailureCompensationService;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,8 +18,8 @@ public class PaymentFailedProcessor {
 		UUID eventId,
 		String eventType,
 		LocalDateTime occurredAt,
-		PaymentFailedPayload payload
+		PaymentFailedCommand command
 	) {
-		compensationService.compensatePaymentFailure(eventId, eventType, occurredAt, payload);
+		compensationService.compensatePaymentFailure(eventId, eventType, occurredAt, command);
 	}
 }

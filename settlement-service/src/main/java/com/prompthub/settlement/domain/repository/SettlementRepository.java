@@ -11,6 +11,8 @@ public interface SettlementRepository {
 
     List<Settlement> saveAll(List<Settlement> settlements);
 
+    void deleteAll(List<Settlement> settlements);
+
     List<Settlement> findBySettlementBatchId(UUID settlementBatchId);
 
     Optional<Settlement> findById(UUID id);

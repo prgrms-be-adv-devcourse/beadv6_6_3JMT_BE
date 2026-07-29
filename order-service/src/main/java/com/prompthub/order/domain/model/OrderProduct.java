@@ -188,6 +188,10 @@ public class OrderProduct {
         this.refundedAt = refundedAt;
     }
 
+    public void restoreRefundRequest() {
+        transitionTo(OrderProductStatus.PAID);
+    }
+
     public void markDownloaded() {
         if (this.downloaded) {
             return;

@@ -1,5 +1,6 @@
 package com.prompthub.order.application.service.order;
 
+import com.prompthub.order.application.dto.event.PaymentFailedCommand;
 import com.prompthub.order.application.event.order.OrderExpirationCleanupRequestedEvent;
 import com.prompthub.order.application.service.event.ProcessedEventService;
 import com.prompthub.order.application.service.event.OrderOutboxAppender;
@@ -13,7 +14,6 @@ import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -168,7 +168,9 @@ class OrderFailureCompensationServiceTest {
 	void compensatePaymentFailure_directPurchase_restoresSingleProduct() {
 		Order order = Order.create(BUYER_ID, "ORD-DIRECT", 10_000);
 		order.addOrderProduct(OrderProduct.create(PRODUCT_A, SELLER_A, "단건 상품", 10_000));
-		PaymentFailedPayload payload = new PaymentFailedPayload(PAYMENT_ID, order.getId(), BUYER_ID);
+		PaymentFailedCommand payload = new PaymentFailedCommand(
+			PAYMENT_ID, order.getId(), BUYER_ID, 0, null, null, FAILED_AT
+		);
 		given(processedEventService.isProcessed(EVENT_ID, CONSUMER_GROUP)).willReturn(false);
 		given(orderRepository.findByIdWithOrderProductsForUpdate(order.getId()))
 			.willReturn(Optional.of(order));
@@ -189,14 +191,14 @@ class OrderFailureCompensationServiceTest {
 	@DisplayName("식별자 필드가 없는 축소형 실패 이벤트도 주문 소유 정보로 보상한다")
 	void compensatePaymentFailure_reducedPaymentContract_restoresProducts() {
 		Order order = createdOrder();
-		PaymentFailedPayload payload = new PaymentFailedPayload(
+		PaymentFailedCommand payload = new PaymentFailedCommand(
 			null,
 			ORDER_A,
 			null,
 			order.getTotalOrderAmount(),
 			null,
 			null,
-			"2026-07-17T01:00:05Z"
+			LocalDateTime.of(2026, 7, 17, 10, 0, 5)
 		);
 		stubUnprocessedOrder(order);
 		given(cartRepository.findByBuyerIdForUpdateWithCartProducts(BUYER_ID))
@@ -212,14 +214,14 @@ class OrderFailureCompensationServiceTest {
 	@DisplayName("축소형 실패 이벤트의 금액이 주문 금액과 다르면 보상을 거부한다")
 	void compensatePaymentFailure_reducedPaymentContractRejectsAmountMismatch() {
 		Order order = createdOrder();
-		PaymentFailedPayload payload = new PaymentFailedPayload(
+		PaymentFailedCommand payload = new PaymentFailedCommand(
 			null,
 			ORDER_A,
 			null,
 			order.getTotalOrderAmount() - 1,
 			null,
 			null,
-			"2026-07-17T01:00:05Z"
+			LocalDateTime.of(2026, 7, 17, 10, 0, 5)
 		);
 		stubUnprocessedOrder(order);
 
@@ -287,7 +289,9 @@ class OrderFailureCompensationServiceTest {
 	void compensatePaymentFailure_buyerMismatch_rejectsWithoutMutation() {
 		Order order = createdOrder();
 		stubUnprocessedOrder(order);
-		PaymentFailedPayload payload = new PaymentFailedPayload(PAYMENT_ID, ORDER_A, OTHER_BUYER_ID);
+		PaymentFailedCommand payload = new PaymentFailedCommand(
+			PAYMENT_ID, ORDER_A, OTHER_BUYER_ID, 0, null, null, FAILED_AT
+		);
 
 		assertThatThrownBy(() -> service.compensatePaymentFailure(EVENT_ID, EVENT_TYPE, FAILED_AT, payload))
 			.isInstanceOf(OrderException.class)

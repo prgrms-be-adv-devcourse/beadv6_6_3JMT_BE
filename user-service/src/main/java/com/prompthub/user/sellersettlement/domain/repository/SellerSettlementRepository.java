@@ -13,6 +13,8 @@ public interface SellerSettlementRepository {
 
     Optional<SellerSettlement> findBySettlementId(UUID settlementId);
 
+    Optional<SellerSettlement> findByDeliveryRequestId(UUID deliveryRequestId);
+
     BigDecimal sumTotalAmountBySeller(UUID sellerId);
 
     BigDecimal sumPaidSettlementAmountBySeller(UUID sellerId);

@@ -1,6 +1,7 @@
 package com.prompthub.user.sellersettlement.infrastructure.grpc;
 
 import com.prompthub.user.grpc.sellersettlement.SellerSettlementQueryServiceGrpc;
+import com.prompthub.user.grpc.sellersettlement.command.SellerSettlementCommandServiceGrpc;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.ServerInterceptors;
@@ -16,7 +17,10 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(SellerSettlementGrpcSecurityProperties.class)
+@EnableConfigurationProperties({
+        SellerSettlementGrpcSecurityProperties.class,
+        SellerSettlementCommandGrpcSecurityProperties.class
+})
 public class SellerSettlementGrpcServerConfig {
 
     @Bean
@@ -27,26 +31,39 @@ public class SellerSettlementGrpcServerConfig {
             matchIfMissing = true)
     SellerSettlementGrpcServerLifecycle sellerSettlementGrpcServerLifecycle(
             @Value("${grpc.server.port:9081}") int grpcPort,
-            SellerSettlementQueryServiceGrpc.SellerSettlementQueryServiceImplBase service,
-            SellerSettlementGrpcAuthInterceptor authInterceptor) {
-        return new SellerSettlementGrpcServerLifecycle(grpcPort, service, authInterceptor);
+            SellerSettlementQueryServiceGrpc.SellerSettlementQueryServiceImplBase queryService,
+            SellerSettlementGrpcAuthInterceptor queryAuthInterceptor,
+            SellerSettlementCommandServiceGrpc.SellerSettlementCommandServiceImplBase commandService,
+            SellerSettlementCommandGrpcAuthInterceptor commandAuthInterceptor) {
+        return new SellerSettlementGrpcServerLifecycle(
+                grpcPort,
+                queryService,
+                queryAuthInterceptor,
+                commandService,
+                commandAuthInterceptor);
     }
 
     @Slf4j
     static final class SellerSettlementGrpcServerLifecycle {
 
         private final int grpcPort;
-        private final SellerSettlementQueryServiceGrpc.SellerSettlementQueryServiceImplBase service;
-        private final SellerSettlementGrpcAuthInterceptor authInterceptor;
+        private final SellerSettlementQueryServiceGrpc.SellerSettlementQueryServiceImplBase queryService;
+        private final SellerSettlementGrpcAuthInterceptor queryAuthInterceptor;
+        private final SellerSettlementCommandServiceGrpc.SellerSettlementCommandServiceImplBase commandService;
+        private final SellerSettlementCommandGrpcAuthInterceptor commandAuthInterceptor;
         private Server server;
 
         private SellerSettlementGrpcServerLifecycle(
                 int grpcPort,
-                SellerSettlementQueryServiceGrpc.SellerSettlementQueryServiceImplBase service,
-                SellerSettlementGrpcAuthInterceptor authInterceptor) {
+                SellerSettlementQueryServiceGrpc.SellerSettlementQueryServiceImplBase queryService,
+                SellerSettlementGrpcAuthInterceptor queryAuthInterceptor,
+                SellerSettlementCommandServiceGrpc.SellerSettlementCommandServiceImplBase commandService,
+                SellerSettlementCommandGrpcAuthInterceptor commandAuthInterceptor) {
             this.grpcPort = grpcPort;
-            this.service = service;
-            this.authInterceptor = authInterceptor;
+            this.queryService = queryService;
+            this.queryAuthInterceptor = queryAuthInterceptor;
+            this.commandService = commandService;
+            this.commandAuthInterceptor = commandAuthInterceptor;
         }
 
         @EventListener(ContextRefreshedEvent.class)
@@ -55,7 +72,10 @@ public class SellerSettlementGrpcServerConfig {
                 return;
             }
             server = ServerBuilder.forPort(grpcPort)
-                    .addService(ServerInterceptors.intercept(service, authInterceptor))
+                    .addService(ServerInterceptors.intercept(
+                            queryService, queryAuthInterceptor))
+                    .addService(ServerInterceptors.intercept(
+                            commandService, commandAuthInterceptor))
                     .build()
                     .start();
             log.info("판매자 정산 gRPC 서버가 포트 {}에서 시작되었습니다.", grpcPort);

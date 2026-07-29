@@ -1,13 +1,13 @@
 package com.prompthub.order.application.service.event;
 
 import com.prompthub.common.event.EventMessage;
-import com.prompthub.order.infra.messaging.kafka.event.OrderEventType;
-import com.prompthub.order.infra.messaging.kafka.event.OrderExpiredPayload;
-import com.prompthub.order.infra.messaging.kafka.event.OrderPaidPayload;
-import com.prompthub.order.infra.messaging.kafka.event.OrderPaymentFailedPayload;
-import com.prompthub.order.infra.messaging.kafka.event.OrderRefundFailedPayload;
-import com.prompthub.order.infra.messaging.kafka.event.OrderRefundPayload;
-import com.prompthub.order.infra.messaging.kafka.event.OrderRefundRequestedPayload;
+import com.prompthub.order.application.dto.event.order.OrderEventType;
+import com.prompthub.order.application.dto.event.order.OrderExpiredPayload;
+import com.prompthub.order.application.dto.event.order.OrderPaidPayload;
+import com.prompthub.order.application.dto.event.order.OrderPaymentFailedPayload;
+import com.prompthub.order.application.dto.event.order.OrderRefundFailedPayload;
+import com.prompthub.order.application.dto.event.order.OrderRefundPayload;
+import com.prompthub.order.application.dto.event.order.OrderRefundRequestedPayload;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
