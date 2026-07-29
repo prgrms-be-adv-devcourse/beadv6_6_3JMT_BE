@@ -58,6 +58,7 @@ public class CartService implements CartUseCase {
 
 		Cart cart = cartRepository.findByBuyerIdForUpdateWithCartProducts(buyerId)
 			.orElseGet(() -> Cart.create(buyerId));
+		orderProductPurchasePolicy.validateCartAddable(buyerId, request.productId());
 
 		if (cart.containsProduct(request.productId())) {
 			throw new CartException(ErrorCode.CART_ITEM_DUPLICATED);
