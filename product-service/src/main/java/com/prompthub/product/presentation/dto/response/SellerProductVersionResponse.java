@@ -7,7 +7,14 @@ public record SellerProductVersionResponse(
 	String status,
 	String date,
 	String changeReason,
-	String rejectionReason
+	String rejectionReason,
+	boolean hasContext,
+	boolean hasObjective,
+	boolean hasNuance,
+	boolean hasTone,
+	boolean hasExamples,
+	boolean hasExecution,
+	boolean hasRoleAssignment
 ) {
 	public static SellerProductVersionResponse from(Product product) {
 		return new SellerProductVersionResponse(
@@ -15,7 +22,14 @@ public record SellerProductVersionResponse(
 			product.getStatus().name(),
 			product.getUpdatedAt().toLocalDate().toString(),
 			product.getChangeReason(),
-			product.getRejectionReason()
+			product.getRejectionReason(),
+			product.isHasContext(),
+			product.isHasObjective(),
+			product.isHasNuance(),
+			product.isHasTone(),
+			product.isHasExamples(),
+			product.isHasExecution(),
+			product.isHasRoleAssignment()
 		);
 	}
 }
