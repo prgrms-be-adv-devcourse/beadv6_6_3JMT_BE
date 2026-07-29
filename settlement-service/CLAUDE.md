@@ -6,8 +6,9 @@
 
 - **`settlement-service/` 안은 자유롭게 읽고 쓴다.** 파일 생성·수정·삭제 등 모든 작업을 허용한다.
 - **`user-service/` 안은 자유롭게 읽고 쓴다.** 인증, 사용자, 판매자, Wishlist, Seller Settlement를 포함한 모듈 전체가 담당 범위다.
-- **`admin-service/src/main/java/com/prompthub/admin/settlement/`와 `admin-service/src/test/java/com/prompthub/admin/settlement/`은 자유롭게 읽고 쓴다.** admin 모듈의 나머지 영역은 읽기 전용이다.
-- 위 범위 밖의 다른 모듈은 참고용으로만 읽는다. 쓰기가 필요하면 직접 변경하지 말고 사용자에게 알린다.
+- **`admin-service/src/main/java/com/prompthub/admin/settlement/`와 `admin-service/src/test/java/com/prompthub/admin/settlement/`은 자유롭게 읽고 쓴다.** admin 모듈의 나머지 영역(다른 도메인 패키지·`admin-service/CLAUDE.md` 등)은 읽지 않는다.
+- 위 범위 밖의 다른 서비스 모듈(order/payment/product-service 등)은 코드·룰·CLAUDE.md 포함
+  읽지 않는다(루트 `CLAUDE.md` 전역 규칙). 쓰기가 필요하면 직접 변경하지 말고 사용자에게 알린다.
 
 ## 생성물 위치
 
