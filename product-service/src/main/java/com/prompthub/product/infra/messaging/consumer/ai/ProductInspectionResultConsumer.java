@@ -2,6 +2,7 @@ package com.prompthub.product.infra.messaging.consumer.ai;
 
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.product.application.service.ProductInspectionResultHandler;
+import com.prompthub.product.domain.model.vo.InspectionChecklist;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -49,9 +50,18 @@ public class ProductInspectionResultConsumer {
 		UUID productId = UUID.fromString(payload.path("productId").stringValue(null));
 		boolean approved = payload.path("approved").asBoolean(false);
 		String rejectionReason = payload.path("rejectionReason").stringValue(null);
+		InspectionChecklist checklist = new InspectionChecklist(
+			payload.path("hasContext").asBoolean(false),
+			payload.path("hasObjective").asBoolean(false),
+			payload.path("hasNuance").asBoolean(false),
+			payload.path("hasTone").asBoolean(false),
+			payload.path("hasExamples").asBoolean(false),
+			payload.path("hasExecution").asBoolean(false),
+			payload.path("hasRoleAssignment").asBoolean(false)
+		);
 
 		try {
-			productInspectionResultHandler.apply(productId, approved, rejectionReason);
+			productInspectionResultHandler.apply(productId, approved, rejectionReason, checklist);
 		} catch (IllegalStateException e) {
 			log.info("이미 처리된 상품 검수 결과라 스킵함. productId={}", productId);
 		}

@@ -3,6 +3,7 @@ package com.prompthub.product.domain.model.entity;
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
+import com.prompthub.product.domain.model.vo.InspectionChecklist;
 import com.prompthub.product.domain.model.vo.ProductContent;
 import com.prompthub.product.domain.model.vo.ProductContentHash;
 import com.prompthub.product.infra.persistence.converter.TagsConverter;
@@ -104,6 +105,27 @@ public class Product {
 
 	@Column(name = "rejection_reason", length = 1000)
 	private String rejectionReason;
+
+	@Column(name = "has_context", nullable = false)
+	private boolean hasContext;
+
+	@Column(name = "has_objective", nullable = false)
+	private boolean hasObjective;
+
+	@Column(name = "has_nuance", nullable = false)
+	private boolean hasNuance;
+
+	@Column(name = "has_tone", nullable = false)
+	private boolean hasTone;
+
+	@Column(name = "has_examples", nullable = false)
+	private boolean hasExamples;
+
+	@Column(name = "has_execution", nullable = false)
+	private boolean hasExecution;
+
+	@Column(name = "has_role_assignment", nullable = false)
+	private boolean hasRoleAssignment;
 
 	@Column(name = "sales_count", nullable = false)
 	private int salesCount;
@@ -234,21 +256,33 @@ public class Product {
 		this.updatedAt = LocalDateTime.now();
 	}
 
-	public void approve() {
+	public void approve(InspectionChecklist checklist) {
 		if (this.status != ProductStatus.PENDING_REVIEW) {
 			throw new IllegalStateException("PENDING_REVIEW 상태의 상품만 승인할 수 있습니다. current=" + this.status);
 		}
+		applyInspectionChecklist(checklist);
 		this.status = ProductStatus.ON_SALE;
 		this.updatedAt = LocalDateTime.now();
 	}
 
-	public void reject(String reason) {
+	public void reject(String reason, InspectionChecklist checklist) {
 		if (this.status != ProductStatus.PENDING_REVIEW) {
 			throw new IllegalStateException("PENDING_REVIEW 상태의 상품만 반려할 수 있습니다. current=" + this.status);
 		}
+		applyInspectionChecklist(checklist);
 		this.status = ProductStatus.REJECTED;
 		this.rejectionReason = reason;
 		this.updatedAt = LocalDateTime.now();
+	}
+
+	private void applyInspectionChecklist(InspectionChecklist checklist) {
+		this.hasContext = checklist.hasContext();
+		this.hasObjective = checklist.hasObjective();
+		this.hasNuance = checklist.hasNuance();
+		this.hasTone = checklist.hasTone();
+		this.hasExamples = checklist.hasExamples();
+		this.hasExecution = checklist.hasExecution();
+		this.hasRoleAssignment = checklist.hasRoleAssignment();
 	}
 
 	private void applyContent(ProductContent productContent) {
