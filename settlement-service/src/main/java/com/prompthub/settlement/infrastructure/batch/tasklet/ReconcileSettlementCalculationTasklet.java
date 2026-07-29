@@ -2,6 +2,7 @@ package com.prompthub.settlement.infrastructure.batch.tasklet;
 
 import com.prompthub.settlement.application.dto.SettlementCalculationReconciliationReport;
 import com.prompthub.settlement.application.usecase.ReconcileSettlementCalculationUseCase;
+import com.prompthub.settlement.application.usecase.SettlementBatchLifecycleUseCase;
 import com.prompthub.settlement.domain.exception.SettlementCalculationReconciliationException;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Component;
 public class ReconcileSettlementCalculationTasklet implements Tasklet {
 
     private final ReconcileSettlementCalculationUseCase reconciliationUseCase;
+    private final SettlementBatchLifecycleUseCase settlementBatchLifecycleUseCase;
 
     @Value("#{jobExecutionContext['settlementBatchId']}")
     private String settlementBatchIdParam;
@@ -27,12 +29,17 @@ public class ReconcileSettlementCalculationTasklet implements Tasklet {
     public RepeatStatus execute(
             StepContribution contribution,
             ChunkContext chunkContext) {
+        UUID batchId = UUID.fromString(settlementBatchIdParam);
         SettlementCalculationReconciliationReport report =
-                reconciliationUseCase.reconcile(
-                        UUID.fromString(settlementBatchIdParam));
+                reconciliationUseCase.reconcile(batchId);
         if (!report.matched()) {
-            throw new SettlementCalculationReconciliationException(
-                    report.mismatchedSettlementIds());
+            SettlementCalculationReconciliationException exception =
+                    new SettlementCalculationReconciliationException(
+                            report.mismatchedSettlementIds());
+            settlementBatchLifecycleUseCase.failReconciliation(
+                    batchId,
+                    exception.getMessage());
+            throw exception;
         }
         return RepeatStatus.FINISHED;
     }

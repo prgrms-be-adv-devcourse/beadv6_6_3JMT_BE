@@ -122,6 +122,21 @@ class SettlementBatchTest {
     }
 
     @Test
+    @DisplayName("RECONCILIATION_FAILED 배치에 재시작을 요청하면 RETRY_REQUESTED가 된다")
+    void requestRetry_fromReconciliationFailed_becomesRetryRequested() {
+        // given
+        SettlementBatch batch = processingBatch();
+        batch.failReconciliation("계산 대사 불일치");
+
+        // when
+        batch.requestRetry();
+
+        // then
+        assertThat(batch.getStatus()).isEqualTo(SettlementBatchStatus.RETRY_REQUESTED);
+        assertThat(batch.isRetryRequested()).isTrue();
+    }
+
+    @Test
     @DisplayName("재시작을 시작하면 PROCESSING이 되고 이전 실패 정보를 비운다")
     void startRetry_fromRetryRequested_clearsPreviousFailure() {
         // given

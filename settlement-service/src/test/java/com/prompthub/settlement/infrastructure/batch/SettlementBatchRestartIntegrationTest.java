@@ -155,7 +155,8 @@ class SettlementBatchRestartIntegrationTest {
         UUID originalBatchId = failedBatch.getId();
         long originalJobInstanceId = failedBatch.getJobInstanceId();
         assertThat(firstResult.status()).isEqualTo("FAILED");
-        assertThat(failedBatch.getStatus()).isEqualTo(SettlementBatchStatus.FAILED);
+        assertThat(failedBatch.getStatus())
+                .isEqualTo(SettlementBatchStatus.RECONCILIATION_FAILED);
         assertThat(settlementJpaRepository.count()).isZero();
         assertThat(sourceLineJpaRepository.findAll())
                 .noneMatch(SettlementSourceLine::isSettled);

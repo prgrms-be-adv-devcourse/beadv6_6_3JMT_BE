@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 
 import com.prompthub.settlement.application.dto.SettlementCalculationReconciliationReport;
 import com.prompthub.settlement.application.usecase.ReconcileSettlementCalculationUseCase;
+import com.prompthub.settlement.application.usecase.SettlementBatchLifecycleUseCase;
 import com.prompthub.settlement.domain.exception.SettlementCalculationReconciliationException;
 import java.util.List;
 import java.util.UUID;
@@ -24,8 +25,10 @@ class ReconcileSettlementCalculationTaskletTest {
         UUID batchId = UUID.randomUUID();
         ReconcileSettlementCalculationUseCase useCase =
                 mock(ReconcileSettlementCalculationUseCase.class);
+        SettlementBatchLifecycleUseCase lifecycleUseCase =
+                mock(SettlementBatchLifecycleUseCase.class);
         ReconcileSettlementCalculationTasklet tasklet =
-                new ReconcileSettlementCalculationTasklet(useCase);
+                new ReconcileSettlementCalculationTasklet(useCase, lifecycleUseCase);
         ReflectionTestUtils.setField(
                 tasklet, "settlementBatchIdParam", batchId.toString());
         given(useCase.reconcile(batchId))
@@ -36,6 +39,7 @@ class ReconcileSettlementCalculationTaskletTest {
 
         assertThat(result).isEqualTo(RepeatStatus.FINISHED);
         then(useCase).should().reconcile(batchId);
+        then(lifecycleUseCase).shouldHaveNoInteractions();
     }
 
     @Test
@@ -45,8 +49,10 @@ class ReconcileSettlementCalculationTaskletTest {
         UUID mismatchedSettlementId = UUID.randomUUID();
         ReconcileSettlementCalculationUseCase useCase =
                 mock(ReconcileSettlementCalculationUseCase.class);
+        SettlementBatchLifecycleUseCase lifecycleUseCase =
+                mock(SettlementBatchLifecycleUseCase.class);
         ReconcileSettlementCalculationTasklet tasklet =
-                new ReconcileSettlementCalculationTasklet(useCase);
+                new ReconcileSettlementCalculationTasklet(useCase, lifecycleUseCase);
         ReflectionTestUtils.setField(
                 tasklet, "settlementBatchIdParam", batchId.toString());
         given(useCase.reconcile(batchId))
@@ -56,5 +62,9 @@ class ReconcileSettlementCalculationTaskletTest {
         assertThatThrownBy(() -> tasklet.execute(null, null))
                 .isInstanceOf(SettlementCalculationReconciliationException.class)
                 .hasMessageContaining(mismatchedSettlementId.toString());
+        then(lifecycleUseCase).should().failReconciliation(
+                batchId,
+                new SettlementCalculationReconciliationException(
+                        List.of(mismatchedSettlementId)).getMessage());
     }
 }
