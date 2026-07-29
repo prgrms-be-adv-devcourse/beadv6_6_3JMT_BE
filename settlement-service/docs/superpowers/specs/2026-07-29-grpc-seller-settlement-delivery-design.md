@@ -73,6 +73,8 @@ Settlement 계산이 완료되면 `SettlementBatchStatus`는 `COMPLETED`가 된�
 
 로컬 Delivery 저장 자체가 실패하는 등 결과를 기록할 수 없는 로컬 장애는 Job 실패로 처리한다. 원격 통신 실패와 대사 불일치는 정산 단위로 흡수한다.
 
+배치가 `COMPLETED`된 뒤 Delivery Step에서 로컬 장애가 발생하면 Spring Batch Job은 실패할 수 있지만 도메인 배치 상태는 계산 완료를 의미하므로 되돌리지 않는다. 같은 Job을 재시작하면 현재 배치의 `CALCULATED` Delivery만 다시 처리한다. `RECONCILED`, `MISMATCH`, `DELIVERY_FAILED`는 자동 재처리하지 않는다.
+
 ## 6. Settlement Delivery 모델
 
 Settlement와 Delivery는 같은 계산 트랜잭션에서 저장한다. 원격 호출은 이 트랜잭션이 커밋된 뒤 실행한다.
@@ -136,6 +138,11 @@ message RegisterSellerSettlementRequest {
 message RegisterSellerSettlementResponse {
   SellerSettlementSnapshot stored_settlement = 1;
 }
+
+message SellerSettlementSnapshot {
+  optional string delivery_request_id = 1;
+  // settlement 본체와 상세 필드
+}
 ```
 
 `SellerSettlementSnapshot`은 다음 정보를 포함한다.
@@ -151,6 +158,8 @@ message RegisterSellerSettlementResponse {
 - `settlement_total_amount`
 - `calculated_at`
 - 상세 전체
+
+요청 최상위의 `delivery_request_id`는 User Service 검증에서 필수다. 응답 Snapshot의 `delivery_request_id`는 기존 Kafka 행의 NULL을 표현할 수 있도록 `optional`로 둔다. 기존 행과 요청이 일치해 요청 ID를 연결한 경우에는 값이 채워진 상태로 응답한다.
 
 상세는 다음 정보를 포함한다.
 
@@ -204,6 +213,8 @@ User Service V4에서 `seller_settlement.delivery_request_id`를 nullable UUID�
 Settlement 한 건과 해당 상세 전체를 unary gRPC 한 번으로 전달한다. 여러 Settlement는 순차 처리한다.
 
 호출 전에 짧은 로컬 트랜잭션으로 `attempt_count`, `first_attempt_at`, `last_attempt_at`을 기록하고 커밋한다. gRPC 호출 중에는 로컬 DB 트랜잭션을 열어두지 않는다.
+
+일반 실행과 Spring Batch 재시작은 현재 배치의 `CALCULATED` Delivery만 후보로 조회한다. 예상된 통신 실패로 `DELIVERY_FAILED`가 된 행은 다음 주간 Job에서 자동 재전달하지 않는다. 프로세스가 응답 직후 종료돼 로컬 상태가 `CALCULATED`로 남은 경우에는 같은 `deliveryRequestId`로 재호출해 User Service의 기존 저장 결과를 돌려받는다.
 
 ### 9.1 정책
 
@@ -298,6 +309,8 @@ Outbox 데이터 삭제는 사용자가 승인했다.
 - `RECONCILED`
 - `DELIVERY_FAILED`
 - `MISMATCH`
+
+Delivery Step 종료 시 현재 배치의 상태별 건수를 집계해 구조화 로그로 남긴다. 별도 배치 집계 테이블이나 `SettlementBatchStatus` 컬럼은 추가하지 않는다. #655의 어드민 조회는 같은 Delivery 데이터를 기준으로 집계한다.
 
 호출 시도와 실패는 `settlementId`, `deliveryRequestId`, 시도 번호, gRPC Status와 소요 시간을 포함한 구조화 로그로 남긴다. 토큰과 상세 전체는 로그에 남기지 않는다.
 
