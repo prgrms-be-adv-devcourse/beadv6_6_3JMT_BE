@@ -248,6 +248,7 @@ class ProductQueryServiceTest {
 			assertThat(response.imageUrls()).containsExactly("https://cdn.example.com/images/1.jpg?presigned");
 			assertThat(response.hasContext()).isTrue();
 			assertThat(response.hasNuance()).isFalse();
+			assertThat(response.checklistRecorded()).isTrue();
 		}
 
 		@Test
@@ -501,6 +502,7 @@ class ProductQueryServiceTest {
 		ReflectionTestUtils.setField(product, "imageUrls", List.of("https://cdn.example.com/images/1.jpg"));
 		ReflectionTestUtils.setField(product, "hasContext", true);
 		ReflectionTestUtils.setField(product, "hasNuance", false);
+		ReflectionTestUtils.setField(product, "checklistRecorded", true);
 		ReflectionTestUtils.setField(product, "createdAt", CREATED_AT);
 		ReflectionTestUtils.setField(product, "updatedAt", UPDATED_AT);
 		ReflectionTestUtils.setField(product, "deletedAt", deletedAt);

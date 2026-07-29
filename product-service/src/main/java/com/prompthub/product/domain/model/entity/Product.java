@@ -127,6 +127,9 @@ public class Product {
 	@Column(name = "has_role_assignment", nullable = false)
 	private boolean hasRoleAssignment;
 
+	@Column(name = "checklist_recorded", nullable = false)
+	private boolean checklistRecorded;
+
 	@Column(name = "sales_count", nullable = false)
 	private int salesCount;
 
@@ -283,6 +286,7 @@ public class Product {
 		this.hasExamples = checklist.hasExamples();
 		this.hasExecution = checklist.hasExecution();
 		this.hasRoleAssignment = checklist.hasRoleAssignment();
+		this.checklistRecorded = true;
 	}
 
 	private void applyContent(ProductContent productContent) {

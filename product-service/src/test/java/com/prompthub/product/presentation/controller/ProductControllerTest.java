@@ -367,7 +367,8 @@ class ProductControllerTest {
 				.andExpect(jsonPath("$.data.versions[0].ver").value("v1.3"))
 				.andExpect(jsonPath("$.data.imageUrls[0]").value("https://cdn.example.com/images/1.jpg"))
 				.andExpect(jsonPath("$.data.hasContext").value(true))
-				.andExpect(jsonPath("$.data.hasNuance").value(false));
+				.andExpect(jsonPath("$.data.hasNuance").value(false))
+				.andExpect(jsonPath("$.data.checklistRecorded").value(true));
 		}
 
 		@Test
@@ -587,6 +588,7 @@ class ProductControllerTest {
 			false,
 			true,
 			false,
+			true,
 			CREATED_AT,
 			UPDATED_AT
 		);

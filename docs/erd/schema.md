@@ -131,6 +131,7 @@
 | has_examples | BOOLEAN | ✓ | false | AI 검수 체크리스트: 예시 포함 여부 |
 | has_execution | BOOLEAN | ✓ | false | AI 검수 체크리스트: 실행 지침 포함 여부 |
 | has_role_assignment | BOOLEAN | ✓ | false | AI 검수 체크리스트: 역할 부여 포함 여부. 위 7개는 ai-service PRODUCT_INSPECTION_COMPLETED 이벤트 payload 값을 승인/반려 시 그대로 저장한다(#671) |
+| checklist_recorded | BOOLEAN | ✓ | false | 위 체크리스트 7개가 실제로 검수 이벤트로 기록됐는지 여부. 이 컬럼 추가(V6) 이전에 이미 `ON_SALE`/`REJECTED`가 된 상품은 `false`— 체크리스트 값 7개도 전부 `false`지만 "미달"이 아니라 "기록 없음"이다. 조회 응답에서 이 값으로 두 케이스를 구분한다(#671) |
 | sales_count | INT | ✓ | 0 | 누적 판매 수 |
 | view_count | INT | ✓ | 0 | 조회 수 |
 | wish_count | INT | ✓ | 0 | 찜 수 |

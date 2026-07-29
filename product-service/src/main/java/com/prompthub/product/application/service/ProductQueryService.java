@@ -162,6 +162,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 			product.isHasExamples(),
 			product.isHasExecution(),
 			product.isHasRoleAssignment(),
+			product.isChecklistRecorded(),
 			product.getCreatedAt(),
 			product.getUpdatedAt()
 		);

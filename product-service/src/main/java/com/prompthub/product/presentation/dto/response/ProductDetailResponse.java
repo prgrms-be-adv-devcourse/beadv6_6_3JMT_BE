@@ -29,6 +29,7 @@ public record ProductDetailResponse(
 	boolean hasExamples,
 	boolean hasExecution,
 	boolean hasRoleAssignment,
+	boolean checklistRecorded,
 	LocalDateTime createdAt,
 	LocalDateTime updatedAt
 ) {
