@@ -133,13 +133,86 @@ class OutboxEventRepositoryAdapterTest {
                 .containsExactly(completedEvent.getEventId());
     }
 
+    @Test
+    @DisplayName("현재 배치 flush도 COMPLETED 배치의 PENDING 이벤트만 반환한다")
+    void findPendingByBatchId_returnsOnlyCompletedBatchEvents() {
+        SettlementBatch completed = completedBatch(131L);
+        SettlementBatch failed = failedBatch(132L);
+        SettlementBatch processing = processingBatch(133L);
+        SettlementOutboxEvent completedEvent = event(
+                "00000000-0000-0000-0000-000000000031",
+                completed.getId(),
+                BASE_TIME);
+        SettlementOutboxEvent failedEvent = event(
+                "00000000-0000-0000-0000-000000000032",
+                failed.getId(),
+                BASE_TIME);
+        SettlementOutboxEvent processingEvent = event(
+                "00000000-0000-0000-0000-000000000033",
+                processing.getId(),
+                BASE_TIME);
+        saveAll(completedEvent, failedEvent, processingEvent);
+
+        assertThat(repository.findPendingByBatchId(
+                completed.getId(), null, null, 10))
+                .extracting(OutboxCandidate::eventId)
+                .containsExactly(completedEvent.getEventId());
+        assertThat(repository.findPendingByBatchId(
+                failed.getId(), null, null, 10)).isEmpty();
+        assertThat(repository.findPendingByBatchId(
+                processing.getId(),
+                BASE_TIME.minusMinutes(1),
+                UUID.fromString("00000000-0000-0000-0000-000000000000"),
+                10)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("불일치 정산 정리 시 해당 정산의 PENDING Outbox만 삭제한다")
+    void deletePendingBySettlementIds_deletesOnlyPendingSettlementEvents() {
+        UUID batchId = completedBatch(141L).getId();
+        UUID settlementId = UUID.randomUUID();
+        SettlementOutboxEvent pending = event(
+                "00000000-0000-0000-0000-000000000041",
+                batchId,
+                settlementId,
+                BASE_TIME);
+        SettlementOutboxEvent published = event(
+                "00000000-0000-0000-0000-000000000042",
+                batchId,
+                settlementId,
+                BASE_TIME.plusMinutes(1));
+        published.markPublished(BASE_TIME.plusMinutes(2));
+        SettlementOutboxEvent otherSettlement = event(
+                "00000000-0000-0000-0000-000000000043",
+                batchId,
+                UUID.randomUUID(),
+                BASE_TIME.plusMinutes(2));
+        saveAll(pending, published, otherSettlement);
+
+        repository.deletePendingBySettlementIds(List.of(settlementId));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(repository.findById(pending.getEventId())).isEmpty();
+        assertThat(repository.findById(published.getEventId())).isPresent();
+        assertThat(repository.findById(otherSettlement.getEventId())).isPresent();
+    }
+
     private SettlementOutboxEvent event(String eventId, UUID batchId, LocalDateTime occurredAt) {
+        return event(eventId, batchId, UUID.randomUUID(), occurredAt);
+    }
+
+    private SettlementOutboxEvent event(
+            String eventId,
+            UUID batchId,
+            UUID settlementId,
+            LocalDateTime occurredAt) {
         UUID id = UUID.fromString(eventId);
         return SettlementOutboxEvent.create(
                 id,
                 batchId,
                 "SETTLEMENT",
-                UUID.randomUUID(),
+                settlementId,
                 "SETTLEMENT_CREATED",
                 "settlement-events",
                 "{\"eventId\":\"" + id + "\"}",

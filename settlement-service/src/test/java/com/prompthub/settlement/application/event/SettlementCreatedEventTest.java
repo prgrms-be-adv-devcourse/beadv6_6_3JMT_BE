@@ -30,11 +30,13 @@ class SettlementCreatedEventTest {
         UUID saleDetailId = UUID.randomUUID();
         UUID refundDetailId = UUID.randomUUID();
         SettlementDetail sale = SettlementDetail.sale(
+                UUID.randomUUID(),
                 orderProductId,
                 new BigDecimal("100.00"),
                 new BigDecimal("0.1500"),
                 OCCURRED_AT);
         SettlementDetail refund = SettlementDetail.refund(
+                UUID.randomUUID(),
                 orderProductId,
                 new BigDecimal("40.00"),
                 new BigDecimal("0.1500"),

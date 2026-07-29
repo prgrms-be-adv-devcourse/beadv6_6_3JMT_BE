@@ -1,16 +1,18 @@
 package com.prompthub.settlement.infrastructure.batch.config;
 
 import com.prompthub.settlement.domain.model.Settlement;
-import com.prompthub.settlement.infrastructure.batch.model.SettlementTarget;
-import com.prompthub.settlement.infrastructure.batch.processor.SettlementProcessor;
-import com.prompthub.settlement.infrastructure.batch.reader.SettlementTargetReader;
+import com.prompthub.settlement.infrastructure.batch.settlement.SettlementProcessor;
+import com.prompthub.settlement.infrastructure.batch.settlement.SettlementTarget;
+import com.prompthub.settlement.infrastructure.batch.settlement.SettlementTargetReader;
+import com.prompthub.settlement.infrastructure.batch.settlement.SettlementWriter;
 import com.prompthub.settlement.infrastructure.batch.tasklet.CompleteSettlementBatchTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.CreateSettlementBatchTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.FlushCurrentBatchOutboxTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.LoadSettlementSourceTasklet;
+import com.prompthub.settlement.infrastructure.batch.tasklet.ReconcileSettlementSourceTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.RedriveOutboxTasklet;
+import com.prompthub.settlement.infrastructure.batch.tasklet.ReconcileSettlementCalculationTasklet;
 import com.prompthub.settlement.infrastructure.batch.tasklet.RetryPendingOutboxTasklet;
-import com.prompthub.settlement.infrastructure.batch.writer.SettlementWriter;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -40,6 +42,13 @@ public class SettlementStepConfig {
 	}
 
 	@Bean
+	public Step createSettlementBatchStep(CreateSettlementBatchTasklet createSettlementBatchTasklet) {
+		return new StepBuilder("createSettlementBatchStep", jobRepository)
+			.tasklet(createSettlementBatchTasklet, transactionManager)
+			.build();
+	}
+
+	@Bean
 	public Step retryPendingOutboxStep(RetryPendingOutboxTasklet retryPendingOutboxTasklet) {
 		return new StepBuilder("retryPendingOutboxStep", jobRepository)
 			.tasklet(retryPendingOutboxTasklet, transactionManager)
@@ -54,9 +63,11 @@ public class SettlementStepConfig {
 	}
 
 	@Bean
-	public Step createSettlementBatchStep(CreateSettlementBatchTasklet createSettlementBatchTasklet) {
-		return new StepBuilder("createSettlementBatchStep", jobRepository)
-			.tasklet(createSettlementBatchTasklet, transactionManager)
+	public Step reconcileSettlementSourceStep(
+		ReconcileSettlementSourceTasklet reconcileSettlementSourceTasklet
+	) {
+		return new StepBuilder("reconcileSettlementSourceStep", jobRepository)
+			.tasklet(reconcileSettlementSourceTasklet, transactionManager)
 			.build();
 	}
 
@@ -72,6 +83,16 @@ public class SettlementStepConfig {
 			.processor(settlementProcessor)
 			.writer(settlementWriter)
 			.transactionManager(transactionManager)
+			.allowStartIfComplete(true)
+			.build();
+	}
+
+	@Bean
+	public Step reconcileSettlementCalculationStep(
+		ReconcileSettlementCalculationTasklet reconcileSettlementCalculationTasklet
+	) {
+		return new StepBuilder("reconcileSettlementCalculationStep", jobRepository)
+			.tasklet(reconcileSettlementCalculationTasklet, transactionManager)
 			.build();
 	}
 
