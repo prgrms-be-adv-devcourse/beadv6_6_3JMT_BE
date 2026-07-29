@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.prompthub.payment.domain.event.PaymentApprovedEvent;
@@ -19,19 +20,28 @@ import com.prompthub.payment.domain.model.AuditLog;
 import com.prompthub.payment.domain.model.Payment;
 import com.prompthub.payment.domain.model.Refund;
 import com.prompthub.payment.domain.repository.AuditLogRepository;
+import com.prompthub.payment.infrastructure.messaging.AuditLogKafkaPublisher;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 class AuditLogEventListenerTest {
 
     private final AuditLogRepository auditLogRepository = mock(AuditLogRepository.class);
-    private final AuditLogEventListener listener = new AuditLogEventListener(auditLogRepository);
+    private final AuditLogKafkaPublisher auditLogKafkaPublisher = mock(AuditLogKafkaPublisher.class);
+    private final AuditLogEventListener listener =
+        new AuditLogEventListener(auditLogRepository, auditLogKafkaPublisher);
+
+    @BeforeEach
+    void setUp() {
+        when(auditLogRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    }
 
     @Test
-    void 결제_승인_이벤트_수신_시_감사로그를_저장한다() {
+    void 결제_승인_이벤트_수신_시_감사로그를_저장하고_Kafka로_발행한다() {
         Payment payment = Payment.create(
             UUID.randomUUID(), UUID.randomUUID(), "pgTx-1", "TOSS_PAYMENTS", "CARD", 10_000);
         payment.markRequested(OffsetDateTime.now());
@@ -39,9 +49,9 @@ class AuditLogEventListenerTest {
 
         listener.onPaymentApproved(new PaymentApprovedEvent(payment));
 
-        ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
-        AuditLog auditLog = captor.getValue();
+        ArgumentCaptor<AuditLog> savedCaptor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(auditLogRepository).save(savedCaptor.capture());
+        AuditLog auditLog = savedCaptor.getValue();
         assertThat(auditLog.getOrderId()).isEqualTo(payment.getOrderId());
         assertThat(auditLog.getEntityType()).isEqualTo(AuditEntityType.PAYMENT);
         assertThat(auditLog.getEntityId()).isEqualTo(payment.getId());
@@ -50,6 +60,10 @@ class AuditLogEventListenerTest {
         assertThat(auditLog.getNewStatus()).isEqualTo("PAID");
         assertThat(auditLog.getFailureCode()).isNull();
         assertThat(auditLog.getDetail()).isNull();
+
+        ArgumentCaptor<AuditLog> publishedCaptor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(auditLogKafkaPublisher).publish(publishedCaptor.capture());
+        assertThat(publishedCaptor.getValue()).isSameAs(auditLog);
     }
 
     @Test
@@ -69,10 +83,11 @@ class AuditLogEventListenerTest {
         assertThat(auditLog.getNewStatus()).isEqualTo("FAILED");
         assertThat(auditLog.getFailureCode()).isEqualTo("REJECT");
         assertThat(auditLog.getDetail()).isEqualTo("카드 거절");
+        verify(auditLogKafkaPublisher).publish(auditLog);
     }
 
     @Test
-    void 환불_완료_이벤트_수신_시_REFUND_REQUESTED와_REFUND_COMPLETED_두_건을_저장한다() {
+    void 환불_완료_이벤트_수신_시_REFUND_REQUESTED와_REFUND_COMPLETED_두_건을_저장하고_각각_발행한다() {
         Payment payment = Payment.create(
             UUID.randomUUID(), UUID.randomUUID(), "pgTx-3", "TOSS_PAYMENTS", "CARD", 10_000);
         payment.markRequested(OffsetDateTime.now());
@@ -93,10 +108,11 @@ class AuditLogEventListenerTest {
             assertThat(log.getEntityType()).isEqualTo(AuditEntityType.REFUND);
             assertThat(log.getEntityId()).isEqualTo(refund.getId());
         });
+        verify(auditLogKafkaPublisher, times(2)).publish(any(AuditLog.class));
     }
 
     @Test
-    void 환불_실패_이벤트_수신_시_REFUND_REQUESTED와_REFUND_FAILED_두_건을_저장한다() {
+    void 환불_실패_이벤트_수신_시_REFUND_REQUESTED와_REFUND_FAILED_두_건을_저장하고_각각_발행한다() {
         Payment payment = Payment.create(
             UUID.randomUUID(), UUID.randomUUID(), "pgTx-4", "TOSS_PAYMENTS", "CARD", 10_000);
         payment.markRequested(OffsetDateTime.now());
@@ -114,6 +130,7 @@ class AuditLogEventListenerTest {
             .containsExactly(AuditEventType.REFUND_REQUESTED, AuditEventType.REFUND_FAILED);
         assertThat(saved.get(1).getFailureCode()).isEqualTo("CANCEL_FAILED");
         assertThat(saved.get(1).getDetail()).isEqualTo("PG 오류");
+        verify(auditLogKafkaPublisher, times(2)).publish(any(AuditLog.class));
     }
 
     @Test
@@ -135,10 +152,11 @@ class AuditLogEventListenerTest {
         assertThat(auditLog.getNewStatus()).isEqualTo("REQUESTED");
         assertThat(auditLog.getFailureCode()).isNull();
         assertThat(auditLog.getDetail()).isNull();
+        verify(auditLogKafkaPublisher).publish(auditLog);
     }
 
     @Test
-    void 감사로그_저장_실패해도_예외를_전파하지_않는다() {
+    void 감사로그_저장_실패해도_예외를_전파하지_않고_Kafka_발행도_하지_않는다() {
         Payment payment = Payment.create(
             UUID.randomUUID(), UUID.randomUUID(), "pgTx-5", "TOSS_PAYMENTS", "CARD", 10_000);
         payment.markRequested(OffsetDateTime.now());
@@ -146,5 +164,21 @@ class AuditLogEventListenerTest {
         when(auditLogRepository.save(any())).thenThrow(new RuntimeException("DB down"));
 
         assertDoesNotThrow(() -> listener.onPaymentApproved(new PaymentApprovedEvent(payment)));
+
+        verifyNoInteractions(auditLogKafkaPublisher);
+    }
+
+    @Test
+    void Kafka_발행_실패해도_예외를_전파하지_않는다() {
+        Payment payment = Payment.create(
+            UUID.randomUUID(), UUID.randomUUID(), "pgTx-7", "TOSS_PAYMENTS", "CARD", 10_000);
+        payment.markRequested(OffsetDateTime.now());
+        payment.approve(10_000, "CARD", "{}", "{}", OffsetDateTime.now());
+        org.mockito.Mockito.doThrow(new RuntimeException("Kafka down"))
+            .when(auditLogKafkaPublisher).publish(any(AuditLog.class));
+
+        assertDoesNotThrow(() -> listener.onPaymentApproved(new PaymentApprovedEvent(payment)));
+
+        verify(auditLogRepository, times(1)).save(any());
     }
 }

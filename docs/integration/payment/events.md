@@ -211,3 +211,9 @@ PG 결제 승인 실패(Toss confirm 호출 자체가 실패한 경우) 시 발�
 
 ---
 
+## 내부 전용 토픽 (서비스 간 계약 아님)
+
+| 토픽 | 발행자 | 소비자 | 용도 |
+|---|---|---|---|
+| `payment-audit-log` | payment-service(`AuditLogKafkaPublisher`) | Logstash(ELK, k8s/addons/elk) | 감사로그를 Elasticsearch로 실시간 미러링(#540). 타 서비스는 이 토픽을 구독하지 않는다 — 외부 서비스 계약(`payment-events`)과 분리된 내부 전용 채널. |
+
