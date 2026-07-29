@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 
 require "json"
+require "open3"
+require "yaml"
 
 ROOT_DIR = File.expand_path("..", __dir__)
 DASHBOARD_DIR = File.join(ROOT_DIR, "k8s/addons/elk/dashboards")
@@ -192,6 +194,78 @@ def validate_gateway_data_view(errors)
   errors << "Gateway Data View contract does not match #{expected.inspect}" unless data_view == expected
 end
 
+def validate_rendered_kubernetes_assets(errors)
+  elk_directory = File.join(ROOT_DIR, "k8s/addons/elk")
+  output, error_output, status = Open3.capture3("kubectl", "kustomize", elk_directory)
+  unless status.success?
+    errors << "failed to render ELK manifests: #{error_output.strip}"
+    return
+  end
+
+  resources = YAML.load_stream(output).compact
+  config_map = resources.find do |resource|
+    resource["kind"] == "ConfigMap" &&
+      resource.dig("metadata", "name") == "kibana-operations-dashboards"
+  end
+  job = resources.find do |resource|
+    resource["kind"] == "Job" &&
+      resource.dig("metadata", "name") == "kibana-operations-dashboards-bootstrap"
+  end
+
+  unless config_map
+    errors << "rendered ELK package is missing kibana-operations-dashboards ConfigMap"
+    return
+  end
+  unless job
+    errors << "rendered ELK package is missing kibana-operations-dashboards-bootstrap Job"
+    return
+  end
+
+  expected_files = [
+    "gateway-data-view.ndjson",
+    "prompthub-service-health.json",
+    "prompthub-gateway-anomalies.json",
+    "prompthub-runtime-incidents.json",
+  ]
+  missing_files = expected_files - config_map.fetch("data", {}).keys
+  unless missing_files.empty?
+    errors << "dashboard ConfigMap is missing files #{missing_files.join(", ")}"
+  end
+
+  pod_spec = job.dig("spec", "template", "spec") || {}
+  container = Array(pod_spec["containers"]).find { |candidate| candidate["name"] == "bootstrap" }
+  unless container
+    errors << "dashboard bootstrap Job is missing the bootstrap container"
+    return
+  end
+
+  command = Array(container["command"]).join("\n")
+  expected_command_terms = [
+    "/api/status",
+    "/api/saved_objects/_import?overwrite=true",
+    "/api/saved_objects/index-pattern/application-logs",
+    "/api/dashboards/${dashboard_id}",
+    "gateway-data-view.ndjson",
+    "prompthub-service-health",
+    "prompthub-gateway-anomalies",
+    "prompthub-runtime-incidents",
+  ]
+  expected_command_terms.each do |term|
+    errors << "dashboard bootstrap command is missing #{term}" unless command.include?(term)
+  end
+
+  errors << "dashboard bootstrap must use PUT" unless command.include?("-X PUT")
+  errors << "dashboard bootstrap must fail on HTTP errors" unless command.include?("--fail")
+  unless command.include?('"success":true') && command.include?('"successCount":1')
+    errors << "dashboard bootstrap must verify the Data View import response"
+  end
+
+  volume = Array(pod_spec["volumes"]).find { |candidate| candidate["name"] == "dashboards" }
+  unless volume&.dig("configMap", "name") == "kibana-operations-dashboards"
+    errors << "dashboard bootstrap must mount the generated ConfigMap"
+  end
+end
+
 errors = []
 
 DASHBOARD_CONTRACTS.each do |id, contract|
@@ -201,6 +275,7 @@ rescue JSON::ParserError => error
 end
 
 validate_gateway_data_view(errors)
+validate_rendered_kubernetes_assets(errors)
 
 unless errors.empty?
   warn errors.join("\n")
