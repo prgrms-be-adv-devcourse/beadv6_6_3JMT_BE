@@ -1,9 +1,9 @@
 package com.prompthub.order.application.service.event;
 
-import com.prompthub.order.infra.messaging.kafka.event.OrderExpiredPayload;
-import com.prompthub.order.infra.messaging.kafka.event.OrderPaymentFailedPayload;
-import com.prompthub.order.infra.messaging.kafka.event.OrderRefundFailedPayload;
-import com.prompthub.order.infra.messaging.kafka.event.OrderRefundRequestedPayload;
+import com.prompthub.order.application.dto.event.order.OrderExpiredPayload;
+import com.prompthub.order.application.dto.event.order.OrderPaymentFailedPayload;
+import com.prompthub.order.application.dto.event.order.OrderRefundFailedPayload;
+import com.prompthub.order.application.dto.event.order.OrderRefundRequestedPayload;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;

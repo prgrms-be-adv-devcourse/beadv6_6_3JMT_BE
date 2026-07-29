@@ -24,7 +24,7 @@ public enum OrderStatus {
             case CREATED -> target == COMPLETED || target == FAILED;
             case FAILED -> target == COMPLETED;
             case COMPLETED, PARTIAL_REFUNDED -> target == REFUND_REQUESTED;
-            case REFUND_REQUESTED -> target == PARTIAL_REFUNDED || target == ALL_REFUNDED;
+            case REFUND_REQUESTED -> target == COMPLETED || target == PARTIAL_REFUNDED || target == ALL_REFUNDED;
             case ALL_REFUNDED -> false;
         };
     }

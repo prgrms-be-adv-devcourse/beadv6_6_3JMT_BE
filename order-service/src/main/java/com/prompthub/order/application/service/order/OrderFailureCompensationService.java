@@ -1,5 +1,6 @@
 package com.prompthub.order.application.service.order;
 
+import com.prompthub.order.application.dto.event.PaymentFailedCommand;
 import com.prompthub.order.application.event.order.OrderExpirationCleanupRequestedEvent;
 import com.prompthub.order.application.event.order.OrderProductReservationCleanupEvent;
 import com.prompthub.order.application.service.event.ProcessedEventService;
@@ -12,14 +13,12 @@ import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -44,7 +43,7 @@ public class OrderFailureCompensationService {
 		UUID eventId,
 		String eventType,
 		LocalDateTime occurredAt,
-		PaymentFailedPayload payload
+		PaymentFailedCommand payload
 	) {
 		LocalDateTime failedAt = validateFailureEvent(eventId, eventType, occurredAt, payload);
 		if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) {
@@ -136,7 +135,7 @@ public class OrderFailureCompensationService {
 		UUID eventId,
 		String eventType,
 		LocalDateTime occurredAt,
-		PaymentFailedPayload payload
+		PaymentFailedCommand payload
 	) {
 		if (eventId == null
 			|| eventType == null
@@ -148,11 +147,7 @@ public class OrderFailureCompensationService {
 			throw invalidInput();
 		}
 
-		try {
-			return payload.failedAtOr(occurredAt);
-		} catch (DateTimeException | IllegalArgumentException exception) {
-			throw invalidInput();
-		}
+		return payload.failedAt() != null ? payload.failedAt() : occurredAt;
 	}
 
 	private void validateTimeout(UUID orderId, LocalDateTime timedOutAt) {
@@ -176,7 +171,7 @@ public class OrderFailureCompensationService {
 
 	private void logPaymentFailure(
 		UUID eventId,
-		PaymentFailedPayload payload,
+		PaymentFailedCommand payload,
 		LocalDateTime failedAt,
 		Order order,
 		CompensationResult result
