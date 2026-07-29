@@ -15,7 +15,7 @@ description: >-
 
 ## 핵심 원칙
 - 브랜치는 항상 develop 최신 상태 기준으로 딴다
-- 브랜치명 형식·타입 목록은 `@docs/guides/git-convention.md`를 따른다
+- 브랜치명 형식·타입 목록은 `@.claude/rules/git-convention.md`를 따른다
 - main, develop에 직접 작업 절대 금지
 - 사용자 확인 없이 remote에 push하지 않는다
 
@@ -114,7 +114,7 @@ GitHub에 열린 이슈가 없습니다.
 - 이슈의 label(`bug` → `fix`, `feature` → `feat`)을 보고 브랜치 타입 자동 제안
 
 **브랜치 타입 선택** (자동 제안값 수정 가능):
-- 허용 타입은 `@docs/guides/git-convention.md` 의 브랜치 타입 목록을 따른다
+- 허용 타입은 `@.claude/rules/git-convention.md` 의 브랜치 타입 목록을 따른다
 
 **브랜치 내용 입력**:
 - 이슈 제목을 기반으로 slug 자동 제안
@@ -178,7 +178,7 @@ stash를 저장했다면 안내:
 
 ## 허용 브랜치 타입 목록
 
-허용 타입 및 금지 브랜치(main, develop)는 `@docs/guides/git-convention.md` 를 따른다.
+허용 타입 및 금지 브랜치(main, develop)는 `@.claude/rules/git-convention.md` 를 따른다.
 
 ---
 

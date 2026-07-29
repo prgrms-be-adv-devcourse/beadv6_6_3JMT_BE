@@ -1,7 +1,8 @@
 # Swagger(OpenAPI) 컨벤션
 
 REST API 문서화를 위한 Swagger(springdoc-openapi) 애너테이션 사용 규칙을 정의한다.
-`io.swagger.v3.oas.annotations` 기반으로 작성한다.
+`io.swagger.v3.oas.annotations` 기반으로 작성한다. 예시는 `Xxx`라는 가상 엔티티로 든다.
+실제 코드에서는 서비스 도메인명으로 치환한다. 예시 이름을 그대로 복사해 쓰지 않는다.
 
 > 관련 문서
 > - Controller 책임·예외 처리: `controller-exception.md`
@@ -35,31 +36,27 @@ REST API 문서화를 위한 Swagger(springdoc-openapi) 애너테이션 사용 �
 | `@Tag` | 컨트롤러 클래스 | `name`, `description` | `name`: 영문, `description`: 한글 |
 | `@Operation` | 핸들러 메서드 | `summary`, `description` | 한글 |
 
-- `@Tag(name)` 은 Swagger UI 의 그룹 제목이 되므로 기능 단위로 짧고 일관되게 짓는다. (예: `Settlement Batch`)
+- `@Tag(name)` 은 Swagger UI 의 그룹 제목이 되므로 기능 단위로 짧고 일관되게 짓는다. (예: `Xxx Batch`)
 - `summary` 는 한 줄 요약, `description` 은 동작·대상을 풀어 설명한다.
 
 ```java
 @RestController
-@RequestMapping("${api.init}/settlements/batch")
+@RequestMapping("${api.init}/xxxs/batch")
 @RequiredArgsConstructor
-@Tag(name = "Settlement Batch", description = "정산 배치잡 API")
-public class SettlementBatchController {
+@Tag(name = "Xxx Batch", description = "배치잡 API")
+public class XxxBatchController {
 
-    private final SettlementUseCase settlementUseCase;
+    private final XxxUseCase xxxUseCase;
 
     @PostMapping
-    @Operation(summary = "정산 배치잡 실행",
-            description = "정산 기간(월요일~일요일)의 미정산 PAID 주문을 정산하는 Batch Job을 실행합니다.")
-    public ApiResult<SettlementJobResponse> run(
-            @Parameter(hidden = true) @RequestHeader(AuthHeaders.USER_ID) UUID actorId,
-            @Valid @RequestBody RunSettlementBatchRequest request) {
+    @Operation(summary = "배치잡 실행",
+            description = "대상 기간의 미처리 건을 처리하는 Batch Job을 실행합니다.")
+    public ResponseEntity<XxxJobResponse> run(
+            @Valid @RequestBody RunXxxBatchRequest request) {
         ...
     }
 }
 ```
-
-> 인증된 사용자 식별자(`actorId`)처럼 Gateway가 주입하는 헤더값은 요청 DTO 필드가 아니라
-> `@RequestHeader`로 받는다. Swagger 문서에는 노출하지 않으므로 `@Parameter(hidden = true)`를 단다.
 
 ## 3. DTO — `@Schema`
 
@@ -75,34 +72,34 @@ public class SettlementBatchController {
 | record 필드 | `description` | `example` (형태가 모호한 값에 권장) |
 
 ```java
-@Schema(description = "정산 배치잡 실행 요청")
-public record RunSettlementBatchRequest(
-        @Schema(description = "정산 포함 시작일인 월요일", example = "2026-07-13")
-        @NotNull LocalDate periodStart,
+@Schema(description = "배치잡 실행 요청")
+public record RunXxxBatchRequest(
+        @Schema(description = "기준일", example = "2026-06-03")
+        LocalDate targetDate,
 
-        @Schema(description = "정산 포함 종료일인 일요일", example = "2026-07-19")
-        @NotNull LocalDate periodEnd
+        @Schema(description = "요청 수행자 ID(UUID)")
+        UUID actorId
 ) {
 }
 ```
 
 ```java
-@Schema(description = "정산 배치잡 실행 응답")
-public record SettlementJobResponse(
-        @Schema(description = "Job Execution ID", example = "1024")
+@Schema(description = "배치잡 실행 응답")
+public record XxxJobResponse(
+        @Schema(description = "Job Execution ID")
         Long jobExecutionId,
 
-        @Schema(description = "Job 이름", example = "settlementJob")
+        @Schema(description = "Job 이름")
         String jobName,
 
-        @Schema(description = "실행 상태(비동기 접수 시점에는 STARTING/STARTED)", example = "STARTING")
+        @Schema(description = "실행 상태")
         String status,
 
-        @Schema(description = "시작 시각", example = "2026-06-03T02:00:00")
+        @Schema(description = "시작 시각")
         LocalDateTime startTime
 ) {
 
-    public static SettlementJobResponse from(SettlementJobResult result) { ... }
+    public static XxxJobResponse from(JobExecution jobExecution) { ... }
 }
 ```
 
@@ -131,9 +128,9 @@ public record SettlementJobResponse(
 - **해당 엔드포인트에서 터질 수 있는 도메인 예외를 응답으로 명시한다.**
   예: 상태 충돌 → `409`, 리소스 없음 → `404`, 요청 값 오류 → `400`.
 - 응답 코드·설명은 전역 예외 핸들러(`@RestControllerAdvice`)의 매핑과 일치시킨다.
-  핸들러가 `SettlementAlreadyCompletedException → 409` 로 매핑하면 문서에도 `409` 를 적는다.
+  핸들러가 `XxxAlreadyCompletedException → 409` 로 매핑하면 문서에도 `409` 를 적는다.
 - 에러 본문 스키마는 공통 에러 응답(`ErrorResponse`)으로 연결한다.
-- 예외별 의미는 `description` 에 한글로 적는다. (예: `"이미 정산 완료된 건"`)
+- 예외별 의미는 `description` 에 한글로 적는다. (예: `"이미 완료된 건"`)
 
 > 어떤 예외가 어떤 상태로 매핑되는지는 `controller-exception.md` 의 전역 예외 핸들러 규칙을 따른다.
 > Swagger 문서는 그 매핑을 **그대로 반영만** 하고, 새로운 상태 코드를 임의로 만들지 않는다.
@@ -144,44 +141,44 @@ public record SettlementJobResponse(
 
 ```java
 @PostMapping
-@Operation(summary = "정산 생성", description = "신규 정산 건을 생성합니다.")
+@Operation(summary = "생성", description = "신규 건을 생성합니다.")
 @ApiResponses({
         @ApiResponse(responseCode = "201", description = "생성 성공",
-                content = @Content(schema = @Schema(implementation = SettlementResponse.class))),
+                content = @Content(schema = @Schema(implementation = XxxResponse.class))),
         @ApiResponse(responseCode = "400", description = "요청 값 오류",
                 content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 })
-public ResponseEntity<SettlementResponse> create(
-        @Valid @RequestBody CreateSettlementRequest request) {
-    SettlementResult result = settlementUseCase.create(request.toCommand());
-    return ResponseEntity.status(HttpStatus.CREATED).body(SettlementResponse.from(result));
+public ResponseEntity<XxxResponse> create(
+        @Valid @RequestBody CreateXxxRequest request) {
+    XxxResult result = xxxUseCase.create(request.toCommand());
+    return ResponseEntity.status(HttpStatus.CREATED).body(XxxResponse.from(result));
 }
 
-@PostMapping("/{settlementId}/complete")
-@Operation(summary = "정산 완료 처리", description = "정산 건을 완료 상태로 전환합니다.")
+@PostMapping("/{xxxId}/complete")
+@Operation(summary = "완료 처리", description = "건을 완료 상태로 전환합니다.")
 @ApiResponses({
         @ApiResponse(responseCode = "200", description = "완료 성공",
-                content = @Content(schema = @Schema(implementation = SettlementResponse.class))),
-        @ApiResponse(responseCode = "404", description = "정산 건 없음",
+                content = @Content(schema = @Schema(implementation = XxxResponse.class))),
+        @ApiResponse(responseCode = "404", description = "건 없음",
                 content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-        @ApiResponse(responseCode = "409", description = "이미 정산 완료된 건",
+        @ApiResponse(responseCode = "409", description = "이미 완료된 건",
                 content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 })
-public SettlementResponse complete(
-        @Parameter(description = "정산 UUID") @PathVariable UUID settlementId) {
-    return SettlementResponse.from(settlementUseCase.complete(settlementId));
+public XxxResponse complete(
+        @Parameter(description = "UUID") @PathVariable UUID xxxId) {
+    return XxxResponse.from(xxxUseCase.complete(xxxId));
 }
 
-@DeleteMapping("/{settlementId}")
-@Operation(summary = "정산 삭제", description = "정산 건을 삭제합니다.")
+@DeleteMapping("/{xxxId}")
+@Operation(summary = "삭제", description = "건을 삭제합니다.")
 @ApiResponses({
         @ApiResponse(responseCode = "204", description = "삭제 성공"),
-        @ApiResponse(responseCode = "404", description = "정산 건 없음",
+        @ApiResponse(responseCode = "404", description = "건 없음",
                 content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 })
 public ResponseEntity<Void> delete(
-        @Parameter(description = "정산 UUID") @PathVariable UUID settlementId) {
-    settlementUseCase.delete(settlementId);
+        @Parameter(description = "UUID") @PathVariable UUID xxxId) {
+    xxxUseCase.delete(xxxId);
     return ResponseEntity.noContent().build();
 }
 ```

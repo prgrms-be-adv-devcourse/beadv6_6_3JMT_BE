@@ -1,6 +1,8 @@
 # 도메인 모델 컨벤션
 
-정산 서비스의 도메인 모델(엔티티) 작성 규칙과 Lombok 사용 범위를 정의한다.
+도메인 모델(엔티티) 작성 규칙과 Lombok 사용 범위를 정의하는 팀 공용 표준이다.
+예시는 `Xxx`·`XxxBatch`라는 가상 엔티티로 든다. 실제 코드에서는 서비스 도메인에 맞는 이름으로
+치환한다(예: `Xxx` → `Payment`·`Order`·`Settlement` 등). 예시 이름을 그대로 복사해 쓰지 않는다.
 
 > 관련 문서
 > - 패키지 구조·계층 규칙: `clean-architecture.md`
@@ -8,7 +10,7 @@
 
 엔티티는 단순 데이터 객체가 아니라 **도메인 상태와 규칙을 보장하는 객체**다. 아래 규칙은
 그 관점에서의 가이드이며, **참고 기준**으로 본다. 모든 객체에 기계적으로 적용하지 않고,
-**잘못 생성되면 도메인 규칙이 깨지는 엔티티(`Settlement`·`SettlementBatch` 등)에 우선 적용한다.**
+**잘못 생성되면 도메인 규칙이 깨지는 엔티티(`Xxx`·`XxxBatch` 등)에 우선 적용한다.**
 
 ## 1. 도메인 모델 = 엔티티 겸용 정책
 
@@ -18,7 +20,7 @@
 도메인이 JPA에 의존하게 되는 대신, 다음을 지켜 모델이 단순 데이터 덩어리로 전락하지 않게 한다.
 
 - **비즈니스 상태 변경용 public setter 를 두지 않는다.** 상태 변경은 의도를 드러내는
-  도메인 메서드로 표현한다. (예: `order.markPaid()`, `settlementBatch.complete()`, `settlementBatch.fail(...)`)
+  도메인 메서드로 표현한다. (예: `xxx.markCompleted()`, `xxxBatch.complete()`, `xxxBatch.fail(...)`)
 - 비즈니스 규칙·불변식은 도메인 메서드 안에서 보장한다.
 - **공통 생성일·수정일(`createdAt`·`updatedAt`)은 `BaseEntity` 에서 관리하고, 개별 엔티티에서
   중복 선언하지 않는다.** 비즈니스 시각(`calculatedAt`·`executedAt` 등)은 엔티티별 필드로 둔다.
@@ -51,10 +53,8 @@
 정적 팩토리 이름은 `of`·`from` 보다 가능하면 **도메인 행위**를 드러낸다.
 
 ```java
-Settlement.create(...)
-SettlementBatch.start(...)
-Order.place(...)
-Payment.confirm(...)
+Xxx.create(...)
+XxxBatch.start(...)
 ```
 
 생성 시점에 아래 중 하나라도 해당하면 `static factory + private constructor` 를 쓴다.
@@ -66,11 +66,11 @@ Payment.confirm(...)
 - 자식 엔티티 목록과 정합성을 유지해야 한다.
 
 ```java
-public static Settlement create(...) {
-    return new Settlement(...);
+public static Xxx create(...) {
+    return new Xxx(...);
 }
 
-private Settlement(...) {
+private Xxx(...) {
     // 필수값 검증
     // 필수값 세팅
     // 초기 상태 세팅
@@ -83,24 +83,24 @@ private Settlement(...) {
 **초기 상태는 외부에서 받지 않고 엔티티 내부에서 강제한다.**
 
 ```java
-// 지양: SettlementBatch.start(..., SettlementBatchStatus.COMPLETED);
+// 지양: XxxBatch.start(..., XxxBatchStatus.COMPLETED);
 // 권장:
-this.status = SettlementBatchStatus.PROCESSING;
+this.status = XxxBatchStatus.PROCESSING;
 ```
 
 **상세 목록·원본 데이터로부터 계산 가능한 값(파생값)은 외부에서 직접 받지 않는다.**
 외부에서 합계를 직접 받으면 상세 내역과 총액이 어긋날 수 있다.
 
 ```java
-this.productCount = details.size();
-this.totalAmount = sum(details, SettlementDetail::getLineAmount);
-this.feeTotalAmount = sum(details, SettlementDetail::getFeeAmount);
+this.detailCount = details.size();
+this.totalAmount = sum(details, XxxDetail::getLineAmount);
+this.feeTotalAmount = sum(details, XxxDetail::getFeeAmount);
 ```
 
 ## 6. 시간 값은 가능하면 외부에서 주입한다 (참고)
 
-> 참고용 권장 항목이다. 현재 코드(`Settlement.create()`·`SettlementBatch.complete()`)는 내부에서
-> `LocalDateTime.now()` 를 호출하고 있고, 이를 강제로 바꾸지는 않는다. 신규 작성·리팩터링 시 참고한다.
+> 참고용 권장 항목이다. 기존 코드가 이미 내부에서 `LocalDateTime.now()` 를 호출하고 있다면
+> 이를 강제로 바꾸지는 않는다. 신규 작성·리팩터링 시 참고한다.
 
 엔티티 내부에서 `LocalDateTime.now()` 를 직접 호출하면 시점이 코드에 박혀 테스트가 어렵다.
 가능하면 현재 시각은 Application Service·Batch·`TimeProvider` 에서 만들어 주입한다.
@@ -114,7 +114,7 @@ this.feeTotalAmount = sum(details, SettlementDetail::getFeeAmount);
 컬렉션 필드는 선언 시점에 초기화하고, 통째로 교체하지 않는다.
 
 ```java
-private List<SettlementDetail> details = new ArrayList<>();
+private List<XxxDetail> details = new ArrayList<>();
 ```
 
 ```java
@@ -126,9 +126,9 @@ this.details.addAll(details);
 양방향 연관관계에서는 연관관계 편의 메서드를 둔다.
 
 ```java
-public void addDetail(SettlementDetail detail) {
+public void addDetail(XxxDetail detail) {
     this.details.add(detail);
-    detail.assignSettlement(this);
+    detail.assignXxx(this);
 }
 ```
 
@@ -138,17 +138,17 @@ public void addDetail(SettlementDetail detail) {
 **상태 변경 메서드 내부에서 현재 상태로부터 전이 가능한지 검증한다.**
 
 불변식 위반은 **도메인 순수 예외**(`extends RuntimeException`, `domain/exception`)로 던진다.
-도메인은 `ErrorCode`·`HttpStatus` 를 모르므로 `SettlementException` 을 던지지 않는다.
-HTTP 상태로의 변환은 핸들러가 맡는다. (`controller-exception.md` §2-4)
+도메인은 `ErrorCode`·`HttpStatus` 를 모르므로 서비스 전용 `BusinessException` 서브클래스를 던지지
+않는다. HTTP 상태로의 변환은 핸들러가 맡는다. (`controller-exception.md` §2-4)
 
 ```java
-// 지양: settlementBatch.setStatus(COMPLETED);
+// 지양: xxxBatch.setStatus(COMPLETED);
 // 권장:
 public void complete() {
-    if (this.status != SettlementBatchStatus.PROCESSING) {
-        throw new SettlementBatchInvalidStateException(this.status);  // 도메인 순수 예외
+    if (this.status != XxxBatchStatus.PROCESSING) {
+        throw new XxxBatchInvalidStateException(this.status);  // 도메인 순수 예외
     }
-    this.status = SettlementBatchStatus.COMPLETED;
+    this.status = XxxBatchStatus.COMPLETED;
 }
 ```
 
@@ -169,7 +169,7 @@ public void complete() {
 - **엔티티에 `@RequiredArgsConstructor`.** final 필드용 생성자가 열려 §4 의 "정적 팩토리 + private
   생성자(필수값 검증·파생값 계산)" 규율을 우회한다. → 단, 도메인 서비스·값 객체·설정 객체 등
   **엔티티가 아닌 클래스에서는** DI 등 필요 시 사용할 수 있다.
-- **상태·생명주기가 중요한 엔티티(`Settlement`·`SettlementBatch`·`Order`·`Payment` 등)에 `@Builder`.**
+- **상태·생명주기가 중요한 엔티티(예: `Xxx`·`XxxBatch`)에 `@Builder`.**
   필수값·초기 상태·상태 전이 규칙을 우회할 수 있다. → §4 의 정적 팩토리 + private 생성자를 쓴다.
 
 `@Builder` 는 도메인 규칙이 거의 없는 객체에만 쓴다. (§10 참고)

@@ -1,7 +1,7 @@
 # Kafka 이벤트 컨벤션
 
 서비스 간 **내부 비동기 통신(Kafka 이벤트)** 의 메시지 구조·네이밍·발행/소비 규칙을 정의한다.
-팀 공통 규칙이며, 전문(배경·JSON 예시·체크리스트)은 `docs/architecture/common-kafka-event-message.md` 를 본다.
+팀 공통 규칙이며, 전문(배경·JSON 예시·체크리스트)은 `docs/architecture/common-event-message.md` 를 본다.
 
 > 관련 문서
 > - 계층·패키지(발행/소비 어댑터 위치): `clean-architecture.md` (§2 messaging, §4 포트&어댑터)

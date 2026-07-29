@@ -15,8 +15,8 @@ description: >-
 **위반이 하나라도 있으면 통과시키지 않는다.** 이 스킬은 검증만 한다 — 코드를 고치지 않고, PR을
 만들지도 않는다.
 
-> 저장소 루트의 공용 스킬이다. 룰 목록은 서비스마다 다르므로(예: user는 clean-architecture·
-> domain-model·swagger·security 등, product는 architecture·product-api·testing·git-workflow 등)
+> 저장소 루트의 공용 스킬이다. 룰 목록은 서비스마다 다르므로(예: settlement는 루트 공용 룰 +
+> kafka-event, product는 루트 공용 룰 + architecture·product-api·testing·git-workflow 등)
 > **고정 목록을 두지 않고 대상 서비스의 룰 문서를 탐색해서 검증한다.**
 
 ## 1. 변경분 수집과 대상 서비스 판정
@@ -37,21 +37,25 @@ git log <base>..HEAD --format="%s"         # 커밋 제목 (git 컨벤션 입력
 
 ## 2. 룰 문서 탐색 (하드코딩 금지)
 
-대상 서비스에 적용할 룰 문서 목록을 런타임에 수집한다.
+대상 서비스에 적용할 룰 문서 목록을 **룰 이름(파일명) 단위로** 런타임에 수집한다. 위치가 아니라
+이름이 검증 단위다 — 같은 이름이 두 위치에 있으면 서비스 쪽이 이긴다.
 
-1. **서비스 자체 룰**: `<service>/.claude/rules/*.md` 가 있으면 그 파일들을 룰로 쓴다.
-   (예: `product-service/.claude/rules/{architecture,product-api,testing,git-workflow,kafka-event}.md`)
-2. **공용 가이드**: 서비스 자체 룰이 없거나(룰을 루트로 이관한 서비스) 공용 가이드도 함께 봐야 하면
-   `docs/guides/*.md` 를 룰로 쓴다.
+1. **루트 공용 룰**: `.claude/rules/*.md` (저장소 루트)는 모든 서비스에 기본 적용되는 팀 공용 룰이다.
    (예: `clean-architecture, domain-model, controller-exception, code-style, swagger, git-convention, security`)
-3. 두 위치 모두 있으면 서비스 자체 룰을 우선하고, 해당 서비스 `CLAUDE.md`가 `@docs/guides/...`로
-   import하는 공용 가이드를 더한다.
+2. **서비스 자체 룰**: `<service>/.claude/rules/*.md` 가 있으면 같은 이름의 루트 룰을 **덮어쓴다**
+   (그 서비스에서는 서비스 버전만 적용, 루트 버전은 무시). 서비스에만 있고 루트에 없는 이름은
+   그대로 추가된다.
+   (예: `product-service/.claude/rules/{architecture,product-api,testing,git-workflow,kafka-event}.md` —
+   이름이 `architecture`라 루트 `clean-architecture`와 겹치지 않으므로 **둘 다 적용**된다. 이렇게
+   같은 목적의 룰이 다른 이름으로 공존하면 검증이 중복·상충될 수 있으니 발견 시 사용자에게 알린다.
+   `settlement-service/.claude/rules/kafka-event.md`처럼 루트에 없는 이름은 그대로 추가만 된다.)
+3. 최종 룰 목록 = 루트 룰과 서비스 룰의 합집합, 이름이 겹치면 서비스 룰로 대체.
 
 수집 결과를 `RULE_NAME → RULE_FILE` 목록으로 만든다. 이 목록이 검증 단위다.
 
 ```bash
-ls <service>/.claude/rules/*.md 2>/dev/null   # 서비스 자체 룰
-ls docs/guides/*.md                            # 공용 가이드
+ls .claude/rules/*.md 2>/dev/null             # 루트 공용 룰
+ls <service>/.claude/rules/*.md 2>/dev/null   # 서비스 자체 룰(이름 겹치면 이쪽 우선)
 ```
 
 ## 3. rule-checker 병렬 디스패치

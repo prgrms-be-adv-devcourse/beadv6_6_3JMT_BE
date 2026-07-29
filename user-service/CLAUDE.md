@@ -15,29 +15,29 @@ git 저장소 루트는 상위 디렉토리(`beadv6_6_3JMT_BE`)지만, 새로 �
 
 패키지 구조, 계층 책임, 포트 & 어댑터 규칙은 아래 문서를 따른다.
 
-@.claude/rules/clean-architecture.md
+@../.claude/rules/clean-architecture.md
 
 도메인 모델·엔티티·Lombok 규칙은 아래 문서를 따른다.
 
-@.claude/rules/domain-model.md
+@../.claude/rules/domain-model.md
 
 Controller·예외 처리 규칙은 아래 문서를 따른다.
 
-@.claude/rules/controller-exception.md
+@../.claude/rules/controller-exception.md
 
 코드 스타일(네이밍 케이스·import·빈 catch 등)은 아래 문서를 따른다.
 
-@.claude/rules/code-style.md
+@../.claude/rules/code-style.md
 
 API 문서화(Swagger/OpenAPI 애너테이션) 규칙은 아래 문서를 따른다.
 
-@.claude/rules/swagger.md
+@../.claude/rules/swagger.md
 
 ## Git 컨벤션
 
 커밋 메시지, 브랜치 명명, 병합 전략은 아래 문서를 따른다.
 
-@.claude/rules/git-convention.md
+@../.claude/rules/git-convention.md
 
 ---
 

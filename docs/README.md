@@ -14,7 +14,7 @@ docs/
 ├── bug-reports/       # 버그 리포트 기록 (예: bug-reports/order/)
 ├── domain-glossary/   # 도메인 용어집
 ├── erd/               # 전체 및 서비스별 데이터베이스 스키마
-├── guides/            # 개발 가이드라인 (Git 컨벤션, 코드 스타일, 마이그레이션 등)
+├── guides/            # 개발 HOWTO (마이그레이션, 로컬 gRPC 개발 등 — 팀 공용 룰은 ../.claude/rules/ 참고)
 ├── records/           # 현재 스펙이 아닌 작업·결정·이력 기록
 │   ├── planning/          # 기획 문서 및 로드맵·백로그
 │   ├── trade-offs/        # 설계 트레이드오프·결정 기록

@@ -158,8 +158,9 @@ http://ec2-13-209-136-116.ap-northeast-2.compute.amazonaws.com/swagger-ui/index.
 
 ## 팀 / 기여 가이드
 
-- **브랜치 전략 / 커밋 컨벤션 / 병합 전략**: [`docs/guides/git-convention.md`](./docs/guides/git-convention.md)
-- **코드 컨벤션**: [클린 아키텍처](./docs/guides/clean-architecture.md) · [도메인 모델](./docs/guides/domain-model.md) · [Controller · 예외 처리](./docs/guides/controller-exception.md) · [코드 스타일](./docs/guides/code-style.md) · [Swagger 문서화](./docs/guides/swagger.md) · [보안(시크릿 유출 방지)](./docs/guides/security.md)
+- **브랜치 전략 / 커밋 컨벤션 / 병합 전략**: [`.claude/rules/git-convention.md`](./.claude/rules/git-convention.md)
+- **코드 컨벤션**: [클린 아키텍처](./.claude/rules/clean-architecture.md) · [도메인 모델](./.claude/rules/domain-model.md) · [Controller · 예외 처리](./.claude/rules/controller-exception.md) · [코드 스타일](./.claude/rules/code-style.md) · [Swagger 문서화](./.claude/rules/swagger.md) · [보안(시크릿 유출 방지)](./.claude/rules/security.md)
+- 서비스가 자체 규칙을 두면(예: `settlement-service/.claude/rules/kafka-event.md`) 그 서비스에서는 그쪽이 우선한다.
 - **이슈/PR 템플릿**: [Pull Request](./.github/PULL_REQUEST_TEMPLATE.md) · [Bug Report](./.github/ISSUE_TEMPLATE/bug_report.md) · [Feature Request](./.github/ISSUE_TEMPLATE/feature_request.md)
 
 ## FAQ

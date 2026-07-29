@@ -1,6 +1,9 @@
 # Controller · 예외 처리 컨벤션
 
-표현 계층(Controller)의 책임과 예외 처리 방식을 정의한다.
+표현 계층(Controller)의 책임과 예외 처리 방식을 정의하는 팀 공용 표준이다.
+예시는 `Xxx`라는 가상 엔티티로 든다. 실제 코드에서는 서비스 도메인명으로 치환한다
+(예: `XxxException` → `PaymentException`, `XxxErrorCode` → `OrderErrorCode`). 예시 이름을
+그대로 복사해 쓰지 않는다.
 
 > 관련 문서: 계층 구조·DTO 변환 규칙은 `clean-architecture.md` 참고.
 
@@ -20,15 +23,15 @@ Controller 는 표현 계층의 진입점이며, HTTP 관심사만 책임진다.
 ```java
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/settlements")
-public class SettlementController {
+@RequestMapping("/api/xxxs")
+public class XxxController {
 
-    private final SettlementUseCase settlementUseCase;   // Repository 직접 주입 금지
+    private final XxxUseCase xxxUseCase;   // Repository 직접 주입 금지
 
     @PostMapping
-    public SettlementResponse create(@Valid @RequestBody CreateSettlementRequest request) {
-        SettlementResult result = settlementUseCase.create(request.toCommand());
-        return SettlementResponse.from(result);
+    public XxxResponse create(@Valid @RequestBody CreateXxxRequest request) {
+        XxxResult result = xxxUseCase.create(request.toCommand());
+        return XxxResponse.from(result);
     }
 }
 ```
@@ -41,26 +44,26 @@ public class SettlementController {
 ### 2-1. 비즈니스 예외 = common `BusinessException` 커스텀
 
 - **common-module 의 `BusinessException(ErrorCode)` 를 베이스로, 서비스 전용 예외로 확장한다.**
-  (예: `SettlementException extends BusinessException`) 일반 `RuntimeException`·`IllegalStateException`
+  (예: `XxxException extends BusinessException`) 일반 `RuntimeException`·`IllegalStateException`
   남발 대신 이 타입으로 던진다.
 - 예외를 던질 때 **의미는 `ErrorCode` 로 전달한다.** 외부 원인을 감싸야 하면 cause 를 받는 생성자를 둔다.
 - 단, **이 규칙은 `application`·`infrastructure`·`global` 계층에만 적용한다.** `domain` 계층은
-  `ErrorCode`(=`HttpStatus`) 를 모르므로 `SettlementException` 을 던지지 않는다. (아래 2-4 참고)
+  `ErrorCode`(=`HttpStatus`) 를 모르므로 `XxxException` 을 던지지 않는다. (아래 2-4 참고)
 
 ```java
-public class SettlementException extends BusinessException {
-    public SettlementException(ErrorCode errorCode) { super(errorCode); }
-    public SettlementException(ErrorCode errorCode, String message) { super(errorCode, message); }
-    public SettlementException(ErrorCode errorCode, Throwable cause) { super(errorCode); initCause(cause); }
+public class XxxException extends BusinessException {
+    public XxxException(ErrorCode errorCode) { super(errorCode); }
+    public XxxException(ErrorCode errorCode, String message) { super(errorCode, message); }
+    public XxxException(ErrorCode errorCode, Throwable cause) { super(errorCode); initCause(cause); }
 }
 
-throw new SettlementException(SettlementErrorCode.SETTLEMENT_BATCH_NOT_FOUND);
-throw new SettlementException(SettlementErrorCode.SETTLEMENT_JOB_EXECUTION_FAILED, e);
+throw new XxxException(XxxErrorCode.XXX_BATCH_NOT_FOUND);
+throw new XxxException(XxxErrorCode.XXX_JOB_EXECUTION_FAILED, e);
 ```
 
 ### 2-2. 에러 코드는 `ErrorCode` enum 단일 관리
 
-- **코드·메시지·HTTP 상태는 `ErrorCode` 구현 enum 한곳에서 관리한다.** (예: `SettlementErrorCode`)
+- **코드·메시지·HTTP 상태는 `ErrorCode` 구현 enum 한곳에서 관리한다.** (예: `XxxErrorCode`)
   핸들러에 상태 매핑을 흩지 않는다. 새 에러는 enum 에 항목만 추가한다.
 - enum 은 common `ErrorCode`(`getCode`·`getMessage`·`getStatus`) 를 구현한다. `HttpStatus` 를 들고
   있으므로 **domain 에 두지 않고 `global/exception` 에 둔다.**
@@ -68,10 +71,10 @@ throw new SettlementException(SettlementErrorCode.SETTLEMENT_JOB_EXECUTION_FAILE
 ```java
 @Getter
 @RequiredArgsConstructor
-public enum SettlementErrorCode implements ErrorCode {
+public enum XxxErrorCode implements ErrorCode {
 
-    SETTLEMENT_BATCH_NOT_FOUND("S-001", "정산 배치를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-    SETTLEMENT_JOB_EXECUTION_FAILED("S-002", "정산 배치 잡 실행에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
+    XXX_BATCH_NOT_FOUND("X-001", "배치를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    XXX_JOB_EXECUTION_FAILED("X-002", "배치 잡 실행에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final String code;
     private final String message;
@@ -104,18 +107,18 @@ public class GlobalExceptionHandler {
 }
 ```
 
-### 2-4. 계층별 예외 — domain 은 순수 예외, 바깥 계층은 `SettlementException`
+### 2-4. 계층별 예외 — domain 은 순수 예외, 바깥 계층은 `XxxException`
 
 예외를 던지는 위치에 따라 타입을 나눈다. 기준은 **의존성 방향**(`clean-architecture.md` §1)이다.
-`domain` 은 `global/exception`(=`ErrorCode`·`HttpStatus`) 을 import 할 수 없으므로 `SettlementException`
+`domain` 은 `global/exception`(=`ErrorCode`·`HttpStatus`) 을 import 할 수 없으므로 `XxxException`
 을 던질 수 없다. 그래서 domain 의 불변식 위반은 **순수 도메인 예외**로 던진다.
 
 | 던지는 계층 | 사용하는 예외 | 위치 | 비고 |
 | --- | --- | --- | --- |
 | `domain` (model 불변식) | 순수 도메인 예외 (`extends RuntimeException`) | `domain/exception` | `ErrorCode`·`HttpStatus` 의존 금지 |
-| `application` | `SettlementException(ErrorCode)` | `global/exception` 의 타입 사용 | 흐름 조율 중 비즈니스 위반 |
-| `infrastructure` | `SettlementException(ErrorCode[, cause])` | 〃 | 외부 연동·잡 실행 실패 등 |
-| `global/web` 등 | `SettlementException(ErrorCode)` | 〃 | 인증·권한 등 |
+| `application` | `XxxException(ErrorCode)` | `global/exception` 의 타입 사용 | 흐름 조율 중 비즈니스 위반 |
+| `infrastructure` | `XxxException(ErrorCode[, cause])` | 〃 | 외부 연동·잡 실행 실패 등 |
+| `global/web` 등 | `XxxException(ErrorCode)` | 〃 | 인증·권한 등 |
 
 - **domain 순수 예외는 `ErrorCode` 를 들지 않는다.** 의미만 담고(필요하면 상태값 등 컨텍스트만),
   HTTP 상태로의 변환은 전적으로 핸들러가 맡는다. (2-3)
@@ -125,25 +128,25 @@ public class GlobalExceptionHandler {
   domain 순수성을 우선해 감수한다.
 
 ```java
-// domain/exception/SettlementBatchInvalidStateException.java — 순수 도메인 예외
-public class SettlementBatchInvalidStateException extends RuntimeException {
-    public SettlementBatchInvalidStateException(SettlementBatchStatus current) {
-        super("정산 배치가 처리 중(PROCESSING) 상태가 아닙니다. current=" + current);
+// domain/exception/XxxBatchInvalidStateException.java — 순수 도메인 예외
+public class XxxBatchInvalidStateException extends RuntimeException {
+    public XxxBatchInvalidStateException(XxxBatchStatus current) {
+        super("배치가 처리 중(PROCESSING) 상태가 아닙니다. current=" + current);
     }
 }
 
-// domain/model/SettlementBatch.java — 불변식은 도메인 메서드 안에서, 순수 예외로 보장
+// domain/model/XxxBatch.java — 불변식은 도메인 메서드 안에서, 순수 예외로 보장
 public void complete() {
-    if (this.status != SettlementBatchStatus.PROCESSING) {
-        throw new SettlementBatchInvalidStateException(this.status);
+    if (this.status != XxxBatchStatus.PROCESSING) {
+        throw new XxxBatchInvalidStateException(this.status);
     }
-    this.status = SettlementBatchStatus.COMPLETED;
+    this.status = XxxBatchStatus.COMPLETED;
 }
 
 // global/exception/GlobalExceptionHandler.java — 도메인 예외 → ErrorCode 매핑
-@ExceptionHandler(SettlementBatchInvalidStateException.class)
-public ResponseEntity<ErrorResponse> handle(SettlementBatchInvalidStateException e) {
-    ErrorCode errorCode = SettlementErrorCode.SETTLEMENT_BATCH_INVALID_STATE;  // 출처는 enum
+@ExceptionHandler(XxxBatchInvalidStateException.class)
+public ResponseEntity<ErrorResponse> handle(XxxBatchInvalidStateException e) {
+    ErrorCode errorCode = XxxErrorCode.XXX_BATCH_INVALID_STATE;  // 출처는 enum
     return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
 }
 ```

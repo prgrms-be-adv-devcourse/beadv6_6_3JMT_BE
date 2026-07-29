@@ -45,21 +45,21 @@
 작업 전에 `settlement-service/CLAUDE.md`를 읽고, 작업 유형에 해당하는 규칙 문서를 완전히 읽은 뒤 적용한다.
 
 - 패키지 구조, 계층 책임, 의존 방향, 포트·어댑터:
-  `settlement-service/.claude/rules/clean-architecture.md`
+  `.claude/rules/clean-architecture.md`(저장소 루트, 팀 공용 표준)
 - 도메인 모델, 엔티티, Lombok:
-  `settlement-service/.claude/rules/domain-model.md`
+  `.claude/rules/domain-model.md`(저장소 루트)
 - Controller, 예외 처리, API 응답:
-  `settlement-service/.claude/rules/controller-exception.md`
+  `.claude/rules/controller-exception.md`(저장소 루트)
 - 네이밍, import, 빈 catch 등 코드 스타일:
-  `settlement-service/.claude/rules/code-style.md`
+  `.claude/rules/code-style.md`(저장소 루트)
 - Swagger/OpenAPI 문서화:
-  `settlement-service/.claude/rules/swagger.md`
+  `.claude/rules/swagger.md`(저장소 루트)
 - Kafka 이벤트 구조, 네이밍, 발행·소비:
   `settlement-service/.claude/rules/kafka-event.md`
 - 커밋 메시지, 브랜치 명명, 병합 전략:
-  `settlement-service/.claude/rules/git-convention.md`
+  `.claude/rules/git-convention.md`(저장소 루트)
 
-보안 관련 변경이나 규칙 검증 시에는 추가로 `settlement-service/.claude/rules/security.md`를 읽는다.
+보안 관련 변경이나 규칙 검증 시에는 추가로 `.claude/rules/security.md`(저장소 루트)를 읽는다.
 
 ## Codex skill 라우팅
 
