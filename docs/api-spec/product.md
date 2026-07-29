@@ -327,12 +327,29 @@
       { "ver": "v1.2", "date": "2026-05-10", "note": "배경 제거 옵션 개선" }
     ],
     "features": ["고해상도 출력 지원", "상업적 이용 가능", "버전 업데이트 무료 제공"],
+    "hasContext": true,
+    "hasObjective": true,
+    "hasNuance": false,
+    "hasTone": true,
+    "hasExamples": false,
+    "hasExecution": true,
+    "hasRoleAssignment": false,
     "createdAt": "2026-05-01T00:00:00.000Z",
     "updatedAt": "2026-06-01T00:00:00.000Z"
   },
   "message": "success"
 }
 ```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| hasContext | boolean | AI 검수 체크리스트: 맥락 명시 여부 |
+| hasObjective | boolean | AI 검수 체크리스트: 목표 명시 여부 |
+| hasNuance | boolean | AI 검수 체크리스트: 뉘앙스 명시 여부 |
+| hasTone | boolean | AI 검수 체크리스트: 톤 명시 여부 |
+| hasExamples | boolean | AI 검수 체크리스트: 예시 포함 여부 |
+| hasExecution | boolean | AI 검수 체크리스트: 실행 지침 포함 여부 |
+| hasRoleAssignment | boolean | AI 검수 체크리스트: 역할 부여 포함 여부. 이 기능 배포 전에 이미 `ON_SALE`이 된 상품은 7개 전부 `false`로 내려온다(검수 미달이 아니라 데이터 없음) (#671) |
 
 > `seller`(판매자 이름)·`sellerProfileImageUrl` 필드는 더 이상 내려주지 않는다(#440) — 프론트가
 > `sellerId`로 user-service 배치 조회 API를 직접 호출해 렌더링한다. `sellerProductCount`는

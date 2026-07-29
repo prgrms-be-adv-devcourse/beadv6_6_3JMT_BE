@@ -246,6 +246,8 @@ class ProductQueryServiceTest {
 			assertThat(response.content()).contains("전체 내용은 구매 후 확인");
 			assertThat(response.versions()).hasSize(1);
 			assertThat(response.imageUrls()).containsExactly("https://cdn.example.com/images/1.jpg?presigned");
+			assertThat(response.hasContext()).isTrue();
+			assertThat(response.hasNuance()).isFalse();
 		}
 
 		@Test
@@ -497,6 +499,8 @@ class ProductQueryServiceTest {
 		ReflectionTestUtils.setField(product, "salesCount", 760);
 		ReflectionTestUtils.setField(product, "tags", List.of("리액트", "리팩터링"));
 		ReflectionTestUtils.setField(product, "imageUrls", List.of("https://cdn.example.com/images/1.jpg"));
+		ReflectionTestUtils.setField(product, "hasContext", true);
+		ReflectionTestUtils.setField(product, "hasNuance", false);
 		ReflectionTestUtils.setField(product, "createdAt", CREATED_AT);
 		ReflectionTestUtils.setField(product, "updatedAt", UPDATED_AT);
 		ReflectionTestUtils.setField(product, "deletedAt", deletedAt);

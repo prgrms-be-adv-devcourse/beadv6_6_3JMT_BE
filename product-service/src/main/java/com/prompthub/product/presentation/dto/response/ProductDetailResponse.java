@@ -22,6 +22,13 @@ public record ProductDetailResponse(
 	List<String> tags,
 	List<ProductVersionResponse> versions,
 	List<String> features,
+	boolean hasContext,
+	boolean hasObjective,
+	boolean hasNuance,
+	boolean hasTone,
+	boolean hasExamples,
+	boolean hasExecution,
+	boolean hasRoleAssignment,
 	LocalDateTime createdAt,
 	LocalDateTime updatedAt
 ) {
