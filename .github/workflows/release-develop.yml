@@ -37,6 +37,7 @@ jobs:
       deploy_matrix: ${{ steps.plan.outputs.deploy_matrix }}
       config_consumer_matrix: ${{ steps.plan.outputs.config_consumer_matrix }}
       apply_all_manifests: ${{ steps.plan.outputs.apply_all_manifests }}
+      elk_changed: ${{ steps.changed.outputs.elk_any_changed }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -137,6 +138,8 @@ jobs:
               - k8s/base/gateway/**
             manifest_all:
               - k8s/overlays/ec2-kubeadm/applications/**
+            elk:
+              - k8s/addons/elk/**
             pipeline:
               - .github/workflows/ci.yml
               - .github/workflows/ci-main.yml
@@ -353,3 +356,23 @@ jobs:
       deploy-matrix: ${{ needs.planning.outputs.deploy_matrix }}
       config-consumer-matrix: ${{ needs.planning.outputs.config_consumer_matrix }}
       apply-all-manifests: ${{ needs.planning.outputs.apply_all_manifests == 'true' }}
+
+  deploy-elk:
+    name: Deploy ELK
+    needs:
+      - planning
+      - ci-gate
+      - collect-release-manifest
+      - deploy
+    if: >-
+      always() &&
+      github.event_name == 'push' &&
+      needs.planning.result == 'success' &&
+      needs.planning.outputs.elk_changed == 'true' &&
+      needs.ci-gate.result == 'success' &&
+      needs.collect-release-manifest.result == 'success' &&
+      (needs.deploy.result == 'success' || needs.deploy.result == 'skipped')
+    uses: ./.github/workflows/cd-selfhosted-kubernetes.yml
+    with:
+      target: elk
+      confirmation: DEPLOY

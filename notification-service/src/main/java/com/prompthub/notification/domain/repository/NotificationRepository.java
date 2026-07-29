@@ -22,6 +22,17 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
+        delete from Notification n
+        where n.recipientId = :recipientId
+          and n.expiresAt > :now
+        """)
+    int deleteAllActiveByRecipientId(
+        @Param("recipientId") UUID recipientId,
+        @Param("now") Instant now
+    );
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
         update Notification n set n.read = true, n.readAt = :readAt
         where n.recipientId = :recipientId and n.read = false and n.expiresAt > :now
         """)

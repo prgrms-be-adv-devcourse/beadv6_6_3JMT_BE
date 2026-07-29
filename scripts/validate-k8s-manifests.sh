@@ -325,12 +325,12 @@ for package in "${PACKAGES[@]}"; do
       exit 1
     fi
 
-    if grep -Eq 'POSTGRES_|KAFKA_' "${rendered}"; then
+    init_container_block="$(sed -n -E '/^[[:space:]]+initContainers:/,/^[[:space:]]+nodeSelector:/p' "${rendered}")"
+    if grep -Eq 'POSTGRES_|KAFKA_' <<< "${init_container_block}"; then
       echo "AI service must not depend on PostgreSQL, Kafka, or User during Pod initialization" >&2
       exit 1
     fi
 
-    init_container_block="$(sed -n -E '/^[[:space:]]+initContainers:/,/^[[:space:]]+nodeSelector:/p' "${rendered}")"
     if grep -Fq 'user-service' <<< "${init_container_block}"; then
       echo "AI init container must not hard-wait for User service" >&2
       exit 1

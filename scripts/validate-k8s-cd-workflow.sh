@@ -73,6 +73,7 @@ release_patterns=(
   'deploy_matrix:'
   'config_consumer_matrix:'
   'apply_all_manifests:'
+  'elk_changed:'
   'needs\.ci-gate\.result == '\''success'\'''
   'push-image:[[:space:]]+true'
   'publish-latest:[[:space:]]+false'
@@ -86,7 +87,11 @@ release_patterns=(
   'apply-all-manifests:'
   'manifest_ai:'
   'k8s/base/services/ai/\*\*'
+  '^[[:space:]]+elk:$'
+  'k8s/addons/elk/\*\*'
   'pipeline:'
+  '^[[:space:]]+deploy-elk:$'
+  'uses:[[:space:]]+\./\.github/workflows/cd-selfhosted-kubernetes\.yml'
 )
 
 for pattern in "${release_patterns[@]}"; do
@@ -103,6 +108,24 @@ forbid_pattern "$RELEASE_WORKFLOW" ':latest' \
 publish_block="$(sed -n '/^  publish-images:/,/^  collect-release-manifest:/p' "$RELEASE_WORKFLOW")"
 grep -Eq '^[[:space:]]+- ci-gate$' <<< "$publish_block" ||
   fail "image publishing must depend on the aggregate CI Gate"
+
+elk_deploy_block="$(sed -n '/^  deploy-elk:/,$p' "$RELEASE_WORKFLOW")"
+elk_deploy_patterns=(
+  'github\.event_name == '\''push'\'''
+  'needs\.planning\.result == '\''success'\'''
+  'needs\.planning\.outputs\.elk_changed == '\''true'\'''
+  'needs\.ci-gate\.result == '\''success'\'''
+  'needs\.collect-release-manifest\.result == '\''success'\'''
+  'needs\.deploy\.result == '\''success'\'''
+  'needs\.deploy\.result == '\''skipped'\'''
+  'target:[[:space:]]+elk'
+  'confirmation:[[:space:]]+DEPLOY'
+)
+
+for pattern in "${elk_deploy_patterns[@]}"; do
+  grep -Eq -- "$pattern" <<< "$elk_deploy_block" ||
+    fail "automatic ELK deploy missing release gate: $pattern"
+done
 
 # Reusable Docker publisher: full SHA trace tag plus immutable digest artifact.
 docker_patterns=(
@@ -197,6 +220,7 @@ expected_deployment_order=$'config\ndiscovery\nuser-service\nproduct-service\nor
 # The manual Kubernetes workflow supports infrastructure, Ingress, and ELK.
 manual_patterns=(
   '^name:[[:space:]]+CD - Self-hosted Kubernetes$'
+  '^[[:space:]]+workflow_call:$'
   '^[[:space:]]+workflow_dispatch:$'
   '^[[:space:]]+deploy-infrastructure:$'
   '^[[:space:]]+deploy-ingress:$'

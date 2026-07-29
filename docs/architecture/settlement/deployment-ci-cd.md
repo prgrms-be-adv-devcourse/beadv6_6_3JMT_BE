@@ -68,7 +68,9 @@ Release CI는 실제로 머지된 커밋을 기준으로 배포할 산출물을 
 각각 `config,ai-service`, `ai-service`, `RELEASE`를 사용한다.
 
 `.github/workflows/cd-selfhosted-kubernetes.yml`은 자동 애플리케이션 CD가 아니다. Storage·상태 저장
-인프라와 Ingress를 운영자가 `workflow_dispatch`로 승인해 적용하는 수동 workflow다.
+인프라와 Ingress는 운영자가 `workflow_dispatch`로 승인해 적용한다. ELK는 같은 workflow의
+배포 절차를 재사용해 `k8s/addons/elk/**` 변경 시 `Release - Develop`에서 자동 적용하며,
+최초 적용과 명시적인 재적용에는 수동 `target=elk` 경로를 사용한다.
 
 ## 이미지 태그와 digest
 

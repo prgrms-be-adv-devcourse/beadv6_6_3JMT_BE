@@ -53,6 +53,52 @@ assert_fails_with() {
     fail "${name} expected '${expected}', got: $(<"${output_file}")"
 }
 
+remove_container_env() {
+  local manifest="$1"
+  local container_name="$2"
+  local env_name="$3"
+  local output="${manifest}.tmp"
+
+  awk -v container_name="${container_name}" -v env_name="${env_name}" '
+    function indentation(value) {
+      match(value, /^[[:space:]]*/)
+      return RLENGTH
+    }
+    {
+      indent = indentation($0)
+
+      if (skipping_env) {
+        if ($0 !~ /^[[:space:]]*$/ && indent <= env_indent) {
+          skipping_env = 0
+        } else {
+          next
+        }
+      }
+
+      if (in_container && $0 !~ /^[[:space:]]*$/ && indent <= container_indent) {
+        in_container = 0
+      }
+
+      if ($0 ~ "^[[:space:]]*- name:[[:space:]]+" container_name "[[:space:]]*$") {
+        in_container = 1
+        container_indent = indent
+        print
+        next
+      }
+
+      if (in_container &&
+          $0 ~ "^[[:space:]]*- name:[[:space:]]+" env_name "[[:space:]]*$") {
+        skipping_env = 1
+        env_indent = indent
+        next
+      }
+
+      print
+    }
+  ' "${manifest}" > "${output}"
+  mv "${output}" "${manifest}"
+}
+
 new_fixture
 baseline_output="${fixture_dir}/baseline.out"
 assert_passes "baseline" "${baseline_output}"
@@ -101,5 +147,19 @@ assert_fails_with \
   "missing deployed profile" \
   "Kubernetes Secret contract validation failed: missing Config Server profile for deployed service: notification-service" \
   "${missing_profile_output}"
+
+cleanup
+new_fixture
+
+remove_container_env \
+  "${fixture_dir}/k8s/base/services/ai/deployment.yaml" \
+  "ai-service" \
+  "KAFKA_BOOTSTRAP_SERVERS"
+
+ai_missing_kafka_output="${fixture_dir}/ai-missing-kafka.out"
+assert_fails_with \
+  "ai service-scoped Kafka environment" \
+  "Kubernetes Secret contract validation failed: deployed service ai-service requires KAFKA_BOOTSTRAP_SERVERS from config/src/main/resources/configs/ai-service.yml but k8s/base/services/ai/deployment.yaml does not inject it into container ai-service" \
+  "${ai_missing_kafka_output}"
 
 echo "Kubernetes Secret contract validator tests passed."
