@@ -1,4 +1,4 @@
-package com.prompthub.order.infra.messaging.kafka.event;
+package com.prompthub.order.application.dto.event.order;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

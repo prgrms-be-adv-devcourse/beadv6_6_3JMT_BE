@@ -1,15 +1,15 @@
 package com.prompthub.order.application.service.event;
 
 import com.prompthub.common.event.EventMessage;
+import com.prompthub.order.application.dto.event.order.OrderExpiredPayload;
+import com.prompthub.order.application.dto.event.order.OrderPaidPayload;
+import com.prompthub.order.application.dto.event.order.OrderPaymentFailedPayload;
+import com.prompthub.order.application.dto.event.order.OrderRefundFailedPayload;
+import com.prompthub.order.application.dto.event.order.OrderRefundPayload;
+import com.prompthub.order.application.dto.event.order.OrderRefundRequestedPayload;
 import com.prompthub.order.application.service.event.outbox.OutboxEventAppender;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
-import com.prompthub.order.infra.messaging.kafka.event.OrderExpiredPayload;
-import com.prompthub.order.infra.messaging.kafka.event.OrderPaidPayload;
-import com.prompthub.order.infra.messaging.kafka.event.OrderPaymentFailedPayload;
-import com.prompthub.order.infra.messaging.kafka.event.OrderRefundFailedPayload;
-import com.prompthub.order.infra.messaging.kafka.event.OrderRefundPayload;
-import com.prompthub.order.infra.messaging.kafka.event.OrderRefundRequestedPayload;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
