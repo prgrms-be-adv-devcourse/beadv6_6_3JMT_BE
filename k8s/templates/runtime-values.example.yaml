@@ -37,6 +37,7 @@ stringData:
   PRODUCT_GRPC_SERVER_PORT: "9082"
   ORDER_GRPC_SERVER_PORT: "9083"
   PAYMENT_GRPC_SERVER_PORT: "9084"
+  SETTLEMENT_USER_GRPC_TOKEN: example-shared-settlement-user-grpc-token
   CORS_ALLOWED_ORIGINS: https://example.invalid,http://localhost:3000
 ---
 apiVersion: v1

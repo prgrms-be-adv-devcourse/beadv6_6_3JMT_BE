@@ -61,10 +61,67 @@ class SellerSettlementV2FlywayPostgresIntegrationTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    @Test
+    @DisplayName("V4는 기존 전달·SourceLine 값을 NULL로 보존하고 전달 요청 중복을 막는다")
+    void migrate_preservesLegacyRowsAndEnforcesUniqueDeliveryRequestId() {
+        migrateThroughV3();
+        JdbcTemplate jdbc = jdbcTemplate();
+        UUID firstSettlementId = UUID.randomUUID();
+        UUID sellerSettlementId = UUID.randomUUID();
+        UUID detailId = UUID.randomUUID();
+        insertSettlement(jdbc, sellerSettlementId, firstSettlementId, (short) 2);
+        insertDetail(jdbc, detailId, sellerSettlementId, "SALE");
+
+        migrateAll();
+
+        assertThat(jdbc.queryForObject(
+                "select delivery_request_id from seller_settlement where settlement_id = ?",
+                UUID.class,
+                firstSettlementId)).isNull();
+        assertThat(jdbc.queryForObject(
+                "select settlement_source_line_id from seller_settlement_detail "
+                        + "where settlement_detail_id = ?",
+                UUID.class,
+                detailId)).isNull();
+
+        UUID deliveryRequestId = UUID.randomUUID();
+        UUID sourceLineId = UUID.randomUUID();
+        jdbc.update(
+                "update seller_settlement set delivery_request_id = ? where settlement_id = ?",
+                deliveryRequestId,
+                firstSettlementId);
+        jdbc.update(
+                "update seller_settlement_detail set settlement_source_line_id = ? "
+                        + "where settlement_detail_id = ?",
+                sourceLineId,
+                detailId);
+        assertThat(jdbc.queryForObject(
+                "select settlement_source_line_id from seller_settlement_detail "
+                        + "where settlement_detail_id = ?",
+                UUID.class,
+                detailId)).isEqualTo(sourceLineId);
+        UUID secondSettlementId = UUID.randomUUID();
+        insertSettlement(jdbc, UUID.randomUUID(), secondSettlementId, (short) 2);
+
+        assertThatThrownBy(() -> jdbc.update(
+                "update seller_settlement set delivery_request_id = ? where settlement_id = ?",
+                deliveryRequestId,
+                secondSettlementId))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
     private void migrateThroughV2() {
         Flyway.configure()
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .target(MigrationVersion.fromVersion("2"))
+                .load()
+                .migrate();
+    }
+
+    private void migrateThroughV3() {
+        Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .target(MigrationVersion.fromVersion("3"))
                 .load()
                 .migrate();
     }

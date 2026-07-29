@@ -1,13 +1,13 @@
 package com.prompthub.settlement.application.service;
 
 import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
-import com.prompthub.settlement.application.event.SettlementCreatedEvent;
 import com.prompthub.settlement.application.usecase.CalculateSettlementUseCase;
-import com.prompthub.settlement.application.usecase.OutboxEventUseCase;
 import com.prompthub.settlement.domain.model.Settlement;
+import com.prompthub.settlement.domain.model.SettlementDelivery;
 import com.prompthub.settlement.domain.model.SettlementDetail;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
 import com.prompthub.settlement.domain.repository.SettlementRepository;
+import com.prompthub.settlement.domain.repository.SettlementDeliveryRepository;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import java.math.BigDecimal;
 import java.util.List;
@@ -24,7 +24,7 @@ public class SettlementCalculationApplicationService implements CalculateSettlem
 
     private final SettlementSourceRepository settlementSourceRepository;
     private final SettlementRepository settlementRepository;
-    private final OutboxEventUseCase outboxEventUseCase;
+    private final SettlementDeliveryRepository settlementDeliveryRepository;
 
     @Override
     @Transactional
@@ -46,9 +46,10 @@ public class SettlementCalculationApplicationService implements CalculateSettlem
         UUID settlementId = settlement.getId();
         lines.forEach(line -> line.markSettled(settlementId));
 
-        outboxEventUseCase.appendSettlementCreated(
+        settlementDeliveryRepository.save(SettlementDelivery.calculated(
+                settlementId,
                 command.settlementBatchId(),
-                SettlementCreatedEvent.from(settlement));
+                UUID.randomUUID()));
 
         return settlement;
     }

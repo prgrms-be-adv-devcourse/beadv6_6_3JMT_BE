@@ -223,12 +223,14 @@ for package in "${PACKAGES[@]}"; do
       'settlement.manual-api.enabled=false'
       'eureka.client.enabled=false'
       'spring.cloud.discovery.enabled=false'
+      'spring.grpc.client.channel.user-service.target=static://user-service:\$\(USER_GRPC_SERVER_PORT\)'
       'until wget -q -O /dev/null http://config:8888/actuator/health'
       'until nc -z postgres 5432'
-      'until nc -z kafka 9092'
       'until nc -z order-service 9083'
+      'until nc -z user-service 9081'
       '^[[:space:]]+- name:[[:space:]]+POSTGRES_HOST$'
-      '^[[:space:]]+- name:[[:space:]]+KAFKA_BOOTSTRAP_SERVERS$'
+      '^[[:space:]]+- name:[[:space:]]+SETTLEMENT_USER_GRPC_TOKEN$'
+      '^[[:space:]]+- name:[[:space:]]+USER_GRPC_SERVER_PORT$'
       '^[[:space:]]+- name:[[:space:]]+ORDER_GRPC_SERVER_PORT$'
       '^[[:space:]]+- name:[[:space:]]+JAVA_TOOL_OPTIONS$'
     )
@@ -247,6 +249,16 @@ for package in "${PACKAGES[@]}"; do
 
     if grep -Eq 'EUREKA_CLIENT|http://discovery|startupProbe:|readinessProbe:|livenessProbe:|containerPort:' "${rendered}"; then
       echo "settlement CronJob contains an always-on service contract" >&2
+      exit 1
+    fi
+
+    if ! require_secret_env "${rendered}" SETTLEMENT_USER_GRPC_TOKEN runtime-secret SETTLEMENT_USER_GRPC_TOKEN; then
+      echo "Settlement gRPC token must reference runtime-secret.SETTLEMENT_USER_GRPC_TOKEN" >&2
+      exit 1
+    fi
+
+    if grep -Eq 'KAFKA_|until nc -z kafka' "${rendered}"; then
+      echo "settlement CronJob must not depend on Kafka" >&2
       exit 1
     fi
   fi
@@ -384,7 +396,7 @@ for package in "${PACKAGES[@]}"; do
   if [[ "${package}" == "k8s/base/services/user" ]]; then
     required_patterns=(
       '^[[:space:]]+- name:[[:space:]]+AI_USER_GRPC_TOKEN$'
-      '^[[:space:]]+- name:[[:space:]]+USER_SETTLEMENT_KAFKA_LISTENER_ENABLED$'
+      '^[[:space:]]+- name:[[:space:]]+SETTLEMENT_USER_GRPC_TOKEN$'
     )
 
     for pattern in "${required_patterns[@]}"; do
@@ -394,13 +406,13 @@ for package in "${PACKAGES[@]}"; do
       fi
     done
 
-    if ! require_literal_env "${rendered}" USER_SETTLEMENT_KAFKA_LISTENER_ENABLED true; then
-      echo "User settlement Kafka listener must be enabled" >&2
+    if ! require_secret_env "${rendered}" AI_USER_GRPC_TOKEN ai-secret AI_USER_GRPC_TOKEN; then
+      echo "User gRPC token must reference ai-secret.AI_USER_GRPC_TOKEN" >&2
       exit 1
     fi
 
-    if ! require_secret_env "${rendered}" AI_USER_GRPC_TOKEN ai-secret AI_USER_GRPC_TOKEN; then
-      echo "User gRPC token must reference ai-secret.AI_USER_GRPC_TOKEN" >&2
+    if ! require_secret_env "${rendered}" SETTLEMENT_USER_GRPC_TOKEN runtime-secret SETTLEMENT_USER_GRPC_TOKEN; then
+      echo "User settlement command token must reference runtime-secret.SETTLEMENT_USER_GRPC_TOKEN" >&2
       exit 1
     fi
   fi

@@ -6,8 +6,8 @@ import com.prompthub.settlement.domain.model.Settlement;
 import com.prompthub.settlement.domain.model.SettlementCalculationReconciliation;
 import com.prompthub.settlement.domain.model.SettlementCalculationSummary;
 import com.prompthub.settlement.domain.model.SettlementSourceLine;
-import com.prompthub.settlement.domain.repository.OutboxEventRepository;
 import com.prompthub.settlement.domain.repository.SettlementCalculationReconciliationRepository;
+import com.prompthub.settlement.domain.repository.SettlementDeliveryRepository;
 import com.prompthub.settlement.domain.repository.SettlementRepository;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import java.time.LocalDateTime;
@@ -26,7 +26,7 @@ public class SettlementCalculationReconciliationApplicationService
     private final SettlementRepository settlementRepository;
     private final SettlementSourceRepository sourceRepository;
     private final SettlementCalculationReconciliationRepository reconciliationRepository;
-    private final OutboxEventRepository outboxEventRepository;
+    private final SettlementDeliveryRepository deliveryRepository;
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -76,7 +76,7 @@ public class SettlementCalculationReconciliationApplicationService
         List<UUID> settlementIds = mismatched.stream()
                 .map(verification -> verification.settlement().getId())
                 .toList();
-        outboxEventRepository.deletePendingBySettlementIds(settlementIds);
+        deliveryRepository.deleteBySettlementIds(settlementIds);
         mismatched.forEach(verification ->
                 verification.sourceLines().forEach(sourceLine ->
                         sourceLine.release(verification.settlement().getId())));

@@ -6,7 +6,9 @@ import static org.mockito.BDDMockito.then;
 
 import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
 import java.math.BigDecimal;
+import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -28,6 +30,18 @@ class SellerSettlementRepositoryAdapterTest {
         given(jpaRepository.existsBySettlementId(settlementId)).willReturn(true);
 
         assertThat(adapter.existsBySettlementId(settlementId)).isTrue();
+    }
+
+    @Test
+    @DisplayName("deliveryRequestId 조회를 상세 포함 JPA 조회에 위임한다")
+    void findByDeliveryRequestIdDelegatesToJpaRepository() {
+        UUID deliveryRequestId = UUID.randomUUID();
+        given(jpaRepository.findByDeliveryRequestId(deliveryRequestId))
+                .willReturn(Optional.empty());
+
+        assertThat(adapter.findByDeliveryRequestId(deliveryRequestId)).isEmpty();
+
+        then(jpaRepository).should().findByDeliveryRequestId(deliveryRequestId);
     }
 
     @Test
