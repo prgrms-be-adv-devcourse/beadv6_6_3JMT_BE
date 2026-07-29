@@ -5,7 +5,9 @@
 `XxxBatch`, gRPC로 호출하는 외부 서비스는 `Yyy`로 든다. 실제 코드에서는 서비스 도메인명으로
 치환한다(예: `Xxx` → `Payment`·`Order`·`Settlement` 등). 예시 이름을 그대로 복사해 쓰지 않는다.
 아래 패키지 트리·배치 규칙(§5)은 Spring Batch를 쓰는 서비스의 예시이며, 쓰지 않는 서비스는
-§5를 적용하지 않는다.
+§5를 적용하지 않는다. 단, 아웃바운드 포트 중 **외부 액터**(타 서비스·외부 PG사 등)를 호출하는
+포트는 그 성질을 이름에 드러내기 위해 클린아키텍처(Robert C. Martin) 용어인 `Gateway`를 쓴다.
+내부 기술 인프라(배치·메시징 등) 포트와의 구분 기준은 §4 참고.
 
 > 관련 문서
 > - 도메인 모델·Lombok 규칙: `domain-model.md`
@@ -47,7 +49,8 @@ com.prompthub.xxx   ← 예시. 서비스마다 자기 base package를 쓴다
 ├── application
 │   ├── usecase                      ← 인바운드 포트(인터페이스)
 │   ├── service                      ← 유스케이스 구현
-│   ├── port                         ← 비영속 아웃바운드 포트(배치 실행·메시징·동기 조회)
+│   ├── port                         ← 비영속 아웃바운드 포트(배치 실행·메시징 등 내부 기술 인프라)
+│   ├── gateway                      ← 외부 액터 호출 포트(타 서비스 동기 조회·외부 PG사 등)
 │   ├── event                        ← 외부 이벤트 envelope·이벤트 상세 DTO
 │   └── dto                          ← Command / Result / Query(조회 조건)
 ├── domain
@@ -69,7 +72,7 @@ com.prompthub.xxx   ← 예시. 서비스마다 자기 base package를 쓴다
 │   ├── messaging/kafka
 │   │   ├── config                   ← Kafka producer 설정
 │   │   └── producer                 ← Outbox 이벤트 발행 어댑터
-│   └── client/<외부 서비스>          ← 다른 서비스 gRPC 동기 조회 어댑터(호출 대상마다 하위 패키지 분리)
+│   └── client/<외부 액터>            ← Gateway 구현체(타 서비스 gRPC 조회·외부 PG사 등, 호출 대상마다 하위 패키지 분리)
 └── global                           ← 기능 횡단(cross-cutting) 공통
     ├── exception                    ← 전역 예외 핸들러·ErrorCode 매핑
     ├── config                       ← 전역 횡단 설정(예: 도메인 기준 Clock)
@@ -101,20 +104,21 @@ com.prompthub.xxx   ← 예시. 서비스마다 자기 base package를 쓴다
 | --- | --- | --- |
 | 인바운드(유스케이스) | `application/usecase` | `application/service` |
 | 아웃바운드(영속성) | `domain/repository` | `infrastructure/persistence` |
-| 아웃바운드(비영속: 배치·메시징 등) | `application/port` | `infrastructure/batch` · `infrastructure/messaging/kafka` |
-| 아웃바운드(비영속: 타 서비스 동기 조회) | `application/port` | `infrastructure/client` |
+| 아웃바운드(비영속: 배치·메시징 등 내부 기술 인프라) | `application/port` | `infrastructure/batch` · `infrastructure/messaging/kafka` |
+| 아웃바운드(외부 액터 호출: 타 서비스 동기 조회·외부 PG사 등) | `application/gateway` | `infrastructure/client` |
 
 - 인바운드: `XxxUseCase`(포트) ← `XxxApplicationService`(구현)
 - 아웃바운드(영속성): `XxxRepository`(포트, domain) ← `XxxRepositoryAdapter`(구현, infrastructure)
-- 아웃바운드(비영속): `XxxJobLauncher`(포트, application) ← `XxxJobLauncherAdapter`(구현, infrastructure)
-- 아웃바운드(타 서비스 동기 조회): `YyyQuery`(포트, application) ←
-  `YyyQueryClient`(구현, `infrastructure/client/yyy`). `Yyy`는 호출 대상 서비스를 뜻한다.
-  다른 서비스의 gRPC 서버를 블로킹 스텁으로 호출한다. (메시징이 아니므로 `messaging/kafka` 와 분리)
-  - **호출 대상 서비스별로 하위 패키지를 나눈다.** `client/<서비스A>`, `client/<서비스B>`처럼
-    서비스마다 어댑터(`~QueryClient`)와 그 서비스 전용 채널·스텁 빈 설정(`config/~Config`)을 함께 둔다.
-  - 채널·블로킹 스텁 빈은 서비스별 `config` 패키지의 `@Configuration`(예: `YyyGrpcClientConfig`)에서
-    각자 생성한다. 단일 공용 config로 묶지 않고 서비스 단위로 분리해 주소·옵션을 서비스별로 독립 관리한다.
-  - 채널 주소는 yml(`grpc.client.<service>.address`)로 주입한다. proto/생성 스텁 패키지
+- 아웃바운드(비영속, 내부 기술 인프라): `XxxJobLauncher`(포트, application/port) ← `XxxJobLauncherAdapter`(구현, infrastructure)
+- 아웃바운드(외부 액터 호출 — 타 서비스 동기 조회·외부 PG사 등): `YyyGateway`(포트, application/gateway) ←
+  `YyyGatewayClient`(구현, `infrastructure/client/yyy`). `Yyy`는 호출 대상 외부 액터(타 서비스·PG사 등)를 뜻한다.
+  예를 들어 다른 서비스의 gRPC 서버는 블로킹 스텁으로, 외부 PG사는 REST 클라이언트로 호출한다.
+  (메시징이 아니므로 `messaging/kafka` 와 분리)
+  - **호출 대상별로 하위 패키지를 나눈다.** `client/<대상A>`, `client/<대상B>`처럼
+    대상마다 어댑터(`~GatewayClient`)와 그 대상 전용 채널·클라이언트 설정(`config/~Config`)을 함께 둔다.
+  - gRPC 채널·블로킹 스텁 빈은 대상별 `config` 패키지의 `@Configuration`(예: `YyyGrpcClientConfig`)에서
+    각자 생성한다. 단일 공용 config로 묶지 않고 대상 단위로 분리해 주소·옵션을 독립 관리한다.
+  - gRPC 채널 주소는 yml(`grpc.client.<service>.address`)로 주입한다. proto/생성 스텁 패키지
     (`com.prompthub.xxx.grpc.*`)는 `src/main/proto` 기준이며 이 client 패키지 분리와 무관하다.
 - 어댑터는 내부에서 `XxxJpaRepository`(Spring Data) 를 호출한다.
 - **포트가 반환하는 조회결과 record(예: 페이징 묶음·집계 결과)는 `domain/repository`에 둘 수 있다.**
@@ -123,18 +127,24 @@ com.prompthub.xxx   ← 예시. 서비스마다 자기 base package를 쓴다
   같은 패키지의 단독 record(예: `XxxStatusAggregate`) 둘 다 허용한다. `domain/repository`가
   "인터페이스만" 담는다는 제약의 예외다.
 
-> **비영속 아웃바운드 포트는 `application/port`에 둔다.** 잡 실행·메시지 발행·타 서비스 동기 조회처럼
-> '영속성'이 아닌 외부 연동은 도메인이 알 필요가 없으므로 `domain/repository`에 두지 않는다. application 이
-> 필요로 하는 인터페이스를 application 이 소유하고, 바깥 계층(infrastructure)이 구현한다(§1 의존 방향 부합).
+> **비영속 아웃바운드 포트는 `application/port`(내부 기술 인프라) 또는 `application/gateway`(외부
+> 액터 호출)에 둔다.** 잡 실행·메시지 발행·타 서비스 동기 조회·외부 PG사 호출처럼 '영속성'이 아닌
+> 외부 연동은 도메인이 알 필요가 없으므로 `domain/repository`에 두지 않는다. application 이 필요로
+> 하는 인터페이스를 application 이 소유하고, 바깥 계층(infrastructure)이 구현한다(§1 의존 방향 부합).
 
-`application/port` 패키지 자체가 포트임을 나타내므로 비영속 포트 이름에는 `Port` 접미사를 반복하지
-않는다. 기술 중립적인 능력 이름을 사용하고, 어댑터는 같은 능력 어근에 기술 또는 구현 역할을 붙인다.
+비영속 포트는 호출 대상의 **성질**에 따라 이름을 다르게 짓는다.
+
+- **내부 기술 인프라**(배치 실행·메시징 등, `application/port`): 패키지 자체가 포트임을 드러내므로
+  `Port` 접미사를 반복하지 않는다. 기술 중립적인 능력 이름을 쓰고, 어댑터는 같은 능력 어근에 기술
+  또는 구현 역할을 붙인다.
+- **외부 액터 호출**(타 서비스 동기 조회·외부 PG사 등, `application/gateway`): 외부 액터를 호출한다는
+  성질을 이름에 그대로 드러내 `~Gateway` 접미사를 쓴다. 어댑터는 같은 어근에 `Client`를 붙인다.
 
 ```text
-YyyQuery           ← YyyQueryClient
-XxxJobLauncher      ← XxxJobLauncherAdapter
-XxxJobQuery         ← XxxJobQueryAdapter
-XxxJobRestarter     ← XxxJobRestarterAdapter
+XxxJobLauncher      ← XxxJobLauncherAdapter      (내부 기술 인프라, application/port)
+XxxJobQuery         ← XxxJobQueryAdapter          (내부 기술 인프라, application/port)
+XxxJobRestarter     ← XxxJobRestarterAdapter      (내부 기술 인프라, application/port)
+YyyGateway          ← YyyGatewayClient            (외부 액터 호출, application/gateway)
 ```
 
 ```
@@ -233,8 +243,10 @@ RunXxxBatchRequest
 | 출력 Result | `~Result` | `XxxResult` |
 | 조회 조건(읽기) | `~Query` | `XxxListQuery` |
 | 영속성 아웃바운드 포트 | `~Repository` | `XxxRepository` |
-| 비영속 아웃바운드 포트 | 능력 명사 | `YyyQuery` |
-| 비영속 어댑터 | 같은 능력 어근 + 구현 역할 | `YyyQueryClient` |
+| 비영속 아웃바운드 포트(내부 기술 인프라) | 능력 명사 | `XxxJobLauncher` |
+| 비영속 어댑터(내부 기술 인프라) | 같은 능력 어근 + 구현 역할 | `XxxJobLauncherAdapter` |
+| 외부 액터 호출 포트 | `~Gateway` | `YyyGateway` |
+| 외부 액터 호출 어댑터 | 같은 어근 + `Client` | `YyyGatewayClient` |
 | 영속성 어댑터 | `~RepositoryAdapter` | `XxxRepositoryAdapter` |
 | Spring Data | `~JpaRepository` | `XxxJpaRepository` |
 | 배치 잡 설정 | `~JobConfig` | `XxxJobConfig` |

@@ -480,8 +480,8 @@ Payment Service 선행 개발 이슈는 없다. 현재 단건 Kafka와 gRPC 계�
 - Modify: `src/main/java/com/prompthub/order/application/service/admin/AdminOrderQueryService.java`
 - Modify: `src/main/java/com/prompthub/order/infra/persistence/order/AdminOrderQueryRepositoryImpl.java`
 - Modify: 관련 Swagger 설명
-- Modify: `docs/superpowers/specs/2026-07-15-order-partial-refund-design.md`
-- Modify: `docs/records/superpowers/specs/order/2026-07-15-order-partial-refund-integration-contract.md`
+- Modify: `docs/records/plan/order/2026-07-15-order-partial-refund-design.md`
+- Modify: `docs/records/plan/order/2026-07-15-order-partial-refund-integration-contract.md`
 - Verify: `docs/trade-off/2026-07-15-single-order-product-refund.md`
 - Modify/Create: 조회·통계·통합 테스트
 

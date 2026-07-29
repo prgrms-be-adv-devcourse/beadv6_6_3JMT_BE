@@ -229,6 +229,6 @@ Payment Service의 기존 결제 잔액·상품 중복 환불 검증은 그대�
 
 ## 10. 관련 문서
 
-- 설계: `docs/records/superpowers/specs/order/2026-07-15-order-partial-refund-design.md`
-- 구현 계획: `docs/records/superpowers/plans/order/2026-07-15-order-partial-refund.md`
+- 설계: `docs/records/plan/order/2026-07-15-order-partial-refund-design.md`
+- 구현 계획: `docs/records/plan/order/2026-07-15-order-partial-refund.md`
 - 의사결정: `docs/records/trade-offs/order/2026-07-15-single-order-product-refund.md`
