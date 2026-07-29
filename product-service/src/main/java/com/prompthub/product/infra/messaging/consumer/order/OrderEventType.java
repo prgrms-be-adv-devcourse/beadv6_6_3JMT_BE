@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.Optional;
 
 /**
- * product-service가 소비하는 order-events 의 지원 이벤트 타입. (kafka-event.md §4)
+ * product-service가 소비하는 order-events 의 지원 이벤트 타입. (루트 kafka-event.md 참고)
  * 미지원 타입은 {@link #from(String)} 이 empty 를 돌려주고 컨슈머가 로그+Ack 로 넘긴다.
  */
 public enum OrderEventType implements EventType {

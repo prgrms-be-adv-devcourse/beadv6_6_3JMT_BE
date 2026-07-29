@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * Kafka 소비 멱등성 이력. eventId + consumerGroup 단위로 이미 처리한 이벤트를 기록해 재처리를 막는다.
- * (kafka-event.md §7)
+ * (루트 kafka-event.md 참고)
  */
 @Getter
 @Entity

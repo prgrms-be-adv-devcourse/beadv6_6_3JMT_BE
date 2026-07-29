@@ -11,18 +11,7 @@
 
 ## Branch 타입
 
-최신 `develop`에서 작업 브랜치를 생성한다. 형식: `<type>/#<issue-number>-<description>`
-
-| 목적 | type |
-|---|---|
-| 기능 추가 | `feat` |
-| 버그 수정 | `fix` |
-| 문서 작업 | `docs` |
-| 테스트 추가/수정 | `test` |
-| 설정/빌드/작업환경 | `chore` |
-| 구조 개선 | `refactor` |
-| 코드 포맷 | `style` |
-
+브랜치 명명 형식과 타입 목록은 루트 `.claude/rules/git-convention.md`를 따른다.
 브랜치 생성 절차는 루트 `.claude/skills/create-branch/SKILL.md`를 따른다.
 
 ## PR

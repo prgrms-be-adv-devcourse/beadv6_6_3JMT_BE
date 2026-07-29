@@ -20,6 +20,8 @@
 
 ```
 presentation ──▶ application ──▶ domain ◀── infrastructure
+                       │
+                       └──▶ client (외부 액터 호출 — 포트·구현 동거, §4)
 ```
 
 - `domain`은 다른 어떤 계층도 import 하지 않는다. (단, 엔티티 겸용 정책상 JPA는 예외 — `domain-model.md` 참고)
@@ -28,6 +30,9 @@ presentation ──▶ application ──▶ domain ◀── infrastructure
     서비스가 presentation `~Response`를 직접 만들어 반환할 수 있다.** 중간 `~Result` DTO를 따로 두지 않아
     중복 객체·변환을 줄이려는 실용적 타협이다. 이때만 application → presentation 의존을 허용한다.
     (단순 상태 변경 명령으로 이 예외를 쓰는 기준은 §7 참고)
+  - **예외: 외부 액터(타 서비스·외부 PG사 등) 호출이 필요하면 최상위 `client` 패키지의 포트
+    인터페이스에 의존할 수 있다.** `client`는 presentation·infrastructure와 동급인 별도 최상위
+    패키지이며 포트(인터페이스)와 구현을 함께 둔다(§4).
 - `presentation`·`infrastructure`는 바깥 계층이며, 안쪽(application·domain)에 의존한다.
 - 바깥에서 안쪽으로의 호출은 **포트(인터페이스)**를 통한다.
 
@@ -36,8 +41,10 @@ presentation ──▶ application ──▶ domain ◀── infrastructure
 
 ## 2. 패키지 구조
 
-서비스의 base package 아래에 4계층과 횡단 관심사를 둔다. 해당 서비스가 실제로 쓰는 기술만
-하위 패키지로 둔다(배치·Kafka·gRPC 클라이언트를 안 쓰면 그 하위 패키지는 만들지 않는다).
+서비스의 base package 아래에 5계층(`presentation`·`application`·`domain`·`infrastructure`·`client`)과
+횡단 관심사(`global`)를 둔다. 해당 서비스가 실제로 쓰는 기술만 하위 패키지로 둔다(배치·Kafka·gRPC
+클라이언트를 안 쓰면 그 하위 패키지는 만들지 않는다). 외부 액터를 호출하지 않는 서비스는 `client`도
+만들지 않는다.
 
 ```
 com.prompthub.xxx   ← 예시. 서비스마다 자기 base package를 쓴다
@@ -47,14 +54,12 @@ com.prompthub.xxx   ← 예시. 서비스마다 자기 base package를 쓴다
 │       ├── request                  ← 요청 DTO
 │       └── response                 ← 응답 DTO
 ├── application
-│   ├── usecase                      ← 인바운드 포트(인터페이스)
+│   ├── usecase                      ← 인바운드 포트(인터페이스) + 비영속 아웃바운드 포트(배치 실행·메시징 등 내부 기술 인프라)
 │   ├── service                      ← 유스케이스 구현
-│   ├── port                         ← 비영속 아웃바운드 포트(배치 실행·메시징 등 내부 기술 인프라)
-│   ├── gateway                      ← 외부 액터 호출 포트(타 서비스 동기 조회·외부 PG사 등)
-│   ├── event                        ← 외부 이벤트 envelope·이벤트 상세 DTO
 │   └── dto                          ← Command / Result / Query(조회 조건)
 ├── domain
 │   ├── model                        ← 도메인 모델(= JPA 엔티티 겸용)
+│   ├── event                        ← 외부 이벤트 envelope·이벤트 상세 DTO
 │   ├── exception                    ← 도메인 상태·규칙 예외
 │   └── repository                   ← 영속성 아웃바운드 포트 + 조회결과 record
 ├── infrastructure
@@ -69,16 +74,21 @@ com.prompthub.xxx   ← 예시. 서비스마다 자기 base package를 쓴다
 │   │   ├── listener                 ← Job/Step 리스너
 │   │   ├── runner                   ← Kubernetes CronJob one-shot 실행 어댑터
 │   │   └── model                    ← 배치 내부 전용 DTO
-│   ├── messaging/kafka
-│   │   ├── config                   ← Kafka producer 설정
-│   │   └── producer                 ← Outbox 이벤트 발행 어댑터
-│   └── client/<외부 액터>            ← Gateway 구현체(타 서비스 gRPC 조회·외부 PG사 등, 호출 대상마다 하위 패키지 분리)
+│   └── messaging/kafka
+│       ├── config                   ← Kafka producer 설정
+│       └── producer                 ← Outbox 이벤트 발행 어댑터
+├── client                           ← 외부 액터 호출 포트+구현(타 서비스 동기 조회·외부 PG사 등).
+│   └── <외부 액터>                   ← application·infrastructure와 동급인 최상위 계층. 대상마다 이렇게 분리
+│       ├── gateway                  ← 포트 인터페이스(`~Gateway`)
+│       └── config                   ← 그 대상 전용 채널·클라이언트 설정(`~Config`)
 └── global                           ← 기능 횡단(cross-cutting) 공통
     ├── exception                    ← 전역 예외 핸들러·ErrorCode 매핑
     ├── config                       ← 전역 횡단 설정(예: 도메인 기준 Clock)
     ├── common                       ← 공통 영속성 기반 타입
     └── web                          ← 인증 전달 헤더
 ```
+
+어댑터(`~GatewayClient`)는 `gateway`·`config` 같은 하위 패키지 없이 `<외부 액터>` 바로 아래에 둔다.
 
 전역 예외 처리는 특정 기능에 속하지 않는 횡단 관심사이므로 `global/exception`에 둔다.
 `@RestControllerAdvice` 전역 핸들러와 `ErrorCode`(HttpStatus 매핑) 구현을 이곳에 모은다.
@@ -93,6 +103,7 @@ com.prompthub.xxx   ← 예시. 서비스마다 자기 base package를 쓴다
 | `application` | 유스케이스 조율, 트랜잭션 경계, Command·Result 변환 | HTTP·JPA 등 기술 세부사항 직접 다루기 |
 | `domain` | 핵심 비즈니스 규칙, 도메인 모델, 포트 정의 | 다른 계층 의존(JPA 제외), 프레임워크 로직 |
 | `infrastructure` | 포트 구현(어댑터), DB·배치·메시징 등 기술 연동 | 비즈니스 규칙 |
+| `client` | 외부 액터 호출 포트+구현(대상별로 함께) | 비즈니스 규칙, 영속성·배치·메시징 관심사 |
 
 핵심:
 - 컨트롤러는 얇게. 받고 → usecase 호출 → 응답으로 변환만 한다.
@@ -104,18 +115,20 @@ com.prompthub.xxx   ← 예시. 서비스마다 자기 base package를 쓴다
 | --- | --- | --- |
 | 인바운드(유스케이스) | `application/usecase` | `application/service` |
 | 아웃바운드(영속성) | `domain/repository` | `infrastructure/persistence` |
-| 아웃바운드(비영속: 배치·메시징 등 내부 기술 인프라) | `application/port` | `infrastructure/batch` · `infrastructure/messaging/kafka` |
-| 아웃바운드(외부 액터 호출: 타 서비스 동기 조회·외부 PG사 등) | `application/gateway` | `infrastructure/client` |
+| 아웃바운드(비영속: 배치·메시징 등 내부 기술 인프라) | `application/usecase` | `infrastructure/batch` · `infrastructure/messaging/kafka` |
+| 아웃바운드(외부 액터 호출: 타 서비스 동기 조회·외부 PG사 등) | `client/<외부 액터>/gateway` | `client/<외부 액터>` |
 
 - 인바운드: `XxxUseCase`(포트) ← `XxxApplicationService`(구현)
 - 아웃바운드(영속성): `XxxRepository`(포트, domain) ← `XxxRepositoryAdapter`(구현, infrastructure)
-- 아웃바운드(비영속, 내부 기술 인프라): `XxxJobLauncher`(포트, application/port) ← `XxxJobLauncherAdapter`(구현, infrastructure)
-- 아웃바운드(외부 액터 호출 — 타 서비스 동기 조회·외부 PG사 등): `YyyGateway`(포트, application/gateway) ←
-  `YyyGatewayClient`(구현, `infrastructure/client/yyy`). `Yyy`는 호출 대상 외부 액터(타 서비스·PG사 등)를 뜻한다.
-  예를 들어 다른 서비스의 gRPC 서버는 블로킹 스텁으로, 외부 PG사는 REST 클라이언트로 호출한다.
-  (메시징이 아니므로 `messaging/kafka` 와 분리)
-  - **호출 대상별로 하위 패키지를 나눈다.** `client/<대상A>`, `client/<대상B>`처럼
-    대상마다 어댑터(`~GatewayClient`)와 그 대상 전용 채널·클라이언트 설정(`config/~Config`)을 함께 둔다.
+- 아웃바운드(비영속, 내부 기술 인프라): `XxxJobLauncher`(포트, application/usecase) ← `XxxJobLauncherAdapter`(구현, infrastructure)
+- 아웃바운드(외부 액터 호출 — 타 서비스 동기 조회·외부 PG사 등): `YyyGateway`(포트, `client/yyy/gateway`) ←
+  `YyyGatewayClient`(구현, `client/yyy`). 최상위 `client`에 **함께** 둔다(application/infrastructure
+  어느 쪽도 아닌 별도 계층). `Yyy`는 호출 대상 외부 액터(타 서비스·PG사 등)를 뜻한다. 예를 들어 다른
+  서비스의 gRPC 서버는 블로킹 스텁으로, 외부 PG사는 REST 클라이언트로 호출한다. (메시징이 아니므로
+  `infrastructure/messaging/kafka` 와 분리)
+  - **호출 대상별로 하위 패키지를 나눈다.** `client/<대상A>`, `client/<대상B>`처럼 대상마다 나누고,
+    그 안에서 포트(`~Gateway`)는 `gateway/`에, 어댑터(`~GatewayClient`)는 대상 패키지 바로 아래에,
+    전용 채널·클라이언트 설정(`~Config`)은 `config/`에 둔다.
   - gRPC 채널·블로킹 스텁 빈은 대상별 `config` 패키지의 `@Configuration`(예: `YyyGrpcClientConfig`)에서
     각자 생성한다. 단일 공용 config로 묶지 않고 대상 단위로 분리해 주소·옵션을 독립 관리한다.
   - gRPC 채널 주소는 yml(`grpc.client.<service>.address`)로 주입한다. proto/생성 스텁 패키지
@@ -127,24 +140,31 @@ com.prompthub.xxx   ← 예시. 서비스마다 자기 base package를 쓴다
   같은 패키지의 단독 record(예: `XxxStatusAggregate`) 둘 다 허용한다. `domain/repository`가
   "인터페이스만" 담는다는 제약의 예외다.
 
-> **비영속 아웃바운드 포트는 `application/port`(내부 기술 인프라) 또는 `application/gateway`(외부
-> 액터 호출)에 둔다.** 잡 실행·메시지 발행·타 서비스 동기 조회·외부 PG사 호출처럼 '영속성'이 아닌
-> 외부 연동은 도메인이 알 필요가 없으므로 `domain/repository`에 두지 않는다. application 이 필요로
-> 하는 인터페이스를 application 이 소유하고, 바깥 계층(infrastructure)이 구현한다(§1 의존 방향 부합).
+> **비영속 아웃바운드 포트는 `application/usecase`(내부 기술 인프라) 또는 최상위 `client`(외부 액터
+> 호출)에 둔다.** 잡 실행·메시지 발행처럼 서비스 내부 기술 인프라는 `application`이 포트를 소유하고
+> `infrastructure`가 구현하는 원래 방향을 따르지만(§1), 외부 액터 호출은 `application`·`infrastructure`
+> 로 계층을 나누지 않고 `client`라는 별도 최상위 패키지 하나에 대상별로 모은다 — 대상 하나에 구현체가
+> 보통 하나뿐이라 계층까지 나누면 인터페이스 하나 보자고 모듈을 오가야 하기 때문이다. 그 안에서 포트
+> (`gateway/`)와 구현(대상 패키지 바로 아래)은 여전히 구분하되, 같은 최상위 패키지 안이라 폴더 하나만
+> 넘나들면 된다. 도메인이 알 필요 없는 외부 연동이므로 `domain/repository`에는 두지 않는다.
+> `application`은 이 예외로 `client`의 포트 인터페이스에는 의존할 수 있다(§1).
+> 내부 기술 인프라 포트를 별도 `port` 패키지로 분리하지 않고 `usecase`에 함께 두는 이유는, 굳이
+> 인바운드/아웃바운드로 패키지를 나누지 않아도 접미사만으로 역할이 구분되고(아래 네이밍 참고),
+> 애그리거트 하나를 다룰 때 관련 포트를 한 패키지에서 바로 훑어볼 수 있어서다.
 
 비영속 포트는 호출 대상의 **성질**에 따라 이름을 다르게 짓는다.
 
-- **내부 기술 인프라**(배치 실행·메시징 등, `application/port`): 패키지 자체가 포트임을 드러내므로
-  `Port` 접미사를 반복하지 않는다. 기술 중립적인 능력 이름을 쓰고, 어댑터는 같은 능력 어근에 기술
-  또는 구현 역할을 붙인다.
-- **외부 액터 호출**(타 서비스 동기 조회·외부 PG사 등, `application/gateway`): 외부 액터를 호출한다는
+- **내부 기술 인프라**(배치 실행·메시징 등, `application/usecase`): 인바운드 유스케이스(`~UseCase`)와
+  같은 패키지에 두되 접미사로 구분한다. `Port` 같은 기술 접미사를 붙이지 않고 기술 중립적인 능력
+  이름을 그대로 쓴다. 어댑터는 같은 능력 어근에 기술 또는 구현 역할을 붙인다.
+- **외부 액터 호출**(타 서비스 동기 조회·외부 PG사 등, `client`): 외부 액터를 호출한다는
   성질을 이름에 그대로 드러내 `~Gateway` 접미사를 쓴다. 어댑터는 같은 어근에 `Client`를 붙인다.
 
 ```text
-XxxJobLauncher      ← XxxJobLauncherAdapter      (내부 기술 인프라, application/port)
-XxxJobQuery         ← XxxJobQueryAdapter          (내부 기술 인프라, application/port)
-XxxJobRestarter     ← XxxJobRestarterAdapter      (내부 기술 인프라, application/port)
-YyyGateway          ← YyyGatewayClient            (외부 액터 호출, application/gateway)
+XxxJobLauncher      ← XxxJobLauncherAdapter      (내부 기술 인프라, application/usecase)
+XxxJobQuery         ← XxxJobQueryAdapter          (내부 기술 인프라, application/usecase)
+XxxJobRestarter     ← XxxJobRestarterAdapter      (내부 기술 인프라, application/usecase)
+YyyGateway          ← YyyGatewayClient            (외부 액터 호출, client/<actor>/gateway ↔ client/<actor>)
 ```
 
 ```

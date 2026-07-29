@@ -8,10 +8,12 @@
 - **응답하는 쪽(서버)이 계약을 소유한다.** `a` 가 `b` 에게 요청/응답받으면 계약은 `grpc/<b>/` 에 둔다.
 - 하위 디렉토리 이름은 **서버 모듈명**을 따른다. (`grpc/user/`, `grpc/order/` …)
 - **디렉토리는 응답자, 파일·서비스는 도메인 기준:** 파일 `<도메인>_query.proto`, 서비스
-  `<도메인>QueryService`, 메서드·메시지는 `Get<목적어>` / `Get<목적어>Request` /
-  `Get<목적어>Response`. 예를 들어 user-service가 셀러 정산 데이터를 응답하면 계약 위치는
-  `grpc/user/seller_settlement_query.proto`, 서비스는 `SellerSettlementQueryService`다. 내부 항목
-  메시지(`SellerInfo` 등)는 예외다.
+  `<도메인>QueryService`. 메서드는 목적에 따라 `Get<목적어>`(단순 조회, 80% 이상) 외에
+  `Search<목적어>By<조건>`·`Count<목적어>By<조건>`·`Average<목적어>By<조건>`·`Total<목적어>By<조건>`도
+  쓴다(전체 표는 `docs/architecture/grpc-contract-ownership.md` §2-2). 요청/응답 메시지는 메서드명을 그대로 따른다
+  (`<메서드명>Request`/`<메서드명>Response`, 예: `GetSellersRequest`). 예를 들어 user-service가 셀러
+  정산 데이터를 응답하면 계약 위치는 `grpc/user/seller_settlement_query.proto`, 서비스는
+  `SellerSettlementQueryService`다. 내부 항목 메시지(`SellerInfo` 등)는 예외다.
 - 제공·소비 모듈은 `build.gradle` 의 protobuf `srcDir` 로 이 경로를 참조한다.
 
   ```gradle
@@ -36,4 +38,4 @@ grpc/
                                      (소유: product, 서버 구현)
 ```
 
-전문 규칙과 정산 계약 현황은 `docs/grpc-contract-ownership.md`를 본다.
+전문 규칙과 정산 계약 현황은 `docs/architecture/grpc-contract-ownership.md`를 본다.

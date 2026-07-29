@@ -14,7 +14,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * ai-events 소비 어댑터. (kafka-event.md §7)
+ * ai-events 소비 어댑터. (루트 kafka-event.md 참고)
  * 미지원 eventType 은 로그+Ack(DLT 아님). handler가 던지는 IllegalStateException(중복/이미
  * 처리된 상품)도 로그+Ack로 흡수한다 — 정상적인 중복 이벤트이지 처리 실패가 아니다.
  */

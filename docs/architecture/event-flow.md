@@ -11,8 +11,9 @@ payment가 발행하는 결제/환불 이벤트는 **토픽 이름이 이벤트 
 | 토픽 | 발행 | 소비 | 메시지 키 | 페이로드 |
 |---|---|---|---|---|
 | `payment-events` | payment | order (`PAYMENT_APPROVED`/`PAYMENT_REFUNDED`/`PAYMENT_FAILED`만 라우팅, `PAYMENT_REFUND_FAILED`는 미소비 — 아래 참조) | `orderId`(문자열) | `EventMessage<T>` 봉투: `eventId`, `eventType`, `occurredAt`, `aggregateType`(=`ORDER` 고정), `aggregateId`(=orderId), `payload`. `eventType`별 payload — `PAYMENT_APPROVED`→`PaymentApprovedMessage`, `PAYMENT_REFUNDED`→`PaymentRefundedMessage`, `PAYMENT_FAILED`→`PaymentFailedMessage`, `PAYMENT_REFUND_FAILED`→`PaymentRefundFailedMessage` |
-| `order-events` | order | product, settlement, **payment(구현: `ORDER_REFUND_REQUESTED`만)** | `orderId` (aggregateId) | `OrderEventEnvelope`(`ORDER_PAID`/`ORDER_REFUND`) |
-| `product-events` | product | order | `productId` | `ProductStoppedEvent` / `ProductDeletedEvent` / `ProductPriceChangedEvent` |
+| `order-events` | order | product, settlement, notification(`notification-service`, 7종 전체), **payment(구현: `ORDER_REFUND_REQUESTED`만)** | `orderId` (aggregateId) | `EventMessage<T>` 봉투. `OrderEventMessageFactory`가 7종 생성 → `OrderOutboxAppender`가 Outbox 저장: `ORDER_CREATED`/`ORDER_PAID`/`ORDER_PAYMENT_FAILED`/`ORDER_EXPIRED`/`ORDER_REFUND_REQUESTED`/`ORDER_REFUND`/`ORDER_REFUND_FAILED` |
+| `product-events` | product | order(`ProductEventConsumer.java`, `PRODUCT_STOPPED`/`PRODUCT_DELETED`/`PRODUCT_PRICE_CHANGED`만), ai-service(groupId=`ai-service`, `PRODUCT_REVIEW_REQUESTED`만), product 자체(groupId=`product-service-search`, 검색 색인용 — `PRODUCT_CHANGED`/`PRODUCT_STOPPED`/`PRODUCT_DELETED`만 처리) | `productId`(단 `PRODUCT_CHANGED`는 `familyRootId`) | `ProductStoppedPayload` / `ProductDeletedPayload` / `ProductPriceChangedPayload` / `ProductChangedPayload` / `ProductReviewRequestedPayload` |
+| `ai-events` | ai | product(groupId=`product-service`) | `productId` | `ProductInspectionCompletedPayload` |
 | `settlement-events` | settlement | user | `settlementId` | `EventMessage<SettlementCreatedEvent>` 봉투. 현재 생산 버전은 `payloadVersion=2`이며 정산 부모 필드와 `SettlementDetail` 전체를 포함 |
 
 - 토픽 상수: `payment-service/.../infrastructure/messaging/config/PaymentTopic.java`(`PAYMENT_EVENTS = "payment-events"`), 각 서비스 Consumer/Producer의 `TOPIC` 상수.
@@ -20,18 +21,23 @@ payment가 발행하는 결제/환불 이벤트는 **토픽 이름이 이벤트 
 - payment-service가 실제 발행하는 이벤트 4종: `PAYMENT_APPROVED`, `PAYMENT_REFUNDED`, `PAYMENT_REFUND_FAILED`, `PAYMENT_FAILED` (전부 `KafkaPaymentEventPublisher`, `payment-events` 토픽). `PAYMENT_CANCELED`는 여전히 코드 없음 — 추측 구현 금지.
 - **`PAYMENT_REFUND_FAILED`는 payment는 발행하지만 order-service `PaymentEventType` enum에는 정의돼 있지 않다** — order 쪽에서 `Unsupported payment event` 경고만 남기고 무시된다(`order-service/.../PaymentEventRouter.java`). 사실상 소비자가 없는 이벤트.
 - order-service의 payment-events 소비는 `eventId`+consumerGroup(`order-service`) 처리 이력으로 멱등성을 보장한다(`ProcessedEventService`, `PaymentApprovedProcessor`/`OrderFailureCompensationService`). `PAYMENT_FAILED`는 payload에 `buyerId`/`failedAmount`가 있을 때만 각각 주문 구매자·총액과 대조해 불일치 시 예외를 던지고, 없으면 검증을 건너뛴다(`OrderFailureCompensationService.compensatePaymentFailure`). `PAYMENT_APPROVED`는 `orderId`/`approvedAt`만 사용하며 금액 비교를 하지 않는다(`PaymentApprovedPayload`) — 승인 금액 검증은 confirm 단계의 order gRPC 조회(#396)로 이미 끝난 상태라 승인 이벤트에서는 재검증하지 않는다.
+- order-service가 `order-events`에 실제 발행하는 이벤트는 7종이다: `ORDER_CREATED`/`ORDER_PAID`/`ORDER_PAYMENT_FAILED`/`ORDER_EXPIRED`/`ORDER_REFUND_REQUESTED`/`ORDER_REFUND`/`ORDER_REFUND_FAILED` (`OrderEventMessageFactory` → `OrderOutboxAppender` → Outbox 저장, `OutboxRelay`가 실제 발행). notification-service의 `SUPPORTED_EVENT_TYPES`(`NotificationEventConsumer.java`)는 이 7종과 정확히 일치한다 — **현재 알려진 불일치 없음**.
+- `product-events`는 order(`ProductEventConsumer.java`, `PRODUCT_STOPPED`/`PRODUCT_DELETED`/`PRODUCT_PRICE_CHANGED`만 라우팅)와 ai-service(groupId=`ai-service`, `PRODUCT_REVIEW_REQUESTED`만 처리, 나머지는 로그+Ack, `ProductReviewRequestedConsumer.java`)가 소비하고, product-service 자신도 `product-service-search` 그룹으로 같은 토픽을 재구독해 검색 색인을 갱신한다(`PRODUCT_CHANGED`/`PRODUCT_STOPPED`/`PRODUCT_DELETED`만 처리, `PRODUCT_PRICE_CHANGED`/`PRODUCT_REVIEW_REQUESTED`는 처리하지 않음 — `ProductSearchEventConsumer.java`).
+- `ai-events`는 ai-service가 검수 완료 시 발행하는 `PRODUCT_INSPECTION_COMPLETED` 1종뿐이다(`InspectionEventProducer.java`). ai-service는 검수 전 별도 DB 트랜잭션이 없어(무상태 검수) AFTER_COMMIT 지연 없이 즉시 발행한다. product-service가 groupId=`product-service`로 소비해 상품 승인/반려 상태에 반영한다(`ProductInspectionResultConsumer.java`).
 
 ## 이벤트 발행 / 소비 매트릭스
 
 P = 발행, C = 소비(괄호는 consumer groupId):
 
-| 서비스 \ 토픽 | payment-events | order-events | product-events | settlement-events |
-|---|---|---|---|---|
-| payment | P (`PAYMENT_APPROVED`/`PAYMENT_REFUNDED`/`PAYMENT_REFUND_FAILED`/`PAYMENT_FAILED` 4종) | C (`payment-service-order-events`, `ORDER_REFUND_REQUESTED`만) | - | - |
-| order | C (`order-service`, `PAYMENT_APPROVED`/`PAYMENT_REFUNDED`/`PAYMENT_FAILED`만 라우팅 — `PAYMENT_REFUND_FAILED`는 정의 없어 무시) | P | C (`order-service`) | - |
-| product | - | C (`product-service`) | P | - |
-| settlement | - | C (`settlement-service`) | - | P (`SETTLEMENT_CREATED` V2) |
-| user | - | - | - | C (`user-service`) |
+| 서비스 \ 토픽 | payment-events | order-events | product-events | ai-events | settlement-events |
+|---|---|---|---|---|---|
+| payment | P (`PAYMENT_APPROVED`/`PAYMENT_REFUNDED`/`PAYMENT_REFUND_FAILED`/`PAYMENT_FAILED` 4종) | C (`payment-service-order-events`, `ORDER_REFUND_REQUESTED`만) | - | - | - |
+| order | C (`order-service`, `PAYMENT_APPROVED`/`PAYMENT_REFUNDED`/`PAYMENT_FAILED`만 라우팅 — `PAYMENT_REFUND_FAILED`는 정의 없어 무시) | P | C (`order-service`) | - | - |
+| notification | - | C (`notification-service`, 7종 전체) | - | - | - |
+| product | - | C (`product-service`) | P | C (`product-service`) | - |
+| ai | - | - | C (`ai-service`, `PRODUCT_REVIEW_REQUESTED`만) | P (`PRODUCT_INSPECTION_COMPLETED`) | - |
+| settlement | - | C (`settlement-service`) | - | - | P (`SETTLEMENT_CREATED` V2) |
+| user | - | - | - | - | C (`user-service`) |
 
 주의 사항:
 
@@ -131,6 +137,10 @@ sequenceDiagram
 ### 상품 상태 변경
 
 product가 판매중지/삭제/가격변경 시 `product-events` 발행 → order가 소비해 장바구니·주문 가능 상태에 반영. (`ProductEventProducer.java` → `order-service/.../consumer/product/ProductEventConsumer.java`)
+
+### 상품 검수 (AI)
+
+product가 셀러의 검수 제출(`submitForReview`) 시 `product-events`에 `PRODUCT_REVIEW_REQUESTED` 발행 → ai-service가 groupId=`ai-service`로 소비해 무상태 검수 수행 → 결과를 `ai-events`에 `PRODUCT_INSPECTION_COMPLETED`로 즉시 발행(Outbox 없이 직접 발행) → product-service가 groupId=`product-service`로 소비해 상품 승인/반려 상태에 반영한다. (`ProductEventProducer.java` → `ai-service/.../consumer/ProductReviewRequestedConsumer.java` → `ai-service/.../producer/InspectionEventProducer.java` → `product-service/.../consumer/ai/ProductInspectionResultConsumer.java`)
 
 ### 주문 생성 → 결제 (재설계, payment/order 양측 구현 완료)
 

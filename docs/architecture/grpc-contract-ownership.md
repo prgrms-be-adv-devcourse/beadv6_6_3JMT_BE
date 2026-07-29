@@ -40,9 +40,9 @@ a ◀──응답── b
 | 디렉토리 | `grpc/<소유모듈>/` | `grpc/user/`, `grpc/order/`, `grpc/product/` |
 | 파일 | `<도메인>_query.proto` | `grpc/user/seller_query.proto`, `order_query.proto`, `product_query.proto` |
 | 서비스 | `<도메인>QueryService` | `SellerQueryService`, `OrderQueryService`, `ProductQueryService` |
-| 메서드(rpc) | `Get<목적어>` | `GetSellers`, `GetSettleableLines` |
-| 요청 메시지 | `Get<목적어>Request` | `GetSellersRequest` |
-| 응답 메시지 | `Get<목적어>Response` | `GetSellersResponse` |
+| 메서드(rpc) | 아래 §2-2 접두어 표를 따른다 | `GetSellers`, `GetSettleableLines` |
+| 요청 메시지 | `<메서드명>Request` | `GetSellersRequest`, `CountOrdersByStatusRequest` |
+| 응답 메시지 | `<메서드명>Response` | `GetSellersResponse`, `CountOrdersByStatusResponse` |
 
 - **디렉토리 = 누가 답하나(소유 모듈), 파일·서비스 = 무슨 도메인이냐, 메서드·메시지 = 무엇을 조회하나.**
   한 모듈이 여러 도메인을 답하면 도메인별로 파일을 나눈다(예: `grpc/user/seller_query.proto`). 단일 도메인
@@ -52,6 +52,24 @@ a ◀──응답── b
 - **요청/응답이 아닌 내부 항목 메시지는 예외 — 현행 유지.** 리스트 원소·payload(예: `SellerInfo`,
   `SettleableLine`)에는 이 규칙을 적용하지 않는다.
 - **`package`·`java_package` 는 이 규칙 범위 밖이다.** gRPC wire 경로·import churn 이라 별도로 다룬다.
+- **쓰기(생성·수정·삭제)는 gRPC 메서드로 노출하지 않는다.** 서비스 간 상태 변경은 Kafka 이벤트
+  발행(`{domain}-events` 토픽, `kafka-event.md` 참고)으로 처리한다. 이 문서의 메서드 네이밍 규칙은
+  전부 조회(read-only) 메서드에만 적용한다.
+
+### 2-2. 메서드(rpc) 접두어 — 목적별로 다르게 쓴다
+
+메서드 이름은 무엇을 조회하는지에 따라 아래 접두어 중 하나를 쓴다. 대부분의 gRPC 조회는 단순
+조회이므로 `Get~`이 전체의 80% 이상을 차지하는 게 정상이다.
+
+| 접두어 | 용도 | 비중 |
+| --- | --- | --- |
+| `Get<목적어>` | 단순 조회(단건 또는 ID 목록 기반 배치 조회) | 전체의 80% 이상 |
+| `Search<목적어>By<조건>` | 조건 기반 검색 | |
+| `Count<목적어>By<조건>` | 집계(개수) | |
+| `Average<목적어>By<조건>` | 집계(평균) | |
+| `Total<목적어>By<조건>` | 집계(합계) | |
+
+요청/응답 메시지 이름은 이 메서드명을 그대로 따른다(`<메서드명>Request`/`<메서드명>Response`).
 
 > **주의(wire):** 서비스명·메서드명·`package` 는 gRPC 호출 경로(`/package.Service/Method`)라, 바꾸면
 > 서버·클라이언트가 **같이** 바뀌어야 통신된다. 반면 **파일명·메시지 타입명은 wire 가 아니라** 각 측이

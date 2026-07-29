@@ -1,6 +1,6 @@
 # 시스템 아키텍처 개요
 
-3JMT 프롬프트 마켓 백엔드 모노레포의 MSA 전체 구조. **2026-07-23 기준 실제 코드·설정에서 도출**했으며, 각 사실의 근거 파일을 병기한다. Spring Cloud 컴포넌트 상세 동작은 `spring-cloud.md`, 서비스 간 Kafka 이벤트 상세는 `event-flow.md`, 목표 Kubernetes 배포 구성은 [`kubernetes.md`](./kubernetes.md) 참조.
+3JMT 프롬프트 마켓 백엔드 모노레포의 MSA 전체 구조. **2026-07-29 기준 실제 코드·설정에서 도출**했으며, 각 사실의 근거 파일을 병기한다. Spring Cloud 컴포넌트 상세 동작은 `spring-cloud.md`, 서비스 간 Kafka 이벤트 상세는 `event-flow.md`, 목표 Kubernetes 배포 구성은 [`kubernetes.md`](./kubernetes.md) 참조.
 
 ## 서비스 목록
 
@@ -9,17 +9,17 @@
 | `discovery` | 8761 | - | Eureka 서비스 레지스트리 |
 | `config` | 8888 | - | Config Server (native, `config/src/main/resources/configs/` 제공) |
 | `apigateway` | 8000 | - | 진입점. JWT 검증, 라우팅, `X-User-Id`/`X-User-Role` 주입 (WebFlux 기반) |
-| `user-service` | 8081 | 9081 (서버) | 회원·인증·판매자·찜, 셀러 정산 읽기 모델과 AI용 정산 Query 제공 |
-| `product-service` | 8082 | 9082 (서버) | 상품·카테고리·리뷰 |
-| `order-service` | 8083 | 9083 (서버) | 주문·장바구니·Outbox Relay, 결제·정산용 조회 제공 |
-| `payment-service` | 8084 | 9084 (서버), order 9083 (클라이언트) | 결제(Toss Payments 연동), 승인 시 Order 직접 조회 |
-| `settlement-service` | 8085 | - | 주간 정산 CronJob, 정산·Detail 생성과 `SETTLEMENT_CREATED` V2 발행 |
-| `admin-service` | 8086 | - | 어드민 조회·관리 API |
-| `ai-service` | 8087 | user 9081 **클라이언트** | 셀러 정산 Tool Calling, Redis 대화 상태와 SSE 응답 |
-| `notification-service` | 8088 | - | 알림 발송 (이벤트 소비 기반) |
+| `user-service` | 18081 | 9081 (서버) | 회원·인증·판매자·찜, 셀러 정산 읽기 모델과 AI용 정산 Query 제공 |
+| `product-service` | 18082 | 9082 (서버) | 상품·카테고리·리뷰 |
+| `order-service` | 18083 | 9083 (서버) | 주문·장바구니·Outbox Relay, 결제·정산용 조회 제공 |
+| `payment-service` | 18084 | 9084 (서버), order 9083 (클라이언트) | 결제(Toss Payments 연동), 승인 시 Order 직접 조회 |
+| `settlement-service` | 18085 | - | 주간 정산 CronJob, 정산·Detail 생성과 `SETTLEMENT_CREATED` V2 발행 |
+| `admin-service` | 18086 | - | 어드민 조회·관리 API |
+| `ai-service` | 18087 | user 9081 **클라이언트** | 셀러 정산 Tool Calling, Redis 대화 상태와 SSE 응답 |
+| `notification-service` | 18088 | - | 알림 발송 (이벤트 소비 기반) |
 | `common-module` | - | - | 공용 라이브러리 (`BusinessException`, `ErrorCode`, 공통 응답 래퍼). 루트 `settings.gradle`에 `include 'common-module'`로 서브프로젝트 포함 |
 
-- 포트 근거: 각 모듈 `src/main/resources/application.yml`(또는 `.yaml`)의 `server.port`, `grpc.server.port`.
+- 포트 근거: `discovery`·`config`·`apigateway`는 각자 `src/main/resources/application.yml`의 `server.port`. `user-service`~`notification-service` 8개 서비스는 Config Server 중앙화 설정(`config/src/main/resources/configs/<service>.yml`)의 `server.port`(HTTP, 18081~18088)·`grpc.server.port`(gRPC, 값 자체는 `docker-compose.yml`에서 env로 주입)가 근거다.
 - 인프라: PostgreSQL, Kafka, Redis. Kubernetes에서 AI 대화 상태는 기존 Redis의 logical DB 1을 사용한다.
 - 배포 구성에서 외부 진입은 host 80 → apigateway 8000이며, 서비스 포트는 loopback으로만 노출된다.
 
@@ -28,12 +28,13 @@
 ```mermaid
 flowchart LR
     Client([클라이언트]) -->|HTTP + JWT| GW[API Gateway :8000]
-    GW -->|lb:// 라우팅| US[User :8081]
-    GW --> PS[Product :8082]
-    GW --> OS[Order :8083]
-    GW --> PAY[Payment :8084]
-    GW --> SS[Settlement :8085]
-    GW --> AI[AI :8087]
+    GW -->|lb:// 라우팅| US[User :18081]
+    GW --> PS[Product :18082]
+    GW --> OS[Order :18083]
+    GW --> PAY[Payment :18084]
+    GW --> SS[Settlement :18085]
+    GW --> AI[AI :18087]
+    GW --> NS[Notification :18088]
 
     PS -.->|gRPC :9081 판매자| US
     OS -.->|gRPC :9082 상품| PS
@@ -45,13 +46,13 @@ flowchart LR
     AI -->|HTTPS| OAI[OpenAI]
 
     PAY -->|HTTPS| Toss[Toss Payments]
-    PAY & OS & PS & SS -->|Kafka :9092| K[(Kafka)]
-    K --> OS & PS & SS & US
+    PAY & OS & PS & SS & AI -->|Kafka :9092| K[(Kafka)]
+    K --> OS & PS & SS & US & AI & NS
 ```
 
 ### 1) 외부 → Gateway HTTP 라우팅
 
-`apigateway/src/main/resources/application.yaml`의 라우트 정의 전체:
+`apigateway/src/main/resources/application.yml`의 라우트 정의 전체:
 
 | 경로 패턴 | 대상 |
 |---|---|
@@ -61,7 +62,8 @@ flowchart LR
 | `/api/v1/products(/**)`, `/api/v1/sellers/me/products(/**)`, `/api/v1/admin/products(/**)` | `lb://PRODUCT-SERVICE` |
 | `/api/v1/payments/**` | `lb://PAYMENT-SERVICE` |
 | `/api/v2/auth/**`, `/api/v2/users/**`, `/api/v2/seller(s)/**`, `/api/v2/wishlists/**`, `/api/v2/admin/**` | `lb://USER-SERVICE` |
-| `/api/v2/ai/**` | `lb://AI-SERVICE` (`/api/v2/ai/settlement/**`는 Gateway에서 `SELLER` 정책 적용) |
+| `/api/v2/ai/settlement/**` | `lb://AI-SERVICE` (Gateway `route-policies`에서 `SELLER_OR_ADMIN` 정책 적용) |
+| `/api/v1/notifications(/**)` | `lb://NOTIFICATION-SERVICE` (Gateway `route-policies`에서 `BUYER` 정책 적용) |
 | `/{service}/v3/api-docs` | 각 서비스 Swagger 문서 프록시 (RewritePath) |
 
 `lb://`는 Eureka에 등록된 인스턴스를 조회해 로드밸런싱한다.
@@ -86,8 +88,11 @@ User `POST /sellers/wishlists`를 순차 호출해 조합한다. User 서비스�
 
 ### 4) 비동기 통신 (Kafka)
 
-주요 토픽은 `payment-events`, `order-events`, `product-events`, `settlement-events`다. Settlement CronJob은
+주요 토픽은 `payment-events`, `order-events`, `product-events`, `settlement-events`, `ai-events`다. Settlement CronJob은
 정산 한 건과 Detail 전체를 `SETTLEMENT_CREATED` V2로 발행하고, User가 이를 셀러용 읽기 모델로 저장한다.
+ai-service는 상품 AI 검수가 끝나면 `ai-events`에 `PRODUCT_INSPECTION_COMPLETED`를 발행하고
+(`ai-service/.../inspection/infrastructure/messaging/kafka/producer/InspectionEventProducer.java`),
+product-service의 `ProductInspectionResultConsumer`가 이를 소비해 검수 결과를 반영한다.
 발행/소비 매트릭스·시나리오 시퀀스는 **`event-flow.md`** 참조.
 
 ### 5) 외부 연동
@@ -103,7 +108,7 @@ User `POST /sellers/wishlists`를 순차 호출해 조합한다. User 서비스�
 postgres(5432) + kafka(9092)
   → discovery(8761)            # healthcheck 통과 대기
   → config(8888)               # discovery 의존
-  → user/product/order/payment/settlement(8081~8085)
+  → user/product/order/payment/settlement(18081~18085)
                                # postgres·kafka(healthy) + discovery·config 의존
   → apigateway(8000)           # 모든 서비스 이후
 ```

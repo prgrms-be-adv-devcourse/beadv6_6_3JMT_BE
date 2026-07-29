@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 설계 문서: `product-service/.claude/plans/skill-redesign.md` (모든 결정의 근거는 이 문서를 따른다)
+- 설계 문서: `docs/records/plan/product/skill-redesign.md` (모든 결정의 근거는 이 문서를 따른다)
 - 범위: `product-service/CLAUDE.md`, `product-service/.claude/` 전체만 수정한다. 다른 서비스는 건드리지 않는다.
 - 파일명에 날짜를 넣지 않는다.
 - 커밋 전 항상 현재 브랜치가 `develop`/`main`이 아닌지, 브랜치의 이슈 번호가 실존하는지 확인한다 (설계 문서 5.1의 "커밋 전 사전 확인" 게이트).

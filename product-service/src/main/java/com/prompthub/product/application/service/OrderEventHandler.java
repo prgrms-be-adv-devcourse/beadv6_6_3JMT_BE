@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * order-events 처리의 멱등성(eventId+consumerGroup)과 판매수 변경을 한 트랜잭션으로 묶는다.
- * (kafka-event.md §7) — salesCount 증감은 자연 멱등이 아니라 재전송 시 중복되므로 eventId 기준으로 막는다.
+ * (루트 kafka-event.md 참고) — salesCount 증감은 자연 멱등이 아니라 재전송 시 중복되므로 eventId 기준으로 막는다.
  */
 @Service
 @RequiredArgsConstructor

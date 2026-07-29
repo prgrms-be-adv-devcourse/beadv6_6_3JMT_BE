@@ -21,8 +21,7 @@ docs/
 │   └── troubleshooting/   # 트러블슈팅(인시던트) 사례
 ├── adr/               # 아키텍처 결정 기록 (ADR) — 로컬 전용, git 미추적
 ├── README.md
-├── error-codes.md     # 전역 에러 코드 레지스트리
-└── grpc-contract-ownership.md
+└── error-codes.md     # 전역 에러 코드 레지스트리
 ```
 
 > `records/`는 "지금 시스템이 어떤 상태인가"(api-spec·architecture·erd 등)가 아니라

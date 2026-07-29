@@ -5,7 +5,7 @@
 ## 이 프로젝트에서 Flyway가 하는 일
 
 - 스키마 변경 이력을 SQL 파일로 버전 관리한다. Hibernate는 스키마를 만들지 않고 `ddl-auto: validate`로 엔티티-스키마 일치만 검증한다.
-- 서비스마다 자기 소유 스키마를 쓴다(`user_service`, `payment_service`, `product_service`, `order_service`, `settlement_service`). JDBC URL의 `?currentSchema=xxx_service`로 접속한다.
+- 서비스마다 자기 소유 스키마를 쓴다(`user_service`, `payment_service`, `product_service`, `order_service`, `settlement_service`, `notification_service`). JDBC URL의 `?currentSchema=xxx_service`로 접속한다.
 - 마이그레이션 파일 위치: `{service}/src/main/resources/db/migration/V{n}__설명.sql`. 서버가 기동될 때 Flyway가 아직 적용 안 된 버전을 번호 순서대로 실행한다.
 
 ## 새 마이그레이션 작성하기

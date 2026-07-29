@@ -1,9 +1,6 @@
 # Order Service API
 
-**Base:** `http://localhost:{order-service-port}/api/v1`
-
-> ⚠ `api/v1`은 세미 프로젝트 완성 스냅샷(`v1.0.0` 태그) 기준 경로다. 최종 프로젝트에서
-> `api/v2`로 전환 예정이며 별도 이슈로 진행한다(`docs/adr/config-management.md` §10).
+**Base:** `http://localhost:{order-service-port}/api/v2`
 
 ## 공통 사항
 
@@ -11,77 +8,7 @@
 - Gateway는 역할·계정 상태를 검증한 뒤 요청을 라우팅한다.
 - Order Service는 Gateway가 주입한 trusted `X-User-Id`를 구매자 API의 사용자 식별자로 읽고, 애플리케이션 계층에서 소유권을 검증한다.
 - 구매자 API는 `X-User-Id`가 필요하다.
-- 관리자 API는 order-service에서 역할 헤더를 요구하지 않는다. 관리자 역할·상태 검증은 Gateway 책임이며, 외부 401·403 응답 설명은 그대로 유지한다.
 - 응답 envelope는 `common-module`의 `ApiResult` 또는 `PageResponse` 형식을 따른다.
-
-## v2 다건 부분 환불
-
-아래 API는 v2 전환 대상이며, 기존 v1 API 경로를 대체하는 새로운 환불 API는 `POST /api/v2/orders/{orderId}/refund`이다.
-
-### POST /api/v2/orders/{orderId}/refund - 주문 상품 다건 부분 환불 요청
-
-- 인증: 필요
-- 필요 헤더: Gateway가 주입한 `X-User-Id`
-- 클라이언트는 환불 금액을 보내지 않는다. Order Service는 선택한 주문 상품의 금액 스냅샷 합계를 한 번만 환불 요청한다.
-- `order_product_ids`는 비어 있을 수 없다. 선택 상품은 모두 주문에 속하고, 결제와 구매자가 주문에 일치해야 하며, 요청은 전부 성공하거나 전부 거절된다.
-- 정상 접수는 `202 Accepted`를 반환한다. Payment Service의 최종 결과는 비동기로 반영된다.
-
-#### Path Parameters
-
-| 파라미터 | 타입 | 설명 |
-|---------|------|------|
-| orderId | UUID | 부분 환불할 주문 ID |
-
-#### Request
-
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|:----:|------|
-| payment_id | UUID | O | 주문에 연결된 결제 ID |
-| order_product_ids | UUID[] | O | 환불할 주문 상품 ID 목록. 비어 있을 수 없음 |
-
-```json
-{
-  "payment_id": "3f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a9999",
-  "order_product_ids": [
-    "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa",
-    "82d95cb0-1835-49bf-8f08-2e0f1c4e4bbb"
-  ]
-}
-```
-
-#### Response
-
-`202 Accepted`
-
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| refundRequestId | UUID | 비동기 환불 요청 ID |
-| orderId | UUID | 주문 ID |
-| paymentId | UUID | 결제 ID |
-| status | Enum | 접수 직후 `REQUESTED` |
-
-```json
-{
-  "success": true,
-  "data": {
-    "refundRequestId": "4f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a2222",
-    "orderId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
-    "paymentId": "3f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a9999",
-    "status": "REQUESTED"
-  },
-  "message": "success"
-}
-```
-
-#### Error
-
-| Status Code | 설명 |
-|-------------|------|
-| 400 | 요청 상품 목록이 비었거나 잘못된 요청 |
-| 401 | 인증 실패 |
-| 403 | 구매자 본인 주문이 아님 |
-| 404 | 주문, 결제 또는 주문 상품 없음 |
-| 409 | 환불 불가 상태, 중복 또는 진행 중인 환불 |
 
 ---
 
@@ -91,7 +18,8 @@
 
 - 인증: 필요
 - 필요 헤더: `X-User-Id`
-- 요청 상품 목록과 상품 금액 스냅샷으로 주문을 생성한다. 개별 금액 0은 허용하고 음수는 거부한다.
+- 요청 상품 목록으로 주문을 생성한다. 상품명·금액은 상품 서비스가 반환한 스냅샷을 사용한다. 개별 금액 0은 허용하고 음수는 거부한다.
+- 본인이 판매하는 상품은 주문할 수 없다. 여러 상품 중 하나라도 본인 상품이면 전체 주문이 `O015`로 실패하며 주문·장바구니·이벤트 변경이 발생하지 않는다.
 - 총액 0이면 주문은 즉시 `COMPLETED`, 주문상품은 `PAID`가 되며 기존 `ORDER_PAID` 이벤트를 발행한다.
 - 총액이 양수인 유료·혼합 주문은 주문 `CREATED`, 주문상품 `PENDING`을 유지하고 기존 결제 승인 흐름을 따른다.
 - 이미 접근 가능한 무료 상품을 다시 요청하면 `O018`로 거부한다.
@@ -103,13 +31,15 @@
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|:----:|------|
-| productIds | UUID[] | O | 주문할 상품 ID 목록. 비어 있을 수 없고 각 값은 null일 수 없음 |
+| products | Product[] | O | 주문할 상품 목록. 비어 있을 수 없고 각 값은 null일 수 없음 |
+| products[].productId | UUID | O | 상품 ID |
+| products[].productTitle | String | X | 레거시 호환 입력값(최대 200자, deprecated). 실제 주문 저장에는 상품 서비스가 반환한 제목 스냅샷을 사용하고 이 값은 쓰지 않음 |
 
 ```json
 {
-  "productIds": [
-    "11111111-1111-1111-1111-111111111111",
-    "22222222-2222-2222-2222-222222222222"
+  "products": [
+    { "productId": "11111111-1111-1111-1111-111111111111" },
+    { "productId": "22222222-2222-2222-2222-222222222222" }
   ]
 }
 ```
@@ -120,45 +50,43 @@
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| orderId | UUID | 생성된 주문 ID |
-| orderNumber | String | 사용자 노출 주문 번호 |
-| buyerId | UUID | 구매자 ID |
-| orderStatus | Enum | 주문 상태. 양수 주문은 생성 직후 `CREATED`, 0원 주문은 즉시 `COMPLETED` |
-| products[].orderProductId | UUID | 주문 상품 ID |
-| products[].productId | UUID | 상품 ID |
-| products[].sellerId | UUID | 판매자 ID |
-| products[].productTitleSnapshot | String | 주문 시점 상품명 스냅샷 |
-| products[].productTypeSnapshot | String | 주문 시점 상품 유형 스냅샷 |
-| products[].productModelSnapshot | String \| null | 주문 시점 상품 모델명/분류 스냅샷 |
-| products[].productAmountSnapshot | Integer | 주문 시점 상품 금액 스냅샷 |
-| products[].orderStatus | Enum | 주문 상품 상태. 양수 주문은 생성 직후 `PENDING`, 0원 주문은 즉시 `PAID` |
-| totalAmount | Integer | 총 주문 금액 |
-| createdAt | DateTime | 주문 생성 시각 |
-| canceledAt | DateTime \| null | 주문 취소 시각. 생성 직후 `null` |
+| totalAmount | Integer | 전체 주문 금액. 원 단위 정수 |
+| order.orderId | UUID | 생성된 주문 ID |
+| order.orderNumber | String | 사용자 노출 주문 번호 |
+| order.buyerId | UUID | 구매자 ID |
+| order.orderStatus | Enum | 주문 상태. `CREATED` / `COMPLETED` / `FAILED` / `REFUND_REQUESTED` / `PARTIAL_REFUNDED` / `ALL_REFUNDED`. 양수 주문은 생성 직후 `CREATED`, 0원 주문은 즉시 `COMPLETED` |
+| order.orderAmount | Integer | 주문 금액. 원 단위 정수(`totalAmount`와 동일 값) |
+| order.products[].orderProductId | UUID | 주문 상품 ID |
+| order.products[].productId | UUID | 상품 ID |
+| order.products[].sellerId | UUID | 주문 상품별 판매자 ID |
+| order.products[].productTitle | String | 상품 서비스에서 조회한 주문 시점 제목 스냅샷 |
+| order.products[].productAmount | Integer | 주문 시점 상품 금액 스냅샷. 원 단위 정수 |
+| order.products[].orderProductStatus | Enum | 주문 상품 상태. `PENDING` / `PAID` / `FAILED` / `REFUND_REQUESTED` / `REFUNDED`. 양수 주문은 생성 직후 `PENDING`, 0원 주문은 즉시 `PAID` |
+| order.createdAt | DateTime | 주문 생성 일시. yyyy-MM-dd'T'HH:mm:ss 형식 |
 
 ```json
 {
   "success": true,
   "data": {
-    "orderId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
-    "orderNumber": "ORD-20260618-000001",
-    "buyerId": "7c2f6e91-2c1b-4a3b-9f99-3f527f7d1234",
-    "orderStatus": "CREATED",
-    "products": [
-      {
-        "orderProductId": "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa",
-        "productId": "11111111-1111-1111-1111-111111111111",
-        "sellerId": "8f2c6e91-2c1b-4a3b-9f99-3f527f7d5678",
-        "productTitleSnapshot": "면접 준비 프롬프트",
-        "productTypeSnapshot": "PROMPT",
-        "productModelSnapshot": "GPT-4",
-        "productAmountSnapshot": 15000,
-        "orderStatus": "PENDING"
-      }
-    ],
     "totalAmount": 15000,
-    "createdAt": "2026-06-18T14:30:00",
-    "canceledAt": null
+    "order": {
+      "orderId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
+      "orderNumber": "ORD-20260618-000001",
+      "buyerId": "7c2f6e91-2c1b-4a3b-9f99-3f527f7d1234",
+      "orderStatus": "CREATED",
+      "orderAmount": 15000,
+      "products": [
+        {
+          "orderProductId": "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa",
+          "productId": "11111111-1111-1111-1111-111111111111",
+          "sellerId": "8f2c6e91-2c1b-4a3b-9f99-3f527f7d5678",
+          "productTitle": "면접 준비 프롬프트",
+          "productAmount": 15000,
+          "orderProductStatus": "PENDING"
+        }
+      ],
+      "createdAt": "2026-06-18T14:30:00"
+    }
   },
   "message": "success"
 }
@@ -168,77 +96,37 @@
 
 | Status Code | Error Code | 설명 |
 |-------------|------------|------|
-| 400 | V001 | 입력값 검증 실패 |
-| 401 | A003 | 인증 실패 |
-| 403 | A004 | 권한 없음 |
-| 409 | O018 | 이미 접근 가능한 무료 상품 중복 구매 |
-| 503 | SYS002 | 상품 서비스 사용 불가 |
+| 400 | V001, P002 | 입력값 검증 실패 또는 상품 요청 오류 |
+| 401 | A003, P004 | 인증 실패 또는 상품 서비스 인증 실패 |
+| 403 | A004, O015, P005 | 권한 없음, 본인 판매 상품 구매 불가, 또는 상품 서비스 접근 거부 |
+| 409 | O018, P003 | 이미 구매했거나 결제 대기 중인 상품, 또는 상품 요청 충돌 |
+| 503 | SYS002, SYS003 | 상품 서비스 또는 주문 중복 방지 저장소 사용 불가 |
 
 ---
 
-### GET /orders - 내 주문 목록 조회
+### GET /orders/product/{productId}/paid - 상품 구매 여부 조회
 
 - 인증: 필요
 - 필요 헤더: `X-User-Id`
-- 주문 상품 row 기준으로 페이지를 반환한다.
+- 구매자가 현재 해당 상품 콘텐츠를 열람할 수 있는 결제 상태인지 반환한다.
 
-#### Query Parameters
+#### Path Parameters
 
-| 파라미터 | 타입 | 필수 | 기본값 | 설명 |
-|---------|------|:----:|--------|------|
-| page | Integer | N | 1 | 1부터 시작하는 페이지 번호 |
-| size | Integer | N | 20 | 페이지 크기. 1 이상 100 이하 |
-| status | Enum | N | - | `PENDING` / `PAID` / `FAILED` / `CANCELED` / `REFUNDED` |
-| from | Date | N | - | 조회 시작일 (`yyyy-MM-dd`) |
-| to | Date | N | - | 조회 종료일 (`yyyy-MM-dd`) |
+| 파라미터 | 타입 | 설명 |
+|---------|------|------|
+| productId | UUID | 조회할 상품 ID |
 
 #### Response
 
 `200 OK`
 
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| data[].orderId | UUID | 주문 ID |
-| data[].orderProductId | UUID | 주문 상품 ID |
-| data[].productId | UUID | 상품 ID |
-| data[].orderStatus | Enum | 주문 상태 |
-| data[].isRefundable | Boolean | 환불 가능 여부 |
-| data[].productType | String | 상품 유형 |
-| data[].title | String | 상품명 |
-| data[].model | String \| null | 모델명/분류 |
-| data[].rating | Number \| null | 리뷰 평점. 현재 조회 구현에서는 null 가능 |
-| data[].paidAt | DateTime \| null | 결제 완료 시각 |
-| data[].createdAt | DateTime | 주문 생성 시각 |
-| meta.page | Integer | 현재 페이지 번호 |
-| meta.size | Integer | 페이지 크기 |
-| meta.total | Long | 전체 항목 수 |
-| meta.hasNext | Boolean | 다음 페이지 존재 여부 |
+`data` 필드는 boolean 값 자체이며 별도 객체로 감싸지 않는다.
 
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "orderId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
-      "orderProductId": "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa",
-      "productId": "11111111-1111-1111-1111-111111111111",
-      "orderStatus": "PAID",
-      "isRefundable": true,
-      "productType": "PROMPT",
-      "title": "면접 준비 프롬프트",
-      "model": "GPT-4",
-      "rating": null,
-      "paidAt": "2026-06-18T14:35:00",
-      "createdAt": "2026-06-18T14:30:00"
-    }
-  ],
-  "message": "success",
-  "meta": {
-    "page": 1,
-    "size": 20,
-    "total": 1,
-    "hasNext": false
-  }
+  "data": true,
+  "message": "success"
 }
 ```
 
@@ -246,9 +134,78 @@
 
 | Status Code | Error Code | 설명 |
 |-------------|------------|------|
-| 400 | V001 | 잘못된 페이지, 크기, 기간 조건 |
-| 401 | A003 | 인증 실패 |
-| 403 | A004 | 권한 없음 |
+| 400 | V001 | X-User-Id 또는 입력값 검증 실패 |
+| 401 | A003 | 인증 정보 누락 |
+
+---
+
+### GET /orders/products/{productId} - 구매 상품 다운로드 여부 조회
+
+- 인증: 필요
+- 필요 헤더: `X-User-Id`
+- 구매자가 해당 상품을 다운로드했는지 반환한다.
+
+#### Path Parameters
+
+| 파라미터 | 타입 | 설명 |
+|---------|------|------|
+| productId | UUID | 조회할 상품 ID |
+
+#### Response
+
+`200 OK`
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| downloaded | Boolean | 상품이 다운로드되었는지 여부 |
+
+```json
+{
+  "success": true,
+  "data": {
+    "downloaded": true
+  },
+  "message": "success"
+}
+```
+
+#### Error
+
+| Status Code | Error Code | 설명 |
+|-------------|------------|------|
+| 401 | A003 | 인증 정보 누락 |
+
+---
+
+### GET /orders/users - 구매 상품 ID 목록 조회
+
+- 인증: 필요
+- 필요 헤더: `X-User-Id`
+- 구매자가 현재 열람할 수 있는 상품 ID 목록을 중복 없이 반환한다.
+
+#### Response
+
+`200 OK`
+
+`data` 필드는 상품 ID(UUID) 배열이다.
+
+```json
+{
+  "success": true,
+  "data": [
+    "11111111-1111-1111-1111-111111111111",
+    "22222222-2222-2222-2222-222222222222"
+  ],
+  "message": "success"
+}
+```
+
+#### Error
+
+| Status Code | Error Code | 설명 |
+|-------------|------------|------|
+| 400 | V001 | X-User-Id UUID 형식 오류 |
+| 401 | A003 | 인증 정보 누락 |
 
 ---
 
@@ -278,8 +235,8 @@
 | products[].productId | UUID | 상품 ID |
 | products[].sellerId | UUID | 판매자 ID |
 | products[].productTitleSnapshot | String | 주문 시점 상품명 스냅샷 |
-| products[].productTypeSnapshot | String | 주문 시점 상품 유형 스냅샷 |
-| products[].productModelSnapshot | String \| null | 주문 시점 모델명/분류 스냅샷 |
+| products[].productTypeSnapshot | String \| null | 상품 서비스 유형 스냅샷. 현재 주문 DB에는 저장하지 않아 null |
+| products[].productModelSnapshot | String \| null | 상품 서비스 모델명/분류 스냅샷. 현재 주문 DB에는 저장하지 않아 null |
 | products[].productAmountSnapshot | Integer | 주문 시점 상품 금액 스냅샷 |
 | products[].orderStatus | Enum | 주문 상품 상태 |
 | products[].isContentAccessible | Boolean | 구매 콘텐츠 열람 가능 여부 |
@@ -332,6 +289,7 @@
 
 | Status Code | Error Code | 설명 |
 |-------------|------------|------|
+| 400 | V001 | X-User-Id 또는 주문 ID 형식 오류 |
 | 401 | A003 | 인증 실패 |
 | 403 | A004 | 권한 없음 또는 본인 주문 아님 |
 | 404 | O001 | 주문 없음 |
@@ -386,10 +344,100 @@
 
 | Status Code | Error Code | 설명 |
 |-------------|------------|------|
-| 401 | A003 | 인증 실패 |
-| 403 | A004, E001 | 권한 없음 또는 콘텐츠 열람 불가 |
-| 404 | O001 | 주문 없음 |
+| 400 | V001, P002 | X-User-Id 또는 경로 변수 UUID 형식 오류, 또는 상품 요청 오류 |
+| 401 | A003, P004 | 토큰 만료 또는 유효하지 않음, 또는 상품 서비스 인증 실패 |
+| 403 | A004, E001, P005 | 주문 소유자가 아님, 콘텐츠 열람 불가, 또는 상품 서비스 접근 거부 |
+| 404 | O001, P001 | 주문 없음, 상품 없음 |
 | 503 | SYS002 | 상품 서비스 사용 불가 |
+
+---
+
+### GET /orders - 내 주문 목록 조회
+
+- 인증: 필요
+- 필요 헤더: `X-User-Id`
+- 주문 단위로 페이지를 반환하며, 각 주문에 속한 주문 상품 목록을 함께 반환한다.
+
+#### Query Parameters
+
+| 파라미터 | 타입 | 필수 | 기본값 | 설명 |
+|---------|------|:----:|--------|------|
+| page | Integer | N | 1 | 1부터 시작하는 페이지 번호 |
+| size | Integer | N | 20 | 페이지 크기. 1 이상 100 이하 |
+| status | Enum | N | - | `CREATED` / `COMPLETED` / `FAILED` / `REFUND_REQUESTED` / `PARTIAL_REFUNDED` / `ALL_REFUNDED` |
+| from | Date | N | - | 조회 시작일 (`yyyy-MM-dd`) |
+| to | Date | N | - | 조회 종료일 (`yyyy-MM-dd`) |
+
+#### Response
+
+`200 OK`
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| data[].orderId | UUID | 주문 ID |
+| data[].orderNumber | String | 주문 번호 |
+| data[].orderStatus | Enum | 주문 상태. `CREATED` / `COMPLETED` / `FAILED` / `REFUND_REQUESTED` / `PARTIAL_REFUNDED` / `ALL_REFUNDED` |
+| data[].totalAmount | Integer | 주문 총 금액. 원 단위 정수 |
+| data[].products[].orderProductId | UUID | 주문 상품 ID |
+| data[].products[].productId | UUID | 상품 ID |
+| data[].products[].orderProductStatus | Enum | 주문 상품 상태. `PENDING` / `PAID` / `FAILED` / `REFUND_REQUESTED` / `REFUNDED` |
+| data[].products[].amount | Integer | 주문 시점 상품 금액 스냅샷. 원 단위 정수 |
+| data[].products[].isRefundable | Boolean | 환불 가능 여부 |
+| data[].products[].downloaded | Boolean | 다운로드 여부 |
+| data[].products[].productType | String \| null | 상품 유형. 주문 목록 조회에서는 제공하지 않아 null |
+| data[].products[].title | String | 주문 시점 상품 제목 |
+| data[].products[].model | String \| null | 모델명/분류. 주문 목록 조회에서는 제공하지 않아 null |
+| data[].products[].rating | Number \| null | 리뷰 평점. 리뷰 기능을 제공하지 않아 null |
+| data[].paidAt | DateTime \| null | 결제 완료 일시. 미결제이면 null |
+| data[].createdAt | DateTime | 주문 생성 일시 |
+| meta.page | Integer | 현재 페이지 번호 |
+| meta.size | Integer | 페이지 크기 |
+| meta.total | Long | 전체 항목 수 |
+| meta.hasNext | Boolean | 다음 페이지 존재 여부 |
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "orderId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
+      "orderNumber": "ORD-20260618-000001",
+      "orderStatus": "COMPLETED",
+      "totalAmount": 15000,
+      "products": [
+        {
+          "orderProductId": "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa",
+          "productId": "11111111-1111-1111-1111-111111111111",
+          "orderProductStatus": "PAID",
+          "amount": 15000,
+          "isRefundable": true,
+          "downloaded": false,
+          "productType": null,
+          "title": "면접 준비 프롬프트",
+          "model": null,
+          "rating": null
+        }
+      ],
+      "paidAt": "2026-06-18T14:35:00",
+      "createdAt": "2026-06-18T14:30:00"
+    }
+  ],
+  "message": "success",
+  "meta": {
+    "page": 1,
+    "size": 20,
+    "total": 1,
+    "hasNext": false
+  }
+}
+```
+
+#### Error
+
+| Status Code | Error Code | 설명 |
+|-------------|------------|------|
+| 400 | V001 | 입력값 검증 실패 |
+| 401 | A003 | 토큰 만료 또는 유효하지 않음 |
 
 ---
 
@@ -436,63 +484,61 @@
 
 ---
 
-### GET /orders/payments - 주문 결제 내역 조회
+### POST /orders/{orderId}/refund - 주문 상품 다건 부분 환불 요청
 
 - 인증: 필요
 - 필요 헤더: `X-User-Id`
-- 결제 내역 row 기준으로 페이지를 반환한다.
+- 클라이언트는 환불 금액을 보내지 않는다. Order Service는 선택한 주문 상품의 금액 스냅샷 합계를 한 번만 환불 요청한다.
+- `orderProductIds`는 비어 있을 수 없고 중복을 허용하지 않는다. 선택 상품은 모두 해당 주문에 속하고 구매자가 주문 소유자와 일치해야 하며, 요청은 전부 성공하거나 전부 거절된다.
+- 정상 접수는 `202 Accepted`를 반환한다. Payment Service의 최종 결과는 비동기로 반영된다.
 
-#### Query Parameters
+#### Path Parameters
 
-| 파라미터 | 타입 | 필수 | 기본값 | 설명 |
-|---------|------|:----:|--------|------|
-| page | Integer | N | 1 | 1부터 시작하는 페이지 번호 |
-| size | Integer | N | 20 | 페이지 크기. 1 이상 100 이하 |
-| status | Enum | N | - | DTO에는 존재하지만 현재 결제 내역 조회 구현에서는 사용하지 않음 |
-| from | Date | N | - | DTO에는 존재하지만 현재 결제 내역 조회 구현에서는 사용하지 않음 |
-| to | Date | N | - | DTO에는 존재하지만 현재 결제 내역 조회 구현에서는 사용하지 않음 |
+| 파라미터 | 타입 | 설명 |
+|---------|------|------|
+| orderId | UUID | 부분 환불할 주문 ID |
+
+#### Request
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|:----:|------|
+| orderProductIds | UUID[] | O | 환불할 주문 상품 ID 목록. 비어 있을 수 없고 중복을 허용하지 않음 |
+
+```json
+{
+  "orderProductIds": [
+    "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa",
+    "82d95cb0-1835-49bf-8f08-2e0f1c4e4bbb"
+  ]
+}
+```
 
 #### Response
 
-`200 OK`
+`202 Accepted`
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| data[].orderId | UUID | 주문 ID |
-| data[].paymentId | UUID | 결제 ID |
-| data[].paymentStatus | Enum | 주문 상태에서 변환한 결제 상태 |
-| data[].isRefundable | Boolean | 환불 가능 여부 |
-| data[].productType | String | 대표 상품 유형 |
-| data[].title | String | 대표 상품명. 다건 결제는 `첫 상품명 외 N건` 형식 가능 |
-| data[].amount | Integer | 결제 금액 |
-| data[].paidAt | DateTime \| null | 결제 완료 시각. 없으면 승인 시각 사용 |
-| meta.page | Integer | 현재 페이지 번호 |
-| meta.size | Integer | 페이지 크기 |
-| meta.total | Long | 전체 항목 수 |
-| meta.hasNext | Boolean | 다음 페이지 존재 여부 |
+| refundRequestId | UUID | 환불 요청 ID |
+| orderId | UUID | 환불 대상 주문 ID |
+| orderProductIds | UUID[] | 환불 대상 주문 상품 ID 목록 |
+| refundAmount | Integer | 환불 예정 금액. 원 단위 정수(선택한 주문 상품 금액 스냅샷 합계) |
+| status | String | 환불 요청 상태. 접수 직후 `REQUESTED` |
 
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "orderId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
-      "paymentId": "3f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a9999",
-      "paymentStatus": "PAID",
-      "isRefundable": true,
-      "productType": "PROMPT",
-      "title": "면접 준비 프롬프트",
-      "amount": 15000,
-      "paidAt": "2026-06-18T14:35:00"
-    }
-  ],
-  "message": "success",
-  "meta": {
-    "page": 1,
-    "size": 20,
-    "total": 1,
-    "hasNext": false
-  }
+  "data": {
+    "refundRequestId": "4d8f2c6e-91a2-4b3a-9f99-3f527f7d5678",
+    "orderId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
+    "orderProductIds": [
+      "72d95cb0-1835-49bf-8f08-2e0f1c4e4aaa",
+      "82d95cb0-1835-49bf-8f08-2e0f1c4e4bbb"
+    ],
+    "refundAmount": 30000,
+    "status": "REQUESTED"
+  },
+  "message": "success"
 }
 ```
 
@@ -500,15 +546,17 @@
 
 | Status Code | Error Code | 설명 |
 |-------------|------------|------|
-| 400 | V001 | 잘못된 페이지 또는 크기 |
-| 401 | A003 | 인증 실패 |
-| 403 | A004 | 권한 없음 |
+| 400 | V001 | X-User-Id, 입력값 검증 또는 경로 변수 UUID 형식 오류 |
+| 401 | A003 | 토큰 만료 또는 유효하지 않음 |
+| 403 | O008 | 주문 접근 불가 |
+| 404 | O001, O012 | 주문 없음 또는 주문 상품 없음 |
+| 409 | O017 | 환불 불가 |
 
 ---
 
 ## 장바구니
 
-### GET /cart/products - 장바구니 조회
+### GET /cart - 장바구니 조회
 
 - 인증: 필요
 - 필요 헤더: `X-User-Id`
@@ -572,7 +620,7 @@
 
 ---
 
-### POST /cart/products - 장바구니 상품 추가
+### POST /cart - 장바구니 상품 추가
 
 - 인증: 필요
 - 필요 헤더: `X-User-Id`
@@ -638,7 +686,7 @@
 
 ---
 
-### DELETE /cart/products/{cartProductId} - 장바구니 상품 삭제
+### DELETE /cart/{cartProductId} - 장바구니 상품 삭제
 
 - 인증: 필요
 - 필요 헤더: `X-User-Id`
@@ -675,151 +723,7 @@
 
 ## 관리자
 
-### GET /admin/orders - 전체 주문 관리 목록 조회
-
-- 인증: 필요
-- 필요 헤더: 없음 (관리자 역할·상태 검증은 Gateway에서 수행)
-
-#### Query Parameters
-
-| 파라미터 | 타입 | 필수 | 기본값 | 설명 |
-|---------|------|:----:|--------|------|
-| orderStatus | String | N | ALL | `ALL` / `PENDING` / `PAID` / `FAILED` / `CANCELED` / `REFUNDED` |
-| page | Integer | N | 1 | 1부터 시작하는 페이지 번호 |
-| size | Integer | N | 20 | 페이지 크기. 1 이상 100 이하 |
-
-#### Response
-
-`200 OK`
-
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| data[].orderId | UUID | 주문 ID |
-| data[].sellerNickname | String | 판매자 닉네임. 조회 실패 시 `알 수 없음` |
-| data[].productTitle | String | 대표 상품명 |
-| data[].totalOrderCount | Integer | 주문 상품 수 |
-| data[].totalOrderAmount | Integer | 총 주문 금액 |
-| data[].orderStatus | Enum | 주문 상태 |
-| data[].createdAt | DateTime | 주문 생성 시각 |
-| meta.page | Integer | 현재 페이지 번호 |
-| meta.size | Integer | 페이지 크기 |
-| meta.total | Long | 전체 항목 수 |
-| meta.hasNext | Boolean | 다음 페이지 존재 여부 |
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "orderId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
-      "sellerNickname": "prompt-seller",
-      "productTitle": "면접 준비 프롬프트",
-      "totalOrderCount": 1,
-      "totalOrderAmount": 15000,
-      "orderStatus": "PAID",
-      "createdAt": "2026-06-18T14:30:00"
-    }
-  ],
-  "message": "success",
-  "meta": {
-    "page": 1,
-    "size": 20,
-    "total": 1,
-    "hasNext": false
-  }
-}
-```
-
-#### Error
-
-| Status Code | Error Code | 설명 |
-|-------------|------------|------|
-| 400 | V001 | 잘못된 조회 조건 |
-| 401 | A003 | 인증 실패 |
-| 403 | A004 | 관리자 권한 없음 |
-
----
-
-### GET /admin/orders/month - 이번 달 실제 거래액 조회
-
-- 인증: 필요
-- 필요 헤더: 없음 (관리자 역할·상태 검증은 Gateway에서 수행)
-
-#### Response
-
-`200 OK`
-
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| monthlyTransactionAmount | Long | 이번 달 승인 거래액 합계 |
-
-```json
-{
-  "success": true,
-  "data": {
-    "monthlyTransactionAmount": 1250000
-  },
-  "message": "success"
-}
-```
-
-#### Error
-
-| Status Code | Error Code | 설명 |
-|-------------|------------|------|
-| 401 | A003 | 인증 실패 |
-| 403 | A004 | 관리자 권한 없음 |
-
----
-
-### GET /admin/orders/weekend - 최근 7일 거래량 조회
-
-- 인증: 필요
-- 필요 헤더: 없음 (관리자 역할·상태 검증은 Gateway에서 수행)
-- 현재 구현 경로는 `/weekend`이다. 의미상 `/week`에 가깝지만, 문서는 구현 경로를 우선한다.
-
-#### Response
-
-`200 OK`
-
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| totalTransactionCount | Long | 최근 7일 결제 승인 완료 주문 수 |
-| totalTransactionAmount | Long | 최근 7일 실제 거래액 |
-| period.startDate | Date | 조회 시작일 |
-| period.endDate | Date | 조회 종료일 |
-| dailyTransactions[].date | Date | 거래 일자 |
-| dailyTransactions[].transactionCount | Long | 해당 일 결제 승인 완료 주문 수 |
-| dailyTransactions[].transactionAmount | Long | 해당 일 실제 거래액 |
-
-```json
-{
-  "success": true,
-  "data": {
-    "totalTransactionCount": 42,
-    "totalTransactionAmount": 980000,
-    "period": {
-      "startDate": "2026-06-18",
-      "endDate": "2026-06-24"
-    },
-    "dailyTransactions": [
-      {
-        "date": "2026-06-18",
-        "transactionCount": 5,
-        "transactionAmount": 120000
-      }
-    ]
-  },
-  "message": "success"
-}
-```
-
-#### Error
-
-| Status Code | Error Code | 설명 |
-|-------------|------------|------|
-| 401 | A003 | 인증 실패 |
-| 403 | A004 | 관리자 권한 없음 |
+관리자 주문 API는 order-service가 아니라 admin-service가 제공한다. `docs/api-spec/admin.md` 참고.
 
 ---
 
@@ -1087,10 +991,9 @@
 
 ### 공통 사항
 
-- Order Service는 Product Service와 Seller Service를 gRPC blocking stub으로 호출한다.
-- 기본 deadline은 Product, Seller 모두 `2000ms`이다.
+- Order Service는 Product Service를 gRPC blocking stub으로 호출한다.
+- 기본 deadline은 `1000ms`이다.
 - Product gRPC 호출 실패는 Order Service에서 `SYS002` 상품 서비스 사용 불가 오류로 변환한다.
-- Seller gRPC 호출 실패는 빈 결과로 대체하고 관리자 주문 목록에서 판매자 닉네임을 `알 수 없음`으로 표시할 수 있다.
 
 ### ProductInternalService
 
@@ -1129,7 +1032,7 @@
 
 #### GetCartSnapshots
 
-- 호출 시점: `GET /cart/products`, `POST /cart/products`에서 장바구니 표시용 상품 정보가 필요할 때
+- 호출 시점: `GET /cart`, `POST /cart`에서 장바구니 표시용 상품 정보가 필요할 때
 - 목적: 장바구니 화면에 표시할 상품명, 유형, 금액, 썸네일, 판매자 정보를 조회한다.
 
 **Request: `GetCartSnapshotsRequest`**
@@ -1173,40 +1076,6 @@
 |------|------|------|
 | product_id | string(UUID) | 상품 ID |
 | content | string | 구매 후 열람 가능한 콘텐츠 원문 |
-
-### SellerQueryService
-
-- 호출 방향: Order Service -> Seller Service
-- Proto package: `product.seller`
-- Java package: `com.prompthub.order.grpc.seller`
-- Service: `SellerQueryService`
-
-#### FindSellers
-
-- 호출 시점: `GET /admin/orders` 전체 주문 관리 목록 조회 시 판매자 닉네임이 필요할 때
-- 목적: 주문 목록의 판매자 ID를 판매자 표시 정보로 변환한다.
-- 조회 실패 또는 누락된 판매자 닉네임은 관리자 주문 목록에서 `알 수 없음`으로 표시할 수 있다.
-
-**Request: `SellerBatchQueryRequest`**
-
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|:----:|------|
-| seller_ids | repeated string(UUID) | O | 조회할 판매자 ID 목록 |
-
-**Response: `SellerBatchQueryResponse`**
-
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| sellers | repeated SellerInfo | 판매자 정보 목록 |
-
-**SellerInfo**
-
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| seller_id | string(UUID) | 판매자 ID |
-| seller_name | string | 판매자 닉네임 |
-| profile_image_url | string | 프로필 이미지 URL. 값이 없으면 빈 문자열 |
-| status | string | 판매자 상태 |
 
 ---
 

@@ -10,7 +10,6 @@
 
 - Product Service 관련 변경은 기본적으로 `product-service/` 하위에서 진행한다.
 - 다른 서비스 모듈은 참고용으로만 읽는다. 쓰기 작업(생성·수정·삭제)은 하지 않는다.
-  자세한 모듈 경계 규칙은 `.claude/rules/architecture.md`를 따른다.
 - `common-module/`, 루트 workflow, 공통 docs 변경이 필요한 경우 PR에 변경 이유를 명시하고,
   진행 전 사용자에게 먼저 알린다.
 - 하나의 브랜치에 관련 없는 API 작업을 섞지 않는다.
@@ -28,7 +27,6 @@
 
 구현 전에 아래 문서를 읽는다.
 
-- `.claude/rules/architecture.md` — 계층 책임, 의존 방향, 예외 처리, 모듈 경계
 - `.claude/rules/product-api.md` — API 계약, category/ID 규칙, 응답 wrapper 규칙
 - `.claude/rules/testing.md` — 테스트 기준
 - `.claude/rules/git-workflow.md` — 브랜치 타입, Issue 우선 원칙
@@ -61,14 +59,3 @@
 7. 규칙 검증 (`verify-rules`)
 8. 커밋 (`commit`)
 9. PR 생성 (`create-github-pr`)
-
-## 우선 작업 범위
-
-로그인 없이 테스트 가능한 Product 공개 조회 API를 먼저 구현한다.
-
-- `GET /api/v1/products`
-- `GET /api/v1/products/{productId}`
-- `GET /api/v2/products/{productId}/recommends`
-- `GET /api/v1/products/{productId}/reviews`
-
-판매자/관리자 쓰기 API는 Gateway/Auth 흐름이 확정된 뒤 별도 이슈에서 처리한다.
