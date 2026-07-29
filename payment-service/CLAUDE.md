@@ -44,7 +44,7 @@ docker-compose up -d                                     # 로컬 PostgreSQL (�
 
 - **코드 배치·레이어·패키지 구조·의존 방향** → `.claude/rules/architecture.md`
 - **REST 컨트롤러·예외 처리·API 응답 형식** → `.claude/rules/api-error-handling.md`
-- **커밋·브랜치·PR** → `.claude/rules/git-conventions.md`
+- **커밋·브랜치·PR** → 루트 `.claude/rules/git-convention.md` (payment-service 전용 규칙 없음)
 - **`.claude/plans/`에 새 계획 문서 작성** → `.claude/rules/plan-doc-format.md`
 - **DB 마이그레이션(`@Entity` 추가/변경 시 Flyway SQL 작성)** → `.claude/rules/flyway-migration.md`
 - **superpowers 스킬(brainstorming/writing-plans/subagent-driven-development) 사용** → `.claude/rules/superpowers-workflow.md`
