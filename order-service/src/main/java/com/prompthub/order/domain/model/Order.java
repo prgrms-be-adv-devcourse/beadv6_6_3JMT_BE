@@ -136,6 +136,13 @@ public class Order extends BaseEntity {
         this.orderProducts.forEach(OrderProduct::markPaid);
     }
 
+    public void completePayment(int approvedAmount, LocalDateTime approvedAt) {
+        if (this.totalOrderAmount != approvedAmount) {
+            throw new OrderException(ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
+        }
+        markCompleted(approvedAt);
+    }
+
     public void markPaid() {
         markCompleted();
     }
@@ -220,15 +227,42 @@ public class Order extends BaseEntity {
             throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
         }
 
-        validateRequestedRefundAmount(refundAmount);
+        if (selectedProducts.stream().anyMatch(product -> product.getOrderStatus() != OrderProductStatus.REFUND_REQUESTED)) {
+            throw new OrderException(ErrorCode.ORDER_REFUND_REQUEST_NOT_FOUND);
+        }
+
+        validateRefundAmount(selectedProducts, refundAmount);
 
         selectedProducts.forEach(product -> product.completeRefund(refundedAt));
         recalculateRefundStatus(refundedAt);
         return List.copyOf(selectedProducts);
     }
 
+    public void restoreRequestedRefund() {
+        if (this.orderStatus != OrderStatus.REFUND_REQUESTED) {
+            throw new OrderException(ErrorCode.INVALID_ORDER_STATUS_TRANSITION);
+        }
+
+        List<OrderProduct> selectedProducts = requestedRefundProducts();
+        if (selectedProducts.stream().anyMatch(product -> product.getOrderStatus() != OrderProductStatus.REFUND_REQUESTED)) {
+            throw new OrderException(ErrorCode.ORDER_REFUND_REQUEST_NOT_FOUND);
+        }
+
+        selectedProducts.forEach(OrderProduct::restoreRefundRequest);
+        OrderStatus restoredStatus = this.orderProducts.stream()
+            .anyMatch(product -> product.getOrderStatus() == OrderProductStatus.REFUNDED)
+            ? OrderStatus.PARTIAL_REFUNDED
+            : OrderStatus.COMPLETED;
+        validateTransition(restoredStatus);
+        this.orderStatus = restoredStatus;
+    }
+
     public void validateRequestedRefundAmount(int refundAmount) {
-        int expectedAmount = requestedRefundProducts().stream()
+        validateRefundAmount(requestedRefundProducts(), refundAmount);
+    }
+
+    private void validateRefundAmount(List<OrderProduct> products, int refundAmount) {
+        int expectedAmount = products.stream()
             .mapToInt(OrderProduct::getProductAmount)
             .sum();
         if (expectedAmount != refundAmount) {

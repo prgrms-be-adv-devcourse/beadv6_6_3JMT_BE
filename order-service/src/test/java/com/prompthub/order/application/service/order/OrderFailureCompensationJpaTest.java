@@ -1,6 +1,7 @@
 package com.prompthub.order.application.service.order;
 
 import com.prompthub.order.application.client.ProductClient;
+import com.prompthub.order.application.dto.event.PaymentFailedCommand;
 import com.prompthub.order.application.service.event.ProcessedEventService;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
@@ -8,7 +9,6 @@ import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.ProcessedEventRepository;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentFailedPayload;
 import com.prompthub.order.infra.persistence.cart.CartPersistence;
 import com.prompthub.order.infra.persistence.order.OrderPersistence;
 import com.prompthub.order.support.DatabaseStateProbe;
@@ -279,7 +279,7 @@ class OrderFailureCompensationJpaTest extends PostgreSqlIntegrationTestSupport {
 		assertThat(processedEventService.isProcessed(eventId, "settlement-projection")).isTrue();
 	}
 
-	private void compensateFailure(UUID eventId, PaymentFailedPayload payload) {
+	private void compensateFailure(UUID eventId, PaymentFailedCommand payload) {
 		compensationService.compensatePaymentFailure(eventId, EVENT_TYPE, FAILED_AT, payload);
 	}
 
@@ -410,8 +410,8 @@ class OrderFailureCompensationJpaTest extends PostgreSqlIntegrationTestSupport {
 		return order;
 	}
 
-	private PaymentFailedPayload failurePayload(Order order) {
-		return new PaymentFailedPayload(PAYMENT_ID, order.getId(), order.getBuyerId());
+	private PaymentFailedCommand failurePayload(Order order) {
+		return new PaymentFailedCommand(PAYMENT_ID, order.getId(), order.getBuyerId(), 0, null, null, FAILED_AT);
 	}
 
 	private void setProductStatus(Order order, UUID productId, OrderProductStatus status) {

@@ -1,14 +1,13 @@
-package com.prompthub.order.infra.messaging.kafka.event;
+package com.prompthub.order.application.dto.event.order;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public record OrderPaymentFailedPayload(
+public record OrderRefundFailedPayload(
     UUID orderId,
     UUID buyerId,
     String orderNumber,
-    String failureCode,
-    String failureReason,
+    int refundAmount,
     LocalDateTime failedAt
 ) {
 }

@@ -1,11 +1,12 @@
 package com.prompthub.order.application.service.event;
 
+import com.prompthub.order.application.dto.event.PaymentRefundedCommand;
+import com.prompthub.order.application.dto.event.PaymentRefundFailedCommand;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
 import com.prompthub.order.domain.repository.OrderRepository;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentRefundedPayload;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -23,7 +24,6 @@ import static com.prompthub.order.fixture.OrderFixture.PRODUCT_AMOUNT_1;
 import static com.prompthub.order.fixture.OrderFixture.REFUNDED_AT;
 import static com.prompthub.order.fixture.OrderFixture.createPaidOrderWithProducts;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -53,20 +53,28 @@ class PaymentRefundedProcessorTest {
 			eventId,
 			"PAYMENT_REFUNDED",
 			REFUNDED_AT,
-			new PaymentRefundedPayload(order.getId(), PRODUCT_AMOUNT_1, "2026-06-19T12:20:00+09:00")
+			new PaymentRefundedCommand(
+				order.getId(),
+				PRODUCT_AMOUNT_1,
+				REFUNDED_AT
+			)
 		);
 
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PARTIAL_REFUNDED);
 		assertThat(target.getOrderStatus()).isEqualTo(OrderProductStatus.REFUNDED);
 		ArgumentCaptor<List<OrderProduct>> productsCaptor = ArgumentCaptor.forClass(List.class);
-		then(orderOutboxAppender).should().appendRefunded(eq(order), productsCaptor.capture(), eq(REFUNDED_AT));
+		then(orderOutboxAppender).should().appendRefunded(
+			eq(order),
+			productsCaptor.capture(),
+			eq(REFUNDED_AT)
+		);
 		assertThat(productsCaptor.getValue()).singleElement()
 			.satisfies(product -> assertThat(product.getId()).isEqualTo(target.getId()));
 		then(processedEventService).should().markProcessed(eventId, "order-service", "PAYMENT_REFUNDED", REFUNDED_AT);
 	}
 
 	@Test
-	void processFailed_keepsOrderAndProductRequested() {
+	void processFailed_restoresOrderAndProductForRetry() {
 		Order order = createPaidOrderWithProducts();
 		OrderProduct target = order.getOrderProducts().getFirst();
 		order.requestRefund(List.of(target.getId()));
@@ -77,17 +85,20 @@ class PaymentRefundedProcessorTest {
 			eventId,
 			"PAYMENT_REFUND_FAILED",
 			REFUNDED_AT,
-			new PaymentRefundedEventHandler.RefundFailedPayload(
+			new PaymentRefundFailedCommand(
 				order.getId(),
 				PRODUCT_AMOUNT_1,
-				"2026-06-19T12:20:00+09:00"
+				REFUNDED_AT
 			)
 		);
 
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
+		assertThat(target.getOrderStatus()).isEqualTo(OrderProductStatus.PAID);
+		order.requestRefund(List.of(target.getId()));
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.REFUND_REQUESTED);
-		assertThat(target.getOrderStatus()).isEqualTo(OrderProductStatus.REFUND_REQUESTED);
 		then(orderOutboxAppender).should().appendRefundFailed(order, PRODUCT_AMOUNT_1, REFUNDED_AT);
 		then(processedEventService).should()
 			.markProcessed(eventId, "order-service", "PAYMENT_REFUND_FAILED", REFUNDED_AT);
 	}
+
 }

@@ -1,9 +1,9 @@
 package com.prompthub.order.infra.messaging.kafka.router;
 
 import com.prompthub.common.event.EventMessage;
-import com.prompthub.order.application.service.event.PaymentApprovedEventHandler;
-import com.prompthub.order.application.service.event.PaymentFailedEventHandler;
-import com.prompthub.order.application.service.event.PaymentRefundedEventHandler;
+import com.prompthub.order.infra.messaging.kafka.consumer.payment.PaymentApprovedEventHandler;
+import com.prompthub.order.infra.messaging.kafka.consumer.payment.PaymentFailedEventHandler;
+import com.prompthub.order.infra.messaging.kafka.consumer.payment.PaymentRefundedEventHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

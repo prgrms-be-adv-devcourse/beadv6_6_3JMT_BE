@@ -2,7 +2,7 @@ package com.prompthub.order.application.service.refund;
 
 import com.prompthub.order.application.dto.RefundResult;
 import com.prompthub.order.application.service.event.OrderOutboxAppender;
-import com.prompthub.order.infra.messaging.kafka.event.OrderRefundRequestedPayload;
+import com.prompthub.order.application.dto.event.order.OrderRefundRequestedPayload;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
@@ -38,7 +38,6 @@ class OrderRefundServiceTest {
 	private OrderRepository orderRepository;
 	@Mock
 	private OrderOutboxAppender orderOutboxAppender;
-
 	private OrderRefundService service;
 
 	@BeforeEach

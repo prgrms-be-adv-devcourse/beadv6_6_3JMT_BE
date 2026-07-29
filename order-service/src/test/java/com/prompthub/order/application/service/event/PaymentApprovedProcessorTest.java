@@ -1,5 +1,6 @@
 package com.prompthub.order.application.service.event;
 
+import com.prompthub.order.application.dto.event.PaymentApprovedCommand;
 import com.prompthub.order.application.event.order.OrderExpirationCleanupRequestedEvent;
 import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
@@ -11,7 +12,6 @@ import com.prompthub.order.domain.repository.CartRepository;
 import com.prompthub.order.domain.repository.OrderRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
-import com.prompthub.order.infra.messaging.kafka.event.PaymentApprovedPayload;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,7 +30,7 @@ import java.util.UUID;
 import static com.prompthub.order.fixture.PaymentEventFixture.APPROVED_AT;
 import static com.prompthub.order.fixture.PaymentEventFixture.BUYER_ID;
 import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
-import static com.prompthub.order.fixture.PaymentEventFixture.approvedPayload;
+import static com.prompthub.order.fixture.PaymentEventFixture.approvedCommand;
 import static com.prompthub.order.fixture.PaymentEventFixture.createdOrder;
 import static com.prompthub.order.fixture.PaymentEventFixture.productIds;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -74,7 +74,7 @@ class PaymentApprovedProcessorTest {
 	void process_createdOrder_completesProductsRemovesCartAndPersistsEventsInOrder() {
 		Order order = createdOrder();
 		Cart cart = compensatedCart();
-		PaymentApprovedPayload payload = approvedPayload(order);
+		PaymentApprovedCommand payload = approvedCommand(order);
 		UUID eventId = UUID.randomUUID();
 		stubTarget(eventId, order);
 		given(cartRepository.findByBuyerIdForUpdateWithCartProducts(BUYER_ID)).willReturn(Optional.of(cart));
@@ -119,7 +119,7 @@ class PaymentApprovedProcessorTest {
 		UUID eventId = UUID.randomUUID();
 		stubTarget(eventId, order);
 		given(cartRepository.findByBuyerIdForUpdateWithCartProducts(BUYER_ID)).willReturn(Optional.of(cart));
-		processor.process(eventId, EVENT_TYPE, APPROVED_AT, approvedPayload(order));
+		processor.process(eventId, EVENT_TYPE, APPROVED_AT, approvedCommand(order));
 
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
 		assertThat(order.getOrderProducts())
@@ -140,7 +140,7 @@ class PaymentApprovedProcessorTest {
 		UUID eventId = UUID.randomUUID();
 		stubTarget(eventId, order);
 		given(cartRepository.findByBuyerIdForUpdateWithCartProducts(BUYER_ID)).willReturn(Optional.empty());
-		processor.process(eventId, EVENT_TYPE, APPROVED_AT, approvedPayload(order));
+		processor.process(eventId, EVENT_TYPE, APPROVED_AT, approvedCommand(order));
 
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
 		then(cartRepository).should(never()).save(any());
@@ -152,21 +152,47 @@ class PaymentApprovedProcessorTest {
 	}
 
 	@Test
-	@DisplayName("주문 ID와 승인 시각만 있는 승인 이벤트로 주문을 완료 처리한다")
-	void process_minimalPaymentContract_completesOrder() {
+	@DisplayName("승인 금액이 없는 승인 이벤트는 거부한다")
+	void process_missingApprovedAmount_rejectsEvent() {
 		Order order = createdOrder();
 		UUID eventId = UUID.randomUUID();
-		PaymentApprovedPayload payload = new PaymentApprovedPayload(
-			ORDER_A,
-			"2026-07-17T10:00:05+09:00"
-		);
+
+		assertThatThrownBy(() -> processor.process(
+			eventId,
+			EVENT_TYPE,
+			APPROVED_AT,
+			new PaymentApprovedCommand(ORDER_A, -1, APPROVED_AT)
+		))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
+		then(orderOutboxAppender).shouldHaveNoInteractions();
+	}
+
+	@Test
+	@DisplayName("승인 금액이 주문 금액과 다르면 상태와 부수효과를 변경하지 않는다")
+	void process_approvedAmountMismatch_rejectsWithoutMutation() {
+		Order order = createdOrder();
+		UUID eventId = UUID.randomUUID();
 		stubTarget(eventId, order);
-		given(cartRepository.findByBuyerIdForUpdateWithCartProducts(BUYER_ID)).willReturn(Optional.empty());
 
-		processor.process(eventId, EVENT_TYPE, APPROVED_AT, payload);
+		assertThatThrownBy(() -> processor.process(
+			eventId,
+			EVENT_TYPE,
+			APPROVED_AT,
+			new PaymentApprovedCommand(order.getId(), 30_000, APPROVED_AT)
+		))
+			.isInstanceOf(OrderException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_PAYMENT_AMOUNT_MISMATCH);
 
-		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED);
-		then(orderOutboxAppender).should().appendPaid(order);
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
+		assertThat(order.getOrderProducts())
+			.extracting(OrderProduct::getOrderStatus)
+			.containsOnly(OrderProductStatus.PENDING);
+		then(orderOutboxAppender).shouldHaveNoInteractions();
+		then(cartRepository).shouldHaveNoInteractions();
+		then(processedEventService).should(never()).markProcessed(any(), any(), any(), any());
 	}
 
 	@ParameterizedTest
@@ -177,7 +203,7 @@ class PaymentApprovedProcessorTest {
 		UUID eventId = UUID.randomUUID();
 		stubTarget(eventId, order);
 
-		processor.process(eventId, EVENT_TYPE, APPROVED_AT, approvedPayload(order));
+		processor.process(eventId, EVENT_TYPE, APPROVED_AT, approvedCommand(order));
 
 		then(orderOutboxAppender).shouldHaveNoInteractions();
 		then(cartRepository).shouldHaveNoInteractions();
@@ -195,7 +221,7 @@ class PaymentApprovedProcessorTest {
 		given(processedEventService.isProcessed(eventId, CONSUMER_GROUP)).willReturn(false);
 		given(orderRepository.findByIdWithOrderProductsForUpdate(ORDER_A)).willReturn(Optional.empty());
 
-		assertThatThrownBy(() -> processor.process(eventId, EVENT_TYPE, APPROVED_AT, approvedPayload(order)))
+		assertThatThrownBy(() -> processor.process(eventId, EVENT_TYPE, APPROVED_AT, approvedCommand(order)))
 			.isInstanceOf(OrderException.class)
 			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_NOT_FOUND);
 		then(orderOutboxAppender).shouldHaveNoInteractions();
@@ -207,7 +233,7 @@ class PaymentApprovedProcessorTest {
 		UUID eventId = UUID.randomUUID();
 		given(processedEventService.isProcessed(eventId, CONSUMER_GROUP)).willReturn(true);
 
-		processor.process(eventId, EVENT_TYPE, APPROVED_AT, approvedPayload(createdOrder()));
+		processor.process(eventId, EVENT_TYPE, APPROVED_AT, approvedCommand(createdOrder()));
 
 		then(orderRepository).shouldHaveNoInteractions();
 		then(cartRepository).shouldHaveNoInteractions();
@@ -223,7 +249,7 @@ class PaymentApprovedProcessorTest {
 		given(processedEventService.isProcessed(eventId, CONSUMER_GROUP)).willReturn(false, true);
 		given(orderRepository.findByIdWithOrderProductsForUpdate(ORDER_A)).willReturn(Optional.of(order));
 
-		processor.process(eventId, EVENT_TYPE, APPROVED_AT, approvedPayload(order));
+		processor.process(eventId, EVENT_TYPE, APPROVED_AT, approvedCommand(order));
 
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CREATED);
 		assertThat(order.getOrderProducts())

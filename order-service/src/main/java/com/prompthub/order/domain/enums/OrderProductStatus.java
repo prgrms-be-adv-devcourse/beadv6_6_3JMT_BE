@@ -15,7 +15,7 @@ public enum OrderProductStatus {
             case PENDING -> target == PAID || target == FAILED;
             case FAILED -> target == PAID;
             case PAID -> target == REFUND_REQUESTED;
-            case REFUND_REQUESTED -> target == REFUNDED;
+            case REFUND_REQUESTED -> target == PAID || target == REFUNDED;
             case REFUNDED -> false;
         };
     }

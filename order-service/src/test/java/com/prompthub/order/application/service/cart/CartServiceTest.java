@@ -41,6 +41,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class CartServiceTest {
@@ -164,6 +165,8 @@ class CartServiceTest {
 			ArgumentCaptor<Cart> cartCaptor = ArgumentCaptor.forClass(Cart.class);
 			then(cartRepository).should().findByBuyerIdForUpdateWithCartProducts(BUYER_ID);
 			then(cartRepository).should().save(cartCaptor.capture());
+			then(orderProductPurchasePolicy).should(times(2))
+				.validateCartAddable(BUYER_ID, PRODUCT_ID_1);
 			assertThat(cartCaptor.getValue().getBuyerId()).isEqualTo(BUYER_ID);
 			assertThat(cartCaptor.getValue().getCartProducts()).hasSize(1);
 		}
