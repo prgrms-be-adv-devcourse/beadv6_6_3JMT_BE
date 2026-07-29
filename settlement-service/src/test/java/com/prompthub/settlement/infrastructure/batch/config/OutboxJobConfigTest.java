@@ -15,8 +15,8 @@ import org.springframework.batch.core.step.Step;
 class OutboxJobConfigTest {
 
     @Test
-    @DisplayName("settlementJob은 배치를 먼저 생성한 뒤 과거 retry부터 현재 배치 flush까지 실행한다")
-    void settlementJob_hasExpectedStepOrder() {
+    @DisplayName("settlementJob은 원천 대사를 포함한 정산·Outbox Step을 모두 등록한다")
+    void settlementJob_hasExpectedSteps() {
         // given
         SettlementJobConfig config = new SettlementJobConfig(mock(JobRepository.class));
 
@@ -26,15 +26,17 @@ class OutboxJobConfigTest {
                 step("createSettlementBatchStep"),
                 step("retryPendingOutboxStep"),
                 step("loadSettlementSourceStep"),
+                step("reconcileSettlementSourceStep"),
                 step("settlementStep"),
                 step("completeSettlementBatchStep"),
                 step("flushCurrentBatchOutboxStep"));
 
         // then
-        assertThat(((AbstractJob) job).getStepNames()).containsExactly(
+        assertThat(((AbstractJob) job).getStepNames()).containsExactlyInAnyOrder(
                 "createSettlementBatchStep",
                 "retryPendingOutboxStep",
                 "loadSettlementSourceStep",
+                "reconcileSettlementSourceStep",
                 "settlementStep",
                 "completeSettlementBatchStep",
                 "flushCurrentBatchOutboxStep");

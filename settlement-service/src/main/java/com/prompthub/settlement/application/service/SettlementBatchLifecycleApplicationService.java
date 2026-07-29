@@ -56,6 +56,14 @@ public class SettlementBatchLifecycleApplicationService implements SettlementBat
 
     @Override
     @Transactional
+    public void failReconciliation(UUID batchId, String reason) {
+        SettlementBatch batch = findBatch(batchId);
+        batch.failReconciliation(reason);
+        settlementBatchRepository.save(batch);
+    }
+
+    @Override
+    @Transactional
     public void requestRetry(UUID batchId) {
         SettlementBatch batch = findBatch(batchId);
         batch.requestRetry();
