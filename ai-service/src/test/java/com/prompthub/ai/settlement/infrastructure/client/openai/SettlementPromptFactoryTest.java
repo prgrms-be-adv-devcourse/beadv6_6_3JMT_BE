@@ -23,9 +23,12 @@ class SettlementPromptFactoryTest {
         assertThat(prompt)
                 .contains(
                         "판매자 전용",
-                        "네 개의 읽기 전용 정산 도구",
+                        "다섯 개의 읽기 전용 정산 도구",
                         "대한민국 원화",
                         "직접 계산하거나 추정하지 않는다",
+                        "승인 이후 정산만 포함한 금액",
+                        "대시보드 요약 도구",
+                        "전체 누적 금액과 혼동하지 않는다",
                         "후속 질문",
                         "물음표")
                 .doesNotContain("admin", "role", "x-user-id", "x-internal-service-token");

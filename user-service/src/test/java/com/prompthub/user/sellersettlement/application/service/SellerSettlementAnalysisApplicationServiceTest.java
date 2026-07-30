@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 import com.prompthub.user.sellersettlement.application.dto.PayoutStatusResult;
+import com.prompthub.user.sellersettlement.application.dto.SellerSettlementDashboardSummaryResult;
 import com.prompthub.user.sellersettlement.application.dto.SettlementAnalysisPeriod;
 import com.prompthub.user.sellersettlement.application.dto.SettlementAnalysisPeriodType;
 import com.prompthub.user.sellersettlement.application.dto.SettlementAnalysisResult;
@@ -19,6 +20,10 @@ import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementAna
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementAnalysisQueryRepository.PayoutStatusRow;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementAnalysisQueryRepository.PayoutStatusSnapshot;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementAnalysisQueryRepository.WeeklyAnalysisAggregate;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyAggregate;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyKey;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -40,6 +45,12 @@ class SellerSettlementAnalysisApplicationServiceTest {
     private SellerSettlementAnalysisQueryRepository repository;
 
     @Mock
+    private SellerSettlementRepository sellerSettlementRepository;
+
+    @Mock
+    private SellerSettlementQueryRepository sellerSettlementQueryRepository;
+
+    @Mock
     private SettlementAnalysisPeriodResolver periodResolver;
 
     private SellerSettlementAnalysisApplicationService service;
@@ -47,7 +58,27 @@ class SellerSettlementAnalysisApplicationServiceTest {
     @BeforeEach
     void setUp() {
         service = new SellerSettlementAnalysisApplicationService(
-                repository, periodResolver, new SettlementChangeCalculator());
+                repository,
+                sellerSettlementRepository,
+                sellerSettlementQueryRepository,
+                periodResolver,
+                new SettlementChangeCalculator());
+    }
+
+    @Test
+    @DisplayName("대시보드 요약은 REST 대시보드와 동일한 누적 저장소 값을 반환한다")
+    void returnsSameCumulativeAmountsAsDashboard() {
+        UUID actorId = UUID.randomUUID();
+        given(sellerSettlementRepository.sumTotalAmountBySeller(actorId))
+                .willReturn(new BigDecimal("1000"));
+        given(sellerSettlementRepository.sumApprovedSettlementAmountBySeller(actorId))
+                .willReturn(new BigDecimal("340"));
+
+        SellerSettlementDashboardSummaryResult result =
+                service.getDashboardSummary(actorId);
+
+        assertThat(result.totalRevenueAmount()).isEqualByComparingTo("1000");
+        assertThat(result.totalSettlementAmount()).isEqualByComparingTo("340");
     }
 
     @Test
@@ -90,6 +121,14 @@ class SellerSettlementAnalysisApplicationServiceTest {
         given(repository.aggregate(actorId, range(currentMonth))).willReturn(currentAggregate);
         given(repository.aggregate(actorId, range(comparisonMonth)))
                 .willReturn(comparisonAggregate);
+        given(sellerSettlementQueryRepository.findMonthlyAggregate(
+                actorId, YearMonth.of(2026, 7)))
+                .willReturn(java.util.Optional.of(monthlyAggregate(
+                        actorId, YearMonth.of(2026, 7), "170")));
+        given(sellerSettlementQueryRepository.findMonthlyAggregate(
+                actorId, YearMonth.of(2026, 6)))
+                .willReturn(java.util.Optional.of(monthlyAggregate(
+                        actorId, YearMonth.of(2026, 6), "85")));
         WeeklyAnalysisAggregate weekly = new WeeklyAnalysisAggregate(
                 LocalDate.of(2026, 6, 29),
                 LocalDate.of(2026, 7, 5),
@@ -144,6 +183,31 @@ class SellerSettlementAnalysisApplicationServiceTest {
     }
 
     @Test
+    @DisplayName("월 요약 지급액은 기간 Detail 계산 대신 월별 대시보드 집계값을 사용한다")
+    void usesDashboardMonthlyPayoutForMonthlySummary() {
+        UUID actorId = UUID.randomUUID();
+        SettlementAnalysisPeriod month = period(
+                SettlementAnalysisPeriodType.MONTH,
+                "2026-07",
+                LocalDate.of(2026, 7, 1),
+                LocalDate.of(2026, 7, 19),
+                true);
+        given(periodResolver.resolve(SettlementAnalysisPeriodType.MONTH, "2026-07"))
+                .willReturn(month);
+        given(repository.aggregate(actorId, range(month))).willReturn(aggregate(2, "510"));
+        given(sellerSettlementQueryRepository.findMonthlyAggregate(
+                actorId, YearMonth.of(2026, 7)))
+                .willReturn(java.util.Optional.of(monthlyAggregate(
+                        actorId, YearMonth.of(2026, 7), "340")));
+
+        SettlementAnalysisResult result = service.getSummary(
+                actorId, SettlementAnalysisPeriodType.MONTH, "2026-07");
+
+        assertThat(result.payoutAmount()).isEqualByComparingTo("340");
+        assertThat(result.grossSaleAmount()).isEqualByComparingTo("100");
+    }
+
+    @Test
     @DisplayName("저장소 장애를 부분 데이터로 삼키지 않고 전파한다")
     void propagatesRepositoryFailure() {
         UUID actorId = UUID.randomUUID();
@@ -194,5 +258,20 @@ class SellerSettlementAnalysisApplicationServiceTest {
     private AnalysisQueryRange range(SettlementAnalysisPeriod period) {
         return new AnalysisQueryRange(
                 period.includedStart(), period.includedEnd(), period.completedThrough());
+    }
+
+    private MonthlyAggregate monthlyAggregate(
+            UUID sellerId,
+            YearMonth settlementMonth,
+            String payoutAmount) {
+        return new MonthlyAggregate(
+                new MonthlyKey(sellerId, settlementMonth),
+                1,
+                1,
+                1,
+                new BigDecimal("100"),
+                new BigDecimal("15"),
+                BigDecimal.ZERO,
+                new BigDecimal(payoutAmount));
     }
 }

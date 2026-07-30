@@ -18,7 +18,7 @@ import org.springframework.ai.tool.ToolCallback;
 class SellerSettlementAnalysisToolsTest {
 
     @Test
-    @DisplayName("모델에는 네 기간 조회 Tool만 노출하고 사용자·실행 식별자는 인자로 노출하지 않는다")
+    @DisplayName("모델에는 대시보드 요약과 네 기간 조회 Tool만 노출하고 식별자는 인자로 노출하지 않는다")
     void exposesOnlySafePeriodArguments() {
         SellerSettlementAnalysisTools tools = new SellerSettlementAnalysisTools(
                 mock(SellerSettlementAnalysisQuery.class),
@@ -31,6 +31,7 @@ class SellerSettlementAnalysisToolsTest {
                         Function.identity()));
 
         assertThat(callbacks).containsOnlyKeys(
+                "get_settlement_dashboard_summary",
                 "get_settlement_summary",
                 "compare_settlement_periods",
                 "get_weekly_settlement_breakdown",
@@ -40,6 +41,16 @@ class SellerSettlementAnalysisToolsTest {
                 "periodType", "currentPeriod", "comparisonPeriod");
         assertSchema(callbacks.get("get_weekly_settlement_breakdown"), "month");
         assertSchema(callbacks.get("get_payout_status"), "settlementMonth");
+        assertThat(callbacks.get("get_settlement_dashboard_summary")
+                .getToolDefinition().description())
+                .contains("정산 대시보드와 동일한", "승인 이후 누적 정산금액");
+        assertThat(callbacks.get("get_settlement_summary").getToolDefinition().description())
+                .contains(
+                        "승인 이후 정산만 포함한 지급액",
+                        "월별 정산 대시보드와 동일한 집계값");
+        assertThat(callbacks.get("get_weekly_settlement_breakdown")
+                .getToolDefinition().description())
+                .contains("승인 이후 정산만 포함");
     }
 
     private void assertSchema(ToolCallback callback, String... expectedArguments) {

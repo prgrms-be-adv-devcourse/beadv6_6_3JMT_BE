@@ -3,6 +3,7 @@ package com.prompthub.user.sellersettlement.application.service;
 import com.prompthub.user.sellersettlement.application.dto.PayoutStatusResult;
 import com.prompthub.user.sellersettlement.application.dto.PayoutStatusResult.PayoutStatusCountResult;
 import com.prompthub.user.sellersettlement.application.dto.PayoutStatusResult.WeeklyPayoutStatusResult;
+import com.prompthub.user.sellersettlement.application.dto.SellerSettlementDashboardSummaryResult;
 import com.prompthub.user.sellersettlement.application.dto.SettlementAnalysisPeriod;
 import com.prompthub.user.sellersettlement.application.dto.SettlementAnalysisPeriodType;
 import com.prompthub.user.sellersettlement.application.dto.SettlementAnalysisResult;
@@ -17,6 +18,10 @@ import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementAna
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementAnalysisQueryRepository.AnalysisQueryRange;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementAnalysisQueryRepository.PayoutStatusSnapshot;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementAnalysisQueryRepository.WeeklyAnalysisAggregate;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyAggregate;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
@@ -32,8 +37,17 @@ public class SellerSettlementAnalysisApplicationService
         implements SellerSettlementAnalysisUseCase {
 
     private final SellerSettlementAnalysisQueryRepository repository;
+    private final SellerSettlementRepository sellerSettlementRepository;
+    private final SellerSettlementQueryRepository sellerSettlementQueryRepository;
     private final SettlementAnalysisPeriodResolver periodResolver;
     private final SettlementChangeCalculator changeCalculator;
+
+    @Override
+    public SellerSettlementDashboardSummaryResult getDashboardSummary(UUID actorId) {
+        return new SellerSettlementDashboardSummaryResult(
+                sellerSettlementRepository.sumTotalAmountBySeller(actorId),
+                sellerSettlementRepository.sumApprovedSettlementAmountBySeller(actorId));
+    }
 
     @Override
     public SettlementAnalysisResult getSummary(
@@ -42,7 +56,12 @@ public class SellerSettlementAnalysisApplicationService
             String period) {
         SettlementAnalysisPeriod resolved = periodResolver.resolve(type, period);
         return SettlementAnalysisResult.from(
-                resolved, repository.aggregate(actorId, toQueryRange(resolved)));
+                resolved,
+                withDashboardMonthlyPayout(
+                        actorId,
+                        type,
+                        period,
+                        repository.aggregate(actorId, toQueryRange(resolved))));
     }
 
     @Override
@@ -57,6 +76,10 @@ public class SellerSettlementAnalysisApplicationService
                 actorId, toQueryRange(resolved.current()));
         AnalysisAggregate comparisonAggregate = repository.aggregate(
                 actorId, toQueryRange(resolved.comparison()));
+        currentAggregate = withDashboardMonthlyPayout(
+                actorId, type, currentPeriod, currentAggregate);
+        comparisonAggregate = withDashboardMonthlyPayout(
+                actorId, type, comparisonPeriod, comparisonAggregate);
         return new SettlementComparisonResult(
                 type,
                 currentPeriod,
@@ -119,6 +142,29 @@ public class SellerSettlementAnalysisApplicationService
     private AnalysisQueryRange toQueryRange(SettlementAnalysisPeriod period) {
         return new AnalysisQueryRange(
                 period.includedStart(), period.includedEnd(), period.completedThrough());
+    }
+
+    private AnalysisAggregate withDashboardMonthlyPayout(
+            UUID actorId,
+            SettlementAnalysisPeriodType type,
+            String requestedPeriod,
+            AnalysisAggregate aggregate) {
+        if (type != SettlementAnalysisPeriodType.MONTH) {
+            return aggregate;
+        }
+        BigDecimal payoutAmount = sellerSettlementQueryRepository.findMonthlyAggregate(
+                        actorId, YearMonth.parse(requestedPeriod))
+                .map(MonthlyAggregate::payoutAmount)
+                .orElse(BigDecimal.ZERO);
+        return new AnalysisAggregate(
+                aggregate.saleCount(),
+                aggregate.refundCount(),
+                aggregate.grossSaleAmount(),
+                aggregate.grossRefundAmount(),
+                aggregate.saleFeeAmount(),
+                aggregate.refundedFeeAmount(),
+                aggregate.netFeeAmount(),
+                payoutAmount);
     }
 
     private WeeklySettlementBucketResult toWeeklyBucket(
