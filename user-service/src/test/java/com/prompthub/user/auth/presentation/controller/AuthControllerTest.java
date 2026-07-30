@@ -2,9 +2,12 @@ package com.prompthub.user.auth.presentation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prompthub.user.auth.application.dto.OAuthLoginCompletedResult;
+import com.prompthub.user.auth.application.dto.OAuthRejoinRequiredResult;
 import com.prompthub.user.auth.application.dto.TokenRefreshResult;
 import com.prompthub.user.auth.application.usecase.AuthUseCase;
+import com.prompthub.user.auth.application.usecase.RejoinUseCase;
 import com.prompthub.user.auth.domain.exception.InvalidRefreshTokenException;
+import com.prompthub.user.auth.domain.exception.InvalidRejoinTokenException;
 import com.prompthub.user.auth.domain.exception.OAuthVerificationFailedException;
 import com.prompthub.user.auth.domain.exception.RefreshTokenReuseDetectedException;
 import com.prompthub.user.auth.domain.exception.TokenExpiredException;
@@ -46,8 +49,12 @@ class AuthControllerTest {
     @MockitoBean
     private AuthUseCase authUseCase;
 
+    @MockitoBean
+    private RejoinUseCase rejoinUseCase;
+
     private static final UUID USER_ID = UUID.randomUUID();
     private static final Instant EXPIRES_AT = Instant.now().plusSeconds(3600);
+    private static final Instant REJOIN_EXPIRES_AT = Instant.parse("2026-07-30T12:05:00Z");
 
     private OAuthLoginCompletedResult successResult(boolean isNewUser) {
         return new OAuthLoginCompletedResult(
@@ -74,6 +81,7 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.loginStatus").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.accessToken").value("access-token"))
                 .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.data.user.email").value("test@kakao.com"))
@@ -91,6 +99,57 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.isNewUser").value(true));
+    }
+
+    @Test
+    void oAuthLogin_WITHDRAWN_사용자는_재가입정보만_응답한다() throws Exception {
+        given(authUseCase.oAuthLogin(any()))
+                .willReturn(new OAuthRejoinRequiredResult("rejoin-token", REJOIN_EXPIRES_AT));
+
+        OAuthLoginRequest request = new OAuthLoginRequest("kakao-access-token");
+
+        mockMvc.perform(post("/api/v2/auth/oauth/kakao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.loginStatus").value("REJOIN_REQUIRED"))
+                .andExpect(jsonPath("$.data.isNewUser").value(false))
+                .andExpect(jsonPath("$.data.rejoinToken").value("rejoin-token"))
+                .andExpect(jsonPath("$.data.rejoinExpiresAt").value("2026-07-30T12:05:00Z"))
+                .andExpect(jsonPath("$.data.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
+    }
+
+    @Test
+    void rejoin_유효한_토큰이면_계정을_복구하고_로그인응답_200() throws Exception {
+        given(rejoinUseCase.rejoin(any())).willReturn(successResult(false));
+
+        mockMvc.perform(post("/api/v2/auth/rejoin")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rejoinToken\":\"rejoin-token\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.loginStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.isNewUser").value(false))
+                .andExpect(jsonPath("$.data.accessToken").value("access-token"));
+    }
+
+    @Test
+    void rejoin_빈_토큰이면_400() throws Exception {
+        mockMvc.perform(post("/api/v2/auth/rejoin")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rejoinToken\":\"\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejoin_유효하지_않거나_만료된_토큰이면_401_A014() throws Exception {
+        given(rejoinUseCase.rejoin(any())).willThrow(new InvalidRejoinTokenException());
+
+        mockMvc.perform(post("/api/v2/auth/rejoin")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rejoinToken\":\"invalid-token\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("A014"));
     }
 
     @Test
