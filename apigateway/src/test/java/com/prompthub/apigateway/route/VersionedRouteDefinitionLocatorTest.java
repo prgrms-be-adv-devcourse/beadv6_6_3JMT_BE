@@ -72,6 +72,22 @@ class VersionedRouteDefinitionLocatorTest {
         assertThat(pathPredicateValue(route)).doesNotContain("/api/v1/");
     }
 
+    /**
+     * 라우트 경로는 코드에 고정돼 있어 서비스에 엔드포인트를 추가해도 자동으로 열리지 않는다.
+     * 빠뜨리면 인증된 요청만 404를 받는다 — 비인증 요청은 라우팅 전에 401로 끊겨 증상이 가려진다.
+     */
+    @Test
+    void ai_추천도_v2로_라우팅된다() {
+        Map<String, List<String>> config = new LinkedHashMap<>();
+        config.put("ai-service", List.of("v2"));
+
+        List<RouteDefinition> definitions = VersionedRouteDefinitionLocator.buildRouteDefinitions(propertiesOf(config));
+
+        String pattern = pathPredicateValue(routeById(definitions, "ai-service"));
+        assertThat(pattern).contains("/api/v2/ai/recommendations");
+        assertThat(pattern).contains("/api/v2/ai/recommendations/**");
+    }
+
     @Test
     void 서비스_키가_없으면_라우트가_생성되지_않는다_즉_404() {
         Map<String, List<String>> config = new LinkedHashMap<>();
