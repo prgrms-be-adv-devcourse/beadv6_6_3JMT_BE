@@ -4,6 +4,7 @@ import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
 import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,19 @@ import org.springframework.stereotype.Repository;
 @Repository
 @RequiredArgsConstructor
 public class SellerSettlementRepositoryAdapter implements SellerSettlementRepository {
+
+    private static final List<SettlementDisplayStatus> REVENUE_STATUSES = List.of(
+            SettlementDisplayStatus.WAITING,
+            SettlementDisplayStatus.APPROVAL_ON_HOLD,
+            SettlementDisplayStatus.APPROVED,
+            SettlementDisplayStatus.PAYOUT_REQUESTED,
+            SettlementDisplayStatus.PAYOUT_ON_HOLD,
+            SettlementDisplayStatus.PAID);
+    private static final List<SettlementDisplayStatus> APPROVED_STATUSES = List.of(
+            SettlementDisplayStatus.APPROVED,
+            SettlementDisplayStatus.PAYOUT_REQUESTED,
+            SettlementDisplayStatus.PAYOUT_ON_HOLD,
+            SettlementDisplayStatus.PAID);
 
     private final SellerSettlementJpaRepository jpaRepository;
 
@@ -37,13 +51,13 @@ public class SellerSettlementRepositoryAdapter implements SellerSettlementReposi
 
     @Override
     public BigDecimal sumTotalAmountBySeller(UUID sellerId) {
-        return jpaRepository.sumTotalAmountBySellerAndStatus(
-                sellerId, SettlementDisplayStatus.PAID);
+        return jpaRepository.sumTotalAmountBySellerAndStatusIn(
+                sellerId, REVENUE_STATUSES);
     }
 
     @Override
-    public BigDecimal sumPaidSettlementAmountBySeller(UUID sellerId) {
-        return jpaRepository.sumSettlementTotalAmountBySellerAndStatus(
-                sellerId, SettlementDisplayStatus.PAID);
+    public BigDecimal sumApprovedSettlementAmountBySeller(UUID sellerId) {
+        return jpaRepository.sumSettlementTotalAmountBySellerAndStatusIn(
+                sellerId, APPROVED_STATUSES);
     }
 }

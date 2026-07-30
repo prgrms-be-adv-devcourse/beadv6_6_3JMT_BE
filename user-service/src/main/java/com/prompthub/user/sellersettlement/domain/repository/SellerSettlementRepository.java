@@ -17,5 +17,5 @@ public interface SellerSettlementRepository {
 
     BigDecimal sumTotalAmountBySeller(UUID sellerId);
 
-    BigDecimal sumPaidSettlementAmountBySeller(UUID sellerId);
+    BigDecimal sumApprovedSettlementAmountBySeller(UUID sellerId);
 }
