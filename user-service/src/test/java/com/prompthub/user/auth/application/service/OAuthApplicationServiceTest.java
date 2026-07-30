@@ -4,15 +4,19 @@ import com.prompthub.user.auth.application.client.KakaoUserInfoClient;
 import com.prompthub.user.auth.application.dto.OAuthLoginCommand;
 import com.prompthub.user.auth.application.dto.OAuthLoginCompletedResult;
 import com.prompthub.user.auth.application.dto.OAuthLoginResult;
+import com.prompthub.user.auth.application.dto.OAuthRejoinRequiredResult;
 import com.prompthub.user.auth.application.dto.OAuthUserInfo;
+import com.prompthub.user.auth.domain.exception.BlockedAccountException;
 import com.prompthub.user.auth.domain.exception.OAuthEmailAlreadyUsedException;
 import com.prompthub.user.auth.domain.exception.OAuthVerificationFailedException;
 import com.prompthub.user.auth.domain.exception.OrphanedAuthRecordException;
 import com.prompthub.user.auth.domain.exception.UnsupportedOAuthProviderException;
 import com.prompthub.user.auth.domain.model.Auth;
 import com.prompthub.user.auth.domain.model.OAuthProvider;
+import com.prompthub.user.auth.domain.model.RejoinToken;
 import com.prompthub.user.auth.domain.repository.AuthRepository;
 import com.prompthub.user.auth.domain.repository.RefreshTokenRepository;
+import com.prompthub.user.auth.domain.repository.RejoinTokenRepository;
 import com.prompthub.user.auth.infrastructure.jwt.JwtTokenProvider;
 import com.prompthub.user.user.domain.model.User;
 import com.prompthub.user.user.domain.model.UserRole;
@@ -56,6 +60,9 @@ class OAuthApplicationServiceTest {
     @Mock
     private LoginSessionIssuer loginSessionIssuer;
 
+    @Mock
+    private RejoinTokenRepository rejoinTokenRepository;
+
     @InjectMocks
     private AuthApplicationService authApplicationService;
 
@@ -95,6 +102,53 @@ class OAuthApplicationServiceTest {
         assertThat(result).isSameAs(completedResult);
         then(userRepository).should(never()).save(any());
         then(authRepository).should(never()).save(any());
+    }
+
+    @Test
+    void login_WITHDRAWN_사용자는_서비스세션없이_재가입토큰만_반환한다() {
+        User withdrawnUser = User.create("테스트유저", "test@kakao.com", null, UserRole.BUYER, true);
+        withdrawnUser.withdraw();
+        Auth existingAuth = Auth.create(
+                withdrawnUser.getUserId(),
+                OAuthProvider.KAKAO,
+                "kakao_123456");
+        Instant rejoinExpiresAt = Instant.parse("2026-07-30T12:05:00Z");
+
+        given(kakaoUserInfoClient.fetchUserInfo(ACCESS_TOKEN)).willReturn(USER_INFO);
+        given(authRepository.findByProviderAndOauthId(OAuthProvider.KAKAO, "kakao_123456"))
+                .willReturn(Optional.of(existingAuth));
+        given(userRepository.findById(withdrawnUser.getUserId()))
+                .willReturn(Optional.of(withdrawnUser));
+        given(rejoinTokenRepository.create(withdrawnUser.getUserId()))
+                .willReturn(new RejoinToken("rejoin-token", rejoinExpiresAt));
+
+        OAuthLoginResult result = authApplicationService.oAuthLogin(COMMAND);
+
+        assertThat(result)
+                .isEqualTo(new OAuthRejoinRequiredResult("rejoin-token", rejoinExpiresAt));
+        then(loginSessionIssuer).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void login_BLOCKED_사용자는_A004로_거부한다() {
+        User blockedUser = User.create("테스트유저", "test@kakao.com", null, UserRole.BUYER, true);
+        blockedUser.block();
+        Auth existingAuth = Auth.create(
+                blockedUser.getUserId(),
+                OAuthProvider.KAKAO,
+                "kakao_123456");
+
+        given(kakaoUserInfoClient.fetchUserInfo(ACCESS_TOKEN)).willReturn(USER_INFO);
+        given(authRepository.findByProviderAndOauthId(OAuthProvider.KAKAO, "kakao_123456"))
+                .willReturn(Optional.of(existingAuth));
+        given(userRepository.findById(blockedUser.getUserId()))
+                .willReturn(Optional.of(blockedUser));
+
+        assertThatThrownBy(() -> authApplicationService.oAuthLogin(COMMAND))
+                .isInstanceOf(BlockedAccountException.class);
+
+        then(rejoinTokenRepository).shouldHaveNoInteractions();
+        then(loginSessionIssuer).shouldHaveNoInteractions();
     }
 
     @Test
