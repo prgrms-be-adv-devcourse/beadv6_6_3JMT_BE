@@ -56,7 +56,8 @@ public class PurchasedProductQueryService implements PurchasedProductQueryUseCas
 			case NOTION -> externalUrl = product.getExternalUrl();
 		}
 		return PurchasedProductDetailResponse.of(
-			requestedId, product, content, fileUrl, externalUrl, averageRating, myRating);
+			requestedId, product, content, fileUrl, externalUrl,
+			presignIfPresent(product.getThumbnailUrl()), averageRating, myRating);
 	}
 
 	private String presignIfPresent(String key) {

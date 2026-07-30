@@ -19,7 +19,7 @@ public record PurchasedProductDetailResponse(
 
 	public static PurchasedProductDetailResponse of(
 		UUID requestedId, Product product,
-		String content, String fileUrl, String externalUrl,
+		String content, String fileUrl, String externalUrl, String thumbnailUrl,
 		double averageRating, Integer myRating
 	) {
 		return new PurchasedProductDetailResponse(
@@ -30,7 +30,7 @@ public record PurchasedProductDetailResponse(
 			content,
 			fileUrl,
 			externalUrl,
-			product.getThumbnailUrl(),
+			thumbnailUrl,
 			product.getSellerId(),
 			averageRating,
 			myRating

@@ -97,6 +97,9 @@ public class ProductSellerService implements ProductSellerUseCase {
 			previousPrice = anchor.getAmount();
 			anchor.update(content, request.changeReason(), isMajor);
 			productRepository.save(anchor);
+			if (isMajor) {
+				publishReviewRequestedEvent(anchor);
+			}
 		} else {
 			Product onSale = family.currentOnSale()
 				.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_INVALID_STATUS));
@@ -108,6 +111,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 				}
 				Product next = onSale.nextVersion(true, content, request.changeReason());
 				productRepository.save(next);
+				publishReviewRequestedEvent(next);
 			} else {
 				Product next = onSale.nextVersion(false, content, request.changeReason());
 				onSale.supersede();
@@ -172,6 +176,11 @@ public class ProductSellerService implements ProductSellerUseCase {
 		product.submitForReview();
 		productRepository.save(product);
 
+		publishReviewRequestedEvent(product);
+	}
+
+	/** MAJOR 버전 전환으로 PENDING_REVIEW가 되는 모든 경로(submitForReview, MAJOR 수정)가 공유한다. */
+	private void publishReviewRequestedEvent(Product product) {
 		UUID duplicateOfProductId = findDuplicateOfProductId(product);
 		String presignedThumbnailUrl = presignOrNull(product.getThumbnailUrl());
 		List<String> presignedImageUrls = presignAll(product.getImageUrls());

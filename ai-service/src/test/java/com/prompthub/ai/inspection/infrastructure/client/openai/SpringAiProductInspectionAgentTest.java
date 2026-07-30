@@ -118,7 +118,7 @@ class SpringAiProductInspectionAgentTest {
 	private ProductInspectionRequest request(List<String> imageUrls) {
 		return new ProductInspectionRequest(
 			PRODUCT_ID, "PROMPT", "제목", "설명", "내용", List.of("tag1"),
-			imageUrls.isEmpty() ? null : "https://s3/presigned-thumb.png", imageUrls, null);
+			imageUrls.isEmpty() ? null : "https://s3/presigned-thumb.png", imageUrls, null, false);
 	}
 
 	private AiSettlementProperties properties() {

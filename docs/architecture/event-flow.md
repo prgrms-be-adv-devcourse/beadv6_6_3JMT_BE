@@ -140,7 +140,7 @@ product가 판매중지/삭제/가격변경 시 `product-events` 발행 → orde
 
 ### 상품 검수 (AI)
 
-product가 셀러의 검수 제출(`submitForReview`) 시 `product-events`에 `PRODUCT_REVIEW_REQUESTED` 발행 → ai-service가 groupId=`ai-service`로 소비해 무상태 검수 수행 → 결과를 `ai-events`에 `PRODUCT_INSPECTION_COMPLETED`로 즉시 발행(Outbox 없이 직접 발행) → product-service가 groupId=`product-service`로 소비해 상품 승인/반려 상태에 반영한다. (`ProductEventProducer.java` → `ai-service/.../consumer/ProductReviewRequestedConsumer.java` → `ai-service/.../producer/InspectionEventProducer.java` → `product-service/.../consumer/ai/ProductInspectionResultConsumer.java`)
+product가 셀러의 검수 제출(`submitForReview`) 또는 MAJOR 버전 수정(`updateProduct`, 최초 등록·기존 ON_SALE 대비 모두)으로 상태가 `PENDING_REVIEW`가 될 때 `product-events`에 `PRODUCT_REVIEW_REQUESTED` 발행 → ai-service가 groupId=`ai-service`로 소비해 무상태 검수 수행 → 결과를 `ai-events`에 `PRODUCT_INSPECTION_COMPLETED`로 즉시 발행(Outbox 없이 직접 발행) → product-service가 groupId=`product-service`로 소비해 상품 승인/반려 상태에 반영한다. (`ProductSellerService.publishReviewRequestedEvent()` → `ProductEventProducer.java` → `ai-service/.../consumer/ProductReviewRequestedConsumer.java` → `ai-service/.../producer/InspectionEventProducer.java` → `product-service/.../consumer/ai/ProductInspectionResultConsumer.java`)
 
 ### 주문 생성 → 결제 (재설계, payment/order 양측 구현 완료)
 

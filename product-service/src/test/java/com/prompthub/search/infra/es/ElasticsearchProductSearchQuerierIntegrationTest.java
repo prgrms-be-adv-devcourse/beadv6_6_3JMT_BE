@@ -343,6 +343,75 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 		assertThat(result.total()).isGreaterThanOrEqualTo(result.hits().size());
 	}
 
+	@Test
+	void 본문에만_있는_단어는_글자_검색에_걸리지_않는다() throws Exception {
+		// #689 — 프롬프트 본문은 "예: 일별 주식 지수 데이터 수집" 같은 placeholder 예시로
+		// 가득해, 본문을 검색 대상에 두면 상품과 무관한 검색어가 예시 문구에 걸려 오탐이 된다.
+		String unique = UUID.randomUUID().toString().substring(0, 8);
+		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(),
+			ProductContentFixtures.promptContent("배치 가이드", 1000, "예: 일별 " + unique + " 지수 데이터 수집"));
+		index(product, 0, 0, 0);
+		refresh();
+
+		ProductSearchPageResult result = querier(new RecordingEmbeddingClient(null))
+			.search(unique, "all", "popular", PageRequest.of(0, 20));
+
+		assertThat(result.hits()).isEmpty();
+		assertThat(result.total()).isZero();
+	}
+
+	@Test
+	void 두_단어_검색은_한_단어만_겹치는_상품을_반환하지_않는다() throws Exception {
+		// #689 — 대부분의 상품명이 "프롬프트"를 포함해, OR 매칭이면 그 단어 하나로
+		// 무관한 상품("펭귄 생성 프롬프트")까지 꼬리로 딸려온다. minimum_should_match가 막는다.
+		String unique = UUID.randomUUID().toString().substring(0, 8);
+		Product both = product(unique + " 주식 도구");
+		Product oneWordOnly = product("펭귄 생성 도구");
+		index(both, 0, 0, 0);
+		index(oneWordOnly, 0, 0, 0);
+		refresh();
+
+		ProductSearchPageResult result = querier(new RecordingEmbeddingClient(null))
+			.search(unique + " 도구", "all", "popular", PageRequest.of(0, 20));
+
+		assertThat(result.hits()).extracting(ProductSearchHit::name).containsExactly(both.getName());
+	}
+
+	@Test
+	void 검색어의_유형_단어는_글자가_아니라_유형_필터로_해석된다() throws Exception {
+		// #689 — "주식 프롬프트"의 의도는 "프롬프트 유형 중 주식 관련"이다. 유형 단어를 글자로
+		// 매칭하면 이름에 "프롬프트"가 없는 상품(주식 자동화류)이 빠지고, 이름에 단 무관 상품이 딸려온다.
+		String unique = UUID.randomUUID().toString().substring(0, 8);
+		Product promptTyped = product(unique + " 자동화");
+		Product notionTyped = Product.create(UUID.randomUUID(), UUID.randomUUID(),
+			ProductContentFixtures.notionContent(unique + " 자동화 계획표", 1000));
+		index(promptTyped, 0, 0, 0);
+		index(notionTyped, 0, 0, 0);
+		refresh();
+
+		ProductSearchPageResult result = querier(new RecordingEmbeddingClient(null))
+			.search(unique + " 프롬프트", "all", "popular", PageRequest.of(0, 20));
+
+		// 이름에 "프롬프트"가 없어도 PROMPT 유형이면 나오고, NOTION 유형은 필터로 걸러진다.
+		assertThat(result.hits()).extracting(ProductSearchHit::name).containsExactly(promptTyped.getName());
+	}
+
+	@Test
+	void 유형_단어만_검색하면_그_유형_전체가_나온다() throws Exception {
+		String unique = UUID.randomUUID().toString().substring(0, 8);
+		Product notionTyped = Product.create(UUID.randomUUID(), UUID.randomUUID(),
+			ProductContentFixtures.notionContent(unique + " 계획표", 1000));
+		index(notionTyped, 0, 0, 0);
+		refresh();
+
+		ProductSearchPageResult result = querier(new RecordingEmbeddingClient(null))
+			.search("노션", "all", "popular", PageRequest.of(0, 100));
+
+		// 공유 색인이라 정확한 목록 대신 "전부 NOTION 유형 + 방금 넣은 상품 포함"을 확인한다.
+		assertThat(result.hits()).isNotEmpty().allMatch(hit -> "NOTION".equals(hit.productType()));
+		assertThat(result.hits()).extracting(ProductSearchHit::name).contains(notionTyped.getName());
+	}
+
 	private Product product(String name) {
 		return Product.create(UUID.randomUUID(), UUID.randomUUID(), ProductContentFixtures.promptContent(name, 1000));
 	}

@@ -2,6 +2,7 @@ package com.prompthub.product.infra.messaging.producer;
 
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.product.domain.model.entity.Product;
+import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.infra.messaging.producer.event.ProductChangedPayload;
 import com.prompthub.product.infra.messaging.producer.event.ProductDeletedPayload;
 import com.prompthub.product.infra.messaging.producer.event.ProductPriceChangedPayload;
@@ -60,7 +61,8 @@ public class ProductEventProducer {
 				product.getTags(),
 				presignedThumbnailUrl,
 				presignedImageUrls,
-				duplicateOfProductId));
+				duplicateOfProductId,
+				product.getAmountType() == AmountType.FREE));
 	}
 
 	private void publish(ProductEventType eventType, UUID aggregateId, Object payload) {
