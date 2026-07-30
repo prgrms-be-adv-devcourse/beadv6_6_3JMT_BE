@@ -49,7 +49,8 @@ class ProductSearchQueryBuilderTest {
 		assertThat(bool.must().get(0).isMultiMatch()).isTrue();
 		MultiMatchQuery multiMatch = bool.must().get(0).multiMatch();
 		assertThat(multiMatch.query()).isEqualTo("목업");
-		assertThat(multiMatch.fields()).containsExactly("name^3", "tags.text^2", "description^1.5", "content");
+		assertThat(multiMatch.fields()).containsExactly("name^3", "tags.text^2", "description^1.5");
+		assertThat(multiMatch.minimumShouldMatch()).isEqualTo("2<75%");
 	}
 
 	@Test

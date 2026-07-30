@@ -24,7 +24,21 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ProductSearchQueryBuilder {
 
-	private static final List<String> MATCH_FIELDS = List.of("name^3", "tags.text^2", "description^1.5", "content");
+	/**
+	 * {@code content}(프롬프트 본문)는 검색하지 않는다. 본문은 "예: 삼성전자, Apple" 같은
+	 * placeholder 예시로 가득해, 상품과 무관한 검색어("주식")가 예시 문구에 걸려 오탐을 만든다
+	 * (#689 — dev 실측으로 확인). 상품이 무엇인지는 이름·태그·설명이 이미 담고 있다.
+	 */
+	private static final List<String> MATCH_FIELDS = List.of("name^3", "tags.text^2", "description^1.5");
+
+	/**
+	 * 여러 단어 검색에서 2단어면 모두, 3단어 이상이면 75% 이상 일치해야 매칭한다.
+	 *
+	 * <p>기본값(OR)이면 단어 하나만 겹쳐도 매칭되는데, 이 코퍼스는 대부분의 상품명이
+	 * "프롬프트"를 포함해 그 단어 하나가 만능 열쇠가 된다 — "주식 프롬프트" 검색에 "펭귄 생성
+	 * 프롬프트"까지 꼬리로 딸려온다(#689). 한 단어 검색은 영향이 없다.
+	 */
+	private static final String MINIMUM_SHOULD_MATCH = "2<75%";
 	private static final String ALL_PRODUCT_TYPES = "all";
 	static final String SORT_POPULAR = "popular";
 	private static final String SORT_RATING = "rating";
@@ -37,9 +51,11 @@ public class ProductSearchQueryBuilder {
 	 * 설정으로 빼지 않는다 — {@code configs/}가 config server 이미지에 구워져 yml을 고쳐도
 	 * 머지·재배포가 필요해서 노브로 만들어도 조정이 빨라지지 않는다({@code TYPE_BONUS}와 같은 이유).
 	 *
-	 * <p>ponytail: 실측 없이 잡은 첫 컷이다. 질의 벡터를 만들려면 OpenAI 호출이 필요해 배포
-	 * 전에는 분포를 잴 수 없었다. 조정 신호는 두 방향 모두 검색 결과로 드러난다 — 무관한 질의에
-	 * 결과가 남으면 올리고, 글자가 안 겹치는데 의미로 찾아야 할 상품이 안 나오면 내린다.
+	 * <p>2026-07-30 dev 실측(색인 36건)으로 유효성을 확인했다(#689). 무관 질의 5종의 최고
+	 * 코사인은 0.249~0.305로 전부 하한 미달(오탐 0건), 명확히 관련된 질의는 0.435~0.494로
+	 * 통과했다. 하한에 걸리는 관련 질의("면접 준비" 0.325 등)는 글자 레그가 잡아준다.
+	 * 조정 신호는 두 방향 모두 검색 결과로 드러난다 — 무관한 질의에 결과가 남으면 올리고,
+	 * 글자가 안 겹치는데 의미로 찾아야 할 상품이 안 나오면 내린다.
 	 */
 	private static final float MIN_SEMANTIC_SIMILARITY = 0.35f;
 
@@ -132,6 +148,7 @@ public class ProductSearchQueryBuilder {
 				.query(keyword)
 				.type(TextQueryType.BestFields)
 				.tieBreaker(0.3)
+				.minimumShouldMatch(MINIMUM_SHOULD_MATCH)
 				.fields(MATCH_FIELDS)));
 
 		Query filtered = Query.of(q -> q.bool(b -> b.must(base).filter(filters)));
