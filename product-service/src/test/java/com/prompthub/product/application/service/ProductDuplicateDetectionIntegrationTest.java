@@ -185,7 +185,7 @@ class ProductDuplicateDetectionIntegrationTest extends PostgresIntegrationTestSu
 	 * 인식하지 않는다) — Java의 ASCII 전용 {@code \s}와 범위가 달라, {@code strip()}을
 	 * {@code trim()}으로만 바꾸는 걸로는 못 맞춘다(2026-07-30 발견). 로캘/인코딩에 의존하는
 	 * {@code \s} 대신 양쪽 다 명시적 문자 클래스 {@code [ \t\n\r\f\v]}로 고정해 항상 같은
-	 * 결과를 내게 했다 — V5 마이그레이션의 정규식과 반드시 같은 문자 클래스를 써야 한다.
+	 * 결과를 내게 했다 — V8 마이그레이션의 정규식과 반드시 같은 문자 클래스를 써야 한다.
 	 */
 	@Test
 	@DisplayName("전각 공백(U+3000) 포함 본문도 Java normalize()와 Postgres 정규화가 같은 해시를 낸다")

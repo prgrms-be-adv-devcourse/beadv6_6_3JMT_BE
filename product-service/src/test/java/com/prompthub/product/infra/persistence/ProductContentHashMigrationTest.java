@@ -69,7 +69,7 @@ class ProductContentHashMigrationTest extends PostgresIntegrationTestSupport {
 	@Test
 	@DisplayName("Postgres sha256()이 정규화(공백 축약+trim+소문자화) 후 Java와 같은 해시를 낸다")
 	void postgresHashMatchesJava() {
-		// V5 백필 SQL의 정규화 계산과 ProductContentHash.normalize()가 같아야 한다.
+		// V8 백필 SQL의 정규화 계산과 ProductContentHash.normalize()가 같아야 한다.
 		// 정규화가 실제로 값을 바꾸는 입력(연속 공백·대문자 포함)으로 검증한다.
 		ProductContent content = promptContent("해시대조", 1000, "Hello   World\n\tGPT  ");
 		Product product = productJpaRepository.save(

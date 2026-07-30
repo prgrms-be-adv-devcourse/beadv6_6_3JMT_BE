@@ -45,7 +45,7 @@ public final class ProductContentHash {
 	 * <p><b>{@code String.strip()}을 쓰지 않는다.</b> {@code strip()}은 유니코드 공백까지
 	 * 인식해 전각 공백(U+3000) 같은 문자를 앞뒤에서만 지우는데, 바로 뒤 정규식은 ASCII 전용
 	 * {@code \s}라 본문 중간의 같은 문자는 못 잡는다 — 그러면 앞뒤/중간이 서로 다른 규칙을
-	 * 타 V5 백필 SQL({@code trim(regexp_replace(content,'\s+',' ','g'))}, Postgres도 ASCII
+	 * 타 V8 백필 SQL({@code trim(regexp_replace(content,'\s+',' ','g'))}, Postgres도 ASCII
 	 * 범위만 공백으로 본다)과 결과가 어긋난다. 정규식으로 먼저 ASCII 공백류를 전부 단일
 	 * 스페이스로 합친 뒤 {@code trim()}(ASCII 범위만 제거)으로 지우면 앞뒤·중간이 같은 규칙을
 	 * 타 SQL과 항상 같은 결과가 나온다.

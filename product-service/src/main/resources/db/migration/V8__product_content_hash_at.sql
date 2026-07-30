@@ -1,5 +1,5 @@
 --
--- product-service V5
+-- product-service V8
 --
 -- content_hash 정규화 강도가 확정됐다(v1: 공백 축약+trim+소문자화,
 -- ProductContentHash.normalize()). V4 백필은 원문 그대로 sha256을 계산했으므로 옛 규칙
