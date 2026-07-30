@@ -234,6 +234,8 @@ manual_patterns=(
   'CONFIRMATION.*!=.*PROVISION'
   'bash scripts/test-provision-self-hosted-runner-ruby\.sh'
   'bash scripts/provision-self-hosted-runner-ruby\.sh'
+  'kubectl auth can-i get namespaces'
+  'kubectl auth can-i create clusterrolebindings\.rbac\.authorization\.k8s\.io'
   'kubectl apply -k k8s/base/storage'
   'kubectl apply -k k8s/base/infrastructure'
   'kubectl apply -k k8s/addons/nginx-ingress'
