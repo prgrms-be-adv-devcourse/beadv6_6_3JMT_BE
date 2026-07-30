@@ -96,7 +96,8 @@ public class SellerSettlementController {
 
 	@GetMapping("/summary")
 	@Operation(summary = "판매자 정산 금액 요약 조회",
-		description = "본인의 누적 총 거래액과 누적 정산 지급 완료 금액을 조회합니다. SELLER 권한이 필요합니다.")
+		description = "본인의 취소 제외 누적 총 거래액과 승인 이후 누적 정산금액을 조회합니다. "
+			+ "SELLER 권한이 필요합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
 			content = @Content(schema = @Schema(implementation = SellerSettlementSummaryResponse.class))),

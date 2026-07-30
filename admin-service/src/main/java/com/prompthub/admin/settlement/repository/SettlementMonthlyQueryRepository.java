@@ -122,7 +122,8 @@ public class SettlementMonthlyQueryRepository {
 				           THEN s.fee_total_amount ELSE 0 END), 0) AS fee_amount,
 				       COALESCE(SUM(CASE WHEN s.status <> 'CANCELLED'
 				           THEN COALESCE(s.refund_amount, 0) ELSE 0 END), 0) AS refund_amount,
-				       COALESCE(SUM(CASE WHEN s.status <> 'CANCELLED'
+				       COALESCE(SUM(CASE WHEN s.status IN (
+				           'APPROVED', 'PAYOUT_REQUESTED', 'PAYOUT_ON_HOLD', 'PAID')
 				           THEN s.settlement_total_amount ELSE 0 END), 0) AS payout_amount
 				FROM seller_settlement s
 				%s
