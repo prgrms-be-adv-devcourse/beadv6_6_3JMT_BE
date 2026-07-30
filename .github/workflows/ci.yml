@@ -73,9 +73,12 @@ jobs:
               - common-module/**
             kubernetes:
               - k8s/**
+              - scripts/provision-self-hosted-runner-ruby.sh
+              - scripts/test-provision-self-hosted-runner-ruby.sh
               - scripts/validate-k8s-*.sh
               - scripts/test-validate-k8s-secret-contract.sh
               - .github/workflows/ci.yml
+              - .github/workflows/cd-selfhosted-kubernetes.yml
               - .github/workflows/release-develop.yml
 
   user_service_ci:
@@ -182,7 +185,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Validate shell scripts
-        run: bash -n scripts/test-validate-k8s-secret-contract.sh scripts/validate-k8s-secret-contract.sh scripts/validate-k8s-manifests.sh
+        run: |
+          bash -n \
+            scripts/provision-self-hosted-runner-ruby.sh \
+            scripts/test-provision-self-hosted-runner-ruby.sh \
+            scripts/test-validate-k8s-secret-contract.sh \
+            scripts/validate-k8s-secret-contract.sh \
+            scripts/validate-k8s-manifests.sh
+
+      - name: Validate self-hosted runner Ruby provisioner
+        run: bash scripts/test-provision-self-hosted-runner-ruby.sh
 
       - name: Validate Secret contract regression
         run: bash scripts/test-validate-k8s-secret-contract.sh

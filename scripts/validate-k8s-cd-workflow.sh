@@ -274,6 +274,14 @@ require_pattern "$PR_WORKFLOW" '^name:[[:space:]]+CI$' "PR CI name changed"
 require_pattern "$PR_WORKFLOW" '^[[:space:]]+pull_request:$' "PR CI trigger missing"
 require_pattern "$PR_WORKFLOW" '^[[:space:]]+- develop$' "PR CI develop target missing"
 require_pattern "$PR_WORKFLOW" '^[[:space:]]+ci-gate:$' "PR CI Gate missing"
+require_pattern "$PR_WORKFLOW" '^[[:space:]]+- \.github/workflows/cd-selfhosted-kubernetes\.yml$' \
+  "PR CI Kubernetes filter must include the self-hosted workflow"
+require_pattern "$PR_WORKFLOW" '^[[:space:]]+- scripts/provision-self-hosted-runner-ruby\.sh$' \
+  "PR CI Kubernetes filter must include the Ruby provisioner"
+require_pattern "$PR_WORKFLOW" '^[[:space:]]+- scripts/test-provision-self-hosted-runner-ruby\.sh$' \
+  "PR CI must include the Ruby provisioner regression test"
+require_pattern "$PR_WORKFLOW" 'run:[[:space:]]+bash scripts/test-provision-self-hosted-runner-ruby\.sh$' \
+  "PR CI must execute the Ruby provisioner regression test"
 forbid_pattern "$PR_WORKFLOW" 'push-image:[[:space:]]+true|packages:[[:space:]]+write|reusable-kubernetes-deploy' \
   "PR CI must remain build/test only"
 
