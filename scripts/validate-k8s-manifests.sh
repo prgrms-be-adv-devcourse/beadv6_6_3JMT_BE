@@ -493,6 +493,21 @@ for package in "${PACKAGES[@]}"; do
       fi
     done
 
+    if ! awk '
+      BEGIN { RS = "---" }
+      /kind:[[:space:]]+ConfigMap/ &&
+        /name:[[:space:]]+kibana-operations-dashboards/ {
+          found++
+          if (/namespace:[[:space:]]+elk/) {
+            namespaced++
+          }
+        }
+      END { exit !(found == 1 && namespaced == 1) }
+    ' "${rendered}"; then
+      echo "Kibana operations dashboard ConfigMap must render in the elk namespace" >&2
+      exit 1
+    fi
+
     if grep -Eq 'emptyDir:[[:space:]]*\\{\\}' "${rendered}"; then
       echo "ELK must not use ephemeral emptyDir storage" >&2
       exit 1
