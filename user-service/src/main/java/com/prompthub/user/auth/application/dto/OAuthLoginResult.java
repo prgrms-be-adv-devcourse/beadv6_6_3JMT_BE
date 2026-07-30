@@ -1,19 +1,9 @@
 package com.prompthub.user.auth.application.dto;
 
-import com.prompthub.user.user.domain.model.UserRole;
+public sealed interface OAuthLoginResult
+        permits OAuthLoginCompletedResult, OAuthRejoinRequiredResult {
 
-import java.time.Instant;
-import java.util.Set;
-import java.util.UUID;
+    OAuthLoginStatus loginStatus();
 
-public record OAuthLoginResult(
-        UUID userId,
-        String name,
-        String email,
-        Set<UserRole> roles,
-        String accessToken,
-        String refreshToken,
-        String tokenType,
-        Instant expiresAt,
-        boolean isNewUser
-) {}
+    boolean isNewUser();
+}

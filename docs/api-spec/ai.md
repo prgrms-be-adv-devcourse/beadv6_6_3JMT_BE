@@ -128,7 +128,11 @@ flowchart TD
 ## 데이터와 보안 경계
 
 - 대화와 run 상태는 기존 Redis 인스턴스의 logical DB 1에 24시간 저장한다.
-- AI는 User의 `SellerSettlementQueryService` 네 개 Tool만 호출한다.
+- AI는 User의 `SellerSettlementQueryService` 다섯 개 읽기 Tool만 호출한다.
+- 대시보드·누적·전체 금액 질문은 `GetSettlementDashboardSummary`로 REST 대시보드와 같은
+  취소 제외 누적 매출액 및 승인 이후 누적 정산금액을 조회한다.
+- 월·주 지급액은 `APPROVED`, `PAYOUT_REQUESTED`, `PAYOUT_ON_HOLD`, `PAID` 상태만 합산한다.
+- 월별 지급액은 셀러 월별 정산 대시보드의 월 집계 저장소 값을 그대로 사용한다.
 - User gRPC는 actor metadata와 내부 토큰을 확인하고 해당 셀러의 집계 결과만 반환한다.
 - OpenAI에는 원본 Kafka 이벤트와 다른 셀러 데이터, 내부 식별자 목록을 전달하지 않는다.
 - `AI_SETTLEMENT_CHAT_ENABLED=false`이면 모든 엔드포인트가 `AI_CHAT_DISABLED`(503)를 반환한다.

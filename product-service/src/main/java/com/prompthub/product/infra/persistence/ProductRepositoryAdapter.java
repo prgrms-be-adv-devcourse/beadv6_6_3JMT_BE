@@ -2,13 +2,13 @@ package com.prompthub.product.infra.persistence;
 
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
-import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
 import com.prompthub.product.domain.model.projection.SimilarProductProjection;
 import com.prompthub.product.domain.repository.ProductRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -116,12 +116,19 @@ public class ProductRepositoryAdapter implements ProductRepository {
 		return productJpaRepository.findChangedFamilyRootIds(since);
 	}
 
+	/**
+	 * 한 가족의 여러 버전이 동시에 ON_SALE이면(#699) 버전끼리 임베딩이 거의 같아 나란히
+	 * 후보에 들어온다. 행이 이미 거리순이므로 가족당 첫 행(최근접)만 남긴다 — SQL의
+	 * {@code DISTINCT ON}은 HNSW 인덱스 조건을 깨뜨려 여기서 걸러낸다.
+	 */
 	@Override
 	public List<SimilarProductProjection> findSimilarProducts(UUID productId, UUID familyRootId, int candidates) {
-		return productJpaRepository.findSimilarProductRows(productId, familyRootId, candidates).stream()
-			.map(row -> new SimilarProductProjection(
-				(UUID) row[0], (String) row[1], ((Number) row[2]).doubleValue()))
-			.toList();
+		Map<UUID, SimilarProductProjection> firstPerFamily = new LinkedHashMap<>();
+		for (Object[] row : productJpaRepository.findSimilarProductRows(productId, familyRootId, candidates)) {
+			firstPerFamily.putIfAbsent((UUID) row[3], new SimilarProductProjection(
+				(UUID) row[0], (String) row[1], ((Number) row[2]).doubleValue()));
+		}
+		return List.copyOf(firstPerFamily.values());
 	}
 
 	@Override

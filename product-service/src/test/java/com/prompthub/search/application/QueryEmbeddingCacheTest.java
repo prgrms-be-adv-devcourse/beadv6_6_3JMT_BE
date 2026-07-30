@@ -34,6 +34,19 @@ class QueryEmbeddingCacheTest {
 	}
 
 	@Test
+	@DisplayName("임베딩 입력도 캐시 키와 같은 정규화 문자열을 쓴다")
+	void embedsNormalizedKeyword() {
+		// #699 — 키만 소문자로 합치고 입력을 원문으로 두면, "GPT"와 "gpt"가 같은 키에 서로 다른
+		// 벡터를 넣어 먼저 검색된 쪽이 이기는 비결정 동작이 된다.
+		RecordingEmbeddingClient client = new RecordingEmbeddingClient();
+		QueryEmbeddingCache cache = new QueryEmbeddingCache(client);
+
+		cache.get("  GPT  ");
+
+		assertThat(client.calls).containsExactly("gpt");
+	}
+
+	@Test
 	@DisplayName("상한을 넘기면 가장 오래 쓰지 않은 항목이 밀려난다")
 	void evictsLeastRecentlyUsed() {
 		RecordingEmbeddingClient client = new RecordingEmbeddingClient();

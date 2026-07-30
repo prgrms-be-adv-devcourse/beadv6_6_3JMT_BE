@@ -4,6 +4,7 @@ import com.prompthub.user.grpc.sellersettlement.CompareSettlementPeriodsResponse
 import com.prompthub.user.grpc.sellersettlement.CountChange;
 import com.prompthub.user.grpc.sellersettlement.DecimalChange;
 import com.prompthub.user.grpc.sellersettlement.GetPayoutStatusResponse;
+import com.prompthub.user.grpc.sellersettlement.GetSettlementDashboardSummaryResponse;
 import com.prompthub.user.grpc.sellersettlement.GetSettlementSummaryResponse;
 import com.prompthub.user.grpc.sellersettlement.GetWeeklySettlementBreakdownResponse;
 import com.prompthub.user.grpc.sellersettlement.PayoutStatusCount;
@@ -13,6 +14,7 @@ import com.prompthub.user.grpc.sellersettlement.SettlementPeriodType;
 import com.prompthub.user.grpc.sellersettlement.WeeklyPayoutStatus;
 import com.prompthub.user.grpc.sellersettlement.WeeklySettlementBucket;
 import com.prompthub.user.sellersettlement.application.dto.PayoutStatusResult;
+import com.prompthub.user.sellersettlement.application.dto.SellerSettlementDashboardSummaryResult;
 import com.prompthub.user.sellersettlement.application.dto.SettlementAnalysisPeriodType;
 import com.prompthub.user.sellersettlement.application.dto.SettlementAnalysisResult;
 import com.prompthub.user.sellersettlement.application.dto.SettlementComparisonResult;
@@ -26,6 +28,14 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class SellerSettlementGrpcResponseMapper {
+
+    public GetSettlementDashboardSummaryResponse toDashboardSummary(
+            SellerSettlementDashboardSummaryResult result) {
+        return GetSettlementDashboardSummaryResponse.newBuilder()
+                .setTotalRevenueAmount(decimal(result.totalRevenueAmount()))
+                .setTotalSettlementAmount(decimal(result.totalSettlementAmount()))
+                .build();
+    }
 
     public GetSettlementSummaryResponse toSummary(SettlementAnalysisResult result) {
         return GetSettlementSummaryResponse.newBuilder()

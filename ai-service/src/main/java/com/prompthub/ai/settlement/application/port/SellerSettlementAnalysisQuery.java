@@ -9,6 +9,8 @@ import java.util.UUID;
  */
 public interface SellerSettlementAnalysisQuery {
 
+    DashboardSummaryResult getDashboardSummary(UUID actorId);
+
     SettlementSummaryResult getSummary(UUID actorId, String periodType, String period);
 
     SettlementComparisonResult comparePeriods(
@@ -20,6 +22,12 @@ public interface SellerSettlementAnalysisQuery {
     WeeklyBreakdownResult getWeeklyBreakdown(UUID actorId, String month);
 
     PayoutStatusResult getPayoutStatus(UUID actorId, String settlementMonth);
+
+    record DashboardSummaryResult(
+            String totalRevenueAmount,
+            String totalSettlementAmount
+    ) {
+    }
 
     record SettlementAggregateResult(
             String includedStartDate,

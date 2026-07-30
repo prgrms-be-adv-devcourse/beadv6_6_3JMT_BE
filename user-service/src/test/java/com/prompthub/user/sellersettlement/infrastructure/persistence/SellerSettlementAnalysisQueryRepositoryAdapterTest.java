@@ -103,6 +103,41 @@ class SellerSettlementAnalysisQueryRepositoryAdapterTest {
                         tuple(LocalDate.of(2026, 7, 20), SettlementDisplayStatus.APPROVED));
     }
 
+    @Test
+    @DisplayName("챗봇 지급액은 승인 이후 상태만 합산하고 매출 분석은 취소 외 상태를 유지한다")
+    void aggregatesApprovedPayoutAndNonCancelledSales() {
+        UUID sellerId = UUID.randomUUID();
+        LocalDate weekStart = LocalDate.of(2026, 7, 6);
+        int amount = 100;
+        for (SettlementDisplayStatus status : SettlementDisplayStatus.values()) {
+            persistWeek(
+                    sellerId,
+                    weekStart,
+                    status,
+                    List.of(detail(
+                            SellerSettlementLineType.SALE,
+                            String.valueOf(amount),
+                            String.valueOf(amount * 15 / 100),
+                            String.valueOf(amount * 85 / 100),
+                            "2026-07-08T10:00:00")));
+        }
+        entityManager.flush();
+        entityManager.clear();
+
+        AnalysisQueryRange range = new AnalysisQueryRange(
+                weekStart, weekStart.plusDays(6), weekStart.plusDays(6));
+        AnalysisAggregate aggregate = repository.aggregate(sellerId, range);
+        List<WeeklyAnalysisAggregate> breakdown = repository.findWeeklyBreakdown(
+                sellerId,
+                YearMonth.of(2026, 7),
+                weekStart.plusDays(6),
+                weekStart.plusDays(6));
+
+        assertAggregate(aggregate, 6, 0, "600", "0", "90", "0", "90", "340");
+        assertThat(breakdown).singleElement().satisfies(weekly ->
+                assertThat(weekly.aggregate().payoutAmount()).isEqualByComparingTo("340"));
+    }
+
     private void assertAggregate(
             AnalysisAggregate aggregate,
             long saleCount,

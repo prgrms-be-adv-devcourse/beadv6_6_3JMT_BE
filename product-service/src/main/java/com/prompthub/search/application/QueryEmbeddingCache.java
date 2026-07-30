@@ -63,8 +63,13 @@ public class QueryEmbeddingCache {
 		}
 
 		// 예산을 넘겨도 작업을 취소하지 않는다. 뒤늦게 끝나면 캐시에 담겨 다음 요청이 이득을 본다.
+		//
+		// 임베딩 입력은 원문이 아니라 캐시 키와 같은 정규화 문자열이다(#699). 키만 합치고 입력을
+		// 원문으로 두면 "GPT"와 "gpt"가 같은 키에 다른 벡터를 넣어, 어느 쪽을 먼저 검색했느냐에
+		// 따라 파드별로 결과가 달라진다. 임베딩은 대소문자에 민감하다(dev 실측: "GPT" 0.365 vs
+		// "gpt" 0.341 — 하한 0.35를 사이에 두고 갈림).
 		CompletableFuture<float[]> pending = CompletableFuture.supplyAsync(() -> {
-			float[] embedding = embeddingClient.embed(keyword);
+			float[] embedding = embeddingClient.embed(key);
 			if (embedding != null) {
 				store(key, embedding);
 			}

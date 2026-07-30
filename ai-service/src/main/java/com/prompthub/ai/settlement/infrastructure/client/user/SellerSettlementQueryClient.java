@@ -10,6 +10,8 @@ import com.prompthub.user.grpc.sellersettlement.CountChange;
 import com.prompthub.user.grpc.sellersettlement.DecimalChange;
 import com.prompthub.user.grpc.sellersettlement.GetPayoutStatusRequest;
 import com.prompthub.user.grpc.sellersettlement.GetPayoutStatusResponse;
+import com.prompthub.user.grpc.sellersettlement.GetSettlementDashboardSummaryRequest;
+import com.prompthub.user.grpc.sellersettlement.GetSettlementDashboardSummaryResponse;
 import com.prompthub.user.grpc.sellersettlement.GetSettlementSummaryRequest;
 import com.prompthub.user.grpc.sellersettlement.GetSettlementSummaryResponse;
 import com.prompthub.user.grpc.sellersettlement.GetWeeklySettlementBreakdownRequest;
@@ -66,6 +68,18 @@ public class SellerSettlementQueryClient implements SellerSettlementAnalysisQuer
         this.deadline = deadline;
         this.internalToken = internalToken;
         this.meterRegistry = meterRegistry;
+    }
+
+    @Override
+    public DashboardSummaryResult getDashboardSummary(UUID actorId) {
+        GetSettlementDashboardSummaryResponse response = invoke(
+                "GetSettlementDashboardSummary",
+                actorId,
+                stub -> stub.getSettlementDashboardSummary(
+                        GetSettlementDashboardSummaryRequest.getDefaultInstance()));
+        return new DashboardSummaryResult(
+                response.getTotalRevenueAmount(),
+                response.getTotalSettlementAmount());
     }
 
     @Override

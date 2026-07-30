@@ -4,6 +4,8 @@ import com.prompthub.user.grpc.sellersettlement.CompareSettlementPeriodsRequest;
 import com.prompthub.user.grpc.sellersettlement.CompareSettlementPeriodsResponse;
 import com.prompthub.user.grpc.sellersettlement.GetPayoutStatusRequest;
 import com.prompthub.user.grpc.sellersettlement.GetPayoutStatusResponse;
+import com.prompthub.user.grpc.sellersettlement.GetSettlementDashboardSummaryRequest;
+import com.prompthub.user.grpc.sellersettlement.GetSettlementDashboardSummaryResponse;
 import com.prompthub.user.grpc.sellersettlement.GetSettlementSummaryRequest;
 import com.prompthub.user.grpc.sellersettlement.GetSettlementSummaryResponse;
 import com.prompthub.user.grpc.sellersettlement.GetWeeklySettlementBreakdownRequest;
@@ -36,6 +38,14 @@ public class SellerSettlementQueryGrpcServer
 
     private final SellerSettlementAnalysisUseCase useCase;
     private final SellerSettlementGrpcResponseMapper mapper;
+
+    @Override
+    public void getSettlementDashboardSummary(
+            GetSettlementDashboardSummaryRequest request,
+            StreamObserver<GetSettlementDashboardSummaryResponse> responseObserver) {
+        respond("GetSettlementDashboardSummary", responseObserver,
+                actorId -> mapper.toDashboardSummary(useCase.getDashboardSummary(actorId)));
+    }
 
     @Override
     public void getSettlementSummary(

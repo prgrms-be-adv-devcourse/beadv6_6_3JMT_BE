@@ -1,6 +1,7 @@
 package com.prompthub.user.sellersettlement.application.usecase;
 
 import com.prompthub.user.sellersettlement.application.dto.PayoutStatusResult;
+import com.prompthub.user.sellersettlement.application.dto.SellerSettlementDashboardSummaryResult;
 import com.prompthub.user.sellersettlement.application.dto.SettlementAnalysisPeriodType;
 import com.prompthub.user.sellersettlement.application.dto.SettlementAnalysisResult;
 import com.prompthub.user.sellersettlement.application.dto.SettlementComparisonResult;
@@ -9,6 +10,8 @@ import java.time.YearMonth;
 import java.util.UUID;
 
 public interface SellerSettlementAnalysisUseCase {
+
+    SellerSettlementDashboardSummaryResult getDashboardSummary(UUID actorId);
 
     SettlementAnalysisResult getSummary(
             UUID actorId, SettlementAnalysisPeriodType type, String period);

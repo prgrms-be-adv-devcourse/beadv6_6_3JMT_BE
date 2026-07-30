@@ -2,7 +2,6 @@ package com.prompthub.product.infra.persistence;
 
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
-import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.model.enums.ReviewStatus;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
@@ -293,11 +292,16 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 	 * 이걸 primitive double로 받으면 NPE가 난다. 승인 직후 재조정 배치가 임베딩을 채우기 전까지
 	 * 실제로 생기는 상태다. WHERE에만 두어 ORDER BY 식은 건드리지 않는다.
 	 *
-	 * @return {@code [id(UUID), productType(String), distance(Double)]} 행 목록
+	 * <p>가족(family) 중복 제거는 SQL이 아니라 어댑터에서 한다 — {@code DISTINCT ON}은 정렬
+	 * 선두를 가족 키로 바꿔 위의 HNSW 인덱스 조건을 깨뜨린다. family_root 컬럼은 그 어댑터
+	 * 중복 제거용이다(#699).
+	 *
+	 * @return {@code [id(UUID), productType(String), distance(Double), familyRoot(UUID)]} 행 목록
 	 */
 	@Query(value = """
 		select p.id, p.product_type,
-		       p.embedding <=> (select embedding from product where id = :productId) as distance
+		       p.embedding <=> (select embedding from product where id = :productId) as distance,
+		       coalesce(p.parent_id, p.id) as family_root
 		from product p
 		where p.status = 'ON_SALE'
 			and p.deleted_at is null

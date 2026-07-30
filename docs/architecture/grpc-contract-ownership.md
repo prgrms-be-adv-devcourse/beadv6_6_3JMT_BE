@@ -84,7 +84,7 @@ beadv6_6_3JMT_BE/
     │   └── order_query.proto    ← OrderQueryService.GetSettleableLines
     ├── user/                  ← user-service가 제공하는 공유 계약
     │   └── seller_settlement_query.proto
-    │                            ← SellerSettlementQueryService의 AI 정산 조회 4종
+    │                            ← SellerSettlementQueryService의 AI 정산 조회 5종
     └── product/
         └── product_query.proto  ← Product 소유 공유 계약. Seller Settlement는 #452 이후 GetSellerStats를 소비하지 않음
 ```
@@ -116,7 +116,7 @@ sourceSets {
 | 계약(rpc) | 요청자(client) | 서버(owner) | 위치 | 비고 |
 | --- | --- | --- | --- | --- |
 | `GetSettleableLines`(정산 원천) | settlement | **order** | `grpc/order/order_query.proto` | settlement 클라이언트와 order 서버 구현 완료 |
-| `GetSettlementSummary`, `CompareSettlementPeriods`, `GetWeeklySettlementBreakdown`, `GetPayoutStatus` | ai | **user** | `grpc/user/seller_settlement_query.proto` | User가 셀러 본인 읽기 모델을 권한 검사 후 집계해 응답 |
+| `GetSettlementDashboardSummary`, `GetSettlementSummary`, `CompareSettlementPeriods`, `GetWeeklySettlementBreakdown`, `GetPayoutStatus` | ai | **user** | `grpc/user/seller_settlement_query.proto` | User가 셀러 본인 읽기 모델을 권한 검사 후 집계해 응답 |
 
 > **제거됨:** `GetSellerStats`는 #452에서 user-service `sellersettlement` 소비자가 먼저 제거됐고,
 > 이후 계약 소유자인 Product가 공개 REST `GET /api/v2/products/sellers/me/summary`(#483)로 대체하며

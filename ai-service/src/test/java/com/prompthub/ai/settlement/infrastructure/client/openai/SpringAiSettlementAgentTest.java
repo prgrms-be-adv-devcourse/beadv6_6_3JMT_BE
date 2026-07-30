@@ -120,7 +120,7 @@ class SpringAiSettlementAgentTest {
         Prompt postToolPrompt = callPrompt.getAllValues().get(1);
         OpenAiChatOptions initialOptions = (OpenAiChatOptions) initialPrompt.getOptions();
         assertThat(initialOptions.getParallelToolCalls()).isTrue();
-        assertThat(initialOptions.getToolCallbacks()).hasSize(4);
+        assertThat(initialOptions.getToolCallbacks()).hasSize(5);
         assertThat(initialOptions.getToolContext())
                 .containsEntry("actorId", actorId.toString())
                 .containsEntry("runId", runId.toString());
