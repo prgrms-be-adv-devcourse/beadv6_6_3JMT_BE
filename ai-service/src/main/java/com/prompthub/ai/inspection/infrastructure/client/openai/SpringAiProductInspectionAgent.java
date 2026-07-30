@@ -68,7 +68,8 @@ public class SpringAiProductInspectionAgent implements ProductInspectionAiPort {
 
 	private UserMessage userMessage(ProductInspectionRequest request) {
 		String text = promptFactory.userPrompt(
-			request.productType(), request.name(), request.description(), request.content(), request.tags());
+			request.productType(), request.name(), request.description(), request.content(), request.tags(),
+			request.free());
 		List<Media> media = collectMedia(request);
 		return UserMessage.builder().text(text).media(media.toArray(new Media[0])).build();
 	}

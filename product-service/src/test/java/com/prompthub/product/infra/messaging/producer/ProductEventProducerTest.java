@@ -9,6 +9,7 @@ import com.prompthub.product.infra.messaging.producer.event.ProductStoppedPayloa
 import java.util.List;
 import java.util.UUID;
 
+import static com.prompthub.product.support.ProductContentFixtures.freePromptContent;
 import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -142,6 +143,20 @@ class ProductEventProducerTest {
 			assertThat(payload.thumbnailUrl()).isEqualTo("https://s3/presigned-thumb");
 			assertThat(payload.imageUrls()).containsExactly("https://s3/presigned-1");
 			assertThat(payload.duplicateOfProductId()).isNull();
+			assertThat(payload.free()).isFalse();
+		}
+
+		@Test
+		@DisplayName("무료 상품(AmountType.FREE)이면 payload의 free가 true다")
+		void publishReviewRequested_freeProduct_setsFreeTrue() {
+			Product product = Product.create(PRODUCT_ID, UUID.randomUUID(), freePromptContent());
+
+			productEventProducer.publishReviewRequested(
+				product, null, "https://s3/presigned-thumb", List.of("https://s3/presigned-1"));
+
+			EventMessage<?> message = captureMessage();
+			ProductReviewRequestedPayload payload = (ProductReviewRequestedPayload) message.payload();
+			assertThat(payload.free()).isTrue();
 		}
 
 		@Test

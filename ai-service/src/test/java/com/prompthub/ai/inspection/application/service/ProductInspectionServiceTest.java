@@ -86,12 +86,12 @@ class ProductInspectionServiceTest {
 	private ProductInspectionRequest request() {
 		return new ProductInspectionRequest(
 			PRODUCT_ID, "PROMPT", "제목", "설명", "content", List.of("tag1"),
-			"https://s3/presigned-thumb", List.of("https://s3/presigned-1"), null);
+			"https://s3/presigned-thumb", List.of("https://s3/presigned-1"), null, false);
 	}
 
 	private ProductInspectionRequest requestWithDuplicate(UUID duplicateOfProductId) {
 		return new ProductInspectionRequest(
 			PRODUCT_ID, "PROMPT", "제목", "설명", "content", List.of("tag1"),
-			"https://s3/presigned-thumb", List.of("https://s3/presigned-1"), duplicateOfProductId);
+			"https://s3/presigned-thumb", List.of("https://s3/presigned-1"), duplicateOfProductId, false);
 	}
 }

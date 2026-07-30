@@ -61,7 +61,8 @@ public class ProductReviewRequestedConsumer {
 			toStringList(payload.path("tags")),
 			payload.path("thumbnailUrl").stringValue(null),
 			toStringList(payload.path("imageUrls")),
-			toUuidOrNull(payload.path("duplicateOfProductId")));
+			toUuidOrNull(payload.path("duplicateOfProductId")),
+			payload.path("free").booleanValue(false));
 	}
 
 	private UUID toUuidOrNull(JsonNode node) {
