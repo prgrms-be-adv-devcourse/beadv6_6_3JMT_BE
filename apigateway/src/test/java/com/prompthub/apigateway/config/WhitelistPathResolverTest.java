@@ -36,8 +36,8 @@ class WhitelistPathResolverTest {
         List<String> whitelist = WhitelistPathResolver.authWhitelist(propertiesOf(config));
 
         assertThat(whitelist).contains(
-            "/api/v1/auth/oauth/**", "/api/v1/auth/token/refresh",
-            "/api/v2/auth/oauth/**", "/api/v2/auth/token/refresh"
+            "/api/v1/auth/oauth/**", "/api/v1/auth/token/refresh", "/api/v1/auth/rejoin",
+            "/api/v2/auth/oauth/**", "/api/v2/auth/token/refresh", "/api/v2/auth/rejoin"
         );
     }
 

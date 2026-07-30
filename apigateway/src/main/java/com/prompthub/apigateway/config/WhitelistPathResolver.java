@@ -16,7 +16,8 @@ public final class WhitelistPathResolver {
 
     private static final List<String> AUTH_PATH_SUFFIXES = List.of(
         "/auth/oauth/**",
-        "/auth/token/refresh"
+        "/auth/token/refresh",
+        "/auth/rejoin"
     );
 
     private static final List<String> PRODUCT_READ_PATH_SUFFIXES = List.of(
