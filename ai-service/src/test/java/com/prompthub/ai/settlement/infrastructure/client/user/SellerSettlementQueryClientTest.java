@@ -5,7 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.prompthub.ai.global.exception.AiErrorCode;
 import com.prompthub.ai.global.exception.AiException;
+import com.prompthub.ai.settlement.application.port.SellerSettlementAnalysisQuery.DashboardSummaryResult;
 import com.prompthub.ai.settlement.application.port.SellerSettlementAnalysisQuery.SettlementSummaryResult;
+import com.prompthub.user.grpc.sellersettlement.GetSettlementDashboardSummaryRequest;
+import com.prompthub.user.grpc.sellersettlement.GetSettlementDashboardSummaryResponse;
 import com.prompthub.user.grpc.sellersettlement.GetSettlementSummaryRequest;
 import com.prompthub.user.grpc.sellersettlement.GetSettlementSummaryResponse;
 import com.prompthub.user.grpc.sellersettlement.SellerSettlementQueryServiceGrpc;
@@ -69,6 +72,19 @@ class SellerSettlementQueryClientTest {
                 new SimpleMeterRegistry());
     }
 
+    @Test
+    @DisplayName("대시보드 누적 요약을 REST 화면과 같은 문자열 금액으로 매핑한다")
+    void mapsDashboardSummary() {
+        UUID actorId = UUID.randomUUID();
+
+        DashboardSummaryResult result = client.getDashboardSummary(actorId);
+
+        assertThat(result.totalRevenueAmount()).isEqualTo("1000");
+        assertThat(result.totalSettlementAmount()).isEqualTo("340");
+        assertThat(receivedActorId).hasValue(actorId.toString());
+        assertThat(receivedToken).hasValue(TOKEN);
+    }
+
     @AfterEach
     void tearDown() {
         if (channel != null) {
@@ -115,6 +131,20 @@ class SellerSettlementQueryClientTest {
 
     private SellerSettlementQueryServiceGrpc.SellerSettlementQueryServiceImplBase service() {
         return new SellerSettlementQueryServiceGrpc.SellerSettlementQueryServiceImplBase() {
+            @Override
+            public void getSettlementDashboardSummary(
+                    GetSettlementDashboardSummaryRequest request,
+                    StreamObserver<GetSettlementDashboardSummaryResponse> responseObserver
+            ) {
+                callCount.incrementAndGet();
+                receivedDeadline.set(Context.current().getDeadline());
+                responseObserver.onNext(GetSettlementDashboardSummaryResponse.newBuilder()
+                        .setTotalRevenueAmount("1000")
+                        .setTotalSettlementAmount("340")
+                        .build());
+                responseObserver.onCompleted();
+            }
+
             @Override
             public void getSettlementSummary(
                     GetSettlementSummaryRequest request,

@@ -7,6 +7,8 @@ option java_package = "com.prompthub.user.grpc.sellersettlement";
 option java_outer_classname = "SellerSettlementQueryProto";
 
 service SellerSettlementQueryService {
+  rpc GetSettlementDashboardSummary(GetSettlementDashboardSummaryRequest)
+      returns (GetSettlementDashboardSummaryResponse);
   rpc GetSettlementSummary(GetSettlementSummaryRequest)
       returns (GetSettlementSummaryResponse);
   rpc CompareSettlementPeriods(CompareSettlementPeriodsRequest)
@@ -15,6 +17,14 @@ service SellerSettlementQueryService {
       returns (GetWeeklySettlementBreakdownResponse);
   rpc GetPayoutStatus(GetPayoutStatusRequest)
       returns (GetPayoutStatusResponse);
+}
+
+message GetSettlementDashboardSummaryRequest {
+}
+
+message GetSettlementDashboardSummaryResponse {
+  string total_revenue_amount = 1;
+  string total_settlement_amount = 2;
 }
 
 enum SettlementPeriodType {

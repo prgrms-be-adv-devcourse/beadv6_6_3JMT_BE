@@ -35,7 +35,9 @@ public class SellerSettlementAnalysisQueryRepositoryAdapter
                    ABS(COALESCE(SUM(CASE WHEN d.line_type = 'REFUND'
                        THEN d.fee_amount ELSE 0 END), 0)) AS refunded_fee_amount,
                    COALESCE(SUM(d.fee_amount), 0) AS net_fee_amount,
-                   COALESCE(SUM(d.line_settlement_amount), 0) AS payout_amount
+                   COALESCE(SUM(CASE WHEN s.status IN (
+                       'APPROVED', 'PAYOUT_REQUESTED', 'PAYOUT_ON_HOLD', 'PAID')
+                       THEN d.line_settlement_amount ELSE 0 END), 0) AS payout_amount
             FROM seller_settlement s
             JOIN seller_settlement_detail d
               ON d.seller_settlement_id = s.seller_settlement_id
@@ -60,7 +62,9 @@ public class SellerSettlementAnalysisQueryRepositoryAdapter
                    ABS(COALESCE(SUM(CASE WHEN d.line_type = 'REFUND'
                        THEN d.fee_amount ELSE 0 END), 0)) AS refunded_fee_amount,
                    COALESCE(SUM(d.fee_amount), 0) AS net_fee_amount,
-                   COALESCE(SUM(d.line_settlement_amount), 0) AS payout_amount
+                   COALESCE(SUM(CASE WHEN s.status IN (
+                       'APPROVED', 'PAYOUT_REQUESTED', 'PAYOUT_ON_HOLD', 'PAID')
+                       THEN d.line_settlement_amount ELSE 0 END), 0) AS payout_amount
             FROM seller_settlement s
             JOIN seller_settlement_detail d
               ON d.seller_settlement_id = s.seller_settlement_id

@@ -6,12 +6,15 @@ import static org.mockito.BDDMockito.then;
 
 import com.prompthub.user.grpc.sellersettlement.GetPayoutStatusRequest;
 import com.prompthub.user.grpc.sellersettlement.GetPayoutStatusResponse;
+import com.prompthub.user.grpc.sellersettlement.GetSettlementDashboardSummaryRequest;
+import com.prompthub.user.grpc.sellersettlement.GetSettlementDashboardSummaryResponse;
 import com.prompthub.user.grpc.sellersettlement.GetSettlementSummaryRequest;
 import com.prompthub.user.grpc.sellersettlement.GetSettlementSummaryResponse;
 import com.prompthub.user.grpc.sellersettlement.SettlementPeriodType;
 import com.prompthub.user.sellersettlement.application.dto.PayoutStatusResult;
 import com.prompthub.user.sellersettlement.application.dto.PayoutStatusResult.PayoutStatusCountResult;
 import com.prompthub.user.sellersettlement.application.dto.PayoutStatusResult.WeeklyPayoutStatusResult;
+import com.prompthub.user.sellersettlement.application.dto.SellerSettlementDashboardSummaryResult;
 import com.prompthub.user.sellersettlement.application.dto.SettlementAnalysisPeriodType;
 import com.prompthub.user.sellersettlement.application.dto.SettlementAnalysisResult;
 import com.prompthub.user.sellersettlement.application.usecase.SellerSettlementAnalysisUseCase;
@@ -45,6 +48,26 @@ class SellerSettlementQueryGrpcServerTest {
     void setUp() {
         server = new SellerSettlementQueryGrpcServer(
                 useCase, new SellerSettlementGrpcResponseMapper());
+    }
+
+    @Test
+    @DisplayName("대시보드 요약 RPC는 context actor의 누적 매출액과 승인 이후 정산금액을 매핑한다")
+    void mapsDashboardSummaryForContextActor() {
+        UUID actorId = UUID.randomUUID();
+        given(useCase.getDashboardSummary(actorId))
+                .willReturn(new SellerSettlementDashboardSummaryResult(
+                        new BigDecimal("1000"), new BigDecimal("340")));
+        CapturingObserver<GetSettlementDashboardSummaryResponse> observer =
+                new CapturingObserver<>();
+
+        withActor(actorId, () -> server.getSettlementDashboardSummary(
+                GetSettlementDashboardSummaryRequest.getDefaultInstance(), observer));
+
+        assertThat(observer.error).isNull();
+        assertThat(observer.completed).isTrue();
+        assertThat(observer.value.getTotalRevenueAmount()).isEqualTo("1000");
+        assertThat(observer.value.getTotalSettlementAmount()).isEqualTo("340");
+        then(useCase).should().getDashboardSummary(actorId);
     }
 
     @Test

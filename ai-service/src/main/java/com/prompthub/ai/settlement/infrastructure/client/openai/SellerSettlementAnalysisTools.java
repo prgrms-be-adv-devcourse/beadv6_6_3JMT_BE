@@ -2,6 +2,7 @@ package com.prompthub.ai.settlement.infrastructure.client.openai;
 
 import com.prompthub.ai.global.exception.AiException;
 import com.prompthub.ai.settlement.application.port.SellerSettlementAnalysisQuery;
+import com.prompthub.ai.settlement.application.port.SellerSettlementAnalysisQuery.DashboardSummaryResult;
 import com.prompthub.ai.settlement.application.port.SellerSettlementAnalysisQuery.PayoutStatusResult;
 import com.prompthub.ai.settlement.application.port.SellerSettlementAnalysisQuery.SettlementComparisonResult;
 import com.prompthub.ai.settlement.application.port.SellerSettlementAnalysisQuery.SettlementSummaryResult;
@@ -34,8 +35,20 @@ public class SellerSettlementAnalysisTools {
     }
 
     @Tool(
+            name = "get_settlement_dashboard_summary",
+            description = "판매자 정산 대시보드와 동일한 취소 제외 누적 매출액과 "
+                    + "승인 이후 누적 정산금액을 조회합니다. "
+                    + "대시보드, 누적, 전체 정산금액 질문에 사용합니다.")
+    public DashboardSummaryResult getSettlementDashboardSummary(ToolContext context) {
+        return execute("get_settlement_dashboard_summary", context,
+                analysisQuery::getDashboardSummary);
+    }
+
+    @Tool(
             name = "get_settlement_summary",
-            description = "판매자 본인의 한 달 또는 완료된 한 주 정산 판매, 환불, 수수료, 지급액을 조회합니다. "
+            description = "판매자 본인의 한 달 또는 완료된 한 주 정산 판매, 환불, 수수료와 "
+                    + "승인 이후 정산만 포함한 지급액을 조회합니다. "
+                    + "MONTH 지급액은 월별 정산 대시보드와 동일한 집계값입니다. "
                     + "MONTH period는 YYYY-MM, WEEK period는 월요일 YYYY-MM-DD입니다.")
     public SettlementSummaryResult getSettlementSummary(
             @ToolParam(description = "MONTH 또는 WEEK") String periodType,
@@ -61,7 +74,8 @@ public class SellerSettlementAnalysisTools {
 
     @Tool(
             name = "get_weekly_settlement_breakdown",
-            description = "판매자 본인의 지정 월을 완료된 주 단위 정산으로 나누어 조회합니다. month는 YYYY-MM입니다.")
+            description = "판매자 본인의 지정 월을 완료된 주 단위 정산으로 나누어 조회합니다. "
+                    + "지급액은 승인 이후 정산만 포함하며 month는 YYYY-MM입니다.")
     public WeeklyBreakdownResult getWeeklySettlementBreakdown(
             @ToolParam(description = "조회 월 YYYY-MM") String month,
             ToolContext context

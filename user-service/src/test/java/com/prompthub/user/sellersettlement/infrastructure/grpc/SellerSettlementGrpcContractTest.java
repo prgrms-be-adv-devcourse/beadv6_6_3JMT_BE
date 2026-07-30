@@ -33,6 +33,10 @@ class SellerSettlementGrpcContractTest {
                         method -> method.getOutputType().getName())
                 .containsExactly(
                         org.assertj.core.groups.Tuple.tuple(
+                                "GetSettlementDashboardSummary",
+                                "GetSettlementDashboardSummaryRequest",
+                                "GetSettlementDashboardSummaryResponse"),
+                        org.assertj.core.groups.Tuple.tuple(
                                 "GetSettlementSummary",
                                 "GetSettlementSummaryRequest",
                                 "GetSettlementSummaryResponse"),
@@ -49,6 +53,10 @@ class SellerSettlementGrpcContractTest {
                                 "GetPayoutStatusRequest",
                                 "GetPayoutStatusResponse"));
 
+        assertFields(file, "GetSettlementDashboardSummaryRequest", Map.of());
+        assertFields(file, "GetSettlementDashboardSummaryResponse", Map.of(
+                "total_revenue_amount", 1,
+                "total_settlement_amount", 2));
         assertFields(file, "SettlementAggregate", Map.ofEntries(
                 Map.entry("included_start_date", 1),
                 Map.entry("included_end_date", 2),
@@ -107,9 +115,13 @@ class SellerSettlementGrpcContractTest {
                 "settlement_month", 1, "status_counts", 2, "weekly_settlements", 3));
 
         Descriptor aggregate = file.findMessageTypeByName("SettlementAggregate");
+        Descriptor dashboardSummary =
+                file.findMessageTypeByName("GetSettlementDashboardSummaryResponse");
         Descriptor countChange = file.findMessageTypeByName("CountChange");
         Descriptor decimalChange = file.findMessageTypeByName("DecimalChange");
         assertThat(List.of(
+                dashboardSummary.findFieldByName("total_revenue_amount"),
+                dashboardSummary.findFieldByName("total_settlement_amount"),
                 aggregate.findFieldByName("gross_sale_amount"),
                 aggregate.findFieldByName("gross_refund_amount"),
                 aggregate.findFieldByName("sale_fee_amount"),
