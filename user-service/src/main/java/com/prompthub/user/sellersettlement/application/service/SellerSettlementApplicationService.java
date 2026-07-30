@@ -63,7 +63,8 @@ public class SellerSettlementApplicationService implements SellerSettlementUseCa
     @Transactional(readOnly = true)
     public SellerSettlementSummaryResponse getMySummary(UUID sellerId) {
         BigDecimal totalRevenueAmount = sellerSettlementRepository.sumTotalAmountBySeller(sellerId);
-        BigDecimal totalSettlementAmount = sellerSettlementRepository.sumPaidSettlementAmountBySeller(sellerId);
+        BigDecimal totalSettlementAmount =
+                sellerSettlementRepository.sumApprovedSettlementAmountBySeller(sellerId);
         return SellerSettlementSummaryResponse.of(totalRevenueAmount, totalSettlementAmount);
     }
 

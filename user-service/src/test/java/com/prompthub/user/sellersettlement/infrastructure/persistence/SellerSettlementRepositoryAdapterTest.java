@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.then;
 
 import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -45,15 +46,40 @@ class SellerSettlementRepositoryAdapterTest {
     }
 
     @Test
-    void sumTotalAmountBySeller_지급완료_정산만_집계한다() {
+    void sumTotalAmountBySeller_취소를_제외한_상태를_집계한다() {
         UUID sellerId = UUID.randomUUID();
-        given(jpaRepository.sumTotalAmountBySellerAndStatus(
-                sellerId, SettlementDisplayStatus.PAID)).willReturn(new BigDecimal("170000"));
+        List<SettlementDisplayStatus> statuses = List.of(
+                SettlementDisplayStatus.WAITING,
+                SettlementDisplayStatus.APPROVAL_ON_HOLD,
+                SettlementDisplayStatus.APPROVED,
+                SettlementDisplayStatus.PAYOUT_REQUESTED,
+                SettlementDisplayStatus.PAYOUT_ON_HOLD,
+                SettlementDisplayStatus.PAID);
+        given(jpaRepository.sumTotalAmountBySellerAndStatusIn(sellerId, statuses))
+                .willReturn(new BigDecimal("600000"));
 
         BigDecimal totalAmount = adapter.sumTotalAmountBySeller(sellerId);
 
-        assertThat(totalAmount).isEqualByComparingTo("170000");
-        then(jpaRepository).should().sumTotalAmountBySellerAndStatus(
-                sellerId, SettlementDisplayStatus.PAID);
+        assertThat(totalAmount).isEqualByComparingTo("600000");
+        then(jpaRepository).should().sumTotalAmountBySellerAndStatusIn(sellerId, statuses);
+    }
+
+    @Test
+    void sumApprovedSettlementAmountBySeller_승인_이후_상태를_집계한다() {
+        UUID sellerId = UUID.randomUUID();
+        List<SettlementDisplayStatus> statuses = List.of(
+                SettlementDisplayStatus.APPROVED,
+                SettlementDisplayStatus.PAYOUT_REQUESTED,
+                SettlementDisplayStatus.PAYOUT_ON_HOLD,
+                SettlementDisplayStatus.PAID);
+        given(jpaRepository.sumSettlementTotalAmountBySellerAndStatusIn(sellerId, statuses))
+                .willReturn(new BigDecimal("340000"));
+
+        BigDecimal settlementAmount =
+                adapter.sumApprovedSettlementAmountBySeller(sellerId);
+
+        assertThat(settlementAmount).isEqualByComparingTo("340000");
+        then(jpaRepository).should()
+                .sumSettlementTotalAmountBySellerAndStatusIn(sellerId, statuses);
     }
 }

@@ -88,6 +88,24 @@ class SettlementQueryRepositoryTest {
     }
 
     @Test
+    void 승인_이후_상태만_정산금액에_합산하고_승인전_매출은_유지한다() {
+        UUID sellerId = UUID.randomUUID();
+        LocalDate periodStart = LocalDate.of(2026, 6, 2);
+        for (SettlementDisplayStatus status : SettlementDisplayStatus.values()) {
+            insert(sellerId, periodStart, 1,
+                    "100", "15", "0", "85", status);
+        }
+
+        MonthlyAggregate aggregate = monthlyQueryRepository.findMonthlyPage(
+                null, null, 0, 20).content().getFirst();
+
+        assertThat(aggregate.weeklySettlementCount()).isEqualTo(7);
+        assertThat(aggregate.salesCount()).isEqualTo(6);
+        assertThat(aggregate.grossAmount()).isEqualByComparingTo("600");
+        assertThat(aggregate.payoutAmount()).isEqualByComparingTo("340");
+    }
+
+    @Test
     void 상태필터는_판매자월_그룹만_고르고_전체월_합계를_유지한다() {
         UUID sellerId = UUID.randomUUID();
         insert(sellerId, LocalDate.of(2026, 6, 29), 10,
