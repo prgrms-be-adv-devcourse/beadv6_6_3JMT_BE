@@ -9,6 +9,7 @@ import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.vo.InspectionChecklist;
 import com.prompthub.product.domain.repository.ProductRepository;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -41,12 +42,32 @@ class ProductInspectionResultHandlerTest {
 			handler = new ProductInspectionResultHandler(productRepository);
 			Product product = pendingReviewProduct();
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(product.familyRootId())))
+				.willReturn(List.of(product));
 
 			handler.apply(PRODUCT_ID, true, null, CHECKLIST);
 
 			assertThat(product.getStatus()).isEqualTo(ProductStatus.ON_SALE);
 			assertThat(product.isHasContext()).isTrue();
 			assertThat(product.isHasNuance()).isFalse();
+		}
+
+		@Test
+		@DisplayName("승인되면 같은 가족에서 팔리던 이전 버전을 SUPERSEDED로 전환한다")
+		void apply_approved_supersedesPreviousOnSaleVersion() {
+			// #699 — 이 교대가 빠지면 메이저 승인마다 가족에 ON_SALE 행이 누적된다.
+			handler = new ProductInspectionResultHandler(productRepository);
+			Product product = pendingReviewProduct();
+			Product previous = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
+			ReflectionTestUtils.setField(previous, "status", ProductStatus.ON_SALE);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(product.familyRootId())))
+				.willReturn(List.of(previous, product));
+
+			handler.apply(PRODUCT_ID, true, null, CHECKLIST);
+
+			assertThat(product.getStatus()).isEqualTo(ProductStatus.ON_SALE);
+			assertThat(previous.getStatus()).isEqualTo(ProductStatus.SUPERSEDED);
 		}
 
 		@Test
