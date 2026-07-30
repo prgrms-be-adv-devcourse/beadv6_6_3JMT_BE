@@ -23,7 +23,12 @@
         }
       },
       "productType": { "type": "keyword" },
-      "model": { "type": "keyword" },
+      "model": {
+        "type": "keyword",
+        "fields": {
+          "text": { "type": "text" }
+        }
+      },
       "amount": { "type": "integer" },
       "amountType": { "type": "keyword" },
       "thumbnailUrl": { "type": "keyword", "index": false },
