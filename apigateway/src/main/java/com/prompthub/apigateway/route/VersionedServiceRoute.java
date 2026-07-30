@@ -58,7 +58,7 @@ public record VersionedServiceRoute(String id, String uri, List<String> pathSuff
         new VersionedServiceRoute(
             "ai-service",
             "lb://AI-SERVICE",
-            List.of("/ai/settlement/**"),
+            List.of("/ai/settlement/**", "/ai/recommendations", "/ai/recommendations/**"),
             5
         ),
         new VersionedServiceRoute(
