@@ -99,6 +99,24 @@ class PurchasedProductQueryServiceTest {
 	}
 
 	@Test
+	@DisplayName("썸네일은 presigned URL로 변환해서 반환한다")
+	void getPurchasedProduct_presignedThumbnailUrl() {
+		Product product = onSaleProduct(ProductType.PROMPT);
+		ReflectionTestUtils.setField(product, "content", "프롬프트 본문");
+		ReflectionTestUtils.setField(product, "thumbnailUrl", "products/x/thumb.png");
+		stubFamily(product);
+		given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(0.0);
+		given(reviewRepository.findByUserIdAndProductId(USER_ID, PRODUCT_ID)).willReturn(Optional.empty());
+		given(storageClient.generatePresignedDownloadUrl("products/x/thumb.png"))
+			.willReturn("https://s3/thumb-presigned");
+
+		PurchasedProductDetailResponse result =
+			purchasedProductQueryService.getPurchasedProduct(USER_ID, PRODUCT_ID);
+
+		assertThat(result.thumbnailUrl()).isEqualTo("https://s3/thumb-presigned");
+	}
+
+	@Test
 	@DisplayName("fileUrl이 비어 있으면 presign 없이 null을 반환한다")
 	void getPurchasedProduct_blankFileUrl_returnsNull() {
 		Product product = onSaleProduct(ProductType.EXCEL);
