@@ -236,11 +236,13 @@ manual_patterns=(
   'kubectl get secret kibana-encryption -n elk'
   'kubectl apply --server-side --dry-run=server -k k8s/addons/elk'
   'kubectl delete job application-logs-ilm-bootstrap application-logs-kibana-bootstrap -n elk --ignore-not-found'
+  'kubectl delete job kibana-operations-dashboards-bootstrap -n elk --ignore-not-found'
   'kubectl apply --server-side -k k8s/addons/elk'
   'kubectl rollout restart deployment/logstash -n elk'
   'kubectl rollout restart daemonset/fluent-bit -n elk'
   'kubectl wait --for=condition=complete job/application-logs-ilm-bootstrap -n elk --timeout=10m'
   'kubectl wait --for=condition=complete job/application-logs-kibana-bootstrap -n elk --timeout=10m'
+  'kubectl wait --for=condition=complete job/kibana-operations-dashboards-bootstrap -n elk --timeout=10m'
 )
 
 for pattern in "${manual_patterns[@]}"; do

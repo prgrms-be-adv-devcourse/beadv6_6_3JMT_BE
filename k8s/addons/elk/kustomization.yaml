@@ -4,4 +4,21 @@ resources:
   - elasticsearch.yaml
   - logstash.yaml
   - kibana.yaml
+  - kibana-operations-dashboards.yaml
   - fluent-bit.yaml
+
+configMapGenerator:
+  - name: kibana-operations-dashboards
+    files:
+      - dashboards/gateway-data-view.ndjson
+      - dashboards/prompthub-service-health.json
+      - dashboards/prompthub-gateway-anomalies.json
+      - dashboards/prompthub-runtime-incidents.json
+
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    app.kubernetes.io/name: kibana-operations-dashboards
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize

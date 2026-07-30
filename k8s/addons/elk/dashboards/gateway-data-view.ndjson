@@ -1,0 +1,1 @@
+{"type":"index-pattern","id":"gateway-access","attributes":{"title":"gateway-access-*","name":"Gateway Access","timeFieldName":"@timestamp"}}

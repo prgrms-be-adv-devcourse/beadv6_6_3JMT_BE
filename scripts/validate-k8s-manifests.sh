@@ -600,5 +600,6 @@ done
 
 bash "${ROOT_DIR}/scripts/validate-k8s-secret-contract.sh"
 bash "${ROOT_DIR}/scripts/validate-k8s-cd-workflow.sh"
+ruby "${ROOT_DIR}/scripts/validate-kibana-dashboards.rb"
 
 echo "Kubernetes manifest validation passed."

@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
+import com.prompthub.product.domain.model.vo.InspectionChecklist;
 import com.prompthub.product.domain.model.vo.ProductContent;
 import java.util.List;
 import java.util.UUID;
@@ -100,38 +101,56 @@ class ProductTest {
 	}
 
 	@Test
-	void approve_pendingReview_transitionsToOnSale() {
+	void approve_pendingReview_transitionsToOnSaleAndStoresChecklist() {
 		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
 		ReflectionTestUtils.setField(product, "status", ProductStatus.PENDING_REVIEW);
 
-		product.approve();
+		product.approve(new InspectionChecklist(true, true, false, true, false, true, false));
 
 		assertThat(product.getStatus()).isEqualTo(ProductStatus.ON_SALE);
+		assertThat(product.isHasContext()).isTrue();
+		assertThat(product.isHasNuance()).isFalse();
+		assertThat(product.isHasRoleAssignment()).isFalse();
+		assertThat(product.isChecklistRecorded()).isTrue();
+	}
+
+	@Test
+	void create_beforeInspection_checklistNotRecorded() {
+		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
+
+		assertThat(product.isChecklistRecorded()).isFalse();
 	}
 
 	@Test
 	void approve_nonPendingReview_throws() {
 		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
 
-		assertThatThrownBy(product::approve).isInstanceOf(IllegalStateException.class);
+		assertThatThrownBy(() -> product.approve(emptyChecklist())).isInstanceOf(IllegalStateException.class);
 	}
 
 	@Test
-	void reject_pendingReview_transitionsToRejectedWithReason() {
+	void reject_pendingReview_transitionsToRejectedWithReasonAndStoresChecklist() {
 		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
 		ReflectionTestUtils.setField(product, "status", ProductStatus.PENDING_REVIEW);
 
-		product.reject("금지 콘텐츠 포함");
+		product.reject("금지 콘텐츠 포함", new InspectionChecklist(false, true, false, false, true, false, true));
 
 		assertThat(product.getStatus()).isEqualTo(ProductStatus.REJECTED);
 		assertThat(product.getRejectionReason()).isEqualTo("금지 콘텐츠 포함");
+		assertThat(product.isHasObjective()).isTrue();
+		assertThat(product.isHasContext()).isFalse();
+		assertThat(product.isChecklistRecorded()).isTrue();
 	}
 
 	@Test
 	void reject_nonPendingReview_throws() {
 		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
 
-		assertThatThrownBy(() -> product.reject("사유")).isInstanceOf(IllegalStateException.class);
+		assertThatThrownBy(() -> product.reject("사유", emptyChecklist())).isInstanceOf(IllegalStateException.class);
+	}
+
+	private static InspectionChecklist emptyChecklist() {
+		return new InspectionChecklist(false, false, false, false, false, false, false);
 	}
 
 	@Test

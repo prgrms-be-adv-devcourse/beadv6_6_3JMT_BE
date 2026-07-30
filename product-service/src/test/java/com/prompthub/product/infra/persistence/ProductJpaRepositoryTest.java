@@ -2,6 +2,7 @@ package com.prompthub.product.infra.persistence;
 
 import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.Review;
@@ -15,6 +16,7 @@ import java.util.UUID;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import com.prompthub.product.support.PostgresIntegrationTestSupport;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
@@ -74,6 +76,58 @@ class ProductJpaRepositoryTest extends PostgresIntegrationTestSupport {
 		Map<UUID, Double> result = productJpaRepository.getAverageRatings(List.of());
 
 		assertThat(result).isEmpty();
+	}
+
+	@Test
+	void review_같은_사용자가_같은_상품에_리뷰를_두_개_저장하면_DB_제약에_막힌다() {
+		Product root = product(null, ProductStatus.ON_SALE, (short) 1, (short) 0);
+		productJpaRepository.save(root);
+
+		UUID userId = UUID.randomUUID();
+		reviewJpaRepository.saveAndFlush(Review.create(userId, root, (short) 4));
+
+		// upsert 로직이 경합에 뚫려도 DB가 두 번째 저장을 막아야 한다 (V7 uk_review_product_user).
+		// 막지 못하면 이 사용자의 평점이 두 번 세어져 평균이 왜곡된다
+		assertThatThrownBy(() -> reviewJpaRepository.saveAndFlush(Review.create(userId, root, (short) 5)))
+			.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	void getAverageRating_HIDDEN과_삭제된_리뷰는_평균에서_제외한다() {
+		Product root = product(null, ProductStatus.ON_SALE, (short) 1, (short) 0);
+		productJpaRepository.save(root);
+
+		reviewJpaRepository.save(Review.create(UUID.randomUUID(), root, (short) 4));
+
+		Review hidden = Review.create(UUID.randomUUID(), root, (short) 1);
+		ReflectionTestUtils.setField(hidden, "status", ReviewStatus.HIDDEN);
+		reviewJpaRepository.save(hidden);
+
+		Review deleted = Review.create(UUID.randomUUID(), root, (short) 1);
+		ReflectionTestUtils.setField(deleted, "deletedAt", LocalDateTime.now());
+		reviewJpaRepository.save(deleted);
+
+		double result = productJpaRepository.getAverageRating(root.getId());
+
+		// 살아있는 4점 하나만 세야 한다. 1점짜리 둘이 섞이면 2.0으로 내려간다
+		assertThat(result).isEqualTo(4.0);
+	}
+
+	@Test
+	void sumSalesCountByFamilyRootId_여러_버전에_흩어진_판매수를_합산하고_삭제된_버전은_제외한다() {
+		Product root = product(null, ProductStatus.SUPERSEDED, (short) 1, (short) 0);
+		ReflectionTestUtils.setField(root, "salesCount", 5);
+		Product current = product(root.getId(), ProductStatus.ON_SALE, (short) 2, (short) 0);
+		ReflectionTestUtils.setField(current, "salesCount", 2);
+		Product deletedVersion = product(root.getId(), ProductStatus.STOPPED, (short) 1, (short) 1);
+		ReflectionTestUtils.setField(deletedVersion, "salesCount", 99);
+		ReflectionTestUtils.setField(deletedVersion, "deletedAt", LocalDateTime.now());
+		productJpaRepository.saveAll(List.of(root, current, deletedVersion));
+
+		long result = productJpaRepository.sumSalesCountByFamilyRootId(root.getId());
+
+		// 구매는 그 시점의 버전 row에 붙으므로, family 전체를 합쳐야 실제 판매수가 나온다
+		assertThat(result).isEqualTo(7L);
 	}
 
 	@Test
