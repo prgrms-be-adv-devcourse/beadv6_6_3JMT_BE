@@ -32,7 +32,7 @@ public record SellerSettlementDetailResponse(
         @Schema(description = "비취소 환불 차감액", example = "100000.00")
         BigDecimal refundAmount,
 
-        @Schema(description = "비취소 지급 예정 또는 완료 금액", example = "1770000.00")
+        @Schema(description = "승인 이후 지급 예정 또는 완료 금액", example = "1770000.00")
         BigDecimal payoutAmount,
 
         @Schema(description = "주간 정산 상태별 건수")

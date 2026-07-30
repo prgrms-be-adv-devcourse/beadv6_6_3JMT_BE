@@ -10,6 +10,7 @@ import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQue
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyAggregate;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyPage;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyStatusCount;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -24,13 +25,20 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 @DataJpaTest
-@Import({SellerSettlementQueryRepositoryAdapter.class, JpaConfig.class})
+@Import({
+        SellerSettlementQueryRepositoryAdapter.class,
+        SellerSettlementRepositoryAdapter.class,
+        JpaConfig.class
+})
 @ActiveProfiles("test")
 @DisplayName("판매자 월별 정산 조회 저장소")
 class SellerSettlementQueryRepositoryAdapterTest {
 
     @Autowired
     private SellerSettlementQueryRepository repository;
+
+    @Autowired
+    private SellerSettlementRepository settlementRepository;
 
     @Autowired
     private TestEntityManager entityManager;
@@ -75,6 +83,32 @@ class SellerSettlementQueryRepositoryAdapterTest {
                         SettlementDisplayStatus.APPROVED,
                         SettlementDisplayStatus.PAID,
                         SettlementDisplayStatus.CANCELLED);
+    }
+
+    @Test
+    @DisplayName("승인 이후 상태만 정산금액에 합산하고 승인 전 매출은 유지한다")
+    void aggregatesApprovedPayoutAndNonCancelledRevenue() {
+        UUID sellerId = UUID.randomUUID();
+        LocalDate periodStart = LocalDate.of(2026, 7, 6);
+        for (SettlementDisplayStatus status : SettlementDisplayStatus.values()) {
+            persist(sellerId, periodStart, 1,
+                    "100", "15", "0", "85", status);
+        }
+        entityManager.flush();
+
+        MonthlyAggregate aggregate = repository.findMonthlyPage(
+                sellerId, null, YearMonth.of(2026, 7), 0, 10)
+                .content()
+                .getFirst();
+
+        assertThat(aggregate.weeklySettlementCount()).isEqualTo(7);
+        assertThat(aggregate.salesCount()).isEqualTo(6);
+        assertThat(aggregate.grossAmount()).isEqualByComparingTo("600");
+        assertThat(aggregate.payoutAmount()).isEqualByComparingTo("340");
+        assertThat(settlementRepository.sumTotalAmountBySeller(sellerId))
+                .isEqualByComparingTo("600");
+        assertThat(settlementRepository.sumApprovedSettlementAmountBySeller(sellerId))
+                .isEqualByComparingTo("340");
     }
 
     @Test

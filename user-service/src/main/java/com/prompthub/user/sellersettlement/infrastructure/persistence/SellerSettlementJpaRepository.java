@@ -4,6 +4,7 @@ import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
 import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,15 +37,17 @@ public interface SellerSettlementJpaRepository extends JpaRepository<SellerSettl
 
     @Query("""
             select coalesce(sum(s.totalAmount), 0) from SellerSettlement s
-            where s.sellerId = :sellerId and s.status = :status
+            where s.sellerId = :sellerId and s.status in :statuses
             """)
-    BigDecimal sumTotalAmountBySellerAndStatus(
-            @Param("sellerId") UUID sellerId, @Param("status") SettlementDisplayStatus status);
+    BigDecimal sumTotalAmountBySellerAndStatusIn(
+            @Param("sellerId") UUID sellerId,
+            @Param("statuses") Collection<SettlementDisplayStatus> statuses);
 
     @Query("""
             select coalesce(sum(s.settlementTotalAmount), 0) from SellerSettlement s
-            where s.sellerId = :sellerId and s.status = :status
+            where s.sellerId = :sellerId and s.status in :statuses
             """)
-    BigDecimal sumSettlementTotalAmountBySellerAndStatus(
-            @Param("sellerId") UUID sellerId, @Param("status") SettlementDisplayStatus status);
+    BigDecimal sumSettlementTotalAmountBySellerAndStatusIn(
+            @Param("sellerId") UUID sellerId,
+            @Param("statuses") Collection<SettlementDisplayStatus> statuses);
 }

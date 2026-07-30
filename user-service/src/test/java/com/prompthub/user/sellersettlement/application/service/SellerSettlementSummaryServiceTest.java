@@ -24,13 +24,13 @@ class SellerSettlementSummaryServiceTest {
     private SellerSettlementApplicationService service;
 
     @Test
-    @DisplayName("요약: 정산 저장소의 누적 거래액과 지급 완료액을 반환한다")
+    @DisplayName("요약: 정산 저장소의 취소 제외 거래액과 승인 이후 정산금액을 반환한다")
     void getMySummary_returnsSettlementOwnedAmountSums() {
         // given
         UUID sellerId = UUID.randomUUID();
         given(sellerSettlementRepository.sumTotalAmountBySeller(sellerId))
                 .willReturn(new BigDecimal("10449800"));
-        given(sellerSettlementRepository.sumPaidSettlementAmountBySeller(sellerId))
+        given(sellerSettlementRepository.sumApprovedSettlementAmountBySeller(sellerId))
                 .willReturn(new BigDecimal("170000"));
 
         // when
