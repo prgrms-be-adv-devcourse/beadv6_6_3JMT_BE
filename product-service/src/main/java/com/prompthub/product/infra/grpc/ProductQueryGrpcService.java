@@ -8,17 +8,23 @@ import com.prompthub.product.grpc.GetOrderSnapshotsRequest;
 import com.prompthub.product.grpc.GetOrderSnapshotsResponse;
 import com.prompthub.product.grpc.GetProductContentRequest;
 import com.prompthub.product.grpc.GetProductContentResponse;
+import com.prompthub.product.grpc.GetSimilarProductsRequest;
+import com.prompthub.product.grpc.GetSimilarProductsResponse;
 import com.prompthub.product.grpc.ProductCartSnapshotMessage;
 import com.prompthub.product.grpc.ProductContentResult;
 import com.prompthub.product.grpc.ProductOrderSnapshot;
 import com.prompthub.product.grpc.ProductQueryServiceGrpc;
 import com.prompthub.product.grpc.PurchasedProductContent;
+import com.prompthub.product.grpc.RecommendedProduct;
+import com.prompthub.product.grpc.SimilarProductRanking;
 import com.prompthub.product.presentation.dto.response.ProductCartSnapshotResponse;
 import com.prompthub.product.presentation.dto.response.ProductContentResponse;
+import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductOrderSnapshotResponse;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +32,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * product-service가 서버로서 제공하는 gRPC 계약(루트 grpc/product/product_query.proto)의 단일 구현.
- * order(스냅샷/콘텐츠) 호출을 서빙한다.
+ * order(스냅샷/콘텐츠)·ai(유사 상품 순위) 호출을 서빙한다.
  */
 @Slf4j
 @Component
@@ -113,6 +119,54 @@ public class ProductQueryGrpcService extends ProductQueryServiceGrpc.ProductQuer
 				request.getPurpose(), request.getProductId(), request.getProductIdsList(), e);
 			responseObserver.onError(Status.INTERNAL.withDescription(e.getMessage()).asRuntimeException());
 		}
+	}
+
+	@Override
+	public void getSimilarProducts(
+		GetSimilarProductsRequest request, StreamObserver<GetSimilarProductsResponse> responseObserver) {
+		try {
+			List<UUID> seedProductIds = request.getSeedProductIdsList().stream()
+				.map(UUID::fromString)
+				.toList();
+			Map<UUID, List<ProductListItemResponse>> rankings =
+				productGrpcUseCase.getSimilarProducts(seedProductIds, request.getLimitPerSeed());
+
+			GetSimilarProductsResponse.Builder response = GetSimilarProductsResponse.newBuilder();
+			// 요청 순서대로 담는다. 호출자가 기준별 가중치를 요청 순서로 대응시킬 수 있어야 한다.
+			for (UUID seedProductId : seedProductIds) {
+				response.addRankings(SimilarProductRanking.newBuilder()
+					.setSeedProductId(seedProductId.toString())
+					.addAllProducts(rankings.getOrDefault(seedProductId, List.of()).stream()
+						.map(this::toRecommendedProduct)
+						.toList())
+					.build());
+			}
+			responseObserver.onNext(response.build());
+			responseObserver.onCompleted();
+		} catch (IllegalArgumentException e) {
+			log.warn("GetSimilarProducts invalid request: seedProductIds={}", request.getSeedProductIdsList(), e);
+			responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		} catch (Exception e) {
+			log.error("GetSimilarProducts failed: seedProductIds={}", request.getSeedProductIdsList(), e);
+			responseObserver.onError(Status.INTERNAL.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+	/** proto3 string은 null을 담지 못해 빈 문자열로 바꾼다. 호출자는 빈 값을 "없음"으로 읽는다. */
+	private RecommendedProduct toRecommendedProduct(ProductListItemResponse product) {
+		return RecommendedProduct.newBuilder()
+			.setProductId(product.id().toString())
+			.setTitle(product.title())
+			.setProductType(product.productType() != null ? product.productType() : "")
+			.setModel(product.model() != null ? product.model() : "")
+			.setAmount(product.amount())
+			.setRating(product.rating())
+			.setSalesCount(product.salesCount())
+			.setSellerId(product.sellerId() != null ? product.sellerId().toString() : "")
+			.setDescription(product.desc() != null ? product.desc() : "")
+			.setThumbnailUrl(product.thumbnail_url() != null ? product.thumbnail_url() : "")
+			.addAllTags(product.tags() != null ? product.tags() : List.of())
+			.build();
 	}
 
 	private GetProductContentResponse orderSnapshotResponse(GetProductContentRequest request) {

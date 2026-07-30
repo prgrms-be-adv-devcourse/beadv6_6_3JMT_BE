@@ -1,6 +1,11 @@
-# 셀러 AI 정산 API
+# AI 서비스 API
 
-`ai-service`가 제공하는 셀러 범위 정산 질의 API다. Gateway는
+`ai-service`가 제공하는 API다. 현재 두 갈래 — **셀러 정산 질의**(아래)와
+**맞춤 상품 추천**([맞춤 상품 추천 API](#맞춤-상품-추천-api))이다.
+
+## 셀러 AI 정산 API
+
+셀러 범위 정산 질의 API다. Gateway는
 `/api/v2/ai/settlement/**`에 `SELLER_OR_ADMIN` 정책을 적용해 `SELLER`와 `ADMIN`을 허용한다.
 AI 서비스는 전달받은 `X-User-Id`를 대화 소유자와 User gRPC actor metadata로 사용한다. 현재는 role
 헤더를 prompt나 gRPC 계약에 전달하지 않으며, ADMIN에도 SELLER와 동일한 본인 범위 답변 정책을 적용한다.
@@ -133,3 +138,79 @@ flowchart TD
 - `AI_SETTLEMENT_CHAT_ENABLED=false`이면 모든 엔드포인트가 `AI_CHAT_DISABLED`(503)를 반환한다.
 
 오류 전체 목록은 [`../error-codes.md`](../error-codes.md)의 **AI 정산** 절을 참고한다.
+
+---
+
+# 맞춤 상품 추천 API
+
+사용자의 활동 내역(장바구니·구매)을 기준으로 비슷한 상품을 추천한다. Gateway의
+`route-policies`에 별도 항목을 두지 않아 기본 정책(인증된 사용자)이 적용된다.
+
+## 엔드포인트
+
+| Method | Path | 설명 | 성공 응답 |
+|---|---|---|---|
+| `GET` | `/api/v2/ai/recommendations` | 활동 기준 맞춤 추천 조회 | `200` |
+
+| 쿼리 파라미터 | 타입 | 설명 |
+|---|---|---|
+| `cartProductIds` | `UUID[]` | 장바구니에 담은 상품. 가중치 1.0 |
+| `purchasedProductIds` | `UUID[]` | 구매한 상품. 가중치 0.7 |
+| `limit` | `int` | 받아올 개수. 기본 4, 최대 20 |
+
+**활동 내역을 서버가 저장하지 않고 호출자가 실어 보낸다.** 장바구니와 주문은 order-service가
+소유하고 ai-service에는 DB가 없다. 활동을 저장하려면 별도 적재 경로가 필요한데, 추천에는
+필요하지 않아 두지 않았다.
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
+      "title": "이력서·경력기술서 AI 첨삭 프롬프트",
+      "productType": "PROMPT",
+      "model": "GPT-5",
+      "amount": 15000,
+      "rating": 4.5,
+      "salesCount": 12,
+      "sellerId": "7c2f6e91-2c1b-4a3b-9f99-3f527f7d1234",
+      "desc": "채용담당자 시점으로 첨삭합니다.",
+      "thumbnailUrl": "https://.../thumbnail.png",
+      "tags": ["취업", "이력서"]
+    }
+  ],
+  "message": "success"
+}
+```
+
+## 동작
+
+```
+활동 목록 수신
+  → 신호당 최대 3개를 기준 상품으로 추림
+  → product-service gRPC GetSimilarProducts (기준별 순위, 합치지 않음)
+  → 가중 RRF 합산  점수 = Σ ( 가중치 × 1 / (60 + 등수) )
+  → 이미 담았거나 구매한 상품 제외
+  → 상위 limit개
+```
+
+**추천 판단은 ai-service가 소유한다.** product-service는 "이 상품과 가까운 것"만 답하고
+누구에게 무엇을 추천할지 모른다.
+
+**여러 기준을 평균 내지 않는다.** 임베딩 좌표를 평균 내면 그 중간 지점에 착지하는데, 이
+카탈로그는 임베딩 공간이 좁게 뭉쳐 있어 그 중간이 곧 모든 것과 어중간하게 가까운 구역이다.
+순위 합산은 각 기준의 실제 위치에서 뽑은 등수만 쓰므로 중간 지점을 만들지 않고, 여러 기준이
+공통으로 상위로 꼽은 상품을 올린다.
+
+## 실패 처리
+
+**활동 내역이 없거나 추천할 상품이 없으면 빈 배열을 `200`으로 반환한다.** 오류가 아니라
+"보여줄 게 없음"이 맞는 상태이고, 화면은 섹션을 숨기면 된다.
+
+**product-service gRPC 호출이 실패해도 빈 배열을 반환한다.** 추천이 안 되는 것과 상품을 못 사는
+것은 다른 문제이며, 추천이 중단돼도 구매 흐름은 정상 동작해야 한다. 호출 지연 예산은 2초이고,
+실패는 `warn` 로그로 남긴다.
+
+전체 흐름은 [`../architecture/search-vector-flows.md`](../architecture/search-vector-flows.md)
+흐름 ⑥을 참고한다.
