@@ -11,6 +11,7 @@ import java.util.UUID;
 
 public interface UserRepository {
     Optional<User> findById(UUID userId);
+    Optional<User> findByIdForUpdate(UUID userId);
     Optional<User> findByEmail(String email);
     boolean existsByEmail(String email);
     User save(User user);

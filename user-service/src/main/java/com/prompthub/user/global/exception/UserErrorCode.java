@@ -26,6 +26,7 @@ public enum UserErrorCode implements ErrorCode {
     AUTH_OAUTH_VERIFICATION_FAILED(HttpStatus.UNAUTHORIZED, "A011", "OAuth 인증에 실패했습니다."),
     AUTH_REFRESH_TOKEN_REUSE_DETECTED(HttpStatus.UNAUTHORIZED, "A012", "리프레시 토큰 재사용이 감지되어 모든 세션이 무효화되었습니다."),
     AUTH_SESSION_INVALIDATED(HttpStatus.UNAUTHORIZED, "A013", "세션이 무효화되었습니다. 다시 로그인해주세요."),
+    AUTH_REJOIN_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "A014", "재가입 확인 정보가 유효하지 않거나 만료되었습니다."),
 
     WISHLIST_DUPLICATED(HttpStatus.CONFLICT, "W001", "이미 찜한 상품입니다."),
     WISHLIST_NOT_FOUND(HttpStatus.NOT_FOUND, "W002", "찜 항목이 존재하지 않습니다."),
