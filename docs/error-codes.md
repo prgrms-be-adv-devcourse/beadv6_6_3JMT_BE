@@ -27,6 +27,7 @@
 | `AUTH_OAUTH_VERIFICATION_FAILED` | A011 | OAuth 인증에 실패했습니다. | 401 |
 | `AUTH_REFRESH_TOKEN_REUSE_DETECTED` | A012 | 리프레시 토큰 재사용이 감지되어 모든 세션이 무효화되었습니다. | 401 |
 | `AUTH_SESSION_INVALIDATED` | A013 | 세션이 무효화되었습니다. 다시 로그인해주세요. | 401 |
+| `AUTH_REJOIN_TOKEN_INVALID` | A014 | 재가입 확인 정보가 유효하지 않거나 만료되었습니다. | 401 |
 
 > 이 섹션은 `user-service`의 `UserErrorCode`(`global/exception`) 기준이다. order-service도 `A003`/`A004`
 > 코드를 쓰지만 enum명·메시지가 다르다(`INVALID_AUTHENTICATION`/`FORBIDDEN`, 메시지도 다름) — order-service

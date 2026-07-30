@@ -133,7 +133,8 @@
   → 프론트엔드에서 Kakao SDK로 로그인 → access token 발급
   → 이 API 호출 (access token 전달)
   → user-service가 kapi.kakao.com/v2/user/me 호출로 신원 검증
-  → 로그인/자동 회원가입 완료
+  → ACTIVE/신규 사용자: 로그인 완료
+  → WITHDRAWN 사용자: 재가입 확인 필요
 ```
 
 #### Path Parameters
@@ -158,12 +159,13 @@
 
 #### Response
 
-**200 OK**
+**200 OK — 로그인 완료**
 
 ```json
 {
   "success": true,
   "data": {
+    "loginStatus": "COMPLETED",
     "user": {
       "id": "uuid",
       "name": "카카오사용자",
@@ -182,6 +184,7 @@
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
+| loginStatus | string | 로그인 처리 상태 (`COMPLETED`) |
 | user.id | string | 사용자 ID |
 | user.name | string | 이름 |
 | user.email | string | 이메일 |
@@ -191,6 +194,90 @@
 | tokenType | string | 토큰 타입 (`Bearer`) |
 | expiresAt | string | 액세스 토큰 만료일시 (ISO 8601) |
 | isNewUser | boolean | 신규 가입 여부 |
+
+**200 OK — 재가입 확인 필요**
+
+탈퇴 계정은 서비스용 AT/RT를 발급하지 않는다. 프론트엔드는 `rejoinToken`으로 사용자 확인 화면을
+표시하고, 사용자가 동의한 경우에만 `POST /auth/rejoin`을 호출한다.
+
+```json
+{
+  "success": true,
+  "data": {
+    "loginStatus": "REJOIN_REQUIRED",
+    "isNewUser": false,
+    "rejoinToken": "opaque-one-time-token",
+    "rejoinExpiresAt": "2026-07-30T12:05:00Z"
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| loginStatus | string | 로그인 처리 상태 (`REJOIN_REQUIRED`) |
+| isNewUser | boolean | 항상 `false` |
+| rejoinToken | string | 서비스 접근 권한이 없는 일회성 재가입 확인 토큰 |
+| rejoinExpiresAt | string | 재가입 확인 토큰 만료일시. 발급 후 5분 |
+
+`BLOCKED` 계정은 재가입 대상으로 취급하지 않으며 `403 AUTH_FORBIDDEN(A004)`을 반환한다.
+
+---
+
+### POST /auth/rejoin — 탈퇴 계정 재가입
+
+- 인증: 불필요
+- 필요 역할: 없음
+- OAuth 로그인에서 받은 일회성 재가입 토큰 필요
+- 기존 사용자 ID, 이메일, 역할 및 연관 데이터를 유지하고 상태만 `WITHDRAWN`에서 `ACTIVE`로 변경
+
+#### Request
+
+```json
+{
+  "rejoinToken": "opaque-one-time-token"
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| rejoinToken | string | Y | OAuth 로그인에서 발급된 일회성 재가입 확인 토큰 |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "loginStatus": "COMPLETED",
+    "user": {
+      "id": "uuid",
+      "name": "카카오사용자",
+      "email": "kakao@user.com",
+      "roles": ["BUYER"]
+    },
+    "accessToken": "eyJhbGci...",
+    "refreshToken": "eyJhbGci...",
+    "tokenType": "Bearer",
+    "expiresAt": "2026-07-30T12:15:00Z",
+    "isNewUser": false
+  },
+  "message": "success"
+}
+```
+
+**401 Unauthorized** — 토큰 만료, 변조, 재사용 또는 계정 상태 변경
+
+```json
+{
+  "success": false,
+  "data": null,
+  "code": "A014",
+  "message": "재가입 확인 정보가 유효하지 않거나 만료되었습니다."
+}
+```
 
 ---
 
