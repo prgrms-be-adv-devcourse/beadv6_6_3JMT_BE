@@ -2,10 +2,13 @@ package com.prompthub.user.auth.presentation.controller;
 
 import com.prompthub.presentation.dto.ApiResult;
 import com.prompthub.user.auth.application.dto.OAuthLoginResult;
+import com.prompthub.user.auth.application.dto.OAuthLoginCompletedResult;
 import com.prompthub.user.auth.application.dto.TokenRefreshResult;
 import com.prompthub.user.auth.application.usecase.AuthUseCase;
+import com.prompthub.user.auth.application.usecase.RejoinUseCase;
 import com.prompthub.user.auth.domain.model.OAuthProvider;
 import com.prompthub.user.auth.presentation.dto.request.OAuthLoginRequest;
+import com.prompthub.user.auth.presentation.dto.request.RejoinRequest;
 import com.prompthub.user.auth.presentation.dto.request.TokenRefreshRequest;
 import com.prompthub.user.auth.presentation.dto.response.OAuthLoginResponse;
 import com.prompthub.user.auth.presentation.dto.response.TokenRefreshResponse;
@@ -32,6 +35,7 @@ import java.util.UUID;
 public class AuthController {
 
     private final AuthUseCase authUseCase;
+    private final RejoinUseCase rejoinUseCase;
 
     @Operation(summary = "OAuth 소셜 로그인", description = "최초 로그인 시 자동 회원가입 처리. 현재 지원 provider: kakao")
     @ApiResponse(responseCode = "200", description = "로그인 성공")
@@ -44,6 +48,20 @@ public class AuthController {
     ) {
         OAuthProvider oAuthProvider = OAuthProvider.fromString(provider);
         OAuthLoginResult result = authUseCase.oAuthLogin(request.toCommand(oAuthProvider));
+        return ApiResult.success(OAuthLoginResponse.from(result));
+    }
+
+    @Operation(
+            summary = "탈퇴 계정 재가입",
+            description = "OAuth 로그인에서 발급된 일회성 토큰을 확인하고 기존 계정을 활성화한 뒤 로그인 토큰을 발급")
+    @ApiResponse(responseCode = "200", description = "재가입 및 로그인 성공")
+    @ApiResponse(responseCode = "400", description = "재가입 토큰 누락")
+    @ApiResponse(responseCode = "401", description = "재가입 토큰이 유효하지 않거나 만료됨 (A014)")
+    @PostMapping("/rejoin")
+    public ApiResult<OAuthLoginResponse> rejoin(
+            @Valid @RequestBody RejoinRequest request
+    ) {
+        OAuthLoginCompletedResult result = rejoinUseCase.rejoin(request.toCommand());
         return ApiResult.success(OAuthLoginResponse.from(result));
     }
 
