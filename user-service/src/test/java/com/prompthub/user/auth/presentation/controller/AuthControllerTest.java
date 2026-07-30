@@ -1,7 +1,7 @@
 package com.prompthub.user.auth.presentation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.prompthub.user.auth.application.dto.OAuthLoginResult;
+import com.prompthub.user.auth.application.dto.OAuthLoginCompletedResult;
 import com.prompthub.user.auth.application.dto.TokenRefreshResult;
 import com.prompthub.user.auth.application.usecase.AuthUseCase;
 import com.prompthub.user.auth.domain.exception.InvalidRefreshTokenException;
@@ -49,8 +49,8 @@ class AuthControllerTest {
     private static final UUID USER_ID = UUID.randomUUID();
     private static final Instant EXPIRES_AT = Instant.now().plusSeconds(3600);
 
-    private OAuthLoginResult successResult(boolean isNewUser) {
-        return new OAuthLoginResult(
+    private OAuthLoginCompletedResult successResult(boolean isNewUser) {
+        return new OAuthLoginCompletedResult(
                 USER_ID,
                 "테스트유저",
                 "test@kakao.com",

@@ -1,6 +1,7 @@
 package com.prompthub.user.auth.presentation.dto.response;
 
 import com.prompthub.user.auth.application.dto.OAuthLoginResult;
+import com.prompthub.user.auth.application.dto.OAuthLoginCompletedResult;
 import com.prompthub.user.user.domain.model.UserRole;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -32,13 +33,18 @@ public record OAuthLoginResponse(
     ) {}
 
     public static OAuthLoginResponse from(OAuthLoginResult result) {
+        OAuthLoginCompletedResult completed = (OAuthLoginCompletedResult) result;
         return new OAuthLoginResponse(
-                new UserInfo(result.userId(), result.name(), result.email(), result.roles()),
-                result.accessToken(),
-                result.refreshToken(),
-                result.tokenType(),
-                result.expiresAt(),
-                result.isNewUser()
+                new UserInfo(
+                        completed.userId(),
+                        completed.name(),
+                        completed.email(),
+                        completed.roles()),
+                completed.accessToken(),
+                completed.refreshToken(),
+                completed.tokenType(),
+                completed.expiresAt(),
+                completed.isNewUser()
         );
     }
 }

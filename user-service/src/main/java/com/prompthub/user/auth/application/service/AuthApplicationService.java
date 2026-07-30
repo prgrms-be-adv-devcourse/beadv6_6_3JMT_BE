@@ -19,11 +19,9 @@ import com.prompthub.user.auth.domain.exception.OrphanedAuthRecordException;
 import com.prompthub.user.auth.domain.exception.RefreshTokenReuseDetectedException;
 import com.prompthub.user.auth.domain.exception.UnsupportedOAuthProviderException;
 import com.prompthub.user.auth.domain.model.Auth;
-import com.prompthub.user.auth.domain.model.AuthzSnapshot;
 import com.prompthub.user.auth.domain.model.OAuthProvider;
 import com.prompthub.user.auth.domain.model.RefreshToken;
 import com.prompthub.user.auth.domain.repository.AuthRepository;
-import com.prompthub.user.auth.domain.repository.AuthorizationCacheRepository;
 import com.prompthub.user.auth.domain.repository.RefreshTokenRepository;
 import com.prompthub.user.auth.infrastructure.jwt.JwtTokenProvider;
 import com.prompthub.user.user.domain.exception.UserNotFoundException;
@@ -43,7 +41,7 @@ public class AuthApplicationService implements AuthUseCase {
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final KakaoUserInfoClient kakaoUserInfoClient;
-    private final AuthorizationCacheRepository authorizationCacheRepository;
+    private final LoginSessionIssuer loginSessionIssuer;
 
     @Override
     public OAuthLoginResult oAuthLogin(OAuthLoginCommand command) {
@@ -82,29 +80,7 @@ public class AuthApplicationService implements AuthUseCase {
             isNewUser = true;
         }
 
-        JwtTokenProvider.TokenResult refreshTokenResult = jwtTokenProvider.generateRefreshToken(user.getUserId());
-        refreshTokenRepository.deleteByUserId(user.getUserId());
-        RefreshToken savedRefreshToken = refreshTokenRepository.save(
-                RefreshToken.create(user.getUserId(), refreshTokenResult.token(), refreshTokenResult.expiresAt())
-        );
-
-        JwtTokenProvider.TokenResult accessTokenResult =
-                jwtTokenProvider.generateAccessToken(user.getUserId(), savedRefreshToken.getEpoch());
-
-        authorizationCacheRepository.save(
-                user.getUserId(), new AuthzSnapshot(user.getStatus(), user.getPrimaryRole()));
-
-        return new OAuthLoginResult(
-                user.getUserId(),
-                user.getName(),
-                user.getEmail(),
-                user.getRoles(),
-                accessTokenResult.token(),
-                refreshTokenResult.token(),
-                "Bearer",
-                accessTokenResult.expiresAt(),
-                isNewUser
-        );
+        return loginSessionIssuer.issue(user, isNewUser);
     }
 
     @Override
