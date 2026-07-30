@@ -172,9 +172,21 @@ public class ProductSellerService implements ProductSellerUseCase {
 		product.submitForReview();
 		productRepository.save(product);
 
+		UUID duplicateOfProductId = findDuplicateOfProductId(product);
 		String presignedThumbnailUrl = presignOrNull(product.getThumbnailUrl());
 		List<String> presignedImageUrls = presignAll(product.getImageUrls());
-		productEventProducer.publishReviewRequested(product, presignedThumbnailUrl, presignedImageUrls);
+		productEventProducer.publishReviewRequested(
+			product, duplicateOfProductId, presignedThumbnailUrl, presignedImageUrls);
+	}
+
+	/** PROMPT가 아니면 content_hash가 없어 비교 대상이 아니다(ADR-0011). */
+	private UUID findDuplicateOfProductId(Product product) {
+		if (product.getContentHash() == null) {
+			return null;
+		}
+		return productRepository
+			.findDuplicateOfProductId(product.getId(), product.getContentHash(), product.getSellerId())
+			.orElse(null);
 	}
 
 	private String presignOrNull(String key) {

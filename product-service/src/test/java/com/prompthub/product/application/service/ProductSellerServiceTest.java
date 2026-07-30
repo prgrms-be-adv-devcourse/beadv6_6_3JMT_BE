@@ -65,7 +65,7 @@ class ProductSellerServiceTest {
 
 			assertThat(product.getStatus()).isEqualTo(ProductStatus.PENDING_REVIEW);
 			then(productEventProducer).should().publishReviewRequested(
-				product, "https://s3/presigned-thumb", List.of("https://s3/presigned-image"));
+				product, null, "https://s3/presigned-thumb", List.of("https://s3/presigned-image"));
 		}
 
 		@Test
@@ -76,8 +76,22 @@ class ProductSellerServiceTest {
 
 			productSellerService.submitForReview(SELLER_ID, PRODUCT_ID);
 
-			then(productEventProducer).should().publishReviewRequested(product, null, List.of());
+			then(productEventProducer).should().publishReviewRequested(product, null, null, List.of());
 			then(storageClient).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("같은 content_hash를 가진 다른 판매자 상품이 있으면 duplicateOfProductId를 함께 발행한다")
+		void submitForReview_withDuplicate_publishesDuplicateOfProductId() {
+			Product product = product(PRODUCT_ID, null, ProductStatus.DRAFT, (short) 1, (short) 0);
+			UUID originalProductId = UUID.randomUUID();
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+			given(productRepository.findDuplicateOfProductId(PRODUCT_ID, product.getContentHash(), SELLER_ID))
+				.willReturn(Optional.of(originalProductId));
+
+			productSellerService.submitForReview(SELLER_ID, PRODUCT_ID);
+
+			then(productEventProducer).should().publishReviewRequested(product, originalProductId, null, List.of());
 		}
 	}
 

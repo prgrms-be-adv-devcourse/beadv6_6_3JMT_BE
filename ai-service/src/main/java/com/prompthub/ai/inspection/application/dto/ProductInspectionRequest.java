@@ -15,6 +15,12 @@ public record ProductInspectionRequest(
 	String content,
 	List<String> tags,
 	String thumbnailUrl,
-	List<String> imageUrls
+	List<String> imageUrls,
+	/**
+	 * 같은 본문을 가진 다른 판매자의 먼저 등록된 상품 id. product-service가 완전일치로
+	 * 판정해 실어 보낸 값이라 이진(non-null이면 복제) — ai-service는 별도 임계값 없이
+	 * 그대로 자동 반려한다(ADR-0011).
+	 */
+	UUID duplicateOfProductId
 ) {
 }

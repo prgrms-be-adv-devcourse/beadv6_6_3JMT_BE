@@ -9,6 +9,7 @@ import com.prompthub.product.domain.model.vo.ProductContent;
 import com.prompthub.product.domain.model.vo.ProductContentHash;
 import com.prompthub.product.support.PostgresIntegrationTestSupport;
 import jakarta.persistence.EntityManager;
+import java.time.LocalDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.TestTransaction;
 
 /**
  * V4 마이그레이션이 실제로 무엇을 만들었는지 검증한다.
@@ -65,16 +67,18 @@ class ProductContentHashMigrationTest extends PostgresIntegrationTestSupport {
 	}
 
 	@Test
-	@DisplayName("Postgres sha256()이 Java로 계산한 해시와 같은 값을 낸다")
+	@DisplayName("Postgres sha256()이 정규화(공백 축약+trim+소문자화) 후 Java와 같은 해시를 낸다")
 	void postgresHashMatchesJava() {
-		// 백필 SQL이 쓰는 계산과 애플리케이션이 쓰는 계산이 같아야 한다.
-		ProductContent content = promptContent("해시대조", 1000);
+		// V8 백필 SQL의 정규화 계산과 ProductContentHash.normalize()가 같아야 한다.
+		// 정규화가 실제로 값을 바꾸는 입력(연속 공백·대문자 포함)으로 검증한다.
+		ProductContent content = promptContent("해시대조", 1000, "Hello   World\n\tGPT  ");
 		Product product = productJpaRepository.save(
 			Product.create(UUID.randomUUID(), UUID.randomUUID(), content));
 
 		Object fromDb = entityManager
 			.createNativeQuery("""
-				SELECT encode(sha256(convert_to(content, 'UTF8')), 'hex')
+				SELECT encode(sha256(convert_to(
+				           lower(trim(regexp_replace(content, '[ \\t\\n\\r\\f\\v]+', ' ', 'g'))), 'UTF8')), 'hex')
 				  FROM product WHERE id = :id
 				""")
 			.setParameter("id", product.getId())
@@ -83,6 +87,76 @@ class ProductContentHashMigrationTest extends PostgresIntegrationTestSupport {
 		assertThat(fromDb.toString())
 			.isEqualTo(ProductContentHash.of(content))
 			.isEqualTo(product.getContentHash());
+	}
+
+	@Test
+	@DisplayName("content_hash_at 컬럼이 만들어져 있다")
+	void contentHashAtColumnExists() {
+		Object count = entityManager
+			.createNativeQuery("""
+				SELECT count(*) FROM information_schema.columns
+				 WHERE table_schema = 'product_service'
+				   AND table_name = 'product'
+				   AND column_name = 'content_hash_at'
+				""")
+			.getSingleResult();
+
+		assertThat(((Number) count).intValue()).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("해시가 실제로 바뀔 때만 content_hash_at이 갱신된다 — 무해 재편집은 순서를 밀지 않는다")
+	void updatesContentHashAtOnlyWhenHashActuallyChanges() {
+		UUID id = UUID.randomUUID();
+		try {
+			productJpaRepository.saveAndFlush(
+				Product.create(id, UUID.randomUUID(), promptContent("원본", 1000, "본문")));
+			commit();
+
+			LocalDateTime firstHashAt = contentHashAt(id);
+			assertThat(firstHashAt).isNotNull();
+
+			beginNewTransaction();
+			productJpaRepository.findById(id).orElseThrow()
+				.update(promptContent("원본", 1000, "본문  "), null, false); // 정규화하면 동일 해시
+			productJpaRepository.flush();
+			commit();
+
+			assertThat(contentHashAt(id)).isEqualTo(firstHashAt);
+
+			beginNewTransaction();
+			productJpaRepository.findById(id).orElseThrow()
+				.update(promptContent("원본", 1000, "완전히 다른 본문"), null, false);
+			productJpaRepository.flush();
+			commit();
+
+			assertThat(contentHashAt(id)).isAfter(firstHashAt);
+		} finally {
+			beginNewTransaction();
+			entityManager.createNativeQuery("DELETE FROM product WHERE id = :id")
+				.setParameter("id", id)
+				.executeUpdate();
+			commit();
+			TestTransaction.start();
+		}
+	}
+
+	private void commit() {
+		TestTransaction.flagForCommit();
+		TestTransaction.end();
+	}
+
+	private void beginNewTransaction() {
+		TestTransaction.start();
+		entityManager.clear();
+	}
+
+	private LocalDateTime contentHashAt(UUID id) {
+		Object result = entityManager
+			.createNativeQuery("SELECT content_hash_at FROM product WHERE id = :id")
+			.setParameter("id", id)
+			.getSingleResult();
+		return (LocalDateTime) result;
 	}
 
 	@Test

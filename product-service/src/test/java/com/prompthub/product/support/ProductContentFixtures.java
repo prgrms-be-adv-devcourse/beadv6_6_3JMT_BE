@@ -16,9 +16,13 @@ public final class ProductContentFixtures {
 	}
 
 	public static ProductContent promptContent(String name, int amount) {
+		return promptContent(name, amount, "content");
+	}
+
+	public static ProductContent promptContent(String name, int amount, String content) {
 		return new ProductContent(
 			ProductType.PROMPT, name, "설명", "model", AmountType.PAID, amount,
-			null, List.of(), "content", null, null, List.of()
+			null, List.of(), content, null, null, List.of()
 		);
 	}
 

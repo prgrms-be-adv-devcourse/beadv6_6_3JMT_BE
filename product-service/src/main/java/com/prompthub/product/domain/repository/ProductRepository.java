@@ -72,4 +72,13 @@ public interface ProductRepository {
 
 	/** ES 문서에 실을 임베딩을 상품 ID로 묶어 돌려준다. 아직 임베딩이 없는 상품은 결과에 없다. */
 	Map<UUID, float[]> findEmbeddings(List<UUID> productIds);
+
+	/**
+	 * 같은 {@code contentHash}를 가진 <b>다른 판매자</b>의, 이 상품보다 <b>먼저 해시가 확정된</b>
+	 * PROMPT 상품을 찾는다. 있으면 그 id가 {@code duplicateOfProductId}다(ADR-0011).
+	 *
+	 * <p>비교 기준은 {@code content_hash_at}(DB 트리거가 찍은 시각)이지 {@code createdAt}이
+	 * 아니다 — 무해한 재편집으로는 순서가 밀리지 않는다.
+	 */
+	Optional<UUID> findDuplicateOfProductId(UUID productId, String contentHash, UUID sellerId);
 }

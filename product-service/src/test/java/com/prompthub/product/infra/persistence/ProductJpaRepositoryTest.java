@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -20,6 +21,7 @@ import com.prompthub.product.support.PostgresIntegrationTestSupport;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.test.util.ReflectionTestUtils;
 
 // replace = NONE — @DataJpaTest 기본값은 내장 DB로 갈아끼우는데, 여기서는
@@ -206,6 +208,75 @@ class ProductJpaRepositoryTest extends PostgresIntegrationTestSupport {
 		List<UUID> result = productJpaRepository.findChangedFamilyRootIds(LocalDateTime.now().minusMinutes(1));
 
 		assertThat(result).isEmpty();
+	}
+
+	@Test
+	void findDuplicateOfProductId_flagsLaterSubmission_notEarlierOne() {
+		UUID sellerA = UUID.randomUUID();
+		UUID sellerB = UUID.randomUUID();
+		String content = "복제 탐지 대상 원문";
+		Product original = Product.create(UUID.randomUUID(), sellerA, promptContent("원본", 1000, content));
+		ReflectionTestUtils.setField(original, "status", ProductStatus.ON_SALE);
+		Product duplicate = Product.create(UUID.randomUUID(), sellerB, promptContent("복제", 1000, content));
+		ReflectionTestUtils.setField(duplicate, "status", ProductStatus.PENDING_REVIEW);
+		try {
+			productJpaRepository.saveAndFlush(original);
+			commit();
+
+			beginNewTransaction();
+			productJpaRepository.saveAndFlush(duplicate);
+			commit();
+
+			assertThat(productJpaRepository.findDuplicateOfProductId(
+				duplicate.getId(), duplicate.getContentHash(), sellerB))
+				.contains(original.getId());
+
+			assertThat(productJpaRepository.findDuplicateOfProductId(
+				original.getId(), original.getContentHash(), sellerA))
+				.isEmpty();
+		} finally {
+			beginNewTransaction();
+			productJpaRepository.deleteAllById(List.of(original.getId(), duplicate.getId()));
+			commit();
+			TestTransaction.start();
+		}
+	}
+
+	@Test
+	void findDuplicateOfProductId_excludesSameSeller() {
+		UUID seller = UUID.randomUUID();
+		String content = "동일 판매자 재제출 원문";
+		Product v1 = Product.create(UUID.randomUUID(), seller, promptContent("v1", 1000, content));
+		ReflectionTestUtils.setField(v1, "status", ProductStatus.ON_SALE);
+		Product v2 = Product.create(UUID.randomUUID(), seller, promptContent("v2", 1000, content));
+		ReflectionTestUtils.setField(v2, "status", ProductStatus.PENDING_REVIEW);
+		try {
+			productJpaRepository.saveAndFlush(v1);
+			commit();
+
+			beginNewTransaction();
+			productJpaRepository.saveAndFlush(v2);
+			commit();
+
+			Optional<UUID> result =
+				productJpaRepository.findDuplicateOfProductId(v2.getId(), v2.getContentHash(), seller);
+
+			assertThat(result).isEmpty();
+		} finally {
+			beginNewTransaction();
+			productJpaRepository.deleteAllById(List.of(v1.getId(), v2.getId()));
+			commit();
+			TestTransaction.start();
+		}
+	}
+
+	private void commit() {
+		TestTransaction.flagForCommit();
+		TestTransaction.end();
+	}
+
+	private void beginNewTransaction() {
+		TestTransaction.start();
 	}
 
 	private Product product(UUID parentId, ProductStatus status, short majorVersion, short patchVersion) {

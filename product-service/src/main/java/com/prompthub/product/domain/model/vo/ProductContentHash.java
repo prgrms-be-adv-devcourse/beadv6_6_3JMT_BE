@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Locale;
 
 /**
  * 복제 판정용 상품 본문 해시.
@@ -38,16 +39,22 @@ public final class ProductContentHash {
 	}
 
 	/**
-	 * 정규화 지점. 지금은 원문을 그대로 돌려준다.
+	 * 공백 축약(연속 공백·개행·탭 → 하나)·앞뒤 trim·소문자화만 한다(v1 확정 —
+	 * 문장부호·마크다운 정규화는 오탐을 올려 하지 않는다).
 	 *
-	 * <p>공백 축약(연속 공백·개행·탭 → 하나)·앞뒤 trim·소문자화가 여기에 추가된다.
-	 * <b>이 메서드만 채우면 모든 호출 지점이 자동으로 탄다</b> — 호출부는 손댈 필요가 없다.
+	 * <p><b>{@code String.strip()}을 쓰지 않는다.</b> {@code strip()}은 유니코드 공백까지
+	 * 인식해 전각 공백(U+3000) 같은 문자를 앞뒤에서만 지우는데, 바로 뒤 정규식은 ASCII 전용
+	 * {@code \s}라 본문 중간의 같은 문자는 못 잡는다 — 그러면 앞뒤/중간이 서로 다른 규칙을
+	 * 타 V8 백필 SQL({@code trim(regexp_replace(content,'\s+',' ','g'))}, Postgres도 ASCII
+	 * 범위만 공백으로 본다)과 결과가 어긋난다. 정규식으로 먼저 ASCII 공백류를 전부 단일
+	 * 스페이스로 합친 뒤 {@code trim()}(ASCII 범위만 제거)으로 지우면 앞뒤·중간이 같은 규칙을
+	 * 타 SQL과 항상 같은 결과가 나온다.
 	 *
 	 * <p><b>주의:</b> 이 메서드를 고치면 이미 저장된 해시가 전부 옛 규칙 값이라 매칭되지
 	 * 않는다. 전 상품 해시를 다시 계산해야 한다.
 	 */
 	private static String normalize(String text) {
-		return text;
+		return text.replaceAll("\\s+", " ").trim().toLowerCase(Locale.ROOT);
 	}
 
 	private static String sha256(String text) {
