@@ -218,7 +218,7 @@ expected_deployment_order=$'config\ndiscovery\nuser-service\nproduct-service\nor
   fail "deployment_order changed"
 
 # The manual Kubernetes workflow supports runner provisioning, infrastructure,
-# Ingress, and ELK.
+# Ingress, ELK, and read-only ELK diagnostics.
 manual_patterns=(
   '^name:[[:space:]]+CD - Self-hosted Kubernetes$'
   '^[[:space:]]+workflow_call:$'
@@ -228,14 +228,20 @@ manual_patterns=(
   '^[[:space:]]+deploy-ingress:$'
   '^[[:space:]]+deploy-elk:$'
   '^[[:space:]]+- runner-runtime$'
+  '^[[:space:]]+- elk-diagnostics$'
   '^[[:space:]]+- elk$'
   'inputs\.target == '\''runner-runtime'\'''
+  'inputs\.target == '\''elk-diagnostics'\'''
   'inputs\.target == '\''elk'\'''
   'CONFIRMATION.*!=.*PROVISION'
+  'CONFIRMATION.*!=.*DIAGNOSE'
   'bash scripts/test-provision-self-hosted-runner-ruby\.sh'
   'bash scripts/provision-self-hosted-runner-ruby\.sh'
   'kubectl auth can-i get namespaces'
   'kubectl auth can-i create clusterrolebindings\.rbac\.authorization\.k8s\.io'
+  'kubectl describe job kibana-operations-dashboards-bootstrap -n elk'
+  'kubectl get pods -n elk -l job-name=kibana-operations-dashboards-bootstrap'
+  'kubectl logs -n elk "\$pod" --all-containers=true --timestamps=true'
   'kubectl apply -k k8s/base/storage'
   'kubectl apply -k k8s/base/infrastructure'
   'kubectl apply -k k8s/addons/nginx-ingress'

@@ -19,11 +19,12 @@ on:
         type: choice
         options:
           - runner-runtime
+          - elk-diagnostics
           - infrastructure
           - ingress
           - elk
       confirmation:
-        description: "runner-runtime은 PROVISION, 배포 대상은 DEPLOY 입력"
+        description: "runner-runtime은 PROVISION, elk-diagnostics는 DIAGNOSE, 배포 대상은 DEPLOY 입력"
         required: true
         type: string
 
@@ -95,6 +96,50 @@ jobs:
               base64 --decode |
               openssl x509 -noout -subject
           fi
+
+  diagnose-elk:
+    name: Diagnose ELK Bootstrap
+    if: inputs.target == 'elk-diagnostics'
+    runs-on: [self-hosted, linux, deploy]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: 수동 실행 확인
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "DIAGNOSE" ]; then
+            echo "elk-diagnostics는 confirmation에 DIAGNOSE를 입력해야 합니다." >&2
+            exit 1
+          fi
+
+      - name: Kibana 운영 대시보드 bootstrap 진단
+        shell: bash
+        run: |
+          set -u
+
+          kubectl config current-context
+          kubectl get deployment kibana -n elk -o wide || true
+          kubectl get endpoints kibana -n elk -o wide || true
+          kubectl get job kibana-operations-dashboards-bootstrap -n elk -o wide || true
+          kubectl describe job kibana-operations-dashboards-bootstrap -n elk || true
+          kubectl get pods -n elk -l job-name=kibana-operations-dashboards-bootstrap -o wide || true
+
+          mapfile -t pods < <(
+            kubectl get pods -n elk \
+              -l job-name=kibana-operations-dashboards-bootstrap \
+              -o name
+          )
+          for pod in "${pods[@]}"; do
+            kubectl describe "$pod" -n elk || true
+            kubectl logs -n elk "$pod" --all-containers=true --timestamps=true || true
+            kubectl logs -n elk "$pod" --all-containers=true --timestamps=true --previous || true
+          done
+
+          kubectl get events -n elk --sort-by=.lastTimestamp | tail -n 80 || true
 
   deploy-infrastructure:
     name: Manually Deploy Infrastructure
