@@ -22,6 +22,13 @@ public final class ProductContentFixtures {
 		);
 	}
 
+	public static ProductContent freePromptContent() {
+		return new ProductContent(
+			ProductType.PROMPT, "제목", "설명", "model", AmountType.FREE, 0,
+			null, List.of(), "content", null, null, List.of()
+		);
+	}
+
 	public static ProductContent notionContent(String name, int amount) {
 		return new ProductContent(
 			ProductType.NOTION, name, "새 설명", "model2", AmountType.PAID, amount,

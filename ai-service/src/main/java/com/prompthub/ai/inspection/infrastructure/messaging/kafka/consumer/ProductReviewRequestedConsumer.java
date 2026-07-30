@@ -60,7 +60,8 @@ public class ProductReviewRequestedConsumer {
 			payload.path("content").stringValue(null),
 			toStringList(payload.path("tags")),
 			payload.path("thumbnailUrl").stringValue(null),
-			toStringList(payload.path("imageUrls")));
+			toStringList(payload.path("imageUrls")),
+			payload.path("free").booleanValue(false));
 	}
 
 	private List<String> toStringList(JsonNode arrayNode) {

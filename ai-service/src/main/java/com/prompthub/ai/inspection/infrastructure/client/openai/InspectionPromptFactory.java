@@ -20,6 +20,19 @@ public class InspectionPromptFactory {
 			위반 여부가 확실하지 않으면 애매한 케이스도 반려로 판단한다(보수적 기본값) —
 			정상 상품을 오탐 반려하는 것보다 위반 콘텐츠를 통과시키는 위험을 더 크게 본다.
 
+			AI 도구/서비스/프레임워크의 명칭이나 로고를 언급 또는 노출하는 것 자체는 저작권 침해가
+			아니다(예: "Claude Code", "Codex", "ChatGPT", "Next.js", "Figma", "GitHub Copilot" 등
+			이름을 상품명·설명·본문·태그에 쓰거나, 사용 화면을 캡처한 이미지에 그 도구의 UI·로고·
+			아이콘이 나오는 경우). 이런 도구를 활용해 프롬프트·템플릿·컴포넌트 등을 만들었다는 설명은
+			정상적인 상품 소개이므로, 그 사실만으로 저작권 침해로 반려하지 않는다. 저작권 침해로
+			반려하는 경우는 타인이 만든 원본 저작물(글, 이미지, 디자인, 코드 등)을 실제로 무단
+			복제·전재해 자신의 산출물인 것처럼 등록한 경우로 한정한다.
+
+			사용자 메시지의 "무료 여부"가 "예"인 상품(무료 상품)에 한해서는, 원저작자 출처를
+			본문·설명에 명시(예: 원저작자명, 원문 링크, 크레딧 표기)하고 있으면 그 사실만으로
+			저작권 침해로 반려하지 않는다. 무료 상품이 아니면(유료 상품) 출처를 표기했더라도 타인의
+			저작물을 무단으로 판매하는 것이므로 이 예외를 적용하지 않는다.
+
 			본문(content)이 없는 것은 상품 유형이 NOTION/PPT/EXCEL일 때는 정상이다(실제 산출물이
 			외부 링크나 첨부 파일 형태로 별도 제공되기 때문). 사용자 메시지의 "본문" 항목에 그 사실이
 			명시돼 있으면(예: "본문 없음 — ... 정상") 본문이 없다는 이유만으로 반려하지 않는다.
@@ -56,14 +69,19 @@ public class InspectionPromptFactory {
 		return converter.getFormat();
 	}
 
-	public String userPrompt(String productType, String name, String description, String content, java.util.List<String> tags) {
+	public String userPrompt(
+		String productType, String name, String description, String content, java.util.List<String> tags, boolean free
+	) {
 		return """
 				상품 유형: %s
 				상품명: %s
 				설명: %s
 				본문: %s
 				태그: %s
-				""".formatted(productType, name, description, resolveContentLine(productType, content), String.join(", ", tags));
+				무료 여부: %s
+				""".formatted(
+			productType, name, description, resolveContentLine(productType, content), String.join(", ", tags),
+			free ? "예" : "아니오");
 	}
 
 	private String resolveContentLine(String productType, String content) {

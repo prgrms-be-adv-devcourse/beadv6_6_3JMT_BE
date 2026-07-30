@@ -15,6 +15,7 @@ public record ProductInspectionRequest(
 	String content,
 	List<String> tags,
 	String thumbnailUrl,
-	List<String> imageUrls
+	List<String> imageUrls,
+	boolean free
 ) {
 }

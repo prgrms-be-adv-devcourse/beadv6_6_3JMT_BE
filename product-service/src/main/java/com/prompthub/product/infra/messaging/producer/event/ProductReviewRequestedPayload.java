@@ -16,13 +16,14 @@ public record ProductReviewRequestedPayload(
 	String content,
 	List<String> tags,
 	String thumbnailUrl,
-	List<String> imageUrls
+	List<String> imageUrls,
+	boolean free
 ) {
 	public static ProductReviewRequestedPayload of(
 		UUID productId, String productType, String name, String description,
-		String content, List<String> tags, String thumbnailUrl, List<String> imageUrls
+		String content, List<String> tags, String thumbnailUrl, List<String> imageUrls, boolean free
 	) {
 		return new ProductReviewRequestedPayload(
-			productId, productType, name, description, content, tags, thumbnailUrl, imageUrls);
+			productId, productType, name, description, content, tags, thumbnailUrl, imageUrls, free);
 	}
 }
