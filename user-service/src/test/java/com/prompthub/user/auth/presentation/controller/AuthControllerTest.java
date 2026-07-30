@@ -6,6 +6,7 @@ import com.prompthub.user.auth.application.dto.OAuthRejoinRequiredResult;
 import com.prompthub.user.auth.application.dto.TokenRefreshResult;
 import com.prompthub.user.auth.application.usecase.AuthUseCase;
 import com.prompthub.user.auth.application.usecase.RejoinUseCase;
+import com.prompthub.user.auth.domain.exception.BlockedAccountException;
 import com.prompthub.user.auth.domain.exception.InvalidRefreshTokenException;
 import com.prompthub.user.auth.domain.exception.InvalidRejoinTokenException;
 import com.prompthub.user.auth.domain.exception.OAuthVerificationFailedException;
@@ -118,6 +119,19 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data.rejoinExpiresAt").value("2026-07-30T12:05:00Z"))
                 .andExpect(jsonPath("$.data.accessToken").doesNotExist())
                 .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
+    }
+
+    @Test
+    void oAuthLogin_BLOCKED_사용자는_403_A004() throws Exception {
+        given(authUseCase.oAuthLogin(any())).willThrow(new BlockedAccountException());
+
+        OAuthLoginRequest request = new OAuthLoginRequest("kakao-access-token");
+
+        mockMvc.perform(post("/api/v2/auth/oauth/kakao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("A004"));
     }
 
     @Test

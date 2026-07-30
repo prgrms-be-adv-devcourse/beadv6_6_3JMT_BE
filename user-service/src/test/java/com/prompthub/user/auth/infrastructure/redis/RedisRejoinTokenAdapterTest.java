@@ -84,6 +84,19 @@ class RedisRejoinTokenAdapterTest {
     }
 
     @Test
+    void consume_동일한_토큰은_첫번째_요청만_사용자를_반환한다() {
+        given(redisTemplate.opsForValue()).willReturn(valueOperations);
+        given(valueOperations.getAndDelete(TOKEN_KEY))
+                .willReturn(USER_ID.toString(), (String) null);
+
+        Optional<UUID> first = adapter().consume("token");
+        Optional<UUID> second = adapter().consume("token");
+
+        assertThat(first).contains(USER_ID);
+        assertThat(second).isEmpty();
+    }
+
+    @Test
     void create_Redis_장애를_전파해_failClosed한다() {
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
         willThrow(new RedisConnectionFailureException("연결 실패"))
@@ -91,6 +104,16 @@ class RedisRejoinTokenAdapterTest {
                 .set(anyString(), anyString(), any(Duration.class));
 
         assertThatThrownBy(() -> adapter().create(USER_ID))
+                .isInstanceOf(RedisConnectionFailureException.class);
+    }
+
+    @Test
+    void consume_Redis_장애를_전파해_failClosed한다() {
+        given(redisTemplate.opsForValue()).willReturn(valueOperations);
+        given(valueOperations.getAndDelete(TOKEN_KEY))
+                .willThrow(new RedisConnectionFailureException("연결 실패"));
+
+        assertThatThrownBy(() -> adapter().consume("token"))
                 .isInstanceOf(RedisConnectionFailureException.class);
     }
 }
