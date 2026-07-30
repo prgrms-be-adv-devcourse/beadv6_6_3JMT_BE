@@ -80,8 +80,7 @@ public class SseEmitterRegistry {
             return;
         }
         send(runId, registered, toSseEvent(event));
-        registered.emitter().complete();
-        remove(runId, registered);
+        completeAndRemove(runId, registered);
     }
 
     public void dispatch(RunEvent event) {
@@ -99,8 +98,7 @@ public class SseEmitterRegistry {
 
         if (event.terminal()) {
             for (EmitterSession session : sessions) {
-                session.emitter().complete();
-                remove(event.runId(), session);
+                completeAndRemove(event.runId(), session);
             }
         }
     }
@@ -135,6 +133,11 @@ public class SseEmitterRegistry {
         } catch (IOException | IllegalStateException exception) {
             remove(runId, session);
         }
+    }
+
+    private void completeAndRemove(UUID runId, EmitterSession session) {
+        remove(runId, session);
+        session.emitter().complete();
     }
 
     private void remove(UUID runId, EmitterSession session) {
