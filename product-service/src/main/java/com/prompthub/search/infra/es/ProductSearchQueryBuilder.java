@@ -28,8 +28,12 @@ public class ProductSearchQueryBuilder {
 	 * {@code content}(프롬프트 본문)는 검색하지 않는다. 본문은 "예: 삼성전자, Apple" 같은
 	 * placeholder 예시로 가득해, 상품과 무관한 검색어("주식")가 예시 문구에 걸려 오탐을 만든다
 	 * (#689 — dev 실측으로 확인). 상품이 무엇인지는 이름·태그·설명이 이미 담고 있다.
+	 *
+	 * <p>{@code model.text}는 최하 가중치로 검색한다(#699). 화면에 모델 뱃지("GPT-5.6")가
+	 * 보이는데 "gpt" 검색이 0건이면 사용자에겐 고장이다. 대부분의 상품이 GPT 계열 모델이라
+	 * 가중치를 최하로 두어, 이름·태그·설명에 걸린 상품이 항상 모델만 걸린 상품보다 앞선다.
 	 */
-	private static final List<String> MATCH_FIELDS = List.of("name^3", "tags.text^2", "description^1.5");
+	private static final List<String> MATCH_FIELDS = List.of("name^3", "tags.text^2", "description^1.5", "model.text");
 
 	/**
 	 * 여러 단어 검색에서 2단어면 모두, 3단어 이상이면 75% 이상 일치해야 매칭한다.

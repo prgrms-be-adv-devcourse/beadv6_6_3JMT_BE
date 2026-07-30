@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.prompthub.product.domain.model.entity.Product;
+import com.prompthub.product.domain.model.enums.AmountType;
+import com.prompthub.product.domain.model.enums.ProductType;
+import com.prompthub.product.domain.model.vo.ProductContent;
 import com.prompthub.product.support.ProductContentFixtures;
 import com.prompthub.search.application.EmbeddingClient;
 import com.prompthub.search.application.FamilyUpsertInput;
@@ -394,6 +397,23 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 
 		// 이름에 "프롬프트"가 없어도 PROMPT 유형이면 나오고, NOTION 유형은 필터로 걸러진다.
 		assertThat(result.hits()).extracting(ProductSearchHit::name).containsExactly(promptTyped.getName());
+	}
+
+	@Test
+	void 모델명으로도_글자_검색이_된다() throws Exception {
+		// #699 — 화면에 모델 뱃지가 보이는데 그 단어로 검색이 0건이면 사용자에겐 고장이다.
+		// 이름·태그·설명에 없어도 model 필드로 매칭되어야 한다(가중치 최하).
+		String uniqueModel = "m" + UUID.randomUUID().toString().substring(0, 8);
+		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), new ProductContent(
+			ProductType.PROMPT, "모델검색상품", "설명", uniqueModel + " ultra",
+			AmountType.PAID, 1000, null, List.of(), "content", null, null, List.of()));
+		index(product, 0, 0, 0);
+		refresh();
+
+		ProductSearchPageResult result = querier(new RecordingEmbeddingClient(null))
+			.search(uniqueModel, "all", "popular", PageRequest.of(0, 20));
+
+		assertThat(result.hits()).extracting(ProductSearchHit::name).containsExactly(product.getName());
 	}
 
 	@Test

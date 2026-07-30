@@ -1,8 +1,10 @@
 package com.prompthub.product.application.service;
 
 import com.prompthub.product.domain.model.entity.Product;
+import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.vo.InspectionChecklist;
 import com.prompthub.product.domain.repository.ProductRepository;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +33,7 @@ public class ProductInspectionResultHandler {
 		try {
 			if (approved) {
 				product.approve(checklist);
+				supersedePreviousVersions(product);
 			} else {
 				product.reject(rejectionReason, checklist);
 			}
@@ -40,5 +43,20 @@ public class ProductInspectionResultHandler {
 			return;
 		}
 		productRepository.save(product);
+	}
+
+	/**
+	 * 승인으로 새 버전이 판매를 시작하는 순간, 같은 가족에서 팔리던 이전 버전을 교대시킨다.
+	 * 이 호출이 빠지면 메이저 수정이 승인될 때마다 가족에 ON_SALE 행이 누적된다(#699).
+	 * ES 반영은 승인과 같은 경로다 — supersede가 updatedAt을 갱신해 재조정이 집어간다.
+	 */
+	private void supersedePreviousVersions(Product approvedProduct) {
+		List<Product> family = productRepository.findAllByFamilyRootIds(List.of(approvedProduct.familyRootId()));
+		for (Product member : family) {
+			if (!member.getId().equals(approvedProduct.getId()) && member.getStatus() == ProductStatus.ON_SALE) {
+				member.supersede();
+				productRepository.save(member);
+			}
+		}
 	}
 }

@@ -145,6 +145,28 @@ class SimilarProductQueryIntegrationTest extends PostgresIntegrationTestSupport 
 			.contains("idx_product_embedding_on_sale");
 	}
 
+	@Test
+	@DisplayName("한 가족의 여러 ON_SALE 버전은 후보에 1건만 온다")
+	void collapsesCandidateFamilies() {
+		// #699 — 승인 시 supersede 누락으로 한 가족에 ON_SALE이 2행 쌓이면, 버전끼리 임베딩이
+		// 거의 같아 나란히 후보에 들어와 추천 카드가 중복된다. 가족당 최근접 1건만 남아야 한다.
+		Product base = save(promptContent("기준상품", 1000), 0);
+		Product familyRoot = save(promptContent("후보 v1", 1000), 0);
+		Product newerVersion = onSale(promptContent("후보 v2", 1000));
+		ReflectionTestUtils.setField(newerVersion, "parentId", familyRoot.getId());
+		productJpaRepository.saveAndFlush(newerVersion);
+		float[] embedding = new float[DIMENSIONS];
+		embedding[0] = 1f;
+		productRepository.updateEmbedding(newerVersion.getId(), embedding, "해시-" + newerVersion.getId());
+
+		List<UUID> found = idsOf(base, 10);
+
+		long familyHits = found.stream()
+			.filter(id -> id.equals(familyRoot.getId()) || id.equals(newerVersion.getId()))
+			.count();
+		assertThat(familyHits).isEqualTo(1);
+	}
+
 	private List<UUID> idsOf(Product base, int candidates) {
 		return productRepository.findSimilarProducts(base.getId(), base.familyRootId(), candidates).stream()
 			.map(SimilarProductProjection::id)
