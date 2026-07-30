@@ -92,6 +92,17 @@ public class Product {
 	@Column(name = "content_hash", length = 64)
 	private String contentHash;
 
+	/**
+	 * content_hash가 확정된 시각(DB 트리거가 찍음). 중복 판정의 순서 기준 —
+	 * created_at/updated_at은 콘텐츠와 무관하게 밀려 원본·복제 순서가 뒤집힐 수 있어 쓰지 않는다.
+	 *
+	 * <p>앱이 아니라 DB 단일 시계로 찍어야 멀티 파드 시계 스큐로 인한 오판을 막을 수 있어
+	 * 읽기 전용으로 매핑한다. JPA가 이 값을 쓰지 않으므로, persist 직후 값이 필요하면
+	 * flush 후 재조회하거나 서브쿼리로 참조한다.
+	 */
+	@Column(name = "content_hash_at", insertable = false, updatable = false)
+	private LocalDateTime contentHashAt;
+
 	@Column(name = "badge", length = 50)
 	private String badge;
 

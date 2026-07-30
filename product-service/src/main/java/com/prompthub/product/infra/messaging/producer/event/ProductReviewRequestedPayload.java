@@ -17,13 +17,20 @@ public record ProductReviewRequestedPayload(
 	List<String> tags,
 	String thumbnailUrl,
 	List<String> imageUrls,
+	/**
+	 * 같은 본문(content_hash)을 가진 다른 판매자의 먼저 등록된 상품 id. 없으면 {@code null}
+	 * (ADR-0011). 완전일치라 이진 판정이라 ai-service는 이 값이 있으면 그대로 자동 반려한다.
+	 */
+	UUID duplicateOfProductId,
 	boolean free
 ) {
 	public static ProductReviewRequestedPayload of(
 		UUID productId, String productType, String name, String description,
-		String content, List<String> tags, String thumbnailUrl, List<String> imageUrls, boolean free
+		String content, List<String> tags, String thumbnailUrl, List<String> imageUrls,
+		UUID duplicateOfProductId, boolean free
 	) {
 		return new ProductReviewRequestedPayload(
-			productId, productType, name, description, content, tags, thumbnailUrl, imageUrls, free);
+			productId, productType, name, description, content, tags, thumbnailUrl, imageUrls,
+			duplicateOfProductId, free);
 	}
 }

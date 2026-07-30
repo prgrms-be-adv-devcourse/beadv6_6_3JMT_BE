@@ -129,7 +129,7 @@ class ProductEventProducerTest {
 			Product product = Product.create(PRODUCT_ID, UUID.randomUUID(), promptContent());
 
 			productEventProducer.publishReviewRequested(
-				product, "https://s3/presigned-thumb", List.of("https://s3/presigned-1"));
+				product, null, "https://s3/presigned-thumb", List.of("https://s3/presigned-1"));
 
 			EventMessage<?> message = captureMessage();
 			assertThat(message.eventType()).isEqualTo("PRODUCT_REVIEW_REQUESTED");
@@ -142,6 +142,7 @@ class ProductEventProducerTest {
 			assertThat(payload.name()).isEqualTo("제목");
 			assertThat(payload.thumbnailUrl()).isEqualTo("https://s3/presigned-thumb");
 			assertThat(payload.imageUrls()).containsExactly("https://s3/presigned-1");
+			assertThat(payload.duplicateOfProductId()).isNull();
 			assertThat(payload.free()).isFalse();
 		}
 
@@ -151,11 +152,24 @@ class ProductEventProducerTest {
 			Product product = Product.create(PRODUCT_ID, UUID.randomUUID(), freePromptContent());
 
 			productEventProducer.publishReviewRequested(
-				product, "https://s3/presigned-thumb", List.of("https://s3/presigned-1"));
+				product, null, "https://s3/presigned-thumb", List.of("https://s3/presigned-1"));
 
 			EventMessage<?> message = captureMessage();
 			ProductReviewRequestedPayload payload = (ProductReviewRequestedPayload) message.payload();
 			assertThat(payload.free()).isTrue();
+		}
+
+		@Test
+		@DisplayName("duplicateOfProductId가 있으면 payload에 그대로 담는다")
+		void publishReviewRequested_withDuplicate_includesDuplicateOfProductId() {
+			Product product = Product.create(PRODUCT_ID, UUID.randomUUID(), promptContent());
+			UUID duplicateOfProductId = UUID.randomUUID();
+
+			productEventProducer.publishReviewRequested(product, duplicateOfProductId, null, List.of());
+
+			ProductReviewRequestedPayload payload =
+				(ProductReviewRequestedPayload) captureMessage().payload();
+			assertThat(payload.duplicateOfProductId()).isEqualTo(duplicateOfProductId);
 		}
 	}
 }

@@ -69,9 +69,29 @@ class ProductInspectionServiceTest {
 		then(inspectionEventProducer).shouldHaveNoInteractions();
 	}
 
+	@Test
+	@DisplayName("duplicateOfProductId가 있으면 AI 호출 없이 바로 반려한다(ADR-0011)")
+	void inspect_duplicate_rejectsWithoutCallingAi() {
+		UUID duplicateOfProductId = UUID.randomUUID();
+
+		productInspectionService.inspect(requestWithDuplicate(duplicateOfProductId));
+
+		then(aiPort).shouldHaveNoInteractions();
+		then(inspectionEventProducer).should().publish(
+			PRODUCT_ID, false,
+			"기존 상품과 동일한 본문입니다. (원본 상품 ID: " + duplicateOfProductId + ")",
+			false, false, false, false, false, false, false);
+	}
+
 	private ProductInspectionRequest request() {
 		return new ProductInspectionRequest(
 			PRODUCT_ID, "PROMPT", "제목", "설명", "content", List.of("tag1"),
-			"https://s3/presigned-thumb", List.of("https://s3/presigned-1"), false);
+			"https://s3/presigned-thumb", List.of("https://s3/presigned-1"), null, false);
+	}
+
+	private ProductInspectionRequest requestWithDuplicate(UUID duplicateOfProductId) {
+		return new ProductInspectionRequest(
+			PRODUCT_ID, "PROMPT", "제목", "설명", "content", List.of("tag1"),
+			"https://s3/presigned-thumb", List.of("https://s3/presigned-1"), duplicateOfProductId, false);
 	}
 }

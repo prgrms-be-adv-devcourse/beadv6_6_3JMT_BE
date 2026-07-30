@@ -19,7 +19,9 @@ public class ProductInspectionService implements ProductInspectionUseCase {
 
 	@Override
 	public void inspect(ProductInspectionRequest request) {
-		InspectionVerdict verdict = aiPort.inspect(request);
+		InspectionVerdict verdict = request.duplicateOfProductId() != null
+			? InspectionVerdict.rejectedAsDuplicate(request.duplicateOfProductId())
+			: aiPort.inspect(request);
 		inspectionEventProducer.publish(
 			request.productId(), verdict.approved(), verdict.rejectionReason(),
 			verdict.hasContext(), verdict.hasObjective(), verdict.hasNuance(),

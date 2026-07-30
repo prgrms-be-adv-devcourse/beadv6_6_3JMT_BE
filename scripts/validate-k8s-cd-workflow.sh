@@ -217,16 +217,31 @@ expected_deployment_order=$'config\ndiscovery\nuser-service\nproduct-service\nor
 [ "$(array_values "$APPLICATION_WORKFLOW" deployment_order)" = "$expected_deployment_order" ] ||
   fail "deployment_order changed"
 
-# The manual Kubernetes workflow supports infrastructure, Ingress, and ELK.
+# The manual Kubernetes workflow supports runner provisioning, infrastructure,
+# Ingress, ELK, and read-only ELK diagnostics.
 manual_patterns=(
   '^name:[[:space:]]+CD - Self-hosted Kubernetes$'
   '^[[:space:]]+workflow_call:$'
   '^[[:space:]]+workflow_dispatch:$'
+  '^[[:space:]]+provision-runner-runtime:$'
   '^[[:space:]]+deploy-infrastructure:$'
   '^[[:space:]]+deploy-ingress:$'
   '^[[:space:]]+deploy-elk:$'
+  '^[[:space:]]+- runner-runtime$'
+  '^[[:space:]]+- elk-diagnostics$'
   '^[[:space:]]+- elk$'
+  'inputs\.target == '\''runner-runtime'\'''
+  'inputs\.target == '\''elk-diagnostics'\'''
   'inputs\.target == '\''elk'\'''
+  'CONFIRMATION.*!=.*PROVISION'
+  'CONFIRMATION.*!=.*DIAGNOSE'
+  'bash scripts/test-provision-self-hosted-runner-ruby\.sh'
+  'bash scripts/provision-self-hosted-runner-ruby\.sh'
+  'kubectl auth can-i get namespaces'
+  'kubectl auth can-i create clusterrolebindings\.rbac\.authorization\.k8s\.io'
+  'kubectl describe job kibana-operations-dashboards-bootstrap -n elk'
+  'kubectl get pods -n elk -l job-name=kibana-operations-dashboards-bootstrap'
+  'kubectl logs -n elk "\$pod" --all-containers=true --timestamps=true'
   'kubectl apply -k k8s/base/storage'
   'kubectl apply -k k8s/base/infrastructure'
   'kubectl apply -k k8s/addons/nginx-ingress'
@@ -259,6 +274,14 @@ require_pattern "$PR_WORKFLOW" '^name:[[:space:]]+CI$' "PR CI name changed"
 require_pattern "$PR_WORKFLOW" '^[[:space:]]+pull_request:$' "PR CI trigger missing"
 require_pattern "$PR_WORKFLOW" '^[[:space:]]+- develop$' "PR CI develop target missing"
 require_pattern "$PR_WORKFLOW" '^[[:space:]]+ci-gate:$' "PR CI Gate missing"
+require_pattern "$PR_WORKFLOW" '^[[:space:]]+- \.github/workflows/cd-selfhosted-kubernetes\.yml$' \
+  "PR CI Kubernetes filter must include the self-hosted workflow"
+require_pattern "$PR_WORKFLOW" '^[[:space:]]+- scripts/provision-self-hosted-runner-ruby\.sh$' \
+  "PR CI Kubernetes filter must include the Ruby provisioner"
+require_pattern "$PR_WORKFLOW" '^[[:space:]]+- scripts/test-provision-self-hosted-runner-ruby\.sh$' \
+  "PR CI must include the Ruby provisioner regression test"
+require_pattern "$PR_WORKFLOW" 'run:[[:space:]]+bash scripts/test-provision-self-hosted-runner-ruby\.sh$' \
+  "PR CI must execute the Ruby provisioner regression test"
 forbid_pattern "$PR_WORKFLOW" 'push-image:[[:space:]]+true|packages:[[:space:]]+write|reusable-kubernetes-deploy' \
   "PR CI must remain build/test only"
 

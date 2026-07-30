@@ -54,7 +54,60 @@ class ProductReviewRequestedConsumerTest {
 		assertThat(request.name()).isEqualTo("상품명");
 		assertThat(request.tags()).containsExactly("tag1", "tag2");
 		assertThat(request.imageUrls()).containsExactly("https://s3/presigned-1");
+		assertThat(request.duplicateOfProductId()).isNull();
 		then(acknowledgment).should().acknowledge();
+	}
+
+	@Test
+	@DisplayName("payload에 duplicateOfProductId가 있으면 파싱해 유스케이스로 넘긴다")
+	void consume_withDuplicateOfProductId_parsesIt() {
+		UUID duplicateOfProductId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+		String message = "{\"eventId\":\"" + EVENT_ID + "\",\"eventType\":\"PRODUCT_REVIEW_REQUESTED\","
+			+ "\"aggregateType\":\"PRODUCT\",\"payload\":{"
+			+ "\"productId\":\"" + PRODUCT_ID + "\","
+			+ "\"productType\":\"PROMPT\",\"name\":\"상품명\",\"description\":\"설명\",\"content\":\"내용\","
+			+ "\"tags\":[],\"thumbnailUrl\":null,\"imageUrls\":[],"
+			+ "\"duplicateOfProductId\":\"" + duplicateOfProductId + "\"}}";
+		ArgumentCaptor<ProductInspectionRequest> captor = ArgumentCaptor.forClass(ProductInspectionRequest.class);
+
+		consumer.consume(message, acknowledgment);
+
+		then(productInspectionUseCase).should().inspect(captor.capture());
+		assertThat(captor.getValue().duplicateOfProductId()).isEqualTo(duplicateOfProductId);
+	}
+
+	@Test
+	@DisplayName("duplicateOfProductId가 JSON null이면 필드 자체가 없는 경우와 동일하게 null로 파싱한다")
+	void consume_duplicateOfProductIdIsJsonNull_parsesAsNull() {
+		String message = "{\"eventId\":\"" + EVENT_ID + "\",\"eventType\":\"PRODUCT_REVIEW_REQUESTED\","
+			+ "\"aggregateType\":\"PRODUCT\",\"payload\":{"
+			+ "\"productId\":\"" + PRODUCT_ID + "\","
+			+ "\"productType\":\"PROMPT\",\"name\":\"상품명\",\"description\":\"설명\",\"content\":\"내용\","
+			+ "\"tags\":[],\"thumbnailUrl\":null,\"imageUrls\":[],"
+			+ "\"duplicateOfProductId\":null}}";
+		ArgumentCaptor<ProductInspectionRequest> captor = ArgumentCaptor.forClass(ProductInspectionRequest.class);
+
+		consumer.consume(message, acknowledgment);
+
+		then(productInspectionUseCase).should().inspect(captor.capture());
+		assertThat(captor.getValue().duplicateOfProductId()).isNull();
+	}
+
+	@Test
+	@DisplayName("duplicateOfProductId가 빈 문자열이면 UUID 파싱 실패로 예외를 던져 DLT 대상이 된다"
+		+ "(product-service는 UUID 필드라 실제로는 null 또는 유효한 UUID만 보낸다 — 방어적 확인용)")
+	void consume_duplicateOfProductIdIsEmptyString_throws() {
+		String message = "{\"eventId\":\"" + EVENT_ID + "\",\"eventType\":\"PRODUCT_REVIEW_REQUESTED\","
+			+ "\"aggregateType\":\"PRODUCT\",\"payload\":{"
+			+ "\"productId\":\"" + PRODUCT_ID + "\","
+			+ "\"productType\":\"PROMPT\",\"name\":\"상품명\",\"description\":\"설명\",\"content\":\"내용\","
+			+ "\"tags\":[],\"thumbnailUrl\":null,\"imageUrls\":[],"
+			+ "\"duplicateOfProductId\":\"\"}}";
+
+		assertThatThrownBy(() -> consumer.consume(message, acknowledgment))
+			.isInstanceOf(IllegalArgumentException.class);
+		then(productInspectionUseCase).should(never()).inspect(any());
+		then(acknowledgment).should(never()).acknowledge();
 	}
 
 	@Nested

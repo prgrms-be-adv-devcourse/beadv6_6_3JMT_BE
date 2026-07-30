@@ -161,6 +161,11 @@ public class ProductRepositoryAdapter implements ProductRepository {
 			.collect(Collectors.toMap(row -> (UUID) row[0], row -> fromVectorLiteral((String) row[1])));
 	}
 
+	@Override
+	public Optional<UUID> findDuplicateOfProductId(UUID productId, String contentHash, UUID sellerId) {
+		return productJpaRepository.findDuplicateOfProductId(productId, contentHash, sellerId);
+	}
+
 	/** {@link #toVectorLiteral}의 역변환. 우리 시스템이 쓴 값을 그대로 읽는 왕복이라 별도 검증은 두지 않는다. */
 	private float[] fromVectorLiteral(String literal) {
 		String[] parts = literal.substring(1, literal.length() - 1).split(",");

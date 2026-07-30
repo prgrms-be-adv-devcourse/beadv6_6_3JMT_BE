@@ -48,7 +48,9 @@ public class ProductEventProducer {
 		publish(ProductEventType.PRODUCT_CHANGED, familyRootId, ProductChangedPayload.of(familyRootId));
 	}
 
-	public void publishReviewRequested(Product product, String presignedThumbnailUrl, List<String> presignedImageUrls) {
+	public void publishReviewRequested(
+		Product product, UUID duplicateOfProductId, String presignedThumbnailUrl, List<String> presignedImageUrls
+	) {
 		publish(ProductEventType.PRODUCT_REVIEW_REQUESTED, product.getId(),
 			ProductReviewRequestedPayload.of(
 				product.getId(),
@@ -59,6 +61,7 @@ public class ProductEventProducer {
 				product.getTags(),
 				presignedThumbnailUrl,
 				presignedImageUrls,
+				duplicateOfProductId,
 				product.getAmountType() == AmountType.FREE));
 	}
 
