@@ -62,6 +62,7 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - --spring.grpc.client.channel.user-service.target=static://user-service:$(USER_GRPC_SERVER_PORT)
+            - --spring.grpc.client.channel.product-service.target=static://product-service:$(PRODUCT_GRPC_SERVER_PORT)
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -102,6 +103,11 @@ spec:
                 secretKeyRef:
                   name: runtime-secret
                   key: USER_GRPC_SERVER_PORT
+            - name: PRODUCT_GRPC_SERVER_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secret
+                  key: PRODUCT_GRPC_SERVER_PORT
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
