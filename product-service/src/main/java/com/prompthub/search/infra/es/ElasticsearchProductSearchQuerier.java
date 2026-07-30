@@ -54,13 +54,15 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryServ
 
 	@Override
 	public ProductSearchPageResult search(String keyword, String productType, String sort, Pageable pageable) {
-		if (shouldTryHybrid(keyword, sort, pageable)) {
-			float[] queryVector = queryEmbeddingCache.get(keyword);
+		// 유형 단어("주식 프롬프트"의 "프롬프트")를 필터로 옮긴 뒤 남은 단어로 두 레그를 돌린다(#689).
+		SearchKeywordTypeParser.Parsed parsed = SearchKeywordTypeParser.parse(keyword, productType);
+		if (shouldTryHybrid(parsed.keyword(), sort, pageable)) {
+			float[] queryVector = queryEmbeddingCache.get(parsed.keyword());
 			if (queryVector != null) {
-				return hybridSearch(keyword, productType, sort, pageable, queryVector);
+				return hybridSearch(parsed.keyword(), parsed.productType(), sort, pageable, queryVector);
 			}
 		}
-		return lexicalSearch(queryBuilder.build(keyword, productType, sort, pageable));
+		return lexicalSearch(queryBuilder.build(parsed.keyword(), parsed.productType(), sort, pageable));
 	}
 
 	private boolean shouldTryHybrid(String keyword, String sort, Pageable pageable) {
