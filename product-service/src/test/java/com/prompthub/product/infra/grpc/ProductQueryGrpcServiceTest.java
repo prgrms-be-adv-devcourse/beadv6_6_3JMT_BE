@@ -13,15 +13,20 @@ import com.prompthub.product.grpc.GetOrderSnapshotsRequest;
 import com.prompthub.product.grpc.GetOrderSnapshotsResponse;
 import com.prompthub.product.grpc.GetProductContentRequest;
 import com.prompthub.product.grpc.GetProductContentResponse;
+import com.prompthub.product.grpc.GetSimilarProductsRequest;
+import com.prompthub.product.grpc.GetSimilarProductsResponse;
 import com.prompthub.product.grpc.ProductContentPurpose;
 import com.prompthub.product.grpc.ProductContentResult;
+import com.prompthub.product.grpc.RecommendedProduct;
 import com.prompthub.product.presentation.dto.response.ProductCartSnapshotResponse;
 import com.prompthub.product.presentation.dto.response.ProductContentResponse;
+import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductOrderSnapshotResponse;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -250,6 +255,85 @@ class ProductQueryGrpcServiceTest {
 			then(contentObserver).should().onError(captor.capture());
 			assertThat(captor.getValue()).isInstanceOf(StatusRuntimeException.class);
 			assertThat(((StatusRuntimeException) captor.getValue()).getStatus().getCode()).isEqualTo(expected);
+		}
+	}
+
+	@Nested
+	@DisplayName("유사 상품 순위 조회")
+	class GetSimilarProducts {
+
+		private static final UUID SEED_A = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
+		private static final UUID SEED_B = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000002");
+
+		@Mock
+		private StreamObserver<GetSimilarProductsResponse> observer;
+
+		@Test
+		@DisplayName("기준 순서를 유지하고, 순위가 빈 기준도 자리를 남긴다")
+		void keepsSeedOrderIncludingEmptyRankings() {
+			given(productGrpcUseCase.getSimilarProducts(List.of(SEED_A, SEED_B), 8))
+				.willReturn(Map.of(SEED_A, List.of(listItem("비슷한 상품")), SEED_B, List.of()));
+
+			grpcService.getSimilarProducts(request(List.of(SEED_A, SEED_B), 8), observer);
+
+			GetSimilarProductsResponse response = captureResponse();
+			assertThat(response.getRankingsList()).hasSize(2);
+			assertThat(response.getRankings(0).getSeedProductId()).isEqualTo(SEED_A.toString());
+			assertThat(response.getRankings(0).getProductsList()).hasSize(1);
+			assertThat(response.getRankings(1).getSeedProductId()).isEqualTo(SEED_B.toString());
+			assertThat(response.getRankings(1).getProductsList()).isEmpty();
+		}
+
+		@Test
+		@DisplayName("null 필드는 빈 문자열로 내보낸다 — proto3 string은 null을 담지 못한다")
+		void mapsNullFieldsToEmptyString() {
+			given(productGrpcUseCase.getSimilarProducts(List.of(SEED_A), 4))
+				.willReturn(Map.of(SEED_A, List.of(new ProductListItemResponse(
+					PRODUCT_ID, "제목", null, null, 1000, null, 0.0, 0, null, null, null, null, null, null, null))));
+
+			grpcService.getSimilarProducts(request(List.of(SEED_A), 4), observer);
+
+			RecommendedProduct product = captureResponse().getRankings(0).getProducts(0);
+			assertThat(product.getProductType()).isEmpty();
+			assertThat(product.getModel()).isEmpty();
+			assertThat(product.getSellerId()).isEmpty();
+			assertThat(product.getDescription()).isEmpty();
+			assertThat(product.getThumbnailUrl()).isEmpty();
+			assertThat(product.getTagsList()).isEmpty();
+		}
+
+		@Test
+		@DisplayName("기준 id가 UUID 형식이 아니면 INVALID_ARGUMENT로 응답한다")
+		void invalidSeedIdIsRejected() {
+			grpcService.getSimilarProducts(
+				GetSimilarProductsRequest.newBuilder().addSeedProductIds("not-a-uuid").setLimitPerSeed(4).build(),
+				observer);
+
+			ArgumentCaptor<Throwable> captor = ArgumentCaptor.forClass(Throwable.class);
+			then(observer).should().onError(captor.capture());
+			assertThat(((StatusRuntimeException) captor.getValue()).getStatus().getCode())
+				.isEqualTo(Status.Code.INVALID_ARGUMENT);
+		}
+
+		private GetSimilarProductsRequest request(List<UUID> seedIds, int limitPerSeed) {
+			return GetSimilarProductsRequest.newBuilder()
+				.addAllSeedProductIds(seedIds.stream().map(UUID::toString).toList())
+				.setLimitPerSeed(limitPerSeed)
+				.build();
+		}
+
+		private GetSimilarProductsResponse captureResponse() {
+			ArgumentCaptor<GetSimilarProductsResponse> captor =
+				ArgumentCaptor.forClass(GetSimilarProductsResponse.class);
+			then(observer).should().onNext(captor.capture());
+			then(observer).should().onCompleted();
+			return captor.getValue();
+		}
+
+		private ProductListItemResponse listItem(String title) {
+			return new ProductListItemResponse(
+				PRODUCT_ID, title, "PROMPT", "GPT-5", 10000, null, 4.5, 3,
+				SELLER_ID, null, "설명", "https://example.com/t.png", List.of("태그"), null, null);
 		}
 	}
 }

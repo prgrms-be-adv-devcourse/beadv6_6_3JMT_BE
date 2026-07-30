@@ -7,6 +7,8 @@ spring:
       channel:
         user-service:
           target: static://user-service:${USER_GRPC_SERVER_PORT}
+        product-service:
+          target: static://product-service:${PRODUCT_GRPC_SERVER_PORT}
   data:
     redis:
       host: ${REDIS_HOST}

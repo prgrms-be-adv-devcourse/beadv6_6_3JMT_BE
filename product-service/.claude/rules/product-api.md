@@ -45,8 +45,11 @@ product-service가 새로 gRPC 메서드를 추가할 때 지키는 공통 규�
 쓰기 미노출)은 루트 `docs/architecture/grpc-contract-ownership.md`(요약: `grpc/README.md`)를 따른다.
 
 product-service가 서버로서 제공하는 gRPC 계약은 **루트 `grpc/product/product_query.proto`의
-단일 `ProductQueryService`** 로 관리한다(소유자=서버). 현재 3개 메서드: `GetOrderSnapshots`,
-`GetCartSnapshots`, `GetProductContent` — 모두 `Get~` 규칙에 부합.
+단일 `ProductQueryService`** 로 관리한다(소유자=서버). 현재 4개 메서드: `GetOrderSnapshots`,
+`GetCartSnapshots`, `GetProductContent`, `GetSimilarProducts` — 모두 `Get~` 규칙에 부합.
+`GetSimilarProducts`는 ai-service의 맞춤 추천이 소비한다(#698). 기준 상품마다 유사 상품 순위를
+매겨 **합치지 않고** 돌려주며, 가중치·제외·개수 판단은 호출자가 한다 — 합쳐서 주면 "누구에게
+무엇을 추천할지"가 product-service로 넘어와 추천을 독립 서비스로 둔 의미가 사라진다.
 `GetProductsByIds`는 실제 호출자가 없어 제거했다(#431) — 대체 용도(찜 목록 상품 카드 조회)는
 공개 REST `POST /products/wishlists`로 노출한다. `GetSellerStats`(셀러 통계, 옛 `CountBySeller`)도
 실제 호출자가 없어 제거했다(#483) — 대체 용도는 공개 REST `GET /products/sellers/me/summary`로

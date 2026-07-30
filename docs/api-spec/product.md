@@ -944,13 +944,21 @@
 product-service가 서버로 구현해 다른 서비스에 노출하는 서비스다. 계약은 루트
 `grpc/product/product_query.proto`의 단일 `ProductQueryService`로 관리한다(소유자=product).
 
-#### `ProductQueryService` (소비: order-service)
+#### `ProductQueryService` (소비: order-service, ai-service)
 
-| rpc | 요청 | 응답 |
-|---|---|---|
-| `GetOrderSnapshots` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `title`, `product_type`, `amount`, `model` |
-| `GetCartSnapshots` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `seller_nickname`, `title`, `product_type`, `amount`, `thumbnail_url` |
-| `GetProductContent` | `product_id`, `product_ids[]`, `purpose` | `product_id`, `content`(구형), `results[]` |
+| rpc | 요청 | 응답 | 소비자 |
+|---|---|---|---|
+| `GetOrderSnapshots` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `title`, `product_type`, `amount`, `model` | order |
+| `GetCartSnapshots` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `seller_nickname`, `title`, `product_type`, `amount`, `thumbnail_url` | order |
+| `GetProductContent` | `product_id`, `product_ids[]`, `purpose` | `product_id`, `content`(구형), `results[]` | order |
+| `GetSimilarProducts` | `seed_product_ids[]`, `limit_per_seed` | `rankings[]`: `seed_product_id`, `products[]`(`product_id`, `title`, `product_type`, `model`, `amount`, `rating`, `sales_count`, `seller_id`, `description`, `thumbnail_url`, `tags[]`) | ai |
+
+`GetSimilarProducts`는 기준 상품마다 비슷한 상품 순위를 매겨 **합치지 않고 그대로** 돌려준다.
+여러 기준의 순위를 어떤 가중치로 합칠지, 무엇을 빼고 몇 개를 보여줄지는 호출자(ai-service)가
+정한다 — 여기서 합치면 "누구에게 무엇을 추천할지"라는 판단이 product-service로 넘어온다.
+기준 상품이 판매 중이 아니거나 임베딩이 아직 없으면 그 기준의 `products`만 비어 돌아오고,
+나머지 기준의 순위는 그대로 응답에 담긴다. 내부적으로는 기존 `GET /products/{id}/recommends`와
+같은 pgvector 유사도 조회를 기준마다 재사용한다.
 
 > `GetSellerStats`(셀러 통계)는 #452에서 user-service `sellersettlement` 소비자가 제거된 뒤,
 > #483에서 공개 REST `GET /products/sellers/me/summary`로 전환하며 RPC 자체를 삭제했다.

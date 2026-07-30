@@ -32,11 +32,14 @@ flowchart LR
         BATCH -->|"bulk"| ES
     end
 
-    subgraph READ["읽기 — 사용자 기능"]
+    subgraph PRD["product-service — 읽기"]
         S2["② 통합 검색"]
         S3["③ 인기순 정렬"]
         S4["④ 자동완성"]
         S5["⑤ 비슷한 상품"]
+    end
+
+    subgraph AI["ai-service (독립 서비스)"]
         S6["⑥ 개인화 추천"]
     end
 
@@ -44,18 +47,25 @@ flowchart LR
     ES --> S3
     ES --> S4
     DB --> S5
-    DB --> S6
-    S5 -.->|"엔진 재사용"| S6
+    S6 -->|"gRPC"| S5
 ```
 
-| 흐름 | 저장소 | 벡터 사용 | 상태 |
-|---|---|---|---|
-| ① 색인 파이프라인 | Postgres → ES | 생성 | 운영 중 |
-| ② 통합 검색 (하이브리드) | Elasticsearch | 질의↔상품 kNN | 운영 중 |
-| ③ 인기순 랭킹 | Elasticsearch | 미사용 | 운영 중 |
-| ④ 자동완성 | Elasticsearch | 미사용 | 운영 중 |
-| ⑤ 비슷한 상품 | PostgreSQL (pgvector) | 상품↔상품 | 운영 중 |
-| ⑥ 개인화 추천 | PostgreSQL (pgvector) | 상품↔상품 | **구현 예정** |
+| 흐름 | 담당 서비스 | 저장소 | 벡터 사용 | 상태 |
+|---|---|---|---|---|
+| ① 색인 파이프라인 | product | Postgres → ES | 생성 | 운영 중 |
+| ② 통합 검색 (하이브리드) | product | Elasticsearch | 질의↔상품 kNN | 운영 중 |
+| ③ 인기순 랭킹 | product | Elasticsearch | 미사용 | 운영 중 |
+| ④ 자동완성 | product | Elasticsearch | 미사용 | 운영 중 |
+| ⑤ 비슷한 상품 | product | PostgreSQL (pgvector) | 상품↔상품 | 운영 중 |
+| ⑥ 개인화 추천 | **ai** | ⑤에 gRPC 위임 | 상품↔상품 | **구현 중** |
+
+**⑤와 ⑥은 다른 기능이다.** 계산 엔진(벡터 거리)만 공유하고 기준점이 다르다.
+
+| | ⑤ 비슷한 상품 | ⑥ 개인화 추천 |
+|---|---|---|
+| 기준점 | **상품** — 지금 보는 것 | **사람** — 그 사용자의 활동 |
+| 결과 | 누가 봐도 같음 | 사람마다 다름 |
+| 노출 위치 | 상품 상세 하단 | 탐색 페이지 상단 |
 
 ---
 
@@ -307,43 +317,64 @@ flowchart TD
 
 ---
 
-## ⑥ 개인화 추천 (구현 예정)
+## ⑥ 개인화 추천 — ai-service (구현 중)
 
-> **목적** — 탐색 페이지 상단에 "내가 산 상품과 비슷한 상품"을 보여준다. ⑤의 엔진을 그대로
-> 쓰고 **기준점만 바꾼다.**
+> **목적** — 탐색 페이지 상단에 "내 활동과 비슷한 상품"을 보여준다. ⑤의 계산 엔진을 그대로
+> 쓰고 **기준점을 상품에서 사람으로 바꾼다.**
+>
+> 요구사항이 AI 추천을 **독립된 서비스**로 요구하므로 product-service가 아니라 `ai-service`에
+> 둔다. `ai-service`는 이미 상품 검수·정산 챗봇을 담당하는 독립 서비스다.
 
 ```mermaid
 flowchart TD
-    subgraph W["쓰기 — 기존 컨슈머 확장"]
-        K["order-events<br/>ORDER_PAID / ORDER_REFUND"] --> OC["OrderEventConsumer<br/>(기존, salesCount 갱신 중)"]
-        OC -->|"buyerId + productId<br/>지금은 buyerId를 버림"| OH["OrderEventHandler"]
-        OH -->|"familyRootId 변환"| UP[("user_purchase")]
+    FE["FE 탐색 페이지<br/>장바구니(메모리) + 구매(getOrders)"]
+    FE -->|"REST<br/>GET /api/v2/ai/recommendations"| GW["API Gateway"]
+    GW --> AI
+
+    subgraph AI["ai-service — recommendation"]
+        REQ["활동 목록 수신<br/>cartProductIds / purchasedProductIds"]
+        FUSE["가중 RRF 합산<br/>장바구니 1.0 · 구매 0.7"]
+        EXC["이미 담은·산 상품 제외"]
+        TOP["상위 4개"]
+        REQ --> FUSE --> EXC --> TOP
     end
 
-    subgraph R["읽기"]
-        REQ["GET /products/recommends<br/>X-User-Id"] --> LAST["최근 구매 1건 조회"]
-        LAST --> CUR["ProductFamily.currentOnSale()"]
-        CUR --> DELE["⑤ 비슷한 상품 엔진에 위임"]
-        DELE --> EXC["이미 구매한 family 제외"]
+    subgraph PRD["product-service"]
+        SIM["⑤ 비슷한 상품 엔진<br/>pgvector · 기준마다 반복"]
     end
 
-    UP -.-> LAST
+    REQ -->|"gRPC 1회<br/>GetSimilarProducts(seed 목록)"| SIM
+    SIM -->|"기준별 순위<br/>(합치지 않음)"| FUSE
 ```
 
 **설계 요점**
 
-- **새 Kafka 토픽·컨슈머·gRPC가 없다.** `ORDER_PAID`는 이미 도착해 salesCount를 갱신하고 있고,
-  payload의 `buyerId`를 읽지 않고 버릴 뿐이다. order-service는 수정하지 않는다.
-- **`productId`가 아니라 `familyRootId`로 저장한다.** 버전이 올라가면 새 UUID가 발급되어
-  구매 당시 `productId`는 SUPERSEDED가 된다. family 루트는 유지된다.
-- **PK가 `(user_id, family_root_id)`** — 디지털 상품이라 동일 상품 재구매가 없어 중복이 원천
-  차단된다. 수량 컬럼을 두지 않는다. 환불은 같은 변환으로 `DELETE`.
-- **임베딩 평균을 쓰지 않는다.** 여러 구매의 벡터를 평균 내면 서로 다른 주제의 중간 지점,
-  즉 **모든 것과 어중간하게 가까운 구역**으로 착지한다. 부록 A의 중심성 측정이 그 구역의
-  존재를 보여준다. 최근 구매 1건을 그대로 기준점으로 쓴다.
-- **상품 삭제는 영향이 없다.** 삭제 버튼은 DRAFT면 `softDelete()`, 그 외에는 `stop()`인데
-  둘 다 상태를 STOPPED로 만든다. 추천 쿼리가 `status = 'ON_SALE'`로 이미 걸러내므로
-  삭제 이벤트를 구독할 필요가 없다.
+- **조합 판단이 ai-service에 있다.** 어떤 활동에 얼마나 무게를 둘지, 무엇을 빼고 몇 개를
+  보여줄지를 ai가 정한다. product는 `"이 상품과 가까운 것"`만 답하고 누구에게 무엇을
+  추천할지 모른다. **gRPC가 기준별 순위를 합치지 않고 그대로 돌려주는 이유**가 이것이다 —
+  합쳐서 주면 그 판단이 product로 넘어와 독립 서비스로 둔 의미가 사라진다.
+- **ai-service에는 DB가 없다**(Redis만). 그래서 상품·임베딩을 gRPC로 받고, 활동 내역은
+  FE가 요청에 실어 보낸다. **order-service를 수정하지 않는다.**
+- **평균이 아니라 순위 합산(RRF)** — 여러 상품의 좌표를 평균 내면 그 중간 지점에 착지하는데,
+  부록 A-5의 중심성 측정이 보여주듯 이 카탈로그에서 그 중간은 **모든 것과 어중간하게 가까운
+  허브 구역**이다. 평균은 취향을 잡는 게 아니라 지운다. RRF는 각 기준의 실제 위치에서 뽑은
+  **순위만** 더하므로 중간 지점을 만들지 않는다.
+- **RRF의 부수 효과** — 여러 목록에서 공통으로 상위인 상품이 올라가므로, 한 목록에서만 우연히
+  상위인 허브가 밀린다. 부록 A-5의 "특정 상품이 전체 기준점의 27%에 등장" 현상을 부분적으로
+  완화한다.
+- **추천이 죽어도 구매는 된다.** 활동이 없거나 gRPC가 실패하면 빈 목록을 돌려주고 FE가 섹션을
+  숨긴다. 상품 목록·구매 흐름과 분리돼 있다.
+
+```
+점수 = Σ ( 가중치 × 1 / (60 + 등수) )
+
+장바구니 1.0   지금 사려는 것
+구매     0.7   확정된 취향이지만 과거
+```
+
+**물려받는 한계** — ⑤와 같은 엔진을 쓰므로 **거리 하한이 없는 문제를 그대로 물려받는다.**
+부록 A-4처럼 상위 4건 중 1건만 관련 있는 상태가 개인화 추천에도 그대로 나타난다. 기준점을
+바꾸는 것으로는 해결되지 않는다.
 
 ---
 
@@ -452,6 +483,8 @@ CS 완전 정복(0.504, 무관)이 동점**이라 거리로 구분되지 않는�
 | 유형 가산점 | 0.05 | `ProductRecommender.TYPE_BONUS` | 코드 |
 | 추천 후보 배수 | ×5 | `ProductRecommender.CANDIDATE_MULTIPLIER` | 코드 |
 | 추천 거리 하한 | **없음** | — | — |
+| RRF 상수 K | 60 | ai-service `WeightedRankFusion` | 코드 |
+| 활동 가중치 | 장바구니 1.0 / 구매 0.7 | 〃 | 코드 |
 
 **코드 상수를 yml로 빼지 않은 이유** — `configs/`가 config server 이미지에 구워져 yml을 고쳐도
 머지·재배포가 필요하다. 노브로 만들어도 조정이 빨라지지 않고 배포 단계만 는다. 반복 조정이

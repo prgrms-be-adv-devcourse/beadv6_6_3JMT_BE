@@ -17,6 +17,8 @@ spring:
       channel:
         user-service:
           target: static://${USER_GRPC_HOST:localhost}:${USER_GRPC_PORT:9081}
+        product-service:
+          target: static://${PRODUCT_GRPC_HOST:localhost}:${PRODUCT_GRPC_PORT:9082}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
