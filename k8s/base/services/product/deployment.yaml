@@ -141,14 +141,14 @@ spec:
             - name: MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED
               value: "true"
             - name: JAVA_TOOL_OPTIONS
-              value: -XX:InitialRAMPercentage=25.0 -XX:MaxRAMPercentage=70.0 -XX:+ExitOnOutOfMemoryError
+              value: -Xms128m -Xmx384m -XX:+ExitOnOutOfMemoryError
           resources:
             requests:
               cpu: 100m
-              memory: 256Mi
+              memory: 512Mi
             limits:
               cpu: 500m
-              memory: 512Mi
+              memory: 700Mi
           startupProbe:
             httpGet:
               path: /actuator/health
