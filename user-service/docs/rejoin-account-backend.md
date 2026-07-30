@@ -1,8 +1,8 @@
-# 탈퇴 계정 재가입 및 복구 설계
+# 탈퇴 계정 재가입 백엔드 설계
 
 - 작성일: 2026-07-30
 - 상태: 확정
-- 대상: `user-service` OAuth 로그인과 프론트엔드 로그인·재가입 화면
+- 대상: `user-service` OAuth 로그인과 탈퇴 계정 복구 API
 
 ## 1. 배경
 
@@ -10,23 +10,16 @@
 soft delete 방식이다. OAuth 연동 정보, 사용자 ID, 이메일, 역할 및 연관 데이터는 그대로 남는다.
 
 현재 OAuth 로그인은 `(provider, oauthId)`에 해당하는 연동 정보가 있으면 사용자 상태와 관계없이
-기존 사용자로 처리한다. 이 때문에 탈퇴 계정도 다음과 같이 처리된다.
-
-1. `isNewUser=false`로 판정된다.
-2. Access Token과 Refresh Token이 발급된다.
-3. authorize 캐시에는 `WITHDRAWN` 상태가 저장된다.
-4. Gateway 인가 단계에서 보호 API 접근이 차단된다.
-
-따라서 프론트엔드는 정상 기존 사용자와 탈퇴 사용자를 구분할 수 없고, 사용자는 로그인 성공 응답을
-받은 뒤 서비스를 이용하지 못하는 상태가 된다.
+기존 사용자로 처리한다. 이 때문에 탈퇴 계정에도 Access Token과 Refresh Token이 발급되지만,
+authorize 캐시에는 `WITHDRAWN` 상태가 저장되어 Gateway 인가 단계에서 보호 API 접근이 차단된다.
 
 ## 2. 목표
 
-- 탈퇴 사용자가 직접 재가입 여부를 확인한 뒤에만 계정을 복구한다.
-- 재가입 시 새로운 사용자를 만들지 않고 기존 계정을 `ACTIVE`로 복구한다.
+- 탈퇴 사용자가 재가입을 명시적으로 확인한 뒤에만 계정을 복구한다.
+- 새로운 사용자를 만들지 않고 기존 계정을 `ACTIVE`로 복구한다.
 - 기존 사용자 ID, 이메일, 역할 및 연관 데이터를 유지한다.
 - 재가입 확인 전에는 서비스용 Access Token과 Refresh Token을 발급하지 않는다.
-- 프론트엔드가 신규 가입, 정상 로그인, 재가입 필요 상태를 명확하게 구분할 수 있게 한다.
+- 프론트엔드가 신규 가입, 정상 로그인, 재가입 필요 상태를 구분할 수 있게 한다.
 - 재가입 확인 정보는 짧은 시간 동안 한 번만 사용할 수 있게 한다.
 
 ## 3. 범위 제외
@@ -63,10 +56,10 @@ soft delete 방식이다. OAuth 연동 정보, 사용자 ID, 이메일, 역할 �
 | `COMPLETED` | 신규 가입 또는 정상 기존 사용자 로그인 완료 | 발급 |
 | `REJOIN_REQUIRED` | 탈퇴 계정이며 사용자 확인 필요 | 미발급 |
 
-`BLOCKED` 계정은 `REJOIN_REQUIRED`로 반환하지 않는다. 기존 `AUTH_FORBIDDEN(A004)` 정책에 따라
-로그인을 거부하고 서비스 토큰을 발급하지 않는다.
+`BLOCKED` 계정은 `REJOIN_REQUIRED`로 반환하지 않는다. `AUTH_FORBIDDEN(A004)`로 로그인을 거부하고
+서비스 토큰을 발급하지 않는다.
 
-## 5. 전체 흐름
+## 5. 백엔드 처리 흐름
 
 ```mermaid
 sequenceDiagram
@@ -87,17 +80,11 @@ sequenceDiagram
     else WITHDRAWN 사용자
         U->>R: 일회성 재가입 토큰 저장, TTL 5분
         U-->>F: REJOIN_REQUIRED + rejoinToken
-        F->>F: /auth/rejoin 전용 화면 표시
-        alt 사용자가 재가입 확인
-            F->>U: POST /api/v2/auth/rejoin
-            U->>R: 재가입 토큰 원자적 소비
-            U->>U: WITHDRAWN 재확인 후 ACTIVE 전환
-            U->>U: AT/RT 발급 및 ACTIVE 인가 캐시 저장
-            U-->>F: COMPLETED + 사용자 + AT/RT
-            F->>F: 로그인 세션 저장 후 메인 이동
-        else 사용자가 취소
-            F->>F: 임시 토큰 삭제 후 로그인 이동
-        end
+        F->>U: POST /api/v2/auth/rejoin
+        U->>R: 재가입 토큰 원자적 소비
+        U->>U: WITHDRAWN 재확인 후 ACTIVE 전환
+        U->>U: AT/RT 발급 및 ACTIVE 인가 캐시 저장
+        U-->>F: COMPLETED + 사용자 + AT/RT
     else BLOCKED 사용자
         U-->>F: 403 AUTH_FORBIDDEN
     end
@@ -142,7 +129,7 @@ sequenceDiagram
 }
 ```
 
-신규 사용자일 때는 `loginStatus=COMPLETED`, `isNewUser=true`로 반환한다.
+신규 사용자는 `loginStatus=COMPLETED`, `isNewUser=true`로 반환한다.
 
 #### 재가입 확인 필요
 
@@ -161,14 +148,8 @@ sequenceDiagram
 }
 ```
 
-이 응답에는 다음 필드를 포함하지 않는다.
-
-- `accessToken`
-- `refreshToken`
-- `tokenType`
-- `expiresAt`
-
-프론트엔드는 응답 필드 존재 여부가 아니라 `loginStatus`로 응답 타입을 구분한다.
+이 응답에는 `accessToken`, `refreshToken`, `tokenType`, `expiresAt`을 포함하지 않는다.
+응답 필드 존재 여부가 아니라 `loginStatus`가 응답 타입의 판별자다.
 
 ### 6.2 재가입 확인
 
@@ -183,7 +164,7 @@ sequenceDiagram
 성공하면 기존 사용자 계정을 `ACTIVE`로 복구하고 `loginStatus=COMPLETED`,
 `isNewUser=false`인 정상 로그인 응답을 반환한다.
 
-### 6.3 재가입 오류
+### 6.3 오류 응답
 
 새 오류 코드를 추가한다.
 
@@ -194,7 +175,7 @@ sequenceDiagram
 프론트엔드가 계정 존재 여부나 내부 상태를 추론하지 못하게 만료, 변조, 재사용 및 이미 복구된 상태를
 동일한 오류로 반환한다.
 
-## 7. 재가입 토큰 보안 정책
+## 7. 재가입 토큰 정책
 
 재가입 토큰은 서비스 API 접근 권한이 없는 일회성 확인 수단이다.
 
@@ -208,14 +189,14 @@ sequenceDiagram
 - Access Token이나 Refresh Token으로 사용할 수 없게 별도 형식과 저장소를 사용한다.
 
 Redis 토큰을 먼저 원자적으로 소비한 뒤 DB 복구를 처리한다. 이후 서버 오류가 발생하면 같은 토큰을
-재사용하지 않고 OAuth 로그인부터 다시 진행한다. 이는 재가입 토큰 중복 사용 방지를 우선하는
-fail-closed 정책이다.
+재사용하지 않고 OAuth 로그인부터 다시 진행한다. 이는 토큰 중복 사용 방지를 우선하는 fail-closed
+정책이다.
 
-## 8. 백엔드 작업
+## 8. 구현 작업
 
 ### 8.1 로그인 결과 모델
 
-- [ ] `OAuthLoginResult`에 `loginStatus` 기반의 결과 구분을 추가한다.
+- [ ] `OAuthLoginResult`에 `loginStatus` 기반 결과 구분을 추가한다.
 - [ ] 정상 로그인 결과와 재가입 필요 결과가 잘못 섞이지 않도록 구분 가능한 응답 타입으로 만든다.
 - [ ] 정상 로그인 응답에는 기존 필드를 유지해 기존 프론트엔드 호환성을 보존한다.
 - [ ] `REJOIN_REQUIRED` 응답에는 서비스 토큰이 직렬화되지 않게 한다.
@@ -250,7 +231,7 @@ fail-closed 정책이다.
 - [ ] 인가 캐시에 `ACTIVE` 상태와 기존 대표 역할을 저장한다.
 - [ ] 결과를 `COMPLETED`, `isNewUser=false`로 반환한다.
 
-### 8.5 오류·문서
+### 8.5 오류·API 문서
 
 - [ ] `AUTH_REJOIN_TOKEN_INVALID(A014)` 오류 코드를 추가한다.
 - [ ] `docs/error-codes.md`에 오류 코드를 반영한다.
@@ -258,13 +239,18 @@ fail-closed 정책이다.
 - [ ] OpenAPI 명세를 갱신한다.
 - [ ] API 변경 내용을 프론트엔드에 공유한다.
 
-### 8.6 백엔드 테스트
+## 9. 테스트
+
+### 9.1 OAuth 로그인
 
 - [ ] 신규 사용자는 `COMPLETED`, `isNewUser=true`와 AT/RT를 받는다.
 - [ ] 기존 `ACTIVE` 사용자는 `COMPLETED`, `isNewUser=false`와 AT/RT를 받는다.
 - [ ] `WITHDRAWN` 사용자는 `REJOIN_REQUIRED`와 재가입 토큰만 받는다.
 - [ ] `WITHDRAWN` 로그인 단계에서 Refresh Token 저장소가 호출되지 않는다.
 - [ ] `BLOCKED` 사용자는 403을 받고 어떤 토큰도 받지 않는다.
+
+### 9.2 재가입
+
 - [ ] 유효한 재가입 토큰으로 상태가 `ACTIVE`로 변경된다.
 - [ ] 재가입 전후 사용자 ID, 이메일 및 역할이 동일하다.
 - [ ] 재가입 성공 시 새 AT/RT가 발급되고 ACTIVE 인가 캐시가 저장된다.
@@ -274,129 +260,26 @@ fail-closed 정책이다.
 - [ ] Redis 장애 시 재가입이 실패하고 계정이 활성화되지 않는다.
 - [ ] Controller 테스트에서 상태별 JSON 필드 포함·미포함을 검증한다.
 
-## 9. 프론트엔드 작업
+## 10. 배포와 호환성
 
-### 9.1 로그인 응답 타입
+프론트엔드가 `loginStatus` 분기를 지원한 뒤 백엔드를 배포한다.
 
-- [ ] OAuth 로그인 응답을 `loginStatus` 기반의 구분 가능한 유니온 타입으로 정의한다.
-- [ ] `COMPLETED` 타입에서만 사용자와 AT/RT 필드에 접근할 수 있게 한다.
-- [ ] `REJOIN_REQUIRED` 타입에서만 재가입 토큰과 만료 시각에 접근할 수 있게 한다.
-- [ ] 백엔드 전환 기간에는 `loginStatus`가 없는 기존 응답을 `COMPLETED`로 취급한다.
-
-예시:
-
-```ts
-type CompletedLogin = {
-  loginStatus: "COMPLETED";
-  isNewUser: boolean;
-  user: User;
-  accessToken: string;
-  refreshToken: string;
-  tokenType: "Bearer";
-  expiresAt: string;
-};
-
-type RejoinRequired = {
-  loginStatus: "REJOIN_REQUIRED";
-  isNewUser: false;
-  rejoinToken: string;
-  rejoinExpiresAt: string;
-};
-
-type OAuthLoginResult = CompletedLogin | RejoinRequired;
-```
-
-### 9.2 OAuth 콜백 분기
-
-- [ ] `loginStatus=REJOIN_REQUIRED`이면 기존 로그인 토큰 저장 로직을 실행하지 않는다.
-- [ ] 재가입 토큰을 현재 탭의 `sessionStorage`에 저장한다.
-- [ ] `/auth/rejoin` 전용 페이지로 이동한다.
-- [ ] `COMPLETED + isNewUser=true`이면 기존 신규 사용자 온보딩으로 이동한다.
-- [ ] `COMPLETED + isNewUser=false`이면 메인 화면으로 이동한다.
-- [ ] 403 `AUTH_FORBIDDEN`은 재가입이 아니라 이용 제한 화면으로 이동한다.
-
-### 9.3 임시 재가입 세션
-
-- [ ] 재가입 토큰 저장·조회·삭제를 담당하는 `rejoinSession` 모듈을 만든다.
-- [ ] 토큰은 `sessionStorage`에만 보관한다.
-- [ ] URL, 쿼리 파라미터, 브라우저 로그, 분석 이벤트에 토큰을 포함하지 않는다.
-- [ ] 재가입 성공, 취소, 만료 시 토큰을 삭제한다.
-- [ ] 다른 탭과 토큰을 공유하지 않는다.
-
-### 9.4 전용 재가입 화면
-
-경로는 `/auth/rejoin`을 사용한다.
-
-- [ ] 제목은 `다시 만나 반가워요`로 표시한다.
-- [ ] 새로운 계정 생성이 아니라 기존 계정 활성화임을 설명한다.
-- [ ] 기존 사용자 ID, 구매·찜 데이터 및 역할이 유지됨을 안내한다.
-- [ ] 주 버튼은 `기존 계정으로 다시 시작`으로 표시한다.
-- [ ] 보조 버튼은 `취소하고 로그인으로 돌아가기`로 표시한다.
-- [ ] 화면 진입만으로 계정을 복구하지 않고 주 버튼 클릭 시에만 API를 호출한다.
-- [ ] 토큰 없이 직접 접근하면 로그인 화면으로 이동한다.
-- [ ] 만료 시각이 지났으면 토큰을 삭제하고 재로그인 안내를 표시한다.
-
-### 9.5 화면 상태
-
-- [ ] 기본 상태에서 확인과 취소 버튼을 제공한다.
-- [ ] 처리 중에는 버튼을 비활성화하고 `계정을 복구하고 있어요`를 표시한다.
-- [ ] 중복 클릭으로 API가 두 번 호출되지 않게 한다.
-- [ ] 성공하면 로그인 토큰을 기존 세션 저장 방식으로 저장한다.
-- [ ] 성공 토스트 `계정이 다시 활성화되었습니다`를 표시하고 메인으로 이동한다.
-- [ ] `A014`이면 `재가입 확인 시간이 만료되었어요`와 재로그인 버튼을 표시한다.
-- [ ] 네트워크·일시적 서버 오류이면 다시 시도와 로그인 이동 버튼을 제공한다.
-- [ ] 취소하면 백엔드 상태를 변경하지 않고 임시 토큰만 삭제한다.
-
-### 9.6 접근성·문구
-
-- [ ] 페이지 진입 시 제목으로 포커스를 이동하거나 스크린 리더가 제목을 인식하게 한다.
-- [ ] 처리 중 상태를 `aria-live`로 알린다.
-- [ ] 버튼 비활성화 여부를 색상만으로 표현하지 않는다.
-- [ ] `새 계정 생성`, `탈퇴 취소`, `데이터 복원` 대신 `기존 계정 다시 활성화`로 표현을 통일한다.
-- [ ] 취소하면 아무 변경도 발생하지 않는다는 점을 명시한다.
-
-### 9.7 프론트엔드 테스트
-
-- [ ] `COMPLETED + isNewUser=true`이면 온보딩으로 이동한다.
-- [ ] `COMPLETED + isNewUser=false`이면 메인 화면으로 이동한다.
-- [ ] `REJOIN_REQUIRED`이면 서비스 토큰을 저장하지 않고 재가입 화면으로 이동한다.
-- [ ] 재가입 토큰이 없으면 로그인 화면으로 이동한다.
-- [ ] 확인 버튼을 여러 번 눌러도 재가입 API는 한 번만 호출된다.
-- [ ] 성공하면 서비스 토큰 저장, 임시 토큰 삭제 및 메인 이동이 실행된다.
-- [ ] 취소하면 임시 토큰 삭제와 로그인 이동만 실행된다.
-- [ ] `A014`와 네트워크 오류가 서로 다른 안내 화면을 표시한다.
-- [ ] `BLOCKED` 응답은 재가입 화면으로 이동하지 않는다.
-- [ ] 새로고침 후 유효한 `sessionStorage` 토큰으로 화면을 유지한다.
-
-## 10. 배포 순서와 호환성
-
-1. 프론트엔드를 먼저 배포한다.
-   - `loginStatus`가 있으면 새 분기를 사용한다.
-   - 필드가 없는 기존 백엔드 응답은 `COMPLETED`로 처리한다.
-2. 백엔드를 배포한다.
-   - 정상 로그인 응답에는 기존 필드를 유지하면서 `loginStatus`만 추가한다.
-   - 탈퇴 사용자만 새 `REJOIN_REQUIRED` 분기로 변경한다.
-3. 배포 확인 후 프론트엔드의 기존 응답 fallback 제거 여부를 별도 결정한다.
-
-백엔드를 먼저 배포하면 기존 프론트엔드가 `REJOIN_REQUIRED` 응답에서 존재하지 않는 AT/RT를 저장하려
-할 수 있으므로 프론트엔드의 분기 지원을 먼저 배포한다.
-
-## 11. 모니터링
+- 정상 로그인 응답에는 기존 필드를 유지하면서 `loginStatus`만 추가한다.
+- 탈퇴 사용자만 새 `REJOIN_REQUIRED` 분기로 변경한다.
+- 백엔드를 먼저 배포하면 기존 프론트엔드가 존재하지 않는 AT/RT를 저장하려 할 수 있다.
 
 다음 지표를 집계하되 사용자 ID와 토큰 원문은 기록하지 않는다.
 
 - `REJOIN_REQUIRED` 발급 수
 - 재가입 성공 수
-- 재가입 취소 수는 프론트엔드 익명 이벤트로 집계
 - `A014` 발생 수
 - 재가입 API 서버 오류 수
 - Redis 토큰 저장·소비 실패 수
 
-## 12. 완료 조건
+## 11. 완료 조건
 
 - 탈퇴 계정 로그인 시 서비스용 AT/RT가 발급되지 않는다.
-- 프론트엔드에 전용 재가입 화면이 표시된다.
-- 사용자가 확인한 경우에만 기존 계정이 `ACTIVE`로 변경된다.
+- 유효한 재가입 확인 요청에서만 기존 계정이 `ACTIVE`로 변경된다.
 - 사용자 ID, 이메일, 역할 및 기존 연관 데이터가 유지된다.
 - 취소 또는 토큰 만료 시 계정은 `WITHDRAWN` 상태를 유지한다.
 - 재가입 성공 후 정상 로그인 세션이 발급되고 보호 API를 이용할 수 있다.
