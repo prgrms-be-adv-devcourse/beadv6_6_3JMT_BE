@@ -18,11 +18,12 @@ on:
         required: true
         type: choice
         options:
+          - runner-runtime
           - infrastructure
           - ingress
           - elk
       confirmation:
-        description: "실행하려면 DEPLOY 입력"
+        description: "runner-runtime은 PROVISION, 배포 대상은 DEPLOY 입력"
         required: true
         type: string
 
@@ -38,6 +39,33 @@ env:
   KUBECONFIG: /home/ubuntu/.kube/config
 
 jobs:
+  provision-runner-runtime:
+    name: Provision Runner Runtime
+    if: inputs.target == 'runner-runtime'
+    runs-on: [self-hosted, linux, deploy]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: 수동 실행 확인
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "PROVISION" ]; then
+            echo "runner-runtime은 confirmation에 PROVISION을 입력해야 합니다." >&2
+            exit 1
+          fi
+
+      - name: Ruby 프로비저닝 회귀 검증
+        shell: bash
+        run: bash scripts/test-provision-self-hosted-runner-ruby.sh
+
+      - name: Ruby 설치와 표준 라이브러리 확인
+        shell: bash
+        run: bash scripts/provision-self-hosted-runner-ruby.sh
+
   deploy-infrastructure:
     name: Manually Deploy Infrastructure
     if: inputs.target == 'infrastructure'

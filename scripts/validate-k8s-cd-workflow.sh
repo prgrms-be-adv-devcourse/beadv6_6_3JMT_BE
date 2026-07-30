@@ -217,16 +217,23 @@ expected_deployment_order=$'config\ndiscovery\nuser-service\nproduct-service\nor
 [ "$(array_values "$APPLICATION_WORKFLOW" deployment_order)" = "$expected_deployment_order" ] ||
   fail "deployment_order changed"
 
-# The manual Kubernetes workflow supports infrastructure, Ingress, and ELK.
+# The manual Kubernetes workflow supports runner provisioning, infrastructure,
+# Ingress, and ELK.
 manual_patterns=(
   '^name:[[:space:]]+CD - Self-hosted Kubernetes$'
   '^[[:space:]]+workflow_call:$'
   '^[[:space:]]+workflow_dispatch:$'
+  '^[[:space:]]+provision-runner-runtime:$'
   '^[[:space:]]+deploy-infrastructure:$'
   '^[[:space:]]+deploy-ingress:$'
   '^[[:space:]]+deploy-elk:$'
+  '^[[:space:]]+- runner-runtime$'
   '^[[:space:]]+- elk$'
+  'inputs\.target == '\''runner-runtime'\'''
   'inputs\.target == '\''elk'\'''
+  'CONFIRMATION.*!=.*PROVISION'
+  'bash scripts/test-provision-self-hosted-runner-ruby\.sh'
+  'bash scripts/provision-self-hosted-runner-ruby\.sh'
   'kubectl apply -k k8s/base/storage'
   'kubectl apply -k k8s/base/infrastructure'
   'kubectl apply -k k8s/addons/nginx-ingress'
