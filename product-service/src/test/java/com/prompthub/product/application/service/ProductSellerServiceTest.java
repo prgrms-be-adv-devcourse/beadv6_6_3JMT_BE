@@ -3,8 +3,10 @@ package com.prompthub.product.application.service;
 import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.domain.model.entity.Product;
@@ -112,10 +114,24 @@ class ProductSellerServiceTest {
 			then(productRepository).should().save(captor.capture());
 			assertThat(captor.getValue()).isSameAs(draft);
 			assertThat(draft.getName()).isEqualTo("새 제목");
+			then(productEventProducer).should(never()).publishReviewRequested(any(), any(), any(), any());
 		}
 
 		@Test
-		@DisplayName("ON_SALE 이후 MAJOR 수정은 새 PENDING_REVIEW row를 만들고 기존 ON_SALE은 그대로 둔다")
+		@DisplayName("한 번도 ON_SALE된 적 없어도 MAJOR 수정이면 PENDING_REVIEW로 전환하고 검수 요청 이벤트를 발행한다")
+		void updateProduct_neverOnSale_majorTransitionsToPendingReview_publishesReviewRequested() {
+			Product draft = product(PRODUCT_ID, null, ProductStatus.DRAFT, (short) 1, (short) 0);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(draft));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(draft));
+
+			productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, request("MAJOR"));
+
+			assertThat(draft.getStatus()).isEqualTo(ProductStatus.PENDING_REVIEW);
+			then(productEventProducer).should().publishReviewRequested(draft, null, null, List.of());
+		}
+
+		@Test
+		@DisplayName("ON_SALE 이후 MAJOR 수정은 새 PENDING_REVIEW row를 만들고 기존 ON_SALE은 그대로 두며 검수 요청 이벤트를 발행한다")
 		void updateProduct_majorAfterOnSale_createsPendingReviewChild_keepsOnSaleUntouched() {
 			UUID familyRootId = PRODUCT_ID;
 			Product onSale = product(PRODUCT_ID, null, ProductStatus.ON_SALE, (short) 2, (short) 0);
@@ -133,6 +149,7 @@ class ProductSellerServiceTest {
 			assertThat(saved.getParentId()).isEqualTo(familyRootId);
 			assertThat(onSale.getStatus()).isEqualTo(ProductStatus.ON_SALE);
 			assertThat(onSale.getName()).isEqualTo("제목");
+			then(productEventProducer).should().publishReviewRequested(saved, null, null, List.of());
 		}
 
 		@Test
@@ -153,6 +170,7 @@ class ProductSellerServiceTest {
 				assertThat(p.getPatchVersion()).isEqualTo((short) 1);
 			});
 			then(productEventProducer).should().publishProductChanged(PRODUCT_ID);
+			then(productEventProducer).should(never()).publishReviewRequested(any(), any(), any(), any());
 		}
 
 		@Test
