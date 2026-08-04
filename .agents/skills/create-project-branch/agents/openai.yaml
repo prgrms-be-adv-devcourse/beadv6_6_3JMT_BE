@@ -1,0 +1,6 @@
+interface:
+  display_name: "Create Project Branch"
+  short_description: "저장소 작업 브랜치를 규칙에 맞춰 안전하게 생성"
+  default_prompt: "Use $create-project-branch to create a repository branch for this issue or task."
+policy:
+  allow_implicit_invocation: true

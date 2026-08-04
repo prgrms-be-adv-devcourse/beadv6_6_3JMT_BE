@@ -1,84 +1,44 @@
-# Settlement Service 프로젝트 지침
+# Settlement Service — Codex 지침
 
-## 소통 방식
+## 적용 범위
 
-- 대화와 이슈·PR 본문은 사람이 쓴 것처럼 담백하게 작성한다.
-- 과장 수식어, 강조 남발, 불필요한 이모지를 사용하지 않는다.
-- 핵심과 근거만 짧게 전달한다.
-- 번호나 식별자를 언급할 때 유형을 함께 쓴다.
-  - `#258 (이슈)`
-  - `#238 (PR)`
-  - `feat/#258-settlement-event (브랜치)`
-  - `328700e (커밋)`
-- 해석이 둘 이상이거나, 문서·규칙에 답이 없는 설계 결정이거나, 비가역·외부 작업이거나, 지시가 충돌하면 혼자 결정하지 않고 질문한다.
-- 질문할 때는 선택지의 의미와 영향을 짧게 설명한다.
+- 이 문서는 `settlement-service/**`에 적용한다.
+- 저장소 루트 `AGENTS.md`를 먼저 적용하고 이 문서의 정산 모듈 규칙을 추가한다.
+- 다른 서비스의 내부 코드나 데이터베이스에 직접 의존하지 않는다. 서비스 간 연동은 공개 API, Kafka 이벤트, gRPC와 공유 계약으로 처리한다.
 
-## 작업 범위와 모듈 경계
+## 아키텍처와 의존 방향
 
-이 저장소는 여러 모듈로 구성되어 있다. 다음 범위는 작업 요청에 따라 읽고 쓸 수 있다.
+- `domain`은 정산 불변식과 상태 전이를 소유하며 presentation, application, infrastructure 구현에 의존하지 않는다. 기존 엔티티의 JPA 매핑은 유지하되 Repository나 외부 Client 책임을 도메인 모델에 넣지 않는다.
+- `application`은 유스케이스와 port를 정의하고 도메인 동작을 조정한다.
+- `infrastructure`는 영속성, Batch, 외부 Client, 시간, 트랜잭션 port의 adapter를 제공한다.
+- `presentation`은 요청·헤더 검증과 DTO 변환 뒤 application 유스케이스에 위임한다.
+- 의존은 바깥 계층에서 안쪽 계층으로 향하게 하고 domain이나 application에서 infrastructure 구현을 직접 참조하지 않는다.
 
-- `settlement-service/` 전체
-- `user-service/` 전체
-- `admin-service/src/main/java/com/prompthub/admin/settlement/`
-- `admin-service/src/test/java/com/prompthub/admin/settlement/`
+## 서비스 경계와 계약
 
-위 경로 밖의 다른 모듈·패키지는 참고 목적으로만 읽는다. 범위 밖 파일 생성·수정·삭제가 필요하면 직접 변경하지 말고 필요한 변경과 이유를 사용자에게 알린다.
+- 주문·사용자 서비스 연동은 `grpc/`, `common-module/`, `docs/api-spec/`와 관련 이벤트 문서의 공유 계약을 기준으로 한다.
+- 다른 서비스의 내부 엔티티나 Repository를 가져오거나 다른 서비스 스키마를 직접 조회하지 않는다.
+- 공유 계약을 바꾸면 생산자·소비자와 호환성, 관련 문서와 계약 테스트의 영향을 함께 확인한다.
+- Gateway가 JWT를 검증하고 사용자 헤더를 주입한다. 정산 서비스는 JWT를 다시 해석하지 않고 전달받은 헤더의 형식과 유스케이스 권한을 경계에서 검증한다.
 
-- `user-service`는 인증, 사용자, 판매자, Wishlist, Seller Settlement를 포함한 모듈 전체가 담당 범위다.
-- `admin-service`는 `admin.settlement` 패키지만 쓰기 가능하며 admin 모듈 전체로 확대하지 않는다.
-- `user-service`와 `settlement-service` 내부 설정, 리소스, 마이그레이션, 문서는 담당 범위에 포함된다. `common-module`, 저장소 루트 설정·문서와 admin 정산 패키지 밖의 변경이 필요하면 먼저 사용자에게 알린다.
-- 기존 사용자 변경과 관련 없는 파일을 수정하거나 stage하지 않는다.
+## 정산 규칙과 변경 동기화
 
-## 생성물 위치
+- 금액 계산에는 `BigDecimal`을 사용하고 scale·반올림·부호 규칙을 테스트로 고정한다.
+- 상태 전이, 재시도, 멱등성, 중복 방지와 Batch 재시작 규칙은 도메인 또는 application 계층에서 명시적으로 검증한다.
+- API 요청·응답, 예외, 상태, 금액, 이벤트 또는 gRPC 계약을 바꾸면 대응 테스트와 관련 명세를 함께 확인한다.
+- Controller는 도메인 규칙을 직접 구현하지 않고 application 유스케이스 결과를 API 응답으로 변환한다.
 
-허용된 담당 패키지의 소스·테스트 파일은 해당 패키지 안에 생성할 수 있다. 문서·기획·설계·스킬 같은 Codex 작업 산출물은 `settlement-service/` 안에 둔다. 상대 경로가 저장소 루트 기준으로 잘못 해석되지 않도록 응답과 작업에서 전체 경로를 명시한다.
+## 테스트 우선 스킬
 
-- 문서·기획·설계·스펙: `settlement-service/docs/`
-- Codex skill: `settlement-service/.codex/skills/`
-- Codex 모듈 지침: `settlement-service/AGENTS.md`
-- Claude 전용 skill·agent는 기존 `settlement-service/.claude/` 아래 구조를 유지한다.
-- 그 밖의 Codex 도구·설정 산출물도 `settlement-service/.codex/` 아래에 둔다.
-- 저장소 루트나 허용 범위 밖 모듈에 정산 서비스 전용 작업 산출물을 만들지 않는다.
+정산 계산, 상태 전이, 중복, 권한, 예외, 금액 규칙의 기능 구현이나 버그 수정에는 `test-settlement-first`를 사용한다.
 
-## 작업 전 규칙 확인
+- 스킬 위치: `settlement-service/.agents/skills/test-settlement-first/SKILL.md`
+- 스킬의 RED→GREEN 절차를 구현 코드보다 먼저 적용한다.
+- 스킬 본문을 이 문서에 복사하지 않는다.
 
-작업 전에 `settlement-service/CLAUDE.md`를 읽고, 작업 유형에 해당하는 규칙 문서를 완전히 읽은 뒤 적용한다.
+## 검증
 
-- 패키지 구조, 계층 책임, 의존 방향, 포트·어댑터:
-  `.claude/rules/clean-architecture.md`(저장소 루트, 팀 공용 표준)
-- 도메인 모델, 엔티티, Lombok:
-  `.claude/rules/domain-model.md`(저장소 루트)
-- Controller, 예외 처리, API 응답:
-  `.claude/rules/controller-exception.md`(저장소 루트)
-- 네이밍, import, 빈 catch 등 코드 스타일:
-  `.claude/rules/code-style.md`(저장소 루트)
-- Swagger/OpenAPI 문서화:
-  `.claude/rules/swagger.md`(저장소 루트)
-- Kafka 이벤트 구조, 네이밍, 발행·소비:
-  `.claude/rules/kafka-event.md`(저장소 루트)
-- 커밋 메시지, 브랜치 명명, 병합 전략:
-  `.claude/rules/git-convention.md`(저장소 루트)
-
-보안 관련 변경이나 규칙 검증 시에는 추가로 `.claude/rules/security.md`(저장소 루트)를 읽는다.
-
-## Codex skill 라우팅
-
-Codex 전용 워크플로는 `settlement-service/.codex/skills/`에 있다. 범용 스킬도 이 모듈 하위에 보관하므로 `settlement-service` 외부나 저장소 루트 문맥에서는 자동 discovery를 보장하지 않는다. 그 문맥에서 사용할 때는 해당 `SKILL.md` 경로나 스킬 이름을 명시해 호출한다. 다음 문맥이면 해당 `SKILL.md`를 완전히 읽고 따른다.
-
-- 정산 계산, 상태 전이, 중복, 권한, 예외, 금액 규칙 구현 또는 버그 수정:
-  `settlement-service/.codex/skills/test-settlement-first/SKILL.md`
-- 현재 브랜치나 작업 트리의 전체 변경 검증, PR 전 검증 또는 일반 코드 리뷰:
-  `settlement-service/.codex/skills/verify-project-changes/SKILL.md`
-- 담당 범위 변경 커밋:
-  `settlement-service/.codex/skills/commit-project-changes/SKILL.md`
-- 담당 범위 작업 브랜치 생성:
-  `settlement-service/.codex/skills/create-project-branch/SKILL.md`
-- 일반 GitHub 이슈 생성:
-  `settlement-service/.codex/skills/create-project-issue/SKILL.md`
-- 일반 Pull Request 생성 또는 갱신:
-  `settlement-service/.codex/skills/create-project-pr/SKILL.md`
-
-## 제외 대상
-
-- `.claude/worktrees/`는 과거 Claude 작업 복사본이므로 현재 규칙이나 구현의 기준으로 사용하지 않는다.
-- 과거 plan·review·eval 산출물은 현재 코드와 공식 규칙을 대체하지 않는다.
+- 먼저 영향받은 테스트 클래스를 실행한다. 예: `./gradlew :settlement-service:test --tests "com.prompthub.settlement.application.service.SettlementCalculationApplicationServiceTest"`.
+- 구현 또는 테스트 변경을 마치면 `./gradlew :settlement-service:test`를 실행한다.
+- gRPC나 공용 계약을 바꾸면 직접 영향을 받는 생산자·소비자 모듈 테스트도 실행한다.
+- 실행하지 못한 통합 테스트나 외부 환경 검증은 완료로 간주하지 않고 남은 위험을 명시한다.

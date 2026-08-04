@@ -5,12 +5,12 @@ description: settlement-service에서 계산·상태 전이·중복·권한·예
 
 # 정산 테스트 우선 구현
 
-1. 저장소 루트 기준으로 `settlement-service/CLAUDE.md`, `.claude/rules/clean-architecture.md`, `.claude/rules/domain-model.md`, `.claude/rules/code-style.md`를 읽는다.
+1. 저장소 루트 `AGENTS.md`와 `settlement-service/AGENTS.md`를 완전히 읽는다.
 2. 성공·실패·경계 규칙을 정리하고 Domain → Application Service 순서로 테스트한다.
 3. 실제 DB·HTTP·Security·Batch·Transaction 검증은 구현 후 통합 테스트로 분리한다.
-4. 첫 규칙 테스트를 작성하고 `./gradlew :settlement-service:test --tests "<test-class>"`로 RED를 확인한다.
+4. 첫 규칙 테스트를 작성하고 영향받은 테스트 클래스의 FQCN을 `./gradlew :settlement-service:test --tests "<test-class>"`에 전달해 RED를 확인한다.
 5. 통과시키는 최소 구현만 추가해 GREEN을 확인한다.
-6. 규칙별 RED→GREEN을 반복한 뒤 리팩터링하고 전체 정산 테스트를 실행한다.
+6. 규칙별 RED→GREEN을 반복한 뒤 리팩터링하고 `./gradlew :settlement-service:test`를 실행한다.
 
 - Domain 객체는 mock하지 않는다.
 - Application Service는 Repository·외부 Client·Publisher 같은 외부 의존성만 mock한다.

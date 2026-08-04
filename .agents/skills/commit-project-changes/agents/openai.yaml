@@ -1,0 +1,6 @@
+interface:
+  display_name: "Commit Project Changes"
+  short_description: "요청된 변경을 경로별 규칙에 맞춰 안전하게 커밋"
+  default_prompt: "Use $commit-project-changes to inspect and commit the requested repository changes safely."
+policy:
+  allow_implicit_invocation: true
