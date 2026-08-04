@@ -50,6 +50,26 @@
 - `build.gradle`, `settings.gradle`, `gradle/`, `style/`, `docker/`, `k8s/`, `grpc/`, `common-module/`, `docs/`, `scripts/`는 서비스 경계 밖의 공유 자원이다.
 - 공유 자원도 현재 작업에 필요한 파일만 읽는다.
 
+## 저장소 공통 컨벤션
+
+루트 `.claude/rules/`는 경로 이름과 무관하게 모든 작업자가 공유하는 저장소 컨벤션이다. 코드·Git 작업을 시작하기 전에 아래 표에서 실제 변경 유형에 해당하는 문서를 완전히 읽고 적용한다. 관련 없는 규칙까지 전부 읽지는 않는다.
+
+| 변경 유형 | 적용할 공통 규칙 |
+| --- | --- |
+| 모든 변경의 보안·민감정보 검토 | `.claude/rules/security.md` |
+| Java 코드의 네이밍·import·기본 스타일 | `.claude/rules/code-style.md` |
+| 패키지 구조·계층·포트와 어댑터 | `.claude/rules/clean-architecture.md` |
+| 엔티티·도메인 상태·Lombok | `.claude/rules/domain-model.md` |
+| Controller·요청 검증·예외 처리 | `.claude/rules/controller-exception.md` |
+| REST API와 OpenAPI 문서화 | `.claude/rules/swagger.md` |
+| Kafka 이벤트 발행·소비·멱등성 | `.claude/rules/kafka-event.md` |
+| 커밋·브랜치·PR·병합 | `.claude/rules/git-convention.md` |
+
+- 루트 공통 규칙이 참조하는 관련 규칙도 현재 변경에 필요하면 함께 읽는다.
+- 공통 컨벤션으로 읽는 범위는 저장소 루트 `.claude/rules/**`로 한정한다. 서비스별 `CLAUDE.md`와 서비스 내부의 별도 `.claude/**`는 Codex 지침으로 사용하지 않는다.
+- `git-convention.md`의 Claude 전용 `Co-Authored-By` 예시는 Codex 커밋에 적용하지 않는다. Codex는 Claude 이름의 trailer를 붙이지 않으며, 사용자가 명시적으로 요청하지 않는 한 다른 AI trailer로 대체하지도 않는다.
+- 그 밖의 Git 메시지 형식, 브랜치 명명, PR·병합 규칙은 그대로 적용한다.
+
 ## 공용 Codex 스킬 라우팅
 
 저장소 공용 스킬은 `.agents/skills/`에 있다. 아래 조건에 해당하면 해당 `SKILL.md`를 완전히 읽고 따른다.

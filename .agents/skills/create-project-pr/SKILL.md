@@ -23,6 +23,8 @@ description: Use when any service, module, or shared area in the current reposit
 
 ## 1. 사전 점검과 입력 고정
 
+먼저 루트 `AGENTS.md`와 `.claude/rules/git-convention.md`를 완전히 읽고, 루트 문서가 정한 Codex 예외를 제외한 PR·병합 규칙을 적용한다.
+
 저장소 루트에서 다음을 확인한다.
 
 1. `gh auth status`로 CLI 설치와 인증을 확인한다.

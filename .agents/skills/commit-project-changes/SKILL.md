@@ -10,13 +10,13 @@ description: 현재 저장소의 요청된 변경을 분석하고 적용되는 A
 ## 절차
 
 1. `git status --short`, staged·unstaged diff와 관련 untracked 파일을 확인한다. 요청에 해당하는 변경이 없으면 stage나 commit 없이 보고하고 종료한다.
-2. 저장소 루트부터 각 대상 경로까지 적용되는 `AGENTS.md`를 완전히 읽고 Git 규칙을 확인한다. 규칙이 충돌하거나 변경 집합이 불명확하면 사용자에게 질문한다.
+2. 저장소 루트부터 각 대상 경로까지 적용되는 `AGENTS.md`와 루트 `.claude/rules/git-convention.md`를 완전히 읽는다. 루트 `AGENTS.md`가 정한 Codex 예외를 제외한 Git 규칙을 적용하며, 규칙이 충돌하거나 변경 집합이 불명확하면 사용자에게 질문한다.
 3. 현재 브랜치가 `main` 또는 `develop`이면 작업 브랜치에서 커밋할지 확인한다. 현재 브랜치와 요청 변경의 관련성이 불명확해도 확인하며 임의로 브랜치를 만들지 않는다.
 4. 요청과 관련 없는 사용자 변경은 stage하지 않는다. 파일 경로를 명시해 stage하고 `git add -A`를 저장소 전체에 무조건 적용하지 않는다.
 5. 이미 staged된 변경에 요청과 무관한 파일이나 hunk가 있으면 임의로 unstage하거나 부분 stage하지 않는다. 포함 또는 분리 방법을 사용자에게 확인한다.
 6. 커밋 직전에 staged 파일 목록과 전체 staged diff를 다시 확인한다.
 7. 적용되는 Git 규칙과 diff의 주된 목적에 따라 `<type>: <한국어 설명>` 형식으로 메시지를 정한다. 목적이 다른 변경이 섞였으면 커밋 분리를 제안한다.
-8. 커밋 메시지 본문이나 trailer에 `Co-Authored-By`를 추가하지 않는다.
+8. `git-convention.md`의 Claude 전용 `Co-Authored-By` 예시는 Codex 커밋에 적용하지 않는다. Claude 이름을 붙이지 않고, 사용자가 명시적으로 요청하지 않는 한 다른 AI trailer로 대체하지 않는다.
 9. hook을 우회하지 않고 `git commit`을 실행한 뒤 `<short-hash> (커밋)` 형식으로 해시와 제목을 보고한다.
 
 push, PR, stash, reset은 별도 요청 없이 하지 않는다.

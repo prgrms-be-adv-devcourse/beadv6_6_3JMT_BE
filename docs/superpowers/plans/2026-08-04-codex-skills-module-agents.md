@@ -484,3 +484,14 @@ git log --oneline origin/develop..HEAD
 - [ ] **Step 6: Stop on validation failure or record the clean result**
 
 검증 하나라도 실패하면 완료로 보고하지 않고 실패한 Task로 돌아가 해당 Task의 파일과 검증 단계를 다시 수행한다. 모두 통과하면 작업트리가 깨끗한지 확인하고, 실행한 명령과 실제 결과를 완료 보고 및 PR 검증 내역에 기록한다. Task 5 자체는 파일을 변경하거나 별도 커밋을 만들지 않는다.
+
+## Follow-up Amendment: Shared Convention Routing
+
+사용자 확인에 따라 루트 `.claude/rules/**`를 Codex가 변경 유형별로 읽는 팀 공통 컨벤션으로 연결한다. 이 결정은 위 단계의 `.claude/` 참조 금지 검사보다 우선한다.
+
+- 루트 `AGENTS.md`에 security, code-style, clean-architecture, domain-model, controller-exception, swagger, kafka-event, git-convention 라우팅 표를 추가한다.
+- commit, branch, PR 스킬은 `git-convention.md`를 읽는다.
+- verify 스킬은 전체 manifest를 대상 경로의 `AGENTS.md`와 적용 가능한 공통 규칙에 매핑한다.
+- `git-convention.md`의 Claude 전용 trailer 예시는 Codex에 적용하지 않으며 다른 AI trailer로 자동 대체하지 않는다.
+- `.claude/rules/**`, 모든 `CLAUDE.md`, 애플리케이션 코드와 `order-service/AGENTS.md`는 수정하지 않는다.
+- 검증에서는 `.claude/rules/` 참조가 승인된 루트 지침과 공용 스킬에만 있는지 확인하고, 서비스별 `CLAUDE.md`, 기존 `.codex/skills`, 개인 작업 범위 참조는 계속 금지한다.
