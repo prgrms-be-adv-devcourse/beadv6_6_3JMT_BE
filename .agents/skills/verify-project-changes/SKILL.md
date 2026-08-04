@@ -12,7 +12,7 @@ description: Use when 현재 브랜치나 작업 트리의 전체 변경을 커�
 | 항목 | 계약 |
 | --- | --- |
 | 검증 대상 | `<base>...<head>` 전체 diff와 관련 작업 트리 변경 |
-| 규칙 탐색 | 각 변경 경로에 적용되는 `AGENTS.md`, `CLAUDE.md`, `.claude/rules/*.md` |
+| 규칙 탐색 | 각 변경 경로에 적용되는 루트 및 하위 `AGENTS.md`와 해당 문서가 참조하는 Codex 지침 |
 | 규칙 없음 | 일반 정확성·회귀·테스트·보안 검토 수행 |
 | 검증 불가 | `PASS` 금지. 확인하지 못한 항목과 위험 보고 |
 
@@ -33,7 +33,7 @@ description: Use when 현재 브랜치나 작업 트리의 전체 변경을 커�
 
 ### 2. 경로별 규칙 매핑
 
-각 manifest 경로에 대해 저장소 루트부터 해당 파일의 상위 디렉터리까지 적용 가능한 `AGENTS.md`와 `CLAUDE.md`를 찾고 완전히 읽는다. 해당 프로젝트 루트의 `.claude/rules/*.md`와 지침 문서가 참조하는 규칙도 완전히 읽는다.
+각 manifest 경로에 대해 저장소 루트부터 해당 파일의 상위 디렉터리까지 적용 가능한 `AGENTS.md`를 찾고 완전히 읽는다. 각 `AGENTS.md`가 참조하는 Codex 지침도 완전히 읽는다.
 
 PR 또는 이슈 초안이 입력에 포함되거나 그 초안 검증을 요청받으면 현재 checkout의 `.github/PULL_REQUEST_TEMPLATE.md`와 관련 `.github/ISSUE_TEMPLATE/` 파일을 완전히 읽고 체크리스트·본문 구조·메타데이터의 단일 진실 공급원으로 사용한다. 필요한 템플릿이 없거나 읽지 못하면 해당 검사를 `UNVERIFIED`로 보고한다.
 
