@@ -1,6 +1,6 @@
 package com.prompthub.ai.settlement.domain.exception;
 
-import com.prompthub.ai.settlement.domain.run.RunStatus;
+import com.prompthub.ai.settlement.domain.model.run.RunStatus;
 
 public class InvalidRunStateException extends RuntimeException {
 

@@ -1,7 +1,7 @@
 payment-service 클린 아키텍처 규칙. 코드 배치·레이어·패키지·의존 방향 작업 시 따른다.
 
 > 아래 패키지 구조는 **새 코드의 배치 계약**이다. 새 클래스를 추가할 때 반드시 이 구조를 따른다.
-> 레이어 정의·의존 방향·포트/Gateway 네이밍 등 팀 공통 규칙은 루트 `../../../.claude/rules/clean-architecture.md`를
+> 레이어 정의·의존 방향·Client/Gateway 네이밍 등 팀 공통 규칙은 루트 `../../../.claude/rules/clean-architecture.md`를
 > 우선 따른다. 이 문서는 그중 payment-service에만 해당하는 구체화·추가 규칙만 기재한다.
 
 ## 패키지 구조
@@ -16,8 +16,10 @@ com.prompthub.paymentservice
 ├── application
 │   ├── usecase        ← UseCase 인터페이스(Input Boundary)
 │   ├── service        ← UseCase 구현체 (비즈니스 흐름 조율)
+│   ├── client
+│   │   └── order      ← 내부 Order 서비스 호출 포트·계약 (예: OrderClient, OrderPaymentInfo)
 │   ├── gateway
-│   │   └── external      ← 외부 API Gateway 인터페이스 (예: PaymentGateway, OrderGateway)
+│   │   └── external   ← 제3자 API Gateway 인터페이스 (예: PaymentGateway)
 │   ├── exception      ← API 에러 코드(HTTP 상태·코드 매핑), common-module ErrorCode 구현
 │   └── dto
 │       ├── command    ← 외부 → application 입력 (record 권장)
@@ -29,16 +31,24 @@ com.prompthub.paymentservice
 │       └── response   ← HTTP 응답 DTO
 └── infrastructure
     ├── persistence    ← Spring Data JPA Repo, domain.repository 구현체, JPA Auditing 설정
+    ├── grpc
+    │   └── client
+    │       └── order  ← 내부 Order gRPC 어댑터·채널 설정 (예: OrderGrpcClientAdapter)
     ├── external
-    │   ├── toss       ← Toss Payments 연동 (ACL, Client)
-    │   │   └── dto    ← Toss API 응답 역직렬화 DTO (패키지 외부 노출 금지)
-    │   └── grpc       ← 주문 정보 조회 gRPC 클라이언트 어댑터 (OrderGateway 구현)
+    │   └── toss       ← 시스템 밖 Toss Payments 연동 (PaymentGateway 구현, ACL, Client)
+    │       └── dto    ← Toss API 응답 역직렬화 DTO (패키지 외부 노출 금지)
     ├── scheduling     ← @Scheduled 주기 재처리 (환불 retry 등)
     └── messaging      ← 이벤트 발행 구현체 (@TransactionalEventListener), Kafka 설정
         ├── config     ← Kafka Producer/Consumer 빈 설정, 토픽 상수
         ├── dto        ← Kafka로 발행·구독하는 메시지 페이로드 DTO
         └── consumer   ← Kafka 컨슈머 (order-events 구독 입력 어댑터)
 ```
+
+> **현재 코드와의 차이:** 기존 `application.gateway.external.OrderGateway`와
+> `infrastructure.external.grpc.OrderGrpcClientAdapter`는 공용 규칙 통합 과정에서 남은 레거시 구조다.
+> 규칙 문서 수정만으로 코드를 즉시 이동하지 않는다. 해당 경계를 리팩토링할 때 포트는
+> `application.client.order.OrderClient`, 구현은
+> `infrastructure.grpc.client.order.OrderGrpcClientAdapter`로 옮기고 이름을 맞춘다.
 
 ## 레이어별 핵심 규칙 (payment-service 고유)
 
@@ -74,7 +84,10 @@ HTTP POST /payments/confirm
   → presentation.PaymentController
   → application.usecase.ConfirmPaymentUseCase (command 전달)
   → application.service.ConfirmPaymentService
-      → infrastructure.external.toss.TossPaymentGateway (gateway.external.PaymentGateway)
+      → application.client.order.OrderClient
+          ← infrastructure.grpc.client.order.OrderGrpcClientAdapter
+      → application.gateway.external.PaymentGateway
+          ← infrastructure.external.toss.TossPaymentGateway
       → infrastructure.persistence.PaymentRepositoryAdapter (domain.repository.PaymentRepository)
       → ApplicationEventPublisher.publishEvent(PaymentApprovedEvent)  ← Spring 내부 이벤트
             ↓ [트랜잭션 커밋 후, @TransactionalEventListener AFTER_COMMIT]

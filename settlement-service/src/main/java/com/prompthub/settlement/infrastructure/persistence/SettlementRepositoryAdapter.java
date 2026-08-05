@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.persistence;
 
-import com.prompthub.settlement.domain.model.Settlement;
+import com.prompthub.settlement.domain.model.calculation.Settlement;
 import com.prompthub.settlement.domain.repository.SettlementRepository;
 import java.util.List;
 import java.util.Optional;

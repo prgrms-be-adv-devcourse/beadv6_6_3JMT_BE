@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.persistence;
 
-import com.prompthub.settlement.domain.model.SettlementPeriod;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
 import com.prompthub.settlement.domain.repository.SettlementSourceAggregate;
 import com.prompthub.settlement.domain.repository.SettlementSourceAggregateRepository;
 import java.math.BigDecimal;

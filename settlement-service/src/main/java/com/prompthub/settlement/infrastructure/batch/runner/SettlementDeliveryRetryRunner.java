@@ -1,7 +1,7 @@
 package com.prompthub.settlement.infrastructure.batch.runner;
 
-import com.prompthub.settlement.application.service.SettlementDeliveryApplicationService;
-import com.prompthub.settlement.domain.model.enums.SettlementDeliveryStatus;
+import com.prompthub.settlement.application.usecase.delivery.SettlementDeliveryUseCase;
+import com.prompthub.settlement.domain.model.delivery.SettlementDeliveryStatus;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,21 +19,21 @@ import org.springframework.stereotype.Component;
 public class SettlementDeliveryRetryRunner
         implements ApplicationRunner, ExitCodeGenerator {
 
-    private final SettlementDeliveryApplicationService deliveryService;
+    private final SettlementDeliveryUseCase deliveryUseCase;
     private final UUID deliveryId;
     private int exitCode = 1;
 
     public SettlementDeliveryRetryRunner(
-            SettlementDeliveryApplicationService deliveryService,
+            SettlementDeliveryUseCase deliveryUseCase,
             @Value("${settlement.delivery.retry-id}") UUID deliveryId) {
-        this.deliveryService = deliveryService;
+        this.deliveryUseCase = deliveryUseCase;
         this.deliveryId = deliveryId;
     }
 
     @Override
     public void run(ApplicationArguments args) {
         try {
-            SettlementDeliveryStatus status = deliveryService.retry(deliveryId);
+            SettlementDeliveryStatus status = deliveryUseCase.retry(deliveryId);
             exitCode = status == SettlementDeliveryStatus.DELIVERY_FAILED ? 1 : 0;
             log.info(
                     "정산 수동 재전송 종료. settlementDeliveryId={}, status={}",

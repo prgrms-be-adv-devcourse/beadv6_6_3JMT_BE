@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.persistence;
 
-import com.prompthub.settlement.domain.model.SettlementSourceLine;
+import com.prompthub.settlement.domain.model.source.SettlementSourceLine;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;

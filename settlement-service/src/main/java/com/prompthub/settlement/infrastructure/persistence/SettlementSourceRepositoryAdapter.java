@@ -1,7 +1,7 @@
 package com.prompthub.settlement.infrastructure.persistence;
 
-import com.prompthub.settlement.domain.model.SettlementPeriod;
-import com.prompthub.settlement.domain.model.SettlementSourceLine;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
+import com.prompthub.settlement.domain.model.source.SettlementSourceLine;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import java.util.Collection;
 import java.util.List;

@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.time;
 
-import com.prompthub.settlement.application.port.DeliveryRetrySleeper;
+import com.prompthub.settlement.application.usecase.delivery.DeliveryRetrySleeper;
 import java.time.Duration;
 import org.springframework.stereotype.Component;
 

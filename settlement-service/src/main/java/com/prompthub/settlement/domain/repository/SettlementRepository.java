@@ -1,6 +1,6 @@
 package com.prompthub.settlement.domain.repository;
 
-import com.prompthub.settlement.domain.model.Settlement;
+import com.prompthub.settlement.domain.model.calculation.Settlement;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

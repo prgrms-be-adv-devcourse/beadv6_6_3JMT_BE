@@ -1,11 +1,11 @@
 package com.prompthub.settlement.infrastructure.batch.execution;
 
-import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
-import com.prompthub.settlement.application.dto.SettlementJobResult;
-import com.prompthub.settlement.application.port.SettlementJobLauncher;
+import com.prompthub.settlement.application.dto.batch.RunSettlementBatchCommand;
+import com.prompthub.settlement.application.dto.batch.SettlementJobResult;
+import com.prompthub.settlement.application.usecase.batch.SettlementJobLauncher;
 import com.prompthub.settlement.infrastructure.batch.config.SpringBatchInfrastructureConfig;
 import com.prompthub.settlement.infrastructure.batch.config.SettlementJobConfig;
-import com.prompthub.settlement.domain.model.enums.TriggerType;
+import com.prompthub.settlement.domain.model.batch.TriggerType;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
 import com.prompthub.settlement.global.exception.SettlementException;
 import org.springframework.batch.core.job.Job;

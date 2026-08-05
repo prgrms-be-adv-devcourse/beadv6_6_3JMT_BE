@@ -10,12 +10,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.prompthub.settlement.application.dto.SettlementJobResult;
-import com.prompthub.settlement.application.dto.SettlementJobStatusResult;
-import com.prompthub.settlement.application.usecase.GetSettlementJobStatusUseCase;
-import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
-import com.prompthub.settlement.domain.model.SettlementPeriod;
-import com.prompthub.settlement.domain.model.enums.TriggerType;
+import com.prompthub.settlement.application.dto.batch.SettlementJobResult;
+import com.prompthub.settlement.application.dto.batch.SettlementJobStatusResult;
+import com.prompthub.settlement.application.usecase.batch.GetSettlementJobStatusUseCase;
+import com.prompthub.settlement.application.usecase.batch.RunSettlementBatchUseCase;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
+import com.prompthub.settlement.domain.model.batch.TriggerType;
 import com.prompthub.settlement.global.web.AuthHeaders;
 import io.swagger.v3.oas.models.OpenAPI;
 import java.time.LocalDate;

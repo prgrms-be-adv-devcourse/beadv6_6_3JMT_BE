@@ -5,7 +5,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
-import com.prompthub.settlement.domain.model.SettlementPeriod;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import java.time.LocalDate;
 import java.util.List;

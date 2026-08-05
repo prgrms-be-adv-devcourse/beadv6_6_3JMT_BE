@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.batch.tasklet;
 
-import com.prompthub.settlement.application.usecase.SettlementBatchLifecycleUseCase;
+import com.prompthub.settlement.application.usecase.batch.SettlementBatchLifecycleUseCase;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.configuration.annotation.StepScope;

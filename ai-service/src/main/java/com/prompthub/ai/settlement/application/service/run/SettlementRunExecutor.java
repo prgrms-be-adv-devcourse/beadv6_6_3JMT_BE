@@ -2,13 +2,13 @@ package com.prompthub.ai.settlement.application.service.run;
 
 import com.prompthub.ai.global.exception.AiErrorCode;
 import com.prompthub.ai.global.exception.AiException;
-import com.prompthub.ai.settlement.application.port.SettlementRunEventPublisher;
-import com.prompthub.ai.settlement.application.port.SettlementAgent;
+import com.prompthub.ai.settlement.application.usecase.SettlementRunEventPublisher;
+import com.prompthub.ai.settlement.application.gateway.external.SettlementAgentGateway;
 import com.prompthub.ai.settlement.domain.repository.SettlementChatStateRepository;
-import com.prompthub.ai.settlement.domain.conversation.ChatMessage;
-import com.prompthub.ai.settlement.domain.conversation.ChatPair;
-import com.prompthub.ai.settlement.domain.run.AgentRun;
-import com.prompthub.ai.settlement.domain.run.RunStage;
+import com.prompthub.ai.settlement.domain.model.conversation.ChatMessage;
+import com.prompthub.ai.settlement.domain.model.conversation.ChatPair;
+import com.prompthub.ai.settlement.domain.model.run.AgentRun;
+import com.prompthub.ai.settlement.domain.model.run.RunStage;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
@@ -26,20 +26,20 @@ public class SettlementRunExecutor {
     private static final String NO_ERROR = "none";
 
     private final SettlementChatStateRepository stateRepository;
-    private final SettlementAgent settlementAgent;
+    private final SettlementAgentGateway settlementAgentGateway;
     private final SettlementRunEventPublisher eventPublisher;
     private final Clock clock;
     private final MeterRegistry meterRegistry;
 
     public SettlementRunExecutor(
             SettlementChatStateRepository stateRepository,
-            SettlementAgent settlementAgent,
+            SettlementAgentGateway settlementAgentGateway,
             SettlementRunEventPublisher eventPublisher,
             Clock clock,
             MeterRegistry meterRegistry
     ) {
         this.stateRepository = stateRepository;
-        this.settlementAgent = settlementAgent;
+        this.settlementAgentGateway = settlementAgentGateway;
         this.eventPublisher = eventPublisher;
         this.clock = clock;
         this.meterRegistry = meterRegistry;
@@ -51,17 +51,18 @@ public class SettlementRunExecutor {
         try {
             advanceStage(run, RunStage.ANALYZING);
             currentStage.set(RunStage.ANALYZING);
-            SettlementAgent.AgentResult result = settlementAgent.answer(new SettlementAgent.AgentRequest(
-                    run.actorId(),
-                    run.runId(),
-                    run.question(),
-                    completedHistory,
-                    run.deadlineAt(),
-                    stage -> {
-                        advanceStage(run, stage);
-                        currentStage.set(stage);
-                    }
-            ));
+            SettlementAgentGateway.AgentResult result = settlementAgentGateway.answer(
+                    new SettlementAgentGateway.AgentRequest(
+                            run.actorId(),
+                            run.runId(),
+                            run.question(),
+                            completedHistory,
+                            run.deadlineAt(),
+                            stage -> {
+                                advanceStage(run, stage);
+                                currentStage.set(stage);
+                            }
+                    ));
             Instant completedAt = clock.instant();
             if (completedAt.isAfter(run.deadlineAt())) {
                 throw new AiException(AiErrorCode.RUN_TIMEOUT);
@@ -102,7 +103,7 @@ public class SettlementRunExecutor {
 
     private void publishCompleted(
             AgentRun run,
-            SettlementAgent.AgentResult result,
+            SettlementAgentGateway.AgentResult result,
             Instant completedAt
     ) {
         try {

@@ -2,7 +2,7 @@ package com.prompthub.ai.settlement.infrastructure.messaging.redis;
 
 import com.prompthub.ai.global.exception.AiErrorCode;
 import com.prompthub.ai.global.exception.AiException;
-import com.prompthub.ai.settlement.domain.run.RunStage;
+import com.prompthub.ai.settlement.domain.model.run.RunStage;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;

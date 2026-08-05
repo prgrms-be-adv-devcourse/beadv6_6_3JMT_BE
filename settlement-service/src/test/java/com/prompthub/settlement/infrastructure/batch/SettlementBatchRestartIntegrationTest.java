@@ -7,28 +7,28 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.times;
 
-import com.prompthub.settlement.application.dto.CalculateSettlementCommand;
-import com.prompthub.settlement.application.dto.RestartSettlementBatchCommand;
-import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
-import com.prompthub.settlement.application.dto.SellerSettlementRegistrationCommand;
-import com.prompthub.settlement.application.dto.SellerSettlementStoredSnapshot;
-import com.prompthub.settlement.application.dto.SettlementJobResult;
-import com.prompthub.settlement.application.dto.SettlementSourceReconciliationResult;
-import com.prompthub.settlement.application.port.SellerSettlementRegistration;
-import com.prompthub.settlement.application.service.SettlementCalculationApplicationService;
-import com.prompthub.settlement.application.usecase.LoadSettlementSourceUseCase;
-import com.prompthub.settlement.application.usecase.ReconcileSettlementSourceUseCase;
-import com.prompthub.settlement.application.usecase.RestartSettlementBatchUseCase;
-import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
-import com.prompthub.settlement.domain.model.Settlement;
-import com.prompthub.settlement.domain.model.SettlementBatch;
-import com.prompthub.settlement.domain.model.SettlementCalculationReconciliation;
-import com.prompthub.settlement.domain.model.SettlementDelivery;
-import com.prompthub.settlement.domain.model.SettlementPeriod;
-import com.prompthub.settlement.domain.model.SettlementSourceLine;
-import com.prompthub.settlement.domain.model.enums.SettlementBatchStatus;
-import com.prompthub.settlement.domain.model.enums.SettlementCalculationReconciliationStatus;
-import com.prompthub.settlement.domain.model.enums.SettlementDeliveryStatus;
+import com.prompthub.settlement.application.dto.batch.RestartSettlementBatchCommand;
+import com.prompthub.settlement.application.dto.batch.RunSettlementBatchCommand;
+import com.prompthub.settlement.application.dto.batch.SettlementJobResult;
+import com.prompthub.settlement.application.dto.calculation.CalculateSettlementCommand;
+import com.prompthub.settlement.application.dto.delivery.SellerSettlementRegistrationCommand;
+import com.prompthub.settlement.application.dto.delivery.SellerSettlementStoredSnapshot;
+import com.prompthub.settlement.application.dto.source.SettlementSourceReconciliationResult;
+import com.prompthub.settlement.application.client.user.SellerSettlementClient;
+import com.prompthub.settlement.application.service.calculation.SettlementCalculationApplicationService;
+import com.prompthub.settlement.application.usecase.batch.RestartSettlementBatchUseCase;
+import com.prompthub.settlement.application.usecase.batch.RunSettlementBatchUseCase;
+import com.prompthub.settlement.application.usecase.source.LoadSettlementSourceUseCase;
+import com.prompthub.settlement.application.usecase.source.ReconcileSettlementSourceUseCase;
+import com.prompthub.settlement.domain.model.batch.SettlementBatch;
+import com.prompthub.settlement.domain.model.batch.SettlementBatchStatus;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
+import com.prompthub.settlement.domain.model.calculation.Settlement;
+import com.prompthub.settlement.domain.model.calculation.SettlementCalculationReconciliation;
+import com.prompthub.settlement.domain.model.calculation.SettlementCalculationReconciliationStatus;
+import com.prompthub.settlement.domain.model.delivery.SettlementDelivery;
+import com.prompthub.settlement.domain.model.delivery.SettlementDeliveryStatus;
+import com.prompthub.settlement.domain.model.source.SettlementSourceLine;
 import com.prompthub.settlement.domain.repository.SettlementSourceAggregate;
 import com.prompthub.settlement.infrastructure.persistence.SettlementBatchJpaRepository;
 import com.prompthub.settlement.infrastructure.persistence.SettlementCalculationReconciliationJpaRepository;
@@ -113,7 +113,7 @@ class SettlementBatchRestartIntegrationTest {
     private ReconcileSettlementSourceUseCase reconcileSettlementSourceUseCase;
 
     @MockitoBean
-    private SellerSettlementRegistration sellerSettlementRegistration;
+    private SellerSettlementClient sellerSettlementClient;
 
     @MockitoSpyBean
     private SettlementCalculationApplicationService calculationService;
@@ -130,7 +130,7 @@ class SettlementBatchRestartIntegrationTest {
                 .willReturn(SettlementSourceReconciliationResult.compare(
                         emptyAggregate,
                         emptyAggregate));
-        given(sellerSettlementRegistration.register(
+        given(sellerSettlementClient.register(
                 any(SellerSettlementRegistrationCommand.class)))
                 .willAnswer(invocation -> {
                     assertThat(TransactionSynchronizationManager
@@ -173,7 +173,7 @@ class SettlementBatchRestartIntegrationTest {
                 .singleElement()
                 .extracting(SettlementCalculationReconciliation::getStatus)
                 .isEqualTo(SettlementCalculationReconciliationStatus.MISMATCHED);
-        then(sellerSettlementRegistration).shouldHaveNoInteractions();
+        then(sellerSettlementClient).shouldHaveNoInteractions();
 
         failedBatch.requestRetry();
         settlementBatchJpaRepository.saveAndFlush(failedBatch);
@@ -206,7 +206,7 @@ class SettlementBatchRestartIntegrationTest {
                         SettlementCalculationReconciliationStatus.MATCHED);
         then(calculationService).should(times(2))
                 .calculate(any(CalculateSettlementCommand.class));
-        then(sellerSettlementRegistration).should()
+        then(sellerSettlementClient).should()
                 .register(any(SellerSettlementRegistrationCommand.class));
     }
 
@@ -241,7 +241,7 @@ class SettlementBatchRestartIntegrationTest {
         assertThat(settlementDeliveryJpaRepository.findAll())
                 .allMatch(delivery ->
                         delivery.getStatus() == SettlementDeliveryStatus.CALCULATED);
-        then(sellerSettlementRegistration).shouldHaveNoInteractions();
+        then(sellerSettlementClient).shouldHaveNoInteractions();
 
         failedBatch.requestRetry();
         settlementBatchJpaRepository.saveAndFlush(failedBatch);
@@ -277,7 +277,7 @@ class SettlementBatchRestartIntegrationTest {
                         delivery.getStatus() == SettlementDeliveryStatus.RECONCILED)
                 .extracting(SettlementDelivery::getSettlementId)
                 .doesNotHaveDuplicates();
-        then(sellerSettlementRegistration).should(times(3))
+        then(sellerSettlementClient).should(times(3))
                 .register(any(SellerSettlementRegistrationCommand.class));
     }
 
@@ -317,7 +317,7 @@ class SettlementBatchRestartIntegrationTest {
         assertThat(jobRepository.getJobExecutions(jobInstance)).hasSize(2);
         assertThat(settlementJpaRepository.findBySettlementBatchId(originalBatchId)).hasSize(1);
         then(loadSettlementSourceUseCase).should(times(2)).load(SOURCE_LOAD_FAILURE_PERIOD);
-        then(sellerSettlementRegistration).should()
+        then(sellerSettlementClient).should()
                 .register(any(SellerSettlementRegistrationCommand.class));
     }
 
@@ -325,7 +325,7 @@ class SettlementBatchRestartIntegrationTest {
     @DisplayName("배치 완료 후 Delivery 로컬 실패는 계산 상태를 유지하고 같은 Job에서 전달만 재시작한다")
     void restart_afterDeliveryLocalFailure_retriesOnlyCalculatedDelivery() {
         saveSourceLines(DELIVERY_FAILURE_PERIOD, 1);
-        given(sellerSettlementRegistration.register(
+        given(sellerSettlementClient.register(
                 any(SellerSettlementRegistrationCommand.class)))
                 .willThrow(new IllegalStateException("응답 매핑 실패"))
                 .willAnswer(invocation -> snapshotOf(invocation.getArgument(0)));
@@ -360,7 +360,7 @@ class SettlementBatchRestartIntegrationTest {
         assertThat(jobRepository.getJobExecutions(jobInstance)).hasSize(2);
         then(calculationService).should()
                 .calculate(any(CalculateSettlementCommand.class));
-        then(sellerSettlementRegistration).should(times(2))
+        then(sellerSettlementClient).should(times(2))
                 .register(any(SellerSettlementRegistrationCommand.class));
     }
 

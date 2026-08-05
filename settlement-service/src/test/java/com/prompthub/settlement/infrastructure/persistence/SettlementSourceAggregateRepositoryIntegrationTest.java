@@ -2,8 +2,8 @@ package com.prompthub.settlement.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.prompthub.settlement.domain.model.SettlementPeriod;
-import com.prompthub.settlement.domain.model.SettlementSourceLine;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
+import com.prompthub.settlement.domain.model.source.SettlementSourceLine;
 import com.prompthub.settlement.domain.repository.SettlementSourceAggregate;
 import com.prompthub.settlement.domain.repository.SettlementSourceAggregateRepository;
 import com.prompthub.settlement.global.config.JpaAuditingConfig;

@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
-import com.prompthub.settlement.application.service.SettlementDeliveryApplicationService;
-import com.prompthub.settlement.domain.model.enums.SettlementDeliveryStatus;
+import com.prompthub.settlement.application.usecase.delivery.SettlementDeliveryUseCase;
+import com.prompthub.settlement.domain.model.delivery.SettlementDeliveryStatus;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,8 +21,8 @@ class SettlementDeliveryRetryRunnerTest {
     @Test
     @DisplayName("delivery-retry 모드에서 대상 Delivery 하나를 재전송한다")
     void retriesSingleDelivery() throws Exception {
-        SettlementDeliveryApplicationService service =
-                Mockito.mock(SettlementDeliveryApplicationService.class);
+        SettlementDeliveryUseCase service =
+                Mockito.mock(SettlementDeliveryUseCase.class);
         given(service.retry(DELIVERY_ID))
                 .willReturn(SettlementDeliveryStatus.RECONCILED);
         SettlementDeliveryRetryRunner runner =
@@ -37,8 +37,8 @@ class SettlementDeliveryRetryRunnerTest {
     @Test
     @DisplayName("최종 전달 실패는 Job 실패 종료 코드로 반환한다")
     void returnsFailureExitCodeWhenDeliveryFails() throws Exception {
-        SettlementDeliveryApplicationService service =
-                Mockito.mock(SettlementDeliveryApplicationService.class);
+        SettlementDeliveryUseCase service =
+                Mockito.mock(SettlementDeliveryUseCase.class);
         given(service.retry(DELIVERY_ID))
                 .willReturn(SettlementDeliveryStatus.DELIVERY_FAILED);
         SettlementDeliveryRetryRunner runner =
@@ -54,8 +54,8 @@ class SettlementDeliveryRetryRunnerTest {
     void createsRunnerOnlyInDeliveryRetryMode() {
         new ApplicationContextRunner()
                 .withBean(
-                        SettlementDeliveryApplicationService.class,
-                        () -> Mockito.mock(SettlementDeliveryApplicationService.class))
+                        SettlementDeliveryUseCase.class,
+                        () -> Mockito.mock(SettlementDeliveryUseCase.class))
                 .withUserConfiguration(SettlementDeliveryRetryRunner.class)
                 .withPropertyValues(
                         "settlement.execution.mode=delivery-retry",

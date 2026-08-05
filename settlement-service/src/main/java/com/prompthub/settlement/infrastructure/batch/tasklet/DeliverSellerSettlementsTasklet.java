@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.batch.tasklet;
 
-import com.prompthub.settlement.application.service.SettlementDeliveryApplicationService;
+import com.prompthub.settlement.application.usecase.delivery.SettlementDeliveryUseCase;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.configuration.annotation.StepScope;
@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class DeliverSellerSettlementsTasklet implements Tasklet {
 
-    private final SettlementDeliveryApplicationService deliveryService;
+    private final SettlementDeliveryUseCase deliveryUseCase;
 
     @Value("#{jobExecutionContext['settlementBatchId']}")
     private String settlementBatchIdParam;
@@ -24,7 +24,7 @@ public class DeliverSellerSettlementsTasklet implements Tasklet {
     @Override
     public RepeatStatus execute(
             StepContribution contribution, ChunkContext chunkContext) {
-        deliveryService.deliverBatch(UUID.fromString(settlementBatchIdParam));
+        deliveryUseCase.deliverBatch(UUID.fromString(settlementBatchIdParam));
         return RepeatStatus.FINISHED;
     }
 }

@@ -6,9 +6,9 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
-import com.prompthub.settlement.application.dto.SettlementCalculationReconciliationReport;
-import com.prompthub.settlement.application.usecase.ReconcileSettlementCalculationUseCase;
-import com.prompthub.settlement.application.usecase.SettlementBatchLifecycleUseCase;
+import com.prompthub.settlement.application.dto.calculation.SettlementCalculationReconciliationReport;
+import com.prompthub.settlement.application.usecase.batch.SettlementBatchLifecycleUseCase;
+import com.prompthub.settlement.application.usecase.calculation.ReconcileSettlementCalculationUseCase;
 import com.prompthub.settlement.domain.exception.SettlementCalculationReconciliationException;
 import java.util.List;
 import java.util.UUID;

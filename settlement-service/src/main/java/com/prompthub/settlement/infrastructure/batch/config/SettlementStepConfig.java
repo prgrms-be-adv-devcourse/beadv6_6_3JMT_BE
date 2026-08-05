@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.batch.config;
 
-import com.prompthub.settlement.domain.model.Settlement;
+import com.prompthub.settlement.domain.model.calculation.Settlement;
 import com.prompthub.settlement.infrastructure.batch.settlement.SettlementProcessor;
 import com.prompthub.settlement.infrastructure.batch.settlement.SettlementTarget;
 import com.prompthub.settlement.infrastructure.batch.settlement.SettlementTargetReader;

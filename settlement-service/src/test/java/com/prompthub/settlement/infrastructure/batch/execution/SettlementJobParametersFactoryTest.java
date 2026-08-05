@@ -2,8 +2,8 @@ package com.prompthub.settlement.infrastructure.batch.execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
-import com.prompthub.settlement.domain.model.SettlementPeriod;
+import com.prompthub.settlement.application.dto.batch.RunSettlementBatchCommand;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
 import java.time.LocalDate;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;

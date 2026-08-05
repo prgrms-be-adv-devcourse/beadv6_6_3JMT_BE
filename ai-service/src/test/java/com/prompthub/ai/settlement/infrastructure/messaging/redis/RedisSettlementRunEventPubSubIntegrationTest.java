@@ -1,6 +1,10 @@
 package com.prompthub.ai.settlement.infrastructure.messaging.redis;
 
+import com.prompthub.ai.global.config.AiSettlementProperties;
+import com.prompthub.ai.settlement.AiSettlementTestFixtures;
+import com.prompthub.ai.settlement.application.service.run.SettlementRunApplicationService;
 import com.prompthub.ai.settlement.application.service.run.SettlementRunTaskRegistry;
+import com.prompthub.ai.settlement.domain.repository.SettlementChatStateRepository;
 import com.prompthub.ai.settlement.presentation.sse.SseEmitterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterEach;
@@ -19,6 +23,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -27,6 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 @Testcontainers
 class RedisSettlementRunEventPubSubIntegrationTest {
@@ -59,16 +65,29 @@ class RedisSettlementRunEventPubSubIntegrationTest {
 
         firstRegistry = new SseEmitterRegistry();
         secondRegistry = new SseEmitterRegistry();
-        firstContainer = listenerContainer(new RedisSettlementRunEventSubscriber(
-                objectMapper,
+        SettlementRunTaskRegistry firstTaskRegistry =
+                new SettlementRunTaskRegistry(new SimpleMeterRegistry());
+        SettlementRunTaskRegistry secondTaskRegistry =
+                new SettlementRunTaskRegistry(new SimpleMeterRegistry());
+        SettlementChatStateRepository stateRepository = mock(SettlementChatStateRepository.class);
+        AiSettlementProperties properties = AiSettlementTestFixtures.properties(true);
+        Clock clock = Clock.systemUTC();
+        SettlementRunApplicationService firstRunService = new SettlementRunApplicationService(
+                stateRepository,
                 firstRegistry,
-                new SettlementRunTaskRegistry(new SimpleMeterRegistry())
-        ));
-        secondContainer = listenerContainer(new RedisSettlementRunEventSubscriber(
-                objectMapper,
+                firstTaskRegistry,
+                properties,
+                clock);
+        SettlementRunApplicationService secondRunService = new SettlementRunApplicationService(
+                stateRepository,
                 secondRegistry,
-                new SettlementRunTaskRegistry(new SimpleMeterRegistry())
-        ));
+                secondTaskRegistry,
+                properties,
+                clock);
+        firstContainer = listenerContainer(
+                new RedisSettlementRunEventSubscriber(objectMapper, firstRunService));
+        secondContainer = listenerContainer(
+                new RedisSettlementRunEventSubscriber(objectMapper, secondRunService));
         firstContainer.start();
         secondContainer.start();
 

@@ -1,7 +1,7 @@
 package com.prompthub.settlement.infrastructure.batch.execution;
 
-import com.prompthub.settlement.application.dto.SettlementJobResult;
-import com.prompthub.settlement.application.port.SettlementJobRestarter;
+import com.prompthub.settlement.application.dto.batch.SettlementJobResult;
+import com.prompthub.settlement.application.usecase.batch.SettlementJobRestarter;
 import com.prompthub.settlement.global.exception.SettlementErrorCode;
 import com.prompthub.settlement.global.exception.SettlementException;
 import com.prompthub.settlement.infrastructure.batch.config.SettlementJobConfig;

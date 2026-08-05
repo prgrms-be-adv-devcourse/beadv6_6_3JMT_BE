@@ -1,13 +1,12 @@
 package com.prompthub.ai.settlement.infrastructure.persistence.redis;
 
-import com.prompthub.ai.global.config.AiRedisConfig;
 import com.prompthub.ai.settlement.domain.repository.SettlementChatStateRepository.AcceptRunResult;
 import com.prompthub.ai.settlement.domain.repository.SettlementChatStateRepository.ConversationCancellation;
-import com.prompthub.ai.settlement.domain.conversation.ChatMessage;
-import com.prompthub.ai.settlement.domain.conversation.ChatPair;
-import com.prompthub.ai.settlement.domain.conversation.ConversationSnapshot;
-import com.prompthub.ai.settlement.domain.run.AgentRun;
-import com.prompthub.ai.settlement.domain.run.RunStatus;
+import com.prompthub.ai.settlement.domain.model.conversation.ChatMessage;
+import com.prompthub.ai.settlement.domain.model.conversation.ChatPair;
+import com.prompthub.ai.settlement.domain.model.conversation.ConversationSnapshot;
+import com.prompthub.ai.settlement.domain.model.run.AgentRun;
+import com.prompthub.ai.settlement.domain.model.run.RunStatus;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,7 +55,7 @@ class RedisSettlementChatStateRepositoryIntegrationTest {
         }
 
         ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
-        AiRedisConfig scripts = new AiRedisConfig();
+        SettlementChatStateRedisConfig scripts = new SettlementChatStateRedisConfig();
         repository = new RedisSettlementChatStateRepository(
                 redisTemplate,
                 objectMapper,

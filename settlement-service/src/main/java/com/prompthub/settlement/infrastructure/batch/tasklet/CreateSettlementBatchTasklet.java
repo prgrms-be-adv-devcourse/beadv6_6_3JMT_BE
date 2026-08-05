@@ -1,9 +1,9 @@
 package com.prompthub.settlement.infrastructure.batch.tasklet;
 
-import com.prompthub.settlement.application.dto.CreateSettlementBatchCommand;
-import com.prompthub.settlement.application.usecase.SettlementBatchLifecycleUseCase;
-import com.prompthub.settlement.domain.model.SettlementPeriod;
-import com.prompthub.settlement.domain.model.enums.TriggerType;
+import com.prompthub.settlement.application.dto.batch.CreateSettlementBatchCommand;
+import com.prompthub.settlement.application.usecase.batch.SettlementBatchLifecycleUseCase;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
+import com.prompthub.settlement.domain.model.batch.TriggerType;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;

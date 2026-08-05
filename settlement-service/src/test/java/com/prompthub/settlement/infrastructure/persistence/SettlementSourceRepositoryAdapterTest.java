@@ -2,7 +2,7 @@ package com.prompthub.settlement.infrastructure.persistence;
 
 import static org.mockito.BDDMockito.then;
 
-import com.prompthub.settlement.domain.model.SettlementPeriod;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
