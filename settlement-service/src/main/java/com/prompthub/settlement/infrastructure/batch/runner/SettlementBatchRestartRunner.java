@@ -1,8 +1,8 @@
 package com.prompthub.settlement.infrastructure.batch.runner;
 
-import com.prompthub.settlement.application.dto.RestartSettlementBatchCommand;
-import com.prompthub.settlement.application.dto.SettlementJobResult;
-import com.prompthub.settlement.application.usecase.RestartSettlementBatchUseCase;
+import com.prompthub.settlement.application.dto.batch.RestartSettlementBatchCommand;
+import com.prompthub.settlement.application.dto.batch.SettlementJobResult;
+import com.prompthub.settlement.application.usecase.batch.RestartSettlementBatchUseCase;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.BatchStatus;

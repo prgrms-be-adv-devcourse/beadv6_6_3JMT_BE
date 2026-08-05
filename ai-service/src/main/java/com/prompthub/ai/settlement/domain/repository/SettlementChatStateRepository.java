@@ -1,9 +1,9 @@
 package com.prompthub.ai.settlement.domain.repository;
 
-import com.prompthub.ai.settlement.domain.conversation.ChatPair;
-import com.prompthub.ai.settlement.domain.conversation.ConversationSnapshot;
-import com.prompthub.ai.settlement.domain.run.AgentRun;
-import com.prompthub.ai.settlement.domain.run.RunStage;
+import com.prompthub.ai.settlement.domain.model.conversation.ChatPair;
+import com.prompthub.ai.settlement.domain.model.conversation.ConversationSnapshot;
+import com.prompthub.ai.settlement.domain.model.run.AgentRun;
+import com.prompthub.ai.settlement.domain.model.run.RunStage;
 
 import java.time.Instant;
 import java.util.Objects;

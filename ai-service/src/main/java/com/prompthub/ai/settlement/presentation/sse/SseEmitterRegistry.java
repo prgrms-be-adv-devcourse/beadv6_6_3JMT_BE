@@ -1,9 +1,10 @@
 package com.prompthub.ai.settlement.presentation.sse;
 
-import com.prompthub.ai.settlement.application.event.RunEvent;
-import com.prompthub.ai.settlement.domain.run.AgentRun;
-import com.prompthub.ai.settlement.domain.run.RunStage;
-import com.prompthub.ai.settlement.domain.run.RunStatus;
+import com.prompthub.ai.settlement.application.usecase.SettlementRunEventBroadcaster;
+import com.prompthub.ai.settlement.domain.event.RunEvent;
+import com.prompthub.ai.settlement.domain.model.run.AgentRun;
+import com.prompthub.ai.settlement.domain.model.run.RunStage;
+import com.prompthub.ai.settlement.domain.model.run.RunStatus;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,7 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
-public class SseEmitterRegistry {
+public class SseEmitterRegistry implements SettlementRunEventBroadcaster {
 
     private final ConcurrentHashMap<UUID, CopyOnWriteArrayList<EmitterSession>> sessionsByRun =
             new ConcurrentHashMap<>();
@@ -83,7 +84,8 @@ public class SseEmitterRegistry {
         completeAndRemove(runId, registered);
     }
 
-    public void dispatch(RunEvent event) {
+    @Override
+    public void broadcast(RunEvent event) {
         CopyOnWriteArrayList<EmitterSession> sessions = sessionsByRun.get(event.runId());
         if (sessions == null) {
             return;

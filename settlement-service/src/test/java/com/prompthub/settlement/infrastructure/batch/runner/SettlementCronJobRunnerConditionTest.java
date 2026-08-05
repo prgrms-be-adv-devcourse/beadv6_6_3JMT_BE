@@ -3,7 +3,7 @@ package com.prompthub.settlement.infrastructure.batch.runner;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
-import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
+import com.prompthub.settlement.application.usecase.batch.RunSettlementBatchUseCase;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;

@@ -1,7 +1,7 @@
 package com.prompthub.settlement.infrastructure.batch.tasklet;
 
-import com.prompthub.settlement.application.usecase.LoadSettlementSourceUseCase;
-import com.prompthub.settlement.domain.model.SettlementPeriod;
+import com.prompthub.settlement.application.usecase.source.LoadSettlementSourceUseCase;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

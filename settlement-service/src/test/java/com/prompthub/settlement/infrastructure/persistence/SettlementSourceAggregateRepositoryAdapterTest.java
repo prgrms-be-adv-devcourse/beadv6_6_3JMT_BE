@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
-import com.prompthub.settlement.domain.model.SettlementPeriod;
-import com.prompthub.settlement.domain.model.enums.SettlementSourceLineType;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
+import com.prompthub.settlement.domain.model.source.SettlementSourceLineType;
 import com.prompthub.settlement.domain.repository.SettlementSourceAggregate;
 import java.math.BigDecimal;
 import java.time.LocalDate;

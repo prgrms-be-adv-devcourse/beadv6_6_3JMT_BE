@@ -1,8 +1,8 @@
 package com.prompthub.settlement.infrastructure.batch.tasklet;
 
-import com.prompthub.settlement.application.dto.SettlementCalculationReconciliationReport;
-import com.prompthub.settlement.application.usecase.ReconcileSettlementCalculationUseCase;
-import com.prompthub.settlement.application.usecase.SettlementBatchLifecycleUseCase;
+import com.prompthub.settlement.application.dto.calculation.SettlementCalculationReconciliationReport;
+import com.prompthub.settlement.application.usecase.batch.SettlementBatchLifecycleUseCase;
+import com.prompthub.settlement.application.usecase.calculation.ReconcileSettlementCalculationUseCase;
 import com.prompthub.settlement.domain.exception.SettlementCalculationReconciliationException;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;

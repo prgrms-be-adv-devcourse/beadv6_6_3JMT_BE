@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.persistence;
 
-import com.prompthub.settlement.domain.model.Settlement;
+import com.prompthub.settlement.domain.model.calculation.Settlement;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;

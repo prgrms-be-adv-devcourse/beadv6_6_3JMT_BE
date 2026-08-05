@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.batch.execution;
 
-import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
+import com.prompthub.settlement.application.dto.batch.RunSettlementBatchCommand;
 import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
 import org.springframework.stereotype.Component;

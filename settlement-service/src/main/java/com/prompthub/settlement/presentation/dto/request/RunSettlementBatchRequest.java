@@ -1,8 +1,8 @@
 package com.prompthub.settlement.presentation.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
-import com.prompthub.settlement.domain.model.SettlementPeriod;
+import com.prompthub.settlement.application.dto.batch.RunSettlementBatchCommand;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;

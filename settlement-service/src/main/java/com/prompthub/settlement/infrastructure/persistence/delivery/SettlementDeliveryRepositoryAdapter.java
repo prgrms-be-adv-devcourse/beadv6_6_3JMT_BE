@@ -1,7 +1,7 @@
 package com.prompthub.settlement.infrastructure.persistence.delivery;
 
-import com.prompthub.settlement.domain.model.SettlementDelivery;
-import com.prompthub.settlement.domain.model.enums.SettlementDeliveryStatus;
+import com.prompthub.settlement.domain.model.delivery.SettlementDelivery;
+import com.prompthub.settlement.domain.model.delivery.SettlementDeliveryStatus;
 import com.prompthub.settlement.domain.repository.SettlementDeliveryRepository;
 import java.util.EnumMap;
 import java.util.List;

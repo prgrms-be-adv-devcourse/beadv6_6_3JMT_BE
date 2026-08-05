@@ -1,7 +1,7 @@
 package com.prompthub.ai.settlement.application.service.conversation;
 
 import com.prompthub.ai.global.config.AiSettlementProperties;
-import com.prompthub.ai.settlement.domain.conversation.ChatPair;
+import com.prompthub.ai.settlement.domain.model.conversation.ChatPair;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;

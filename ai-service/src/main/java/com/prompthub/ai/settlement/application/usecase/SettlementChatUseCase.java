@@ -1,7 +1,7 @@
 package com.prompthub.ai.settlement.application.usecase;
 
-import com.prompthub.ai.settlement.domain.conversation.ConversationSnapshot;
-import com.prompthub.ai.settlement.domain.run.RunStatus;
+import com.prompthub.ai.settlement.domain.model.conversation.ConversationSnapshot;
+import com.prompthub.ai.settlement.domain.model.run.RunStatus;
 
 import java.time.Instant;
 import java.util.Optional;

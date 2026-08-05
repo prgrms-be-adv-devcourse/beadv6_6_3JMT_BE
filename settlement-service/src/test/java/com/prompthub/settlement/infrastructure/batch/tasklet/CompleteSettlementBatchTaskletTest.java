@@ -3,7 +3,7 @@ package com.prompthub.settlement.infrastructure.batch.tasklet;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
-import com.prompthub.settlement.application.usecase.SettlementBatchLifecycleUseCase;
+import com.prompthub.settlement.application.usecase.batch.SettlementBatchLifecycleUseCase;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

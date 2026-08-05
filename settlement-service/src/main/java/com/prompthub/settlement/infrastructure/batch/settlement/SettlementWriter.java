@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.batch.settlement;
 
-import com.prompthub.settlement.domain.model.Settlement;
+import com.prompthub.settlement.domain.model.calculation.Settlement;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.infrastructure.item.Chunk;
 import org.springframework.batch.infrastructure.item.ItemWriter;

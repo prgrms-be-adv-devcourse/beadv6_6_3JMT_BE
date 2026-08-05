@@ -5,16 +5,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
-import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
-import com.prompthub.settlement.application.dto.SettlementJobResult;
-import com.prompthub.settlement.application.dto.SettlementSourceReconciliationResult;
-import com.prompthub.settlement.application.port.SellerSettlementRegistration;
-import com.prompthub.settlement.application.usecase.LoadSettlementSourceUseCase;
-import com.prompthub.settlement.application.usecase.ReconcileSettlementSourceUseCase;
-import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
-import com.prompthub.settlement.domain.model.SettlementBatch;
-import com.prompthub.settlement.domain.model.SettlementPeriod;
-import com.prompthub.settlement.domain.model.enums.SettlementBatchStatus;
+import com.prompthub.settlement.application.dto.batch.RunSettlementBatchCommand;
+import com.prompthub.settlement.application.dto.batch.SettlementJobResult;
+import com.prompthub.settlement.application.dto.source.SettlementSourceReconciliationResult;
+import com.prompthub.settlement.application.client.user.SellerSettlementClient;
+import com.prompthub.settlement.application.usecase.batch.RunSettlementBatchUseCase;
+import com.prompthub.settlement.application.usecase.source.LoadSettlementSourceUseCase;
+import com.prompthub.settlement.application.usecase.source.ReconcileSettlementSourceUseCase;
+import com.prompthub.settlement.domain.model.batch.SettlementBatch;
+import com.prompthub.settlement.domain.model.batch.SettlementBatchStatus;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
 import com.prompthub.settlement.domain.repository.SettlementSourceAggregate;
 import com.prompthub.settlement.infrastructure.batch.tasklet.ReconcileSettlementSourceTasklet;
 import com.prompthub.settlement.infrastructure.persistence.SettlementBatchJpaRepository;
@@ -79,7 +79,7 @@ class SettlementSourceReconciliationBatchIntegrationTest {
     private ReconcileSettlementSourceUseCase reconcileSettlementSourceUseCase;
 
     @MockitoBean
-    private SellerSettlementRegistration sellerSettlementRegistration;
+    private SellerSettlementClient sellerSettlementClient;
 
     @BeforeEach
     void setUp() {
@@ -136,7 +136,7 @@ class SettlementSourceReconciliationBatchIntegrationTest {
         assertThat(context.getLong("sourceRefundCount")).isEqualTo(1L);
         assertThat(context.getString("sourceRefundAmount")).isEqualTo("500");
         then(reconcileSettlementSourceUseCase).should().reconcile(PERIOD);
-        then(sellerSettlementRegistration).shouldHaveNoInteractions();
+        then(sellerSettlementClient).shouldHaveNoInteractions();
         then(loadSettlementSourceUseCase).should().load(any(SettlementPeriod.class));
     }
 
@@ -164,6 +164,6 @@ class SettlementSourceReconciliationBatchIntegrationTest {
         assertThat(settlementDeliveryJpaRepository.count()).isZero();
         assertThat(reconciliationStep.getExitStatus().getExitCode())
                 .isEqualTo("FAILED");
-        then(sellerSettlementRegistration).shouldHaveNoInteractions();
+        then(sellerSettlementClient).shouldHaveNoInteractions();
     }
 }

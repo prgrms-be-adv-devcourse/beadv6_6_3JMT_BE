@@ -7,10 +7,10 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
-import com.prompthub.settlement.application.dto.SettlementJobResult;
-import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
-import com.prompthub.settlement.domain.model.SettlementPeriod;
-import com.prompthub.settlement.domain.model.enums.TriggerType;
+import com.prompthub.settlement.application.dto.batch.SettlementJobResult;
+import com.prompthub.settlement.application.usecase.batch.RunSettlementBatchUseCase;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
+import com.prompthub.settlement.domain.model.batch.TriggerType;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;

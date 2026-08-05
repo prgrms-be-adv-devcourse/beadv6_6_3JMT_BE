@@ -2,9 +2,9 @@ package com.prompthub.ai.settlement.infrastructure.messaging.redis;
 
 import com.prompthub.ai.global.exception.AiErrorCode;
 import com.prompthub.ai.global.exception.AiException;
-import com.prompthub.ai.settlement.application.event.RunEvent;
-import com.prompthub.ai.settlement.application.port.SettlementRunEventPublisher;
-import com.prompthub.ai.settlement.domain.run.RunStage;
+import com.prompthub.ai.settlement.domain.event.RunEvent;
+import com.prompthub.ai.settlement.application.usecase.SettlementRunEventPublisher;
+import com.prompthub.ai.settlement.domain.model.run.RunStage;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import org.springframework.beans.factory.annotation.Autowired;

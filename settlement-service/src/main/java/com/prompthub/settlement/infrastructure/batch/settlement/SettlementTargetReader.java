@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.batch.settlement;
 
-import com.prompthub.settlement.domain.model.SettlementPeriod;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
 import com.prompthub.settlement.domain.repository.SettlementSourceRepository;
 import java.time.LocalDate;
 import java.util.Iterator;

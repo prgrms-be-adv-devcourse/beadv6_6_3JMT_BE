@@ -2,10 +2,10 @@ package com.prompthub.settlement.presentation.controller;
 
 import com.prompthub.exception.response.ErrorResponse;
 import com.prompthub.presentation.dto.ApiResult;
-import com.prompthub.settlement.application.dto.SettlementJobResult;
-import com.prompthub.settlement.application.dto.SettlementJobStatusResult;
-import com.prompthub.settlement.application.usecase.GetSettlementJobStatusUseCase;
-import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
+import com.prompthub.settlement.application.dto.batch.SettlementJobResult;
+import com.prompthub.settlement.application.dto.batch.SettlementJobStatusResult;
+import com.prompthub.settlement.application.usecase.batch.GetSettlementJobStatusUseCase;
+import com.prompthub.settlement.application.usecase.batch.RunSettlementBatchUseCase;
 import com.prompthub.settlement.global.web.AuthHeaders;
 import com.prompthub.settlement.presentation.dto.request.RunSettlementBatchRequest;
 import com.prompthub.settlement.presentation.dto.response.SettlementJobResponse;

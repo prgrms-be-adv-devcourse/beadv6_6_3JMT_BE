@@ -2,8 +2,8 @@ package com.prompthub.settlement.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.prompthub.settlement.domain.model.SettlementBatch;
-import com.prompthub.settlement.domain.model.enums.TriggerType;
+import com.prompthub.settlement.domain.model.batch.SettlementBatch;
+import com.prompthub.settlement.domain.model.batch.TriggerType;
 import com.prompthub.settlement.global.config.JpaAuditingConfig;
 import java.time.LocalDate;
 import org.junit.jupiter.api.DisplayName;

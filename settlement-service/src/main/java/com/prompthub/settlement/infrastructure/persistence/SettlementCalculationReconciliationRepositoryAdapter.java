@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.persistence;
 
-import com.prompthub.settlement.domain.model.SettlementCalculationReconciliation;
+import com.prompthub.settlement.domain.model.calculation.SettlementCalculationReconciliation;
 import com.prompthub.settlement.domain.repository.SettlementCalculationReconciliationRepository;
 import java.util.List;
 import java.util.UUID;

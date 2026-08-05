@@ -3,16 +3,16 @@ package com.prompthub.ai.settlement.application.service.conversation;
 import com.prompthub.ai.global.config.AiSettlementProperties;
 import com.prompthub.ai.global.exception.AiErrorCode;
 import com.prompthub.ai.global.exception.AiException;
-import com.prompthub.ai.settlement.application.port.SettlementRunEventPublisher;
-import com.prompthub.ai.settlement.application.port.SettlementAgent;
+import com.prompthub.ai.settlement.application.usecase.SettlementRunEventPublisher;
+import com.prompthub.ai.settlement.application.gateway.external.SettlementAgentGateway;
 import com.prompthub.ai.settlement.application.service.run.SettlementRunConcurrencyLimiter;
 import com.prompthub.ai.settlement.application.service.run.SettlementRunExecutor;
 import com.prompthub.ai.settlement.application.service.run.SettlementRunTaskRegistry;
 import com.prompthub.ai.settlement.application.usecase.SettlementChatUseCase;
 import com.prompthub.ai.settlement.domain.repository.SettlementChatStateRepository;
 import com.prompthub.ai.settlement.domain.repository.SettlementChatStateRepository.ConversationCancellation;
-import com.prompthub.ai.settlement.domain.run.AgentRun;
-import com.prompthub.ai.settlement.domain.run.RunStage;
+import com.prompthub.ai.settlement.domain.model.run.AgentRun;
+import com.prompthub.ai.settlement.domain.model.run.RunStage;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
@@ -193,10 +193,10 @@ class SettlementChatApplicationServiceTest {
         AgentRun run = AgentRun.start(UUID.randomUUID(), actorId, "정산 요약", NOW, Duration.ofSeconds(90));
         SettlementChatStateRepository repository = mock(SettlementChatStateRepository.class);
         SettlementRunEventPublisher publisher = mock(SettlementRunEventPublisher.class);
-        SettlementAgent agent = request -> {
+        SettlementAgentGateway agent = request -> {
             request.progressListener().onStage(RunStage.FETCHING_DATA);
             request.progressListener().onStage(RunStage.GENERATING_ANSWER);
-            return new SettlementAgent.AgentResult("안전한 정산 답변", List.of("안전한 ", "정산 답변"), 1);
+            return new SettlementAgentGateway.AgentResult("안전한 정산 답변", List.of("안전한 ", "정산 답변"), 1);
         };
         when(repository.updateStage(eq(run.runId()), any(), eq(NOW))).thenReturn(true);
         when(repository.complete(eq(actorId), eq(run.runId()), any(), eq("안전한 정산 답변"), eq(NOW)))
@@ -233,7 +233,7 @@ class SettlementChatApplicationServiceTest {
         AgentRun run = AgentRun.start(UUID.randomUUID(), actorId, "정산 요약", NOW, Duration.ofSeconds(90));
         SettlementChatStateRepository repository = mock(SettlementChatStateRepository.class);
         SettlementRunEventPublisher publisher = mock(SettlementRunEventPublisher.class);
-        SettlementAgent agent = request -> new SettlementAgent.AgentResult("정산 답변", List.of("정산 답변"), 0);
+        SettlementAgentGateway agent = request -> new SettlementAgentGateway.AgentResult("정산 답변", List.of("정산 답변"), 0);
         when(repository.updateStage(run.runId(), RunStage.ANALYZING, NOW)).thenReturn(true);
         when(repository.complete(eq(actorId), eq(run.runId()), any(), eq("정산 답변"), eq(NOW)))
                 .thenReturn(false);

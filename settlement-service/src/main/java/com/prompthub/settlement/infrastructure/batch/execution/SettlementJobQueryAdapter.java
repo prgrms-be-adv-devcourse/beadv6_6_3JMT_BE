@@ -1,7 +1,7 @@
 package com.prompthub.settlement.infrastructure.batch.execution;
 
-import com.prompthub.settlement.application.dto.SettlementJobStatusResult;
-import com.prompthub.settlement.application.port.SettlementJobQuery;
+import com.prompthub.settlement.application.dto.batch.SettlementJobStatusResult;
+import com.prompthub.settlement.application.usecase.batch.SettlementJobQuery;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.job.JobExecution;

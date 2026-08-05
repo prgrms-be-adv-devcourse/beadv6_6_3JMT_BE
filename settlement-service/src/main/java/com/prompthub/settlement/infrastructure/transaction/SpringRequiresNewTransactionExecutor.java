@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.transaction;
 
-import com.prompthub.settlement.application.port.RequiresNewTransactionExecutor;
+import com.prompthub.settlement.application.usecase.delivery.RequiresNewTransactionExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;

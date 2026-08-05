@@ -2,9 +2,9 @@ package com.prompthub.settlement.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.prompthub.settlement.domain.model.SettlementCalculationReconciliation;
-import com.prompthub.settlement.domain.model.SettlementCalculationSummary;
-import com.prompthub.settlement.domain.model.SettlementDetail;
+import com.prompthub.settlement.domain.model.calculation.SettlementCalculationReconciliation;
+import com.prompthub.settlement.domain.model.calculation.SettlementCalculationSummary;
+import com.prompthub.settlement.domain.model.calculation.SettlementDetail;
 import com.prompthub.settlement.domain.repository.SettlementCalculationReconciliationRepository;
 import com.prompthub.settlement.global.config.JpaAuditingConfig;
 import java.math.BigDecimal;

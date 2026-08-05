@@ -1,6 +1,6 @@
 package com.prompthub.settlement.infrastructure.persistence;
 
-import com.prompthub.settlement.domain.model.SettlementBatch;
+import com.prompthub.settlement.domain.model.batch.SettlementBatch;
 import com.prompthub.settlement.domain.repository.SettlementBatchRepository;
 import java.util.Optional;
 import java.util.UUID;

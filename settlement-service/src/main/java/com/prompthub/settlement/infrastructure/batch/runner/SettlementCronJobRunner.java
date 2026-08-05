@@ -1,9 +1,9 @@
 package com.prompthub.settlement.infrastructure.batch.runner;
 
-import com.prompthub.settlement.application.dto.RunSettlementBatchCommand;
-import com.prompthub.settlement.application.dto.SettlementJobResult;
-import com.prompthub.settlement.application.usecase.RunSettlementBatchUseCase;
-import com.prompthub.settlement.domain.model.SettlementPeriod;
+import com.prompthub.settlement.application.dto.batch.RunSettlementBatchCommand;
+import com.prompthub.settlement.application.dto.batch.SettlementJobResult;
+import com.prompthub.settlement.application.usecase.batch.RunSettlementBatchUseCase;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
 import java.time.Clock;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;

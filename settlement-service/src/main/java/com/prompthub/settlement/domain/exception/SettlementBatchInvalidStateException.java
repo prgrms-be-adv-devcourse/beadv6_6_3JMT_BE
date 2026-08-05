@@ -1,6 +1,6 @@
 package com.prompthub.settlement.domain.exception;
 
-import com.prompthub.settlement.domain.model.enums.SettlementBatchStatus;
+import com.prompthub.settlement.domain.model.batch.SettlementBatchStatus;
 
 public class SettlementBatchInvalidStateException extends RuntimeException {
 
