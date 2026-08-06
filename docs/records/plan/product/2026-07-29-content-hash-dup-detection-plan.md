@@ -1,7 +1,7 @@
 # 상품 본문 복제 탐지 — 구현 plan (content_hash)
 
 > 이건 **구현용 스펙**이다. "왜 블록체인·임베딩·비대칭키가 아니라 해시인가", FM1/FM2를
-> 4라운드 검토한 근거·경위는 **ADR-0011**(`docs/adr/0011-content-similarity-over-blockchain-nft.md`)에
+> 4라운드 검토한 근거·경위는 **ADR-0011**(`docs/records/plan/product/adr-0011-content-similarity-over-blockchain-nft.md`)에
 > 있다. 여기선 결론만 옮겨 무엇을 어떤 순서로 짤지에 집중한다. 결정 근거가 필요하면 ADR을 본다.
 
 한 줄 목적: **같은 프롬프트 본문을 띄어쓰기 하나만 바꿔 남의 상품으로 다시 올리는 것을 등록

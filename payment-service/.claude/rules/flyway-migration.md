@@ -1,4 +1,4 @@
-payment-service DB 마이그레이션 규칙. `@Entity` 추가/변경, DB 스키마 변경 작업 시 따른다. 모노레포 공통 가이드는 [`../../../docs/guides/flyway-migration-guide.md`](../../../docs/guides/flyway-migration-guide.md)([ADR-0003](../../../docs/adr/0003-flyway-migrations.md)) 참조 — 이 문서는 그중 payment-service에 적용되는 부분만 발췌·구체화한다.
+payment-service DB 마이그레이션 규칙. `@Entity` 추가/변경, DB 스키마 변경 작업 시 따른다. 모노레포 공통 가이드는 [`../../../docs/guides/flyway-migration-guide.md`](../../../docs/guides/flyway-migration-guide.md)([ADR-0003](../../../docs/records/plan/infra/adr-0003-flyway-migrations.md)) 참조 — 이 문서는 그중 payment-service에 적용되는 부분만 발췌·구체화한다.
 
 ## 위치 / 파일명
 
