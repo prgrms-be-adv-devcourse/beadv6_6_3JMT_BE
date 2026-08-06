@@ -171,7 +171,7 @@ http://ec2-13-209-136-116.ap-northeast-2.compute.amazonaws.com/swagger-ui/index.
 
 > **운영(prod) 서버가 따로 없는 이유는?**
 
-포트폴리오/학습 프로젝트라 AWS EC2 단일 인스턴스를 "개발서버"로 운영한다. `develop` 머지가 곧 배포이며, `main`은 완성 스냅샷을 태그로만 보존한다. 자세한 배경은 `docs/adr/0005-develop-deploy-main-freeze.md` 참고.
+포트폴리오/학습 프로젝트라 AWS EC2 단일 인스턴스를 "개발서버"로 운영한다. `develop` 머지가 곧 배포이며, `main`은 완성 스냅샷을 태그로만 보존한다. 자세한 배경은 `docs/records/plan/infra/adr-0005-develop-deploy-main-freeze(v).md` 참고.
 
 > **API 경로에 `v1`, `v2`가 같이 있는 이유는?**
 

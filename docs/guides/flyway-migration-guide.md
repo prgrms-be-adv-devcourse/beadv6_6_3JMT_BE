@@ -1,6 +1,6 @@
 # Flyway 마이그레이션 가이드
 
-> **관련 ADR:** [ADR-0003: 스키마 변경은 Flyway 마이그레이션으로 관리하고 Hibernate는 validate만 한다](../adr/0003-flyway-migrations.md)
+> **관련 ADR:** [ADR-0003: 스키마 변경은 Flyway 마이그레이션으로 관리하고 Hibernate는 validate만 한다](../records/plan/infra/adr-0003-flyway-migrations.md)
 
 ## 이 프로젝트에서 Flyway가 하는 일
 
@@ -62,8 +62,8 @@ docker exec -e PGOPTIONS="-c search_path=payment_service" flyway-verify \
 2. 컨테이너가 뜰 때 Flyway가 미적용 마이그레이션을 순서대로 실행한다.
 3. 그 다음 Hibernate가 `validate`로 엔티티-스키마 일치를 검증한다. 불일치가 있으면 서비스가 기동 실패한다.
 
-운영(prod) 환경은 없다 — `dev`가 최종 배포 환경이다([ADR-0005](../adr/0005-develop-deploy-main-freeze.md) 참고).
+운영(prod) 환경은 없다 — `dev`가 최종 배포 환경이다([ADR-0005](../records/plan/infra/adr-0005-develop-deploy-main-freeze(v).md) 참고).
 
 ---
 
-Flyway 도입 과정에서 겪은 구체적인 장애 사례는 [`docs/adr/troubleshooting/`](../adr/troubleshooting/)를 참고한다.
+Flyway 도입 과정에서 겪은 구체적인 장애 사례는 [`docs/records/troubleshooting/infra/`](../records/troubleshooting/infra/)를 참고한다.

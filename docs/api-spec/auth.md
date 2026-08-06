@@ -2,7 +2,7 @@
 
 **Base:** `http://localhost:8081/api/v2`
 
-> 최종 프로젝트 전환으로 `api/v1` → `api/v2`로 변경됨(`docs/adr/config-management.md` §10).
+> 최종 프로젝트 전환으로 `api/v1` → `api/v2`로 변경됨(`docs/records/plan/infra/adr-config-management.md` §10).
 > 다른 도메인(user·seller·wishlist·admin)도 `#305 (이슈)`에서 `api/v2`로 전환되어, 현재 user-service 공개 API는 전부 `api/v2`다.
 
 ## 공통 사항

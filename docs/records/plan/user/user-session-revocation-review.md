@@ -1,8 +1,8 @@
 # 로그아웃 시 AT 즉시 무효화 — 설계 방향 검토
 
-- 상태: **결정 완료 (2026-07-11, 멘토 확인)**. 옵션 B 채택 — `docs/adr/0008-user-service-forward-auth.md` §8-1로 반영됨.
+- 상태: **결정 완료 (2026-07-11, 멘토 확인)**. 옵션 B 채택 — `docs/records/plan/user/adr-0008-user-service-forward-auth(v).md` §8-1로 반영됨.
   블랙리스트(옵션 A)는 폐기, 여러 기기 동시 로그인 지원 시 재검토. 이 문서는 결정에 이른 과정 기록으로 남긴다.
-- 관련: `docs/adr/0008-user-service-forward-auth.md`(이하 ADR-0008),
+- 관련: `docs/records/plan/user/adr-0008-user-service-forward-auth(v).md`(이하 ADR-0008),
 `user-service/docs/frontend-notice-kakao-login-change.md` §5
 - 이 문서가 건드리는 범위: ADR-0008 §8의 딱 한 줄 —
   > 일반 로그아웃: RT 삭제만. AT는 만료까지(≤15분) 유효 — 기존 API 스펙 유지.
@@ -190,4 +190,4 @@ ole/status와 성격이 다르다 — "언젠가 바뀌는 비즈니스 값"이 
 옵션 B 채택. §6 열린 질문 답변: (1) `epoch`는 "sub만" 원칙의 예외로 명시, (2) epoch 불일치는
 fail-closed(401), (3) "유저당 세션 1개" 전제는 유지하고 여러 기기 동시 로그인 지원 시 재설계,
 (4) 이 문서는 ADR-0008 §8 한 줄만 좁게 수정하는 범위이며 §9(블랙리스트 폐기)는 유지·강화됨.
-반영 결과는 `docs/adr/0008-user-service-forward-auth.md` §8-1 참고.
+반영 결과는 `docs/records/plan/user/adr-0008-user-service-forward-auth(v).md` §8-1 참고.

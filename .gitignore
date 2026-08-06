@@ -2,7 +2,7 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=java,windows,macos,intellij+all,git,gradle,gitbook
 
 # ADR & Troubleshooting (로컬 작업용)
-docs/adr/
+# docs/adr/
 
 ### Git ###
 # Created by git for backups. To disable backups in Git:

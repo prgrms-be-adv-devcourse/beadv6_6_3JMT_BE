@@ -1,6 +1,6 @@
 # 로컬 개발 환경: gRPC 서비스 접근 가이드
 
-> **관련 ADR:** [ADR-0006: 로컬 개발용 gRPC 접근은 docker-compose 포트 노출로 해결한다](../adr/0006-local-grpc-dev-access-via-docker-compose.md)
+> **관련 ADR:** [ADR-0006: 로컬 개발용 gRPC 접근은 docker-compose 포트 노출로 해결한다](../records/plan/infra/adr-0006-local-grpc-dev-access-via-docker-compose.md)
 
 ## 개요
 

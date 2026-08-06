@@ -91,7 +91,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 
 프로파일은 `local`(개인 PC) / `dev`(AWS 개발서버, CD 배포) / `test`(빌드 테스트 전용)
 3단이다. **운영(prod) 서버는 없다** — `prod` 프로파일·`application-prod.yml`은 만들지
-않는다. 상세 규칙은 `docs/adr/config-management.md` 참고.
+않는다. 상세 규칙은 `docs/records/plan/infra/adr-config-management.md` 참고.
 
 ## 워크플로 요약
 
