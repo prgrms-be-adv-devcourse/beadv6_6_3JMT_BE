@@ -1,12 +1,36 @@
 package com.prompthub.order.domain.repository;
 
+import com.prompthub.order.domain.enums.OutboxEventStatus;
 import com.prompthub.order.domain.model.OutboxEvent;
+import com.prompthub.order.domain.model.OutboxRetryPolicy;
 
-import java.util.List;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
 
 public interface OutboxEventRepository {
 
 	OutboxEvent save(OutboxEvent outboxEvent);
 
-	List<OutboxEvent> findPendingEvents(int batchSize);
+	Optional<OutboxEvent> claimNextPublishable(
+		LocalDateTime now,
+		String leaseOwner,
+		LocalDateTime leaseUntil
+	);
+
+	boolean markPublished(UUID eventId, String leaseOwner, LocalDateTime attemptedAt);
+
+	Optional<OutboxEventStatus> recordPublishFailure(
+		UUID eventId,
+		String leaseOwner,
+		LocalDateTime attemptedAt,
+		String lastError,
+		OutboxRetryPolicy retryPolicy
+	);
+
+	Optional<OutboxEvent> findByIdForUpdate(UUID eventId);
+
+	long countByStatus(OutboxEventStatus status);
+
+	Optional<LocalDateTime> findOldestUnpublishedOccurredAt();
 }

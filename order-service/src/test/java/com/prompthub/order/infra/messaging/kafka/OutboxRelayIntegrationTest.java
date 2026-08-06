@@ -102,6 +102,9 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
 
         OutboxEvent updatedEvent = outboxEventPersistence.findById(message.eventId()).orElseThrow();
         assertThat(updatedEvent.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED);
+        assertThat(updatedEvent.getLastAttemptAt()).isNotNull();
+        assertThat(updatedEvent.getLeaseOwner()).isNull();
+        assertThat(updatedEvent.getLeaseUntil()).isNull();
 
         ConsumerRecords<String, String> records = KafkaTestUtils.getRecords(consumer, Duration.ofMillis(10000));
         assertThat(records.count()).isGreaterThanOrEqualTo(1);
@@ -156,6 +159,9 @@ class OutboxRelayIntegrationTest extends KafkaIntegrationTest {
 
         OutboxEvent updatedEvent = outboxEventPersistence.findById(message.eventId()).orElseThrow();
         assertThat(updatedEvent.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED);
+        assertThat(updatedEvent.getLastAttemptAt()).isNotNull();
+        assertThat(updatedEvent.getLeaseOwner()).isNull();
+        assertThat(updatedEvent.getLeaseUntil()).isNull();
 
         ConsumerRecords<String, String> records = KafkaTestUtils.getRecords(consumer, Duration.ofMillis(10000));
         assertThat(records.count()).isGreaterThanOrEqualTo(1);

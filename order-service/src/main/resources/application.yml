@@ -116,7 +116,17 @@ prompthub:
     enabled: true
     fixed-delay-ms: 5000
     batch-size: 100
-    max-retry-count: 3
+    publish-timeout-ms: 10000
+    lease-duration-ms: 30000
+    retry:
+      initial-delay-ms: 5000
+      max-delay-ms: 300000
+      max-attempts: 10
+  outbox-monitor:
+    enabled: true
+    fixed-delay-ms: 60000
+    failed-count-threshold: 1
+    oldest-unpublished-threshold-ms: 300000
   order:
     enabled: true
     payment-timeout-minutes: 1

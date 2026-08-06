@@ -225,6 +225,6 @@ class OpenApiContractTest {
         operation.path("parameters")
             .forEach(parameter -> parameterNames.add(parameter.path("name").asText()));
 
-        assertThat(parameterNames).doesNotContain(AuthHeaders.USER_ID);
+        assertThat(parameterNames).doesNotContain(AuthHeaders.USER_ID, "X-User-Role");
     }
 }
