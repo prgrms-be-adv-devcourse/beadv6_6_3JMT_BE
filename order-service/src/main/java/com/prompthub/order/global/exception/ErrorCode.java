@@ -9,10 +9,17 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode implements com.prompthub.exception.ErrorCode {
 
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "V001", "입력값 검증 실패"),
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "V002", "지원하지 않는 HTTP 메서드입니다."),
     INVALID_AUTHENTICATION(HttpStatus.UNAUTHORIZED, "A003", "토큰이 만료되었거나 유효하지 않습니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "A004", "권한이 없습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "SYS001", "서버 내부 오류가 발생했습니다."),
     PRODUCT_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "SYS002", "상품 서비스를 사용할 수 없습니다."),
+    ORDER_IDEMPOTENCY_STORE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "SYS003", "주문 중복 방지 저장소를 사용할 수 없습니다."),
+    PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "상품을 찾을 수 없습니다."),
+    PRODUCT_REQUEST_INVALID(HttpStatus.BAD_REQUEST, "P002", "상품 요청이 올바르지 않습니다."),
+    PRODUCT_OPERATION_CONFLICT(HttpStatus.CONFLICT, "P003", "상품 요청이 현재 상태와 충돌합니다."),
+    PRODUCT_SERVICE_UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "P004", "상품 서비스 인증에 실패했습니다."),
+    PRODUCT_SERVICE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "P005", "상품 서비스 접근 권한이 없습니다."),
 
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "O001", "주문을 찾을 수 없습니다."),
     ORDER_CANCEL_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "O002", "취소할 수 없는 주문 상태입니다."),
@@ -28,10 +35,17 @@ public enum ErrorCode implements com.prompthub.exception.ErrorCode {
     ORDER_PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "O012", "주문 상품을 찾을 수 없습니다."),
     ORDER_PAYMENT_STATUS_INVALID(HttpStatus.BAD_REQUEST, "O013", "결제 완료 처리할 수 없는 주문 상태입니다."),
     ORDER_PAYMENT_AMOUNT_MISMATCH(HttpStatus.BAD_REQUEST, "O014", "주문 금액과 결제 승인 금액이 일치하지 않습니다."),
+    SELF_PURCHASE_NOT_ALLOWED(HttpStatus.FORBIDDEN, "O015", "본인이 판매하는 상품은 구매할 수 없습니다."),
+    ORDER_REFUND_AMOUNT_MISMATCH(HttpStatus.BAD_REQUEST, "O016", "주문 상품 금액과 환불 금액이 일치하지 않습니다."),
+    ORDER_REFUND_NOT_ALLOWED(HttpStatus.CONFLICT, "O017", "환불할 수 없는 주문 또는 주문 상품 상태입니다."),
+    ORDER_PRODUCT_ALREADY_OWNED(HttpStatus.CONFLICT, "O018", "이미 구매했거나 결제 대기 중인 상품입니다."),
+    ORDER_REFUND_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "O019", "처리 중인 환불 요청을 찾을 수 없습니다."),
     ORDER_CONTENT_ACCESS_DENIED(HttpStatus.FORBIDDEN, "E001", "구매 콘텐츠를 열람할 수 없습니다."),
     ORDER_REVIEW_ACCESS_DENIED(HttpStatus.FORBIDDEN, "E002", "구매한 상품에만 리뷰를 작성할 수 있습니다."),
     CART_ITEM_DUPLICATED(HttpStatus.CONFLICT, "C001", "이미 장바구니에 담긴 상품입니다."),
-    CART_ITEM_FORBIDDEN(HttpStatus.FORBIDDEN, "C003", "본인의 장바구니 항목이 아닙니다.")
+    CART_ITEM_FORBIDDEN(HttpStatus.FORBIDDEN, "C003", "본인의 장바구니 항목이 아닙니다."),
+    
+    EVENT_PAYLOAD_MAPPING_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "E003", "이벤트 페이로드 매핑에 실패했습니다.")
     ;
 
     private final HttpStatus httpStatus;

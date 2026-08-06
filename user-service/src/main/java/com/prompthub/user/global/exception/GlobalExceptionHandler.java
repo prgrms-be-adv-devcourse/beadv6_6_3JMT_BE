@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -30,12 +31,7 @@ public class GlobalExceptionHandler {
     ) {
         ErrorCode errorCode = exception.getErrorCode();
 
-        log.warn(
-                "[{}] 비즈니스 예외가 발생했습니다. code={}, message={}",
-                getRequestId(request),
-                errorCode.getCode(),
-                exception.getMessage()
-        );
+        log.warn("비즈니스 예외 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
 
         return ResponseEntity
                 .status(errorCode.getStatus())
@@ -49,7 +45,7 @@ public class GlobalExceptionHandler {
     ) {
         UserErrorCode errorCode = UserErrorCode.VALIDATION_FAILED;
 
-        log.warn("[{}] 요청 본문 검증에 실패했습니다. reason={}", getRequestId(request), exception.getMessage());
+        log.warn("요청 본문 검증 실패 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
 
         return ResponseEntity
                 .status(errorCode.getStatus())
@@ -63,7 +59,7 @@ public class GlobalExceptionHandler {
     ) {
         UserErrorCode errorCode = UserErrorCode.VALIDATION_FAILED;
 
-        log.warn("[{}] 요청 값 검증에 실패했습니다. reason={}", getRequestId(request), exception.getMessage());
+        log.warn("요청 값 검증 실패 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
 
         return ResponseEntity
                 .status(errorCode.getStatus())
@@ -77,12 +73,7 @@ public class GlobalExceptionHandler {
     ) {
         UserErrorCode errorCode = UserErrorCode.VALIDATION_FAILED;
 
-        log.warn(
-                "[{}] 요청 값의 타입이 올바르지 않습니다. name={}, value={}",
-                getRequestId(request),
-                exception.getName(),
-                exception.getValue()
-        );
+        log.warn("요청 값 타입 검증 실패 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
 
         return ResponseEntity
                 .status(errorCode.getStatus())
@@ -96,7 +87,21 @@ public class GlobalExceptionHandler {
     ) {
         UserErrorCode errorCode = UserErrorCode.VALIDATION_FAILED;
 
-        log.warn("[{}] 요청 본문을 읽을 수 없습니다. reason={}", getRequestId(request), exception.getMessage());
+        log.warn("요청 본문 읽기 실패 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ErrorResponse.of(errorCode));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingServletRequestParameterException(
+            MissingServletRequestParameterException exception,
+            HttpServletRequest request
+    ) {
+        UserErrorCode errorCode = UserErrorCode.VALIDATION_FAILED;
+
+        log.warn("필수 요청 파라미터 누락 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
 
         return ResponseEntity
                 .status(errorCode.getStatus())
@@ -110,7 +115,7 @@ public class GlobalExceptionHandler {
     ) {
         ErrorCode errorCode = resolveMissingHeaderErrorCode(exception.getHeaderName());
 
-        log.warn("[{}] 필수 요청 헤더가 누락되었습니다. headerName={}", getRequestId(request), exception.getHeaderName());
+        log.warn("필수 요청 헤더 누락 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
 
         return ResponseEntity
                 .status(errorCode.getStatus())
@@ -129,7 +134,7 @@ public class GlobalExceptionHandler {
     ) {
         UserErrorCode errorCode = UserErrorCode.INTERNAL_SERVER_ERROR;
 
-        log.error("[{}] 예상하지 못한 서버 오류가 발생했습니다.", getRequestId(request), exception);
+        log.error("예상하지 못한 서버 오류 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
 
         return ResponseEntity
                 .status(errorCode.getStatus())

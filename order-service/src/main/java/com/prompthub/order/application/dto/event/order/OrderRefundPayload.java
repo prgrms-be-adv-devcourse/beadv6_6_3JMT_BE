@@ -1,0 +1,54 @@
+package com.prompthub.order.application.dto.event.order;
+
+import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.model.Order;
+import com.prompthub.order.domain.model.OrderProduct;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+public record OrderRefundPayload(
+    UUID orderId,
+    UUID buyerId,
+    String orderNumber,
+    OrderStatus orderStatus,
+    int totalOrderAmount,
+    LocalDateTime refundedAt,
+    List<OrderPaidProductPayload> products
+) {
+    public OrderRefundPayload(
+        UUID orderId,
+        UUID buyerId,
+        int totalOrderAmount,
+        LocalDateTime refundedAt,
+        List<OrderPaidProductPayload> products
+    ) {
+        this(orderId, buyerId, null, null, totalOrderAmount, refundedAt, products);
+    }
+
+    public static OrderRefundPayload from(
+        Order order,
+        OrderProduct refundedProduct,
+        LocalDateTime refundedAt
+    ) {
+        return from(order, List.of(refundedProduct), refundedAt);
+    }
+
+    public static OrderRefundPayload from(
+        Order order,
+        List<OrderProduct> refundedProducts,
+        LocalDateTime refundedAt
+    ) {
+        return new OrderRefundPayload(
+            order.getId(),
+            order.getBuyerId(),
+            order.getOrderNumber(),
+            order.getOrderStatus(),
+            order.getTotalOrderAmount(),
+            refundedAt,
+            refundedProducts.stream().map(OrderPaidProductPayload::from).toList()
+        );
+    }
+
+}

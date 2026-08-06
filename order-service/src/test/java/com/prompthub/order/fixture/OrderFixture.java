@@ -1,14 +1,12 @@
 package com.prompthub.order.fixture;
 
 import com.prompthub.order.application.dto.OrderListProjection;
-import com.prompthub.order.application.dto.OrderPaymentListProjection;
+import com.prompthub.order.application.dto.OrderListProductProjection;
 import com.prompthub.order.application.dto.ProductOrderSnapshot;
-import com.prompthub.order.application.event.payment.PaymentApprovedEvent;
-import com.prompthub.order.application.event.payment.PaymentRefundedEvent;
+import com.prompthub.order.domain.enums.OrderProductStatus;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import com.prompthub.order.domain.model.OrderProduct;
-import com.prompthub.order.presentation.dto.request.CreateOrderRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -85,22 +83,6 @@ public final class OrderFixture {
 	public static final int TOTAL_AMOUNT = PRODUCT_AMOUNT_1 + PRODUCT_AMOUNT_2;
 	public static final int TOTAL_ITEM_COUNT = 2;
 
-	public static CreateOrderRequest createOrderRequest() {
-		return new CreateOrderRequest(List.of(PRODUCT_ID_1, PRODUCT_ID_2));
-	}
-
-	public static CreateOrderRequest createOrderRequestWithNullProductIds() {
-		return new CreateOrderRequest(null);
-	}
-
-	public static CreateOrderRequest createOrderRequestWithEmptyProductIds() {
-		return new CreateOrderRequest(List.of());
-	}
-
-	public static CreateOrderRequest createOrderRequestWithDuplicatedProductIds() {
-		return new CreateOrderRequest(List.of(PRODUCT_ID_1, PRODUCT_ID_1));
-	}
-
 	public static List<ProductOrderSnapshot> createProductSnapshots() {
 		return List.of(
 			createProductSnapshot1(),
@@ -152,11 +134,10 @@ public final class OrderFixture {
 		Order order = Order.create(
 			BUYER_ID,
 			ORDER_NUMBER,
-			TOTAL_AMOUNT,
-			TOTAL_ITEM_COUNT
+			TOTAL_AMOUNT
 		);
-		ReflectionTestUtils.setField(order, "createdAt", LocalDateTime.now());
-		ReflectionTestUtils.setField(order, "updatedAt", LocalDateTime.now());
+		ReflectionTestUtils.setField(order, "createdAt", CREATED_AT);
+		ReflectionTestUtils.setField(order, "updatedAt", CREATED_AT);
 		return order;
 	}
 
@@ -177,7 +158,21 @@ public final class OrderFixture {
 
 	public static Order createCanceledOrderWithProducts() {
 		Order order = createPendingOrderWithProducts();
-		order.updateOrderStatus(OrderStatus.CANCELED);
+		order.markFailed(CANCELED_AT);
+		return order;
+	}
+
+	public static Order createFailedOrderWithProducts() {
+		Order order = createPendingOrderWithProducts();
+		order.markFailed(CANCELED_AT); // Assuming failure also uses CANCELED_AT in tests
+		return order;
+	}
+
+	public static Order createRefundedOrderWithProducts() {
+		Order order = createPaidOrderWithProducts();
+		order.getOrderProducts().forEach(op ->
+			order.refundOrderProduct(op.getId(), op.getProductAmount(), REFUNDED_AT)
+		);
 		return order;
 	}
 
@@ -207,76 +202,35 @@ public final class OrderFixture {
 		return List.of(PRODUCT_ID_1, PRODUCT_ID_2);
 	}
 
-	public static PaymentApprovedEvent createPaymentApprovedEvent(UUID orderId) {
-		return createPaymentApprovedEvent(orderId, TOTAL_AMOUNT);
-	}
-
-	public static PaymentApprovedEvent createPaymentApprovedEvent(
-		UUID orderId,
-		int approvedAmount
-	) {
-		return new PaymentApprovedEvent(
-			"PAYMENT_APPROVED",
-			PAYMENT_ID,
-			orderId,
-			BUYER_ID,
-			approvedAmount,
-			APPROVED_AT.atOffset(ZoneOffset.UTC)
-		);
-	}
-
-
-
-	public static PaymentRefundedEvent createPaymentRefundedEvent(UUID orderId) {
-		return new PaymentRefundedEvent(
-			"PAYMENT_REFUNDED",
-			PAYMENT_ID,
-			orderId,
-			BUYER_ID,
-			TOTAL_AMOUNT,
-			REFUNDED_AT.atOffset(ZoneOffset.UTC)
-		);
-	}
-
 	public static OrderListProjection orderListProjection(
-		OrderStatus orderStatus,
-		OrderStatus orderProductStatus,
-		boolean downloaded,
-		Double rating
+		OrderStatus orderStatus
 	) {
 		return new OrderListProjection(
 			ORDER_ID,
-			ORDER_PRODUCT_ID,
-			PRODUCT_ID_1,
+			ORDER_NUMBER,
 			orderStatus,
-			orderProductStatus,
-			downloaded,
-			PRODUCT_TYPE_PROMPT,
-			PRODUCT_TITLE_1,
-			PRODUCT_MODEL,
-			rating,
+			TOTAL_AMOUNT,
 			PAID_AT,
 			CREATED_AT
 		);
 	}
 
-	public static OrderPaymentListProjection orderPaymentListProjection(
-		OrderStatus orderStatus,
-		OrderStatus orderProductStatus,
-		LocalDateTime paidAt,
-		boolean downloaded
+	public static OrderListProductProjection orderListProductProjection(
+		OrderProductStatus orderProductStatus,
+		boolean downloaded,
+		Double rating
 	) {
-		boolean isRefundable = orderStatus == OrderStatus.PAID && orderProductStatus == OrderStatus.PAID && !downloaded;
-		return new OrderPaymentListProjection(
+		return new OrderListProductProjection(
 			ORDER_ID,
-			PAYMENT_ID,
-			orderStatus,
-			isRefundable,
+			ORDER_PRODUCT_ID,
+			PRODUCT_ID_1,
+			orderProductStatus,
+			PRODUCT_AMOUNT_1,
+			downloaded,
 			PRODUCT_TYPE_PROMPT,
 			PRODUCT_TITLE_1,
-			TOTAL_AMOUNT,
-			paidAt,
-			APPROVED_AT
+			PRODUCT_MODEL,
+			rating
 		);
 	}
 }

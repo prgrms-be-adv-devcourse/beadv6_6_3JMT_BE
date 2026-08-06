@@ -14,9 +14,9 @@ public record ProductCartSnapshotResponse(
 	String productStatus
 ) {
 
-	public static ProductCartSnapshotResponse from(Product product, String sellerNickname) {
+	public static ProductCartSnapshotResponse from(UUID productId, Product product, String sellerNickname) {
 		return new ProductCartSnapshotResponse(
-			product.getId(),
+			productId,
 			product.getSellerId(),
 			product.getName(),
 			product.getProductType().name(),

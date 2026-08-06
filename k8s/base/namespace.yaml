@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prompthub
+  labels:
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/managed-by: kustomize

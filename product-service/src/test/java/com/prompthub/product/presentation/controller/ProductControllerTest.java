@@ -1,13 +1,21 @@
 package com.prompthub.product.presentation.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
+import com.prompthub.product.application.usecase.ProductSellerUseCase;
+import com.prompthub.product.application.usecase.PurchasedProductQueryUseCase;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
 import com.prompthub.product.exception.ProductExceptionHandler;
+import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
 import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
 import com.prompthub.product.presentation.dto.response.ProductVersionResponse;
+import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
+import com.prompthub.product.presentation.dto.response.PurchasedProductDetailResponse;
+import com.prompthub.product.presentation.dto.response.SellerProductDetailResponse;
+import com.prompthub.product.presentation.dto.response.SellerProductListItemResponse;
 import com.prompthub.presentation.dto.PageResponse;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,13 +27,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -34,23 +47,89 @@ class ProductControllerTest {
 
 	private static final UUID PRODUCT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
 	private static final UUID SELLER_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
+	private static final UUID USER_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
 	private static final LocalDateTime CREATED_AT = LocalDateTime.of(2026, 5, 1, 0, 0);
 	private static final LocalDateTime UPDATED_AT = LocalDateTime.of(2026, 6, 1, 0, 0);
 
 	private MockMvc mockMvc;
+	private ObjectMapper objectMapper;
 
 	@Mock
 	private ProductQueryUseCase productQueryUseCase;
 
+	@Mock
+	private ProductSellerUseCase productSellerUseCase;
+
+	@Mock
+	private PurchasedProductQueryUseCase purchasedProductQueryUseCase;
+
 	@BeforeEach
 	void setUp() {
-		mockMvc = MockMvcBuilders.standaloneSetup(new ProductController(productQueryUseCase))
+		mockMvc = MockMvcBuilders.standaloneSetup(
+				new ProductController(productQueryUseCase, productSellerUseCase, purchasedProductQueryUseCase))
 			.setControllerAdvice(new ProductExceptionHandler())
 			.build();
+		objectMapper = new ObjectMapper();
 	}
 
 	@Nested
-	@DisplayName("GET /api/v1/products")
+	@DisplayName("GET /api/v2/products/{productId}/orders")
+	class GetPurchasedProduct {
+
+		@Test
+		@DisplayName("구매한 상품 reader 데이터를 반환한다")
+		void getPurchasedProduct_success() throws Exception {
+			PurchasedProductDetailResponse response = new PurchasedProductDetailResponse(
+				PRODUCT_ID, "면접 답변 프롬프트", "PROMPT", "GPT-4o",
+				"프롬프트 본문", null, null, "https://cdn/thumb.png",
+				SELLER_ID, 4.5, 5
+			);
+			given(purchasedProductQueryUseCase.getPurchasedProduct(USER_ID, PRODUCT_ID)).willReturn(response);
+
+			mockMvc.perform(get("/api/v2/products/{productId}/orders", PRODUCT_ID)
+					.header("X-User-Id", USER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data.productId").value(PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data.title").value("면접 답변 프롬프트"))
+				.andExpect(jsonPath("$.data.productType").value("PROMPT"))
+				.andExpect(jsonPath("$.data.model").value("GPT-4o"))
+				.andExpect(jsonPath("$.data.content").value("프롬프트 본문"))
+				.andExpect(jsonPath("$.data.fileUrl").isEmpty())
+				.andExpect(jsonPath("$.data.externalUrl").isEmpty())
+				.andExpect(jsonPath("$.data.thumbnailUrl").value("https://cdn/thumb.png"))
+				.andExpect(jsonPath("$.data.sellerId").value(SELLER_ID.toString()))
+				.andExpect(jsonPath("$.data.averageRating").value(4.5))
+				.andExpect(jsonPath("$.data.myRating").value(5));
+		}
+
+		@Test
+		@DisplayName("없는 상품이면 404 P001을 반환한다")
+		void getPurchasedProduct_notFound() throws Exception {
+			given(purchasedProductQueryUseCase.getPurchasedProduct(USER_ID, PRODUCT_ID))
+				.willThrow(new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
+
+			mockMvc.perform(get("/api/v2/products/{productId}/orders", PRODUCT_ID)
+					.header("X-User-Id", USER_ID.toString()))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.code").value("P001"));
+		}
+
+		@Test
+		@DisplayName("X-User-Id 헤더가 없으면 500(SYS001)으로 처리된다 — 기존 인증 필요 API와 동일")
+		void getPurchasedProduct_missingUserIdHeader() throws Exception {
+			mockMvc.perform(get("/api/v2/products/{productId}/orders", PRODUCT_ID))
+				.andExpect(status().isInternalServerError())
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.code").value("SYS001"));
+
+			verifyNoInteractions(purchasedProductQueryUseCase);
+		}
+	}
+
+	@Nested
+	@DisplayName("GET /api/v2/products")
 	class GetProducts {
 
 		@Test
@@ -60,7 +139,7 @@ class ProductControllerTest {
 			given(productQueryUseCase.getProducts("react", "PROMPT", "popular", 1, 8))
 				.willReturn(PageResponse.success(List.of(item), 1, 8, 1, false));
 
-			mockMvc.perform(get("/api/v1/products")
+			mockMvc.perform(get("/api/v2/products")
 					.param("q", "react")
 					.param("productType", "PROMPT")
 					.param("sort", "popular")
@@ -75,10 +154,201 @@ class ProductControllerTest {
 				.andExpect(jsonPath("$.meta.page").value(1))
 				.andExpect(jsonPath("$.meta.size").value(8));
 		}
+
+		@Test
+		@DisplayName("쿼리 파라미터를 안 보내면 기본값(page=0)으로 조회한다")
+		void getProducts_defaultsToPageZero() throws Exception {
+			ProductListItemResponse item = productListItemResponse(PRODUCT_ID, "PROMPT");
+			given(productQueryUseCase.getProducts("", "all", "popular", 0, 20))
+				.willReturn(PageResponse.success(List.of(item), 0, 20, 1, false));
+
+			mockMvc.perform(get("/api/v2/products"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.meta.page").value(0))
+				.andExpect(jsonPath("$.meta.size").value(20));
+		}
 	}
 
 	@Nested
-	@DisplayName("GET /api/v1/products/{productId}")
+	@DisplayName("GET /api/v2/products/suggest")
+	class Suggest {
+
+		@Test
+		@DisplayName("로그인 없이 상품명 제안을 조회한다")
+		void suggest_success() throws Exception {
+			given(productQueryUseCase.suggest("프롬"))
+				.willReturn(List.of("프롬프트 마스터 팩", "시니어 코드리뷰 프롬프트"));
+
+			mockMvc.perform(get("/api/v2/products/suggest").param("q", "프롬"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data[0]").value("프롬프트 마스터 팩"))
+				.andExpect(jsonPath("$.data[1]").value("시니어 코드리뷰 프롬프트"));
+		}
+
+		@Test
+		@DisplayName("q를 안 보내면 빈 문자열로 위임한다")
+		void suggest_defaultsToEmptyKeyword() throws Exception {
+			given(productQueryUseCase.suggest("")).willReturn(List.of());
+
+			mockMvc.perform(get("/api/v2/products/suggest"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data").isArray())
+				.andExpect(jsonPath("$.data").isEmpty());
+		}
+	}
+
+	@Nested
+	@DisplayName("POST /api/v2/products")
+	class CreateProduct {
+
+		@Test
+		@DisplayName("판매자가 상품을 등록한다")
+		void createProduct_success() throws Exception {
+			ProductCreateResponse response = new ProductCreateResponse(
+				PRODUCT_ID, SELLER_ID, "리액트 컴포넌트 리팩터링 도우미", "PROMPT", "GPT-4o",
+				"컴포넌트 분리, 상태 정리, 타입 개선", 7900, "DRAFT", CREATED_AT
+			);
+			given(productSellerUseCase.createProduct(eq(SELLER_ID), org.mockito.ArgumentMatchers.any()))
+				.willReturn(response);
+
+			mockMvc.perform(post("/api/v2/products")
+					.contentType(MediaType.APPLICATION_JSON)
+					.header("X-User-Id", SELLER_ID.toString())
+					.content("""
+						{"title":"리액트 컴포넌트 리팩터링 도우미","productType":"PROMPT","model":"GPT-4o",
+						"desc":"컴포넌트 분리, 상태 정리, 타입 개선","amount":7900}
+						"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data.productId").value(PRODUCT_ID.toString()));
+		}
+
+		@Test
+		@DisplayName("PROMPT가 아닌 상품은 model 없이도 등록된다")
+		void createProduct_nonPromptWithoutModel_success() throws Exception {
+			ProductCreateResponse response = new ProductCreateResponse(
+				PRODUCT_ID, SELLER_ID, "분기별 실적 정리 엑셀", "EXCEL", null,
+				"분기 실적을 자동으로 표로 정리", 5900, "DRAFT", CREATED_AT
+			);
+			given(productSellerUseCase.createProduct(eq(SELLER_ID), org.mockito.ArgumentMatchers.any()))
+				.willReturn(response);
+
+			mockMvc.perform(post("/api/v2/products")
+						.contentType(MediaType.APPLICATION_JSON)
+						.header("X-User-Id", SELLER_ID.toString())
+						.content("""
+							{"title":"분기별 실적 정리 엑셀","productType":"EXCEL","model":null,
+							"desc":"분기 실적을 자동으로 표로 정리","amount":5900}
+							"""))
+					.andExpect(status().isCreated())
+					.andExpect(jsonPath("$.success").value(true))
+					.andExpect(jsonPath("$.data.productId").value(PRODUCT_ID.toString()));
+		}
+	}
+
+	@Nested
+	@DisplayName("GET /api/v2/products/sellers/me")
+	class GetMyProducts {
+
+		@Test
+		@DisplayName("판매자 본인 상품 목록을 조회한다")
+		void getMyProducts_success() throws Exception {
+			SellerProductListItemResponse item = new SellerProductListItemResponse(
+				PRODUCT_ID, "리액트 컴포넌트 리팩터링 도우미", "PROMPT", "GPT-4o", 7900,
+				"ON_SALE", 760, 4.5, "https://cdn.example.com/images/thumb.jpg", null, CREATED_AT, UPDATED_AT
+			);
+			given(productSellerUseCase.getMyProducts(SELLER_ID)).willReturn(List.of(item));
+
+			mockMvc.perform(get("/api/v2/products/sellers/me")
+					.header("X-User-Id", SELLER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data[0].averageRating").value(4.5));
+		}
+	}
+
+	@Nested
+	@DisplayName("GET /api/v2/products/sellers/me/summary")
+	class GetMyProductSummary {
+
+		@Test
+		@DisplayName("등록 상품 수와 누적 판매 수를 반환한다")
+		void getMyProductSummary_success() throws Exception {
+			given(productSellerUseCase.getProductCount(SELLER_ID))
+				.willReturn(new com.prompthub.product.presentation.dto.response.ProductCountResponse(SELLER_ID, 3, 42));
+
+			mockMvc.perform(get("/api/v2/products/sellers/me/summary")
+					.header("X-User-Id", SELLER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data.productCount").value(3))
+				.andExpect(jsonPath("$.data.salesCount").value(42));
+		}
+	}
+
+	@Nested
+	@DisplayName("POST /api/v2/products/wishlists")
+	class GetProductsByIds {
+
+		@Test
+		@DisplayName("productId 목록으로 여러 상품을 배치 조회한다")
+		void getProductsByIds_success() throws Exception {
+			UUID productId2 = UUID.fromString("55555555-5555-5555-5555-555555555555");
+			ProductsByIdsResponse item = new ProductsByIdsResponse(
+				PRODUCT_ID, SELLER_ID, "리액트 컴포넌트 리팩터링 도우미", 7900, null,
+				"PROMPT", "GPT-4o", 760, 4.7, "ON_SALE"
+			);
+			given(productQueryUseCase.getProductsByIds(List.of(PRODUCT_ID, productId2)))
+				.willReturn(List.of(item));
+
+			mockMvc.perform(post("/api/v2/products/wishlists")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(
+						new com.prompthub.product.presentation.dto.request.ProductsByIdsRequest(
+							List.of(PRODUCT_ID, productId2)))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data[0].title").value("리액트 컴포넌트 리팩터링 도우미"));
+
+			verify(productQueryUseCase).getProductsByIds(List.of(PRODUCT_ID, productId2));
+		}
+	}
+
+	@Nested
+	@DisplayName("POST /api/v2/products/orders")
+	class GetProductsForOrders {
+
+		@Test
+		@DisplayName("productId 목록으로 구매 상품 카드용 상품 정보를 배치 조회한다")
+		void getProductsForOrders_success() throws Exception {
+			UUID productId2 = UUID.fromString("55555555-5555-5555-5555-555555555555");
+			ProductsByIdsResponse item = new ProductsByIdsResponse(
+				PRODUCT_ID, SELLER_ID, "리액트 컴포넌트 리팩터링 도우미", 7900, null,
+				"PROMPT", "GPT-4o", 760, 4.7, "ON_SALE"
+			);
+			given(productQueryUseCase.getProductsByIds(List.of(PRODUCT_ID, productId2)))
+				.willReturn(List.of(item));
+
+			mockMvc.perform(post("/api/v2/products/orders")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(
+						new com.prompthub.product.presentation.dto.request.ProductsByIdsRequest(
+							List.of(PRODUCT_ID, productId2)))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data[0].sellerId").value(SELLER_ID.toString()));
+
+			verify(productQueryUseCase).getProductsByIds(List.of(PRODUCT_ID, productId2));
+		}
+	}
+
+	@Nested
+	@DisplayName("GET /api/v2/products/{productId}")
 	class GetProduct {
 
 		@Test
@@ -87,20 +357,24 @@ class ProductControllerTest {
 			ProductDetailResponse response = productDetailResponse();
 			given(productQueryUseCase.getProduct(PRODUCT_ID)).willReturn(response);
 
-			mockMvc.perform(get("/api/v1/products/{productId}", PRODUCT_ID))
+			mockMvc.perform(get("/api/v2/products/{productId}", PRODUCT_ID))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.data.id").value(PRODUCT_ID.toString()))
 				.andExpect(jsonPath("$.data.title").value("리액트 컴포넌트 리팩터링 도우미"))
 				.andExpect(jsonPath("$.data.productType").value("PROMPT"))
 				.andExpect(jsonPath("$.data.tags[0]").value("리액트"))
-				.andExpect(jsonPath("$.data.versions[0].ver").value("v1.3"));
+				.andExpect(jsonPath("$.data.versions[0].ver").value("v1.3"))
+				.andExpect(jsonPath("$.data.imageUrls[0]").value("https://cdn.example.com/images/1.jpg"))
+				.andExpect(jsonPath("$.data.hasContext").value(true))
+				.andExpect(jsonPath("$.data.hasNuance").value(false))
+				.andExpect(jsonPath("$.data.checklistRecorded").value(true));
 		}
 
 		@Test
 		@DisplayName("UUID가 아니면 400 응답을 반환한다")
 		void getProduct_invalidProductId() throws Exception {
-			mockMvc.perform(get("/api/v1/products/not-uuid"))
+			mockMvc.perform(get("/api/v2/products/not-uuid"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.code").value("V001"));
@@ -114,7 +388,7 @@ class ProductControllerTest {
 			given(productQueryUseCase.getProduct(PRODUCT_ID))
 				.willThrow(new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
 
-			mockMvc.perform(get("/api/v1/products/{productId}", PRODUCT_ID))
+			mockMvc.perform(get("/api/v2/products/{productId}", PRODUCT_ID))
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.code").value("P001"));
@@ -122,16 +396,69 @@ class ProductControllerTest {
 	}
 
 	@Nested
-	@DisplayName("GET /api/v1/products/{productId}/related")
-	class GetRelatedProducts {
+	@DisplayName("PATCH /api/v2/products/{productId}")
+	class UpdateProduct {
+
+		@Test
+		@DisplayName("판매자가 상품을 수정한다")
+		void updateProduct_success() throws Exception {
+			mockMvc.perform(patch("/api/v2/products/{productId}", PRODUCT_ID)
+					.contentType(MediaType.APPLICATION_JSON)
+					.header("X-User-Id", SELLER_ID.toString())
+					.content("""
+						{"title":"리액트 컴포넌트 리팩터링 도우미","productType":"PROMPT","model":"GPT-4o",
+						"desc":"컴포넌트 분리, 상태 정리, 타입 개선","amount":7900}
+						"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true));
+
+			verify(productSellerUseCase).updateProduct(eq(SELLER_ID), eq(PRODUCT_ID), org.mockito.ArgumentMatchers.any());
+		}
+
+		@Test
+		@DisplayName("PROMPT가 아닌 상품은 model 없이도 수정된다")
+		void updateProduct_nonPromptWithoutModel_success() throws Exception {
+			mockMvc.perform(patch("/api/v2/products/{productId}", PRODUCT_ID)
+						.contentType(MediaType.APPLICATION_JSON)
+						.header("X-User-Id", SELLER_ID.toString())
+						.content("""
+							{"title":"분기별 실적 정리 엑셀","productType":"EXCEL","model":null,
+							"desc":"분기 실적을 자동으로 표로 정리","amount":5900}
+							"""))
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.success").value(true));
+
+			verify(productSellerUseCase).updateProduct(eq(SELLER_ID), eq(PRODUCT_ID), org.mockito.ArgumentMatchers.any());
+		}
+	}
+
+	@Nested
+	@DisplayName("DELETE /api/v2/products/{productId}")
+	class DeleteProduct {
+
+		@Test
+		@DisplayName("판매자가 상품을 삭제/판매중단한다")
+		void deleteProduct_success() throws Exception {
+			mockMvc.perform(delete("/api/v2/products/{productId}", PRODUCT_ID)
+					.header("X-User-Id", SELLER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true));
+
+			verify(productSellerUseCase).deleteProduct(SELLER_ID, PRODUCT_ID);
+		}
+	}
+
+	@Nested
+	@DisplayName("GET /api/v2/products/{productId}/recommends")
+	class GetRecommendedProducts {
 
 		@Test
 		@DisplayName("로그인 없이 연관 상품을 조회한다")
-		void getRelatedProducts_success() throws Exception {
+		void getRecommendedProducts_success() throws Exception {
 			ProductListItemResponse item = productListItemResponse(PRODUCT_ID, "PROMPT");
-			given(productQueryUseCase.getRelatedProducts(PRODUCT_ID, 4)).willReturn(List.of(item));
+			given(productQueryUseCase.getRecommendedProducts(PRODUCT_ID, 4)).willReturn(List.of(item));
 
-			mockMvc.perform(get("/api/v1/products/{productId}/related", PRODUCT_ID))
+			mockMvc.perform(get("/api/v2/products/{productId}/recommends", PRODUCT_ID))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.data[0].id").value(PRODUCT_ID.toString()));
@@ -139,19 +466,19 @@ class ProductControllerTest {
 
 		@Test
 		@DisplayName("limit 값을 service에 전달한다")
-		void getRelatedProducts_withLimit() throws Exception {
-			given(productQueryUseCase.getRelatedProducts(PRODUCT_ID, 2)).willReturn(List.of());
+		void getRecommendedProducts_withLimit() throws Exception {
+			given(productQueryUseCase.getRecommendedProducts(PRODUCT_ID, 2)).willReturn(List.of());
 
-			mockMvc.perform(get("/api/v1/products/{productId}/related", PRODUCT_ID)
+			mockMvc.perform(get("/api/v2/products/{productId}/recommends", PRODUCT_ID)
 					.param("limit", "2"))
 				.andExpect(status().isOk());
 
-			org.mockito.Mockito.verify(productQueryUseCase).getRelatedProducts(eq(PRODUCT_ID), eq(2));
+			org.mockito.Mockito.verify(productQueryUseCase).getRecommendedProducts(eq(PRODUCT_ID), eq(2));
 		}
 	}
 
 	@Nested
-	@DisplayName("GET /api/v1/products/{productId}/reviews")
+	@DisplayName("GET /api/v2/products/{productId}/reviews")
 	class GetProductReviews {
 
 		@Test
@@ -168,11 +495,50 @@ class ProductControllerTest {
 			);
 			given(productQueryUseCase.getProductReviews(PRODUCT_ID)).willReturn(List.of(review));
 
-			mockMvc.perform(get("/api/v1/products/{productId}/reviews", PRODUCT_ID))
+			mockMvc.perform(get("/api/v2/products/{productId}/reviews", PRODUCT_ID))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.data[0].id").value(reviewId.toString()))
 				.andExpect(jsonPath("$.data[0].rating").value(5));
+		}
+	}
+
+	@Nested
+	@DisplayName("PATCH /api/v2/products/{productId}/inspection")
+	class SubmitForReview {
+
+		@Test
+		@DisplayName("판매자가 검수를 요청한다")
+		void submitForReview_success() throws Exception {
+			mockMvc.perform(patch("/api/v2/products/{productId}/inspection", PRODUCT_ID)
+					.header("X-User-Id", SELLER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true));
+
+			verify(productSellerUseCase).submitForReview(SELLER_ID, PRODUCT_ID);
+		}
+	}
+
+	@Nested
+	@DisplayName("GET /api/v2/products/{productId}/sellers/me")
+	class GetMyProduct {
+
+		@Test
+		@DisplayName("판매자 본인 상품 상세를 조회한다")
+		void getMyProduct_success() throws Exception {
+			SellerProductDetailResponse response = new SellerProductDetailResponse(
+				PRODUCT_ID, "리액트 컴포넌트 리팩터링 도우미", "PROMPT", "GPT-4o", 7900,
+				"컴포넌트 분리, 상태 정리, 타입 개선", "본문 내용", null, null, "DRAFT", "1.0", 4.5,
+				"https://cdn.example.com/images/thumb.jpg", List.of(), List.of("리액트"), null, List.of()
+			);
+			given(productSellerUseCase.getMyProduct(SELLER_ID, PRODUCT_ID)).willReturn(response);
+
+			mockMvc.perform(get("/api/v2/products/{productId}/sellers/me", PRODUCT_ID)
+					.header("X-User-Id", SELLER_ID.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data.productId").value(PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data.averageRating").value(4.5));
 		}
 	}
 
@@ -186,7 +552,6 @@ class ProductControllerTest {
 			null,
 			4.7,
 			760,
-			"테스트판매자",
 			SELLER_ID,
 			null,
 			"컴포넌트 분리, 상태 정리, 타입 개선",
@@ -206,17 +571,24 @@ class ProductControllerTest {
 			7900,
 			4.7,
 			760,
-			SELLER_ID.toString(),
 			SELLER_ID,
-			null,
 			0,
 			null,
 			"컴포넌트 분리, 상태 정리, 타입 개선",
 			null,
+			List.of("https://cdn.example.com/images/1.jpg"),
 			"[리액트 컴포넌트 리팩터링 도우미]\n\n전체 내용은 구매 후 확인할 수 있습니다.",
 			List.of("리액트", "리팩터링"),
 			List.of(new ProductVersionResponse("v1.3", "2026-06-01", "테스트 개선")),
 			List.of(),
+			true,
+			true,
+			false,
+			true,
+			false,
+			true,
+			false,
+			true,
 			CREATED_AT,
 			UPDATED_AT
 		);

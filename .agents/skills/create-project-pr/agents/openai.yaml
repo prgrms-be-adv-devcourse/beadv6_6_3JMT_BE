@@ -1,0 +1,6 @@
+interface:
+  display_name: "Create Project PR"
+  short_description: "전체 변경을 검증하고 템플릿 기반 PR을 생성"
+  default_prompt: "Use $create-project-pr to validate this branch and prepare a GitHub pull request."
+policy:
+  allow_implicit_invocation: true

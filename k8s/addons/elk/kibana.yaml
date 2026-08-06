@@ -1,0 +1,299 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: kibana
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: kibana
+  ports:
+    - name: http
+      port: 5601
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: application-logs-saved-objects
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: application-logs-saved-objects
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+data:
+  application-logs.ndjson: |
+    {"type":"index-pattern","id":"application-logs","attributes":{"title":"application-logs-*","name":"Application Logs","timeFieldName":"@timestamp"}}
+    {"type":"search","id":"application-logs-search","attributes":{"title":"Application Logs","description":"Application logs by service, level, and request ID","columns":["service.name","level","requestId","kubernetes.container_name","message"],"sort":[["@timestamp","desc"]],"kibanaSavedObjectMeta":{"searchSourceJSON":"{\"index\":\"application-logs\",\"query\":{\"language\":\"kuery\",\"query\":\"\"},\"filter\":[]}"}}}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: application-logs-kibana-bootstrap
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: application-logs-kibana-bootstrap
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: application-logs-kibana-bootstrap
+        app.kubernetes.io/part-of: prompthub
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector:
+        prompthub.io/node-pool: control-stateful
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bootstrap
+          image: curlimages/curl:8.14.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+            - |
+              kibana_url=http://kibana.elk.svc.cluster.local:5601
+              until curl --fail --silent --show-error "${kibana_url}/api/status" >/dev/null; do
+                sleep 5
+              done
+
+              response=$(curl --fail --silent --show-error \
+                -X POST "${kibana_url}/api/saved_objects/_import?overwrite=true" \
+                -H "kbn-xsrf: application-logs-bootstrap" \
+                -F file=@/bootstrap/application-logs.ndjson)
+              echo "${response}" | grep -q '"success":true'
+              echo "${response}" | grep -q '"successCount":2'
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: saved-objects
+              mountPath: /bootstrap
+              readOnly: true
+      volumes:
+        - name: saved-objects
+          configMap:
+            name: application-logs-saved-objects
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment-audit-log-saved-objects
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: payment-audit-log-saved-objects
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+data:
+  payment-audit-log.ndjson: |
+    {"type":"index-pattern","id":"payment-audit-log","attributes":{"title":"payment-audit-log-*","name":"Payment Audit Log","timeFieldName":"@timestamp"}}
+    {"type":"search","id":"payment-audit-log-search","attributes":{"title":"Payment Audit Log","description":"결제/환불 감사로그 — CS·장애분석·감사대응 조회","columns":["orderId","entityType","eventType","newStatus","failureCode","occurredAt"],"sort":[["@timestamp","desc"]],"kibanaSavedObjectMeta":{"searchSourceJSON":"{\"index\":\"payment-audit-log\",\"query\":{\"language\":\"kuery\",\"query\":\"\"},\"filter\":[]}"}}}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: payment-audit-log-kibana-bootstrap
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: payment-audit-log-kibana-bootstrap
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: payment-audit-log-kibana-bootstrap
+        app.kubernetes.io/part-of: prompthub
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector:
+        prompthub.io/node-pool: control-stateful
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bootstrap
+          image: curlimages/curl:8.14.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+            - |
+              kibana_url=http://kibana.elk.svc.cluster.local:5601
+              until curl --fail --silent --show-error "${kibana_url}/api/status" >/dev/null; do
+                sleep 5
+              done
+
+              response=$(curl --fail --silent --show-error \
+                -X POST "${kibana_url}/api/saved_objects/_import?overwrite=true" \
+                -H "kbn-xsrf: payment-audit-log-bootstrap" \
+                -F file=@/bootstrap/payment-audit-log.ndjson)
+              echo "${response}" | grep -q '"success":true'
+              echo "${response}" | grep -q '"successCount":2'
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: saved-objects
+              mountPath: /bootstrap
+              readOnly: true
+      volumes:
+        - name: saved-objects
+          configMap:
+            name: payment-audit-log-saved-objects
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: kibana
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kibana
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kibana
+        app.kubernetes.io/part-of: prompthub
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      nodeSelector:
+        prompthub.io/node-pool: control-stateful
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: kibana
+          image: docker.elastic.co/kibana/kibana:9.4.3
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 5601
+              protocol: TCP
+          env:
+            - name: ELASTICSEARCH_HOSTS
+              value: '["http://elasticsearch.elk.svc.cluster.local:9200"]'
+            - name: XPACK_SECURITY_ENABLED
+              value: "false"
+            - name: SERVER_HOST
+              value: 0.0.0.0
+            - name: XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY
+              valueFrom:
+                secretKeyRef:
+                  name: kibana-encryption
+                  key: encrypted-saved-objects-key
+            - name: XPACK_SECURITY_ENCRYPTIONKEY
+              valueFrom:
+                secretKeyRef:
+                  name: kibana-encryption
+                  key: security-key
+            - name: XPACK_REPORTING_ENCRYPTIONKEY
+              valueFrom:
+                secretKeyRef:
+                  name: kibana-encryption
+                  key: reporting-key
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 120
+          readinessProbe:
+            httpGet:
+              path: /api/status
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /api/status
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3

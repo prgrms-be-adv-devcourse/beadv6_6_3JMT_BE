@@ -6,14 +6,22 @@ services:
 
   # ----- 인프라 -----
   postgres:
-    image: postgres:18.4-alpine
+    # pgvector 확장이 필요하다(#378 임베딩 저장, #380 kNN 추천).
+    # image와 build를 함께 둔다 — 로컬에서는 Dockerfile로 빌드해 이 태그를 붙이고,
+    # GHCR 퍼블리시 후에는 같은 태그를 pull하게 되어 로컬과 운영이 갈라지지 않는다.
+    image: ghcr.io/prgrms-be-adv-devcourse/prompthub-postgres:18.4-alpine-pgvector0.8.5
+    build:
+      context: ./docker/postgres
     container_name: prompthub-postgres
+    command: ["postgres", "-c", "timezone=Asia/Seoul"]
     environment:
+      TZ: Asia/Seoul
       POSTGRES_USER: ${POSTGRES_USER}          # DB 계정
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}  # DB 비밀번호
       POSTGRES_DB: ${POSTGRES_DB}              # 기본 DB 이름
     volumes:
       - pg-data:/var/lib/postgresql            # 데이터 영속 볼륨(postgres 18+ 권장 마운트 경로)
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d  # 초기화 스크립트(ADR-0002)
     restart: always
     networks: [prompthub]
     ports: ["127.0.0.1:5432:5432"]            # SSH 터널 DB 접속용 loopback 노출(외부 차단)
@@ -36,6 +44,15 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0                            # 리밸런스 지연(ms)
       KAFKA_NUM_PARTITIONS: 1                                              # 기본 파티션 수
       CLUSTER_ID: 5L6g3nShT-eMCtK--X86sw                                   # KRaft 클러스터 ID
+    restart: always
+    networks: [prompthub]
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: prompthub-redis
+    command: ["redis-server", "--appendonly", "yes"]     # AOF 영속화 (ADR-0008 §결정3)
+    volumes:
+      - redis-data:/data
     restart: always
     networks: [prompthub]
 
@@ -93,7 +110,9 @@ services:
         MODULE_NAME: user-service
         MODULE_PATH: user-service
     container_name: user-service
-    ports: ["127.0.0.1:8081:8081"]             # 헬스체크용 loopback 노출(외부 차단)
+    ports:
+      - "127.0.0.1:8081:8081"                  # 헬스체크용 loopback 노출(외부 차단)
+      - "127.0.0.1:9081:9081"                  # gRPC 포트 loopback 노출(외부 차단) — ADR-0006
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
@@ -107,6 +126,8 @@ services:
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}                                    # JWT 검증 키(공개)
       USER_GRPC_SERVER_PORT: "9081"                                        # user gRPC 서버 포트
       PRODUCT_GRPC_SERVER_PORT: "9082"                                     # product gRPC 서버 포트
+      REDIS_HOST: redis                                                    # Redis 호스트(RT 캐시 — ADR-0008 §결정3)
+      REDIS_PORT: "6379"                                                   # Redis 포트
     depends_on:
       postgres:
         condition: service_started
@@ -116,6 +137,8 @@ services:
         condition: service_healthy
       config:
         condition: service_healthy
+      redis:
+        condition: service_started
     restart: always
     networks: [prompthub]
 
@@ -128,7 +151,9 @@ services:
         MODULE_NAME: product-service
         MODULE_PATH: product-service
     container_name: product-service
-    ports: ["127.0.0.1:8082:8082"]             # 헬스체크용 loopback 노출(외부 차단)
+    ports:
+      - "127.0.0.1:8082:8082"                  # 헬스체크용 loopback 노출(외부 차단)
+      - "127.0.0.1:9082:9082"                  # gRPC 포트 loopback 노출(외부 차단) — ADR-0006
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
@@ -142,6 +167,7 @@ services:
       USER_GRPC_SERVER_PORT: "9081"                                        # user gRPC 서버 포트
       AWS_REGION: ${AWS_REGION}                                            # S3 리전
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}                                      # S3 버킷명
+      OPENAI_API_KEY: ${OPENAI_API_KEY}                                    # 상품 임베딩 생성용
     depends_on:
       postgres:
         condition: service_started
@@ -165,7 +191,9 @@ services:
         MODULE_NAME: order-service
         MODULE_PATH: order-service
     container_name: order-service
-    ports: ["127.0.0.1:8083:8083"]             # 헬스체크용 loopback 노출(외부 차단)
+    ports:
+      - "127.0.0.1:8083:8083"                  # 헬스체크용 loopback 노출(외부 차단)
+      - "127.0.0.1:9083:9083"                  # gRPC 포트 loopback 노출(외부 차단) — ADR-0006
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
@@ -203,7 +231,9 @@ services:
         MODULE_NAME: payment-service
         MODULE_PATH: payment-service
     container_name: payment-service
-    ports: ["127.0.0.1:8084:8084"]             # 헬스체크용 loopback 노출(외부 차단)
+    ports:
+      - "127.0.0.1:8084:8084"                  # 헬스체크용 loopback 노출(외부 차단)
+      - "127.0.0.1:9084:9084"                  # gRPC 포트 loopback 노출(외부 차단) — ADR-0006
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
@@ -236,7 +266,9 @@ services:
         MODULE_NAME: settlement-service
         MODULE_PATH: settlement-service
     container_name: settlement-service
-    ports: ["127.0.0.1:8085:8085"]             # 헬스체크용 loopback 노출(외부 차단)
+    ports:
+      - "127.0.0.1:8085:8085"                  # 헬스체크용 loopback 노출(외부 차단)
+      - "127.0.0.1:9085:9085"                  # gRPC 포트 loopback 노출(외부 차단) — ADR-0006
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
@@ -279,11 +311,13 @@ services:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config:8888       # Config Server 주소
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/  # Eureka 주소
       # admin-service는 정산 DB에 직접 커넥션한다(POSTGRES_* 대신 자체 DB_* 플레이스홀더 사용)
-      DB_HOST: postgres                                                    # DB 호스트
-      DB_PORT: "5432"                                                      # DB 포트
-      DB_NAME: ${POSTGRES_DB}                                              # DB 이름
-      DB_USERNAME: ${POSTGRES_USER}                                        # DB 계정
-      DB_PASSWORD: ${POSTGRES_PASSWORD}                                    # DB 비밀번호
+      POSTGRES_HOST: postgres                                              # DB 호스트
+      POSTGRES_PORT: "5432"                                                # DB 포트
+      POSTGRES_DB: ${POSTGRES_DB}                                          # DB 이름
+      POSTGRES_USER: ${POSTGRES_USER}                                      # DB 계정
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}                              # DB 비밀번호
+      REDIS_HOST: redis                                                    # Redis 호스트(인가캐시 evict·세션폐기 — user-service와 동일 인스턴스 공유)
+      REDIS_PORT: "6379"                                                   # Redis 포트
     depends_on:
       postgres:
         condition: service_started
@@ -292,6 +326,8 @@ services:
       config:
         condition: service_healthy
       settlement-service:                                                  # 정산 스키마 소유자, ddl-auto: none
+        condition: service_started
+      redis:
         condition: service_started
     restart: always
     networks: [prompthub]
@@ -332,6 +368,7 @@ services:
 
 volumes:
   pg-data:
+  redis-data:
 
 networks:
   prompthub:

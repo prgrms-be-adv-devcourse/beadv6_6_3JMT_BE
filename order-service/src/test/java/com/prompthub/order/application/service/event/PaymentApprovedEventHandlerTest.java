@@ -1,0 +1,93 @@
+package com.prompthub.order.application.service.event;
+
+import com.prompthub.order.application.dto.event.PaymentApprovedCommand;
+import com.prompthub.common.event.EventMessage;
+import com.prompthub.order.global.exception.OrderException;
+import com.prompthub.order.infra.messaging.kafka.consumer.payment.PaymentApprovedEventHandler;
+import com.prompthub.order.infra.messaging.kafka.support.EventPayloadMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+
+import java.util.UUID;
+
+import static com.prompthub.order.fixture.PaymentEventFixture.APPROVED_AT;
+import static com.prompthub.order.fixture.PaymentEventFixture.ORDER_A;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.then;
+
+@ExtendWith(MockitoExtension.class)
+class PaymentApprovedEventHandlerTest {
+
+	private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+	private final EventPayloadMapper eventPayloadMapper = new EventPayloadMapper(objectMapper);
+
+	@Mock
+	private PaymentApprovedProcessor processor;
+
+	private PaymentApprovedEventHandler handler;
+
+	@BeforeEach
+	void setUp() {
+		handler = new PaymentApprovedEventHandler(eventPayloadMapper, processor);
+	}
+
+	@Test
+	void handle_mapsPaymentServiceSingleOrderApprovalAndDelegates() throws Exception {
+		UUID eventId = UUID.randomUUID();
+		String payloadJson = """
+			{
+			  "orderId": "%s",
+			  "approvedAmount": 30000,
+			  "approvedAt": "2026-07-17T10:00:05+09:00"
+			}
+			""".formatted(ORDER_A);
+		JsonNode payloadNode = objectMapper.readTree(payloadJson);
+		EventMessage<JsonNode> message = new EventMessage<>(
+			eventId,
+			"PAYMENT_APPROVED",
+			APPROVED_AT,
+			"ORDER",
+			ORDER_A,
+			payloadNode
+		);
+
+		handler.handle(message);
+
+		ArgumentCaptor<PaymentApprovedCommand> captor = ArgumentCaptor.forClass(PaymentApprovedCommand.class);
+		then(processor).should().process(eq(eventId), eq("PAYMENT_APPROVED"), eq(APPROVED_AT), captor.capture());
+		PaymentApprovedCommand payload = captor.getValue();
+		assertThat(payload.orderId()).isEqualTo(ORDER_A);
+		assertThat(payload.approvedAmount()).isEqualTo(30_000);
+		assertThat(payload.approvedAt()).isEqualTo(APPROVED_AT);
+	}
+
+	@Test
+	void handle_invalidUuid_doesNotCallProcessor() throws Exception {
+		JsonNode payloadNode = objectMapper.readTree("""
+			{
+			  "orderId": "not-a-uuid",
+			  "approvedAt": "2026-07-17T10:00:05+09:00"
+			}
+			""");
+		EventMessage<JsonNode> message = new EventMessage<>(
+			UUID.randomUUID(),
+			"PAYMENT_APPROVED",
+			APPROVED_AT,
+			"ORDER",
+			ORDER_A,
+			payloadNode
+		);
+
+		assertThatThrownBy(() -> handler.handle(message)).isInstanceOf(OrderException.class);
+		then(processor).shouldHaveNoInteractions();
+	}
+}

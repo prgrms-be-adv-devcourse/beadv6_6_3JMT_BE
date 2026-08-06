@@ -9,6 +9,8 @@ spring:
     username: sa
     password: ""
     driver-class-name: org.h2.Driver
+  flyway:
+    enabled: false
   jpa:
     hibernate:
       ddl-auto: create-drop
@@ -16,24 +18,21 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
-  kafka:
-    bootstrap-servers: localhost:9092
-    consumer:
-      group-id: test-group
-
 jwt:
-  access-token-expire-seconds: 3600
-  refresh-token-expire-seconds: 2592000
+  access-token-expire-seconds: 900
+  refresh-token-expire-seconds: 604800
 
 eureka:
   client:
     enabled: false
 
 user:
-  kafka:
-    consumer:
-      settlement:
-        topic: settlement-events
-    listener:
-      settlement:
-        enabled: false
+  grpc:
+    seller-settlement:
+      internal-token: test-ai-user-token
+    seller-settlement-command:
+      internal-token: test-settlement-user-token
+
+grpc:
+  server:
+    enabled: false

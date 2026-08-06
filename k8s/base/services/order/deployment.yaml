@@ -1,0 +1,176 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  labels:
+    app.kubernetes.io/name: order-service
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: service
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: order-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: order-service
+        app.kubernetes.io/part-of: prompthub
+        app.kubernetes.io/component: service
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      nodeSelector:
+        prompthub.io/node-pool: application
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      initContainers:
+        - name: wait-for-dependencies
+          image: busybox:1.37.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+            - |
+              until wget -q -O /dev/null http://discovery:8761/actuator/health; do sleep 2; done
+              until wget -q -O /dev/null http://config:8888/actuator/health; do sleep 2; done
+              until nc -z postgres 5432; do sleep 2; done
+              until nc -z redis 6379; do sleep 2; done
+              until nc -z kafka 9092; do sleep 2; done
+          resources:
+            requests:
+              cpu: 5m
+              memory: 8Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+      containers:
+        - name: order-service
+          image: ghcr.io/prgrms-be-adv-devcourse/prompthub-order-service@sha256:4727d739c3595603d135da37343cdcc62599c0fe9ae61960684a17fe9b70b2e4
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: 18083
+              protocol: TCP
+            - name: grpc
+              containerPort: 9083
+              protocol: TCP
+          env:
+            - name: SPRING_CONFIG_IMPORT
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secret
+                  key: SPRING_CONFIG_IMPORT
+            - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secret
+                  key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+            - name: POSTGRES_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secret
+                  key: POSTGRES_HOST
+            - name: POSTGRES_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secret
+                  key: POSTGRES_PORT
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              value: order_service
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: ORDER_SERVICE_PASSWORD
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secret
+                  key: KAFKA_BOOTSTRAP_SERVERS
+            - name: REDIS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secret
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secret
+                  key: REDIS_PORT
+            - name: SPRING_DATA_REDIS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secret
+                  key: REDIS_HOST
+            - name: SPRING_DATA_REDIS_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secret
+                  key: REDIS_PORT
+            - name: ORDER_GRPC_SERVER_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secret
+                  key: ORDER_GRPC_SERVER_PORT
+            - name: PRODUCT_GRPC_SERVER_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secret
+                  key: PRODUCT_GRPC_SERVER_PORT
+            - name: USER_GRPC_SERVER_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: runtime-secret
+                  key: USER_GRPC_SERVER_PORT
+            - name: MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED
+              value: "true"
+            - name: JAVA_TOOL_OPTIONS
+              value: -XX:InitialRAMPercentage=25.0 -XX:MaxRAMPercentage=70.0 -XX:+ExitOnOutOfMemoryError
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3

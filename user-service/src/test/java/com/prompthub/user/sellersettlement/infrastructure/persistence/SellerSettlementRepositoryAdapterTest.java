@@ -1,26 +1,20 @@
 package com.prompthub.user.sellersettlement.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
-import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
-import java.time.LocalDate;
-import java.time.YearMonth;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 
 @ExtendWith(MockitoExtension.class)
 class SellerSettlementRepositoryAdapterTest {
@@ -40,46 +34,52 @@ class SellerSettlementRepositoryAdapterTest {
     }
 
     @Test
-    void findPageBySeller_기간을_월경계로_변환해_조회() {
-        UUID sellerId = UUID.randomUUID();
-        given(jpaRepository.findPageBySeller(
-                eq(sellerId), eq(SettlementDisplayStatus.WAITING),
-                eq(LocalDate.of(2026, 6, 1)), eq(LocalDate.of(2026, 6, 30)), any(Pageable.class)))
-                .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+    @DisplayName("deliveryRequestId 조회를 상세 포함 JPA 조회에 위임한다")
+    void findByDeliveryRequestIdDelegatesToJpaRepository() {
+        UUID deliveryRequestId = UUID.randomUUID();
+        given(jpaRepository.findByDeliveryRequestId(deliveryRequestId))
+                .willReturn(Optional.empty());
 
-        SellerSettlementRepository.SellerSettlementPage page = adapter.findPageBySeller(
-                sellerId, SettlementDisplayStatus.WAITING, YearMonth.of(2026, 6), 0, 10);
+        assertThat(adapter.findByDeliveryRequestId(deliveryRequestId)).isEmpty();
 
-        assertThat(page.totalElements()).isZero();
+        then(jpaRepository).should().findByDeliveryRequestId(deliveryRequestId);
     }
 
     @Test
-    void findPageBySeller_기간이_null이면_경계도_null() {
+    void sumTotalAmountBySeller_취소를_제외한_상태를_집계한다() {
         UUID sellerId = UUID.randomUUID();
-        ArgumentCaptor<LocalDate> startCaptor = ArgumentCaptor.forClass(LocalDate.class);
-        ArgumentCaptor<LocalDate> endCaptor = ArgumentCaptor.forClass(LocalDate.class);
-        given(jpaRepository.findPageBySeller(
-                eq(sellerId), any(), startCaptor.capture(), endCaptor.capture(), any(Pageable.class)))
-                .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+        List<SettlementDisplayStatus> statuses = List.of(
+                SettlementDisplayStatus.WAITING,
+                SettlementDisplayStatus.APPROVAL_ON_HOLD,
+                SettlementDisplayStatus.APPROVED,
+                SettlementDisplayStatus.PAYOUT_REQUESTED,
+                SettlementDisplayStatus.PAYOUT_ON_HOLD,
+                SettlementDisplayStatus.PAID);
+        given(jpaRepository.sumTotalAmountBySellerAndStatusIn(sellerId, statuses))
+                .willReturn(new BigDecimal("600000"));
 
-        adapter.findPageBySeller(sellerId, null, null, 0, 10);
+        BigDecimal totalAmount = adapter.sumTotalAmountBySeller(sellerId);
 
-        assertThat(startCaptor.getValue()).isNull();
-        assertThat(endCaptor.getValue()).isNull();
+        assertThat(totalAmount).isEqualByComparingTo("600000");
+        then(jpaRepository).should().sumTotalAmountBySellerAndStatusIn(sellerId, statuses);
     }
 
     @Test
-    void findPageBySeller_정렬은_periodStart_DESC_sellerSettlementId_ASC_타이브레이커() {
+    void sumApprovedSettlementAmountBySeller_승인_이후_상태를_집계한다() {
         UUID sellerId = UUID.randomUUID();
-        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        given(jpaRepository.findPageBySeller(
-                eq(sellerId), any(), any(), any(), pageableCaptor.capture()))
-                .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+        List<SettlementDisplayStatus> statuses = List.of(
+                SettlementDisplayStatus.APPROVED,
+                SettlementDisplayStatus.PAYOUT_REQUESTED,
+                SettlementDisplayStatus.PAYOUT_ON_HOLD,
+                SettlementDisplayStatus.PAID);
+        given(jpaRepository.sumSettlementTotalAmountBySellerAndStatusIn(sellerId, statuses))
+                .willReturn(new BigDecimal("340000"));
 
-        adapter.findPageBySeller(sellerId, null, null, 0, 10);
+        BigDecimal settlementAmount =
+                adapter.sumApprovedSettlementAmountBySeller(sellerId);
 
-        assertThat(pageableCaptor.getValue().getSort()).isEqualTo(
-                Sort.by(Sort.Direction.DESC, "periodStart")
-                        .and(Sort.by(Sort.Direction.ASC, "sellerSettlementId")));
+        assertThat(settlementAmount).isEqualByComparingTo("340000");
+        then(jpaRepository).should()
+                .sumSettlementTotalAmountBySellerAndStatusIn(sellerId, statuses);
     }
 }

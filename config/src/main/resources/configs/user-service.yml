@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?currentSchema=user_service
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -14,32 +14,27 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
-    consumer:
-      group-id: user-service
-      auto-offset-reset: earliest
-      enable-auto-commit: false
-
+        jdbc:
+          time_zone: Asia/Seoul
+  jackson:
+    time-zone: Asia/Seoul
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
 jwt:
   private-key: ${JWT_PRIVATE_KEY}
   public-key: ${JWT_PUBLIC_KEY}
-  access-token-expire-seconds: 3600
-  refresh-token-expire-seconds: 2592000
+  access-token-expire-seconds: 900
+  refresh-token-expire-seconds: 604800
 
 grpc:
   server:
     port: ${USER_GRPC_SERVER_PORT}
-  client:
-    product-service:
-      address: 'static://product-service:${PRODUCT_GRPC_SERVER_PORT}'
-      negotiation-type: plaintext
 
 user:
-  kafka:
-    consumer:
-      settlement:
-        topic: settlement-events
-    listener:
-      settlement:
-        enabled: false   # 통합 검증 시 true
+  grpc:
+    seller-settlement:
+      internal-token: ${AI_USER_GRPC_TOKEN}
+    seller-settlement-command:
+      internal-token: ${SETTLEMENT_USER_GRPC_TOKEN}

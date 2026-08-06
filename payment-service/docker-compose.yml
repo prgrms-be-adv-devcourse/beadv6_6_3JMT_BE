@@ -2,14 +2,18 @@ services:
   payment-db:
     image: postgres:18.4
     container_name: payment-db-dev
+    command: ["postgres", "-c", "timezone=Asia/Seoul"]
     environment:
-      POSTGRES_USER: anjinpyo
-      POSTGRES_PASSWORD: "1234"
-      POSTGRES_DB: prompthub_payment_dev
+      TZ: Asia/Seoul
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5433:5432"
     volumes:
       - payment-db-data:/var/lib/postgresql
+    env_file:
+      - ./.env
 
   payment-kafka:
     image: apache/kafka:3.7.0

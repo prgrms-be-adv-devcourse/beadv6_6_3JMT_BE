@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package prompthub.order;
+
+option java_multiple_files = true;
+option java_package = "com.prompthub.order.grpc";
+option java_outer_classname = "OrderQueryProto";
+
+service OrderQueryService {
+  rpc GetSettleableLines(GetSettleableLinesRequest) returns (GetSettleableLinesResponse);
+  rpc GetOrder(GetOrderRequest) returns (GetOrderResponse);
+}
+
+message GetSettleableLinesRequest {
+  string period = 1 [deprecated = true];
+  string period_start = 2;
+  string period_end = 3;
+}
+
+message GetSettleableLinesResponse {
+  repeated SettleableLine lines = 1;
+}
+
+message SettleableLine {
+  string line_type = 1;
+  string order_id = 2;
+  string order_product_id = 3;
+  string seller_id = 4;
+  int64 line_amount = 5;
+  string occurred_at = 6;
+}
+
+// --- 결제 정보 조회 (payment 소비) ---
+message GetOrderRequest {
+  string order_id = 1;
+}
+
+message GetOrderResponse {
+  string order_id = 1;
+  string buyer_id = 2;
+  int32 total_amount = 3;
+  string created_at = 4; // ISO 8601
+}

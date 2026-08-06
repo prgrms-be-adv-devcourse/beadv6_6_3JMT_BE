@@ -1,10 +1,9 @@
 package com.prompthub.product.application.service;
 
-import com.prompthub.product.application.client.SellerClient;
-import com.prompthub.product.application.client.SellerInfo;
+import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.domain.model.entity.Product;
-import com.prompthub.product.domain.model.enums.ProductStatus;
+import com.prompthub.product.domain.model.entity.ProductFamily;
 import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
@@ -15,17 +14,26 @@ import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
 import com.prompthub.product.presentation.dto.response.ProductVersionResponse;
+import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import com.prompthub.presentation.dto.PageResponse;
+import com.prompthub.recommendation.application.ProductRecommender;
+import com.prompthub.search.application.ProductSearchHit;
+import com.prompthub.search.application.ProductSearchPageResult;
+import com.prompthub.search.application.ProductSearchQueryService;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -33,9 +41,13 @@ public class ProductQueryService implements ProductQueryUseCase {
 
 	private static final String ALL_PRODUCT_TYPES = "all";
 	private static final int DEFAULT_LIMIT = 4;
+	private static final int SUGGEST_LIMIT = 5;
 
 	private final ProductRepository productRepository;
-	private final SellerClient sellerClient;
+	private final StorageClient storageClient;
+	private final ProductFamilyResolver productFamilyResolver;
+	private final ProductSearchQueryService productSearchQueryService;
+	private final ProductRecommender productRecommender;
 
 	public PageResponse<ProductListItemResponse> getProducts(
 		String q,
@@ -44,25 +56,63 @@ public class ProductQueryService implements ProductQueryUseCase {
 		int page,
 		int size
 	) {
-		int normalizedPage = normalizePositive(page);
-		int normalizedSize = normalizePositive(size);
 		String keyword = normalizeKeyword(q);
 		String selectedProductType = normalizeProductType(productType);
 		String selectedSort = normalizeSort(sort);
+		Pageable pageable = PageRequest.of(normalizePage(page), normalizePositive(size));
 
-		List<ProductListProjection> products = productRepository.findPublicProducts(
-			keyword,
-			selectedProductType,
-			selectedSort,
-			PageRequest.of(normalizedPage - 1, normalizedSize)
+		try {
+			return searchViaElasticsearch(keyword, selectedProductType, selectedSort, pageable);
+		} catch (RuntimeException e) {
+			log.warn("ES 조회에 실패해 RDB로 폴백합니다.", e);
+			return searchViaRdb(keyword, selectedProductType, selectedSort, pageable);
+		}
+	}
+
+	/**
+	 * 검색어로 시작하는 상품명을 제안한다. 빈 입력이면 조회하지 않는다.
+	 *
+	 * <p>ES 조회가 실패하면 빈 목록을 반환한다 — RDB에는 대응하는 조회가 없고, 자동완성은
+	 * 드롭다운이 뜨지 않을 뿐 검색 자체를 막지 않으므로 예외로 요청을 실패시키지 않는다.
+	 * 타이핑 중 매 요청마다 500이 나가는 편보다 낫다.
+	 */
+	@Override
+	public List<String> suggest(String q) {
+		String keyword = normalizeKeyword(q);
+		if (keyword.isBlank()) {
+			return List.of();
+		}
+
+		try {
+			return productSearchQueryService.suggest(keyword, SUGGEST_LIMIT);
+		} catch (RuntimeException e) {
+			log.warn("ES 자동완성 조회에 실패해 빈 목록을 반환합니다.", e);
+			return List.of();
+		}
+	}
+
+	private PageResponse<ProductListItemResponse> searchViaElasticsearch(
+		String keyword, String productType, String sort, Pageable pageable
+	) {
+		ProductSearchPageResult result = productSearchQueryService.search(keyword, productType, sort, pageable);
+		boolean hasNext = pageable.getOffset() + result.hits().size() < result.total();
+
+		return PageResponse.success(
+			result.hits().stream().map(this::toListItemResponse).toList(),
+			pageable.getPageNumber(),
+			pageable.getPageSize(),
+			result.total(),
+			hasNext
 		);
-		long total = productRepository.countPublicProducts(keyword, selectedProductType);
-		boolean hasNext = (long) (normalizedPage - 1) * normalizedSize + products.size() < total;
+	}
 
-		Map<UUID, String> sellerNames = products.stream()
-			.map(ProductListProjection::sellerId)
-			.distinct()
-			.collect(Collectors.toMap(id -> id, id -> sellerClient.getSellerInfo(id).sellerName()));
+	private PageResponse<ProductListItemResponse> searchViaRdb(
+		String keyword, String productType, String sort, Pageable pageable
+	) {
+		List<ProductListProjection> products = productRepository.findPublicProducts(keyword, productType, sort, pageable);
+		long total = productRepository.countPublicProducts(keyword, productType);
+		boolean hasNext = pageable.getOffset() + products.size() < total;
+
 		Map<UUID, List<String>> tagsByProductId = productRepository
 			.findAllByIdIn(products.stream().map(ProductListProjection::id).toList())
 			.stream()
@@ -70,14 +120,10 @@ public class ProductQueryService implements ProductQueryUseCase {
 
 		return PageResponse.success(
 			products.stream()
-				.map(p -> toListItemResponse(
-					p,
-					sellerNames.getOrDefault(p.sellerId(), ""),
-					tagsByProductId.getOrDefault(p.id(), List.of())
-				))
+				.map(p -> toListItemResponse(p, tagsByProductId.getOrDefault(p.id(), List.of())))
 				.toList(),
-			normalizedPage,
-			normalizedSize,
+			pageable.getPageNumber(),
+			pageable.getPageSize(),
 			total,
 			hasNext
 		);
@@ -88,8 +134,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 		Product product = getOnSaleProduct(productId);
 		product.incrementViewCount();
 		productRepository.save(product);
-		double rating = productRepository.getAverageRating(productId);
-		SellerInfo seller = sellerClient.getSellerInfo(product.getSellerId());
+		double rating = productRepository.getAverageRating(product.familyRootId());
 		int sellerProductCount = (int) productRepository.countOnSaleProductsBySellerId(product.getSellerId());
 
 		return new ProductDetailResponse(
@@ -99,69 +144,105 @@ public class ProductQueryService implements ProductQueryUseCase {
 			product.getModel(),
 			product.getAmount(),
 			rating,
-			product.getSalesCount(),
-			seller.sellerName(),
+			(int) productRepository.sumSalesCountByFamilyRootId(product.familyRootId()),
 			product.getSellerId(),
-			seller.profileImageUrl(),
 			sellerProductCount,
 			null,
 			product.getDescription(),
-			product.getThumbnailUrl(),
+			toUrl(product.getThumbnailUrl()),
+			toUrls(product.getImageUrls()),
 			createPreviewContent(product),
 			product.getTags(),
-			List.of(toVersionResponse(product)),
+			toVersionHistory(product.familyRootId()),
 			List.of(),
+			product.isHasContext(),
+			product.isHasObjective(),
+			product.isHasNuance(),
+			product.isHasTone(),
+			product.isHasExamples(),
+			product.isHasExecution(),
+			product.isHasRoleAssignment(),
+			product.isChecklistRecorded(),
 			product.getCreatedAt(),
 			product.getUpdatedAt()
 		);
 	}
 
-	public List<ProductListItemResponse> getRelatedProducts(UUID productId, int limit) {
+	public List<ProductListItemResponse> getRecommendedProducts(UUID productId, int limit) {
 		Product product = getOnSaleProduct(productId);
 		int normalizedLimit = limit > 0 ? limit : DEFAULT_LIMIT;
 
-		List<ProductListProjection> related = productRepository.findRelatedProducts(
-			product.getId(), product.getProductType(), normalizedLimit);
+		List<UUID> recommendedIds = productRecommender.recommend(
+			product.getId(), product.familyRootId(), product.getProductType().name(), normalizedLimit);
+		if (recommendedIds.isEmpty()) {
+			return List.of();
+		}
 
-		Map<UUID, String> sellerNames = related.stream()
-			.map(ProductListProjection::sellerId)
-			.distinct()
-			.collect(Collectors.toMap(id -> id, id -> sellerClient.getSellerInfo(id).sellerName()));
-		Map<UUID, List<String>> tagsByProductId = productRepository
-			.findAllByIdIn(related.stream().map(ProductListProjection::id).toList())
-			.stream()
+		// 조회는 순서를 보장하지 않는다. 추천 순위대로 다시 세우지 않으면 어렵게 계산한
+		// 순서가 DB가 돌려준 순서로 덮인다.
+		Map<UUID, ProductListProjection> byId = productRepository.findProjectionsByIds(recommendedIds).stream()
+			.collect(Collectors.toMap(ProductListProjection::id, p -> p));
+		Map<UUID, List<String>> tagsByProductId = productRepository.findAllByIdIn(recommendedIds).stream()
 			.collect(Collectors.toMap(Product::getId, Product::getTags));
 
-		return related.stream()
-			.map(p -> toListItemResponse(
-				p,
-				sellerNames.getOrDefault(p.sellerId(), ""),
-				tagsByProductId.getOrDefault(p.id(), List.of())
-			))
+		return recommendedIds.stream()
+			.map(byId::get)
+			.filter(Objects::nonNull)
+			.map(p -> toListItemResponse(p, tagsByProductId.getOrDefault(p.id(), List.of())))
 			.toList();
 	}
 
 	public List<ProductReviewResponse> getProductReviews(UUID productId) {
-		getOnSaleProduct(productId);
+		Product product = getOnSaleProduct(productId);
 
-		return productRepository.findActiveReviews(productId)
+		return productRepository.findActiveReviews(product.familyRootId())
 			.stream()
 			.map(this::toReviewResponse)
 			.toList();
 	}
 
-	private Product getOnSaleProduct(UUID productId) {
-		Product product = productRepository.findById(productId)
-			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
-
-		if (product.getStatus() != ProductStatus.ON_SALE || product.getDeletedAt() != null) {
-			throw new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND);
-		}
-
-		return product;
+	@Override
+	public List<ProductsByIdsResponse> getProductsByIds(List<UUID> productIds) {
+		Map<UUID, Product> resolved = productFamilyResolver.resolveFamilyRepresentatives(productIds, ProductFamily::currentForWishlist);
+		return productIds.stream()
+			.filter(resolved::containsKey)
+			.map(id -> {
+				Product p = resolved.get(id);
+				return new ProductsByIdsResponse(
+					id,
+					p.getSellerId(),
+					p.getName(),
+					p.getAmount(),
+					toUrl(p.getThumbnailUrl()),
+					p.getProductType().name(),
+					p.getModel() != null ? p.getModel() : "",
+					(int) productRepository.sumSalesCountByFamilyRootId(p.familyRootId()),
+					productRepository.getAverageRating(p.familyRootId()),
+					p.getStatus().name()
+				);
+			})
+			.toList();
 	}
 
-	private ProductListItemResponse toListItemResponse(ProductListProjection product, String sellerName, List<String> tags) {
+	private Product getOnSaleProduct(UUID productId) {
+		Product anchor = productRepository.findById(productId)
+			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
+		UUID familyRootId = anchor.familyRootId();
+		List<Product> members = productRepository.findAllByFamilyRootIds(List.of(familyRootId));
+		ProductFamily family = ProductFamily.of(familyRootId, members);
+		return family.currentOnSale()
+			.filter(p -> p.getDeletedAt() == null)
+			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
+	}
+
+	private List<ProductVersionResponse> toVersionHistory(UUID familyRootId) {
+		List<Product> members = productRepository.findAllByFamilyRootIds(List.of(familyRootId));
+		return ProductFamily.of(familyRootId, members).publicHistory().stream()
+			.map(this::toVersionResponse)
+			.toList();
+	}
+
+	private ProductListItemResponse toListItemResponse(ProductListProjection product, List<String> tags) {
 		return new ProductListItemResponse(
 			product.id(),
 			product.title(),
@@ -171,14 +252,33 @@ public class ProductQueryService implements ProductQueryUseCase {
 			null,
 			product.rating(),
 			product.salesCount(),
-			sellerName,
 			product.sellerId(),
 			null,
 			product.description(),
-			product.thumbnailUrl(),
+			toUrl(product.thumbnailUrl()),
 			tags,
 			product.createdAt(),
 			product.updatedAt()
+		);
+	}
+
+	private ProductListItemResponse toListItemResponse(ProductSearchHit hit) {
+		return new ProductListItemResponse(
+			hit.productId(),
+			hit.name(),
+			hit.productType(),
+			hit.model(),
+			hit.amount(),
+			null,
+			hit.ratingAvg(),
+			hit.salesCount(),
+			hit.sellerId(),
+			null,
+			hit.description(),
+			toUrl(hit.thumbnailUrl()),
+			hit.tags(),
+			hit.firstPublishedAt(),
+			hit.currentVersionAt()
 		);
 	}
 
@@ -203,6 +303,26 @@ public class ProductQueryService implements ProductQueryUseCase {
 
 	private String createPreviewContent(Product product) {
 		return "[" + product.getName() + "]\n\n전체 내용은 구매 후 확인할 수 있습니다.";
+	}
+
+	private String toUrl(String key) {
+		if (key == null || key.isBlank()) {
+			return null;
+		}
+		return storageClient.generatePresignedDownloadUrl(key);
+	}
+
+	private List<String> toUrls(List<String> keys) {
+		if (keys == null || keys.isEmpty()) {
+			return List.of();
+		}
+		return keys.stream()
+			.map(storageClient::generatePresignedDownloadUrl)
+			.toList();
+	}
+
+	private int normalizePage(int value) {
+		return Math.max(value, 0);
 	}
 
 	private int normalizePositive(int value) {
@@ -230,7 +350,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 	}
 
 	private String normalizeSort(String sort) {
-		if ("rating".equals(sort) || "price-asc".equals(sort) || "price-desc".equals(sort)) {
+		if ("rating".equals(sort) || "price-asc".equals(sort)) {
 			return sort;
 		}
 

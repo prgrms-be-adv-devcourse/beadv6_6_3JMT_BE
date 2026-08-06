@@ -1,24 +1,20 @@
 package com.prompthub.settlement.domain.repository;
 
-import com.prompthub.settlement.domain.model.SettlementSourceLine;
-import java.math.BigDecimal;
-import java.time.YearMonth;
+import com.prompthub.settlement.domain.model.batch.SettlementPeriod;
+import com.prompthub.settlement.domain.model.source.SettlementSourceLine;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
 public interface SettlementSourceRepository {
 
-    void save(SettlementSourceLine line);
+    void saveAll(List<SettlementSourceLine> lines);
 
-    boolean existsByEventId(UUID eventId);
+    List<UUID> findExistingEventIds(Collection<UUID> eventIds);
 
-    List<UUID> findSettleableSellerIds(YearMonth period);
+    List<UUID> findSettleableSellerIds(SettlementPeriod period);
 
-    List<SettlementSourceLine> findSettleableLines(UUID sellerId, YearMonth period);
+    List<SettlementSourceLine> findSettleableLines(UUID sellerId, SettlementPeriod period);
 
     List<SettlementSourceLine> findBySettlementId(UUID settlementId);
-
-    long countPaidBySeller(UUID sellerId);
-
-    BigDecimal sumPaidAmountBySeller(UUID sellerId);
 }

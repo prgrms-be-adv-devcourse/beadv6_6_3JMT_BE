@@ -74,10 +74,10 @@ custom repository, Querydsl, 직접 작성한 query가 있으면 persistence 테
 
 아래 API를 구현할 때는 최소한 Controller 테스트와 Service 테스트를 포함한다.
 
-- `GET /api/v1/products`
-- `GET /api/v1/products/{productId}`
-- `GET /api/v1/products/{productId}/related`
-- `GET /api/v1/products/{productId}/reviews`
+- `GET /api/v2/products`
+- `GET /api/v2/products/{productId}`
+- `GET /api/v2/products/{productId}/recommends`
+- `GET /api/v2/products/{productId}/reviews`
 
 최소 검증:
 
@@ -95,9 +95,18 @@ custom repository, Querydsl, 직접 작성한 query가 있으면 persistence 테
 PR 전에는 `test` task만 단독 실행하지 않는다.
 반드시 product-service 기준 build를 실행한다.
 
+Gradle wrapper는 **레포 루트에만** 있다(`product-service/`에는 없다). 루트에서 모듈을
+지정해 실행한다.
+
 ```powershell
-cd C:\programmers_prj\beadv6_6_3JMT_BE\product-service
-.\gradlew.bat clean build --no-daemon
+cd C:\programmers_prj\beadv6_6_3JMT_BE
+.\gradlew.bat :product-service:build --no-daemon
+```
+
+특정 테스트만 돌릴 때도 같은 방식이다.
+
+```powershell
+.\gradlew.bat :product-service:test --tests "com.prompthub.search.application.*" --no-daemon
 ```
 
 이 build는 아래를 포함한다.
@@ -115,6 +124,6 @@ $env:DB_PORT="5432"
 $env:DB_NAME="prompthub_test"
 $env:DB_USERNAME="test"
 $env:DB_PASSWORD="test"
-.\gradlew.bat clean build --no-daemon
+.\gradlew.bat :product-service:build --no-daemon
 ```
 

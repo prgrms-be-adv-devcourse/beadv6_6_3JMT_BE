@@ -1,7 +1,6 @@
 package com.prompthub.user.user.presentation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.prompthub.user.global.config.SecurityConfig;
 import com.prompthub.user.user.application.dto.UpdateProfileResult;
 import com.prompthub.user.user.application.usecase.UserUseCase;
 import com.prompthub.user.user.domain.exception.EmailAlreadyUsedException;
@@ -11,16 +10,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -46,7 +46,7 @@ class UserControllerTest {
         given(userUseCase.updateProfile(any()))
                 .willReturn(new UpdateProfileResult(USER_ID, "새이름", null));
 
-        mockMvc.perform(patch("/api/v1/users/me")
+        mockMvc.perform(patch("/api/v2/users/me")
                         .header("X-User-Id", USER_ID.toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -64,7 +64,7 @@ class UserControllerTest {
         given(userUseCase.updateProfile(any()))
                 .willReturn(new UpdateProfileResult(USER_ID, null, "new@example.com"));
 
-        mockMvc.perform(patch("/api/v1/users/me")
+        mockMvc.perform(patch("/api/v2/users/me")
                         .header("X-User-Id", USER_ID.toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -80,7 +80,7 @@ class UserControllerTest {
         given(userUseCase.updateProfile(any()))
                 .willReturn(new UpdateProfileResult(USER_ID, "새이름", "new@example.com"));
 
-        mockMvc.perform(patch("/api/v1/users/me")
+        mockMvc.perform(patch("/api/v2/users/me")
                         .header("X-User-Id", USER_ID.toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -93,7 +93,7 @@ class UserControllerTest {
 
     @Test
     void updateMe_XUserId_헤더_누락_403() throws Exception {
-        mockMvc.perform(patch("/api/v1/users/me")
+        mockMvc.perform(patch("/api/v2/users/me")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 { "name": "새이름" }
@@ -105,7 +105,7 @@ class UserControllerTest {
     void updateMe_중복_email_409_A007() throws Exception {
         given(userUseCase.updateProfile(any())).willThrow(new EmailAlreadyUsedException());
 
-        mockMvc.perform(patch("/api/v1/users/me")
+        mockMvc.perform(patch("/api/v2/users/me")
                         .header("X-User-Id", USER_ID.toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -119,12 +119,38 @@ class UserControllerTest {
     void updateMe_존재하지_않는_유저_404_A001() throws Exception {
         given(userUseCase.updateProfile(any())).willThrow(new UserNotFoundException());
 
-        mockMvc.perform(patch("/api/v1/users/me")
+        mockMvc.perform(patch("/api/v2/users/me")
                         .header("X-User-Id", USER_ID.toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 { "name": "새이름" }
                                 """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("A001"));
+    }
+
+    @Test
+    void deleteMe_탈퇴_성공_204() throws Exception {
+        mockMvc.perform(delete("/api/v2/users/me")
+                        .header("X-User-Id", USER_ID.toString()))
+                .andExpect(status().isNoContent());
+
+        then(userUseCase).should().withdraw(USER_ID);
+    }
+
+    @Test
+    void deleteMe_XUserId_헤더_누락_403() throws Exception {
+        mockMvc.perform(delete("/api/v2/users/me"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteMe_존재하지_않는_유저_404_A001() throws Exception {
+        willThrow(new UserNotFoundException())
+                .given(userUseCase).withdraw(USER_ID);
+
+        mockMvc.perform(delete("/api/v2/users/me")
+                        .header("X-User-Id", USER_ID.toString()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("A001"));
     }

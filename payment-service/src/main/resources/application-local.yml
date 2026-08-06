@@ -12,11 +12,14 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate                    # 스키마는 Flyway(V{n} 마이그레이션)가 만든다
     show-sql: true
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          time_zone: Asia/Seoul
+
   kafka:
     bootstrap-servers: localhost:9092
     admin:
@@ -30,13 +33,51 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.trusted.packages: "com.prompthub.paymentservice.*"
+        spring.json.trusted.packages: "com.prompthub.payment.*"
+
+  grpc:
+    client:
+      channel:
+        order:
+          target: static://${ORDER_GRPC_HOST:localhost}:${ORDER_GRPC_PORT:9083}
+          default:
+            deadline: ${ORDER_GRPC_DEADLINE_MS:2000}ms
 
 payment:
   toss:
     secret-key: ${TOSS_SECRET_KEY:test-dummy-key}
     base-url: https://api.tosspayments.com/v1
-    test-mode: ${TOSS_TEST_MODE:false}
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      toss-payment-default:
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 20000ms
+        slow-call-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        ignore-exceptions:
+          - io.github.resilience4j.bulkhead.BulkheadFullException
+          - io.github.resilience4j.ratelimiter.RequestNotPermitted
+  bulkhead:
+    instances:
+      toss-confirm-bulkhead:
+        max-concurrent-calls: 20
+        max-wait-duration: 200ms
+  ratelimiter:
+    instances:
+      toss-confirm-rate-limiter:
+        limit-for-period: 30
+        limit-refresh-period: 1s
+        timeout-duration: 0ms
+  retry:
+    instances:
+      toss-confirm-retry:
+        max-attempts: 2
+        wait-duration: 500ms
 
 eureka:
   client:

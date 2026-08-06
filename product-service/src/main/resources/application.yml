@@ -3,11 +3,9 @@ spring:
     name: product-service
   config:
     import:
-      - optional:configserver:http://localhost:8888
+      - ${CONFIG_IMPORT:}
       - optional:file:./.env[.properties]
       - optional:file:./product-service/.env[.properties]
-  profiles:
-    default: local
   cloud:
     config:
       fail-fast: true
@@ -16,3 +14,13 @@ spring:
         initial-interval: 1000
         max-interval: 2000
         multiplier: 1.1
+
+logging:
+  structured:
+    format:
+      console: logstash
+    json:
+      add:
+        serviceName: ${spring.application.name}
+  level:
+    root: INFO

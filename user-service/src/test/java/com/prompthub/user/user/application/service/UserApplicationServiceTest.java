@@ -1,5 +1,6 @@
 package com.prompthub.user.user.application.service;
 
+import com.prompthub.user.auth.application.usecase.SessionRevocationUseCase;
 import com.prompthub.user.seller.domain.model.SellerRegister;
 import com.prompthub.user.seller.domain.model.SellerRegisterStatus;
 import com.prompthub.user.seller.domain.repository.SellerRegisterRepository;
@@ -10,6 +11,7 @@ import com.prompthub.user.user.domain.exception.EmailAlreadyUsedException;
 import com.prompthub.user.user.domain.exception.UserNotFoundException;
 import com.prompthub.user.user.domain.model.User;
 import com.prompthub.user.user.domain.model.UserRole;
+import com.prompthub.user.user.domain.model.UserStatus;
 import com.prompthub.user.user.domain.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,6 +38,9 @@ class UserApplicationServiceTest {
 
     @Mock
     private SellerRegisterRepository sellerRegisterRepository;
+
+    @Mock
+    private SessionRevocationUseCase sessionRevocationUseCase;
 
     @InjectMocks
     private UserApplicationService userApplicationService;
@@ -178,5 +183,35 @@ class UserApplicationServiceTest {
 
         assertThatThrownBy(() -> userApplicationService.getMyProfile(USER_ID))
                 .isInstanceOf(UserNotFoundException.class);
+    }
+
+    @Test
+    void withdraw_상태가_WITHDRAWN으로_변경() {
+        User user = createUser();
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+
+        userApplicationService.withdraw(USER_ID);
+
+        assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
+    }
+
+    @Test
+    void withdraw_세션_폐기_위임() {
+        User user = createUser();
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
+
+        userApplicationService.withdraw(USER_ID);
+
+        then(sessionRevocationUseCase).should().revoke(USER_ID);
+    }
+
+    @Test
+    void withdraw_존재하지_않는_유저_UserNotFoundException() {
+        given(userRepository.findById(USER_ID)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userApplicationService.withdraw(USER_ID))
+                .isInstanceOf(UserNotFoundException.class);
+
+        then(sessionRevocationUseCase).should(never()).revoke(any());
     }
 }

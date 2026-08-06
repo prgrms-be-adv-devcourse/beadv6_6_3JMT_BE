@@ -15,7 +15,7 @@ public record OrderDetailResponse(
 	String orderNumber,
 	@Schema(description = "구매자 ID", example = "7c2f6e91-2c1b-4a3b-9f99-3f527f7d1234")
 	UUID buyerId,
-	@Schema(description = "주문 상태. PENDING, PAID, FAILED, CANCELED, REFUNDED", example = "PAID")
+	@Schema(description = "주문 상태. CREATED, COMPLETED, FAILED, REFUND_REQUESTED, PARTIAL_REFUNDED, ALL_REFUNDED", example = "COMPLETED")
 	OrderStatus orderStatus,
 	@Schema(description = "주문 상품 목록")
 	List<OrderDetailProductResponse> products,

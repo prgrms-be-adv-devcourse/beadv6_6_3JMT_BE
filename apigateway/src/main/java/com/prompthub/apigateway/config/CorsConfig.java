@@ -9,6 +9,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
+import static com.prompthub.apigateway.logging.GatewayLogConstants.REQUEST_ID_HEADER;
+
 @Configuration
 public class CorsConfig {
 
@@ -21,6 +23,7 @@ public class CorsConfig {
         config.addAllowedMethod(CorsConfiguration.ALL);
         config.addAllowedHeader(CorsConfiguration.ALL);
         config.setAllowCredentials(true);
+        config.addExposedHeader(REQUEST_ID_HEADER);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

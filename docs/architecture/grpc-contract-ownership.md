@@ -1,0 +1,158 @@
+# gRPC 계약 소유·공유 컨벤션
+
+서비스 간 gRPC proto 계약을 **루트 `grpc/` 디렉토리에서 단일 관리**하는 규칙을 정의한다.
+정산 도메인(정산 본체·셀러 정산·어드민 정산) 범위에서 먼저 적용한다.
+
+## 1. 배경 — 왜 루트에서 공유하나
+
+기존에는 같은 gRPC 계약을 **서버 모듈과 클라이언트 모듈이 각자 `.proto` 미러로** 들고 있었다.
+(예: `GetSellerStats` 가 product-service 원본 + user-service 미러로 양쪽 존재.) 한 계약을 두 곳에서
+수정·관리하니 필드가 어긋날 위험이 있었다(드리프트).
+
+이를 줄이기 위해 계약 `.proto` 를 **레포 루트 `grpc/` 한곳**에 두고, 필요한 모듈이 빌드 시 그 경로를
+참조해 스텁을 생성한다. 계약의 단일 소스를 확보하는 게 목적이다.
+
+> **Gradle 모듈로는 만들지 않는다.** `.proto` 소스만 공유하고(디렉토리 공유), 스텁은 각 모듈이 자기
+> 빌드에서 생성한다. 계약 수가 적은 지금 단계에 별도 `:grpc` 모듈은 과하다고 판단했다. 중앙화할 계약이
+> 여러 개로 늘고 모듈 간 공유가 잦아지면 공유 Gradle 모듈로 승격하는 것을 재검토한다.
+
+## 2. 소유 규칙 — 응답하는 쪽(서버)이 계약을 소유한다
+
+gRPC 는 `a`(클라이언트)가 `b`(서버)에게 요청하고 `b` 로부터 응답을 받는다. 이때 **그 계약은 응답하는
+쪽 = 서버 `b` 가 소유**한다. 계약 파일은 `grpc/<b>/` 아래에 둔다.
+
+```
+a(클라이언트) ──요청──▶ b(서버)
+a ◀──응답── b
+                → 계약(.proto)은 grpc/<b>/ 에서 관리   (요청자 a 가 아니라 응답자 b)
+```
+
+- 소유 판단 기준은 "누가 서버(응답자)냐" 하나다. 요청하는 클라이언트가 여럿이어도 계약은 서버 하나가
+  소유한다.
+- 디렉토리 이름은 **서버 모듈명**을 따른다. (`grpc/user/`, `grpc/order/`, `grpc/product/` …)
+
+### 2-1. 디렉토리·파일·서비스·메서드·메시지 이름
+
+계약은 **디렉토리로 소유(서버 모듈)를, 파일·서비스로 도메인을** 나타낸다. "무엇을 조회하는지"는 메서드·메시지 목적어에서 드러낸다.
+
+| 대상 | 규칙 | 예 |
+| --- | --- | --- |
+| 디렉토리 | `grpc/<소유모듈>/` | `grpc/user/`, `grpc/order/`, `grpc/product/` |
+| 파일 | `<도메인>_query.proto` | `grpc/user/seller_query.proto`, `order_query.proto`, `product_query.proto` |
+| 서비스 | `<도메인>QueryService` | `SellerQueryService`, `OrderQueryService`, `ProductQueryService` |
+| 메서드(rpc) | 아래 §2-2 접두어 표를 따른다 | `GetSellers`, `GetSettleableLines` |
+| 요청 메시지 | `<메서드명>Request` | `GetSellersRequest`, `CountOrdersByStatusRequest` |
+| 응답 메시지 | `<메서드명>Response` | `GetSellersResponse`, `CountOrdersByStatusResponse` |
+
+- **디렉토리 = 누가 답하나(소유 모듈), 파일·서비스 = 무슨 도메인이냐, 메서드·메시지 = 무엇을 조회하나.**
+  한 모듈이 여러 도메인을 답하면 도메인별로 파일을 나눈다(예: `grpc/user/seller_query.proto`). 단일 도메인
+  모듈은 파일명이 모듈명과 같아질 수 있다(order → `order_query.proto`). 한 도메인 서비스가 여러 조회를
+  답하면 그 `<도메인>QueryService` 안에 `Get~` 메서드를 여러 개 둔다.
+- **여러 건(batch) 조회면 목적어를 복수로 쓴다.** (`GetSellers` / `GetSellersRequest` / `GetSellersResponse`)
+- **요청/응답이 아닌 내부 항목 메시지는 예외 — 현행 유지.** 리스트 원소·payload(예: `SellerInfo`,
+  `SettleableLine`)에는 이 규칙을 적용하지 않는다.
+- **`package`·`java_package` 는 이 규칙 범위 밖이다.** gRPC wire 경로·import churn 이라 별도로 다룬다.
+- **쓰기(생성·수정·삭제)는 gRPC 메서드로 노출하지 않는다.** 서비스 간 상태 변경은 Kafka 이벤트
+  발행(`{domain}-events` 토픽, `kafka-event.md` 참고)으로 처리한다. 이 문서의 메서드 네이밍 규칙은
+  전부 조회(read-only) 메서드에만 적용한다.
+
+### 2-2. 메서드(rpc) 접두어 — 목적별로 다르게 쓴다
+
+메서드 이름은 무엇을 조회하는지에 따라 아래 접두어 중 하나를 쓴다. 대부분의 gRPC 조회는 단순
+조회이므로 `Get~`이 전체의 80% 이상을 차지하는 게 정상이다.
+
+| 접두어 | 용도 | 비중 |
+| --- | --- | --- |
+| `Get<목적어>` | 단순 조회(단건 또는 ID 목록 기반 배치 조회) | 전체의 80% 이상 |
+| `Search<목적어>By<조건>` | 조건 기반 검색 | |
+| `Count<목적어>By<조건>` | 집계(개수) | |
+| `Average<목적어>By<조건>` | 집계(평균) | |
+| `Total<목적어>By<조건>` | 집계(합계) | |
+
+요청/응답 메시지 이름은 이 메서드명을 그대로 따른다(`<메서드명>Request`/`<메서드명>Response`).
+
+> **주의(wire):** 서비스명·메서드명·`package` 는 gRPC 호출 경로(`/package.Service/Method`)라, 바꾸면
+> 서버·클라이언트가 **같이** 바뀌어야 통신된다. 반면 **파일명·메시지 타입명은 wire 가 아니라** 각 측이
+> 따로 바꿔도 통신에 영향이 없다(메시지는 필드 번호로 직렬화되며 타입명은 전송되지 않는다).
+
+## 3. 디렉토리 레이아웃
+
+```
+beadv6_6_3JMT_BE/
+└── grpc/                      ← 루트 공유 gRPC 계약
+    ├── order/                 ← order-service가 제공하고 settlement-service가 소비하는 공유 계약
+    │   └── order_query.proto    ← OrderQueryService.GetSettleableLines
+    ├── user/                  ← user-service가 제공하는 공유 계약
+    │   └── seller_settlement_query.proto
+    │                            ← SellerSettlementQueryService의 AI 정산 조회 5종
+    └── product/
+        └── product_query.proto  ← Product 소유 공유 계약. Seller Settlement는 #452 이후 GetSellerStats를 소비하지 않음
+```
+
+기능이 늘면 서버 모듈명으로 하위 디렉토리를 추가한다(`grpc/order/`, `grpc/product/` …).
+
+## 4. 모듈에서 참조하는 법
+
+계약을 **제공(서버)하거나 소비(클라이언트)하는** 모듈은 자기 `build.gradle` 의 protobuf 소스에 해당
+`grpc/<owner>/` 경로를 더한다. (protobuf 플러그인이 그 `.proto` 로 스텁을 자기 빌드에 생성한다.)
+
+```gradle
+sourceSets {
+    main {
+        proto {
+            srcDir "${rootProject.projectDir}/grpc/product"
+        }
+    }
+}
+```
+
+- **`java_package` 는 소유자(서버) 기준으로 맞춘다.** 계약을 옮기면서 생성 자바 패키지도 소유 모듈
+  기준으로 통일했다(§5 참고). 이관 대상 계약의 소비자 코드는 import 를 그에 맞춰 바꾼다.
+- 계약을 `grpc/` 로 옮긴 뒤에는 **원본을 원래 모듈 `src/main/proto` 에서 삭제**한다. 남겨두면 같은
+  클래스가 이중 생성되어 컴파일이 충돌한다.
+
+## 5. 현재 정산 관련 계약 현황
+
+| 계약(rpc) | 요청자(client) | 서버(owner) | 위치 | 비고 |
+| --- | --- | --- | --- | --- |
+| `GetSettleableLines`(정산 원천) | settlement | **order** | `grpc/order/order_query.proto` | settlement 클라이언트와 order 서버 구현 완료 |
+| `GetSettlementDashboardSummary`, `GetSettlementSummary`, `CompareSettlementPeriods`, `GetWeeklySettlementBreakdown`, `GetPayoutStatus` | ai | **user** | `grpc/user/seller_settlement_query.proto` | User가 셀러 본인 읽기 모델을 권한 검사 후 집계해 응답 |
+
+> **제거됨:** `GetSellerStats`는 #452에서 user-service `sellersettlement` 소비자가 먼저 제거됐고,
+> 이후 계약 소유자인 Product가 공개 REST `GET /api/v2/products/sellers/me/summary`(#483)로 대체하며
+> `grpc/product/product_query.proto`의 RPC·메시지와 Product 서버 구현을 삭제했다. Seller Settlement는
+> 더 이상 이 계약의 클라이언트가 아니다.
+
+> **제거됨:** `GetSellers`(셀러 정보, 서버 user, `grpc/user/seller_query.proto`)는 settlement 클라이언트가
+> 끝내 도입되지 않은 채 REST `POST /api/v2/sellers/batch`가 같은 용도로 생겨 계약과 user-service 서버
+> 구현을 삭제했다(#444).
+
+> **제거됨:** user-service Wishlist가 보유하던 로컬 `user.product.ProductService/GetProductsByIds`
+> 계약과 client는 #485에서 삭제했다. Product 서버에 구현되지 않았던 계약이며, Wishlist 상품 조회는
+> Client가 Product REST `POST /api/v2/products/wishlists`를 직접 호출한다.
+
+### Product 계약 후속 정리
+
+루트 `grpc/product/product_query.proto`에는 Product가 제공하는 다른 RPC도 함께 있으므로 파일 전체를
+삭제하지 않는다. `GetSellerStats`는 #483에서 제거됐다(공개 REST 전환). user-service는 #452에서 루트
+`grpc/product` sourceSet 참조를 제거했다.
+
+`GetSettleableLines`는 settlement-service 클라이언트와 order-service 서버가 모두 루트
+`grpc/order/order_query.proto`를 참조한다. 요청은 주간 `period_start`·`period_end` 계약을 사용한다.
+
+### `java_package` 네이밍 — 소유자(서버) 기준
+
+`java_package` 는 **계약을 소유한 서버 모듈 이름을 맨 앞에** 둔다. 디렉토리(`grpc/<서버>/`)로 이미 소유를
+표현하므로, 생성 자바 패키지도 같은 소유자 기준으로 맞춰 디렉토리·패키지가 한 방향으로 정렬되게 한다.
+
+- `order_query.proto` (서버 order) → `com.prompthub.order.grpc`
+- `product_query.proto` (서버 product) → `com.prompthub.product.grpc`
+- `seller_settlement_query.proto` (서버 user, 도메인 seller settlement) →
+  `com.prompthub.user.grpc.sellersettlement`
+
+- 규칙: `com.prompthub.<서버모듈>.grpc[.<도메인>]`. 서버 모듈명과 도메인이 같으면(order·product) 도메인을
+  생략하고, 다르면 뒤에 도메인을 붙인다(예: 서버 모듈이 `foo`고 응답 도메인이 `bar`면 `com.prompthub.foo.grpc.bar`).
+- **소유자 원본과 일치하는 이점:** product 는 서버 원본(product-service)이 이미 `com.prompthub.product.grpc`
+  를 쓰므로, 나중에 product 팀이 루트 `grpc/` 로 합류할 때 import 변경 없이 통합된다.
+- `package`(wire, `settlement.<도메인>`)는 서버·클라이언트가 공유하는 호출 경로라 그대로 두고,
+  `java_package`(생성 자바 클래스 패키지)만 소유자 기준으로 맞춘다.

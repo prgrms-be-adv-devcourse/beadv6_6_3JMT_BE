@@ -1,0 +1,3 @@
+ALTER TABLE settlement
+    ALTER COLUMN payout_status SET DEFAULT 'NOT_READY',
+    ALTER COLUMN settlement_status SET DEFAULT 'PENDING_APPROVAL';

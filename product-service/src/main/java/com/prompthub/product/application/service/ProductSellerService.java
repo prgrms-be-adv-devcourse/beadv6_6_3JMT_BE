@@ -1,26 +1,29 @@
 package com.prompthub.product.application.service;
 
-import com.prompthub.product.application.client.SellerClient;
-import com.prompthub.product.application.client.SellerInfo;
 import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.application.usecase.ProductSellerUseCase;
 import com.prompthub.product.domain.model.entity.Product;
+import com.prompthub.product.domain.model.entity.ProductFamily;
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
+import com.prompthub.product.domain.model.vo.ProductContent;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
 import com.prompthub.product.infra.messaging.producer.ProductEventProducer;
 import com.prompthub.product.presentation.dto.request.ProductCreateRequest;
 import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
+import com.prompthub.product.presentation.dto.response.ProductCountResponse;
 import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductListItemResponse;
-import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,40 +37,28 @@ public class ProductSellerService implements ProductSellerUseCase {
 	private static final ProductType DEFAULT_PRODUCT_TYPE = ProductType.PROMPT;
 
 	private final ProductRepository productRepository;
-	private final SellerClient sellerClient;
 	private final ProductEventProducer productEventProducer;
 	private final StorageClient storageClient;
 
 	@Override
 	public ProductCreateResponse createProduct(UUID sellerId, ProductCreateRequest request) {
-		SellerInfo seller = sellerClient.getSellerInfo(sellerId);
-		if (!"ACTIVE".equals(seller.status())) {
-			throw new ProductException(ProductErrorCode.SELLER_NOT_ACTIVE);
-		}
-
 		ProductType productType = parseProductType(request.productType());
 
 		UUID productId = UUID.randomUUID();
 		String thumbnailKey = moveToProductPath(extractKey(request.thumbnailUrl()), productId);
 		List<String> imageKeys = moveToProductPaths(extractKeys(request.imageUrls()), productId);
+		String fileKey = moveToProductPath(extractKey(request.fileUrl()), productId);
 
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
-		Product product = Product.create(
-			productId,
-			sellerId,
-			productType,
-			request.title(),
-			request.desc(),
-			request.model(),
-			amountType,
-			request.amount(),
-			thumbnailKey,
-			imageKeys,
-			request.content(),
-			request.tags()
+		ProductContent content = new ProductContent(
+			productType, request.title(), request.desc(), request.model(),
+			amountType, request.amount(), thumbnailKey, imageKeys,
+			request.content(), fileKey, request.externalUrl(), request.tags()
 		);
+		Product product = Product.create(productId, sellerId, content);
 
 		Product saved = productRepository.save(product);
+		productEventProducer.publishProductChanged(saved.familyRootId());
 
 		return new ProductCreateResponse(
 			saved.getId(),
@@ -84,44 +75,63 @@ public class ProductSellerService implements ProductSellerUseCase {
 
 	@Override
 	public void updateProduct(UUID sellerId, UUID productId, ProductUpdateRequest request) {
-		Product product = getProductForSeller(sellerId, productId);
+		Product anchor = getProductForSeller(sellerId, productId);
 
 		ProductType productType = parseProductType(request.productType());
-
-		int previousPrice = product.getAmount();
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
 		boolean isMajor = "MAJOR".equalsIgnoreCase(request.versionType());
 		String newThumbnailKey = moveToProductPath(extractKey(request.thumbnailUrl()), productId);
 		List<String> newImageKeys = moveToProductPaths(extractKeys(request.imageUrls()), productId);
-
-		product.update(
-			productType,
-			request.title(),
-			request.desc(),
-			request.model(),
-			amountType,
-			request.amount(),
-			newThumbnailKey,
-			newImageKeys,
-			request.content(),
-			request.tags(),
-			request.changeReason(),
-			isMajor
+		String newFileKey = moveToProductPath(extractKey(request.fileUrl()), productId);
+		ProductContent content = new ProductContent(
+			productType, request.title(), request.desc(), request.model(),
+			amountType, request.amount(), newThumbnailKey, newImageKeys,
+			request.content(), newFileKey, request.externalUrl(), request.tags()
 		);
 
-		productRepository.save(product);
+		UUID familyRootId = anchor.familyRootId();
+		ProductFamily family = ProductFamily.of(familyRootId, productRepository.findAllByFamilyRootIds(List.of(familyRootId)));
 
-		if (previousPrice != product.getAmount()) {
-			productEventProducer.publishPriceChanged(product.getId(), previousPrice, product.getAmount());
+		int previousPrice;
+		if (!family.hasEverBeenOnSale()) {
+			previousPrice = anchor.getAmount();
+			anchor.update(content, request.changeReason(), isMajor);
+			productRepository.save(anchor);
+			if (isMajor) {
+				publishReviewRequestedEvent(anchor);
+			}
+		} else {
+			Product onSale = family.currentOnSale()
+				.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_INVALID_STATUS));
+			previousPrice = onSale.getAmount();
+
+			if (isMajor) {
+				if (family.pendingReview().isPresent()) {
+					throw new ProductException(ProductErrorCode.PRODUCT_INVALID_STATUS);
+				}
+				Product next = onSale.nextVersion(true, content, request.changeReason());
+				productRepository.save(next);
+				publishReviewRequestedEvent(next);
+			} else {
+				Product next = onSale.nextVersion(false, content, request.changeReason());
+				onSale.supersede();
+				productRepository.save(onSale);
+				productRepository.save(next);
+				productEventProducer.publishProductChanged(familyRootId);
+			}
+		}
+
+		if (previousPrice != request.amount()) {
+			productEventProducer.publishPriceChanged(productId, previousPrice, request.amount());
 		}
 	}
 
 	@Override
-	public void deleteProduct(UUID sellerId, String role, UUID productId) {
+	public void deleteProduct(UUID sellerId, UUID productId) {
 		Product product = productRepository.findById(productId)
 			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
 
-		if (Arrays.stream(role.split(",")).noneMatch("ADMIN"::equals) && !product.isOwnedBy(sellerId)) {
+		if (!product.isOwnedBy(sellerId)) {
 			throw new ProductException(ProductErrorCode.PRODUCT_FORBIDDEN);
 		}
 
@@ -143,8 +153,20 @@ public class ProductSellerService implements ProductSellerUseCase {
 	@Override
 	@Transactional(readOnly = true)
 	public List<SellerProductListItemResponse> getMyProducts(UUID sellerId) {
-		return productRepository.findBySellerId(sellerId).stream()
-			.map(SellerProductListItemResponse::from)
+		List<Product> all = productRepository.findBySellerId(sellerId);
+		Map<UUID, List<Product>> byFamily = all.stream()
+			.collect(Collectors.groupingBy(Product::familyRootId));
+		Map<UUID, Double> averageRatings = productRepository.getAverageRatings(List.copyOf(byFamily.keySet()));
+		return byFamily.entrySet().stream()
+			.map(entry -> {
+				ProductFamily family = ProductFamily.of(entry.getKey(), entry.getValue());
+				Product representative = family.currentForSeller()
+					.orElseThrow(() -> new IllegalStateException("family에 대표 row가 없습니다. familyRootId=" + entry.getKey()));
+				int familySalesCount = entry.getValue().stream().mapToInt(Product::getSalesCount).sum();
+				double averageRating = averageRatings.getOrDefault(entry.getKey(), 0.0);
+				return SellerProductListItemResponse.from(representative, familySalesCount, averageRating, storageClient);
+			})
+			.sorted(Comparator.comparing(SellerProductListItemResponse::updatedAt).reversed())
 			.toList();
 	}
 
@@ -153,13 +175,60 @@ public class ProductSellerService implements ProductSellerUseCase {
 		Product product = getProductForSeller(sellerId, productId);
 		product.submitForReview();
 		productRepository.save(product);
+
+		publishReviewRequestedEvent(product);
+	}
+
+	/** MAJOR 버전 전환으로 PENDING_REVIEW가 되는 모든 경로(submitForReview, MAJOR 수정)가 공유한다. */
+	private void publishReviewRequestedEvent(Product product) {
+		UUID duplicateOfProductId = findDuplicateOfProductId(product);
+		String presignedThumbnailUrl = presignOrNull(product.getThumbnailUrl());
+		List<String> presignedImageUrls = presignAll(product.getImageUrls());
+		productEventProducer.publishReviewRequested(
+			product, duplicateOfProductId, presignedThumbnailUrl, presignedImageUrls);
+	}
+
+	/** PROMPT가 아니면 content_hash가 없어 비교 대상이 아니다(ADR-0011). */
+	private UUID findDuplicateOfProductId(Product product) {
+		if (product.getContentHash() == null) {
+			return null;
+		}
+		return productRepository
+			.findDuplicateOfProductId(product.getId(), product.getContentHash(), product.getSellerId())
+			.orElse(null);
+	}
+
+	private String presignOrNull(String key) {
+		return (key == null || key.isBlank()) ? null : storageClient.generatePresignedDownloadUrl(key);
+	}
+
+	private List<String> presignAll(List<String> keys) {
+		if (keys == null || keys.isEmpty()) {
+			return List.of();
+		}
+		return keys.stream().map(storageClient::generatePresignedDownloadUrl).toList();
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public SellerProductDetailResponse getMyProduct(UUID sellerId, UUID productId) {
-		Product product = getProductForSeller(sellerId, productId);
-		return SellerProductDetailResponse.from(product, storageClient);
+		Product anchor = getProductForSeller(sellerId, productId);
+		UUID familyRootId = anchor.familyRootId();
+		List<Product> members = productRepository.findAllByFamilyRootIds(List.of(familyRootId));
+		ProductFamily family = ProductFamily.of(familyRootId, members);
+		Product representative = family.currentForSeller().orElse(anchor);
+		Product liveOnSale = family.currentOnSale().orElse(null);
+		double averageRating = productRepository.getAverageRating(familyRootId);
+		return SellerProductDetailResponse.from(representative, liveOnSale, family.sellerHistory(), averageRating, storageClient);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public ProductCountResponse getProductCount(UUID sellerId) {
+		return new ProductCountResponse(
+			sellerId,
+			productRepository.countFamiliesBySellerId(sellerId),
+			productRepository.sumSalesCountBySellerId(sellerId));
 	}
 
 	private ProductType parseProductType(String productType) {

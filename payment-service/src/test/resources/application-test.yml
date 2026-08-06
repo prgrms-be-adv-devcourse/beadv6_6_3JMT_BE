@@ -1,7 +1,13 @@
 spring:
   config:
     import: ""
+  flyway:
+    enabled: false
+  sql:
+    init:
+      mode: always
   jpa:
+    defer-datasource-initialization: true
     open-in-view: false
     show-sql: false
     properties:
@@ -22,3 +28,34 @@ eureka:
 payment:
   toss:
     secret-key: mock_secret_key_for_test
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      toss-payment-default:
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 20000ms
+        slow-call-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        ignore-exceptions:
+          - io.github.resilience4j.bulkhead.BulkheadFullException
+          - io.github.resilience4j.ratelimiter.RequestNotPermitted
+  bulkhead:
+    instances:
+      toss-confirm-bulkhead:
+        max-concurrent-calls: 20
+        max-wait-duration: 200ms
+  ratelimiter:
+    instances:
+      toss-confirm-rate-limiter:
+        limit-for-period: 30
+        limit-refresh-period: 1s
+        timeout-duration: 0ms
+  retry:
+    instances:
+      toss-confirm-retry:
+        max-attempts: 2
+        wait-duration: 500ms

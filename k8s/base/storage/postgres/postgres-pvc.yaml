@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: infrastructure
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  storageClassName: local-storage
+  selector:
+    matchLabels:
+      prompthub.io/volume: postgres
+  resources:
+    requests:
+      storage: 20Gi

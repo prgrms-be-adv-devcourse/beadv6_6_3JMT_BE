@@ -1,8 +1,6 @@
 apply plugin: 'com.google.protobuf'
 
 dependencies {
-    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
-
     // gRPC (버전은 Boot BOM의 grpc-bom이 관리)
     implementation 'io.grpc:grpc-protobuf'
     implementation 'io.grpc:grpc-stub'
@@ -18,8 +16,18 @@ dependencies {
 
     // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    // Resilience4j - gRPC 호출 장애 격리
+    implementation 'io.github.resilience4j:resilience4j-circuitbreaker:2.4.0'
+    implementation 'io.github.resilience4j:resilience4j-bulkhead:2.4.0'
+    implementation 'io.github.resilience4j:resilience4j-micrometer:2.4.0'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:testcontainers'
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+    testImplementation 'org.testcontainers:testcontainers-postgresql'
     testImplementation 'io.grpc:grpc-inprocess'
     testRuntimeOnly 'com.h2database:h2'
 }
@@ -42,6 +50,16 @@ protobuf {
             task.plugins {
                 grpc {}
             }
+        }
+    }
+}
+
+// order-service가 소유하는 루트 공유 gRPC 계약을 proto 소스에 추가한다.
+sourceSets {
+    main {
+        proto {
+            srcDir "${rootProject.projectDir}/grpc/order"
+            srcDir "${rootProject.projectDir}/grpc/product"
         }
     }
 }

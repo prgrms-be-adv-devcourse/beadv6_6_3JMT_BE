@@ -1,12 +1,15 @@
 # Order-Service 개선 리포트
 
-> 본 문서는 order-service의 개선 필요 항목들에 대한 전체 리포트입니다. 기존에 완료된 P0 항목과 이전 브랜치 및 현재 브랜치(`refactor/#219-grpc-kafka-convention`)에서 구현 완료된 항목들을 **해결 완료된 항목**으로 분류하여 정리해 둡니다.
+> 본 문서는 order-service의 개선 필요 항목들에 대한 전체 리포트입니다. 기존에 완료된 P0 항목과 이전 브랜치 및 현재 브랜치(`refactor/#219-grpc-kafka-convention`, `refactor/#205-auto-cancel-unpaid-order`)에서 구현 완료된 항목들을 **해결 완료된 항목**으로 분류하여 정리해 둡니다.
 
 ## 1. 해결 완료된 항목
 
-### 1.1 [P0] 인가 인터셉터 미등록
-* **내용**: `WebConfig`에 인가 인터셉터 등록이 누락되어 인가가 처리되지 않던 문제
-* **해결 요약**: `WebConfig` 내 인가 인터셉터 빈 등록 및 설정 완료.
+### 1.1 [P0] 인가 책임 중복 제거
+* **내용**: Gateway 중앙 인가 이후에도 order-service의 Controller와 웹 계층이 역할 헤더를 직접 요구하고 파싱하던 문제
+* **해결 요약**:
+  - 역할 헤더 파라미터·역할 인터셉터·역할 파서를 제거하고 관리자 API를 역할 헤더 없는 Controller 계약으로 정리.
+  - 주문·장바구니 API의 `X-User-Id` 필수 조건과 애플리케이션 계층의 소유권 검증은 유지.
+  - 역할·계정 상태 인가는 Gateway, 리소스 소유권 검사는 order-service가 담당하도록 책임을 분리.
 
 ### 1.2 [P0] gRPC 어댑터의 ON_SALE 하드코딩
 * **내용**: 상품 서비스 호출 시 `ON_SALE` 상태만 강제하도록 하드코딩되어 있던 문제
@@ -19,24 +22,21 @@
   - `OrderExpirationWorker` 스케줄러가 주기적으로 만료 대상을 조회하여 만료 처리(`expirePending`)를 진행하고, 장바구니 상품 복원(`restoreCart`)을 수행하도록 구현.
   - 처리 실패 시 최대 3회 재시도 및 초과 시 DLQ(`order:expiration:dlq`)로 이동하도록 하여 시스템 복원력을 높임.
 
-### 1.4 [P1] 결제 승인 전 주문 금액/만료 여부 동기 검증 API(validatePaymentReady) 도입
-* **내용**: 결제 완료 처리를 할 때 금액이 일치하지 않거나 이미 만료된 주문이 결제되는 문제
-* **해결 요약**:
-  - PG사 결제 요청/승인 직전, 주문의 소유자, 상태, 만료 여부 및 요청 금액 일치 여부를 동기식으로 상호 검증하는 API `/api/v1/orders/{orderId}/payment-ready` 구현.
-  - 금액 불일치 결제 승인을 사전에 방어함.
+<<<<<<< HEAD
 
-### 1.5 [P1] 결제 이벤트 Kafka 메시징 표준화 및 스키마 변경
+### 1.4 [P1] 결제 이벤트 Kafka 메시징 표준화 및 스키마 변경
 * **내용**: 개별 결제 토픽들(`payment.approved`, `payment.refunded`)을 따로 리스닝하며 파싱 방식이 파편화되어 있던 문제
 * **해결 요약**:
-  - 단일 통합 토픽인 `payment.events`를 구독하는 구조로 단일화 및 표준화.
+  - 단일 통합 토픽인 `payment-events`를 구독하는 구조로 단일화 및 표준화.
   - Envelope Pattern(메타데이터 `eventType` + `payload` 구조)으로 이벤트 스키마 파싱 방식을 표준화.
   - 대문자 ENUM 표준 명명 규격(`PAYMENT_APPROVED`, `PAYMENT_REFUNDED`, `PAYMENT_FAILED`, `PAYMENT_CANCELED`) 매핑 적용.
   - 처리가 필요 없거나 무관한 이벤트 타입(`PAYMENT_FAILED`, `PAYMENT_CANCELED`)은 DLT로 보내지 않고 Graceful하게 무시(`shouldIgnore`)하도록 필터링 적용.
 
-### 1.6 [P2] gRPC 연동 메서드명 표준화 및 규격 준수
+### 1.5 [P2] gRPC 연동 메서드명 표준화 및 규격 준수
 * **내용**: 판매자 다건 조회 시 proto 규격과 어댑터의 메서드명이 다른 곳과 일관되지 않던 문제
 * **해결 요약**:
   - `seller_query.proto` 파일 및 `SellerGrpcClientAdapter.java` 에서 판매자 조회 메서드명을 `findSellers` 에서 표준 네이밍인 `getSellers` 로 변경 및 통일 완료.
+
 
 ---
 
@@ -44,9 +44,8 @@
 
 ### 2.1 [P1] 결제-주문 불일치 비동기 보상 흐름 부재
 * **현재 상태**: 
-  - `validatePaymentReady` API를 통해 결제 승인 직전에 유효성 동기 검증을 수행하여, 비정상 결제가 진행되는 것을 1차적으로 사전에 차단합니다.
   - Kafka `DefaultErrorHandler`가 실패 메시지를 원본 토픽의 `.DLT`로 보내도록 설계되어 있습니다.
-  - 이번 Kafka 메시징 표준화를 통해 잘못된 JSON 형식이나 payload 누락 등 유효하지 않은 결제 메시지가 `payment.events.DLT` 토픽으로 안전하게 이동하도록 처리 흐름을 보완했습니다.
+  - 이번 Kafka 메시징 표준화를 통해 잘못된 JSON 형식이나 payload 누락 등 유효하지 않은 결제 메시지가 `payment-events.DLT` 토픽으로 안전하게 이동하도록 처리 흐름을 보완했습니다.
 * **남은 문제 (사후 비동기 검증 및 실패 대응)**:
   - `.DLT` 토픽을 실제로 소비하여 재처리하거나 로깅하는 전용 컨슈머 없음
   - 결제는 승인되었으나 주문 상태 변경(PAID) 처리 중 비동기 단계에서 최종 실패했을 때, `payment.cancel-requested` 같은 환불 요청 이벤트를 발행하는 자동 보상 흐름 없음
@@ -58,15 +57,16 @@
 
 ### 2.2 [P3] 테스트 전략 보강
 * **현재 상태**:
-  - `WebConfig` 등록 여부 및 `BUYER` 권한 차단 등의 인증/인가 시나리오 검증
+  - `OrderWebContractTest`에서 실제 Spring Context의 관리자 무헤더 호출, `X-User-Id` 전용 구매자 호출, v1/v2 경로 계약을 검증
+  - 사용자 ID 누락 401과 리소스 소유권 위반 403을 Controller/Application 테스트에서 검증
   - Redis 만료 큐 보관소, 스케줄러 워커, 도메인 만료 정책에 대한 Mock 단위 테스트 추가 (`RedisOrderExpirationStoreTest`, `OrderExpirationWorkerTest`, `OrderExpirationServiceTest` 등)
   - **임베디드 카프카(EmbeddedKafka) 기반 스프링 부트 통합 테스트 도입**: `PaymentEventConsumerIntegrationTest.java` 를 추가하여, 실제 EmbeddedKafkaBroker 환경에서 결제 이벤트 수신, JSON 파싱 오류 및 payload 누락 시의 DLT 전송 여부 등 메시징 인프라 연동을 통합 검증하도록 보강되었습니다.
 * **남은 문제**:
   - `@SpringBootTest` 기반 실제 데이터베이스(PostgreSQL 등) 통합 테스트는 아직 없음
   - Testcontainers 기반 PostgreSQL + Kafka 실환경 테스트는 아직 없음
-  - Gateway부터 order-service까지 이어지는 역할별 E2E 보안 시나리오 테스트는 아직 없음
+  - Gateway부터 order-service까지 이어지는 역할·계정 상태 E2E 보안 시나리오 테스트는 아직 없음
 * **추가 개선 방안**:
-  1. `@SpringBootTest` + `@AutoConfigureMockMvc` 기반으로 실제 컨텍스트에서 인터셉터, 필터, 예외 핸들러 동작을 검증합니다.
+  1. `@SpringBootTest` + `@AutoConfigureMockMvc` 기반으로 실제 컨텍스트에서 Gateway 인가 결과와 사용자 ID·소유권 예외 응답 연계를 검증합니다.
   2. Testcontainers로 PostgreSQL, Kafka, Redis를 띄워 실제 환경과 유사한 DB 제약 및 이벤트 흐름을 통합 검증합니다.
 
 ---
@@ -108,7 +108,6 @@
 
 ### 3.4 [P2] 죽은 코드·문서 불일치 정리
 * **현재 상태**:
-  - 주문 만료 에러 코드인 `ErrorCode.ORDER_EXPIRED(O015)`가 새로 추가되었습니다.
 * **남은 문제**:
   - `ErrorCode.CART_EMPTY(O004)`, `ErrorCode.ORDER_PRICE_CHANGED(O011)`: 코드상 던져지는(throw) 지점 없음
   - `OrderReviewRequest`: 미사용 DTO
@@ -132,7 +131,8 @@
 
 ### 3.6 [P3] 보안 인프라 강화
 * **현재 상태**:
-  - Gateway가 전달하는 인증 헤더(`X-User-Id`, `X-User-Role`)를 기반으로 권한을 처리합니다.
+  - Gateway가 인증·역할·계정 상태를 검증한 뒤 전달한 `X-User-Id`를 기반으로 리소스 소유권을 처리합니다.
+  - 관리자 역할 정책은 Gateway에 위임하며 order-service는 관리자 요청에서 역할 헤더를 파싱하지 않습니다.
   - 내부 서비스 간 gRPC 호출에는 plaintext가 그대로 사용되고 있습니다.
 * **남은 문제**:
   - 내부 서비스 포트에 직접 접근할 수 있을 경우 헤더 위조 위험에 노출됩니다.

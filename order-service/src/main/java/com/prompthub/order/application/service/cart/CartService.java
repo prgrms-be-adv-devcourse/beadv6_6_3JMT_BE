@@ -3,6 +3,7 @@ package com.prompthub.order.application.service.cart;
 import com.prompthub.exception.BusinessException;
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductCartSnapshot;
+import com.prompthub.order.application.service.order.OrderProductPurchasePolicy;
 import com.prompthub.order.application.usecase.CartUseCase;
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.CartProduct;
@@ -33,6 +34,7 @@ public class CartService implements CartUseCase {
 
 	private final CartRepository cartRepository;
 	private final ProductClient productClient;
+	private final OrderProductPurchasePolicy orderProductPurchasePolicy;
 
 	@Override
 	@Transactional(readOnly = true)
@@ -50,11 +52,13 @@ public class CartService implements CartUseCase {
 
 	@Override
 	public AddCartProductResponse addCartProduct(UUID buyerId, AddCartProductRequest request) {
+		orderProductPurchasePolicy.validateCartAddable(buyerId, request.productId());
 		ProductCartSnapshot snapshot = productClient.getCartSnapshot(request.productId());
 		validateOnSale(snapshot);
 
-		Cart cart = cartRepository.findByBuyerIdWithCartProducts(buyerId)
+		Cart cart = cartRepository.findByBuyerIdForUpdateWithCartProducts(buyerId)
 			.orElseGet(() -> Cart.create(buyerId));
+		orderProductPurchasePolicy.validateCartAddable(buyerId, request.productId());
 
 		if (cart.containsProduct(request.productId())) {
 			throw new CartException(ErrorCode.CART_ITEM_DUPLICATED);
@@ -71,13 +75,14 @@ public class CartService implements CartUseCase {
 		CartProduct cartProduct = cartRepository.findCartProductWithCart(cartProductId)
 			.orElseThrow(() -> new CartException(ErrorCode.CART_PRODUCT_NOT_FOUND));
 
-		Cart cart = cartProduct.getCart();
-		if (!cart.getBuyerId().equals(buyerId)) {
+		if (!cartProduct.getCart().getBuyerId().equals(buyerId)) {
 			throw new CartException(ErrorCode.CART_ITEM_FORBIDDEN);
 		}
 
-		cart.removeProduct(cartProductId);
-		cartRepository.save(cart);
+		Cart lockedCart = cartRepository.findByBuyerIdForUpdateWithCartProducts(buyerId)
+			.orElseThrow(() -> new CartException(ErrorCode.CART_PRODUCT_NOT_FOUND));
+		lockedCart.removeProduct(cartProductId);
+		cartRepository.save(lockedCart);
 	}
 
 	private CartResponse toCartResponse(Cart cart) {

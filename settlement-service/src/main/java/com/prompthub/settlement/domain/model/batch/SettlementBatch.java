@@ -1,0 +1,162 @@
+package com.prompthub.settlement.domain.model.batch;
+
+import com.prompthub.settlement.global.common.BaseEntity;
+import com.prompthub.settlement.domain.exception.SettlementBatchInvalidStateException;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "settlement_batch")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class SettlementBatch extends BaseEntity {
+	private static final int FAILURE_REASON_MAX_LENGTH = 1_000;
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.UUID)
+	@Column(name = "batch_id")
+	private UUID id;
+
+	@Column(name = "batch_no", nullable = false, unique = true, length = 100)
+	private String batchNo;
+
+	@Column(name = "job_instance_id", unique = true)
+	private Long jobInstanceId;
+
+	@Column(name = "period_start", nullable = false)
+	private LocalDate periodStart;
+
+	@Column(name = "period_end", nullable = false)
+	private LocalDate periodEnd;
+
+	@Enumerated(EnumType.STRING)
+	@Column(name = "status", nullable = false)
+	private SettlementBatchStatus status;
+
+	@Enumerated(EnumType.STRING)
+	@Column(name = "trigger_type", nullable = false)
+	private TriggerType triggerType;
+
+	@Column(name = "failure_reason", length = 1000)
+	private String failureReason;
+
+	@Column(name = "executed_at")
+	private LocalDateTime executedAt;
+
+	@Version
+	@Column(name = "version", nullable = false)
+	private Long version;
+
+	private SettlementBatch(
+		String batchNo,
+		long jobInstanceId,
+		LocalDate periodStart,
+		LocalDate periodEnd,
+		TriggerType triggerType
+	) {
+		if (jobInstanceId <= 0) {
+			throw new IllegalArgumentException("jobInstanceId는 양수여야 합니다.");
+		}
+		this.batchNo = batchNo;
+		this.jobInstanceId = jobInstanceId;
+		this.periodStart = periodStart;
+		this.periodEnd = periodEnd;
+		this.triggerType = triggerType;
+		this.status = SettlementBatchStatus.PROCESSING;
+	}
+
+	public static SettlementBatch start(
+		String batchNo,
+		long jobInstanceId,
+		LocalDate periodStart,
+		LocalDate periodEnd,
+		TriggerType triggerType
+	) {
+		return new SettlementBatch(batchNo, jobInstanceId, periodStart, periodEnd, triggerType);
+	}
+
+	public void complete() {
+		verifyStatus(SettlementBatchStatus.PROCESSING);
+		this.status = SettlementBatchStatus.COMPLETED;
+		this.executedAt = LocalDateTime.now();
+	}
+
+	public void fail(String failureReason) {
+		verifyStatus(SettlementBatchStatus.PROCESSING);
+		this.status = SettlementBatchStatus.FAILED;
+		this.failureReason = truncate(failureReason);
+		this.executedAt = LocalDateTime.now();
+	}
+
+	public void failReconciliation(String failureReason) {
+		verifyStatus(SettlementBatchStatus.PROCESSING);
+		this.status = SettlementBatchStatus.RECONCILIATION_FAILED;
+		this.failureReason = truncate(failureReason);
+		this.executedAt = LocalDateTime.now();
+	}
+
+	public void requestRetry() {
+		if (this.status != SettlementBatchStatus.FAILED
+			&& this.status != SettlementBatchStatus.RECONCILIATION_FAILED) {
+			throw new SettlementBatchInvalidStateException(
+				SettlementBatchStatus.FAILED,
+				this.status);
+		}
+		this.status = SettlementBatchStatus.RETRY_REQUESTED;
+	}
+
+	public void startRetry() {
+		verifyStatus(SettlementBatchStatus.RETRY_REQUESTED);
+		this.status = SettlementBatchStatus.PROCESSING;
+		this.failureReason = null;
+		this.executedAt = null;
+	}
+
+	public void restoreFailed(String failureReason) {
+		verifyStatus(SettlementBatchStatus.RETRY_REQUESTED);
+		this.status = SettlementBatchStatus.FAILED;
+		this.failureReason = truncate(failureReason);
+		this.executedAt = LocalDateTime.now();
+	}
+
+	public boolean isProcessing() {
+		return this.status == SettlementBatchStatus.PROCESSING;
+	}
+
+	public boolean isCompleted() {
+		return this.status == SettlementBatchStatus.COMPLETED;
+	}
+
+	public boolean isRetryRequested() {
+		return this.status == SettlementBatchStatus.RETRY_REQUESTED;
+	}
+
+	private void verifyStatus(SettlementBatchStatus expected) {
+		if (this.status != expected) {
+			throw new SettlementBatchInvalidStateException(expected, this.status);
+		}
+	}
+
+	private String truncate(String reason) {
+		if (reason == null || reason.length() <= FAILURE_REASON_MAX_LENGTH) {
+			return reason;
+		}
+		return reason.substring(0, FAILURE_REASON_MAX_LENGTH);
+	}
+
+}

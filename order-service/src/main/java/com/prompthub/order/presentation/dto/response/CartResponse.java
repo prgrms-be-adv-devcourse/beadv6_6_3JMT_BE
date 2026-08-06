@@ -7,7 +7,7 @@ import java.util.UUID;
 
 @Schema(description = "장바구니 조회 응답")
 public record CartResponse(
-	@Schema(description = "장바구니 ID", example = "00000000-0000-0000-0000-000000000700")
+	@Schema(description = "장바구니 ID. 장바구니가 없으면 null", example = "00000000-0000-0000-0000-000000000700", nullable = true)
 	UUID cartId,
 	@Schema(description = "구매자 ID", example = "7c2f6e91-2c1b-4a3b-9f99-3f527f7d1234")
 	UUID buyerId,

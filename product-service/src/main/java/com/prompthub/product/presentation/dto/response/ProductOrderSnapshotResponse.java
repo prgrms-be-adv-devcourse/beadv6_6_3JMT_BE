@@ -12,9 +12,9 @@ public record ProductOrderSnapshotResponse(
 	String model
 ) {
 
-	public static ProductOrderSnapshotResponse from(Product product) {
+	public static ProductOrderSnapshotResponse from(UUID productId, Product product) {
 		return new ProductOrderSnapshotResponse(
-			product.getId(),
+			productId,
 			product.getSellerId(),
 			product.getName(),
 			product.getProductType().name(),

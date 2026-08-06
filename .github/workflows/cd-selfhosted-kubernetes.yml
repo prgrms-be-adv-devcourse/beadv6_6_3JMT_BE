@@ -1,0 +1,298 @@
+name: CD - Self-hosted Kubernetes
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        description: "배포 대상"
+        required: true
+        type: string
+      confirmation:
+        description: "실행 확인 문자열"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "수동 배포 대상"
+        required: true
+        type: choice
+        options:
+          - runner-runtime
+          - elk-diagnostics
+          - infrastructure
+          - ingress
+          - elk
+      confirmation:
+        description: "runner-runtime은 PROVISION, elk-diagnostics는 DIAGNOSE, 배포 대상은 DEPLOY 입력"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-selfhosted-kubernetes
+  cancel-in-progress: false
+
+env:
+  NAMESPACE: prompthub
+  KUBECONFIG: /home/ubuntu/.kube/config
+
+jobs:
+  provision-runner-runtime:
+    name: Provision Runner Runtime
+    if: inputs.target == 'runner-runtime'
+    runs-on: [self-hosted, linux, deploy]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: 수동 실행 확인
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "PROVISION" ]; then
+            echo "runner-runtime은 confirmation에 PROVISION을 입력해야 합니다." >&2
+            exit 1
+          fi
+
+      - name: Ruby 프로비저닝 회귀 검증
+        shell: bash
+        run: bash scripts/test-provision-self-hosted-runner-ruby.sh
+
+      - name: Ruby 설치와 표준 라이브러리 확인
+        shell: bash
+        run: bash scripts/provision-self-hosted-runner-ruby.sh
+
+      - name: Kubernetes 배포 권한 진단
+        shell: bash
+        run: |
+          set -u
+
+          kubectl config current-context
+          kubectl config view --minify \
+            -o jsonpath='user={.contexts[0].context.user} namespace={.contexts[0].context.namespace}{"\n"}'
+
+          kubectl auth can-i get namespaces || true
+          kubectl auth can-i get secrets -n elk || true
+          kubectl auth can-i create namespaces || true
+          kubectl auth can-i patch namespaces || true
+          kubectl auth can-i create persistentvolumes || true
+          kubectl auth can-i patch persistentvolumes || true
+          kubectl auth can-i create clusterroles.rbac.authorization.k8s.io || true
+          kubectl auth can-i patch clusterroles.rbac.authorization.k8s.io || true
+          kubectl auth can-i create clusterrolebindings.rbac.authorization.k8s.io || true
+          kubectl auth can-i patch clusterrolebindings.rbac.authorization.k8s.io || true
+
+          certificate_data="$(
+            kubectl config view --raw --minify \
+              -o jsonpath='{.users[0].user.client-certificate-data}'
+          )"
+          if [ -n "$certificate_data" ]; then
+            printf '%s' "$certificate_data" |
+              base64 --decode |
+              openssl x509 -noout -subject
+          fi
+
+  diagnose-elk:
+    name: Diagnose ELK Bootstrap
+    if: inputs.target == 'elk-diagnostics'
+    runs-on: [self-hosted, linux, deploy]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: 수동 실행 확인
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "DIAGNOSE" ]; then
+            echo "elk-diagnostics는 confirmation에 DIAGNOSE를 입력해야 합니다." >&2
+            exit 1
+          fi
+
+      - name: Kibana 운영 대시보드 bootstrap 진단
+        shell: bash
+        run: |
+          set -u
+
+          kubectl config current-context
+          kubectl get deployment kibana -n elk -o wide || true
+          kubectl get endpoints kibana -n elk -o wide || true
+          kubectl get job kibana-operations-dashboards-bootstrap -n elk -o wide || true
+          kubectl describe job kibana-operations-dashboards-bootstrap -n elk || true
+          kubectl get pods -n elk -l job-name=kibana-operations-dashboards-bootstrap -o wide || true
+
+          mapfile -t pods < <(
+            kubectl get pods -n elk \
+              -l job-name=kibana-operations-dashboards-bootstrap \
+              -o name
+          )
+          for pod in "${pods[@]}"; do
+            kubectl describe "$pod" -n elk || true
+            kubectl logs -n elk "$pod" --all-containers=true --timestamps=true || true
+            kubectl logs -n elk "$pod" --all-containers=true --timestamps=true --previous || true
+          done
+
+          kubectl get events -n elk --sort-by=.lastTimestamp | tail -n 80 || true
+
+  deploy-infrastructure:
+    name: Manually Deploy Infrastructure
+    if: inputs.target == 'infrastructure'
+    runs-on: [self-hosted, linux, deploy]
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: 수동 실행 확인
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "DEPLOY" ]; then
+            echo "confirmation에 DEPLOY를 입력해야 합니다." >&2
+            exit 1
+          fi
+
+      - name: 클러스터와 매니페스트 확인
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          command -v kubectl >/dev/null
+          test -r "$KUBECONFIG"
+          kubectl config current-context
+          kubectl wait --for=condition=Ready node --all --timeout=60s
+          bash scripts/validate-k8s-manifests.sh
+
+      - name: Storage와 상태 저장 인프라 적용
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          kubectl apply -f k8s/base/namespace.yaml
+          kubectl get secret postgres-secret -n "$NAMESPACE" >/dev/null
+          kubectl apply -k k8s/base/storage
+          kubectl apply -k k8s/base/infrastructure
+
+          for statefulset in postgres redis kafka; do
+            kubectl rollout status statefulset/"$statefulset" -n "$NAMESPACE" --timeout=10m
+          done
+
+          kubectl get pv
+          kubectl get pvc -n "$NAMESPACE"
+          kubectl get statefulset -n "$NAMESPACE"
+
+  deploy-ingress:
+    name: Manually Deploy Ingress
+    if: inputs.target == 'ingress'
+    runs-on: [self-hosted, linux, deploy]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: 수동 실행 확인
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "DEPLOY" ]; then
+            echo "confirmation에 DEPLOY를 입력해야 합니다." >&2
+            exit 1
+          fi
+
+      - name: Gateway와 host listener 확인
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          command -v kubectl >/dev/null
+          command -v ss >/dev/null
+          test -r "$KUBECONFIG"
+          kubectl config current-context
+          bash scripts/validate-k8s-manifests.sh
+
+          kubectl get service apigateway -n "$NAMESPACE" >/dev/null
+          kubectl rollout status deployment/apigateway -n "$NAMESPACE" --timeout=10m
+
+          controller_ready="$(kubectl get daemonset nginx-ingress -n nginx-ingress -o jsonpath='{.status.numberAvailable}' 2>/dev/null || true)"
+          controller_ready="${controller_ready:-0}"
+
+          if [ "$controller_ready" -eq 0 ]; then
+            for port in 80 443 18080 18081; do
+              if ss -H -ltn "sport = :$port" | grep -q .; then
+                echo "Large의 $port 포트를 다른 프로세스가 사용 중입니다." >&2
+                exit 1
+              fi
+            done
+          fi
+
+      - name: Ingress Controller와 Gateway Ingress 적용
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          kubectl apply -k k8s/addons/nginx-ingress
+          kubectl rollout status daemonset/nginx-ingress -n nginx-ingress --timeout=10m
+          kubectl apply -f k8s/overlays/ec2-kubeadm/gateway-ingress.yaml -n "$NAMESPACE"
+
+          kubectl get pods -n nginx-ingress -o wide
+          kubectl get ingress apigateway -n "$NAMESPACE"
+
+  deploy-elk:
+    name: Deploy ELK
+    if: inputs.target == 'elk'
+    runs-on: [self-hosted, linux, deploy]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: 수동 실행 확인
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "DEPLOY" ]; then
+            echo "confirmation에 DEPLOY를 입력해야 합니다." >&2
+            exit 1
+          fi
+
+      - name: 클러스터와 매니페스트 확인
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v kubectl >/dev/null
+          test -r "$KUBECONFIG"
+          kubectl config current-context
+          kubectl get namespace elk >/dev/null
+          kubectl get secret logstash-http-credentials -n elk >/dev/null
+          kubectl get secret kibana-encryption -n elk >/dev/null
+          bash scripts/validate-k8s-manifests.sh
+
+      - name: ELK application log 수집 적용
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl kustomize k8s/addons/elk >/dev/null
+          kubectl apply --server-side --dry-run=server -k k8s/addons/elk
+          kubectl delete job application-logs-ilm-bootstrap application-logs-kibana-bootstrap -n elk --ignore-not-found
+          kubectl delete job payment-audit-log-ilm-bootstrap payment-audit-log-kibana-bootstrap -n elk --ignore-not-found
+          kubectl delete job kibana-operations-dashboards-bootstrap -n elk --ignore-not-found
+          kubectl apply --server-side -k k8s/addons/elk
+          kubectl rollout restart deployment/logstash -n elk
+          kubectl rollout restart daemonset/fluent-bit -n elk
+          kubectl rollout status deployment/logstash -n elk --timeout=10m
+          kubectl rollout status daemonset/fluent-bit -n elk --timeout=10m
+          kubectl wait --for=condition=complete job/application-logs-ilm-bootstrap -n elk --timeout=10m
+          kubectl wait --for=condition=complete job/application-logs-kibana-bootstrap -n elk --timeout=10m
+          kubectl wait --for=condition=complete job/payment-audit-log-ilm-bootstrap -n elk --timeout=10m
+          kubectl wait --for=condition=complete job/payment-audit-log-kibana-bootstrap -n elk --timeout=10m
+          kubectl wait --for=condition=complete job/kibana-operations-dashboards-bootstrap -n elk --timeout=10m

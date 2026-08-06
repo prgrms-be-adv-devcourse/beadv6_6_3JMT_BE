@@ -6,7 +6,7 @@ spring:
     config:
       enabled: false
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:prompthub_product_dev}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:prompthub_product_dev}?currentSchema=product_service
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -16,11 +16,13 @@ spring:
       max-request-size: 10MB
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:create-only}
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     open-in-view: false
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          time_zone: Asia/Seoul
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
@@ -42,9 +44,24 @@ cloud:
     s3:
       bucket: ${AWS_S3_BUCKET:3jmt-prompthub-bucket}
 
+elasticsearch:
+  uris: ${ES_URIS:http://localhost:9200}
+
 eureka:
   client:
     enabled: false
+
+prompthub:
+  search:
+    reconcile:
+      fixed-delay-ms: 20000
+    ranking:
+      sales-weight: 0.3
+      view-weight: 0.1
+      rating-weight: 0.1
+      freshness-weight: 0.2
+      freshness-scale: 30d
+      freshness-decay: 0.7
 
 logging:
   level:

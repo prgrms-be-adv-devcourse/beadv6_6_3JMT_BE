@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?currentSchema=product_service
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -11,6 +11,12 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Seoul
+  jackson:
+    time-zone: Asia/Seoul
   servlet:
     multipart:
       max-file-size: 10MB
@@ -21,6 +27,14 @@ spring:
       group-id: product-service
       auto-offset-reset: earliest
       enable-auto-commit: false
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      embedding:
+        options:
+          # 1536차원 — products-v1 매핑의 dense_vector, product.embedding vector(1536)과 맞물린다.
+          # 바꾸려면 두 스키마와 저장된 임베딩을 함께 다시 만들어야 한다.
+          model: text-embedding-3-small
 
 grpc:
   server:
@@ -36,7 +50,30 @@ cloud:
     s3:
       bucket: ${AWS_S3_BUCKET}
 
+elasticsearch:
+  uris: ${ES_URIS}
+  # 인증·TLS는 값이 있을 때만 적용된다(#582). ES 보안을 켜기 전까지는 비어 있는 채로
+  # 두면 되고, 그동안은 지금과 똑같이 무인증 HTTP로 연결된다.
+  # 기본값이 있어 Secret 계약 검증(scripts/validate-k8s-secret-contract.sh)의 필수 키가 아니다.
+  username: ${ES_USERNAME:}
+  password: ${ES_PASSWORD:}
+  ca-path: ${ES_CA_PATH:}
+
+prompthub:
+  search:
+    reconcile:
+      fixed-delay-ms: 20000
+    ranking:
+      sales-weight: 0.3
+      view-weight: 0.1
+      rating-weight: 0.1
+      freshness-weight: 0.2
+      freshness-scale: 30d
+      freshness-decay: 0.7
+
 logging:
   level:
     com.prompthub.product: INFO
-    org.hibernate.SQL: DEBUG
+    # search 패키지가 빠져 있어 임베딩 생성·재조정 동작을 운영에서 확인할 수 없었다.
+    # ProductEmbeddingUpdater·QueryEmbeddingCache가 여기에 속한다.
+    com.prompthub.search: INFO

@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?currentSchema=settlement_service
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -11,29 +11,31 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Seoul
+  jackson:
+    time-zone: Asia/Seoul
   batch:
     job:
       enabled: false
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
-    consumer:
-      group-id: settlement-service
-      auto-offset-reset: earliest
-      enable-auto-commit: false
+  grpc:
+    client:
+      channel:
+        user-service:
+          target: ${USER_GRPC_TARGET:static://user-service:9081}
 
 grpc:
-  server:
-    port: ${SETTLEMENT_GRPC_SERVER_PORT}
   client:
-    user-service:
-      address: user-service:${USER_GRPC_SERVER_PORT}
     product-service:
       address: product-service:${PRODUCT_GRPC_SERVER_PORT}
+    order-service:
+      address: 'static://order-service:${ORDER_GRPC_SERVER_PORT}'
+      negotiation-type: plaintext
 
 settlement:
-  scheduler:
-    cron: "0 0 4 1 * *"
-  kafka:
-    listener:
-      order:
-        enabled: false
+  delivery:
+    grpc:
+      internal-token: ${SETTLEMENT_USER_GRPC_TOKEN}
+      deadline: 10s

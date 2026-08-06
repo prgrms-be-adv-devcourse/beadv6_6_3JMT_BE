@@ -1,6 +1,11 @@
 apply plugin: 'com.google.protobuf'
 
 dependencies {
+    // 임베딩 생성 (#378). ai-service와 같은 스타터로, chat뿐 아니라 embedding 오토컨피그도
+    // 함께 제공한다 — spring.ai.openai.api-key만 주면 EmbeddingModel 빈이 주입된다.
+    implementation platform('org.springframework.ai:spring-ai-bom:2.0.0')
+    implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+
     // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
 
@@ -14,9 +19,17 @@ dependencies {
     implementation 'com.google.protobuf:protobuf-java'
     compileOnly 'org.apache.tomcat:annotations-api:6.0.53'
 
+    // Elasticsearch (검색 색인 파이프라인, #376) — 정확한 patch 버전은 ES 서버(9.4.3)와
+    // 맞춰 Maven Central에서 확인 후 고정한다.
+    implementation 'co.elastic.clients:elasticsearch-java:9.0.2'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
     testImplementation 'org.testcontainers:testcontainers-postgresql'
+    // org.testcontainers:elasticsearch 전용 모듈은 testcontainers-core 2.x 라인에 맞는
+    // 릴리스가 아직 없어(Maven Central 최신 1.21.4, core는 2.0.5) 쓰지 않는다.
+    // testcontainers-junit-jupiter가 이미 가져오는 core의 GenericContainer로 직접 띄운다.
     // Root build.gradle에서 상속되지 않는 경우 대비
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'com.h2database:h2'
@@ -24,6 +37,15 @@ dependencies {
 
 tasks.named('test') {
     jvmArgs = ['-Dspring.profiles.active=test']
+}
+
+// 서버로서 제공하는 gRPC 계약은 루트 grpc/product 에서 단일 관리(소유자=product). grpc/README.md 참조.
+sourceSets {
+    main {
+        proto {
+            srcDir "${rootProject.projectDir}/grpc/product"
+        }
+    }
 }
 
 protobuf {

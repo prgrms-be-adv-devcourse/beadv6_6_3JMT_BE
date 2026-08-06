@@ -1,10 +1,16 @@
 package com.prompthub.user.auth.presentation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.prompthub.user.auth.application.dto.OAuthLoginResult;
+import com.prompthub.user.auth.application.dto.OAuthLoginCompletedResult;
+import com.prompthub.user.auth.application.dto.OAuthRejoinRequiredResult;
 import com.prompthub.user.auth.application.dto.TokenRefreshResult;
 import com.prompthub.user.auth.application.usecase.AuthUseCase;
+import com.prompthub.user.auth.application.usecase.RejoinUseCase;
+import com.prompthub.user.auth.domain.exception.BlockedAccountException;
 import com.prompthub.user.auth.domain.exception.InvalidRefreshTokenException;
+import com.prompthub.user.auth.domain.exception.InvalidRejoinTokenException;
+import com.prompthub.user.auth.domain.exception.OAuthVerificationFailedException;
+import com.prompthub.user.auth.domain.exception.RefreshTokenReuseDetectedException;
 import com.prompthub.user.auth.domain.exception.TokenExpiredException;
 import com.prompthub.user.auth.domain.exception.UnsupportedOAuthProviderException;
 import com.prompthub.user.auth.presentation.dto.request.OAuthLoginRequest;
@@ -17,9 +23,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
@@ -46,11 +50,15 @@ class AuthControllerTest {
     @MockitoBean
     private AuthUseCase authUseCase;
 
+    @MockitoBean
+    private RejoinUseCase rejoinUseCase;
+
     private static final UUID USER_ID = UUID.randomUUID();
     private static final Instant EXPIRES_AT = Instant.now().plusSeconds(3600);
+    private static final Instant REJOIN_EXPIRES_AT = Instant.parse("2026-07-30T12:05:00Z");
 
-    private OAuthLoginResult successResult(boolean isNewUser) {
-        return new OAuthLoginResult(
+    private OAuthLoginCompletedResult successResult(boolean isNewUser) {
+        return new OAuthLoginCompletedResult(
                 USER_ID,
                 "테스트유저",
                 "test@kakao.com",
@@ -67,15 +75,14 @@ class AuthControllerTest {
     void oAuthLogin_kakao_기존_사용자_200() throws Exception {
         given(authUseCase.oAuthLogin(any())).willReturn(successResult(false));
 
-        OAuthLoginRequest request = new OAuthLoginRequest(
-                "kakao_123456", "테스트유저", "https://img.kakao.com/profile.jpg", "test@kakao.com"
-        );
+        OAuthLoginRequest request = new OAuthLoginRequest("kakao-access-token");
 
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao")
+        mockMvc.perform(post("/api/v2/auth/oauth/kakao")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.loginStatus").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.accessToken").value("access-token"))
                 .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.data.user.email").value("test@kakao.com"))
@@ -86,11 +93,9 @@ class AuthControllerTest {
     void oAuthLogin_kakao_신규_사용자_isNewUser_true() throws Exception {
         given(authUseCase.oAuthLogin(any())).willReturn(successResult(true));
 
-        OAuthLoginRequest request = new OAuthLoginRequest(
-                "kakao_new_user", "신규유저", "https://img.kakao.com/profile.jpg", "newuser@kakao.com"
-        );
+        OAuthLoginRequest request = new OAuthLoginRequest("kakao-access-token");
 
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao")
+        mockMvc.perform(post("/api/v2/auth/oauth/kakao")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -98,40 +103,84 @@ class AuthControllerTest {
     }
 
     @Test
-    void oAuthLogin_oauthId_누락_400() throws Exception {
-        String body = """
-                {
-                    "nickname": "테스트유저",
-                    "profileImage": "https://img.kakao.com/profile.jpg",
-                    "email": "test@kakao.com"
-                }
-                """;
+    void oAuthLogin_WITHDRAWN_사용자는_재가입정보만_응답한다() throws Exception {
+        given(authUseCase.oAuthLogin(any()))
+                .willReturn(new OAuthRejoinRequiredResult("rejoin-token", REJOIN_EXPIRES_AT));
 
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao")
+        OAuthLoginRequest request = new OAuthLoginRequest("kakao-access-token");
+
+        mockMvc.perform(post("/api/v2/auth/oauth/kakao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.loginStatus").value("REJOIN_REQUIRED"))
+                .andExpect(jsonPath("$.data.isNewUser").value(false))
+                .andExpect(jsonPath("$.data.rejoinToken").value("rejoin-token"))
+                .andExpect(jsonPath("$.data.rejoinExpiresAt").value("2026-07-30T12:05:00Z"))
+                .andExpect(jsonPath("$.data.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
+    }
+
+    @Test
+    void oAuthLogin_BLOCKED_사용자는_403_A004() throws Exception {
+        given(authUseCase.oAuthLogin(any())).willThrow(new BlockedAccountException());
+
+        OAuthLoginRequest request = new OAuthLoginRequest("kakao-access-token");
+
+        mockMvc.perform(post("/api/v2/auth/oauth/kakao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("A004"));
+    }
+
+    @Test
+    void rejoin_유효한_토큰이면_계정을_복구하고_로그인응답_200() throws Exception {
+        given(rejoinUseCase.rejoin(any())).willReturn(successResult(false));
+
+        mockMvc.perform(post("/api/v2/auth/rejoin")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rejoinToken\":\"rejoin-token\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.loginStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.isNewUser").value(false))
+                .andExpect(jsonPath("$.data.accessToken").value("access-token"));
+    }
+
+    @Test
+    void rejoin_빈_토큰이면_400() throws Exception {
+        mockMvc.perform(post("/api/v2/auth/rejoin")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rejoinToken\":\"\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejoin_유효하지_않거나_만료된_토큰이면_401_A014() throws Exception {
+        given(rejoinUseCase.rejoin(any())).willThrow(new InvalidRejoinTokenException());
+
+        mockMvc.perform(post("/api/v2/auth/rejoin")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rejoinToken\":\"invalid-token\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("A014"));
+    }
+
+    @Test
+    void oAuthLogin_accessToken_누락_400() throws Exception {
+        String body = "{}";
+
+        mockMvc.perform(post("/api/v2/auth/oauth/kakao")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    void oAuthLogin_email_형식_오류_400() throws Exception {
-        OAuthLoginRequest request = new OAuthLoginRequest(
-                "kakao_123456", "테스트유저", "https://img.kakao.com/profile.jpg", "not-an-email"
-        );
+    void oAuthLogin_accessToken_빈_문자열_400() throws Exception {
+        OAuthLoginRequest request = new OAuthLoginRequest("");
 
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void oAuthLogin_nickname_빈_문자열_400() throws Exception {
-        OAuthLoginRequest request = new OAuthLoginRequest(
-                "kakao_123456", "", "https://img.kakao.com/profile.jpg", "test@kakao.com"
-        );
-
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao")
+        mockMvc.perform(post("/api/v2/auth/oauth/kakao")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -141,31 +190,42 @@ class AuthControllerTest {
     void oAuthLogin_미지원_provider_400() throws Exception {
         given(authUseCase.oAuthLogin(any())).willThrow(new UnsupportedOAuthProviderException("twitter"));
 
-        OAuthLoginRequest request = new OAuthLoginRequest(
-                "twitter_123", "트위터유저", "https://img.twitter.com/profile.jpg", "test@twitter.com"
-        );
+        OAuthLoginRequest request = new OAuthLoginRequest("twitter-access-token");
 
-        mockMvc.perform(post("/api/v1/auth/oauth/twitter")
+        mockMvc.perform(post("/api/v2/auth/oauth/twitter")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
+    void oAuthLogin_카카오_인증_실패_401() throws Exception {
+        given(authUseCase.oAuthLogin(any())).willThrow(new OAuthVerificationFailedException("유효하지 않은 액세스 토큰"));
+
+        OAuthLoginRequest request = new OAuthLoginRequest("invalid-access-token");
+
+        mockMvc.perform(post("/api/v2/auth/oauth/kakao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("A011"));
+    }
+
+    @Test
     void oAuthLogin_요청_본문_없음_400() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao")
+        mockMvc.perform(post("/api/v2/auth/oauth/kakao")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void refreshToken_유효한_RT_새_AT_발급_200() throws Exception {
-        TokenRefreshResult result = new TokenRefreshResult("new-access-token", EXPIRES_AT);
+        TokenRefreshResult result = new TokenRefreshResult("new-access-token", EXPIRES_AT, "new-refresh-token");
         given(authUseCase.refresh(any())).willReturn(result);
 
         TokenRefreshRequest request = new TokenRefreshRequest("valid-refresh-token");
 
-        mockMvc.perform(post("/api/v1/auth/token/refresh")
+        mockMvc.perform(post("/api/v2/auth/token/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -179,7 +239,7 @@ class AuthControllerTest {
 
         TokenRefreshRequest request = new TokenRefreshRequest("expired-refresh-token");
 
-        mockMvc.perform(post("/api/v1/auth/token/refresh")
+        mockMvc.perform(post("/api/v2/auth/token/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
@@ -192,7 +252,7 @@ class AuthControllerTest {
 
         TokenRefreshRequest request = new TokenRefreshRequest("invalid-refresh-token");
 
-        mockMvc.perform(post("/api/v1/auth/token/refresh")
+        mockMvc.perform(post("/api/v2/auth/token/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
@@ -203,17 +263,44 @@ class AuthControllerTest {
     void refreshToken_RT_누락_400() throws Exception {
         String body = "{}";
 
-        mockMvc.perform(post("/api/v1/auth/token/refresh")
+        mockMvc.perform(post("/api/v2/auth/token/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
+    void refreshToken_정상_응답에_새_RT_포함() throws Exception {
+        TokenRefreshResult result = new TokenRefreshResult("new-access-token", EXPIRES_AT, "new-refresh-token");
+        given(authUseCase.refresh(any())).willReturn(result);
+
+        TokenRefreshRequest request = new TokenRefreshRequest("valid-refresh-token");
+
+        mockMvc.perform(post("/api/v2/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.refreshToken").value("new-refresh-token"));
+    }
+
+    @Test
+    void refreshToken_재사용_감지시_401() throws Exception {
+        given(authUseCase.refresh(any())).willThrow(new RefreshTokenReuseDetectedException());
+
+        TokenRefreshRequest request = new TokenRefreshRequest("reused-refresh-token");
+
+        mockMvc.perform(post("/api/v2/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("A012"));
+    }
+
+    @Test
     void logout_정상_200() throws Exception {
         willDoNothing().given(authUseCase).logout(any(UUID.class));
 
-        mockMvc.perform(post("/api/v1/auth/logout")
+        mockMvc.perform(post("/api/v2/auth/logout")
                         .header("X-User-Id", USER_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -222,7 +309,7 @@ class AuthControllerTest {
 
     @Test
     void logout_XUserId_헤더_누락_403() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/logout"))
+        mockMvc.perform(post("/api/v2/auth/logout"))
                 .andExpect(status().isForbidden());
     }
 }

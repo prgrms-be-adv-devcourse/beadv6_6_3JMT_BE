@@ -4,7 +4,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.context.ActiveProfiles;
 import com.prompthub.order.application.client.ProductClient;
-import com.prompthub.order.application.client.SellerClient;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest(properties = {
@@ -15,14 +14,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 })
 @EmbeddedKafka(
 	partitions = 1,
-	topics = {"order-events", "payment.events", "payment.events.DLT", "product-events"}
+	topics = {"order-events", "order-events.DLT", "payment-events", "payment-events.DLT", "product-events"}
 )
 @ActiveProfiles("test")
 public abstract class KafkaIntegrationTest {
 
 	@MockitoBean
 	protected ProductClient productClient;
-
-	@MockitoBean
-	protected SellerClient sellerClient;
 }

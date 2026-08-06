@@ -3,17 +3,19 @@ apply plugin: 'com.google.protobuf'
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-batch'
 
+    // gRPC 클라이언트 (order-service 정산 대상 라인 조회용 — #260)
+    implementation 'org.springframework.boot:spring-boot-starter-grpc-client'
+    implementation 'io.grpc:grpc-stub'
+    implementation 'io.grpc:grpc-protobuf'
+
     // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
 
-    // gRPC (타 서비스 동기 호출 — User 판매자명, Product 상품 수 / 버전은 Boot BOM의 grpc-bom이 관리)
-    implementation 'io.grpc:grpc-stub'
-    implementation 'io.grpc:grpc-protobuf'
-    runtimeOnly 'io.grpc:grpc-netty-shaded'
-    implementation 'com.google.protobuf:protobuf-java'
     compileOnly 'org.apache.tomcat:annotations-api:6.0.53'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+    testImplementation 'org.testcontainers:testcontainers-postgresql'
     // 테스트용 인메모리 DB — @SpringBootTest 가 외부 실 PostgreSQL 에 의존하지 않게 한다
     testRuntimeOnly 'com.h2database:h2'
 }
@@ -32,6 +34,17 @@ protobuf {
             task.plugins {
                 grpc {}
             }
+        }
+    }
+}
+
+// 루트 공유 gRPC 계약(소유: order 서버)을 이 모듈 proto 소스에 더한다.
+// order 서버와 settlement 클라이언트가 같은 계약을 참조한다. ../docs/grpc-contract-ownership.md 참고.
+sourceSets {
+    main {
+        proto {
+            srcDir "${rootProject.projectDir}/grpc/order"
+            srcDir "${rootProject.projectDir}/grpc/user"
         }
     }
 }

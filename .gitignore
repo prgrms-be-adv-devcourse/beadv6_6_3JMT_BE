@@ -178,15 +178,13 @@ gradle-app.setting
 **/skill-creator/
 **/agent-creator/
 
-/AGENTS.md
-/docs/superpowers/
+#/AGENTS.md
+/docs/qa/
 /.env
 /order-service/.env
 /settlement-service/.env
-/CLAUDE.md
+#/CLAUDE.md
 
-# Claude Code 루트 커맨드 (로컬 전용)
-/.claude/
 
 # 개인 키 / 인증서 (커밋 금지)
 *.pem
@@ -211,5 +209,5 @@ nbdist/
 .nb-gradle/
 .vscode/
 
-### Superpowers (설계·계획 산출물, 공유 제외) ###
-settlement-service/docs/superpowers/
+### 분석 도구 산출물 (로컬 캐시, 공유 제외) ###
+.understand-anything/

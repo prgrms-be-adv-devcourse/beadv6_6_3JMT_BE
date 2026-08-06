@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  labels:
+    app.kubernetes.io/name: product-service
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: service
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: product-service
+  ports:
+    - name: http
+      port: 8082
+      targetPort: http
+      protocol: TCP
+    - name: grpc
+      port: 9082
+      targetPort: grpc
+      protocol: TCP

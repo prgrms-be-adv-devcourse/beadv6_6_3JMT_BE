@@ -3,19 +3,29 @@ package com.prompthub.user.sellersettlement.infrastructure.persistence;
 import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
 import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
 import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementRepository;
-import java.time.LocalDate;
-import java.time.YearMonth;
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor
 public class SellerSettlementRepositoryAdapter implements SellerSettlementRepository {
+
+    private static final List<SettlementDisplayStatus> REVENUE_STATUSES = List.of(
+            SettlementDisplayStatus.WAITING,
+            SettlementDisplayStatus.APPROVAL_ON_HOLD,
+            SettlementDisplayStatus.APPROVED,
+            SettlementDisplayStatus.PAYOUT_REQUESTED,
+            SettlementDisplayStatus.PAYOUT_ON_HOLD,
+            SettlementDisplayStatus.PAID);
+    private static final List<SettlementDisplayStatus> APPROVED_STATUSES = List.of(
+            SettlementDisplayStatus.APPROVED,
+            SettlementDisplayStatus.PAYOUT_REQUESTED,
+            SettlementDisplayStatus.PAYOUT_ON_HOLD,
+            SettlementDisplayStatus.PAID);
 
     private final SellerSettlementJpaRepository jpaRepository;
 
@@ -35,14 +45,19 @@ public class SellerSettlementRepositoryAdapter implements SellerSettlementReposi
     }
 
     @Override
-    public SellerSettlementPage findPageBySeller(
-            UUID sellerId, SettlementDisplayStatus status, YearMonth period, int page, int size) {
-        LocalDate periodStart = period == null ? null : period.atDay(1);
-        LocalDate periodEnd = period == null ? null : period.atEndOfMonth();
-        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "periodStart")
-                .and(Sort.by(Sort.Direction.ASC, "sellerSettlementId")));
-        Page<SellerSettlement> result = jpaRepository.findPageBySeller(
-                sellerId, status, periodStart, periodEnd, pageable);
-        return new SellerSettlementPage(result.getContent(), result.getTotalElements());
+    public Optional<SellerSettlement> findByDeliveryRequestId(UUID deliveryRequestId) {
+        return jpaRepository.findByDeliveryRequestId(deliveryRequestId);
+    }
+
+    @Override
+    public BigDecimal sumTotalAmountBySeller(UUID sellerId) {
+        return jpaRepository.sumTotalAmountBySellerAndStatusIn(
+                sellerId, REVENUE_STATUSES);
+    }
+
+    @Override
+    public BigDecimal sumApprovedSettlementAmountBySeller(UUID sellerId) {
+        return jpaRepository.sumSettlementTotalAmountBySellerAndStatusIn(
+                sellerId, APPROVED_STATUSES);
     }
 }

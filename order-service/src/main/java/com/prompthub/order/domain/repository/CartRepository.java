@@ -10,6 +10,8 @@ public interface CartRepository {
 
 	Optional<Cart> findByBuyerIdWithCartProducts(UUID buyerId);
 
+	Optional<Cart> findByBuyerIdForUpdateWithCartProducts(UUID buyerId);
+
 	Optional<CartProduct> findCartProductWithCart(UUID cartProductId);
 
 	Cart save(Cart cart);

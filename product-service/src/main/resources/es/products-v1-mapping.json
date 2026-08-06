@@ -1,0 +1,51 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "properties": {
+      "familyRootId": { "type": "keyword" },
+      "productId": { "type": "keyword" },
+      "sellerId": { "type": "keyword" },
+      "name": {
+        "type": "text",
+        "fields": {
+          "keyword": { "type": "keyword" }
+        }
+      },
+      "description": { "type": "text" },
+      "content": { "type": "text" },
+      "tags": {
+        "type": "keyword",
+        "fields": {
+          "text": { "type": "text" }
+        }
+      },
+      "productType": { "type": "keyword" },
+      "model": {
+        "type": "keyword",
+        "fields": {
+          "text": { "type": "text" }
+        }
+      },
+      "amount": { "type": "integer" },
+      "amountType": { "type": "keyword" },
+      "thumbnailUrl": { "type": "keyword", "index": false },
+      "badge": { "type": "keyword" },
+      "salesCount": { "type": "integer" },
+      "viewCount": { "type": "integer" },
+      "reviewCount": { "type": "integer" },
+      "ratingAvg": { "type": "float" },
+      "firstPublishedAt": { "type": "date" },
+      "currentVersionAt": { "type": "date" },
+      "embedding": {
+        "type": "dense_vector",
+        "dims": 1536,
+        "similarity": "cosine",
+        "index_options": { "type": "int8_hnsw" }
+      },
+      "embeddingSourceHash": { "type": "keyword" }
+    }
+  }
+}

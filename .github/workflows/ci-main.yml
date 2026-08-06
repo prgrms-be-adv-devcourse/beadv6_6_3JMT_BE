@@ -31,6 +31,8 @@ jobs:
     if: github.event_name == 'push' || (github.event.pull_request.draft == false && github.head_ref == 'develop')
     outputs:
       user_service:       ${{ steps.filter.outputs.user_service_any_changed }}
+      ai_service:         ${{ steps.filter.outputs.ai_service_any_changed }}
+      notification_service: ${{ steps.filter.outputs.notification_service_any_changed }}
       product_service:    ${{ steps.filter.outputs.product_service_any_changed }}
       payment_service:    ${{ steps.filter.outputs.payment_service_any_changed }}
       order_service:      ${{ steps.filter.outputs.order_service_any_changed }}
@@ -54,6 +56,12 @@ jobs:
           files_yaml: |
             user_service:
               - user-service/**
+              - grpc/user/**
+            ai_service:
+              - ai-service/**
+              - grpc/user/**
+            notification_service:
+              - notification-service/**
             product_service:
               - product-service/**
             payment_service:
@@ -77,7 +85,9 @@ jobs:
               - Dockerfile
               - docker-compose.yml
               - compose.yml
+              - settings.gradle
               - settings.gradle.kts
+              - build.gradle
               - build.gradle.kts
               - gradle/**
 
@@ -88,6 +98,22 @@ jobs:
     with:
       module-name: user-service
       module-path: user-service
+
+  ai_service_ci:
+    needs: changes
+    if: needs.changes.outputs.ai_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: ai-service
+      module-path: ai-service
+
+  notification_service_ci:
+    needs: changes
+    if: needs.changes.outputs.notification_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: notification-service
+      module-path: notification-service
 
   product_service_ci:
     needs: changes
@@ -171,7 +197,33 @@ jobs:
       module-name: user-service
       module-path: user-service
       dockerfile-path: Dockerfile
-      ecr-repository: prompthub-user-service
+      ghcr-repository: prompthub-user-service
+      push-image: false
+
+  ai_service_image_build:
+    needs:
+      - changes
+      - ai_service_ci
+    if: needs.changes.outputs.ai_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: ai-service
+      module-path: ai-service
+      dockerfile-path: Dockerfile
+      ghcr-repository: prompthub-ai-service
+      push-image: false
+
+  notification_service_image_build:
+    needs:
+      - changes
+      - notification_service_ci
+    if: needs.changes.outputs.notification_service == 'true' || needs.changes.outputs.docker_all == 'true'
+    uses: ./.github/workflows/reusable-docker-build.yml
+    with:
+      module-name: notification-service
+      module-path: notification-service
+      dockerfile-path: Dockerfile
+      ghcr-repository: prompthub-notification-service
       push-image: false
 
   product_service_image_build:
@@ -184,7 +236,7 @@ jobs:
       module-name: product-service
       module-path: product-service
       dockerfile-path: Dockerfile
-      ecr-repository: prompthub-product-service
+      ghcr-repository: prompthub-product-service
       push-image: false
 
   payment_service_image_build:
@@ -197,7 +249,7 @@ jobs:
       module-name: payment-service
       module-path: payment-service
       dockerfile-path: Dockerfile
-      ecr-repository: prompthub-payment-service
+      ghcr-repository: prompthub-payment-service
       push-image: false
 
   order_service_image_build:
@@ -210,7 +262,7 @@ jobs:
       module-name: order-service
       module-path: order-service
       dockerfile-path: Dockerfile
-      ecr-repository: prompthub-order-service
+      ghcr-repository: prompthub-order-service
       push-image: false
 
   settlement_service_image_build:
@@ -223,7 +275,7 @@ jobs:
       module-name: settlement-service
       module-path: settlement-service
       dockerfile-path: Dockerfile
-      ecr-repository: prompthub-settlement-service
+      ghcr-repository: prompthub-settlement-service
       push-image: false
 
   admin_service_image_build:
@@ -236,7 +288,7 @@ jobs:
       module-name: admin-service
       module-path: admin-service
       dockerfile-path: Dockerfile
-      ecr-repository: prompthub-admin-service
+      ghcr-repository: prompthub-admin-service
       push-image: false
 
   apigateway_image_build:
@@ -249,7 +301,7 @@ jobs:
       module-name: apigateway
       module-path: apigateway
       dockerfile-path: Dockerfile
-      ecr-repository: prompthub-apigateway
+      ghcr-repository: prompthub-apigateway
       push-image: false
 
   config_image_build:
@@ -262,7 +314,7 @@ jobs:
       module-name: config
       module-path: config
       dockerfile-path: Dockerfile
-      ecr-repository: prompthub-config
+      ghcr-repository: prompthub-config
       push-image: false
 
   discovery_image_build:
@@ -275,7 +327,7 @@ jobs:
       module-name: discovery
       module-path: discovery
       dockerfile-path: Dockerfile
-      ecr-repository: prompthub-discovery
+      ghcr-repository: prompthub-discovery
       push-image: false
 
   ci_gate:
@@ -283,6 +335,8 @@ jobs:
     needs:
       - changes
       - user_service_ci
+      - ai_service_ci
+      - notification_service_ci
       - product_service_ci
       - payment_service_ci
       - order_service_ci
@@ -293,6 +347,8 @@ jobs:
       - discovery_ci
       - common_module_ci
       - user_service_image_build
+      - ai_service_image_build
+      - notification_service_image_build
       - product_service_image_build
       - payment_service_image_build
       - order_service_image_build

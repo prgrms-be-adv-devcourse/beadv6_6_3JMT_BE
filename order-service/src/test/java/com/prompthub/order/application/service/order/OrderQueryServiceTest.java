@@ -1,0 +1,599 @@
+package com.prompthub.order.application.service.order;
+
+import com.prompthub.order.application.client.ProductClient;
+import com.prompthub.order.application.dto.OrderForPaymentResult;
+import com.prompthub.order.application.dto.OrderListProjection;
+import com.prompthub.order.application.dto.OrderListProductProjection;
+import com.prompthub.order.application.dto.ProductContent;
+import com.prompthub.order.domain.enums.OrderStatus;
+import com.prompthub.order.domain.enums.OrderProductStatus;
+import com.prompthub.order.domain.model.Order;
+import com.prompthub.order.domain.model.OrderProduct;
+import com.prompthub.order.domain.repository.OrderRepository;
+import com.prompthub.order.global.exception.ErrorCode;
+import com.prompthub.order.global.exception.OrderException;
+import com.prompthub.order.presentation.dto.request.PageRequestParams;
+import com.prompthub.order.presentation.dto.response.OrderDetailResponse;
+import com.prompthub.order.presentation.dto.response.OrderContentResponse;
+import com.prompthub.order.presentation.dto.response.OrderListResponse;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Spy;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Sort;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static com.prompthub.order.fixture.OrderFixture.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+
+@ExtendWith(MockitoExtension.class)
+class OrderQueryServiceTest {
+
+    @Mock
+    private OrderRepository orderRepository;
+
+    @Mock
+    private ProductClient productClient;
+
+    @Spy
+    private OrderPolicyService orderPolicyService;
+
+    @InjectMocks
+    private OrderQueryService orderQueryService;
+
+    @Nested
+    @DisplayName("결제용 주문 조회")
+    class GetOrderForPayment {
+
+        @Test
+        @DisplayName("주문이 존재하면 결제에 필요한 주문 정보를 반환한다")
+        void getOrderForPayment_existingOrder_returnsResult() {
+            Order order = createPendingOrderWithProducts();
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            OrderForPaymentResult result = orderQueryService.getOrderForPayment(order.getId());
+
+            assertThat(result.orderId()).isEqualTo(order.getId());
+            assertThat(result.buyerId()).isEqualTo(order.getBuyerId());
+            assertThat(result.totalAmount()).isEqualTo(order.getTotalOrderAmount());
+            assertThat(result.createdAt()).isEqualTo(order.getCreatedAt());
+        }
+
+        @Test
+        @DisplayName("주문이 존재하지 않으면 O001 예외가 발생한다")
+        void getOrderForPayment_missingOrder_throwsOrderNotFound() {
+            UUID orderId = UUID.randomUUID();
+            given(orderRepository.findByIdWithOrderProducts(orderId))
+                .willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> orderQueryService.getOrderForPayment(orderId))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ORDER_NOT_FOUND)
+                );
+        }
+    }
+    @Nested
+    @DisplayName("구매 상품 콘텐츠 열람")
+    class GetOrderContent {
+
+        private static final String PRODUCT_CONTENT = "구매 후 확인 가능한 프롬프트 원문";
+
+        @Test
+        @DisplayName("결제 완료된 본인 주문상품이면 콘텐츠를 반환하고 다운로드 처리하지 않는다")
+        void getOrderContent_paidOwnerOrderProduct_success() {
+            // given
+            Order order = createPaidOrderWithProducts();
+            OrderProduct orderProduct = order.getOrderProducts().getFirst();
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+            given(productClient.getProductContent(orderProduct.getProductId()))
+                .willReturn(new ProductContent(orderProduct.getProductId(), PRODUCT_CONTENT));
+
+            // when
+            OrderContentResponse response = orderQueryService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId());
+
+            // then
+            assertThat(response.orderId()).isEqualTo(order.getId());
+            assertThat(response.orderProductId()).isEqualTo(orderProduct.getId());
+            assertThat(response.orderNumber()).isEqualTo(ORDER_NUMBER);
+            assertThat(response.productId()).isEqualTo(orderProduct.getProductId());
+            assertThat(response.downloaded()).isFalse();
+            assertThat(response.productTitle()).isEqualTo(PRODUCT_TITLE_1);
+            assertThat(response.content()).isEqualTo(PRODUCT_CONTENT);
+            assertThat(orderProduct.isDownloaded()).isFalse();
+
+            then(orderRepository).should().findByIdWithOrderProducts(order.getId());
+            then(productClient).should().getProductContent(orderProduct.getProductId());
+        }
+
+		@Test
+		@DisplayName("부분 환불 주문의 남은 결제 상품 콘텐츠는 조회할 수 있다")
+		void getOrderContent_partialRefundedRemainingPaidProduct_success() {
+			Order order = createPaidOrderWithProducts();
+			OrderProduct refundedProduct = order.getOrderProducts().getFirst();
+			OrderProduct remainingProduct = order.getOrderProducts().get(1);
+			order.refundOrderProduct(refundedProduct.getId(), refundedProduct.getProductAmount(), REFUNDED_AT);
+			given(orderRepository.findByIdWithOrderProducts(order.getId())).willReturn(Optional.of(order));
+			given(productClient.getProductContent(remainingProduct.getProductId()))
+				.willReturn(new ProductContent(remainingProduct.getProductId(), PRODUCT_CONTENT));
+
+			OrderContentResponse response = orderQueryService.getOrderContent(
+				BUYER_ID,
+				order.getId(),
+				remainingProduct.getId()
+			);
+
+			assertThat(response.orderProductId()).isEqualTo(remainingProduct.getId());
+			assertThat(response.content()).isEqualTo(PRODUCT_CONTENT);
+		}
+
+		@Test
+		@DisplayName("부분 환불 주문의 환불 상품 콘텐츠는 조회할 수 없다")
+		void getOrderContent_partialRefundedRefundedProduct_throwsException() {
+			Order order = createPaidOrderWithProducts();
+			OrderProduct refundedProduct = order.getOrderProducts().getFirst();
+			order.refundOrderProduct(refundedProduct.getId(), refundedProduct.getProductAmount(), REFUNDED_AT);
+			given(orderRepository.findByIdWithOrderProducts(order.getId())).willReturn(Optional.of(order));
+
+			assertThatThrownBy(() -> orderQueryService.getOrderContent(
+				BUYER_ID,
+				order.getId(),
+				refundedProduct.getId()
+			))
+				.isInstanceOf(OrderException.class)
+				.hasFieldOrPropertyWithValue("errorCode", ErrorCode.ORDER_CONTENT_ACCESS_DENIED);
+
+			then(productClient).shouldHaveNoInteractions();
+		}
+
+        @Test
+        @DisplayName("상품 콘텐츠 조회가 SYS002로 실패하면 다운로드 상태를 변경하지 않고 예외를 전파한다")
+        void getOrderContent_productServiceUnavailable_keepsDownloadState() {
+            Order order = createPaidOrderWithProducts();
+            OrderProduct orderProduct = order.getOrderProducts().getFirst();
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+            given(productClient.getProductContent(orderProduct.getProductId()))
+                .willThrow(new com.prompthub.exception.BusinessException(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE));
+
+            assertThatThrownBy(() -> orderQueryService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId()))
+                .isInstanceOf(com.prompthub.exception.BusinessException.class)
+                .satisfies(exception -> assertThat(
+                    ((com.prompthub.exception.BusinessException) exception).getErrorCode()
+                ).isEqualTo(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE));
+
+            assertThat(orderProduct.isDownloaded()).isFalse();
+        }
+
+        @Test
+        @DisplayName("이미 열람한 주문상품도 다시 콘텐츠를 조회할 수 있다")
+        void getOrderContent_alreadyDownloaded_success() {
+            // given
+            Order order = createPaidOrderWithProducts();
+            OrderProduct orderProduct = order.getOrderProducts().getFirst();
+            orderProduct.markDownloaded();
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+            given(productClient.getProductContent(orderProduct.getProductId()))
+                .willReturn(new ProductContent(orderProduct.getProductId(), PRODUCT_CONTENT));
+
+            // when
+            OrderContentResponse response = orderQueryService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId());
+
+            // then
+            assertThat(response.downloaded()).isTrue();
+            assertThat(response.content()).isEqualTo(PRODUCT_CONTENT);
+            assertThat(orderProduct.isDownloaded()).isTrue();
+
+            then(productClient).should().getProductContent(orderProduct.getProductId());
+        }
+
+        @Test
+        @DisplayName("주문이 없으면 O001 예외가 발생한다")
+        void getOrderContent_orderNotFound_throwsException() {
+            // given
+            given(orderRepository.findByIdWithOrderProducts(ORDER_ID))
+                .willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> orderQueryService.getOrderContent(BUYER_ID, ORDER_ID, ORDER_PRODUCT_ID))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ORDER_NOT_FOUND)
+                );
+
+            then(productClient).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("본인 주문이 아니면 A004 예외가 발생한다")
+        void getOrderContent_notOwner_throwsException() {
+            // given
+            UUID otherBuyerId = UUID.fromString("00000000-0000-0000-0000-000000000991");
+            Order order = createPaidOrderWithProducts();
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderQueryService.getOrderContent(otherBuyerId, order.getId(), order.getOrderProducts().getFirst().getId()))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.FORBIDDEN)
+                );
+
+            then(productClient).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("주문 상태가 PAID가 아니면 E001 예외가 발생한다")
+        void getOrderContent_notPaidOrder_throwsException() {
+            // given
+            Order order = createPendingOrderWithProducts();
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderQueryService.getOrderContent(BUYER_ID, order.getId(), order.getOrderProducts().getFirst().getId()))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ORDER_CONTENT_ACCESS_DENIED)
+                );
+
+            then(productClient).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("주문상품이 해당 주문에 포함되지 않으면 E001 예외가 발생한다")
+        void getOrderContent_orderProductNotIncluded_throwsException() {
+            // given
+            Order order = createPaidOrderWithProducts();
+            UUID otherOrderProductId = UUID.fromString("00000000-0000-0000-0000-000000000699");
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderQueryService.getOrderContent(BUYER_ID, order.getId(), otherOrderProductId))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ORDER_CONTENT_ACCESS_DENIED)
+                );
+
+            then(productClient).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("주문상품 상태가 PAID가 아니면 E001 예외가 발생한다")
+        void getOrderContent_notPaidOrderProduct_throwsException() {
+            // given
+            Order order = createPaidOrderWithProducts();
+            OrderProduct orderProduct = order.getOrderProducts().getFirst();
+            ReflectionTestUtils.setField(orderProduct, "orderStatus", OrderProductStatus.REFUNDED);
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderQueryService.getOrderContent(BUYER_ID, order.getId(), orderProduct.getId()))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ORDER_CONTENT_ACCESS_DENIED)
+                );
+
+            then(productClient).shouldHaveNoInteractions();
+        }
+    }
+
+    @Nested
+    @DisplayName("내 주문 상세 조회")
+    class GetOrderDetail {
+
+        @Test
+        @DisplayName("본인 주문이면 주문 기본 정보와 주문상품 목록을 반환한다")
+        void getOrderDetail_ownerOrder_success() {
+            // given
+            Order order = createPaidOrderWithProducts();
+            order.getOrderProducts().getFirst().markDownloaded();
+            ReflectionTestUtils.setField(order, "createdAt", CREATED_AT);
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when
+            OrderDetailResponse response = orderQueryService.getOrderDetail(BUYER_ID, order.getId());
+
+            // then
+            assertThat(response.orderId()).isEqualTo(order.getId());
+            assertThat(response.orderNumber()).isEqualTo(ORDER_NUMBER);
+            assertThat(response.buyerId()).isEqualTo(BUYER_ID);
+            assertThat(response.orderStatus()).isEqualTo(OrderStatus.PAID);
+            assertThat(response.totalAmount()).isEqualTo(TOTAL_AMOUNT);
+            assertThat(response.totalProductCount()).isEqualTo(TOTAL_ITEM_COUNT);
+            assertThat(response.paidAt()).isNotNull();
+            assertThat(response.canceledAt()).isNull();
+            assertThat(response.refundedAt()).isNull();
+            assertThat(response.createdAt()).isEqualTo(CREATED_AT);
+            assertThat(response.hasDownloadedProduct()).isTrue();
+            assertThat(response.products()).hasSize(TOTAL_ITEM_COUNT);
+            assertThat(response.products().getFirst().productId()).isEqualTo(PRODUCT_ID_1);
+            assertThat(response.products().getFirst().isContentAccessible()).isTrue();
+            assertThat(response.products().getFirst().isRefundable()).isFalse();
+            assertThat(response.products().getFirst().downloaded()).isTrue();
+
+            then(orderRepository).should().findByIdWithOrderProducts(order.getId());
+        }
+
+        @Test
+        @DisplayName("주문이 없으면 O001 예외가 발생한다")
+        void getOrderDetail_orderNotFound_throwsException() {
+            // given
+            given(orderRepository.findByIdWithOrderProducts(ORDER_ID))
+                .willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> orderQueryService.getOrderDetail(BUYER_ID, ORDER_ID))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ORDER_NOT_FOUND)
+                );
+        }
+
+        @Test
+        @DisplayName("본인 주문이 아니면 A004 예외가 발생한다")
+        void getOrderDetail_notOwner_throwsException() {
+            // given
+            UUID otherBuyerId = UUID.fromString("00000000-0000-0000-0000-000000000991");
+            Order order = createPendingOrderWithProducts();
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderQueryService.getOrderDetail(otherBuyerId, order.getId()))
+                .isInstanceOf(OrderException.class)
+                .satisfies(exception ->
+                    assertThat(((OrderException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.FORBIDDEN)
+                );
+        }
+
+        @Test
+        @DisplayName("결제 완료 주문상품만 콘텐츠 열람 가능하다")
+		void getOrderDetail_contentAccessibleByOrderProductStatus_success() {
+            // given
+            Order order = createPendingOrderWithProducts();
+            OrderProduct paidProduct = order.getOrderProducts().getFirst();
+            OrderProduct refundedProduct = order.getOrderProducts().get(1);
+            ReflectionTestUtils.setField(paidProduct, "orderStatus", OrderProductStatus.PAID);
+            ReflectionTestUtils.setField(refundedProduct, "orderStatus", OrderProductStatus.REFUNDED);
+
+            given(orderRepository.findByIdWithOrderProducts(order.getId()))
+                .willReturn(Optional.of(order));
+
+            // when
+            OrderDetailResponse response = orderQueryService.getOrderDetail(BUYER_ID, order.getId());
+
+            // then
+            assertThat(response.products())
+                .extracting(product -> product.isContentAccessible())
+                .containsExactly(true, false);
+		}
+
+		@Test
+		@DisplayName("한 주문의 주문상품별 판매자와 다운로드·환불 가능 상태를 그대로 반환한다")
+		void getOrderDetail_fourSellerProducts_preservesLineSellerAndEligibility() {
+			Order order = com.prompthub.order.fixture.PaymentEventFixture.createdOrder();
+			order.markPaid(PAID_AT);
+			OrderProduct downloadedProduct = order.getOrderProducts().getFirst();
+			OrderProduct refundedProduct = order.getOrderProducts().get(1);
+			downloadedProduct.markDownloaded();
+			order.refundOrderProduct(refundedProduct.getId(), refundedProduct.getProductAmount(), REFUNDED_AT);
+			given(orderRepository.findByIdWithOrderProducts(order.getId()))
+				.willReturn(Optional.of(order));
+
+			OrderDetailResponse response = orderQueryService.getOrderDetail(BUYER_ID, order.getId());
+
+			assertThat(response.orderId()).isEqualTo(order.getId());
+			assertThat(response.totalAmount()).isEqualTo(order.getTotalOrderAmount());
+			assertThat(response.products()).extracting(product -> product.sellerId())
+				.containsExactly(
+					com.prompthub.order.fixture.PaymentEventFixture.SELLER_A,
+					com.prompthub.order.fixture.PaymentEventFixture.SELLER_B,
+					com.prompthub.order.fixture.PaymentEventFixture.SELLER_A,
+					com.prompthub.order.fixture.PaymentEventFixture.SELLER_C
+				);
+			assertThat(response.products()).extracting(product -> product.orderStatus())
+				.containsExactly(OrderProductStatus.PAID, OrderProductStatus.REFUNDED, OrderProductStatus.PAID, OrderProductStatus.PAID);
+			assertThat(response.products()).extracting(product -> product.downloaded())
+				.containsExactly(true, false, false, false);
+			assertThat(response.products()).extracting(product -> product.isRefundable())
+				.containsExactly(false, false, true, true);
+		}
+    }
+
+    @Nested
+    @DisplayName("내 주문 목록 조회")
+    class GetMyOrders {
+
+        @Test
+		@DisplayName("주문 페이지와 주문상품을 주문별로 그룹화해 반환한다")
+		void getMyOrders_groupsProductsByOrder() {
+			PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
+			PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+			UUID secondOrderId = UUID.randomUUID();
+			UUID secondOrderProductId = UUID.randomUUID();
+			OrderListProjection firstOrder = orderListProjection(OrderStatus.COMPLETED);
+			OrderListProjection secondOrder = new OrderListProjection(
+				secondOrderId,
+				"ORD-20260618-0002",
+				OrderStatus.FAILED,
+				PRODUCT_AMOUNT_2,
+				null,
+				CREATED_AT.minusDays(1)
+			);
+			OrderListProductProjection refundable = orderListProductProjection(
+				OrderProductStatus.PAID,
+				false,
+				4.5
+			);
+			OrderListProductProjection downloaded = new OrderListProductProjection(
+				ORDER_ID,
+				UUID.randomUUID(),
+				PRODUCT_ID_2,
+				OrderProductStatus.PAID,
+				PRODUCT_AMOUNT_2,
+				true,
+				PRODUCT_TYPE_PROMPT,
+				PRODUCT_TITLE_2,
+				PRODUCT_MODEL,
+				null
+			);
+			OrderListProductProjection failed = new OrderListProductProjection(
+				secondOrderId,
+				secondOrderProductId,
+				UUID.randomUUID(),
+				OrderProductStatus.FAILED,
+				PRODUCT_AMOUNT_2,
+				false,
+				PRODUCT_TYPE_PROMPT,
+				"실패 상품",
+				PRODUCT_MODEL,
+				null
+			);
+			given(orderRepository.searchOrders(BUYER_ID, null, null, null, pageable))
+				.willReturn(new PageImpl<>(List.of(firstOrder, secondOrder), pageable, 2));
+			given(orderRepository.findOrderProductsByOrderIds(List.of(ORDER_ID, secondOrderId)))
+				.willReturn(List.of(refundable, downloaded, failed));
+
+			Page<OrderListResponse> response = orderQueryService.getOrders(BUYER_ID, request);
+
+			assertThat(response.getTotalElements()).isEqualTo(2);
+			assertThat(response.getContent()).extracting(OrderListResponse::orderId)
+				.containsExactly(ORDER_ID, secondOrderId);
+			OrderListResponse first = response.getContent().getFirst();
+			assertThat(first.orderNumber()).isEqualTo(ORDER_NUMBER);
+			assertThat(first.totalAmount()).isEqualTo(TOTAL_AMOUNT);
+			assertThat(first.products()).hasSize(2);
+			assertThat(first.products()).extracting(product -> product.amount())
+				.containsExactly(PRODUCT_AMOUNT_1, PRODUCT_AMOUNT_2);
+			assertThat(first.products()).extracting(product -> product.isRefundable())
+				.containsExactly(true, false);
+			assertThat(response.getContent().get(1).products()).singleElement()
+				.satisfies(product -> {
+					assertThat(product.orderProductId()).isEqualTo(secondOrderProductId);
+					assertThat(product.isRefundable()).isFalse();
+				});
+		}
+
+		@Test
+		@DisplayName("빈 주문 페이지는 상품 조회 없이 그대로 반환한다")
+		void getMyOrders_emptyPage_skipsProductQuery() {
+			PageRequestParams request = new PageRequestParams(
+				1,
+				20,
+				OrderStatus.PAID,
+				LocalDate.of(2026, 6, 1),
+				LocalDate.of(2026, 6, 30)
+			);
+			LocalDateTime from = LocalDateTime.of(2026, 6, 1, 0, 0);
+			LocalDateTime to = LocalDateTime.of(2026, 6, 30, 23, 59, 59);
+			PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+			given(orderRepository.searchOrders(BUYER_ID, OrderStatus.COMPLETED, from, to, pageable))
+				.willReturn(new PageImpl<>(List.of(), pageable, 0));
+
+			Page<OrderListResponse> response = orderQueryService.getOrders(BUYER_ID, request);
+
+			assertThat(response.getContent()).isEmpty();
+			assertThat(response.getTotalElements()).isZero();
+			then(orderRepository).should().searchOrders(BUYER_ID, OrderStatus.COMPLETED, from, to, pageable);
+			then(orderRepository).shouldHaveNoMoreInteractions();
+		}
+
+		@Test
+		@DisplayName("주문상품이 없는 주문도 빈 products 목록으로 유지한다")
+		void getMyOrders_orderWithoutProducts_returnsEmptyProducts() {
+			PageRequestParams request = new PageRequestParams(1, 20, null, null, null);
+			PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+			OrderListProjection order = orderListProjection(OrderStatus.COMPLETED);
+			given(orderRepository.searchOrders(BUYER_ID, null, null, null, pageable))
+				.willReturn(new PageImpl<>(List.of(order), pageable, 1));
+			given(orderRepository.findOrderProductsByOrderIds(List.of(ORDER_ID))).willReturn(List.of());
+
+			Page<OrderListResponse> response = orderQueryService.getOrders(BUYER_ID, request);
+
+			assertThat(response.getContent()).singleElement()
+				.satisfies(item -> assertThat(item.products()).isEmpty());
+		}
+	}
+
+    @Nested
+    @DisplayName("열람 가능한 구매 상품 조회")
+    class GetAccessiblePaidProducts {
+
+        @Test
+        @DisplayName("열람 가능한 결제 상품이면 true를 반환한다")
+        void hasAccessiblePaidProduct_accessibleProduct_returnsTrue() {
+            given(orderRepository.existsAccessiblePaidOrderProductByBuyerIdAndProductId(BUYER_ID, PRODUCT_ID_1))
+                .willReturn(true);
+
+            assertThat(orderQueryService.hasAccessiblePaidProduct(BUYER_ID, PRODUCT_ID_1)).isTrue();
+
+            then(orderRepository).should().existsAccessiblePaidOrderProductByBuyerIdAndProductId(BUYER_ID, PRODUCT_ID_1);
+            then(productClient).shouldHaveNoInteractions();
+        }
+
+		@Test
+		@DisplayName("구매 상품 다운로드 여부를 저장소 조회 결과대로 반환한다")
+		void isProductDownloaded_returnsRepositoryResult() {
+			given(orderRepository.isAccessiblePaidProductDownloaded(BUYER_ID, PRODUCT_ID_1))
+				.willReturn(true);
+
+			assertThat(orderQueryService.isProductDownloaded(BUYER_ID, PRODUCT_ID_1)).isTrue();
+
+			then(orderRepository).should().isAccessiblePaidProductDownloaded(BUYER_ID, PRODUCT_ID_1);
+			then(productClient).shouldHaveNoInteractions();
+		}
+
+        @Test
+        @DisplayName("열람 가능한 구매 상품 ID 목록을 그대로 반환한다")
+        void getAccessiblePaidProductIds_returnsProductIds() {
+            given(orderRepository.findAccessiblePaidProductIdsByBuyerId(BUYER_ID))
+                .willReturn(List.of(PRODUCT_ID_1, PRODUCT_ID_2));
+
+            assertThat(orderQueryService.getAccessiblePaidProductIds(BUYER_ID))
+                .containsExactly(PRODUCT_ID_1, PRODUCT_ID_2);
+
+            then(orderRepository).should().findAccessiblePaidProductIdsByBuyerId(BUYER_ID);
+            then(productClient).shouldHaveNoInteractions();
+        }
+    }
+}

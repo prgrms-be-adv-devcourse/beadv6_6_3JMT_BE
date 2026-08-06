@@ -13,13 +13,24 @@ public record SellerProductDetailResponse(
 	int amount,
 	String desc,
 	String content,
+	String fileUrl,
+	String externalUrl,
 	String status,
 	String version,
+	double averageRating,
 	String thumbnailUrl,
 	List<String> imageUrls,
-	List<String> tags
+	List<String> tags,
+	String liveVersion,
+	List<SellerProductVersionResponse> versions
 ) {
-	public static SellerProductDetailResponse from(Product product, StorageClient storageClient) {
+	public static SellerProductDetailResponse from(
+		Product product,
+		Product liveOnSale,
+		List<Product> historyMembers,
+		double averageRating,
+		StorageClient storageClient
+	) {
 		return new SellerProductDetailResponse(
 			product.getId(),
 			product.getName(),
@@ -28,11 +39,16 @@ public record SellerProductDetailResponse(
 			product.getAmount(),
 			product.getDescription(),
 			product.getContent(),
+			toUrl(product.getFileUrl(), storageClient),
+			product.getExternalUrl(),
 			product.getStatus().name(),
 			product.getMajorVersion() + "." + product.getPatchVersion(),
+			averageRating,
 			toUrl(product.getThumbnailUrl(), storageClient),
 			toUrls(product.getImageUrls(), storageClient),
-			product.getTags()
+			product.getTags(),
+			liveOnSale != null ? liveOnSale.getMajorVersion() + "." + liveOnSale.getPatchVersion() : null,
+			historyMembers.stream().map(SellerProductVersionResponse::from).toList()
 		);
 	}
 

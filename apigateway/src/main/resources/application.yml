@@ -5,9 +5,7 @@ spring:
   application:
     name: apigateway
   config:
-    import: ${CONFIG_IMPORT:optional:configserver:http://localhost:8888}
-  profiles:
-    default: local
+    import: ${CONFIG_IMPORT:}
   cloud:
     config:
       fail-fast: true
@@ -20,30 +18,14 @@ spring:
       server:
         webflux:
           routes:
-            - id: settlement-service
-              uri: lb://SETTLEMENT-SERVICE
+            # admin-service ~ user-service 라우트는 gateway.api-versions 설정을 소스로
+            # VersionedRouteDefinitionLocator(코드)가 동적으로 생성한다. (ADR-0007)
+            - id: admin-service-docs
+              uri: lb://ADMIN-SERVICE
               predicates:
-                - Path=/api/v1/sellers/me/settlements/**, /api/v1/admin/settlements/**
-
-            - id: order-service
-              uri: lb://ORDER-SERVICE
-              predicates:
-                - Path=/api/v1/orders, /api/v1/orders/**, /api/v1/cart, /api/v1/cart/**, /api/v1/admin/orders, /api/v1/admin/orders/**, /api/v1/internal/orders/**
-
-            - id: product-service
-              uri: lb://PRODUCT-SERVICE
-              predicates:
-                 - Path=/api/v1/products, /api/v1/products/**, /api/v1/sellers/me/products, /api/v1/sellers/me/products/**, /api/v1/admin/products, /api/v1/admin/products/**
-
-            - id: payment-service
-              uri: lb://PAYMENT-SERVICE
-              predicates:
-                - Path=/api/v1/payments/**
-
-            - id: user-service
-              uri: lb://USER-SERVICE
-              predicates:
-                - Path=/api/v1/auth/**, /api/v1/users/**, /api/v1/seller/**, /api/v1/sellers/**, /api/v1/wishlists/**, /api/v1/admin/**
+                - Path=/admin-service/v3/api-docs
+              filters:
+                - RewritePath=/admin-service/v3/api-docs, /v3/api-docs
 
             - id: user-service-docs
               uri: lb://USER-SERVICE
@@ -73,12 +55,35 @@ spring:
               filters:
                 - RewritePath=/payment-service/v3/api-docs, /v3/api-docs
 
-            - id: settlement-service-docs
-              uri: lb://SETTLEMENT-SERVICE
+            - id: ai-service-docs
+              uri: lb://AI-SERVICE
               predicates:
-                - Path=/settlement-service/v3/api-docs
+                - Path=/ai-service/v3/api-docs
               filters:
-                - RewritePath=/settlement-service/v3/api-docs, /v3/api-docs
+                - RewritePath=/ai-service/v3/api-docs, /v3/api-docs
+
+            - id: notification-service-docs
+              uri: lb://NOTIFICATION-SERVICE
+              predicates:
+                - Path=/notification-service/v3/api-docs
+              filters:
+                - RewritePath=/notification-service/v3/api-docs, /v3/api-docs
+
+gateway:
+  # 서비스별 활성 API 버전 리스트. 병행 서빙이 필요해지면 [v1, v2]로 바꾼다.
+  # 리스트를 비우거나 서비스 키를 지우면 해당 서비스의 라우트/화이트리스트는 사라지고 404가 된다. (ADR-0007)
+  api-versions:
+    admin-service: [ v1, v2 ]
+    order-service: [ v1, v2 ]
+    product-service: [ v1, v2 ]
+    payment-service: [ v1, v2 ]
+    user-service: [ v1, v2 ]
+    ai-service: [ v2 ]
+    notification-service: [ v1 ]
+  route-policies:
+    /api/*/notifications/**: BUYER
+    /api/*/sellers/me/**: SELLER
+    /api/*/ai/settlement/**: SELLER_OR_ADMIN
 
 jwt:
   public-key: ${JWT_PUBLIC_KEY}
@@ -86,6 +91,8 @@ jwt:
 springdoc:
   swagger-ui:
     urls:
+      - name: admin-service
+        url: /admin-service/v3/api-docs
       - name: user-service
         url: /user-service/v3/api-docs
       - name: product-service
@@ -94,10 +101,17 @@ springdoc:
         url: /order-service/v3/api-docs
       - name: payment-service
         url: /payment-service/v3/api-docs
-      - name: settlement-service
-        url: /settlement-service/v3/api-docs
+      - name: ai-service
+        url: /ai-service/v3/api-docs
+      - name: notification-service
+        url: /notification-service/v3/api-docs
   api-docs:
     enabled: true
 
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:https://prompthub-fe.vercel.app,http://localhost:3000}
+
+logging:
+  structured:
+    format:
+      console: logstash

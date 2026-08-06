@@ -1,6 +1,6 @@
 package com.prompthub.settlement.presentation.dto.response;
 
-import com.prompthub.settlement.application.dto.SettlementJobStatusResult;
+import com.prompthub.settlement.application.dto.batch.SettlementJobStatusResult;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 

@@ -23,6 +23,8 @@ jobs:
     if: github.event.pull_request.draft == false
     outputs:
       user_service:       ${{ steps.filter.outputs.user_service_any_changed }}
+      ai_service:         ${{ steps.filter.outputs.ai_service_any_changed }}
+      notification_service: ${{ steps.filter.outputs.notification_service_any_changed }}
       product_service:    ${{ steps.filter.outputs.product_service_any_changed }}
       payment_service:    ${{ steps.filter.outputs.payment_service_any_changed }}
       order_service:      ${{ steps.filter.outputs.order_service_any_changed }}
@@ -32,6 +34,7 @@ jobs:
       config:             ${{ steps.filter.outputs.config_any_changed }}
       discovery:          ${{ steps.filter.outputs.discovery_any_changed }}
       common_module:      ${{ steps.filter.outputs.common_module_any_changed }}
+      kubernetes:         ${{ steps.filter.outputs.kubernetes_any_changed }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,6 +47,12 @@ jobs:
           files_yaml: |
             user_service:
               - user-service/**
+              - grpc/user/**
+            ai_service:
+              - ai-service/**
+              - grpc/user/**
+            notification_service:
+              - notification-service/**
             product_service:
               - product-service/**
             payment_service:
@@ -62,6 +71,15 @@ jobs:
               - discovery/**
             common_module:
               - common-module/**
+            kubernetes:
+              - k8s/**
+              - scripts/provision-self-hosted-runner-ruby.sh
+              - scripts/test-provision-self-hosted-runner-ruby.sh
+              - scripts/validate-k8s-*.sh
+              - scripts/test-validate-k8s-secret-contract.sh
+              - .github/workflows/ci.yml
+              - .github/workflows/cd-selfhosted-kubernetes.yml
+              - .github/workflows/release-develop.yml
 
   user_service_ci:
     needs: changes
@@ -70,6 +88,22 @@ jobs:
     with:
       module-name: user-service
       module-path: user-service
+
+  ai_service_ci:
+    needs: changes
+    if: needs.changes.outputs.ai_service == 'true' || needs.changes.outputs.common_module == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: ai-service
+      module-path: ai-service
+
+  notification_service_ci:
+    needs: changes
+    if: needs.changes.outputs.notification_service == 'true' || needs.changes.outputs.common_module == 'true'
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      module-name: notification-service
+      module-path: notification-service
 
   product_service_ci:
     needs: changes
@@ -143,10 +177,37 @@ jobs:
       module-name: common-module
       module-path: common-module
 
+  kubernetes_contract_ci:
+    needs: changes
+    if: needs.changes.outputs.kubernetes == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate shell scripts
+        run: |
+          bash -n \
+            scripts/provision-self-hosted-runner-ruby.sh \
+            scripts/test-provision-self-hosted-runner-ruby.sh \
+            scripts/test-validate-k8s-secret-contract.sh \
+            scripts/validate-k8s-secret-contract.sh \
+            scripts/validate-k8s-manifests.sh
+
+      - name: Validate self-hosted runner Ruby provisioner
+        run: bash scripts/test-provision-self-hosted-runner-ruby.sh
+
+      - name: Validate Secret contract regression
+        run: bash scripts/test-validate-k8s-secret-contract.sh
+
+      - name: Validate Kubernetes manifests and workflows
+        run: bash scripts/validate-k8s-manifests.sh
+
   ci-gate:
     needs:
       - changes
       - user_service_ci
+      - ai_service_ci
+      - notification_service_ci
       - product_service_ci
       - payment_service_ci
       - order_service_ci
@@ -156,6 +217,7 @@ jobs:
       - config_ci
       - discovery_ci
       - common_module_ci
+      - kubernetes_contract_ci
     if: always()
     runs-on: ubuntu-latest
     steps:

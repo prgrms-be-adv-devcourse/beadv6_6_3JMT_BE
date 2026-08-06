@@ -1,46 +1,157 @@
 package com.prompthub.user.seller.presentation.controller;
 
+import java.util.List;
+import java.util.UUID;
+
+import com.prompthub.exception.response.ErrorResponse;
 import com.prompthub.presentation.dto.ApiResult;
+import com.prompthub.user.seller.application.dto.SellerInfoResult;
+import com.prompthub.user.seller.application.usecase.SellerQueryUseCase;
 import com.prompthub.user.seller.application.usecase.SellerUseCase;
-import com.prompthub.user.seller.presentation.controller.dto.request.SellerRegisterRequest;
-import com.prompthub.user.seller.presentation.controller.dto.response.SellerRegisterResponse;
+import com.prompthub.user.seller.presentation.dto.request.OrderProductSellerIdsRequest;
+import com.prompthub.user.seller.presentation.dto.request.SellerIdsRequest;
+import com.prompthub.user.seller.presentation.dto.request.SellerRegisterRequest;
+import com.prompthub.user.seller.presentation.dto.request.WishlistSellerIdsRequest;
+import com.prompthub.user.seller.presentation.dto.response.OrderProductSellerNamesResponse;
+import com.prompthub.user.seller.presentation.dto.response.SellerNamesResponse;
+import com.prompthub.user.seller.presentation.dto.response.SellerProfileResponse;
+import com.prompthub.user.seller.presentation.dto.response.SellerRegisterResponse;
+import com.prompthub.user.seller.presentation.dto.response.WishlistSellerNamesResponse;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.UUID;
-
-@Tag(name = "판매자", description = "판매자 등록 신청")
-@SecurityRequirement(name = "Bearer")
+@Tag(name = "Seller", description = "판매자 등록·조회")
 @RestController
-@RequestMapping("/api/v1/seller")
 @RequiredArgsConstructor
 public class SellerController {
 
     private final SellerUseCase sellerUseCase;
+    private final SellerQueryUseCase sellerQueryUseCase;
 
     @Operation(summary = "판매자 등록 신청", description = "신청 시 상태는 PENDING. 역할: BUYER")
-    @ApiResponse(responseCode = "201", description = "신청 성공")
-    @ApiResponse(responseCode = "409", description = "이미 신청된 판매자 (A005)")
-    @PostMapping("/register")
-    public ResponseEntity<ApiResult<SellerRegisterResponse>> register(
+    @SecurityRequirement(name = "Bearer")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "신청 성공",
+                    content = @Content(schema = @Schema(implementation = SellerRegisterResponse.class))),
+            @ApiResponse(responseCode = "409", description = "이미 신청된 판매자 (A005)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping("/api/v2/seller/register")
+    public ApiResult<SellerRegisterResponse> register(
             @Parameter(hidden = true) @RequestHeader("X-User-Id") UUID userId,
             @Valid @RequestBody SellerRegisterRequest request
     ) {
         SellerRegisterResponse response = SellerRegisterResponse.from(
                 sellerUseCase.register(request.toCommand(userId))
         );
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResult.success(response));
+        return ApiResult.success(response);
+    }
+
+    @Operation(summary = "판매자 단건 조회",
+            description = "sellerId(UUID)로 판매자 이름과 프로필 이미지를 조회한다(인증 불필요). "
+                    + "Client는 GET /products/{productId} 응답의 sellerId를 그대로 전달한다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공",
+                    content = @Content(schema = @Schema(implementation = SellerProfileResponse.class))),
+            @ApiResponse(responseCode = "400", description = "sellerId 누락 또는 잘못된 UUID 형식 (V001)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 sellerId (A001)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/api/v2/sellers/product")
+    public ApiResult<SellerProfileResponse> getSeller(
+            @Parameter(description = "조회할 판매자 ID(UUID)") @RequestParam UUID sellerId) {
+        SellerInfoResult result = sellerQueryUseCase.findSeller(sellerId.toString());
+        return ApiResult.success(SellerProfileResponse.from(result));
+    }
+
+    @Operation(summary = "구매한 프롬프트 리더용 판매자 단건 조회",
+            description = "sellerId(UUID)로 판매자 이름과 프로필 이미지를 조회한다. /reader 페이지 전용이라 인증이 필요하다. "
+                    + "응답이 /sellers/product와 동일한 비민감 공개 정보이고 구매 여부는 앞단 Order 조회에서 이미 걸러지므로, "
+                    + "sellerId에 대한 소유권 검증은 하지 않는다.")
+    @SecurityRequirement(name = "Bearer")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공",
+                    content = @Content(schema = @Schema(implementation = SellerProfileResponse.class))),
+            @ApiResponse(responseCode = "400", description = "sellerId 누락 또는 잘못된 UUID 형식 (V001)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 sellerId (A001)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/api/v2/users/order-product")
+    public ApiResult<SellerProfileResponse> getOrderProductSeller(
+            @Parameter(description = "조회할 판매자 ID(UUID)") @RequestParam UUID sellerId) {
+        SellerInfoResult result = sellerQueryUseCase.findSeller(sellerId.toString());
+        return ApiResult.success(SellerProfileResponse.from(result));
+    }
+
+    @Operation(summary = "판매자 이름 다건 조회",
+            description = "sellerId(UUID) 목록으로 판매자 이름을 조회한다(인증 불필요). 중복은 서버가 제거하며,"
+                    + " 존재하지 않는 sellerId는 실패 처리하지 않고 sellerName: null로 포함한다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공",
+                    content = @Content(schema = @Schema(implementation = SellerNamesResponse.class))),
+            @ApiResponse(responseCode = "400", description = "빈 배열, 30개 초과, 잘못된 UUID 형식 (V001)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PostMapping("/api/v2/sellers/products")
+    public ApiResult<SellerNamesResponse> getSellers(@Valid @RequestBody SellerIdsRequest request) {
+        List<SellerInfoResult> results = sellerQueryUseCase.findSellers(request.sellerIdStrings());
+        return ApiResult.success(SellerNamesResponse.of(request.sellerIds(), results));
+    }
+
+    @Operation(summary = "구매 상품 판매자 이름 다건 조회",
+            description = "구매한 상품 응답의 sellerId(UUID) 목록으로 판매자 이름을 조회한다. "
+                    + "중복은 제거하며 조회되지 않은 sellerId는 sellerName: null로 포함한다.")
+    @SecurityRequirement(name = "Bearer")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공",
+                    content = @Content(schema = @Schema(
+                            implementation = OrderProductSellerNamesResponse.class))),
+            @ApiResponse(responseCode = "400",
+                    description = "빈 배열, 30개 초과, 잘못된 UUID 형식 (V001)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PostMapping("/api/v2/users/order-products")
+    public ApiResult<OrderProductSellerNamesResponse> getOrderProductSellers(
+            @Valid @RequestBody OrderProductSellerIdsRequest request
+    ) {
+        List<SellerInfoResult> results = sellerQueryUseCase.findSellers(request.sellerIdStrings());
+        return ApiResult.success(OrderProductSellerNamesResponse.of(request.sellerIds(), results));
+    }
+
+    @Operation(summary = "Wishlist 판매자 이름 다건 조회",
+            description = "Wishlist 상품 응답의 sellerId(UUID) 목록으로 판매자 이름을 조회한다. "
+                    + "중복은 서버가 제거하며 존재하지 않는 sellerId는 sellerName: null로 포함한다.")
+    @SecurityRequirement(name = "Bearer")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공",
+                    content = @Content(schema = @Schema(implementation = WishlistSellerNamesResponse.class))),
+            @ApiResponse(responseCode = "400", description = "빈 배열, 30개 초과, 잘못된 UUID 형식 (V001)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PostMapping("/api/v2/sellers/wishlists")
+    public ApiResult<WishlistSellerNamesResponse> getWishlistSellers(
+            @Valid @RequestBody WishlistSellerIdsRequest request) {
+        List<SellerInfoResult> results = sellerQueryUseCase.findSellers(request.sellerIdStrings());
+        return ApiResult.success(WishlistSellerNamesResponse.of(request.sellerIds(), results));
     }
 }

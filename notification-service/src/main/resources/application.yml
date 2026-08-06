@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: notification-service
+  config:
+    import: ${CONFIG_IMPORT:}
+
+logging:
+  structured:
+    format:
+      console: logstash
+    json:
+      add:
+        serviceName: ${spring.application.name}
+  level:
+    root: INFO

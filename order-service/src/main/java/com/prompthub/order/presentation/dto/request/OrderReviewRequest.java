@@ -9,7 +9,7 @@ import java.util.UUID;
 
 @Schema(description = "주문 상품 리뷰 생성 또는 수정 요청")
 public record OrderReviewRequest(
-	@Schema(description = "리뷰를 작성할 상품 ID", example = "p1b55b60-5e84-4f3f-b4f1-6c10e1a22222", requiredMode = Schema.RequiredMode.REQUIRED)
+	@Schema(description = "리뷰를 작성할 상품 ID", example = "a1b55b60-5e84-4f3f-b4f1-6c10e1a22222", requiredMode = Schema.RequiredMode.REQUIRED)
 	@NotNull(message = "상품 ID는 null일 수 없습니다.")
 	UUID productId,
 

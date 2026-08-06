@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-service
+  labels:
+    app.kubernetes.io/name: ai-service
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: service
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ai-service
+  ports:
+    - name: http
+      port: 8087
+      targetPort: http
+      protocol: TCP

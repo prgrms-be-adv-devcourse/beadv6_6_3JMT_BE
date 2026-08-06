@@ -3,6 +3,9 @@ package com.prompthub.product.domain.model.entity;
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
+import com.prompthub.product.domain.model.vo.InspectionChecklist;
+import com.prompthub.product.domain.model.vo.ProductContent;
+import com.prompthub.product.domain.model.vo.ProductContentHash;
 import com.prompthub.product.infra.persistence.converter.TagsConverter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
@@ -21,7 +24,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "product")
+@Table(name = "product", schema = "product_service")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Product {
 
@@ -74,6 +77,32 @@ public class Product {
 	@Column(name = "content", columnDefinition = "TEXT")
 	private String content;
 
+	@Column(name = "file_url", columnDefinition = "TEXT")
+	private String fileUrl;
+
+	@Column(name = "external_url", columnDefinition = "TEXT")
+	private String externalUrl;
+
+	/**
+	 * 복제 판정용 본문 해시(PROMPT 전용). 검수 주체가 같은 값을 가진 타 판매자 상품을 찾는다.
+	 *
+	 * <p>{@code embedding_source_hash}와 다른 값이다 — 그쪽은 "글이 바뀌었나", 이쪽은
+	 * "같은 글이 이미 있나"를 묻는다. {@link ProductContentHash} 주석 참고.
+	 */
+	@Column(name = "content_hash", length = 64)
+	private String contentHash;
+
+	/**
+	 * content_hash가 확정된 시각(DB 트리거가 찍음). 중복 판정의 순서 기준 —
+	 * created_at/updated_at은 콘텐츠와 무관하게 밀려 원본·복제 순서가 뒤집힐 수 있어 쓰지 않는다.
+	 *
+	 * <p>앱이 아니라 DB 단일 시계로 찍어야 멀티 파드 시계 스큐로 인한 오판을 막을 수 있어
+	 * 읽기 전용으로 매핑한다. JPA가 이 값을 쓰지 않으므로, persist 직후 값이 필요하면
+	 * flush 후 재조회하거나 서브쿼리로 참조한다.
+	 */
+	@Column(name = "content_hash_at", insertable = false, updatable = false)
+	private LocalDateTime contentHashAt;
+
 	@Column(name = "badge", length = 50)
 	private String badge;
 
@@ -87,6 +116,30 @@ public class Product {
 
 	@Column(name = "rejection_reason", length = 1000)
 	private String rejectionReason;
+
+	@Column(name = "has_context", nullable = false)
+	private boolean hasContext;
+
+	@Column(name = "has_objective", nullable = false)
+	private boolean hasObjective;
+
+	@Column(name = "has_nuance", nullable = false)
+	private boolean hasNuance;
+
+	@Column(name = "has_tone", nullable = false)
+	private boolean hasTone;
+
+	@Column(name = "has_examples", nullable = false)
+	private boolean hasExamples;
+
+	@Column(name = "has_execution", nullable = false)
+	private boolean hasExecution;
+
+	@Column(name = "has_role_assignment", nullable = false)
+	private boolean hasRoleAssignment;
+
+	@Column(name = "checklist_recorded", nullable = false)
+	private boolean checklistRecorded;
 
 	@Column(name = "sales_count", nullable = false)
 	private int salesCount;
@@ -106,33 +159,11 @@ public class Product {
 	@Column(name = "deleted_at")
 	private LocalDateTime deletedAt;
 
-	public static Product create(
-		UUID id,
-		UUID sellerId,
-		ProductType productType,
-		String name,
-		String description,
-		String model,
-		AmountType amountType,
-		int amount,
-		String thumbnailUrl,
-		List<String> imageUrls,
-		String content,
-		List<String> tags
-	) {
+	public static Product create(UUID id, UUID sellerId, ProductContent productContent) {
 		Product product = new Product();
 		product.id = id;
 		product.sellerId = sellerId;
-		product.productType = productType;
-		product.name = name;
-		product.description = description;
-		product.model = model;
-		product.amountType = amountType;
-		product.amount = amount;
-		product.thumbnailUrl = thumbnailUrl;
-		product.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
-		product.content = content;
-		product.tags = tags != null ? tags : new ArrayList<>();
+		product.applyContent(productContent);
 		product.majorVersion = 1;
 		product.patchVersion = 0;
 		product.status = ProductStatus.DRAFT;
@@ -144,30 +175,8 @@ public class Product {
 		return product;
 	}
 
-	public void update(
-		ProductType productType,
-		String name,
-		String description,
-		String model,
-		AmountType amountType,
-		int amount,
-		String thumbnailUrl,
-		List<String> imageUrls,
-		String content,
-		List<String> tags,
-		String changeReason,
-		boolean isMajor
-	) {
-		this.productType = productType;
-		this.name = name;
-		this.description = description;
-		this.model = model;
-		this.amountType = amountType;
-		this.amount = amount;
-		this.thumbnailUrl = thumbnailUrl;
-		this.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
-		this.content = content;
-		this.tags = tags != null ? tags : new ArrayList<>();
+	public void update(ProductContent productContent, String changeReason, boolean isMajor) {
+		applyContent(productContent);
 		this.changeReason = changeReason;
 		if (isMajor) {
 			this.majorVersion++;
@@ -211,6 +220,47 @@ public class Product {
 		this.updatedAt = LocalDateTime.now();
 	}
 
+	public UUID familyRootId() {
+		return this.parentId != null ? this.parentId : this.id;
+	}
+
+	public boolean isFamilyRoot() {
+		return this.parentId == null;
+	}
+
+	public Product nextVersion(boolean isMajor, ProductContent productContent, String changeReason) {
+		Product next = new Product();
+		next.id = UUID.randomUUID();
+		next.parentId = this.familyRootId();
+		next.sellerId = this.sellerId;
+		next.applyContent(productContent);
+		next.changeReason = changeReason;
+		next.badge = null; // 새 버전 row는 뱃지를 물려받지 않고 초기화한다(예: "신규" 뱃지가 계속 남는 걸 방지)
+		if (isMajor) {
+			next.majorVersion = (short) (this.majorVersion + 1);
+			next.patchVersion = 0;
+			next.status = ProductStatus.PENDING_REVIEW;
+		} else {
+			next.majorVersion = this.majorVersion;
+			next.patchVersion = (short) (this.patchVersion + 1);
+			next.status = ProductStatus.ON_SALE;
+		}
+		next.salesCount = 0;
+		next.viewCount = 0;
+		next.wishCount = 0;
+		next.createdAt = LocalDateTime.now();
+		next.updatedAt = LocalDateTime.now();
+		return next;
+	}
+
+	public void supersede() {
+		if (this.status != ProductStatus.ON_SALE) {
+			throw new IllegalStateException("ON_SALE 상태의 상품만 SUPERSEDED로 전환할 수 있습니다. current=" + this.status);
+		}
+		this.status = ProductStatus.SUPERSEDED;
+		this.updatedAt = LocalDateTime.now();
+	}
+
 	public void submitForReview() {
 		if (this.status != ProductStatus.DRAFT && this.status != ProductStatus.REJECTED) {
 			throw new IllegalStateException("검수 요청할 수 없는 상태입니다. current=" + this.status);
@@ -220,29 +270,52 @@ public class Product {
 		this.updatedAt = LocalDateTime.now();
 	}
 
-	public void approve() {
+	public void approve(InspectionChecklist checklist) {
 		if (this.status != ProductStatus.PENDING_REVIEW) {
-			throw new IllegalStateException("검수 대기 상태의 상품만 승인할 수 있습니다. current=" + this.status);
+			throw new IllegalStateException("PENDING_REVIEW 상태의 상품만 승인할 수 있습니다. current=" + this.status);
 		}
+		applyInspectionChecklist(checklist);
 		this.status = ProductStatus.ON_SALE;
 		this.updatedAt = LocalDateTime.now();
 	}
 
-	public void reject(String reason) {
+	public void reject(String reason, InspectionChecklist checklist) {
 		if (this.status != ProductStatus.PENDING_REVIEW) {
-			throw new IllegalStateException("검수 대기 상태의 상품만 반려할 수 있습니다. current=" + this.status);
+			throw new IllegalStateException("PENDING_REVIEW 상태의 상품만 반려할 수 있습니다. current=" + this.status);
 		}
+		applyInspectionChecklist(checklist);
 		this.status = ProductStatus.REJECTED;
 		this.rejectionReason = reason;
 		this.updatedAt = LocalDateTime.now();
 	}
 
-	public void revertToPendingReview() {
-		if (this.status != ProductStatus.ON_SALE && this.status != ProductStatus.REJECTED) {
-			throw new IllegalStateException("승인 또는 반려 상태의 상품만 검수 대기로 되돌릴 수 있습니다. current=" + this.status);
-		}
-		this.status = ProductStatus.PENDING_REVIEW;
-		this.rejectionReason = null;
-		this.updatedAt = LocalDateTime.now();
+	private void applyInspectionChecklist(InspectionChecklist checklist) {
+		this.hasContext = checklist.hasContext();
+		this.hasObjective = checklist.hasObjective();
+		this.hasNuance = checklist.hasNuance();
+		this.hasTone = checklist.hasTone();
+		this.hasExamples = checklist.hasExamples();
+		this.hasExecution = checklist.hasExecution();
+		this.hasRoleAssignment = checklist.hasRoleAssignment();
+		this.checklistRecorded = true;
+	}
+
+	private void applyContent(ProductContent productContent) {
+		this.productType = productContent.productType();
+		this.name = productContent.name();
+		this.description = productContent.description();
+		this.model = productContent.model();
+		this.amountType = productContent.amountType();
+		this.amount = productContent.amount();
+		this.thumbnailUrl = productContent.thumbnailUrl();
+		this.imageUrls = productContent.imageUrls();
+		this.content = productContent.content();
+		this.fileUrl = productContent.fileUrl();
+		this.externalUrl = productContent.externalUrl();
+		this.tags = productContent.tags();
+		// 여기서 계산해야 create·update(MAJOR)·nextVersion(MAJOR) 세 경로가 모두 덮인다.
+		// submitForReview()에만 두면 뒤의 둘이 새서, 그 경로로 올라온 상품은 검사도 안 받고
+		// 나중에 남이 복제해도 대조에 걸리지 않는다.
+		this.contentHash = ProductContentHash.of(productContent);
 	}
 }

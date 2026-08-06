@@ -4,7 +4,7 @@ public interface StorageClient {
 
     String generatePresignedDownloadUrl(String key);
 
-    String upload(String key, byte[] bytes, String contentType);
+    String generatePresignedUploadUrl(String key, String contentType);
 
     void copyObject(String sourceKey, String destKey);
 

@@ -1,44 +1,27 @@
 apply plugin: 'com.google.protobuf'
 
 dependencies {
+    // gRPC 판매자 정산 분석 서버 (버전은 Boot BOM의 grpc-bom이 관리)
+    implementation 'io.grpc:grpc-protobuf'
+    implementation 'io.grpc:grpc-stub'
+    implementation 'com.google.protobuf:protobuf-java'
+    runtimeOnly 'io.grpc:grpc-netty-shaded'
+    compileOnly 'org.apache.tomcat:annotations-api:6.0.53'
+
     // JWT (RSA 서명/검증 — NimbusJwtEncoder 포함)
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
-
-    // gRPC 서버 (Spring Boot 4.1 내장)
-    implementation 'org.springframework.boot:spring-boot-starter-grpc-server'
-
-    // gRPC 클라이언트 (product-service 호출용)
-    implementation 'org.springframework.boot:spring-boot-starter-grpc-client'
-    implementation 'io.grpc:grpc-stub'
-    implementation 'io.grpc:grpc-protobuf'
 
     // swagger (api-docs JSON 엔드포인트만 노출 — UI는 Gateway에서 집계)
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springdocVersion}"
 
-    // Kafka (settlement.created 소비 — user-service 자체 도입, 루트 build.gradle 미수정)
-    implementation 'org.springframework.boot:spring-boot-starter-kafka'
-    testImplementation 'org.springframework.kafka:spring-kafka-test'
+    // Redis (RT 조회 캐시 — ADR-0008 결정3 / authorize 캐시 — 결정6, #289)
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.grpc:grpc-inprocess'
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+    testImplementation 'org.testcontainers:testcontainers-postgresql'
     testRuntimeOnly 'com.h2database:h2'
-}
-
-protobuf {
-    protoc {
-        artifact = "com.google.protobuf:protoc:${protobufVersion}"
-    }
-    plugins {
-        grpc {
-            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
-        }
-    }
-    generateProtoTasks {
-        all().each { task ->
-            task.plugins {
-                grpc {}
-            }
-        }
-    }
 }
 
 tasks.named('test') {
@@ -67,6 +50,32 @@ bootRun {
                     environment line[0..<idx].trim(), line[(idx + 1)..-1].trim()
                 }
             }
+        }
+    }
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${protobufVersion}"
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+        }
+    }
+    generateProtoTasks {
+        all().each { task ->
+            task.plugins {
+                grpc {}
+            }
+        }
+    }
+}
+
+sourceSets {
+    main {
+        proto {
+            srcDir "${rootProject.projectDir}/grpc/user"
         }
     }
 }

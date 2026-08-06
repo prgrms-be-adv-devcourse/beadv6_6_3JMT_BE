@@ -1,9 +1,9 @@
 # Auth API
 
-**Base:** `http://localhost:8081/api/v1`
+**Base:** `http://localhost:8081/api/v2`
 
-> ⚠ `api/v1`은 세미 프로젝트 완성 스냅샷(`v1.0.0` 태그) 기준 경로다. 최종 프로젝트에서
-> `api/v2`로 전환 예정이며 별도 이슈로 진행한다(`docs/adr/config-management.md` §10).
+> 최종 프로젝트 전환으로 `api/v1` → `api/v2`로 변경됨(`docs/adr/config-management.md` §10).
+> 다른 도메인(user·seller·wishlist·admin)도 `#305 (이슈)`에서 `api/v2`로 전환되어, 현재 user-service 공개 API는 전부 `api/v2`다.
 
 ## 공통 사항
 
@@ -122,14 +122,19 @@
 - 필요 역할: 없음
 - 최초 로그인 시 자동 회원가입 처리
 - 현재 지원 provider: `kakao`
+- **서버 측 검증(ADR-0008 §결정4)**: 프런트는 카카오 access token만 전달한다. oauthId·email·
+  닉네임·프로필이미지는 user-service가 서버 측에서 카카오 API(`kapi.kakao.com/v2/user/me`)를
+  호출해 직접 획득하며, 클라이언트가 주장하는 신원 정보는 신뢰하지 않는다.
 
 #### Kakao OAuth 플로우
 
 ```
 버튼 클릭
-  → 프론트엔드에서 Kakao SDK로 사용자 정보 직접 조회
-  → 이 API 호출 (kakaoId, nickname 등 전달)
-  → 로그인/자동 회원가입 완료
+  → 프론트엔드에서 Kakao SDK로 로그인 → access token 발급
+  → 이 API 호출 (access token 전달)
+  → user-service가 kapi.kakao.com/v2/user/me 호출로 신원 검증
+  → ACTIVE/신규 사용자: 로그인 완료
+  → WITHDRAWN 사용자: 재가입 확인 필요
 ```
 
 #### Path Parameters
@@ -144,28 +149,23 @@
 
 ```json
 {
-  "oauthId": "123456789",
-  "name": "카카오사용자",
-  "profileImage": "https://k.kakaocdn.net/...",
-  "email": "kakao@user.com"
+  "accessToken": "abcdEFGH1234..."
 }
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| oauthId | string | Y | OAuth 제공자의 고유 식별자 |
-| name | string | Y | 닉네임 |
-| profileImage | string | N | 프로필 이미지 URL (없으면 null) |
-| email | string | Y | 이메일 |
+| accessToken | string | Y | 카카오로부터 발급받은 access token |
 
 #### Response
 
-**200 OK**
+**200 OK — 로그인 완료**
 
 ```json
 {
   "success": true,
   "data": {
+    "loginStatus": "COMPLETED",
     "user": {
       "id": "uuid",
       "name": "카카오사용자",
@@ -184,6 +184,7 @@
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
+| loginStatus | string | 로그인 처리 상태 (`COMPLETED`) |
 | user.id | string | 사용자 ID |
 | user.name | string | 이름 |
 | user.email | string | 이메일 |
@@ -193,6 +194,90 @@
 | tokenType | string | 토큰 타입 (`Bearer`) |
 | expiresAt | string | 액세스 토큰 만료일시 (ISO 8601) |
 | isNewUser | boolean | 신규 가입 여부 |
+
+**200 OK — 재가입 확인 필요**
+
+탈퇴 계정은 서비스용 AT/RT를 발급하지 않는다. 프론트엔드는 `rejoinToken`으로 사용자 확인 화면을
+표시하고, 사용자가 동의한 경우에만 `POST /auth/rejoin`을 호출한다.
+
+```json
+{
+  "success": true,
+  "data": {
+    "loginStatus": "REJOIN_REQUIRED",
+    "isNewUser": false,
+    "rejoinToken": "opaque-one-time-token",
+    "rejoinExpiresAt": "2026-07-30T12:05:00Z"
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| loginStatus | string | 로그인 처리 상태 (`REJOIN_REQUIRED`) |
+| isNewUser | boolean | 항상 `false` |
+| rejoinToken | string | 서비스 접근 권한이 없는 일회성 재가입 확인 토큰 |
+| rejoinExpiresAt | string | 재가입 확인 토큰 만료일시. 발급 후 5분 |
+
+`BLOCKED` 계정은 재가입 대상으로 취급하지 않으며 `403 AUTH_FORBIDDEN(A004)`을 반환한다.
+
+---
+
+### POST /auth/rejoin — 탈퇴 계정 재가입
+
+- 인증: 불필요
+- 필요 역할: 없음
+- OAuth 로그인에서 받은 일회성 재가입 토큰 필요
+- 기존 사용자 ID, 이메일, 역할 및 연관 데이터를 유지하고 상태만 `WITHDRAWN`에서 `ACTIVE`로 변경
+
+#### Request
+
+```json
+{
+  "rejoinToken": "opaque-one-time-token"
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| rejoinToken | string | Y | OAuth 로그인에서 발급된 일회성 재가입 확인 토큰 |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "loginStatus": "COMPLETED",
+    "user": {
+      "id": "uuid",
+      "name": "카카오사용자",
+      "email": "kakao@user.com",
+      "roles": ["BUYER"]
+    },
+    "accessToken": "eyJhbGci...",
+    "refreshToken": "eyJhbGci...",
+    "tokenType": "Bearer",
+    "expiresAt": "2026-07-30T12:15:00Z",
+    "isNewUser": false
+  },
+  "message": "success"
+}
+```
+
+**401 Unauthorized** — 토큰 만료, 변조, 재사용 또는 계정 상태 변경
+
+```json
+{
+  "success": false,
+  "data": null,
+  "code": "A014",
+  "message": "재가입 확인 정보가 유효하지 않거나 만료되었습니다."
+}
+```
 
 ---
 
@@ -225,6 +310,7 @@
   "success": true,
   "data": {
     "accessToken": "eyJhbGci...",
+    "refreshToken": "eyJhbGci...(새 RT)",
     "expiresAt": "2025-06-17T11:00:00Z"
   },
   "message": "success"
@@ -234,31 +320,12 @@
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | accessToken | string | 새로 발급된 JWT 액세스 토큰 |
+| refreshToken | string | 새로 발급된 JWT 리프레시 토큰(RTR — 재발급마다 회전) |
 | expiresAt | string | 액세스 토큰 만료일시 (ISO 8601) |
 
-> **TODO (RTR — Refresh Token Rotation)**
->
-> 현재 스펙은 AT만 재발급하고 RT는 재사용하는 구조다.
-> 기능 개발 완료 후 Redis 기반 RT 관리로 전환하면서 아래 방식으로 변경할 것.
->
-> - **RT도 함께 교체**: 재발급 요청마다 기존 RT를 폐기하고 새 RT를 발급해 응답에 포함
-> - **Redis 저장**: 발급된 RT를 `refresh:{userId}` 키로 Redis에 저장, TTL은 RT 만료 시간과 동일하게 설정
-> - **재사용 감지(Replay Detection)**: 이미 폐기된 RT로 재발급 시도가 들어오면 해당 유저의 모든 세션 강제 만료 처리 (탈취 시나리오 대응)
-> - **로그아웃**: DB 삭제 대신 Redis 키 삭제로 변경
->
-> 변경 시 응답 스펙에 `refreshToken` 필드 추가 필요:
->
-> ```json
-> {
->   "success": true,
->   "data": {
->     "accessToken": "eyJhbGci...",
->     "refreshToken": "eyJhbGci...(새 RT)",
->     "expiresAt": "2025-06-17T11:00:00Z"
->   },
->   "message": "success"
-> }
-> ```
+**RTR(Refresh Token Rotation)**: 재발급마다 기존 RT를 폐기하고 새 RT를 발급한다(ADR-0008 결정2).
+제시된 RT의 서명은 유효하지만 저장된 현재 RT와 다르면 재사용(탈취 시나리오)으로 판정해
+401(`AUTH_REFRESH_TOKEN_REUSE_DETECTED`, `A012`)을 반환하고 해당 유저의 세션을 전부 무효화한다.
 
 ---
 
@@ -290,3 +357,51 @@
   "message": "success"
 }
 ```
+
+---
+
+## 내부 API (Internal)
+
+> gateway forward-auth 전용. 서비스 외부에 노출하지 않음. 공개 API와 달리 `ApiResult` 래핑 없이 순수 JSON을 반환.
+
+### GET /internal/authorize/{userId} — 인가 정보 조회
+
+- 인증: 없음(gateway 내부망에서만 호출)
+- 호출처: apigateway forward-auth 필터(#290)
+- user-service 내부 Redis에 60초 TTL로 캐시(`user:authz:{userId}`). Redis 장애 시 DB 직접 조회로 폴백.
+- 로그인 시 캐시에 적재, 상태·역할 변경 시 즉시 무효화.
+- **epoch 세션 검증(ADR-0008 결정 8-1)**: AT의 `epoch` 클레임을 쿼리파라미터로 전달한다. 저장된
+  "현재 RT epoch"(`refresh_token` 테이블, RTR마다 회전)과 비교해 값이 없거나 다르면 로그아웃/재로그인으로
+  무효화된 이전 세션으로 판정해 401을 fail-closed로 반환한다.
+
+#### Path Parameters
+
+| 파라미터 | 타입 | 설명 |
+|---------|------|------|
+| userId | UUID | 조회할 사용자 ID |
+
+#### Query Parameters
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| epoch | long | Y | AT의 `epoch` 클레임 값. 없거나 저장된 현재 epoch과 다르면 401 |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "status": "ACTIVE",
+  "role": "BUYER"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| status | string | 계정 상태 (`ACTIVE` / `BLOCKED` / `WITHDRAWN`) |
+| role | string | 대표 역할 (`BUYER` / `SELLER` / `ADMIN`, 여러 역할 보유 시 ADMIN > SELLER > BUYER 우선순위) |
+
+**401 Unauthorized** — epoch 없음/불일치, 세션 무효 (`AUTH_SESSION_INVALIDATED`, A013)
+
+**404 Not Found** — 사용자 없음 (`AUTH_NOT_FOUND`, A001)

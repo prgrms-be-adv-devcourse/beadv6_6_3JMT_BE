@@ -2,6 +2,7 @@ package com.prompthub.order.application.service.cart;
 
 import com.prompthub.order.application.client.ProductClient;
 import com.prompthub.order.application.dto.ProductCartSnapshot;
+import com.prompthub.order.application.service.order.OrderProductPurchasePolicy;
 import com.prompthub.order.domain.model.Cart;
 import com.prompthub.order.domain.model.CartProduct;
 import com.prompthub.order.domain.repository.CartRepository;
@@ -40,6 +41,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class CartServiceTest {
@@ -54,6 +56,9 @@ class CartServiceTest {
 
 	@Mock
 	private ProductClient productClient;
+
+	@Mock
+	private OrderProductPurchasePolicy orderProductPurchasePolicy;
 
 	@InjectMocks
 	private CartService cartService;
@@ -75,6 +80,8 @@ class CartServiceTest {
 			assertThat(response.products()).isEmpty();
 			assertThat(response.totalAmount()).isZero();
 			assertThat(response.totalItemCount()).isZero();
+			then(cartRepository).should().findByBuyerIdWithCartProducts(BUYER_ID);
+			then(cartRepository).should(never()).findByBuyerIdForUpdateWithCartProducts(BUYER_ID);
 			then(cartRepository).should(never()).save(any());
 			then(productClient).shouldHaveNoInteractions();
 		}
@@ -104,6 +111,30 @@ class CartServiceTest {
 			assertThat(response.products().get(1).cartProductId()).isEqualTo(second.getId());
 			assertThat(response.products().get(1).productTitle()).isEqualTo(PRODUCT_TITLE_2);
 		}
+
+		@Test
+		@DisplayName("상품 서비스 조회가 SYS002로 실패하면 장바구니 상품을 변경하지 않고 예외를 전파한다")
+		void getCart_productServiceUnavailable_keepsCartProductsUnchanged() {
+			Cart cart = Cart.create(BUYER_ID);
+			CartProduct first = cart.addProduct(PRODUCT_ID_1);
+			CartProduct second = cart.addProduct(PRODUCT_ID_2);
+
+			given(cartRepository.findByBuyerIdWithCartProducts(BUYER_ID))
+				.willReturn(Optional.of(cart));
+			given(productClient.getCartSnapshots(List.of(PRODUCT_ID_1, PRODUCT_ID_2)))
+				.willThrow(new com.prompthub.exception.BusinessException(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE));
+
+			assertThatThrownBy(() -> cartService.getCart(BUYER_ID))
+				.isInstanceOf(com.prompthub.exception.BusinessException.class)
+				.satisfies(exception -> assertThat(
+					((com.prompthub.exception.BusinessException) exception).getErrorCode()
+				).isEqualTo(ErrorCode.PRODUCT_SERVICE_UNAVAILABLE));
+
+			assertThat(cart.getCartProducts())
+				.extracting(CartProduct::getId)
+				.containsExactly(first.getId(), second.getId());
+			then(cartRepository).should(never()).save(any());
+		}
 	}
 
 	@Nested
@@ -115,7 +146,7 @@ class CartServiceTest {
 		void addCartProduct_withoutCart_createsCartAndAddsProduct() {
 			given(productClient.getCartSnapshot(PRODUCT_ID_1))
 				.willReturn(cartSnapshot1());
-			given(cartRepository.findByBuyerIdWithCartProducts(BUYER_ID))
+			given(cartRepository.findByBuyerIdForUpdateWithCartProducts(BUYER_ID))
 				.willReturn(Optional.empty());
 			given(cartRepository.save(any(Cart.class)))
 				.willAnswer(invocation -> invocation.getArgument(0));
@@ -132,7 +163,10 @@ class CartServiceTest {
 			assertThat(response.productStatus()).isEqualTo("ON_SALE");
 
 			ArgumentCaptor<Cart> cartCaptor = ArgumentCaptor.forClass(Cart.class);
+			then(cartRepository).should().findByBuyerIdForUpdateWithCartProducts(BUYER_ID);
 			then(cartRepository).should().save(cartCaptor.capture());
+			then(orderProductPurchasePolicy).should(times(2))
+				.validateCartAddable(BUYER_ID, PRODUCT_ID_1);
 			assertThat(cartCaptor.getValue().getBuyerId()).isEqualTo(BUYER_ID);
 			assertThat(cartCaptor.getValue().getCartProducts()).hasSize(1);
 		}
@@ -169,7 +203,7 @@ class CartServiceTest {
 
 			given(productClient.getCartSnapshot(PRODUCT_ID_1))
 				.willReturn(cartSnapshot1());
-			given(cartRepository.findByBuyerIdWithCartProducts(BUYER_ID))
+			given(cartRepository.findByBuyerIdForUpdateWithCartProducts(BUYER_ID))
 				.willReturn(Optional.of(cart));
 
 			assertThatThrownBy(() -> cartService.addCartProduct(BUYER_ID, new AddCartProductRequest(PRODUCT_ID_1)))
@@ -178,6 +212,7 @@ class CartServiceTest {
 					assertThat(((CartException) exception).getErrorCode()).isEqualTo(ErrorCode.CART_ITEM_DUPLICATED)
 				);
 
+			then(cartRepository).should().findByBuyerIdForUpdateWithCartProducts(BUYER_ID);
 			then(cartRepository).should(never()).save(any());
 		}
 	}
@@ -194,10 +229,13 @@ class CartServiceTest {
 
 			given(cartRepository.findCartProductWithCart(cartProduct.getId()))
 				.willReturn(Optional.of(cartProduct));
+			given(cartRepository.findByBuyerIdForUpdateWithCartProducts(BUYER_ID))
+				.willReturn(Optional.of(cart));
 
 			cartService.deleteCartProduct(BUYER_ID, cartProduct.getId());
 
 			assertThat(cart.getCartProducts()).isEmpty();
+			then(cartRepository).should().findByBuyerIdForUpdateWithCartProducts(BUYER_ID);
 			then(cartRepository).should().save(cart);
 		}
 

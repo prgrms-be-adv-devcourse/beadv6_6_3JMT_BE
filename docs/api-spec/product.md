@@ -1,9 +1,11 @@
 # Product Service API
 
-**Base:** `http://localhost:xxxx/api/v1`
+**Base:** `http://localhost:xxxx/api/v2`
 
-> ⚠ `api/v1`은 세미 프로젝트 완성 스냅샷(`v1.0.0` 태그) 기준 경로다. 최종 프로젝트에서
-> `api/v2`로 전환 예정이며 별도 이슈로 진행한다(`docs/adr/config-management.md` §10).
+> 최종 프로젝트 전환에 따라 product-service 외부 API는 `/api/v2`로 서빙한다(#273).
+> 게이트웨이는 경로를 rewrite하지 않으므로(ADR-0007) 각 서비스가 해당 버전 경로를 직접 서빙한다.
+> 서비스 간 내부 통신은 REST(`/internal/**`)가 아니라 gRPC로 통일되어 있다(#413, #431) — 남은
+> `/internal/**` REST 엔드포인트는 없다.
 
 ## 공통 사항
 
@@ -26,9 +28,41 @@
 |---------|------|------|--------|------|
 | q | string | N | `""` | 제목/설명 검색 |
 | productType | string | N | `"all"` | `all\|PROMPT\|NOTION\|PPT\|EXCEL` |
-| sort | string | N | `"popular"` | `popular\|rating\|price-asc\|price-desc` |
-| page | number | N | `1` | 페이지 번호 |
+| sort | string | N | `"popular"` | `popular\|rating\|price-asc` |
+| page | number | N | `0` | 0부터 시작하는 페이지 번호 |
 | size | number | N | `20` | 페이지당 항목 수 |
+
+#### 검색 방식 (하이브리드)
+
+`sort=popular`(기본값)이고 검색어가 있으면 **글자 기반 검색과 의미 기반 검색을 동시에 돌려
+순위를 병합**한다. 단어가 겹치지 않는 자연어 질의("발표자료 예쁘게 만들어주는 거")에도
+결과를 주기 위한 것이다.
+
+- 글자 기반 검색 대상은 **이름·태그·설명·모델**이다(가중치 이름 3 > 태그 2 > 설명 1.5 >
+  모델 1). 모델은 최하 가중치라 "gpt" 검색 시 이름·태그에 GPT가 있는 상품이 모델만 GPT인
+  상품보다 항상 앞선다(#699). 본문(`content`)은 검색하지 않는다 — 프롬프트 본문은
+  "예: 일별 주식 지수 데이터 수집" 같은 placeholder 예시로 가득해, 본문을 매칭하면 상품과
+  무관한 검색어가 예시 문구에 걸려 오탐이 된다(#689)
+- 여러 단어 검색은 **2단어면 모두, 3단어 이상이면 75% 이상** 일치해야 한다
+  (`minimum_should_match: 2<75%`) — 대부분의 상품명이 공유하는 "프롬프트" 같은 단어
+  하나만 겹치는 무관 상품이 꼬리로 딸려오는 것을 막는다(#689). 한 단어 검색은 영향 없다
+- 검색어 속 **유형 단어**(`프롬프트/prompt`·`노션/notion`·`엑셀/excel`·`피피티/ppt`)는 글자
+  매칭 대신 **productType 필터로 해석**한다 — "주식 프롬프트"는 PROMPT 유형에서 "주식"을
+  찾는 것과 같고, "주식프롬프트"처럼 붙여 쓴 접미사도 해석한다. 유형 단어만 치면 그 유형
+  전체가 인기순으로 나온다. `productType` 파라미터로 유형을 이미 지정한 요청은 검색어를
+  해석하지 않는다(#689)
+- 두 결과를 RRF(등수 기반 병합)로 섞는다. 점수를 더하지 않는 이유는 BM25 점수에 상한이 없고
+  코사인 유사도는 0~1이라 스케일이 맞지 않기 때문이다
+- 병합 대상은 각 방식의 **상위 100건**이다. 그 범위를 넘어가는 페이지는 글자 기반 결과만 준다
+- 의미 기반 결과에는 **코사인 유사도 하한**이 걸린다. 하한이 없으면 kNN이 관련도와 무관하게
+  상위 k건을 채워 돌려주므로, 색인 문서가 k보다 적을 때 어떤 질의에도 전체 상품이 나오고
+  **검색 결과 0건이 발생할 수 없다**(#645)
+- `meta.total`은 **글자 기반 전체 건수와 병합 결과 크기 중 큰 값**이다. 실제로 내려주는
+  결과 수보다 작지 않다
+- `sort=rating`·`price-asc`는 값 기준 정렬이라 순서가 그 필드로 결정되므로 하이브리드를
+  적용하지 않는다
+- 검색어 임베딩 생성이 300ms를 넘기면 그 요청은 **글자 기반 결과만으로 응답**한다.
+  응답 형식은 동일하며 호출자가 구분할 필요가 없다
 
 #### Response
 
@@ -47,7 +81,6 @@
       "originalAmount": null,
       "rating": 4.9,
       "salesCount": 1240,
-      "seller": "비주얼랩",
       "sellerId": "uuid",
       "badge": "신규",
       "desc": "상품 설명",
@@ -77,7 +110,6 @@
 | originalAmount | integer \| null | 할인 전 원래 가격 (할인 없으면 null) |
 | rating | number | 평균 별점 |
 | salesCount | integer | 누적 판매 수 |
-| seller | string | 판매자 이름 |
 | sellerId | string | 판매자 ID |
 | badge | string | 뱃지 (`신규` 등) |
 | desc | string | 상품 설명 |
@@ -85,10 +117,188 @@
 | tags | string[] | 판매자 지정 태그 목록 |
 | createdAt | string | 생성일시 (ISO 8601) |
 | updatedAt | string | 수정일시 (ISO 8601) |
-| meta.page | integer | 현재 페이지 번호 |
+| meta.page | integer | 현재 페이지 번호(0-base) |
 | meta.size | integer | 페이지당 항목 수 |
 | meta.total | integer | 전체 항목 수 |
 | meta.hasNext | boolean | 다음 페이지 존재 여부 |
+
+> `seller`(판매자 이름) 필드는 더 이상 내려주지 않는다(#440) — 프론트가 `sellerId`로
+> user-service 배치 조회 API를 직접 호출해 렌더링한다.
+
+---
+
+### GET /products/suggest — 상품명 자동완성
+
+- 인증: 불필요
+- 용도: 검색창 타이핑 중 상품명 제안
+
+**Query Parameter**
+
+| 이름 | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| q | string | `""` | 검색어. 공백만 있거나 비어 있으면 조회하지 않고 빈 목록 반환 |
+
+**Response** `200 OK`
+
+```json
+{
+  "success": true,
+  "data": ["시니어 코드리뷰 프롬프트", "코드 리팩터링 프롬프트"],
+  "message": "success"
+}
+```
+
+- 최대 5건, `salesCount` 내림차순
+- 상품명 **중간 단어의 앞부분**으로도 매칭된다. `q=코드`가 `"시니어 코드리뷰 프롬프트"`를
+  찾는다 — 이 서비스 상품명은 앞에 수식어가 붙는 형태라 첫 글자 prefix 매칭만으로는
+  쓸모가 없다
+- Elasticsearch 전용이다. ES 조회가 실패하면 **에러가 아니라 빈 목록**(`data: []`)을
+  반환한다. RDB에 대응하는 조회가 없고, 자동완성은 드롭다운이 안 뜰 뿐 검색 자체를 막지
+  않는다
+
+> **현재 이 엔드포인트를 호출하는 클라이언트가 없다.** FE 자동완성은 제안할 어휘가 부족해
+> 되돌렸다(FE#25 — 태그 11개, 상품명 단어 ~15개뿐이고 상위 태그는 눌러도 거의 전체가 나옴).
+> 검색 자동완성의 재료는 검색 로그이므로 #381이 쌓인 뒤 #382와 함께 재검토한다.
+> 엔드포인트는 되살리기 쉽게 남겨둔다.
+
+---
+
+### POST /products/wishlists — 찜 상품 배치 상세 조회
+
+- 인증: 불필요
+- 용도: 찜 목록 등 productId 목록만 갖고 있는 화면에서 카드 표시 정보를 한 번에 조회
+
+#### Request
+
+**Body**
+
+```json
+{ "productIds": ["uuid1", "uuid2"] }
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| productIds | string(UUID)[] | Y | 조회할 상품 ID 목록 |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "productId": "uuid",
+      "sellerId": "uuid",
+      "title": "사진 같은 제품 목업 생성기",
+      "amount": 5900,
+      "thumbnailUrl": null,
+      "productType": "PROMPT",
+      "model": "Midjourney v6",
+      "salesCount": 1240,
+      "averageRating": 4.9,
+      "status": "ON_SALE"
+    }
+  ],
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| productId | string | 상품 ID |
+| sellerId | string | 판매자 ID |
+| title | string | 상품명 |
+| amount | integer | 현재 가격 |
+| thumbnailUrl | string \| null | 썸네일 이미지 URL |
+| productType | string | 상품 유형 |
+| model | string | 대상 AI 모델 |
+| salesCount | integer | 누적 판매 수 |
+| averageRating | number | 평균 별점 |
+| status | string | 상품 상태 |
+
+요청한 productId 중 존재하지 않거나 현재 판매 중인 버전이 없는 상품은 응답 배열에서 제외된다.
+
+---
+
+### POST /products/orders — 구매 상품 배치 상세 조회
+
+- 인증: 불필요
+- 용도: 마이페이지 "구매한 프롬프트" 목록 등 주문에서 얻은 productId 목록으로 카드 표시 정보를 한 번에 조회. 응답의 `sellerId`로 user-service `POST /users/order-products`를 이어서 호출해 판매자 이름을 채운다.
+- `POST /products/wishlists`와 요청/응답 계약이 동일하다(내부적으로 같은 조회를 재사용).
+
+#### Request
+
+**Body**
+
+```json
+{ "productIds": ["uuid1", "uuid2"] }
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| productIds | string(UUID)[] | Y | 조회할 상품 ID 목록 |
+
+#### Response
+
+**200 OK** — `POST /products/wishlists`와 동일한 item 구조(`productId`, `sellerId`, `title`, `amount`, `thumbnailUrl`, `productType`, `model`, `salesCount`, `averageRating`, `status`)
+
+요청한 productId 중 존재하지 않거나 현재 판매 중인 버전이 없는 상품은 응답 배열에서 제외된다.
+
+---
+
+### GET /products/{productId}/orders — 구매 상품 reader 조회
+
+- 인증: 필요 (Gateway 주입 `X-User-Id`)
+- 용도: 구매한 프롬프트 reader 페이지(FE `/reader/[id]`)가 상품 데이터·유형별 콘텐츠·평균/내 별점을 한 번에 조회. 응답의 `sellerId`로 user-service `POST /users/order-products`를 이어서 호출해 판매자 이름을 채운다.
+- 구매 여부 검증은 현재 하지 않는다(#550 결정, 후속 이슈에서 order-service 연동 예정).
+
+#### Path Parameters
+
+| 파라미터 | 타입 | 설명 |
+|---------|------|------|
+| productId | UUID | 상품 ID |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "productId": "uuid",
+    "title": "면접 답변 프롬프트",
+    "productType": "PROMPT",
+    "model": "GPT-4o",
+    "content": "프롬프트 본문...",
+    "fileUrl": null,
+    "externalUrl": null,
+    "thumbnailUrl": "https://cdn/thumb.png",
+    "sellerId": "uuid",
+    "averageRating": 4.5,
+    "myRating": 5
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| productId | string(UUID) | 요청한 상품 ID |
+| title | string | 상품명 |
+| productType | string | PROMPT / NOTION / PPT / EXCEL |
+| model | string \| null | 대상 모델 |
+| content | string \| null | 프롬프트 본문 (PROMPT만) |
+| fileUrl | string \| null | presigned 다운로드 URL (PPT·EXCEL만) |
+| externalUrl | string \| null | 외부 노션 링크 (NOTION만) |
+| thumbnailUrl | string \| null | 썸네일 URL |
+| sellerId | string(UUID) | 판매자 ID |
+| averageRating | number | family 평균 별점 |
+| myRating | number \| null | 요청 유저의 별점 (없으면 null) |
+
+**404 Not Found** — 존재하지 않거나 현재 판매 중인 버전이 없는 상품 (`P001`)
 
 ---
 
@@ -117,13 +327,12 @@
     "amount": 5900,
     "rating": 4.9,
     "salesCount": 1240,
-    "seller": "비주얼랩",
     "sellerId": "uuid",
-    "sellerProfileImageUrl": "https://...",
     "sellerProductCount": 12,
     "badge": "신규",
     "desc": "상품 설명",
     "thumbnail_url": null,
+    "imageUrls": [],
     "content": "[상품명]\n\n전체 내용은 구매 후 확인...",
     "tags": ["이미지생성", "목업"],
     "versions": [
@@ -131,6 +340,14 @@
       { "ver": "v1.2", "date": "2026-05-10", "note": "배경 제거 옵션 개선" }
     ],
     "features": ["고해상도 출력 지원", "상업적 이용 가능", "버전 업데이트 무료 제공"],
+    "hasContext": true,
+    "hasObjective": true,
+    "hasNuance": false,
+    "hasTone": true,
+    "hasExamples": false,
+    "hasExecution": true,
+    "hasRoleAssignment": false,
+    "checklistRecorded": true,
     "createdAt": "2026-05-01T00:00:00.000Z",
     "updatedAt": "2026-06-01T00:00:00.000Z"
   },
@@ -138,12 +355,38 @@
 }
 ```
 
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| hasContext | boolean | AI 검수 체크리스트: 맥락 명시 여부 |
+| hasObjective | boolean | AI 검수 체크리스트: 목표 명시 여부 |
+| hasNuance | boolean | AI 검수 체크리스트: 뉘앙스 명시 여부 |
+| hasTone | boolean | AI 검수 체크리스트: 톤 명시 여부 |
+| hasExamples | boolean | AI 검수 체크리스트: 예시 포함 여부 |
+| hasExecution | boolean | AI 검수 체크리스트: 실행 지침 포함 여부 |
+| hasRoleAssignment | boolean | AI 검수 체크리스트: 역할 부여 포함 여부 (#671) |
+| checklistRecorded | boolean | 위 체크리스트 7개가 실제로 검수 이벤트로 기록됐는지 여부. `false`면 7개 값은 무시한다 — "검수 미달"이 아니라 "이 기능 배포 전에 승인/반려되어 기록이 없음"이라는 뜻이다. FE는 이 값이 `false`일 때 체크리스트 섹션 자체를 숨겨야 한다 (#671) |
+
+> `seller`(판매자 이름)·`sellerProfileImageUrl` 필드는 더 이상 내려주지 않는다(#440) — 프론트가
+> `sellerId`로 user-service 배치 조회 API를 직접 호출해 렌더링한다. `sellerProductCount`는
+> product-service 자체 집계(로컬 DB 조회)라 그대로 유지한다.
+>
+> `imageUrls`(상품 등록 시 올린 소개 이미지 목록)는 `thumbnail_url`(대표 썸네일 1장)과는 별개
+> 필드다. 캐러셀은 `thumbnail_url` + `imageUrls`를 순서대로 이어붙여 보여주면 된다. 개수 제한은
+> 백엔드에 별도 검증(예: `@Size`)이 없다 — 등록 폼에서 몇 장까지 받을지는 FE 업로드 UI 정책의
+> 문제이고, 이 API는 저장된 값을 그대로 반환할 뿐이다.
+>
+> `thumbnail_url`/`imageUrls`는 저장 시 S3 key로 보관되고, 조회 응답 시점에
+> `storageClient.generatePresignedDownloadUrl(key)`로 presigned GET URL로 변환해 반환한다 — 공개
+> 목록/상세/관련상품, 판매자 본인 목록, 찜 배치조회(`POST /products/wishlists`) 전부 동일 패턴이다.
+
 ---
 
-### GET /products/{productId}/related — 연관 상품 조회
+### GET /products/{productId}/recommends — 추천 상품 조회
 
 - 인증: 불필요
-- 동일 productType 상품 배열 반환
+- 판매 중(ON_SALE) 상품 배열 반환
+- **임베딩이 가까운 순으로 고른다.** 기준 상품의 다른 버전은 제외되고, 후보도 가족(버전 묶음)당 1건만 온다 — 같은 상품이 두 번 나오지 않는다(#699)
+- 같은 `productType`이 소폭 가산점을 받지만 하드 필터가 아니다 — 내용이 정말 비슷하면 다른 유형도 올라온다
 
 #### Query Parameters
 
@@ -195,6 +438,91 @@
 
 ## 상품 (판매자)
 
+### POST /products/uploads/presigned-urls — 업로드 URL 발급 (presigned PUT)
+
+- 인증: 필요
+- 필요 역할: SELLER
+- 이미지·산출물 파일 업로드는 백엔드를 경유하지 않는다. 백엔드는 presigned PUT URL만 발급하고,
+  프론트가 그 URL로 S3에 파일을 직접 PUT한 뒤, 반환된 `fileUrl`을 상품 생성/수정 요청의
+  `thumbnailUrl` / `imageUrls` / `fileUrl`에 넣어 보낸다.
+
+#### Request
+
+**Headers**
+
+| 헤더 | 설명 |
+|------|------|
+| X-User-Id | 판매자 ID (API Gateway 주입) |
+| X-User-Role | 사용자 역할 (API Gateway 주입) |
+
+**Body**
+
+```json
+{ "purpose": "file", "fileName": "sample.pptx", "productType": "PPT" }
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| purpose | string | Y | `thumbnail` \| `image` \| `file` |
+| fileName | string | Y | 원본 파일명(확장자 추출용) |
+| productType | string | 조건부 | `purpose=file`일 때 필수(`PPT` \| `EXCEL`) |
+
+- 확장자 검증(엄격): PPT→`pptx`/`ppt`, EXCEL→`xlsx`/`xls`, 이미지→`jpg`/`jpeg`/`png`/`gif`/`webp`.
+  맞지 않으면 400 `P008`. content-type은 발급 시 서명에 포함된다.
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "uploadUrl": "https://<presigned-put-url>",
+    "fileUrl": "https://<bucket>.s3.<region>.amazonaws.com/products/temp/file/<uuid>.pptx?..."
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| uploadUrl | string | 프론트가 파일을 직접 PUT할 대상(만료 있음) |
+| fileUrl | string | 업로드 후 상품 생성/수정 요청에 넣을 값(임시 경로). 생성/수정 시 상품 경로로 이동됨 |
+
+---
+
+### DELETE /products/images — 임시 업로드 이미지/파일 정리
+
+- 인증: 필요
+- 필요 역할: SELLER
+- 용도: 상품 등록/수정 중 이탈 시, 아직 상품에 연결되지 않은 temp 업로드 파일을 정리
+- productId를 받지 않는다 — 요청 body의 URL 문자열에서 직접 S3 key를 파싱해 삭제하며,
+  `products/temp/`로 시작하는 key만 삭제 대상이다(그 외는 조용히 무시).
+
+#### Request
+
+**Headers**
+
+| 헤더 | 설명 |
+|------|------|
+| X-User-Id | 판매자 ID (API Gateway 주입) |
+| X-User-Role | 사용자 역할 (API Gateway 주입) |
+
+**Body**
+
+```json
+["https://<bucket>.s3.<region>.amazonaws.com/products/temp/thumbnail/<uuid>.jpg?..."]
+```
+
+삭제할 파일들의 presigned URL(또는 원본 key) 목록.
+
+#### Response
+
+**200 OK** — 응답 바디 없음
+
+---
+
 ### POST /products — 상품 등록
 
 - UC: UC-PRODUCT-01
@@ -230,12 +558,16 @@
 |------|------|------|------|
 | title | string | Y | 상품명 |
 | productType | string | N | 상품 유형 (`PROMPT` \| `NOTION` \| `PPT` \| `EXCEL`, 기본값 `PROMPT`) |
-| model | string | Y | 대상 AI 모델 |
+| model | string | N | 대상 AI 모델 (PROMPT 타입일 때만 필수, 그 외 타입은 null) |
 | desc | string | Y | 상품 설명 |
 | amount | integer | Y | 가격 |
-| content | string | Y | 프롬프트 원문 |
+| content | string | 유형별 | 프롬프트 원문 (PROMPT 필수) |
+| fileUrl | string | 유형별 | 산출물 파일 URL (PPT/EXCEL 필수, 업로드 후 받은 URL) |
+| externalUrl | string | 유형별 | 외부 노션 링크 (NOTION 필수) |
 | thumbnailUrl | string | N | 썸네일 이미지 URL |
 | tags | string[] | N | 판매자 지정 태그 목록 |
+
+> **유형별 필수 필드**: PROMPT→`content`, PPT·EXCEL→`fileUrl`, NOTION→`externalUrl`. 각 유형은 해당 필드만 사용하며, 맞지 않는 필드가 채워지면 400 `P007`. 공개 상세 응답에는 `fileUrl`/`externalUrl`을 노출하지 않는다(구매 후 전달은 내부 API).
 
 #### Response
 
@@ -261,7 +593,7 @@
 
 ---
 
-### PUT /products/{productId} — 상품 수정
+### PATCH /products/{productId} — 상품 수정
 
 - UC: UC-PRODUCT-02
 - 인증: 필요
@@ -297,14 +629,18 @@
 |------|------|------|------|
 | title | string | Y | 상품명 |
 | productType | string | N | 상품 유형 (`PROMPT` \| `NOTION` \| `PPT` \| `EXCEL`, 기본값 `PROMPT`) |
-| model | string | Y | 대상 AI 모델 |
+| model | string | N | 대상 AI 모델 (PROMPT 타입일 때만 필수, 그 외 타입은 null) |
 | desc | string | Y | 상품 설명 |
 | amount | integer | Y | 가격 |
-| content | string | Y | 프롬프트 원문 |
+| content | string | 유형별 | 프롬프트 원문 (PROMPT 필수) |
+| fileUrl | string | 유형별 | 산출물 파일 URL (PPT/EXCEL 필수, 업로드 후 받은 URL) |
+| externalUrl | string | 유형별 | 외부 노션 링크 (NOTION 필수) |
 | thumbnailUrl | string | N | 썸네일 이미지 URL |
 | tags | string[] | N | 판매자 지정 태그 목록 |
 | changeReason | string | N | 변경 사유 |
 | versionType | string | N | `MINOR`(기본) \| `MAJOR` |
+
+> **유형별 필수 필드**: PROMPT→`content`, PPT·EXCEL→`fileUrl`, NOTION→`externalUrl`. 각 유형은 해당 필드만 사용하며, 맞지 않는 필드가 채워지면 400 `P007`.
 
 #### Response
 
@@ -332,7 +668,7 @@
 
 ---
 
-### PATCH /products/{productId}/submit — 검수 요청
+### PATCH /products/{productId}/inspection — 검수 요청
 
 - UC: UC-PRODUCT-06
 - 인증: 필요
@@ -352,7 +688,7 @@
 
 ---
 
-### GET /sellers/me/products — 판매자 본인 상품 목록
+### GET /products/sellers/me — 판매자 본인 상품 목록
 
 - UC: UC-PRODUCT-07
 - 인증: 필요
@@ -374,6 +710,7 @@
       "amount": 5000,
       "status": "DRAFT",
       "salesCount": 0,
+      "averageRating": 0,
       "thumbnailUrl": null,
       "rejectionReason": null,
       "createdAt": "2024-01-01T00:00:00",
@@ -393,6 +730,7 @@
 | amount | integer | 가격 |
 | status | string | `DRAFT` \| `PENDING_REVIEW` \| `ON_SALE` \| `REJECTED` \| `STOPPED` |
 | salesCount | integer | 누적 판매 수 |
+| averageRating | number | family(버전군) 전체 리뷰 평균 별점. 리뷰 없으면 0 |
 | thumbnailUrl | string \| null | 썸네일 이미지 URL |
 | rejectionReason | string \| null | 반려 사유 (REJECTED 상태일 때) |
 | createdAt | string | 생성일시 |
@@ -400,7 +738,38 @@
 
 ---
 
-### GET /sellers/me/products/{productId} — 판매자 본인 상품 상세
+### GET /products/sellers/me/summary — 판매자 본인 상품 요약(등록 상품 수·누적 판매 수)
+
+- 인증: 필요
+- 필요 역할: SELLER
+- 판매자 대시보드 상단 요약 카드용. `productCount`는 family(버전군) 단위 등록 상품 수,
+  `salesCount`는 판매자의 모든 상품을 통틀은 누적 판매 수다.
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sellerId": "uuid",
+    "productCount": 3,
+    "salesCount": 42
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| sellerId | string | 판매자 ID |
+| productCount | integer | 등록 상품 수 (family 단위) |
+| salesCount | integer | 누적 판매 수 |
+
+---
+
+### GET /products/{productId}/sellers/me — 판매자 본인 상품 상세
 
 - UC: UC-PRODUCT-08
 - 인증: 필요
@@ -421,24 +790,87 @@
     "amount": 5000,
     "desc": "설명",
     "content": "프롬프트 원문",
+    "fileUrl": null,
+    "externalUrl": null,
     "status": "DRAFT",
     "version": "1.0",
+    "averageRating": 0,
     "thumbnailUrl": null,
-    "tags": ["태그1", "태그2"]
+    "tags": ["태그1", "태그2"],
+    "liveVersion": "1.0",
+    "versions": [
+      {
+        "version": "1.0",
+        "status": "ON_SALE",
+        "date": "2026-07-01",
+        "changeReason": null,
+        "rejectionReason": null,
+        "hasContext": true,
+        "hasObjective": true,
+        "hasNuance": false,
+        "hasTone": true,
+        "hasExamples": false,
+        "hasExecution": true,
+        "hasRoleAssignment": false,
+        "checklistRecorded": true
+      }
+    ]
   },
   "message": "success"
 }
 ```
 
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| fileUrl | string \| null | 산출물 파일 presigned 다운로드 URL (PPT/EXCEL). 없으면 null |
+| externalUrl | string \| null | 외부 노션 링크 (NOTION). 없으면 null |
+| averageRating | number | family(버전군) 전체 리뷰 평균 별점. 리뷰 없으면 0 |
+| liveVersion | string \| null | 현재 판매중(ON_SALE) 버전 표기(`major.patch`). 판매중 버전이 없으면 null |
+| versions | array | 이 상품의 버전 이력 목록 |
+| versions[].version | string | 버전 표기(`major.patch`) |
+| versions[].status | string | 해당 버전 상태 (`ON_SALE` / `SUPERSEDED` / `PENDING_REVIEW` / `REJECTED` 등) |
+| versions[].date | string | 해당 버전 갱신일(YYYY-MM-DD) |
+| versions[].changeReason | string \| null | 버전업 변경 사유 |
+| versions[].rejectionReason | string \| null | 검수 반려 사유 (반려된 버전만) |
+| versions[].hasContext | boolean | AI 검수 체크리스트: 맥락 명시 여부 |
+| versions[].hasObjective | boolean | AI 검수 체크리스트: 목표 명시 여부 |
+| versions[].hasNuance | boolean | AI 검수 체크리스트: 뉘앙스 명시 여부 |
+| versions[].hasTone | boolean | AI 검수 체크리스트: 톤 명시 여부 |
+| versions[].hasExamples | boolean | AI 검수 체크리스트: 예시 포함 여부 |
+| versions[].hasExecution | boolean | AI 검수 체크리스트: 실행 지침 포함 여부 |
+| versions[].hasRoleAssignment | boolean | AI 검수 체크리스트: 역할 부여 포함 여부 (#671) |
+| versions[].checklistRecorded | boolean | 위 체크리스트 7개가 실제로 검수 이벤트로 기록됐는지 여부. `false`면 아직 검수 전(PENDING_REVIEW 최초 제출 등)이거나, 이 기능 배포 전에 이미 처리된 버전이라 기록이 없다는 뜻 (#671) |
+
 ---
 
 ## 상품 검수 (관리자)
 
-### GET /admin/products — 전체 상품 목록 조회
+관리자 상품 검수 API(목록 조회·승인·반려·되돌리기)는 admin-service로 이관되었다.
+`docs/api-spec/admin.md` 참고.
 
-- UC: UC-PRODUCT-05
-- 인증: 필요
-- 필요 역할: ADMIN
+---
+
+## 리뷰
+
+### POST /products/{productId}/reviews — 별점 작성
+
+- 인증: 필요 (`X-User-Id` 헤더)
+- 1상품 1리뷰 제약 — 이미 남긴 별점이 있으면 upsert(수정)로 처리
+- 구매 여부는 서버에서 검증하지 않는다(알려진 한계, #440)
+
+#### Request
+
+**Body**
+
+```json
+{
+  "rating": 5
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| rating | integer | Y | 1~5 |
 
 #### Response
 
@@ -447,204 +879,14 @@
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "productId": "uuid",
-      "title": "상품명",
-      "sellerId": "uuid",
-      "productType": "PROMPT",
-      "model": "Claude 3.5",
-      "amount": 5000,
-      "status": "PENDING_REVIEW",
-      "createdAt": "2024-01-01T00:00:00"
-    }
-  ],
+  "data": null,
   "message": "success"
 }
 ```
 
----
-
-### PUT /admin/products/{productId}/approve — 검수 승인
-
-- UC: UC-PRODUCT-05
-- 인증: 필요
-- 필요 역할: ADMIN
-- 상태 전이: PENDING_REVIEW → ON_SALE
-
-#### Path Parameters
-
-| 파라미터 | 타입 | 설명 |
-|---------|------|------|
-| productId | UUID | 상품 ID |
-
-#### Response
-
-**200 OK** — 응답 바디 없음
+**400 Bad Request** — rating이 1~5 범위 밖 (`VALIDATION_FAILED`, V001)
 
 ---
-
-### PUT /admin/products/{productId}/reject — 검수 반려
-
-- UC: UC-PRODUCT-05
-- 인증: 필요
-- 필요 역할: ADMIN
-- 상태 전이: PENDING_REVIEW → REJECTED
-
-#### Path Parameters
-
-| 파라미터 | 타입 | 설명 |
-|---------|------|------|
-| productId | UUID | 상품 ID |
-
-#### Request
-
-```json
-{
-  "reason": "반려 사유"
-}
-```
-
-#### Response
-
-**200 OK** — 응답 바디 없음
-
----
-
-## 리뷰
-
-### POST /products/{productId}/reviews — 별점 작성
-
-- UC: UC-PRODUCT-09
-- 인증: 필요
-- 필요 역할: USER
-- 1상품 1리뷰 제약
-- 미구현 (이슈 #93)
-
----
-
-## 내부 API (Internal)
-
-내부 서비스 간 호출 전용. Gateway를 거치지 않음.
-
-### POST /internal/products/order-snapshots — 주문 스냅샷 조회
-
-- 호출: order-service → product-service
-- 호출 시점: 주문 생성 시
-
-#### Request
-
-```json
-["uuid1", "uuid2"]
-```
-
-#### Response
-
-```json
-[
-  {
-    "productId": "uuid",
-    "sellerId": "uuid",
-    "title": "상품명",
-    "productType": "PROMPT",
-    "model": "GPT-4o",
-    "amount": 5000
-  }
-]
-```
-
----
-
-### GET /internal/products/{productId}/cart-snapshot — 장바구니 단건 스냅샷
-
-- 호출: order-service → product-service
-
-#### Response
-
-```json
-{
-  "productId": "uuid",
-  "title": "상품명",
-  "productType": "PROMPT",
-  "model": "GPT-4o",
-  "amount": 5000,
-  "thumbnailUrl": "https://...",
-  "sellerId": "uuid",
-  "sellerNickname": "판매자명",
-  "status": "ON_SALE"
-}
-```
-
----
-
-### POST /internal/products/cart-snapshots — 장바구니 목록 스냅샷
-
-- 호출: order-service → product-service
-
-#### Request
-
-```json
-["uuid1", "uuid2"]
-```
-
-#### Response
-
-cart-snapshot 배열 반환
-
----
-
-### GET /internal/products/{productId}/content — 프롬프트 원문 조회
-
-- 호출: order-service → product-service
-- 호출 시점: 구매 후 콘텐츠 다운로드
-
-#### Response
-
-```json
-{
-  "productId": "uuid",
-  "content": "프롬프트 원문"
-}
-```
-
----
-
-### POST /internal/products/reviews — 리뷰 upsert
-
-- 호출: order-service → product-service
-- 호출 시점: 구매 후 리뷰 작성
-
-#### Request
-
-```json
-{
-  "buyerId": "uuid",
-  "productId": "uuid",
-  "rating": 5
-}
-```
-
----
-
-### GET /internal/products/count — 판매자 등록 상품 수 조회
-
-- 호출: settlement-service → product-service
-- 호출 시점: 판매자 정산 요약 조회 시
-
-#### Query Parameters
-
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| sellerId | UUID | Y | 판매자 ID |
-
-#### Response
-
-```json
-{
-  "sellerId": "uuid",
-  "productCount": 12
-}
-```
 
 ## Kafka 이벤트
 
@@ -701,38 +943,61 @@ cart-snapshot 배열 반환
 
 ### 제공 (Server)
 
-product-service가 서버로 구현해 다른 서비스에 노출하는 서비스다.
+product-service가 서버로 구현해 다른 서비스에 노출하는 서비스다. 계약은 루트
+`grpc/product/product_query.proto`의 단일 `ProductQueryService`로 관리한다(소유자=product).
 
-#### `ProductQueryService` (소비: settlement-service)
+#### `ProductQueryService` (소비: order-service, ai-service)
 
-| rpc | 요청 | 응답 |
-|---|---|---|
-| `CountBySeller` | `seller_id` | `seller_id`, `product_count` |
+| rpc | 요청 | 응답 | 소비자 |
+|---|---|---|---|
+| `GetOrderSnapshots` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `title`, `product_type`, `amount`, `model` | order |
+| `GetCartSnapshots` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `seller_nickname`, `title`, `product_type`, `amount`, `thumbnail_url` | order |
+| `GetProductContent` | `product_id`, `product_ids[]`, `purpose` | `product_id`, `content`(구형), `results[]` | order |
+| `GetSimilarProducts` | `seed_product_ids[]`, `limit_per_seed` | `rankings[]`: `seed_product_id`, `products[]`(`product_id`, `title`, `product_type`, `model`, `amount`, `rating`, `sales_count`, `seller_id`, `description`, `thumbnail_url`, `tags[]`) | ai |
 
-#### `ProductInternalService` (소비: order-service)
+`GetSimilarProducts`는 기준 상품마다 비슷한 상품 순위를 매겨 **합치지 않고 그대로** 돌려준다.
+여러 기준의 순위를 어떤 가중치로 합칠지, 무엇을 빼고 몇 개를 보여줄지는 호출자(ai-service)가
+정한다 — 여기서 합치면 "누구에게 무엇을 추천할지"라는 판단이 product-service로 넘어온다.
+기준 상품이 판매 중이 아니거나 임베딩이 아직 없으면 그 기준의 `products`만 비어 돌아오고,
+나머지 기준의 순위는 그대로 응답에 담긴다. 내부적으로는 기존 `GET /products/{id}/recommends`와
+같은 pgvector 유사도 조회를 기준마다 재사용한다.
 
-| rpc | 요청 | 응답 |
-|---|---|---|
-| `GetOrderSnapshots` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `title`, `product_type`, `amount`, `model` |
-| `GetCartSnapshots` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `seller_nickname`, `title`, `product_type`, `amount`, `thumbnail_url` |
-| `GetProductContent` | `product_id` | `product_id`, `content` |
+> `GetSellerStats`(셀러 통계)는 #452에서 user-service `sellersettlement` 소비자가 제거된 뒤,
+> #483에서 공개 REST `GET /products/sellers/me/summary`로 전환하며 RPC 자체를 삭제했다.
 
-#### `ProductService` (소비: user-service)
+`GetProductContent`는 주문 스냅샷·장바구니 스냅샷·구매 콘텐츠 조회를 하나의 진입점으로
+통합하는 전환 1단계다(전체 설계:
+`docs/superpowers/specs/2026-07-20-unified-get-product-content-design.md`). `purpose`
+(`ProductContentPurpose`: `ORDER_SNAPSHOT` / `CART_SNAPSHOT` / `PURCHASED_CONTENT` /
+구형 `UNSPECIFIED`)로 요청 목적을 구분하고, 응답 `results[]`(`oneof`: `order_snapshot` /
+`cart_snapshot` / `purchased_content`)로 목적별 payload를 분리한다.
 
-| rpc | 요청 | 응답 |
-|---|---|---|
-| `GetProductsByIds` | `product_ids[]` | `products[]`: `product_id`, `seller_id`, `title`, `price`, `thumbnail_url`, `category`, `model`, `sales_count`, `average_rating`, `status` |
+| purpose | `product_id` | `product_ids` | 응답 |
+|---|---:|---:|---|
+| `ORDER_SNAPSHOT` | 비어 있어야 함 | 1개 이상 | `results[]`가 전부 `order_snapshot` |
+| `CART_SNAPSHOT` | 비어 있어야 함 | 1개 이상 | `results[]`가 전부 `cart_snapshot` |
+| `PURCHASED_CONTENT` | 필수 | 비어 있어야 함 | `results`가 1건, `purchased_content` |
+| 구형 `UNSPECIFIED` | 필수 | 비어 있어야 함 | 구형 `product_id`/`content` + `results`의 `purchased_content` |
+
+그 외 조합, 빈 문자열, UUID 형식 오류는 `INVALID_ARGUMENT`. 단건 콘텐츠 대상 없음은
+`NOT_FOUND`. `GetOrderSnapshots`/`GetCartSnapshots` RPC는 order-service 소비자 전환이
+끝날 때까지 하위 호환을 위해 그대로 유지한다(전환 완료 후 별도로 제거 예정).
+
+> `GetProductsByIds`(옛 user-service 소비용)는 실제 호출자가 없어 제거했다(#431) — 정확히는,
+> user-service wishlist가 부르던 gRPC(`user.product.ProductService.GetProductsByIds`, user-service
+> 로컬 proto)는 이 canonical RPC와 이름만 같을 뿐 완전히 다른 계약이었고, product-service는 그
+> local 계약을 구현한 적이 없어 `UNIMPLEMENTED`로 실패했다(#447에서 발견). #478에서 공개 REST
+> `POST /products/wishlists`를 추가했고, #485에서 User의 로컬 gRPC client를 제거한 뒤 Client가 이 REST를
+> 직접 호출하도록 전환했다.
 
 ### 소비 (Client)
 
-product-service가 클라이언트로 호출하는, 다른 서비스가 제공하는 서비스다.
+product-service는 현재 다른 서비스의 gRPC를 소비하지 않는다.
 
-#### `SellerQueryService` (제공: user-service)
-
-| rpc | 요청 | 응답 |
-|---|---|---|
-| `FindSellers` | `seller_ids[]` | `sellers[]`: `SellerInfo` |
-| `GetSeller` | `seller_id` | `SellerInfo`(`seller_id`, `seller_name`, `profile_image_url`, `status`) |
-
-> `FindSellers`는 이 문서 상단 gRPC 네이밍 컨벤션(`Get{Entity}`)과 다르지만, user-service가
-> 소유한 계약이라 product-service 쪽에서 리네임 후 적용한다.
+> 판매자 닉네임 조회용 `SellerQueryService`(`FindSellers`/`GetSeller`, 제공: user-service)를
+> 호출하던 `SellerClient`/`GrpcSellerClientAdapter`와 product-service 쪽 로컬 계약 사본
+> (`product-service/src/main/proto/seller_query.proto`)을 제거했다(#440) — 목록/상세/
+> 관련상품 응답의 `seller`(이름) 필드가 없어지고, 장바구니 스냅샷의 `sellerNickname`도 빈
+> 값으로 나간다(프론트가 직접 user-service 배치 조회로 채움). user-service 쪽 서버 구현
+> (`ProductSellerQueryGrpcService`)과 그쪽 로컬 계약 사본은 product-service 담당이 아니라
+> 손대지 않았다 — 호출자가 없어졌어도 정리 여부는 user-service 담당자가 판단한다.

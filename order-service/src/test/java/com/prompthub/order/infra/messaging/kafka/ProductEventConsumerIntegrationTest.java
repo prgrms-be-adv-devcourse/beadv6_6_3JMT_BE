@@ -66,12 +66,7 @@ class ProductEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	void consumeProductPriceChangedEventFromKafka() {
 		UUID productId = UUID.randomUUID();
 		LocalDateTime occurredAt = LocalDateTime.of(2026, 6, 28, 15, 0);
-		Map<String, Object> message = new LinkedHashMap<>();
-		message.put("eventType", "PRODUCT_PRICE_CHANGED");
-		message.put("productId", productId.toString());
-		message.put("previousPrice", 10000);
-		message.put("changedPrice", 8000);
-		message.put("occurredAt", occurredAt.toString());
+		Map<String, Object> message = productPriceChangedEvent(productId, occurredAt);
 
 		kafkaTemplate.send("product-events", productId.toString(), message);
 
@@ -100,17 +95,32 @@ class ProductEventConsumerIntegrationTest extends KafkaIntegrationTest {
 	}
 
 	private Map<String, Object> productEvent(String eventType, UUID productId, LocalDateTime occurredAt) {
+		Map<String, Object> payload = new LinkedHashMap<>();
+		payload.put("productId", productId.toString());
+
 		Map<String, Object> message = new LinkedHashMap<>();
+		message.put("eventId", UUID.randomUUID().toString());
 		message.put("eventType", eventType);
-		message.put("productId", productId.toString());
 		message.put("occurredAt", occurredAt.toString());
+		message.put("aggregateType", "PRODUCT");
+		message.put("aggregateId", productId.toString());
+		message.put("payload", payload);
 		return message;
 	}
 
 	private Map<String, Object> productPriceChangedEvent(UUID productId, LocalDateTime occurredAt) {
-		Map<String, Object> message = productEvent("PRODUCT_PRICE_CHANGED", productId, occurredAt);
-		message.put("previousPrice", 10000);
-		message.put("changedPrice", 8000);
+		Map<String, Object> payload = new LinkedHashMap<>();
+		payload.put("productId", productId.toString());
+		payload.put("previousPrice", 10000);
+		payload.put("changedPrice", 8000);
+
+		Map<String, Object> message = new LinkedHashMap<>();
+		message.put("eventId", UUID.randomUUID().toString());
+		message.put("eventType", "PRODUCT_PRICE_CHANGED");
+		message.put("occurredAt", occurredAt.toString());
+		message.put("aggregateType", "PRODUCT");
+		message.put("aggregateId", productId.toString());
+		message.put("payload", payload);
 		return message;
 	}
 

@@ -7,16 +7,9 @@ import java.util.UUID;
 
 public record OrderListProjection(
 	UUID orderId,
-	UUID orderProductId,
-	UUID productId,
+	String orderNumber,
 	OrderStatus orderStatus,
-	OrderStatus orderProductStatus,
-	boolean downloaded,
-	String productType,
-	String title,
-	String model,
-	Double rating,
-	// String thumbnailUrl,
+	int totalAmount,
 	LocalDateTime paidAt,
 	LocalDateTime createdAt
 ) {

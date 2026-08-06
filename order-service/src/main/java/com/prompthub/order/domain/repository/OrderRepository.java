@@ -1,27 +1,43 @@
 package com.prompthub.order.domain.repository;
 
 import com.prompthub.order.application.dto.OrderListProjection;
+import com.prompthub.order.application.dto.OrderListProductProjection;
 import com.prompthub.order.domain.enums.OrderStatus;
 import com.prompthub.order.domain.model.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface OrderRepository {
-	Order save (Order order);
+	Order saveAndFlush(Order order);
 
 	Optional<Order> findByIdWithOrderProducts(UUID orderId);
 
-	boolean existsPaidOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId);
+	Optional<Order> findByIdWithOrderProductsForUpdate(UUID orderId);
 
-	Page<OrderListProjection> searchOrderproducts(
+	Optional<Order> findByOrderNumber(String orderNumber);
+
+	boolean existsAccessiblePaidOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId);
+
+	boolean isAccessiblePaidProductDownloaded(UUID buyerId, UUID productId);
+
+	boolean existsBlockingOrderProductByBuyerIdAndProductId(UUID buyerId, UUID productId);
+
+	List<UUID> findExpiredCreatedOrderIds(LocalDateTime cutoff, int batchSize);
+
+	List<UUID> findAccessiblePaidProductIdsByBuyerId(UUID buyerId);
+
+	Page<OrderListProjection> searchOrders(
 		UUID buyerId,
 		OrderStatus status,
 		LocalDateTime from,
 		LocalDateTime to,
 		Pageable pageable
 	);
+
+	List<OrderListProductProjection> findOrderProductsByOrderIds(List<UUID> orderIds);
 }

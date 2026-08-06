@@ -1,6 +1,11 @@
 server:
   port: 8081
 
+grpc:
+  server:
+    enabled: true
+    port: ${USER_GRPC_SERVER_PORT:9081}
+
 spring:
   cloud:
     config:
@@ -12,31 +17,22 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    consumer:
-      group-id: user-service
-      auto-offset-reset: earliest
-      enable-auto-commit: false
-
+        jdbc:
+          time_zone: Asia/Seoul
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 jwt:
   private-key: ${JWT_PRIVATE_KEY}
   public-key: ${JWT_PUBLIC_KEY}
-  access-token-expire-seconds: 3600
-  refresh-token-expire-seconds: 2592000
-
-grpc:
-  server:
-    port: 9081
-  client:
-    product-service:
-      address: 'static://localhost:9082'
-      negotiation-type: plaintext
+  access-token-expire-seconds: 900
+  refresh-token-expire-seconds: 604800
 
 eureka:
   client:
@@ -46,10 +42,8 @@ cors:
   allowed-origins: "http://localhost:3000"
 
 user:
-  kafka:
-    consumer:
-      settlement:
-        topic: settlement-events
-    listener:
-      settlement:
-        enabled: false   # 통합 검증 시 true
+  grpc:
+    seller-settlement:
+      internal-token: ${AI_USER_GRPC_TOKEN:local-ai-user-token}
+    seller-settlement-command:
+      internal-token: ${SETTLEMENT_USER_GRPC_TOKEN:local-settlement-user-token}

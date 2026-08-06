@@ -1,0 +1,510 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-pipeline
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: logstash
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+data:
+  gateway-access.conf: |
+    input {
+      http {
+        port => 8000
+        user => "${LOGSTASH_HTTP_USERNAME}"
+        password => "${LOGSTASH_HTTP_PASSWORD}"
+        additional_codecs => {}
+        codec => json {
+          target => "[ingest]"
+        }
+      }
+    }
+
+    filter {
+      if ![ingest][log] {
+        drop { }
+      }
+
+      json {
+        source => "[ingest][log]"
+        target => "[structured]"
+        tag_on_failure => ["_structured_json_parse_failure"]
+      }
+
+      if "_structured_json_parse_failure" in [tags] {
+        drop { }
+      }
+
+      ruby {
+        code => '
+          allowed = %w[user-service product-service order-service payment-service admin-service ai-service settlement-service notification-service]
+          structured = event.get("[structured]")
+          container = event.get("[ingest][kubernetes][container_name]")
+          labels = event.get("[ingest][kubernetes][labels]") || {}
+          label_name = labels["app.kubernetes.io/name"]
+
+          if structured.is_a?(Hash) && container == "apigateway" && structured["eventType"] == "GATEWAY_ACCESS"
+            event.set("[@metadata][log_route]", "gateway")
+          elsif structured.is_a?(Hash) && allowed.include?(container) && label_name == container && structured["serviceName"] == container
+            event.set("[@metadata][log_route]", "application")
+          else
+            event.cancel
+          end
+        '
+      }
+
+      if [@metadata][log_route] == "gateway" {
+        date {
+          match => ["[structured][@timestamp]", "ISO8601"]
+          target => "@timestamp"
+        }
+
+        mutate {
+          rename => { "[structured]" => "[gateway]" }
+        }
+      } else if [@metadata][log_route] == "application" {
+        date {
+          match => ["[structured][@timestamp]", "ISO8601"]
+          target => "@timestamp"
+        }
+
+        ruby {
+          code => '
+            structured = event.get("[structured]")
+            service_name = structured["serviceName"]
+            structured.each { |key, value| event.set(key, value) unless key == "@timestamp" || key == "@version" || key == "serviceName" }
+            event.set("[service][name]", service_name)
+          '
+        }
+
+        mutate {
+          remove_field => ["structured"]
+        }
+      }
+
+      ruby {
+        code => '
+          sensitive_key = /authorization|cookie|password|secret|api[_\s-]?key|token|body/i
+          sensitive_value = /(authorization\s*[:=]\s*)(?:bearer\s+)?[^\s,;]+|(bearer\s+)[A-Za-z0-9._~+\/-]+=*|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|((?:password|secret|api[_ -]?key|body)\s*[:=]\s*)[^,\s}]+/i
+          redact = lambda do |value, key = nil|
+            return "[REDACTED]" if key && key.match?(sensitive_key)
+            case value
+            when Hash
+              value.each { |child_key, child_value| value[child_key] = redact.call(child_value, child_key.to_s) }
+            when Array
+              value.map! { |child_value| redact.call(child_value) }
+            when String
+              value.gsub(sensitive_value) { |match| match.include?("=") || match.include?(":") ? match.split(/[:=]/, 2).first + "=[REDACTED]" : "[REDACTED]" }
+            else
+              value
+            end
+          end
+          event.to_hash.each { |key, value| event.set(key, redact.call(value, key.to_s)) }
+        '
+      }
+
+      mutate {
+        rename => { "[ingest][kubernetes]" => "[kubernetes]" }
+        remove_field => ["ingest", "event", "headers", "host", "http", "log", "url", "user_agent", "_p", "tags"]
+      }
+    }
+
+    output {
+      if [@metadata][log_route] == "gateway" {
+        elasticsearch {
+          hosts => ["http://elasticsearch.elk.svc.cluster.local:9200"]
+          ilm_enabled => false
+          manage_template => false
+          index => "gateway-access-%{+YYYY.MM.dd}"
+        }
+      } else if [@metadata][log_route] == "application" {
+        elasticsearch {
+          hosts => ["http://elasticsearch.elk.svc.cluster.local:9200"]
+          ilm_enabled => false
+          manage_template => false
+          index => "application-logs-%{+YYYY.MM.dd}"
+        }
+      }
+    }
+  payment-audit-log.conf: |
+    input {
+      kafka {
+        bootstrap_servers => "kafka.prompthub.svc.cluster.local:9092"
+        topics => ["payment-audit-log"]
+        group_id => "logstash-payment-audit-log"
+        codec => json
+      }
+      http_poller {
+        urls => {
+          recent_audit_logs => "http://payment-service.prompthub.svc.cluster.local:8084/internal/audit-logs"
+        }
+        request_timeout => 10
+        schedule => { every => "5m" }
+        codec => "json"
+      }
+    }
+
+    filter {
+      if [data] {
+        split {
+          field => "[data]"
+        }
+        ruby {
+          code => '
+            row = event.get("[data]")
+            if row.is_a?(Hash)
+              row.each { |k, v| event.set(k, v) }
+            end
+            event.remove("[data]")
+            event.remove("success")
+            event.remove("message")
+          '
+        }
+      }
+
+      date {
+        match => ["[createdAt]", "ISO8601"]
+        target => "@timestamp"
+      }
+    }
+
+    output {
+      elasticsearch {
+        hosts => ["http://elasticsearch.elk.svc.cluster.local:9200"]
+        ilm_enabled => false
+        manage_template => false
+        index => "payment-audit-log-%{+YYYY.MM.dd}"
+        document_id => "%{id}"
+      }
+    }
+  pipelines.yml: |
+    - pipeline.id: main
+      path.config: "/usr/share/logstash/pipeline/gateway-access.conf"
+    - pipeline.id: payment-audit-log
+      path.config: "/usr/share/logstash/pipeline/payment-audit-log.conf"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: logstash
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: logstash
+  ports:
+    - name: http-input
+      port: 8000
+      targetPort: http-input
+      protocol: TCP
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gateway-access-ilm-bootstrap
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: gateway-access-ilm-bootstrap
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gateway-access-ilm-bootstrap
+        app.kubernetes.io/part-of: prompthub
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector:
+        prompthub.io/node-pool: control-stateful
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bootstrap
+          image: curlimages/curl:8.14.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+            - |
+              elastic_url=http://elasticsearch.elk.svc.cluster.local:9200
+              until curl --fail --silent --show-error "${elastic_url}/_cluster/health?wait_for_status=yellow&timeout=1s" >/dev/null; do
+                sleep 5
+              done
+
+              curl --fail --silent --show-error -H "Content-Type: application/json" \
+                -X PUT "${elastic_url}/_ilm/policy/gateway-access-14d" \
+                --data '{"policy":{"phases":{"hot":{"actions":{}},"delete":{"min_age":"14d","actions":{"delete":{}}}}}}'
+              curl --fail --silent --show-error -H "Content-Type: application/json" \
+                -X PUT "${elastic_url}/_index_template/gateway-access-template" \
+                --data '{"index_patterns":["gateway-access-*"],"template":{"settings":{"index.lifecycle.name":"gateway-access-14d","number_of_shards":1,"number_of_replicas":0},"mappings":{"dynamic":true,"properties":{"gateway":{"properties":{"status":{"type":"integer"},"durationMs":{"type":"long"},"authenticated":{"type":"boolean"}}}}}}}'
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: application-logs-ilm-bootstrap
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: application-logs-ilm-bootstrap
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: application-logs-ilm-bootstrap
+        app.kubernetes.io/part-of: prompthub
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector:
+        prompthub.io/node-pool: control-stateful
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bootstrap
+          image: curlimages/curl:8.14.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+            - |
+              elastic_url=http://elasticsearch.elk.svc.cluster.local:9200
+              until curl --fail --silent --show-error "${elastic_url}/_cluster/health?wait_for_status=yellow&timeout=1s" >/dev/null; do
+                sleep 5
+              done
+
+              curl --fail --silent --show-error -H "Content-Type: application/json" \
+                -X PUT "${elastic_url}/_ilm/policy/application-logs-7d" \
+                --data '{"policy":{"phases":{"hot":{"actions":{}},"delete":{"min_age":"7d","actions":{"delete":{}}}}}}'
+              curl --fail --silent --show-error -H "Content-Type: application/json" \
+                -X PUT "${elastic_url}/_index_template/application-logs-template" \
+                --data '{"index_patterns":["application-logs-*"],"template":{"settings":{"index.lifecycle.name":"application-logs-7d","number_of_shards":1,"number_of_replicas":0},"mappings":{"dynamic":true,"properties":{"service":{"properties":{"name":{"type":"keyword"}}},"level":{"type":"keyword"},"requestId":{"type":"keyword"},"logger_name":{"type":"keyword"},"thread_name":{"type":"keyword"},"message":{"type":"match_only_text"},"errorCode":{"type":"keyword"},"errorType":{"type":"keyword"},"kubernetes":{"properties":{"container_name":{"type":"keyword"},"pod_name":{"type":"keyword"},"namespace_name":{"type":"keyword"}}}}}}}'
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: payment-audit-log-ilm-bootstrap
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: payment-audit-log-ilm-bootstrap
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: payment-audit-log-ilm-bootstrap
+        app.kubernetes.io/part-of: prompthub
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector:
+        prompthub.io/node-pool: control-stateful
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bootstrap
+          image: curlimages/curl:8.14.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+            - |
+              elastic_url=http://elasticsearch.elk.svc.cluster.local:9200
+              until curl --fail --silent --show-error "${elastic_url}/_cluster/health?wait_for_status=yellow&timeout=1s" >/dev/null; do
+                sleep 5
+              done
+
+              curl --fail --silent --show-error -H "Content-Type: application/json" \
+                -X PUT "${elastic_url}/_ilm/policy/payment-audit-log-90d" \
+                --data '{"policy":{"phases":{"hot":{"actions":{}},"delete":{"min_age":"90d","actions":{"delete":{}}}}}}'
+              curl --fail --silent --show-error -H "Content-Type: application/json" \
+                -X PUT "${elastic_url}/_index_template/payment-audit-log-template" \
+                --data '{"index_patterns":["payment-audit-log-*"],"template":{"settings":{"index.lifecycle.name":"payment-audit-log-90d","number_of_shards":1,"number_of_replicas":0},"mappings":{"dynamic":true,"properties":{"orderId":{"type":"keyword"},"entityId":{"type":"keyword"},"actorId":{"type":"keyword"},"entityType":{"type":"keyword"},"eventType":{"type":"keyword"},"newStatus":{"type":"keyword"},"failureCode":{"type":"keyword"},"occurredAt":{"type":"date"},"createdAt":{"type":"date"},"detail":{"type":"match_only_text"}}}}}}'
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash
+  namespace: elk
+  labels:
+    app.kubernetes.io/name: logstash
+    app.kubernetes.io/part-of: prompthub
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: logstash
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: logstash
+        app.kubernetes.io/part-of: prompthub
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/managed-by: kustomize
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      nodeSelector:
+        prompthub.io/node-pool: control-stateful
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: logstash
+          image: docker.elastic.co/logstash/logstash:9.4.3
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http-input
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: LS_JAVA_OPTS
+              value: -Xms256m -Xmx256m
+            - name: XPACK_MONITORING_ENABLED
+              value: "false"
+            - name: LOGSTASH_HTTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: logstash-http-credentials
+                  key: username
+            - name: LOGSTASH_HTTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: logstash-http-credentials
+                  key: password
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+          startupProbe:
+            tcpSocket:
+              port: http-input
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket:
+              port: http-input
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: http-input
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: pipeline
+              mountPath: /usr/share/logstash/pipeline/gateway-access.conf
+              subPath: gateway-access.conf
+              readOnly: true
+            - name: pipeline
+              mountPath: /usr/share/logstash/pipeline/payment-audit-log.conf
+              subPath: payment-audit-log.conf
+              readOnly: true
+            - name: pipeline
+              mountPath: /usr/share/logstash/config/pipelines.yml
+              subPath: pipelines.yml
+              readOnly: true
+      volumes:
+        - name: pipeline
+          configMap:
+            name: logstash-pipeline

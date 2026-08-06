@@ -25,3 +25,7 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# 개인 참고용 외부 스킬 (공유 제외)
+.claude/skills/spring-data-jpa/
+.claude/skills/transactional-patterns/

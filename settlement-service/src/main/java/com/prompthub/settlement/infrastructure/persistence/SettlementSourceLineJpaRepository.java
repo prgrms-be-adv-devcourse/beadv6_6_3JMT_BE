@@ -1,9 +1,8 @@
 package com.prompthub.settlement.infrastructure.persistence;
 
-import com.prompthub.settlement.domain.model.SettlementSourceLine;
-import com.prompthub.settlement.domain.model.enums.SettlementSourceEventType;
-import java.math.BigDecimal;
+import com.prompthub.settlement.domain.model.source.SettlementSourceLine;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -33,18 +32,23 @@ public interface SettlementSourceLineJpaRepository extends JpaRepository<Settlem
                                                    @Param("start") LocalDateTime start,
                                                    @Param("end") LocalDateTime end);
 
-    boolean existsByEventId(UUID eventId);
-
-    List<SettlementSourceLine> findBySettlementId(UUID settlementId);
-
-    long countBySellerIdAndEventType(UUID sellerId, SettlementSourceEventType eventType);
+    @Query("select l.eventId from SettlementSourceLine l where l.eventId in :eventIds")
+    List<UUID> findExistingEventIds(@Param("eventIds") Collection<UUID> eventIds);
 
     @Query("""
-            select coalesce(sum(l.lineAmount), 0)
+            select new com.prompthub.settlement.infrastructure.persistence.SettlementSourceLineTypeAggregate(
+                l.lineType,
+                count(l),
+                sum(l.lineAmount)
+            )
             from SettlementSourceLine l
-            where l.sellerId = :sellerId
-              and l.eventType = :eventType
+            where l.occurredAt >= :start
+              and l.occurredAt < :end
+            group by l.lineType
             """)
-    BigDecimal sumLineAmountBySellerIdAndEventType(@Param("sellerId") UUID sellerId,
-                                                   @Param("eventType") SettlementSourceEventType eventType);
+    List<SettlementSourceLineTypeAggregate> aggregateByPeriod(
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
+
+    List<SettlementSourceLine> findBySettlementId(UUID settlementId);
 }

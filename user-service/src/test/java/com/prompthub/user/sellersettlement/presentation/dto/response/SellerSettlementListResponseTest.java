@@ -2,45 +2,45 @@ package com.prompthub.user.sellersettlement.presentation.dto.response;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.prompthub.user.sellersettlement.domain.model.SellerSettlement;
+import com.prompthub.user.sellersettlement.domain.model.enums.SettlementDisplayStatus;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyAggregate;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyKey;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyPage;
+import com.prompthub.user.sellersettlement.domain.repository.SellerSettlementQueryRepository.MonthlyStatusCount;
+import com.prompthub.user.sellersettlement.presentation.dto.response.SellerSettlementMonthlyResponse.StatusCount;
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class SellerSettlementListResponseTest {
 
-    private SellerSettlement row() {
-        return SellerSettlement.seed(
-                UUID.randomUUID(), UUID.randomUUID(),
-                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30),
-                2, new BigDecimal("320000.00"), new BigDecimal("260000.00"),
-                new BigDecimal("48000.00"), new BigDecimal("0.00"), LocalDateTime.of(2026, 7, 1, 4, 0));
+    @Test
+    void from_월별합계와_상태건수를_enum순서로_변환한다() {
+        MonthlyKey key = new MonthlyKey(UUID.randomUUID(), YearMonth.of(2026, 7));
+        MonthlyAggregate aggregate = new MonthlyAggregate(
+                key, 3, 2, 22,
+                bd("2200000"), bd("330000"), bd("100000"), bd("1770000"));
+        List<MonthlyStatusCount> counts = List.of(
+                new MonthlyStatusCount(key, SettlementDisplayStatus.CANCELLED, 1),
+                new MonthlyStatusCount(key, SettlementDisplayStatus.APPROVED, 1),
+                new MonthlyStatusCount(key, SettlementDisplayStatus.PAID, 1));
+
+        SellerSettlementListResponse response = SellerSettlementListResponse.from(
+                new MonthlyPage(List.of(aggregate), 1), counts, 0, 10);
+
+        assertThat(response.items()).singleElement().satisfies(item -> {
+            assertThat(item.settlementMonth()).isEqualTo("2026-07");
+            assertThat(item.weeklySettlementCount()).isEqualTo(3);
+            assertThat(item.aggregatedSettlementCount()).isEqualTo(2);
+            assertThat(item.payoutAmount()).isEqualByComparingTo("1770000");
+            assertThat(item.statusCounts()).extracting(StatusCount::status)
+                    .containsExactly("APPROVED", "PAID", "CANCELLED");
+        });
     }
 
-    @Test
-    void from_APPROVED항목은_상태라벨과_지급신청_액션을_갖는다() {
-        SellerSettlement settlement = row();
-        settlement.approve();
-
-        SellerSettlementListResponse.Item out = SellerSettlementListResponse.Item.from(settlement);
-
-        assertThat(out.settlementId()).isEqualTo(settlement.getSettlementId());
-        assertThat(out.period()).isEqualTo("2026-06");
-        assertThat(out.status()).isEqualTo("APPROVED");
-        assertThat(out.statusLabel()).isEqualTo("승인");
-        assertThat(out.payoutAmount()).isEqualByComparingTo("260000.00");
-        assertThat(out.availableActions()).extracting(SellerSettlementListResponse.Action::type)
-                .containsExactly("REQUEST_PAYOUT");
-    }
-
-    @Test
-    void from_지급신청불가면_액션이_비어있다() {
-        SellerSettlement settlement = row();
-
-        SellerSettlementListResponse.Item out = SellerSettlementListResponse.Item.from(settlement);
-
-        assertThat(out.availableActions()).isEmpty();
+    private static BigDecimal bd(String value) {
+        return new BigDecimal(value);
     }
 }

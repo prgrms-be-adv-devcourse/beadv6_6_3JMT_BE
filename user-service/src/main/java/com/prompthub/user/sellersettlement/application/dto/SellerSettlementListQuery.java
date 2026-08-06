@@ -7,7 +7,7 @@ import java.util.UUID;
 public record SellerSettlementListQuery(
         UUID sellerId,
         SettlementDisplayStatus status,
-        YearMonth period,
+        YearMonth settlementMonth,
         int page,
         int size
 ) {

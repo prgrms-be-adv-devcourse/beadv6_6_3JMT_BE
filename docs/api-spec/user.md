@@ -1,9 +1,9 @@
 # User Service API
 
-**Base:** `http://localhost:8081/api/v1`
+**Base:** `http://localhost:8081/api/v2`
 
-> ⚠ `api/v1`은 세미 프로젝트 완성 스냅샷(`v1.0.0` 태그) 기준 경로다. 최종 프로젝트에서
-> `api/v2`로 전환 예정이며 별도 이슈로 진행한다(`docs/adr/config-management.md` §10).
+> user-service 공개 API는 `#305 (이슈)`에서 `/api/v2`로 전환했다. 인증 API도 별도 전환을 거쳐
+> 현재 `/api/v2/auth`이며, 전체 도메인이 `api/v2`로 통일된 상태다.
 
 ## 공통 사항
 
@@ -33,8 +33,7 @@
     "email": "user@example.com",
     "profileImageUrl": "https://cdn.example.com/images/profile.jpg",
     "role": "BUYER",
-    "sellerStatus": "PENDING",
-    "provider": "local"
+    "sellerStatus": "PENDING"
   },
   "message": "success"
 }
@@ -57,7 +56,6 @@
 | `PENDING` | 심사 대기 중 |
 | `APPROVED` | 승인됨 (role이 `SELLER`이면 항상 이 값) |
 | `REJECTED` | 반려됨 |
-| provider | string | 가입 방식 (`local` / `kakao`) |
 
 ---
 
@@ -128,24 +126,21 @@
 
 - 인증: 필요
 - 필요 역할: BUYER / SELLER
+- 참고: ADR-0008 §결정 8 (세션 폐기)
 
 처리 순서
 
-1. 진행 중인 주문 있으면 → 400 반환
-2. 없으면 → deleted_at 채워서 Soft Delete
-3. RT 삭제
+1. `user.status` → `WITHDRAWN` (soft delete. `deleted_at` 컬럼은 없음 — `status` enum으로 관리)
+2. 세션 즉시 폐기 — 호출자(본인 탈퇴 / admin 강제 탈퇴) 무관하게 동일 경로로 처리
+   1. `refresh_token` 테이블에서 해당 유저의 모든 RT 삭제
+   2. `user:authz:{userId}` authorize 캐시 무효화 (Redis 캐시, `#289`)
+
+> **범위 제외**: 진행 중인 주문이 있는지 확인하는 체크(`AUTH_WITHDRAW_ORDER_IN_PROGRESS`, A010)는 order-service
+> 조회 연동이 필요해 별도 이슈로 분리한다. 현재 DELETE /users/me는 주문 상태와 무관하게 항상 탈퇴를 허용한다.
 
 #### Response
 
-**200 OK**
-
-```json
-{
-  "success": true,
-  "data": null,
-  "message": "success"
-}
-```
+**204 No Content** — 응답 바디 없음
 
 ---
 
@@ -243,6 +238,232 @@
 
 ---
 
+### GET /sellers/product — 판매자 단건 조회
+
+- 인증: 불필요 (`/detail/[id]` 비로그인 접근 대응)
+- 필요 역할: 없음
+- 상품 상세 페이지의 판매자 카드 표시용. Client는 `GET /products/{productId}` 응답의 `sellerId`를 그대로 전달해 호출한다.
+- 단건 조회라 같은 `sellerId`는 항상 같은 응답을 내므로 HTTP 캐싱 이득이 있다 — 다건 조회(`/sellers/products`)와는 목적이 다르다.
+
+#### Request
+
+**Query Parameters**
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| sellerId | string(UUID) | Y | 조회할 판매자 ID |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sellerName": "김철수",
+    "profileImageUrl": "https://.../profile.png"
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| sellerName | string | 판매자 이름 |
+| profileImageUrl | string \| null | 프로필 이미지 URL. 미등록 시 null |
+
+**400 Bad Request** — `sellerId` 누락 또는 잘못된 UUID 형식 (`VALIDATION_FAILED`, V001)
+
+**404 Not Found** — 형식은 유효하나 존재하지 않는 sellerId (`AUTH_NOT_FOUND`, A001)
+
+---
+
+### POST /sellers/products — 판매자 이름 다건 조회
+
+- 인증: 불필요 (`/browse` 비로그인 접근 대응)
+- 필요 역할: 없음
+- `/browse`(상품 목록)에서 `GET /products` 응답의 `sellerId` 목록을 받아 순차 호출(2차 조회)로 사용
+
+#### Request
+
+**Body**
+
+```json
+{
+  "sellerIds": ["3f1b1b0e-...", "..."]
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| sellerIds | string(UUID)[] | Y | 조회할 판매자 ID 목록. 최대 30개, 빈 배열/형식 오류 시 400. 중복은 서버가 dedupe |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sellers": [
+      { "sellerId": "3f1b1b0e-...", "sellerName": "김철수" },
+      { "sellerId": "9c2a...", "sellerName": null }
+    ]
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| sellers[].sellerId | string(UUID) | 요청한 sellerId |
+| sellers[].sellerName | string \| null | 판매자 이름. 존재하지 않는 sellerId(탈퇴/삭제 등)는 null — 이 경우도 전체 요청은 실패 처리하지 않음 |
+
+**400 Bad Request** — 빈 배열, 잘못된 UUID 형식, 30개 초과 (`VALIDATION_FAILED`, V001)
+
+---
+
+### GET /users/order-product — 구매한 프롬프트 리더용 판매자 단건 조회
+
+- 인증: 필요 (`/reader`는 로그인 필수 라우트)
+- 필요 역할: BUYER / SELLER
+- `/reader/[id]`(구매한 프롬프트 리더) 판매자 카드 표시용. Client는 Order 소유권 확인 →
+  Product 상세 조회로 얻은 `sellerId`를 그대로 전달해 호출한다.
+- 응답 스키마는 `GET /sellers/product`와 완전히 동일하다. 인증 요건만 다르다(그쪽은 비로그인 공개 페이지용).
+- `sellerId`에 대한 소유권 검증(요청자가 실제로 이 판매자에게서 구매했는지)은 하지 않는다 — 응답 필드가
+  이미 `/sellers/product`로 누구나 조회 가능한 비민감 공개 정보이고, 구매 여부 자체는 앞단 Order 서비스
+  호출에서 이미 걸러진다.
+
+#### Request
+
+**Query Parameters**
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| sellerId | string(UUID) | Y | 조회할 판매자 ID |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sellerName": "김철수",
+    "profileImageUrl": "https://.../profile.png"
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| sellerName | string | 판매자 이름 |
+| profileImageUrl | string \| null | 프로필 이미지 URL. 미등록 시 null |
+
+**400 Bad Request** — `sellerId` 누락 또는 잘못된 UUID 형식 (`VALIDATION_FAILED`, V001)
+
+**404 Not Found** — 형식은 유효하나 존재하지 않는 sellerId (`AUTH_NOT_FOUND`, A001)
+
+---
+
+### POST /users/order-products — 구매 상품 판매자 이름 다건 조회
+
+- 인증: 필요
+- 필요 역할: BUYER / SELLER
+- `/mypage?tab=purchased`에서 Order와 Product 응답을 조합한 뒤 Product의 `sellerId` 목록으로 판매자 이름을 조회한다.
+- 기존 `/sellers/products`와 조회 UseCase는 같지만 요청·응답 DTO는 구매 상품 화면 전용 계약으로 분리한다.
+
+#### Request
+
+**Body**
+
+```json
+{
+  "sellerIds": [
+    "3f1b1b0e-1111-2222-3333-444444444444",
+    "9a2c2c1f-5555-6666-7777-888888888888"
+  ]
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|:----:|------|
+| sellerIds | string(UUID)[] | Y | 조회할 판매자 ID 목록. 최대 30개, 빈 배열 금지, 중복은 첫 등장 기준으로 제거 |
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sellers": [
+      {
+        "sellerId": "3f1b1b0e-1111-2222-3333-444444444444",
+        "sellerName": "김철수"
+      },
+      {
+        "sellerId": "9a2c2c1f-5555-6666-7777-888888888888",
+        "sellerName": null
+      }
+    ]
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| sellers[].sellerId | string(UUID) | 요청한 판매자 ID |
+| sellers[].sellerName | string \| null | 판매자 이름. 조회되지 않은 판매자는 null이며 전체 요청은 성공 처리 |
+
+**400 Bad Request** — 빈 배열, 잘못된 UUID 형식, 30개 초과 (`VALIDATION_FAILED`, V001)
+
+---
+
+### POST /sellers/wishlists — Wishlist 판매자 이름 다건 조회
+
+- 인증: 필요
+- 필요 역할: BUYER / SELLER
+- `POST /products/wishlists` 응답의 `sellerId` 목록을 받아 Wishlist 카드의 판매자명을 채운다.
+- Wishlist 전용 요청·응답 DTO를 사용하며 JSON 스키마, 최대 30개, 중복 제거와 누락 판매자 `null` 정책은 `POST /sellers/products`와 동일하다.
+
+#### Request
+
+**Body**
+
+```json
+{
+  "sellerIds": ["3f1b1b0e-...", "..."]
+}
+```
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sellers": [
+      { "sellerId": "3f1b1b0e-...", "sellerName": "김철수" },
+      { "sellerId": "9c2a...", "sellerName": null }
+    ]
+  },
+  "message": "success"
+}
+```
+
+**400 Bad Request** — 빈 배열, 잘못된 UUID 형식, 30개 초과 (`VALIDATION_FAILED`, V001)
+
+---
+
 ## 찜 (Wishlist)
 
 ### POST /wishlists — 찜 등록
@@ -328,14 +549,7 @@
     {
       "wishlistId": "uuid",
       "productId": "uuid",
-      "title": "GPT 마케팅 카피 프롬프트",
-      "thumbnailUrl": "https://cdn.example.com/images/thumb.jpg",
-      "price": 3900,
-      "sellerNickname": "프롬작가",
-      "averageRating": 4.7,
-      "salesCount": 128,
-      "model": "GPT-4",
-      "addedAt": "2025-03-01T12:00:00Z"
+      "addedAt": "2026-07-22T12:00:00"
     }
   ],
   "message": "success",
@@ -352,18 +566,14 @@
 |------|------|------|
 | wishlistId | string | 찜 ID |
 | productId | string | 상품 ID |
-| title | string | 상품명 |
-| thumbnailUrl | string \| null | 썸네일 이미지 URL |
-| price | integer | 가격 |
-| sellerNickname | string | 판매자 닉네임 |
-| averageRating | number | 평균 별점 |
-| salesCount | integer | 판매 수량 (UI PromptCard 표시용) |
-| model | string | AI 모델 (UI PromptCard 표시용) |
 | addedAt | string | 찜 등록일시 (ISO 8601) |
 | meta.page | integer | 현재 페이지 번호 |
 | meta.size | integer | 페이지당 항목 수 |
 | meta.total | integer | 전체 항목 수 |
 | meta.hasNext | boolean | 다음 페이지 존재 여부 |
+
+상품·판매자 카드 정보는 Client가 Product `POST /products/wishlists`와
+User `POST /sellers/wishlists`를 순차 호출해 조합한다.
 
 ---
 
@@ -399,296 +609,9 @@
 
 ---
 
-## 관리자 — 사용자 관리
+## 관리자 API
 
-### GET /admin/users — 전체 사용자 목록
-
-- 인증: 필요
-- 필요 역할: ADMIN
-
-#### Query Parameters
-
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| page | int | N | `1` | 페이지 번호 |
-| size | int | N | `20` | 페이지당 항목 수 |
-| status | string | N | `ALL` | 계정 상태 필터 (`active` \| `suspended` \| `withdrawn` \| `ALL`) |
-| role | string | N | `ALL` | 역할 필터 (`buyer` \| `seller` \| `ALL`) |
-| keyword | string | N | - | 이름·이메일·회원ID 검색 |
-
-#### Response
-
-**200 OK**
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "uuid",
-      "name": "김도윤",
-      "email": "doyoon.kim@gmail.com",
-      "role": "buyer",
-      "status": "active"
-    }
-  ],
-  "message": "success",
-  "meta": {
-    "page": 1,
-    "size": 20,
-    "total": 15,
-    "hasNext": false
-  }
-}
-```
-
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| id | string | 사용자 ID |
-| name | string | 이름 |
-| email | string | 이메일 |
-| role | string | 역할 (`buyer` / `seller`) |
-| status | string | 계정 상태 (`active` / `suspended` / `withdrawn`) |
-| meta.page | integer | 현재 페이지 번호 |
-| meta.size | integer | 페이지당 항목 수 |
-| meta.total | integer | 전체 항목 수 |
-| meta.hasNext | boolean | 다음 페이지 존재 여부 |
-
----
-
-### PATCH /admin/users/{userId}/status — 사용자 상태 변경
-
-- 인증: 필요
-- 필요 역할: ADMIN
-
-#### Path Parameters
-
-| 파라미터 | 타입 | 설명 |
-|---------|------|------|
-| userId | UUID | 대상 사용자 ID |
-
-#### Request
-
-**Body**
-
-```json
-{
-  "status": "suspended"
-}
-```
-
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| status | string | Y | 변경할 계정 상태 (`active` / `suspended` / `withdrawn`) |
-
-| status 값 | 설명 |
-|-----------|------|
-| `active` | 활성으로 변경 |
-| `suspended` | 정지 처리 |
-| `withdrawn` | 탈퇴 처리 |
-
-#### Response
-
-**200 OK**
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": "uuid",
-    "status": "suspended",
-    "updatedAt": "2026-06-17T10:00:00Z"
-  },
-  "message": "success"
-}
-```
-
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| id | string | 사용자 ID |
-| status | string | 변경된 계정 상태 |
-| updatedAt | string | 변경일시 (ISO 8601) |
-
----
-
-### GET /admin/stats/users — 회원 통계 조회
-
-- 인증: 필요
-- 필요 역할: ADMIN
-
-#### Response
-
-**200 OK**
-
-```json
-{
-  "success": true,
-  "data": {
-    "totalUsers": 1240,
-    "todayNewUsers": 13
-  },
-  "message": "success"
-}
-```
-
-| 필드 | 타입 | 설명 |
-|---|---|---|
-| totalUsers | integer | 누적 회원 수 |
-| todayNewUsers | integer | 오늘 신규 가입 수 |
-
----
-
-## 관리자 — 판매자 등록 심사
-
-### GET /admin/sellers/register — 판매자 신청 목록
-
-- 인증: 필요
-- 필요 역할: ADMIN
-
-#### Query Parameters
-
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| page | int | N | `1` | 페이지 번호 |
-| size | int | N | `20` | 페이지당 항목 수 |
-| status | string | N | `ALL` | 신청 상태 필터 (`PENDING` \| `APPROVED` \| `REJECTED` \| `ALL`) |
-
-#### Response
-
-**200 OK**
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "registerId": "uuid",
-      "userId": "uuid",
-      "nickname": "이서아",
-      "email": "seoah@example.com",
-      "introduction": "미드저니·DALL·E 기반 제품 목업과 광고 컷 프롬프트를 전문으로 제작합니다.",
-      "categories": ["이미지 생성"],
-      "portfolioUrl": "https://blog.example.com",
-      "status": "pending",
-      "submittedAt": "2026-06-14T00:00:00Z"
-    }
-  ],
-  "message": "success",
-  "meta": {
-    "page": 1,
-    "size": 20,
-    "total": 6,
-    "hasNext": false
-  }
-}
-```
-
-| 필드           | 타입 | 설명                                          |
-|--------------|------|---------------------------------------------|
-| registerId   | string | 판매자 등록 신청 ID                                |
-| userId       | string | 신청자 ID                                      |
-| name           | string | 신청자 닉네임                                     |
-| email        | string | 신청자 이메일                                     |
-| introduction | string \| null | 판매자 소개                                      |
-| categories   | string[] | 주력 카테고리                                     |
-| portfolioUrl | string \| null | 포트폴리오 URL                                   |
-| status       | string | 신청 상태 (`pending` / `approved` / `rejected`) |
-| submittedAt  | string | 신청일시 (ISO 8601)                             |
-| meta.page    | integer | 현재 페이지 번호                                   |
-| meta.size    | integer | 페이지당 항목 수                                   |
-| meta.total   | integer | 전체 항목 수                                     |
-| meta.hasNext | boolean | 다음 페이지 존재 여부                                |
-
----
-
-### PATCH /admin/sellers/register/{registerId}/approve — 판매자 신청 승인
-
-- 인증: 필요
-- 필요 역할: ADMIN
-- 승인 시 SELLER 역할 부여
-
-#### Path Parameters
-
-| 파라미터 | 타입 | 설명 |
-|---------|------|------|
-| registerId | UUID | 신청 ID |
-
-#### Response
-
-**200 OK**
-
-```json
-{
-  "success": true,
-  "data": {
-    "registerId": "uuid",
-    "userId": "uuid",
-    "status": "APPROVED",
-    "reviewedAt": "2026-06-17T10:00:00Z"
-  },
-  "message": "success"
-}
-```
-
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| registerId | string | 판매자 등록 신청 ID |
-| userId | string | 승인된 사용자 ID |
-| status | string | 처리 상태 (`APPROVED`) |
-| reviewedAt | string | 심사 완료일시 (ISO 8601) |
-
----
-
-### PATCH /admin/sellers/register/{registerId}/reject — 판매자 신청 반려
-
-- 인증: 필요
-- 필요 역할: ADMIN
-
-#### Path Parameters
-
-| 파라미터 | 타입 | 설명 |
-|---------|------|------|
-| registerId | UUID | 신청 ID |
-
-#### Request
-
-**Body**
-
-```json
-{
-  "rejectReason": "포트폴리오가 확인되지 않습니다. 샘플을 보완 후 재신청해 주세요."
-}
-```
-
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| rejectReason | string | Y | 반려 사유 |
-
-#### Response
-
-**200 OK**
-
-```json
-{
-  "success": true,
-  "data": {
-    "registerId": "uuid",
-    "userId": "uuid",
-    "status": "REJECTED",
-    "rejectReason": "포트폴리오가 확인되지 않습니다. 샘플을 보완 후 재신청해 주세요.",
-    "reviewedAt": "2026-06-17T10:05:00Z"
-  },
-  "message": "success"
-}
-```
-
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| registerId | string | 판매자 등록 신청 ID |
-| userId | string | 대상 사용자 ID |
-| status | string | 처리 상태 (`REJECTED`) |
-| rejectReason | string | 반려 사유 |
-| reviewedAt | string | 심사 완료일시 (ISO 8601) |
+관리자용 사용자 관리·판매자 등록 심사 API는 admin-service로 이관되었다. `docs/api-spec/admin.md` 참고.
 
 ---
 

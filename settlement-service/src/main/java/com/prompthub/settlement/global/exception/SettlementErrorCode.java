@@ -19,12 +19,13 @@ public enum SettlementErrorCode implements ErrorCode {
 	SETTLEMENT_BATCH_INVALID_STATE("S-007", "정산 배치가 처리 중 상태가 아닙니다.", HttpStatus.CONFLICT),
 	SETTLEMENT_JOB_NOT_FOUND("S-008", "정산 배치 잡 실행 이력을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 	SETTLEMENT_SOURCE_LINE_ALREADY_SETTLED("S-009", "이미 정산에 포함된 소스 라인입니다.", HttpStatus.CONFLICT),
-	SETTLEMENT_NOT_FOUND("S-010", "정산을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-	SETTLEMENT_ALREADY_PAID("S-011", "이미 지급 완료된 정산은 취소할 수 없습니다.", HttpStatus.CONFLICT),
-	SETTLEMENT_ALREADY_CANCELLED("S-012", "이미 취소된 정산입니다.", HttpStatus.CONFLICT),
-	SETTLEMENT_INVALID_STATE("S-013", "현재 상태에서 변경할 수 없는 정산입니다.", HttpStatus.CONFLICT),
-	SETTLEMENT_ACCESS_DENIED("S-014", "본인 정산이 아닙니다.", HttpStatus.FORBIDDEN),
-	SETTLEMENT_EVENT_DESERIALIZE_FAILED("S-016", "정산 이벤트 메시지 역직렬화에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
+	SETTLEMENT_SOURCE_QUERY_FAILED("S-017", "정산 대상 라인 조회에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+	SETTLEMENT_BATCH_JOB_INSTANCE_NOT_LINKED(
+		"S-020", "정산 배치와 잡 실행 이력이 연결되지 않았습니다.", HttpStatus.CONFLICT),
+	SETTLEMENT_JOB_NOT_RESTARTABLE(
+		"S-021", "정산 배치 잡을 재시작할 수 없는 상태입니다.", HttpStatus.CONFLICT),
+	SETTLEMENT_JOB_BATCH_MISMATCH(
+		"S-022", "정산 배치와 잡 실행 이력이 일치하지 않습니다.", HttpStatus.CONFLICT);
 
 	private final String code;
 	private final String message;

@@ -1,9 +1,16 @@
 package com.prompthub.product.infra.messaging.producer;
 
-import com.prompthub.product.infra.messaging.producer.event.ProductDeletedEvent;
-import com.prompthub.product.infra.messaging.producer.event.ProductPriceChangedEvent;
-import com.prompthub.product.infra.messaging.producer.event.ProductStoppedEvent;
+import com.prompthub.common.event.EventMessage;
+import com.prompthub.product.domain.model.entity.Product;
+import com.prompthub.product.infra.messaging.producer.event.ProductChangedPayload;
+import com.prompthub.product.infra.messaging.producer.event.ProductPriceChangedPayload;
+import com.prompthub.product.infra.messaging.producer.event.ProductReviewRequestedPayload;
+import com.prompthub.product.infra.messaging.producer.event.ProductStoppedPayload;
+import java.util.List;
 import java.util.UUID;
+
+import static com.prompthub.product.support.ProductContentFixtures.freePromptContent;
+import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -30,22 +37,30 @@ class ProductEventProducerTest {
 	@InjectMocks
 	private ProductEventProducer productEventProducer;
 
+	// 활성 트랜잭션이 없으므로 즉시 발행 경로가 실행된다. 발행된 EventMessage 봉투/payload 계약을 검증한다.
+	private EventMessage<?> captureMessage() {
+		ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+		then(kafkaTemplate).should().send(eq(TOPIC), eq(PRODUCT_ID.toString()), captor.capture());
+		return (EventMessage<?>) captor.getValue();
+	}
+
 	@Nested
 	@DisplayName("PRODUCT_STOPPED 이벤트 발행")
 	class PublishStopped {
 
 		@Test
-		@DisplayName("product-events 토픽에 productId를 키로 PRODUCT_STOPPED 이벤트를 발행한다")
-		void publishStopped_sendsCorrectEvent() {
-			ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
-
+		@DisplayName("EventMessage 봉투로 감싸 product-events 토픽에 productId 키로 발행한다")
+		void publishStopped_sendsEnvelope() {
 			productEventProducer.publishStopped(PRODUCT_ID);
 
-			then(kafkaTemplate).should().send(eq(TOPIC), eq(PRODUCT_ID.toString()), captor.capture());
-			ProductStoppedEvent event = (ProductStoppedEvent) captor.getValue();
-			assertThat(event.eventType()).isEqualTo("PRODUCT_STOPPED");
-			assertThat(event.productId()).isEqualTo(PRODUCT_ID);
-			assertThat(event.occurredAt()).isNotNull();
+			EventMessage<?> message = captureMessage();
+			assertThat(message.eventId()).isNotNull();
+			assertThat(message.eventType()).isEqualTo("PRODUCT_STOPPED");
+			assertThat(message.occurredAt()).isNotNull();
+			assertThat(message.aggregateType()).isEqualTo("PRODUCT");
+			assertThat(message.aggregateId()).isEqualTo(PRODUCT_ID);
+			assertThat(message.payload()).isInstanceOf(ProductStoppedPayload.class);
+			assertThat(((ProductStoppedPayload) message.payload()).productId()).isEqualTo(PRODUCT_ID);
 		}
 	}
 
@@ -54,17 +69,15 @@ class ProductEventProducerTest {
 	class PublishDeleted {
 
 		@Test
-		@DisplayName("product-events 토픽에 productId를 키로 PRODUCT_DELETED 이벤트를 발행한다")
-		void publishDeleted_sendsCorrectEvent() {
-			ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
-
+		@DisplayName("EventMessage 봉투로 감싸 PRODUCT_DELETED 를 발행한다")
+		void publishDeleted_sendsEnvelope() {
 			productEventProducer.publishDeleted(PRODUCT_ID);
 
-			then(kafkaTemplate).should().send(eq(TOPIC), eq(PRODUCT_ID.toString()), captor.capture());
-			ProductDeletedEvent event = (ProductDeletedEvent) captor.getValue();
-			assertThat(event.eventType()).isEqualTo("PRODUCT_DELETED");
-			assertThat(event.productId()).isEqualTo(PRODUCT_ID);
-			assertThat(event.occurredAt()).isNotNull();
+			EventMessage<?> message = captureMessage();
+			assertThat(message.eventId()).isNotNull();
+			assertThat(message.eventType()).isEqualTo("PRODUCT_DELETED");
+			assertThat(message.aggregateType()).isEqualTo("PRODUCT");
+			assertThat(message.aggregateId()).isEqualTo(PRODUCT_ID);
 		}
 	}
 
@@ -73,19 +86,90 @@ class ProductEventProducerTest {
 	class PublishPriceChanged {
 
 		@Test
-		@DisplayName("product-events 토픽에 가격 변경 정보를 포함한 PRODUCT_PRICE_CHANGED 이벤트를 발행한다")
-		void publishPriceChanged_sendsCorrectEvent() {
-			ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
-
+		@DisplayName("가격 정보를 payload 에 담아 EventMessage 봉투로 발행한다")
+		void publishPriceChanged_sendsEnvelope() {
 			productEventProducer.publishPriceChanged(PRODUCT_ID, 10000, 8000);
 
-			then(kafkaTemplate).should().send(eq(TOPIC), eq(PRODUCT_ID.toString()), captor.capture());
-			ProductPriceChangedEvent event = (ProductPriceChangedEvent) captor.getValue();
-			assertThat(event.eventType()).isEqualTo("PRODUCT_PRICE_CHANGED");
-			assertThat(event.productId()).isEqualTo(PRODUCT_ID);
-			assertThat(event.previousPrice()).isEqualTo(10000);
-			assertThat(event.changedPrice()).isEqualTo(8000);
-			assertThat(event.occurredAt()).isNotNull();
+			EventMessage<?> message = captureMessage();
+			assertThat(message.eventType()).isEqualTo("PRODUCT_PRICE_CHANGED");
+			assertThat(message.payload()).isInstanceOf(ProductPriceChangedPayload.class);
+			ProductPriceChangedPayload payload = (ProductPriceChangedPayload) message.payload();
+			assertThat(payload.productId()).isEqualTo(PRODUCT_ID);
+			assertThat(payload.previousPrice()).isEqualTo(10000);
+			assertThat(payload.changedPrice()).isEqualTo(8000);
+		}
+	}
+
+	@Nested
+	@DisplayName("PRODUCT_CHANGED 이벤트 발행")
+	class PublishProductChanged {
+
+		@Test
+		@DisplayName("EventMessage 봉투로 감싸 familyRootId를 payload로 발행한다")
+		void publishProductChanged_sendsEnvelope() {
+			productEventProducer.publishProductChanged(PRODUCT_ID);
+
+			EventMessage<?> message = captureMessage();
+			assertThat(message.eventId()).isNotNull();
+			assertThat(message.eventType()).isEqualTo("PRODUCT_CHANGED");
+			assertThat(message.aggregateType()).isEqualTo("PRODUCT");
+			assertThat(message.aggregateId()).isEqualTo(PRODUCT_ID);
+			assertThat(message.payload()).isInstanceOf(ProductChangedPayload.class);
+			assertThat(((ProductChangedPayload) message.payload()).familyRootId()).isEqualTo(PRODUCT_ID);
+		}
+	}
+
+	@Nested
+	@DisplayName("PRODUCT_REVIEW_REQUESTED 이벤트 발행")
+	class PublishReviewRequested {
+
+		@Test
+		@DisplayName("상품 스냅샷과 presign된 이미지 URL을 payload로 담아 발행한다")
+		void publishReviewRequested_sendsEnvelopeWithSnapshot() {
+			Product product = Product.create(PRODUCT_ID, UUID.randomUUID(), promptContent());
+
+			productEventProducer.publishReviewRequested(
+				product, null, "https://s3/presigned-thumb", List.of("https://s3/presigned-1"));
+
+			EventMessage<?> message = captureMessage();
+			assertThat(message.eventType()).isEqualTo("PRODUCT_REVIEW_REQUESTED");
+			assertThat(message.aggregateType()).isEqualTo("PRODUCT");
+			assertThat(message.aggregateId()).isEqualTo(PRODUCT_ID);
+			assertThat(message.payload()).isInstanceOf(ProductReviewRequestedPayload.class);
+			ProductReviewRequestedPayload payload = (ProductReviewRequestedPayload) message.payload();
+			assertThat(payload.productId()).isEqualTo(PRODUCT_ID);
+			assertThat(payload.productType()).isEqualTo("PROMPT");
+			assertThat(payload.name()).isEqualTo("제목");
+			assertThat(payload.thumbnailUrl()).isEqualTo("https://s3/presigned-thumb");
+			assertThat(payload.imageUrls()).containsExactly("https://s3/presigned-1");
+			assertThat(payload.duplicateOfProductId()).isNull();
+			assertThat(payload.free()).isFalse();
+		}
+
+		@Test
+		@DisplayName("무료 상품(AmountType.FREE)이면 payload의 free가 true다")
+		void publishReviewRequested_freeProduct_setsFreeTrue() {
+			Product product = Product.create(PRODUCT_ID, UUID.randomUUID(), freePromptContent());
+
+			productEventProducer.publishReviewRequested(
+				product, null, "https://s3/presigned-thumb", List.of("https://s3/presigned-1"));
+
+			EventMessage<?> message = captureMessage();
+			ProductReviewRequestedPayload payload = (ProductReviewRequestedPayload) message.payload();
+			assertThat(payload.free()).isTrue();
+		}
+
+		@Test
+		@DisplayName("duplicateOfProductId가 있으면 payload에 그대로 담는다")
+		void publishReviewRequested_withDuplicate_includesDuplicateOfProductId() {
+			Product product = Product.create(PRODUCT_ID, UUID.randomUUID(), promptContent());
+			UUID duplicateOfProductId = UUID.randomUUID();
+
+			productEventProducer.publishReviewRequested(product, duplicateOfProductId, null, List.of());
+
+			ProductReviewRequestedPayload payload =
+				(ProductReviewRequestedPayload) captureMessage().payload();
+			assertThat(payload.duplicateOfProductId()).isEqualTo(duplicateOfProductId);
 		}
 	}
 }

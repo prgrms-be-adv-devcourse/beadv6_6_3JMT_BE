@@ -1,8 +1,9 @@
 name: CD - Parallel Self-hosted Compose
 
 on:
-  push:
-    branches: ["develop"]
+  # Kubernetes 전환 준비 중에는 develop push로 Compose CD를 자동 실행하지 않는다.
+  # push:
+  #   branches: ["develop"]
   workflow_dispatch:
     inputs:
       rebuild_all:
@@ -66,7 +67,9 @@ jobs:
               - Dockerfile
               - docker-compose.yml
               - compose.yml
+              - build.gradle
               - build.gradle.kts
+              - settings.gradle
               - settings.gradle.kts
               - gradle/**
               - .github/workflows/**
@@ -139,7 +142,9 @@ jobs:
       module-name: ${{ matrix.service }}
       module-path: ${{ matrix.service }}
       push-image: true
-      ecr-repository: prompthub-${{ matrix.service }}
+      ghcr-repository: prompthub-${{ matrix.service }}
+      image-tag: ${{ github.sha }}
+      publish-latest: true
 
   # ----------------------------------------------------
   # JOB 3: 배포 및 순차 헬스체크 실행 (기존 순서 보장)
