@@ -5,8 +5,6 @@ import com.prompthub.order.domain.model.OutboxEvent;
 import com.prompthub.order.domain.model.OutboxRetryPolicy;
 import com.prompthub.order.domain.repository.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,14 +60,6 @@ public class OutboxEventAdapter implements OutboxEventRepository {
 	) {
 		return outboxEventPersistence.findClaimedByOwnerForUpdate(eventId, leaseOwner)
 			.map(event -> event.recordPublishFailure(attemptedAt, lastError, retryPolicy));
-	}
-
-	@Override
-	public Page<OutboxEvent> findFailed(Pageable pageable) {
-		return outboxEventPersistence.findByStatusOrderByOccurredAtDesc(
-			OutboxEventStatus.FAILED,
-			pageable
-		);
 	}
 
 	@Override

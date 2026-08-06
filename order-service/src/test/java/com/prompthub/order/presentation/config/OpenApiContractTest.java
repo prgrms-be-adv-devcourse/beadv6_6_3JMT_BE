@@ -5,7 +5,6 @@ import com.prompthub.order.application.usecase.CartUseCase;
 import com.prompthub.order.application.usecase.ConfirmDownloadUseCase;
 import com.prompthub.order.application.usecase.CreateOrderUseCase;
 import com.prompthub.order.application.usecase.OrderQueryUseCase;
-import com.prompthub.order.application.usecase.OutboxAdminUseCase;
 import com.prompthub.order.global.web.AuthHeaders;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -54,9 +53,6 @@ class OpenApiContractTest {
 
     @MockitoBean
     private OrderRefundService orderRefundService;
-
-    @MockitoBean
-    private OutboxAdminUseCase outboxAdminUseCase;
 
     @Test
     @DisplayName("OpenAPI 문서는 주문 서비스 정보와 Bearer 인증 스킴을 제공한다")
@@ -170,77 +166,6 @@ class OpenApiContractTest {
         JsonNode refundOperation = readOpenApi().path("paths").path("/api/v2/orders/{orderId}/refund").path("post");
         assertThat(refundOperation.path("parameters").get(0).path("description").asText())
             .contains("주문 ID");
-    }
-
-    @Test
-    @DisplayName("관리자 Outbox API는 공통 응답과 재처리 요청 계약을 문서화한다")
-    void adminOutboxOperationsDocumentResponseAndRequestContracts() throws Exception {
-        JsonNode openApi = readOpenApi();
-        JsonNode paths = openApi.path("paths");
-        JsonNode schemas = openApi.path("components").path("schemas");
-        String listPath = "/api/v1/admin/outbox-events";
-        String redrivePath = "/api/v1/admin/outbox-events/{eventId}/redrive";
-
-        assertThat(paths.path(listPath).path("get").isMissingNode()).isFalse();
-        assertThat(paths.path(redrivePath).path("post").isMissingNode()).isFalse();
-        assertUsesBearerAndHidesUserId(openApi, listPath, "get");
-        assertUsesBearerAndHidesUserId(openApi, redrivePath, "post");
-
-        JsonNode listResponseSchema = paths.path(listPath).path("get").path("responses").path("200")
-            .path("content").path("application/json").path("schema");
-        assertThat(listResponseSchema.path("$ref").asText())
-            .isEqualTo("#/components/schemas/PageResponseAdminOutboxEventResponse");
-        JsonNode pageResponse = schemas.path("PageResponseAdminOutboxEventResponse").path("properties");
-        assertThat(pageResponse.path("data").path("type").asText()).isEqualTo("array");
-        assertThat(pageResponse.path("data").path("items").path("$ref").asText())
-            .isEqualTo("#/components/schemas/AdminOutboxEventResponse");
-
-        JsonNode redriveOperation = paths.path(redrivePath).path("post");
-        assertThat(redriveOperation.path("requestBody").path("content").path("application/json")
-            .path("schema").path("$ref").asText())
-            .isEqualTo("#/components/schemas/RedriveOutboxRequest");
-        JsonNode redriveResponseSchema = redriveOperation.path("responses").path("200")
-            .path("content").path("application/json").path("schema");
-        assertThat(redriveResponseSchema.path("$ref").asText())
-            .isEqualTo("#/components/schemas/ApiResultOutboxRedriveResponse");
-        assertThat(schemas.path("ApiResultOutboxRedriveResponse").path("properties").path("data")
-            .path("$ref").asText())
-            .isEqualTo("#/components/schemas/OutboxRedriveResponse");
-        assertThat(textValues(schemas.path("RedriveOutboxRequest").path("required"))).contains("reason");
-        assertThat(schemas.path("RedriveOutboxRequest").path("properties").path("reason")
-            .path("maxLength").asInt()).isEqualTo(500);
-
-        JsonNode pageRequest = schemas.path("OutboxPageRequest").path("properties");
-        assertThat(pageRequest.path("page").path("minimum").asInt()).isEqualTo(1);
-        assertThat(pageRequest.path("size").path("maximum").asInt()).isEqualTo(100);
-
-        JsonNode eventResponse = schemas.path("AdminOutboxEventResponse").path("properties");
-        assertThat(eventResponse.has("eventId")).isTrue();
-        assertThat(eventResponse.has("aggregateId")).isTrue();
-        assertThat(eventResponse.has("eventType")).isTrue();
-        assertThat(eventResponse.path("eventType").path("example").asText()).isEqualTo("ORDER_PAID");
-        assertThat(eventResponse.has("status")).isTrue();
-        assertThat(eventResponse.has("retryCount")).isTrue();
-        assertThat(eventResponse.has("occurredAt")).isTrue();
-        assertThat(eventResponse.has("lastAttemptAt")).isTrue();
-        assertThat(eventResponse.has("lastError")).isTrue();
-        assertThat(eventResponse.has("payload")).isFalse();
-        assertThat(eventResponse.has("stackTrace")).isFalse();
-
-        JsonNode redriveResponse = schemas.path("OutboxRedriveResponse").path("properties");
-        assertThat(redriveResponse.has("eventId")).isTrue();
-        assertThat(redriveResponse.has("status")).isTrue();
-        assertThat(redriveResponse.has("nextAttemptAt")).isTrue();
-        assertThat(redriveResponse.has("payload")).isFalse();
-        assertThat(redriveResponse.has("stackTrace")).isFalse();
-        assertThat(schemas.has("OutboxEvent")).isFalse();
-        assertThat(schemas.has("OutboxEventSummary")).isFalse();
-
-        assertErrorResponse(openApi, listPath, "get", "400");
-        assertErrorResponse(openApi, redrivePath, "post", "400");
-        assertErrorResponse(openApi, redrivePath, "post", "401");
-        assertErrorResponse(openApi, redrivePath, "post", "404");
-        assertErrorResponse(openApi, redrivePath, "post", "409");
     }
 
     private JsonNode readOpenApi() throws Exception {

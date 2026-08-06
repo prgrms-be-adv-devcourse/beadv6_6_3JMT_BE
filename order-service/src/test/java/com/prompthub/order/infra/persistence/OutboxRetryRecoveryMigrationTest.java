@@ -54,28 +54,8 @@ class OutboxRetryRecoveryMigrationTest extends PostgreSqlIntegrationTestSupport 
                 Boolean.class,
                 PENDING_EVENT_ID
             )).isTrue();
-            assertThat(tableExists(template, "order_outbox_redrive_history")).isTrue();
-            assertThat(columns(template, "order_outbox_redrive_history"))
-                .contains(
-                    "event_id",
-                    "requested_by",
-                    "reason",
-                    "previous_retry_count",
-                    "previous_last_attempt_at",
-                    "previous_last_error",
-                    "requested_at"
-                );
             assertThat(indexDefinition(template, "idx_order_outbox_event_publishable"))
                 .contains("(status, next_attempt_at, lease_until, occurred_at)");
-            assertThat(columnMaximumLength(template, "order_outbox_redrive_history", "reason"))
-                .isEqualTo(500);
-            assertThat(hasForeignKey(
-                template,
-                "order_outbox_redrive_history",
-                "event_id",
-                "order_outbox_event",
-                "event_id"
-            )).isTrue();
             assertThat(status(template, FAILED_EVENT_ID)).isEqualTo("FAILED");
             assertThat(nextAttemptAt(template, FAILED_EVENT_ID)).isNull();
         } finally {
@@ -117,18 +97,6 @@ class OutboxRetryRecoveryMigrationTest extends PostgreSqlIntegrationTestSupport 
             """, String.class, tableName);
     }
 
-    private boolean tableExists(JdbcTemplate template, String tableName) {
-        Boolean exists = template.queryForObject("""
-            select exists (
-                select 1
-                from information_schema.tables
-                where table_schema = current_schema()
-                  and table_name = ?
-            )
-            """, Boolean.class, tableName);
-        return Boolean.TRUE.equals(exists);
-    }
-
     private String status(JdbcTemplate template, UUID eventId) {
         return template.queryForObject(
             "select status from order_outbox_event where event_id = ?",
@@ -152,46 +120,6 @@ class OutboxRetryRecoveryMigrationTest extends PostgreSqlIntegrationTestSupport 
             where schemaname = current_schema()
               and indexname = ?
             """, String.class, indexName);
-    }
-
-    private Integer columnMaximumLength(JdbcTemplate template, String tableName, String columnName) {
-        return template.queryForObject("""
-            select character_maximum_length
-            from information_schema.columns
-            where table_schema = current_schema()
-              and table_name = ?
-              and column_name = ?
-            """, Integer.class, tableName, columnName);
-    }
-
-    private boolean hasForeignKey(
-        JdbcTemplate template,
-        String tableName,
-        String columnName,
-        String referencedTableName,
-        String referencedColumnName
-    ) {
-        Boolean exists = template.queryForObject("""
-            select exists (
-                select 1
-                from information_schema.table_constraints constraint_info
-                join information_schema.key_column_usage key_column
-                  on constraint_info.constraint_catalog = key_column.constraint_catalog
-                 and constraint_info.constraint_schema = key_column.constraint_schema
-                 and constraint_info.constraint_name = key_column.constraint_name
-                join information_schema.constraint_column_usage referenced_column
-                  on constraint_info.constraint_catalog = referenced_column.constraint_catalog
-                 and constraint_info.constraint_schema = referenced_column.constraint_schema
-                 and constraint_info.constraint_name = referenced_column.constraint_name
-                where constraint_info.constraint_type = 'FOREIGN KEY'
-                  and constraint_info.table_schema = current_schema()
-                  and constraint_info.table_name = ?
-                  and key_column.column_name = ?
-                  and referenced_column.table_name = ?
-                  and referenced_column.column_name = ?
-            )
-            """, Boolean.class, tableName, columnName, referencedTableName, referencedColumnName);
-        return Boolean.TRUE.equals(exists);
     }
 
     private DriverManagerDataSource schemaDataSource(String schema) {

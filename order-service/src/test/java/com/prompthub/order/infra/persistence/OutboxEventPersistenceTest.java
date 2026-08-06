@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -171,8 +170,11 @@ class OutboxEventPersistenceTest {
 	}
 
 	@Test
-	@DisplayName("관리자 outbox 조회를 위해 FAILED 이벤트와 미발행 집계를 제공한다")
-	void findsFailedEventsAndUnpublishedSummary() {
+	@DisplayName("미발행 이벤트 적체 지표와 내부 redrive용 잠금 조회를 제공한다")
+	void providesUnpublishedSummaryAndLockedEventLookup() {
+		long existingFailedCount = outboxEventRepository.countByStatus(OutboxEventStatus.FAILED);
+		LocalDateTime existingOldestUnpublished = outboxEventRepository.findOldestUnpublishedOccurredAt()
+			.orElse(null);
 		OutboxEvent failedEvent = createPendingEvent(
 			UUID.randomUUID(),
 			"{\"eventType\":\"ORDER_PAID\",\"order\":\"failed\"}",
@@ -206,15 +208,20 @@ class OutboxEventPersistenceTest {
 		entityManager.flush();
 		entityManager.clear();
 
-		assertThat(outboxEventRepository.findFailed(PageRequest.of(0, 10)).getContent())
-			.extracting(OutboxEvent::getEventId)
-			.containsExactly(newestFailedEvent.getEventId(), failedEvent.getEventId());
 		assertThat(outboxEventRepository.findByIdForUpdate(failedEvent.getEventId()))
 			.isPresent();
-		assertThat(outboxEventRepository.countByStatus(OutboxEventStatus.FAILED)).isEqualTo(2);
+		assertThat(outboxEventRepository.countByStatus(OutboxEventStatus.FAILED))
+			.isEqualTo(existingFailedCount + 2);
 		assertThat(outboxEventRepository.findOldestUnpublishedOccurredAt()).contains(
-			failedEvent.getOccurredAt()
+			oldest(existingOldestUnpublished, failedEvent.getOccurredAt())
 		);
+	}
+
+	private LocalDateTime oldest(LocalDateTime first, LocalDateTime second) {
+		if (first == null || second.isBefore(first)) {
+			return second;
+		}
+		return first;
 	}
 
 	private OutboxEvent createPendingEvent(

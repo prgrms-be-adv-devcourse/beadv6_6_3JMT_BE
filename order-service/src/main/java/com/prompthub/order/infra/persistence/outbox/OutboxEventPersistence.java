@@ -3,8 +3,6 @@ package com.prompthub.order.infra.persistence.outbox;
 import com.prompthub.order.domain.enums.OutboxEventStatus;
 import com.prompthub.order.domain.model.OutboxEvent;
 import jakarta.persistence.LockModeType;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -43,11 +41,6 @@ public interface OutboxEventPersistence extends JpaRepository<OutboxEvent, UUID>
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select event from OutboxEvent event where event.eventId = :eventId")
 	Optional<OutboxEvent> findByIdForUpdate(@Param("eventId") UUID eventId);
-
-	Page<OutboxEvent> findByStatusOrderByOccurredAtDesc(
-		OutboxEventStatus status,
-		Pageable pageable
-	);
 
 	long countByStatus(OutboxEventStatus status);
 
