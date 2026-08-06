@@ -1,13 +1,12 @@
 package com.prompthub.admin.global.exception;
 
-import com.prompthub.admin.settlement.exception.SettlementAlreadyCancelledException;
-import com.prompthub.admin.settlement.exception.SettlementAlreadyPaidException;
-import com.prompthub.admin.settlement.exception.SettlementInvalidStateException;
 import com.prompthub.exception.BusinessException;
 import com.prompthub.exception.ErrorCode;
 import com.prompthub.exception.response.ErrorResponse;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MissingRequestHeaderException;
@@ -16,8 +15,14 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+/**
+ * 도메인별 {@code @RestControllerAdvice}(예: {@code SettlementExceptionHandler})가 먼저 평가되도록
+ * 가장 낮은 우선순위로 둔다. Spring은 여러 advice 빈 중 먼저 매칭되는 빈에서 멈추므로, 이 순서가
+ * 없으면 여기의 {@code Exception.class} 폴백이 도메인 순수 예외까지 가로챈다.
+ */
 @Slf4j
 @RestControllerAdvice
+@Order(Ordered.LOWEST_PRECEDENCE)
 public class GlobalExceptionHandler {
 
 	@ExceptionHandler(BusinessException.class)
@@ -30,28 +35,6 @@ public class GlobalExceptionHandler {
 		}
 		return ResponseEntity.status(errorCode.getStatus())
 			.body(ErrorResponse.of(errorCode, exception.getMessage()));
-	}
-
-	@ExceptionHandler(SettlementInvalidStateException.class)
-	public ResponseEntity<ErrorResponse> handleSettlementInvalidState(SettlementInvalidStateException exception) {
-		log.warn("정산 상태 전이 충돌 - code={}, type={}", AdminErrorCode.SETTLEMENT_INVALID_STATE.getCode(), exception.getClass().getSimpleName());
-		ErrorCode errorCode = AdminErrorCode.SETTLEMENT_INVALID_STATE;
-		return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
-	}
-
-	@ExceptionHandler(SettlementAlreadyPaidException.class)
-	public ResponseEntity<ErrorResponse> handleSettlementAlreadyPaid(SettlementAlreadyPaidException exception) {
-		log.warn("정산 취소 거부 - code={}, type={}", AdminErrorCode.SETTLEMENT_ALREADY_PAID.getCode(), exception.getClass().getSimpleName());
-		ErrorCode errorCode = AdminErrorCode.SETTLEMENT_ALREADY_PAID;
-		return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
-	}
-
-	@ExceptionHandler(SettlementAlreadyCancelledException.class)
-	public ResponseEntity<ErrorResponse> handleSettlementAlreadyCancelled(
-		SettlementAlreadyCancelledException exception) {
-		log.warn("정산 취소 거부 - code={}, type={}", AdminErrorCode.SETTLEMENT_ALREADY_CANCELLED.getCode(), exception.getClass().getSimpleName());
-		ErrorCode errorCode = AdminErrorCode.SETTLEMENT_ALREADY_CANCELLED;
-		return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
 	}
 
 	@ExceptionHandler(IllegalStateException.class)
