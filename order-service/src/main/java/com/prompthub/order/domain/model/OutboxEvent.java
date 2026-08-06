@@ -1,6 +1,7 @@
 package com.prompthub.order.domain.model;
 
 import com.prompthub.order.domain.enums.OutboxEventStatus;
+import com.prompthub.order.domain.exception.OutboxEventInvalidStateException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -28,6 +29,10 @@ import static lombok.AccessLevel.PROTECTED;
         @Index(
             name = "idx_order_outbox_event_aggregate_id",
             columnList = "aggregate_id"
+        ),
+        @Index(
+            name = "idx_order_outbox_event_publishable",
+            columnList = "status, next_attempt_at, lease_until, occurred_at"
         )
     }
 )
@@ -60,6 +65,21 @@ public class OutboxEvent {
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
 
+    @Column(name = "next_attempt_at")
+    private LocalDateTime nextAttemptAt;
+
+    @Column(name = "last_attempt_at")
+    private LocalDateTime lastAttemptAt;
+
+    @Column(name = "last_error", columnDefinition = "text")
+    private String lastError;
+
+    @Column(name = "lease_owner", length = 100)
+    private String leaseOwner;
+
+    @Column(name = "lease_until")
+    private LocalDateTime leaseUntil;
+
     private OutboxEvent(
         UUID eventId,
         UUID aggregateId,
@@ -68,7 +88,12 @@ public class OutboxEvent {
         OutboxEventStatus status,
         int retryCount,
         LocalDateTime occurredAt,
-        LocalDateTime publishedAt
+        LocalDateTime publishedAt,
+        LocalDateTime nextAttemptAt,
+        LocalDateTime lastAttemptAt,
+        String lastError,
+        String leaseOwner,
+        LocalDateTime leaseUntil
     ) {
         this.eventId = eventId;
         this.aggregateId = aggregateId;
@@ -78,6 +103,11 @@ public class OutboxEvent {
         this.retryCount = retryCount;
         this.occurredAt = occurredAt;
         this.publishedAt = publishedAt;
+        this.nextAttemptAt = nextAttemptAt;
+        this.lastAttemptAt = lastAttemptAt;
+        this.lastError = lastError;
+        this.leaseOwner = leaseOwner;
+        this.leaseUntil = leaseUntil;
     }
 
     public static OutboxEvent create(
@@ -95,20 +125,74 @@ public class OutboxEvent {
             OutboxEventStatus.PENDING,
             0,
             occurredAt,
+            null,
+            occurredAt,
+            null,
+            null,
+            null,
             null
         );
     }
 
-    public void markPublished(LocalDateTime publishedAt) {
-        this.status = OutboxEventStatus.PUBLISHED;
-        this.publishedAt = publishedAt;
+    public void claim(String owner, LocalDateTime until) {
+        ensurePending("claim");
+        this.leaseOwner = owner;
+        this.leaseUntil = until;
     }
 
-    public void recordPublishFailure(int maxRetryCount) {
-        this.retryCount++;
+    public void markPublished(LocalDateTime publishedAt) {
+        ensurePending("mark published");
+        this.status = OutboxEventStatus.PUBLISHED;
+        this.publishedAt = publishedAt;
+        this.lastAttemptAt = publishedAt;
+        this.nextAttemptAt = null;
+        clearLease();
+    }
 
-        if (this.retryCount >= maxRetryCount) {
+    public OutboxEventStatus recordPublishFailure(
+        LocalDateTime attemptedAt,
+        String error,
+        OutboxRetryPolicy policy
+    ) {
+        ensurePending("record publish failure");
+        this.retryCount++;
+        this.lastAttemptAt = attemptedAt;
+        this.lastError = error;
+        clearLease();
+
+        if (this.retryCount >= policy.maxAttempts()) {
             this.status = OutboxEventStatus.FAILED;
+            this.nextAttemptAt = null;
+        } else {
+            this.nextAttemptAt = policy.nextAttemptAt(attemptedAt, retryCount);
         }
+
+        return status;
+    }
+
+    public void redrive(LocalDateTime dueAt) {
+        if (status != OutboxEventStatus.FAILED) {
+            throw new OutboxEventInvalidStateException(status, "redrive");
+        }
+
+        this.status = OutboxEventStatus.PENDING;
+        this.retryCount = 0;
+        this.nextAttemptAt = dueAt;
+        clearLease();
+    }
+
+    public boolean isRetryAttempt() {
+        return retryCount > 0;
+    }
+
+    private void ensurePending(String action) {
+        if (status != OutboxEventStatus.PENDING) {
+            throw new OutboxEventInvalidStateException(status, action);
+        }
+    }
+
+    private void clearLease() {
+        this.leaseOwner = null;
+        this.leaseUntil = null;
     }
 }

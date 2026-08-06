@@ -37,7 +37,8 @@ prompthub:
     fixed-delay-ms: 5000
     topic: order-events
     batch-size: 100
-    max-retry-count: 3
+  outbox-monitor:
+    enabled: false
   order:
     enabled: false
 
