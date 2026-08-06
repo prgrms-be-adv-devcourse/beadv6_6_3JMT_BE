@@ -1,0 +1,4 @@
+interface:
+  display_name: "Save Project Spec"
+  short_description: "도메인별 기획 문서를 저장하고 구현 계획 파일은 생략"
+  default_prompt: "Use $save-project-spec to save this approved spec in the correct domain directory without creating a separate implementation-plan file."
