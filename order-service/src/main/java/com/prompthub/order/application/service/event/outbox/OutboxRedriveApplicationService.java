@@ -6,6 +6,7 @@ import com.prompthub.order.domain.repository.OutboxEventRepository;
 import com.prompthub.order.global.exception.ErrorCode;
 import com.prompthub.order.global.exception.OrderException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class OutboxRedriveApplicationService {
 
@@ -24,7 +26,7 @@ public class OutboxRedriveApplicationService {
     @Transactional
     public void redrive(UUID eventId) {
         OutboxEvent event = outboxEventRepository.findByIdForUpdate(eventId)
-            .orElseThrow(() -> missing(eventId));
+            .orElseThrow(this::missing);
 
         try {
             event.redrive(LocalDateTime.now(clock));
@@ -35,7 +37,7 @@ public class OutboxRedriveApplicationService {
         }
     }
 
-    private OrderException missing(UUID eventId) {
+    private OrderException missing() {
         recordRedriveQuietly(RedriveOutcome.FAILURE);
         return new OrderException(ErrorCode.OUTBOX_EVENT_NOT_FOUND);
     }
@@ -44,7 +46,7 @@ public class OutboxRedriveApplicationService {
         try {
             outboxMetrics.recordRedrive(outcome);
         } catch (RuntimeException ignored) {
-            // 지표 기록 실패가 redrive 상태 전이를 중단시키지 않도록 한다.
+            log.warn("Outbox redrive metric recording failed. outcome={}", outcome);
         }
     }
 }
