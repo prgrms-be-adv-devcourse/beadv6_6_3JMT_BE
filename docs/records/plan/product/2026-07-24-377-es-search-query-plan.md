@@ -1,6 +1,6 @@
 # #377 — 상품 목록·검색 API Elasticsearch 전환 구현 계획
 
-> 설계 배경/근거는 `docs/superpowers/specs/2026-07-24-377-es-search-query-design.md`(로컬 전용)
+> 설계 배경/근거는 `docs/records/plan/product/2026-07-24-377-es-search-query-design.md`(도메인 기록·git 추적)
 > 참고. 이 문서는 실제 구현 순서·대상 파일을 다룬다.
 
 ## 범위 확정
