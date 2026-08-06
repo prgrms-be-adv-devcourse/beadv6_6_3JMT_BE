@@ -19,6 +19,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -73,7 +74,8 @@ class OutboxAdminTransactionIntegrationTest extends PostgreSqlIntegrationTestSup
         assertThat(event).satisfies(saved -> {
             assertThat(saved.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
             assertThat(saved.getRetryCount()).isZero();
-            assertThat(saved.getNextAttemptAt()).isEqualTo(result.nextAttemptAt());
+            assertThat(saved.getNextAttemptAt())
+                .isEqualTo(result.nextAttemptAt().truncatedTo(ChronoUnit.MICROS));
             assertThat(saved.getLastAttemptAt()).isEqualTo(LAST_ATTEMPT_AT);
             assertThat(saved.getLastError()).isEqualTo(LAST_ERROR);
         });
