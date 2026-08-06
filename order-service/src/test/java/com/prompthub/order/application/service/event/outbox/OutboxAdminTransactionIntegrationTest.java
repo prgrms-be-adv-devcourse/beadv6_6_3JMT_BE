@@ -75,7 +75,8 @@ class OutboxAdminTransactionIntegrationTest extends PostgreSqlIntegrationTestSup
             assertThat(saved.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
             assertThat(saved.getRetryCount()).isZero();
             assertThat(saved.getNextAttemptAt())
-                .isEqualTo(result.nextAttemptAt().truncatedTo(ChronoUnit.MICROS));
+                // PostgreSQL timestamp(6)는 나노초를 가장 가까운 마이크로초로 반올림한다.
+                .isEqualTo(result.nextAttemptAt().plusNanos(500).truncatedTo(ChronoUnit.MICROS));
             assertThat(saved.getLastAttemptAt()).isEqualTo(LAST_ATTEMPT_AT);
             assertThat(saved.getLastError()).isEqualTo(LAST_ERROR);
         });
