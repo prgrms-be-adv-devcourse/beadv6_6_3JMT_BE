@@ -81,6 +81,7 @@
 | GitHub 이슈 생성 | `create-project-issue` |
 | PR 생성 또는 기존 PR 갱신 | `create-project-pr` |
 | 커밋·PR 전 전체 diff 검증 또는 코드 리뷰 | `verify-project-changes` |
+| Superpowers 기획·스펙 저장 또는 구현 계획 산출물 관리 | `save-project-spec` |
 
 - 실제 절차의 단일 진실 공급원은 `.agents/skills/<스킬 이름>/SKILL.md`다. 이 문서에 스킬 본문을 복사하지 않는다.
 - 모듈 전용 스킬은 해당 모듈의 `AGENTS.md`에서 별도로 라우팅한다.
