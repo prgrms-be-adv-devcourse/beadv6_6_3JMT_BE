@@ -2,11 +2,11 @@
 
 Spring Cloud Config Server. **native(classpath) 백엔드**로 모든 서비스의 설정 파일을
 중앙에서 관리한다. git 백엔드·브랜치 라벨·`GIT_TOKEN`은 사용하지 않는다
-(`docs/adr/0004-centralized-config.md` 2차 개정 — 팀 결정으로 git 백엔드 폐기).
+(`docs/records/plan/infra/adr-0004-centralized-config.md` 2차 개정 — 팀 결정으로 git 백엔드 폐기).
 
 - **포트**: 8888 (내부 네트워크 한정 — compose에서 loopback 바인딩)
 - **기동 순서**: 가장 먼저 (다른 서비스들이 이 서버에서 설정을 읽어옴)
-- **상세 규칙·마이그레이션 절차**: `docs/adr/config-management.md` (이 문서가 원본,
+- **상세 규칙·마이그레이션 절차**: `docs/records/plan/infra/adr-config-management.md` (이 문서가 원본,
   아래는 요약)
 
 ---
@@ -14,7 +14,7 @@ Spring Cloud Config Server. **native(classpath) 백엔드**로 모든 서비스�
 ## 설계 기준 (ADR-0004)
 
 확정 설계와 마이그레이션 절차: `docs/architecture/config-management.md`
-결정 배경: `docs/adr/0004-centralized-config.md`
+결정 배경: `docs/records/plan/infra/adr-0004-centralized-config.md`
 
 | 파일 | 역할 |
 |------|------|
@@ -22,12 +22,12 @@ Spring Cloud Config Server. **native(classpath) 백엔드**로 모든 서비스�
 | `configs/application.yml` | 모든 서비스 공통 설정 (Eureka client, actuator 노출만 — 최소주의) |
 | `configs/{service}.yml` | 서비스별 설정 (**현재 파일명 — 프로파일 접미사 없음**) |
 
-> ⚠ **마이그레이션 미완료**: `docs/adr/config-management.md`가 정한 목표 파일명은
+> ⚠ **마이그레이션 미완료**: `docs/records/plan/infra/adr-config-management.md`가 정한 목표 파일명은
 > `configs/{service}-dev.yml`(profile 명시)이지만, 아직 이 리네이밍과 짝을 이루는
 > `docker-compose.yml`의 `SPRING_PROFILES_ACTIVE=dev` 주입이 어느 서비스에도 돼 있지 않다.
 > **두 변경은 반드시 같은 PR에서 동시에 이뤄져야 한다** — 파일명만 먼저 바꾸면 config
 > server가 `default` 프로파일 요청에 그 파일을 더 이상 매칭하지 못해 개발서버가 즉시
-> 깨진다. `docs/adr/config-management.md` §9 마이그레이션 순서 참고.
+> 깨진다. `docs/records/plan/infra/adr-config-management.md` §9 마이그레이션 순서 참고.
 
 ---
 

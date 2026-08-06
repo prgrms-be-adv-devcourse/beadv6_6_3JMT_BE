@@ -102,9 +102,9 @@ Discovery (discovery/) — 포트 8761
 | ------------------------------------- | --------------------------------------------- |
 | 아키텍처 개요                               | `docs/architecture/overview.md`               |
 | Spring Cloud 구조                       | `docs/architecture/spring-cloud.md`           |
-| 설정 관리 (프로파일·configs/ 중앙화 — 규칙·마이그레이션) | `docs/adr/config-management.md`               |
-| 설정 중앙화 결정 배경 (ADR)                    | `docs/adr/0004-centralized-config.md`         |
-| 배포·브랜치 전략 (ADR)                       | `docs/adr/0005-develop-deploy-main-freeze.md` |
+| 설정 관리 (프로파일·configs/ 중앙화 — 규칙·마이그레이션) | `docs/records/plan/infra/adr-config-management.md` |
+| 설정 중앙화 결정 배경 (ADR)                    | `docs/records/plan/infra/adr-0004-centralized-config.md` |
+| 배포·브랜치 전략 (ADR)                       | `docs/records/plan/infra/adr-0005-develop-deploy-main-freeze(v).md` |
 | 이벤트 흐름 (Kafka)                        | `docs/architecture/event-flow.md`             |
 | ERD 전체                                | `docs/erd/overview.md`                        |
 | 스키마 레퍼런스                              | `docs/erd/schema.md`                          |
@@ -112,7 +112,9 @@ Discovery (discovery/) — 포트 8761
 | API 명세                                | `docs/api-spec/`                              |
 | 에러 코드                                 | `docs/error-codes.md`                         |
 
-
-> ⚠ `docs/adr/`는 `.gitignore`(217번 줄)에 의해 git 추적 대상에서 **의도적으로** 제외된다.
-> 로컬에는 파일이 있어도 커밋·푸시에는 잡히지 않는다 — 버그가 아니니 되돌리지 말 것.
+> 과거 아키텍처 결정 기록(ADR)은 `docs/adr/`(로컬 전용, git 미추적)에 모여 있었으나 전부
+> `docs/records/plan/{도메인}/adr-*.md`로 이동해 git에 커밋된다. 도메인별로 흩어져 있으니
+> (예: gateway 라우팅 ADR은 `docs/records/plan/gateway/`, admin 아키텍처 ADR은
+> `docs/records/plan/admin/`) 특정 ADR을 찾을 때는 위 표의 대표 문서 몇 개 외에는 해당
+> 도메인 폴더를 함께 훑는다.
 

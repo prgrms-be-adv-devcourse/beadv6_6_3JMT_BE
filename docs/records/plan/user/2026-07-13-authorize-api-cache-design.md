@@ -5,8 +5,10 @@
 ## 스코프
 
 - 이슈 #289의 1~5번 항목(authorize API, Redis 캐시, lazy loading, 무효화, epoch 세션 검증)을 모두 구현한다.
-- ADR-0008 문서(`docs/adr/0008-user-service-forward-auth.md`)는 저장소 어디에도 없음(전 브랜치 확인함,
-  세션 메모리에만 기록이 남아있던 것으로 보임). 결정 내용은 이슈 #289/#288 본문으로 대체 확인함.
+- ADR-0008 문서(당시 경로 `docs/adr/0008-user-service-forward-auth.md`)는 작성 시점엔 저장소
+  어디에도 없었음(전 브랜치 확인함, 세션 메모리에만 기록이 남아있던 것으로 보임). 결정 내용은
+  이슈 #289/#288 본문으로 대체 확인함. (현재는 `docs/records/plan/user/adr-0008-user-service-forward-auth(v).md`로
+  이동·커밋됨 — 이 문단은 작성 당시 상황을 남긴 기록이라 그대로 둔다.)
 
 > **정정(추가 커밋)**: 최초 작성 시 "5번(epoch 세션 검증)은 #288 미구현이라 제외"라고 적었으나 이는
 > 낡은 근거였다 — epoch 클레임(#288, `ddee910d`/`12068648`/`327b8878`)이 이 브랜치 안에서 authorize API

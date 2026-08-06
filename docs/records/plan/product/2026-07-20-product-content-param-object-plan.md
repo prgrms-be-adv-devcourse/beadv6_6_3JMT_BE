@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 설계 문서: `docs/superpowers/specs/2026-07-20-product-content-param-object-design.md` (근거, 로컬 보관 — git 미추적)
+- 설계 문서: `docs/records/plan/product/2026-07-20-product-content-param-object-design.md` (근거, 도메인 기록 — git 추적)
 - 이슈: #405, 브랜치: `refactor/#405-product-domain-long-param-list`
 - 동작 불변: 에러 코드(`PRODUCT_TYPE_FIELD_MISMATCH`)·상태 전이·API 응답 모두 기존과 동일해야 함
 - record 필드 순서는 기존 시그니처 순서 고정: `productType, name, description, model, amountType, amount, thumbnailUrl, imageUrls, content, fileUrl, externalUrl, tags`

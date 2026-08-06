@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 설계 문서: `docs/superpowers/specs/2026-07-23-es-376-search-sync-redesign-design.md` (완료·확정, 로컬 전용·git 미추적)
+- 설계 문서: `docs/records/plan/product/2026-07-23-es-376-search-sync-redesign-design.md` (완료·확정, 도메인 기록·git 추적)
 - 이 재설계는 **공개 검색/목록 API가 아직 ES를 안 쓰고 RDB만 본다는 전제** 위에 있다(#377에서 재검토 필요 — 설계 문서 §8).
 - order-service가 소비하는 기존 이벤트(`PRODUCT_STOPPED`/`PRODUCT_DELETED`/`PRODUCT_PRICE_CHANGED`)와 그 발행 방식(`ProductEventProducer`의 3개 메서드, AFTER_COMMIT 직접 발행)은 **어떤 태스크에서도 손대지 않는다.**
 - `feat/#376-es-indexing-pipeline` 브랜치(develop에 미머지)에서 작업. 브랜치/커밋 컨벤션은 `.claude/skills/commit/SKILL.md` 따름.
@@ -1183,7 +1183,7 @@ git add product-service/docs/plans/2026-07-23-es-376-search-sync-redesign-plan.m
 git commit -m "docs: 옛 #376 outbox 기반 plan 문서를 재설계 plan 문서로 교체"
 ```
 
-(design 문서 `docs/superpowers/specs/2026-07-23-es-376-search-sync-redesign-design.md`는 `.gitignore`(`/docs/superpowers/`)에 의해 로컬 전용으로 유지되므로 git add 대상이 아니다.)
+(design 문서 `docs/records/plan/product/2026-07-23-es-376-search-sync-redesign-design.md`도 도메인 기록으로 git 추적한다.)
 
 - [ ] **Step 5: 수동 E2E 확인(선택, 로컬 ES 떠있을 때)**
 
