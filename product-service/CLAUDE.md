@@ -28,6 +28,7 @@
 
 구현 전에 아래 문서를 읽는다.
 
+- `docs/swagger-rules.md` — Product Service Swagger 문서화·테스트 규칙
 - `.claude/rules/product-api.md` — API 계약, category/ID 규칙, 응답 wrapper 규칙
 - `.claude/rules/testing.md` — 테스트 기준
 - `.claude/rules/git-workflow.md` — 브랜치 타입, Issue 우선 원칙
