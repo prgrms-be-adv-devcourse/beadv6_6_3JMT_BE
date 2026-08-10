@@ -72,18 +72,23 @@ score = 100 − 5×High − 2×Medium − 0.5×Low
 1. 확정된 PR 인계에서 GitHub 이슈 생성
 2. 생성된 이슈 번호로 작업 브랜치 생성
 3. 변경 전 BE 테스트·FE lint/build baseline 기록
-4. 해당 이슈 범위만 코드 구현
+4. `$ponytail`과 `$write-readable-code`로 해당 이슈 범위만 구현
 5. 관련 단위·통합 테스트와 FE 화면 회귀 수행
-6. Claude Quality로 구현 품질과 점수 재측정
-7. 전체 diff 검증 후 커밋·push·PR 생성
-8. CI와 기존 CodeFlow Receipt 확인
-9. 실제 결과를 이 로드맵에 환류하고 다음 PR 진행
+6. 전체 diff 코드 리뷰, 발견 결함 수정, 영향받은 검증만 재실행
+7. 목적별 커밋 후 커밋된 HEAD에 `$verify-project-changes` 최종 게이트 수행
+8. 같은 HEAD에서 이미 성공한 명령·결과는 PR 생성 단계에서 재사용하고 push·PR 생성
+9. CI와 기존 CodeFlow Receipt 확인
+10. 실제 결과를 이 로드맵에 환류하고 다음 PR 진행
+11. 게시할 근거가 있으면 `$publish`로 중복 없는 게시 계획만 먼저 제안
 ```
 
 - 이슈 생성은 로드맵 전체가 끝난 뒤 한꺼번에 모두 생성하지 않고, **구현할 PR 차례가 왔을 때 하나씩**
   수행한다. 뒤 PR의 설계가 앞 PR 구현 결과에 의해 달라질 수 있기 때문이다.
 - Claude는 이슈 생성·브랜치 생성·검증·PR 생성 시 저장소 `AGENTS.md`와 해당 프로젝트 스킬을 사용한다.
   구현과 구현 후 Quality 측정도 Claude가 맡는다.
+- 검증 재사용은 commit SHA, 작업 트리, 검증 명령이 모두 같을 때만 허용한다. 하나라도 달라지면
+  영향받은 검증을 다시 실행한다. 기존 baseline 실패는 변경 파일 검사와 분리해 기록하고,
+  동일한 기존 실패만으로 PR 생성을 반복 차단하지 않는다.
 - Codex는 구현 전에 전체 흐름을 코드·테스트·FE와 대조해 이 로드맵과 Publish 초안을 완성한다. Claude의
   PR이 끝난 뒤에는 실제 diff·테스트·Quality·CodeFlow 결과를 다시 검토해 설계와 달라진 점을 로드맵에
   반영하고, 개선이 확인된 내용만 Review/Decision/Study/트러블슈팅 Publish 소재로 확정한다.
