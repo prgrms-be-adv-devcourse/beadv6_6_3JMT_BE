@@ -1,6 +1,6 @@
 package com.prompthub.product.application.service;
 
-import com.prompthub.product.application.client.StorageClient;
+import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.ProductFamily;
@@ -44,7 +44,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 	private static final int SUGGEST_LIMIT = 5;
 
 	private final ProductRepository productRepository;
-	private final StorageClient storageClient;
+	private final ObjectStorageGateway objectStorage;
 	private final ProductFamilyResolver productFamilyResolver;
 	private final ProductSearchQueryService productSearchQueryService;
 	private final ProductRecommender productRecommender;
@@ -309,7 +309,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 		if (key == null || key.isBlank()) {
 			return null;
 		}
-		return storageClient.generatePresignedDownloadUrl(key);
+		return objectStorage.createPresignedGetUrl(key);
 	}
 
 	private List<String> toUrls(List<String> keys) {
@@ -317,7 +317,7 @@ public class ProductQueryService implements ProductQueryUseCase {
 			return List.of();
 		}
 		return keys.stream()
-			.map(storageClient::generatePresignedDownloadUrl)
+			.map(objectStorage::createPresignedGetUrl)
 			.toList();
 	}
 

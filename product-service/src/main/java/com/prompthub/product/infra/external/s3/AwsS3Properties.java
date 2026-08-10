@@ -1,9 +1,9 @@
-package com.prompthub.product.config;
+package com.prompthub.product.infra.external.s3;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "cloud.aws")
 public record AwsS3Properties(String region, S3 s3) {
 
-    public record S3(String bucket) {}
+	public record S3(String bucket) {}
 }

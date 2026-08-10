@@ -12,10 +12,10 @@ public record ProductUpdateRequest(
 	@NotBlank String desc,
 	@NotNull @Min(0) Integer amount,
 	String content,
-	String fileUrl,
+	String fileObjectKey,
 	String externalUrl,
-	String thumbnailUrl,
-	List<String> imageUrls,
+	String thumbnailObjectKey,
+	List<String> imageObjectKeys,
 	List<String> tags,
 	String changeReason,
 	String versionType

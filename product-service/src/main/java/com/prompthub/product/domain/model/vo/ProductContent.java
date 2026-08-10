@@ -33,7 +33,7 @@ public record ProductContent(
 		validateTypeFields(productType, content, fileUrl, externalUrl);
 	}
 
-	private static void validateTypeFields(
+	public static void validateTypeFields(
 		ProductType productType, String content, String fileUrl, String externalUrl
 	) {
 		boolean hasContent = content != null && !content.isBlank();

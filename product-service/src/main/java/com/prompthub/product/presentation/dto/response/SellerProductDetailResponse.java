@@ -1,6 +1,5 @@
 package com.prompthub.product.presentation.dto.response;
 
-import com.prompthub.product.application.client.StorageClient;
 import com.prompthub.product.domain.model.entity.Product;
 import java.util.List;
 import java.util.UUID;
@@ -14,12 +13,15 @@ public record SellerProductDetailResponse(
 	String desc,
 	String content,
 	String fileUrl,
+	String fileObjectKey,
 	String externalUrl,
 	String status,
 	String version,
 	double averageRating,
 	String thumbnailUrl,
+	String thumbnailObjectKey,
 	List<String> imageUrls,
+	List<String> imageObjectKeys,
 	List<String> tags,
 	String liveVersion,
 	List<SellerProductVersionResponse> versions
@@ -29,7 +31,9 @@ public record SellerProductDetailResponse(
 		Product liveOnSale,
 		List<Product> historyMembers,
 		double averageRating,
-		StorageClient storageClient
+		String thumbnailUrl,
+		List<String> imageUrls,
+		String fileUrl
 	) {
 		return new SellerProductDetailResponse(
 			product.getId(),
@@ -39,28 +43,19 @@ public record SellerProductDetailResponse(
 			product.getAmount(),
 			product.getDescription(),
 			product.getContent(),
-			toUrl(product.getFileUrl(), storageClient),
+			fileUrl,
+			product.getFileUrl(),
 			product.getExternalUrl(),
 			product.getStatus().name(),
 			product.getMajorVersion() + "." + product.getPatchVersion(),
 			averageRating,
-			toUrl(product.getThumbnailUrl(), storageClient),
-			toUrls(product.getImageUrls(), storageClient),
+			thumbnailUrl,
+			product.getThumbnailUrl(),
+			imageUrls,
+			product.getImageUrls(),
 			product.getTags(),
 			liveOnSale != null ? liveOnSale.getMajorVersion() + "." + liveOnSale.getPatchVersion() : null,
 			historyMembers.stream().map(SellerProductVersionResponse::from).toList()
 		);
-	}
-
-	private static String toUrl(String key, StorageClient storageClient) {
-		if (key == null || key.isBlank()) return null;
-		return storageClient.generatePresignedDownloadUrl(key);
-	}
-
-	private static List<String> toUrls(List<String> keys, StorageClient storageClient) {
-		if (keys == null || keys.isEmpty()) return List.of();
-		return keys.stream()
-			.map(key -> storageClient.generatePresignedDownloadUrl(key))
-			.toList();
 	}
 }
