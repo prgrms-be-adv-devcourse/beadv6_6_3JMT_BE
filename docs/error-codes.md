@@ -47,6 +47,7 @@
 | `PRODUCT_TYPE_FIELD_MISMATCH` | P007 | 상품 유형에 맞지 않는 필드 구성입니다. | 400 |
 | `INVALID_UPLOAD_FILE_TYPE` | P008 | 업로드할 수 없는 파일 형식입니다. | 400 |
 | `S3_PRESIGN_FAILED` | S001 | 파일 업로드 URL 생성에 실패했습니다. | 500 |
+| `S3_COPY_FAILED` | S002 | 파일 저장에 실패했습니다. | 500 |
 
 ---
 

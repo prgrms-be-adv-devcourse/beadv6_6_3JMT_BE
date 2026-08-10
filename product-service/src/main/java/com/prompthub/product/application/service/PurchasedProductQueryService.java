@@ -1,6 +1,6 @@
 package com.prompthub.product.application.service;
 
-import com.prompthub.product.application.client.StorageClient;
+import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
 import com.prompthub.product.application.usecase.PurchasedProductQueryUseCase;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.ProductFamily;
@@ -24,7 +24,7 @@ public class PurchasedProductQueryService implements PurchasedProductQueryUseCas
 	private final ProductFamilyResolver productFamilyResolver;
 	private final ProductRepository productRepository;
 	private final ReviewRepository reviewRepository;
-	private final StorageClient storageClient;
+	private final ObjectStorageGateway objectStorage;
 
 	@Override
 	public PurchasedProductDetailResponse getPurchasedProduct(UUID userId, UUID productId) {
@@ -64,7 +64,7 @@ public class PurchasedProductQueryService implements PurchasedProductQueryUseCas
 		if (key == null || key.isBlank()) {
 			return null;
 		}
-		return storageClient.generatePresignedDownloadUrl(key);
+		return objectStorage.createPresignedGetUrl(key);
 	}
 
 	// 구매 여부 검증 지점 — 현재는 검증하지 않는다(#550 설계 결정). 후속 이슈에서 order-service gRPC 검증으로 대체한다.

@@ -1,6 +1,6 @@
 package com.prompthub.product.application.service;
 
-import com.prompthub.product.application.client.StorageClient;
+import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
 import com.prompthub.product.application.usecase.ProductGrpcUseCase;
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.domain.model.entity.Product;
@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProductGrpcService implements ProductGrpcUseCase {
 
 	private final ProductFamilyResolver productFamilyResolver;
-	private final StorageClient storageClient;
+	private final ObjectStorageGateway objectStorage;
 	private final ProductQueryUseCase productQueryUseCase;
 
 	@Override
@@ -97,6 +97,6 @@ public class ProductGrpcService implements ProductGrpcUseCase {
 		if (key == null || key.isBlank()) {
 			return null;
 		}
-		return storageClient.generatePresignedDownloadUrl(key);
+		return objectStorage.createPresignedGetUrl(key);
 	}
 }

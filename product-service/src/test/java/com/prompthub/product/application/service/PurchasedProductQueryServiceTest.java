@@ -1,6 +1,6 @@
 package com.prompthub.product.application.service;
 
-import com.prompthub.product.application.client.StorageClient;
+import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.Review;
 import com.prompthub.product.domain.model.enums.ProductStatus;
@@ -39,7 +39,7 @@ class PurchasedProductQueryServiceTest {
 	private ReviewRepository reviewRepository;
 
 	@Mock
-	private StorageClient storageClient;
+	private ObjectStorageGateway objectStorage;
 
 	private PurchasedProductQueryService purchasedProductQueryService;
 
@@ -49,7 +49,7 @@ class PurchasedProductQueryServiceTest {
 			new ProductFamilyResolver(productRepository),
 			productRepository,
 			reviewRepository,
-			storageClient
+			objectStorage
 		);
 	}
 
@@ -76,7 +76,7 @@ class PurchasedProductQueryServiceTest {
 		assertThat(result.sellerId()).isEqualTo(SELLER_ID);
 		assertThat(result.averageRating()).isEqualTo(4.5);
 		assertThat(result.myRating()).isEqualTo(5);
-		verifyNoInteractions(storageClient);
+		verifyNoInteractions(objectStorage);
 	}
 
 	@Test
@@ -87,7 +87,7 @@ class PurchasedProductQueryServiceTest {
 		stubFamily(product);
 		given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(0.0);
 		given(reviewRepository.findByUserIdAndProductId(USER_ID, PRODUCT_ID)).willReturn(Optional.empty());
-		given(storageClient.generatePresignedDownloadUrl("files/deck.pptx")).willReturn("https://s3/presigned");
+		given(objectStorage.createPresignedGetUrl("files/deck.pptx")).willReturn("https://s3/presigned");
 
 		PurchasedProductDetailResponse result =
 			purchasedProductQueryService.getPurchasedProduct(USER_ID, PRODUCT_ID);
@@ -107,7 +107,7 @@ class PurchasedProductQueryServiceTest {
 		stubFamily(product);
 		given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(0.0);
 		given(reviewRepository.findByUserIdAndProductId(USER_ID, PRODUCT_ID)).willReturn(Optional.empty());
-		given(storageClient.generatePresignedDownloadUrl("products/x/thumb.png"))
+		given(objectStorage.createPresignedGetUrl("products/x/thumb.png"))
 			.willReturn("https://s3/thumb-presigned");
 
 		PurchasedProductDetailResponse result =
@@ -129,7 +129,7 @@ class PurchasedProductQueryServiceTest {
 			purchasedProductQueryService.getPurchasedProduct(USER_ID, PRODUCT_ID);
 
 		assertThat(result.fileUrl()).isNull();
-		verifyNoInteractions(storageClient);
+		verifyNoInteractions(objectStorage);
 	}
 
 	@Test

@@ -376,7 +376,7 @@
 > 문제이고, 이 API는 저장된 값을 그대로 반환할 뿐이다.
 >
 > `thumbnail_url`/`imageUrls`는 저장 시 S3 key로 보관되고, 조회 응답 시점에
-> `storageClient.generatePresignedDownloadUrl(key)`로 presigned GET URL로 변환해 반환한다 — 공개
+> `ObjectStorageGateway.createPresignedGetUrl(key)`로 presigned GET URL로 변환해 반환한다 — 공개
 > 목록/상세/관련상품, 판매자 본인 목록, 찜 배치조회(`POST /products/wishlists`) 전부 동일 패턴이다.
 
 ---
@@ -442,9 +442,10 @@
 
 - 인증: 필요
 - 필요 역할: SELLER
-- 이미지·산출물 파일 업로드는 백엔드를 경유하지 않는다. 백엔드는 presigned PUT URL만 발급하고,
-  프론트가 그 URL로 S3에 파일을 직접 PUT한 뒤, 반환된 `fileUrl`을 상품 생성/수정 요청의
-  `thumbnailUrl` / `imageUrls` / `fileUrl`에 넣어 보낸다.
+- 이미지·산출물 파일 업로드는 백엔드를 경유하지 않는다. 백엔드는 임시 object key와 presigned
+  PUT/GET URL만 발급하고, 프론트가 PUT URL로 S3에 파일을 직접 올린다. 상품 생성/수정 요청과
+  temp 취소 요청에는 URL이 아니라 **object key**를 그대로 넣어 보낸다 — presigned URL은
+  만료가 있고 백엔드에서 재파싱하지 않는다.
 
 #### Request
 
@@ -468,7 +469,7 @@
 | productType | string | 조건부 | `purpose=file`일 때 필수(`PPT` \| `EXCEL`) |
 
 - 확장자 검증(엄격): PPT→`pptx`/`ppt`, EXCEL→`xlsx`/`xls`, 이미지→`jpg`/`jpeg`/`png`/`gif`/`webp`.
-  맞지 않으면 400 `P008`. content-type은 발급 시 서명에 포함된다.
+  확장자가 없거나 맞지 않으면 400 `P008`. content-type은 발급 시 서명에 포함된다.
 
 #### Response
 
@@ -478,8 +479,9 @@
 {
   "success": true,
   "data": {
-    "uploadUrl": "https://<presigned-put-url>",
-    "fileUrl": "https://<bucket>.s3.<region>.amazonaws.com/products/temp/file/<uuid>.pptx?..."
+    "tempObjectKey": "products/temp/<sellerId>/file/<uuid>.pptx",
+    "presignedPutUrl": "https://<presigned-put-url>",
+    "presignedGetUrl": "https://<presigned-get-url>"
   },
   "message": "success"
 }
@@ -487,8 +489,9 @@
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| uploadUrl | string | 프론트가 파일을 직접 PUT할 대상(만료 있음) |
-| fileUrl | string | 업로드 후 상품 생성/수정 요청에 넣을 값(임시 경로). 생성/수정 시 상품 경로로 이동됨 |
+| tempObjectKey | string | 상품 생성/수정 요청과 temp 취소 요청에 그대로 넣을 값. 판매자 소유권이 key에 포함된다 |
+| presignedPutUrl | string | 프론트가 파일 바이트를 직접 PUT할 대상(만료 있음) |
+| presignedGetUrl | string | 업로드 완료 후 미리보기 표시에만 쓰는 만료 있는 GET URL(저장 요청에는 넣지 않는다) |
 
 ---
 
@@ -497,8 +500,9 @@
 - 인증: 필요
 - 필요 역할: SELLER
 - 용도: 상품 등록/수정 중 이탈 시, 아직 상품에 연결되지 않은 temp 업로드 파일을 정리
-- productId를 받지 않는다 — 요청 body의 URL 문자열에서 직접 S3 key를 파싱해 삭제하며,
-  `products/temp/`로 시작하는 key만 삭제 대상이다(그 외는 조용히 무시).
+- productId를 받지 않는다 — 요청 body는 presigned URL이 아니라 **object key 목록**이다.
+  `products/temp/{sellerId}/...` 형식과 요청자 소유권을 검증해, 본인 소유의 temp key만
+  삭제한다(영구 key나 다른 판매자의 key는 조용히 무시).
 
 #### Request
 
@@ -512,10 +516,10 @@
 **Body**
 
 ```json
-["https://<bucket>.s3.<region>.amazonaws.com/products/temp/thumbnail/<uuid>.jpg?..."]
+["products/temp/<sellerId>/thumbnail/<uuid>.jpg"]
 ```
 
-삭제할 파일들의 presigned URL(또는 원본 key) 목록.
+삭제할 temp object key 목록(`POST /products/uploads/presigned-urls` 응답의 `tempObjectKey`).
 
 #### Response
 
@@ -549,7 +553,7 @@
   "desc": "설명",
   "amount": 5000,
   "content": "실제 프롬프트 내용",
-  "thumbnailUrl": "https://...",
+  "thumbnailObjectKey": "products/temp/<sellerId>/thumbnail/<uuid>.png",
   "tags": ["태그1", "태그2"]
 }
 ```
@@ -562,12 +566,17 @@
 | desc | string | Y | 상품 설명 |
 | amount | integer | Y | 가격 |
 | content | string | 유형별 | 프롬프트 원문 (PROMPT 필수) |
-| fileUrl | string | 유형별 | 산출물 파일 URL (PPT/EXCEL 필수, 업로드 후 받은 URL) |
+| fileObjectKey | string | 유형별 | 산출물 파일 object key (PPT/EXCEL 필수, 업로드 후 받은 `tempObjectKey`) |
 | externalUrl | string | 유형별 | 외부 노션 링크 (NOTION 필수) |
-| thumbnailUrl | string | N | 썸네일 이미지 URL |
+| thumbnailObjectKey | string | N | 썸네일 이미지 object key |
+| imageObjectKeys | string[] | N | 소개 이미지 object key 목록 |
 | tags | string[] | N | 판매자 지정 태그 목록 |
 
-> **유형별 필수 필드**: PROMPT→`content`, PPT·EXCEL→`fileUrl`, NOTION→`externalUrl`. 각 유형은 해당 필드만 사용하며, 맞지 않는 필드가 채워지면 400 `P007`. 공개 상세 응답에는 `fileUrl`/`externalUrl`을 노출하지 않는다(구매 후 전달은 내부 API).
+> **유형별 필수 필드**: PROMPT→`content`, PPT·EXCEL→`fileObjectKey`, NOTION→`externalUrl`. 각 유형은 해당 필드만 사용하며, 맞지 않는 필드가 채워지면 400 `P007`. 공개 상세 응답에는 `fileUrl`/`externalUrl`을 노출하지 않는다(구매 후 전달은 내부 API).
+>
+> `*ObjectKey` 필드는 `POST /products/uploads/presigned-urls` 응답의 `tempObjectKey`를 그대로
+> 받는다. presigned URL이 아니라 key이며, 등록 시 상품 영구 경로로 이동(승격)된다. 요청자
+> 소유가 아닌 temp key는 403 `P003`으로 거절한다.
 
 #### Response
 
@@ -618,7 +627,7 @@
   "desc": "수정된 설명",
   "amount": 6000,
   "content": "수정된 프롬프트 원문",
-  "thumbnailUrl": "https://...",
+  "thumbnailObjectKey": "products/<productId>/thumbnail/<uuid>.png",
   "tags": ["태그1"],
   "changeReason": "내용 보강",
   "versionType": "MINOR"
@@ -633,14 +642,20 @@
 | desc | string | Y | 상품 설명 |
 | amount | integer | Y | 가격 |
 | content | string | 유형별 | 프롬프트 원문 (PROMPT 필수) |
-| fileUrl | string | 유형별 | 산출물 파일 URL (PPT/EXCEL 필수, 업로드 후 받은 URL) |
+| fileObjectKey | string | 유형별 | 산출물 파일 object key (PPT/EXCEL 필수) |
 | externalUrl | string | 유형별 | 외부 노션 링크 (NOTION 필수) |
-| thumbnailUrl | string | N | 썸네일 이미지 URL |
+| thumbnailObjectKey | string | N | 썸네일 이미지 object key. 새 파일이면 `tempObjectKey`, 안 바꿨으면 기존 영구 key를 그대로 보낸다 |
+| imageObjectKeys | string[] | N | 소개 이미지 object key 목록 |
 | tags | string[] | N | 판매자 지정 태그 목록 |
 | changeReason | string | N | 변경 사유 |
 | versionType | string | N | `MINOR`(기본) \| `MAJOR` |
 
-> **유형별 필수 필드**: PROMPT→`content`, PPT·EXCEL→`fileUrl`, NOTION→`externalUrl`. 각 유형은 해당 필드만 사용하며, 맞지 않는 필드가 채워지면 400 `P007`.
+> **유형별 필수 필드**: PROMPT→`content`, PPT·EXCEL→`fileObjectKey`, NOTION→`externalUrl`. 각 유형은 해당 필드만 사용하며, 맞지 않는 필드가 채워지면 400 `P007`.
+>
+> `*ObjectKey` 필드는 temp key와 기존 영구 key를 함께 받는다. temp key(`products/temp/...`)는
+> 이번 요청에서 상품 경로로 승격되고, 이미 영구 key(`products/{productId}/...`)면 그대로
+> 유지된다(다시 이동하지 않음) — 수정 화면에서 이미지를 바꾸지 않아도 기존 값을 그대로 다시
+> 보내면 된다.
 
 #### Response
 
@@ -791,11 +806,15 @@
     "desc": "설명",
     "content": "프롬프트 원문",
     "fileUrl": null,
+    "fileObjectKey": null,
     "externalUrl": null,
     "status": "DRAFT",
     "version": "1.0",
     "averageRating": 0,
     "thumbnailUrl": null,
+    "thumbnailObjectKey": null,
+    "imageUrls": [],
+    "imageObjectKeys": [],
     "tags": ["태그1", "태그2"],
     "liveVersion": "1.0",
     "versions": [
@@ -822,8 +841,11 @@
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| fileUrl | string \| null | 산출물 파일 presigned 다운로드 URL (PPT/EXCEL). 없으면 null |
+| fileUrl | string \| null | 산출물 파일 presigned 다운로드 URL (PPT/EXCEL, 미리보기용). 없으면 null |
+| fileObjectKey | string \| null | 산출물 파일 object key(수정 요청용). 없으면 null |
 | externalUrl | string \| null | 외부 노션 링크 (NOTION). 없으면 null |
+| thumbnailObjectKey | string \| null | 썸네일 object key(수정 요청용). 없으면 null |
+| imageObjectKeys | string[] | 소개 이미지 object key 목록(수정 요청용). `imageUrls`와 같은 순서 |
 | averageRating | number | family(버전군) 전체 리뷰 평균 별점. 리뷰 없으면 0 |
 | liveVersion | string \| null | 현재 판매중(ON_SALE) 버전 표기(`major.patch`). 판매중 버전이 없으면 null |
 | versions | array | 이 상품의 버전 이력 목록 |

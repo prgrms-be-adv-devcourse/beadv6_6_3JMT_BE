@@ -7,7 +7,8 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
-import com.prompthub.product.application.client.StorageClient;
+import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
+import com.prompthub.product.application.service.fileupload.TempFilePromoter;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.vo.ProductContent;
@@ -58,7 +59,7 @@ class ProductDuplicateDetectionIntegrationTest extends PostgresIntegrationTestSu
 
 	private ProductRepository productRepository;
 	private ProductEventProducer productEventProducer;
-	private StorageClient storageClient;
+	private ObjectStorageGateway objectStorage;
 	private ProductSellerService productSellerService;
 
 	@BeforeEach
@@ -66,8 +67,9 @@ class ProductDuplicateDetectionIntegrationTest extends PostgresIntegrationTestSu
 		// Spring이 아니라 순수 자바 조립 — Kafka·전체 컨텍스트 부팅 없이 실제 리포지토리 배선만 검증한다.
 		productRepository = Mockito.spy(new ProductRepositoryAdapter(productJpaRepository));
 		productEventProducer = Mockito.mock(ProductEventProducer.class);
-		storageClient = Mockito.mock(StorageClient.class);
-		productSellerService = new ProductSellerService(productRepository, productEventProducer, storageClient);
+		objectStorage = Mockito.mock(ObjectStorageGateway.class);
+		productSellerService = new ProductSellerService(
+			productRepository, productEventProducer, objectStorage, new TempFilePromoter(objectStorage));
 	}
 
 	@Test

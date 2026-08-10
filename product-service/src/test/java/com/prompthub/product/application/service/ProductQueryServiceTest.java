@@ -1,6 +1,6 @@
 package com.prompthub.product.application.service;
 
-import com.prompthub.product.application.client.StorageClient;
+import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
@@ -59,7 +59,7 @@ class ProductQueryServiceTest {
 	private ProductRepository productRepository;
 
 	@Mock
-	private StorageClient storageClient;
+	private ObjectStorageGateway objectStorage;
 
 	@Mock
 	private ProductSearchQueryService productSearchQueryService;
@@ -72,7 +72,7 @@ class ProductQueryServiceTest {
 	@BeforeEach
 	void setUp() {
 		productQueryService = new ProductQueryService(
-			productRepository, storageClient, new ProductFamilyResolver(productRepository), productSearchQueryService,
+			productRepository, objectStorage, new ProductFamilyResolver(productRepository), productSearchQueryService,
 			productRecommender);
 		// getProducts를 호출하지 않는 테스트에서는 불필요한 스텁 경고를 피하기 위해 lenient 처리.
 		lenient().when(productSearchQueryService.search(any(), any(), any(), any()))
@@ -155,7 +155,7 @@ class ProductQueryServiceTest {
 			// 먼저 실제 호출을 평가하는 방식은 그 예외를 즉시 트리거한다 — doReturn으로 덮어쓴다.
 			doReturn(new ProductSearchPageResult(List.of(hit), 1))
 				.when(productSearchQueryService).search("es검색어", "PROMPT", "popular", PageRequest.of(0, 20));
-			given(storageClient.generatePresignedDownloadUrl("products/thumb.jpg"))
+			given(objectStorage.createPresignedGetUrl("products/thumb.jpg"))
 				.willReturn("https://s3/presigned");
 
 			PageResponse<ProductListItemResponse> response =
@@ -233,7 +233,7 @@ class ProductQueryServiceTest {
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
 			given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(4.5);
-			given(storageClient.generatePresignedDownloadUrl("https://cdn.example.com/images/1.jpg"))
+			given(objectStorage.createPresignedGetUrl("https://cdn.example.com/images/1.jpg"))
 				.willReturn("https://cdn.example.com/images/1.jpg?presigned");
 
 			ProductDetailResponse response = productQueryService.getProduct(PRODUCT_ID);
@@ -443,7 +443,7 @@ class ProductQueryServiceTest {
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
 			given(productRepository.sumSalesCountByFamilyRootId(PRODUCT_ID)).willReturn(0L);
 			given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(0.0);
-			given(storageClient.generatePresignedDownloadUrl("products/1/thumbnail/uuid.jpg"))
+			given(objectStorage.createPresignedGetUrl("products/1/thumbnail/uuid.jpg"))
 				.willReturn("https://s3/presigned-thumbnail");
 
 			List<ProductsByIdsResponse> result = productQueryService.getProductsByIds(List.of(PRODUCT_ID));
@@ -464,7 +464,7 @@ class ProductQueryServiceTest {
 			List<ProductsByIdsResponse> result = productQueryService.getProductsByIds(List.of(PRODUCT_ID));
 
 			assertThat(result.get(0).thumbnailUrl()).isNull();
-			then(storageClient).shouldHaveNoInteractions();
+			then(objectStorage).shouldHaveNoInteractions();
 		}
 	}
 

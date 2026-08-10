@@ -19,7 +19,8 @@ public enum ProductErrorCode implements ErrorCode {
 	PRODUCT_INVALID_STATUS(HttpStatus.CONFLICT, "P006", "현재 상태에서 처리할 수 없는 상품입니다."),
 	PRODUCT_TYPE_FIELD_MISMATCH(HttpStatus.BAD_REQUEST, "P007", "상품 유형에 맞지 않는 필드 구성입니다."),
 	INVALID_UPLOAD_FILE_TYPE(HttpStatus.BAD_REQUEST, "P008", "업로드할 수 없는 파일 형식입니다."),
-	S3_PRESIGN_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "S001", "파일 업로드 URL 생성에 실패했습니다.");
+	S3_PRESIGN_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "S001", "파일 업로드 URL 생성에 실패했습니다."),
+	S3_COPY_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "S002", "파일 저장에 실패했습니다.");
 
 	private final HttpStatus status;
 	private final String code;

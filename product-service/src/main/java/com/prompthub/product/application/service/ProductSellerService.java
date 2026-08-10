@@ -1,6 +1,7 @@
 package com.prompthub.product.application.service;
 
-import com.prompthub.product.application.client.StorageClient;
+import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
+import com.prompthub.product.application.service.fileupload.TempFilePromoter;
 import com.prompthub.product.application.usecase.ProductSellerUseCase;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.ProductFamily;
@@ -33,28 +34,29 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class ProductSellerService implements ProductSellerUseCase {
 
-	private static final String TEMP_PREFIX = "products/temp/";
 	private static final ProductType DEFAULT_PRODUCT_TYPE = ProductType.PROMPT;
 
 	private final ProductRepository productRepository;
 	private final ProductEventProducer productEventProducer;
-	private final StorageClient storageClient;
+	private final ObjectStorageGateway objectStorage;
+	private final TempFilePromoter tempFilePromoter;
 
 	@Override
 	public ProductCreateResponse createProduct(UUID sellerId, ProductCreateRequest request) {
 		ProductType productType = parseProductType(request.productType());
+		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
+		ProductContent.validateTypeFields(
+			productType, request.content(), request.fileObjectKey(), request.externalUrl());
 
 		UUID productId = UUID.randomUUID();
-		String thumbnailKey = moveToProductPath(extractKey(request.thumbnailUrl()), productId);
-		List<String> imageKeys = moveToProductPaths(extractKeys(request.imageUrls()), productId);
-		String fileKey = moveToProductPath(extractKey(request.fileUrl()), productId);
+		// 임시 업로드를 상품이 계속 참조할 영구 key로 복사한다.
+		TempFilePromoter.PromotedFiles storedFiles = tempFilePromoter.promote(
+			request.thumbnailObjectKey(), request.imageObjectKeys(), request.fileObjectKey(), productId, sellerId);
 
-		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
 		ProductContent content = new ProductContent(
 			productType, request.title(), request.desc(), request.model(),
-			amountType, request.amount(), thumbnailKey, imageKeys,
-			request.content(), fileKey, request.externalUrl(), request.tags()
-		);
+			amountType, request.amount(), storedFiles.thumbnailKey(), storedFiles.imageKeys(),
+			request.content(), storedFiles.fileKey(), request.externalUrl(), request.tags());
 		Product product = Product.create(productId, sellerId, content);
 
 		Product saved = productRepository.save(product);
@@ -75,19 +77,21 @@ public class ProductSellerService implements ProductSellerUseCase {
 
 	@Override
 	public void updateProduct(UUID sellerId, UUID productId, ProductUpdateRequest request) {
-		Product anchor = getProductForSeller(sellerId, productId);
+		Product anchor = getOwnedProduct(sellerId, productId);
 
 		ProductType productType = parseProductType(request.productType());
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
 		boolean isMajor = "MAJOR".equalsIgnoreCase(request.versionType());
-		String newThumbnailKey = moveToProductPath(extractKey(request.thumbnailUrl()), productId);
-		List<String> newImageKeys = moveToProductPaths(extractKeys(request.imageUrls()), productId);
-		String newFileKey = moveToProductPath(extractKey(request.fileUrl()), productId);
+		ProductContent.validateTypeFields(
+			productType, request.content(), request.fileObjectKey(), request.externalUrl());
+
+		// 새 temp key는 영구 key로 복사하고, 기존 영구 key는 그대로 유지한다.
+		TempFilePromoter.PromotedFiles storedFiles = tempFilePromoter.promote(
+			request.thumbnailObjectKey(), request.imageObjectKeys(), request.fileObjectKey(), productId, sellerId);
 		ProductContent content = new ProductContent(
 			productType, request.title(), request.desc(), request.model(),
-			amountType, request.amount(), newThumbnailKey, newImageKeys,
-			request.content(), newFileKey, request.externalUrl(), request.tags()
-		);
+			amountType, request.amount(), storedFiles.thumbnailKey(), storedFiles.imageKeys(),
+			request.content(), storedFiles.fileKey(), request.externalUrl(), request.tags());
 
 		UUID familyRootId = anchor.familyRootId();
 		ProductFamily family = ProductFamily.of(familyRootId, productRepository.findAllByFamilyRootIds(List.of(familyRootId)));
@@ -151,6 +155,24 @@ public class ProductSellerService implements ProductSellerUseCase {
 	}
 
 	@Override
+	public void submitForReview(UUID sellerId, UUID productId) {
+		Product product = getOwnedProduct(sellerId, productId);
+		product.submitForReview();
+		productRepository.save(product);
+
+		publishReviewRequestedEvent(product);
+	}
+
+	/** MAJOR 버전 전환으로 PENDING_REVIEW가 되는 모든 경로(submitForReview, MAJOR 수정)가 공유한다. */
+	private void publishReviewRequestedEvent(Product product) {
+		UUID duplicateOfProductId = findOriginalProductIdByContentHash(product);
+		String presignedThumbnailUrl = createDownloadUrl(product.getThumbnailUrl());
+		List<String> presignedImageUrls = createDownloadUrls(product.getImageUrls());
+		productEventProducer.publishReviewRequested(
+			product, duplicateOfProductId, presignedThumbnailUrl, presignedImageUrls);
+	}
+
+	@Override
 	@Transactional(readOnly = true)
 	public List<SellerProductListItemResponse> getMyProducts(UUID sellerId) {
 		List<Product> all = productRepository.findBySellerId(sellerId);
@@ -164,62 +186,28 @@ public class ProductSellerService implements ProductSellerUseCase {
 					.orElseThrow(() -> new IllegalStateException("family에 대표 row가 없습니다. familyRootId=" + entry.getKey()));
 				int familySalesCount = entry.getValue().stream().mapToInt(Product::getSalesCount).sum();
 				double averageRating = averageRatings.getOrDefault(entry.getKey(), 0.0);
-				return SellerProductListItemResponse.from(representative, familySalesCount, averageRating, storageClient);
+				return SellerProductListItemResponse.from(
+					representative, familySalesCount, averageRating, createDownloadUrl(representative.getThumbnailUrl()));
 			})
 			.sorted(Comparator.comparing(SellerProductListItemResponse::updatedAt).reversed())
 			.toList();
 	}
 
 	@Override
-	public void submitForReview(UUID sellerId, UUID productId) {
-		Product product = getProductForSeller(sellerId, productId);
-		product.submitForReview();
-		productRepository.save(product);
-
-		publishReviewRequestedEvent(product);
-	}
-
-	/** MAJOR 버전 전환으로 PENDING_REVIEW가 되는 모든 경로(submitForReview, MAJOR 수정)가 공유한다. */
-	private void publishReviewRequestedEvent(Product product) {
-		UUID duplicateOfProductId = findDuplicateOfProductId(product);
-		String presignedThumbnailUrl = presignOrNull(product.getThumbnailUrl());
-		List<String> presignedImageUrls = presignAll(product.getImageUrls());
-		productEventProducer.publishReviewRequested(
-			product, duplicateOfProductId, presignedThumbnailUrl, presignedImageUrls);
-	}
-
-	/** PROMPT가 아니면 content_hash가 없어 비교 대상이 아니다(ADR-0011). */
-	private UUID findDuplicateOfProductId(Product product) {
-		if (product.getContentHash() == null) {
-			return null;
-		}
-		return productRepository
-			.findDuplicateOfProductId(product.getId(), product.getContentHash(), product.getSellerId())
-			.orElse(null);
-	}
-
-	private String presignOrNull(String key) {
-		return (key == null || key.isBlank()) ? null : storageClient.generatePresignedDownloadUrl(key);
-	}
-
-	private List<String> presignAll(List<String> keys) {
-		if (keys == null || keys.isEmpty()) {
-			return List.of();
-		}
-		return keys.stream().map(storageClient::generatePresignedDownloadUrl).toList();
-	}
-
-	@Override
 	@Transactional(readOnly = true)
 	public SellerProductDetailResponse getMyProduct(UUID sellerId, UUID productId) {
-		Product anchor = getProductForSeller(sellerId, productId);
+		Product anchor = getOwnedProduct(sellerId, productId);
 		UUID familyRootId = anchor.familyRootId();
 		List<Product> members = productRepository.findAllByFamilyRootIds(List.of(familyRootId));
 		ProductFamily family = ProductFamily.of(familyRootId, members);
 		Product representative = family.currentForSeller().orElse(anchor);
 		Product liveOnSale = family.currentOnSale().orElse(null);
 		double averageRating = productRepository.getAverageRating(familyRootId);
-		return SellerProductDetailResponse.from(representative, liveOnSale, family.sellerHistory(), averageRating, storageClient);
+		return SellerProductDetailResponse.from(
+			representative, liveOnSale, family.sellerHistory(), averageRating,
+			createDownloadUrl(representative.getThumbnailUrl()),
+			createDownloadUrls(representative.getImageUrls()),
+			createDownloadUrl(representative.getFileUrl()));
 	}
 
 	@Override
@@ -229,6 +217,17 @@ public class ProductSellerService implements ProductSellerUseCase {
 			sellerId,
 			productRepository.countFamiliesBySellerId(sellerId),
 			productRepository.sumSalesCountBySellerId(sellerId));
+	}
+
+	private String createDownloadUrl(String key) {
+		return (key == null || key.isBlank()) ? null : objectStorage.createPresignedGetUrl(key);
+	}
+
+	private List<String> createDownloadUrls(List<String> keys) {
+		if (keys == null || keys.isEmpty()) {
+			return List.of();
+		}
+		return keys.stream().map(objectStorage::createPresignedGetUrl).toList();
 	}
 
 	private ProductType parseProductType(String productType) {
@@ -242,32 +241,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 		}
 	}
 
-	private String moveToProductPath(String key, UUID productId) {
-		if (key == null || key.isBlank() || !key.startsWith(TEMP_PREFIX)) return key;
-		String destKey = "products/" + productId + "/" + key.substring(TEMP_PREFIX.length());
-		storageClient.copyObject(key, destKey);
-		storageClient.deleteObject(key);
-		return destKey;
-	}
-
-	private List<String> moveToProductPaths(List<String> keys, UUID productId) {
-		if (keys == null) return null;
-		return keys.stream().map(k -> moveToProductPath(k, productId)).toList();
-	}
-
-	private String extractKey(String presignedUrl) {
-		if (presignedUrl == null || presignedUrl.isBlank()) return null;
-		String path = presignedUrl.split("\\?")[0];
-		int idx = path.indexOf(".amazonaws.com/");
-		return idx >= 0 ? path.substring(idx + ".amazonaws.com/".length()) : presignedUrl;
-	}
-
-	private List<String> extractKeys(List<String> urls) {
-		if (urls == null) return null;
-		return urls.stream().map(this::extractKey).toList();
-	}
-
-	private Product getProductForSeller(UUID sellerId, UUID productId) {
+	private Product getOwnedProduct(UUID sellerId, UUID productId) {
 		Product product = productRepository.findById(productId)
 			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
 
@@ -276,5 +250,15 @@ public class ProductSellerService implements ProductSellerUseCase {
 		}
 
 		return product;
+	}
+
+	/** PROMPT가 아니면 content_hash가 없어 비교 대상이 아니다(ADR-0011). */
+	private UUID findOriginalProductIdByContentHash(Product product) {
+		if (product.getContentHash() == null) {
+			return null;
+		}
+		return productRepository
+			.findDuplicateOfProductId(product.getId(), product.getContentHash(), product.getSellerId())
+			.orElse(null);
 	}
 }
