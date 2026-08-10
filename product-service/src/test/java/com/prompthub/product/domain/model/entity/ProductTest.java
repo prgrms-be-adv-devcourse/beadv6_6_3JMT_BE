@@ -84,6 +84,37 @@ class ProductTest {
 	}
 
 	@Test
+	void updateRejectedContent_rejectedRow_updatesContentOnly_keepsVersionStatusAndReasons() {
+		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
+		ReflectionTestUtils.setField(product, "status", ProductStatus.REJECTED);
+		ReflectionTestUtils.setField(product, "majorVersion", (short) 3);
+		ReflectionTestUtils.setField(product, "patchVersion", (short) 0);
+		ReflectionTestUtils.setField(product, "changeReason", "이전 변경 사유");
+		ReflectionTestUtils.setField(product, "rejectionReason", "금지 콘텐츠 포함");
+		UUID id = product.getId();
+
+		product.updateRejectedContent(notionContent("보정된 제목", 2000));
+
+		assertThat(product.getId()).isEqualTo(id);
+		assertThat(product.getMajorVersion()).isEqualTo((short) 3);
+		assertThat(product.getPatchVersion()).isEqualTo((short) 0);
+		assertThat(product.getStatus()).isEqualTo(ProductStatus.REJECTED);
+		assertThat(product.getChangeReason()).isEqualTo("이전 변경 사유");
+		assertThat(product.getRejectionReason()).isEqualTo("금지 콘텐츠 포함");
+		assertThat(product.getProductType()).isEqualTo(ProductType.NOTION);
+		assertThat(product.getName()).isEqualTo("보정된 제목");
+	}
+
+	@Test
+	void updateRejectedContent_nonRejectedRow_throws() {
+		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
+		ReflectionTestUtils.setField(product, "status", ProductStatus.ON_SALE);
+
+		assertThatThrownBy(() -> product.updateRejectedContent(promptContent()))
+			.isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
 	void supersede_onSaleRow_transitionsToSuperseded() {
 		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
 		ReflectionTestUtils.setField(product, "status", ProductStatus.ON_SALE);

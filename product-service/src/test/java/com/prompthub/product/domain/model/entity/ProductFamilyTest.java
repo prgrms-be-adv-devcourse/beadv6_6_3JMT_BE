@@ -47,6 +47,25 @@ class ProductFamilyTest {
 	}
 
 	@Test
+	void currentForSeller_prefersRejectedOverOnSale() {
+		// 판매 후 반려된 row가 있으면 그 row를 대표로 보여줘 판매자가 수정·재요청할 수 있게 한다.
+		Product onSale = product(ProductStatus.ON_SALE, (short) 2, (short) 0);
+		Product rejected = product(ProductStatus.REJECTED, (short) 3, (short) 0);
+		ProductFamily family = ProductFamily.of(onSale.getId(), List.of(onSale, rejected));
+
+		assertThat(family.currentForSeller()).contains(rejected);
+	}
+
+	@Test
+	void currentForSeller_noRejected_stillReturnsOnSale() {
+		Product superseded = product(ProductStatus.SUPERSEDED, (short) 1, (short) 0);
+		Product onSale = product(ProductStatus.ON_SALE, (short) 2, (short) 0);
+		ProductFamily family = ProductFamily.of(superseded.getId(), List.of(superseded, onSale));
+
+		assertThat(family.currentForSeller()).contains(onSale);
+	}
+
+	@Test
 	void hasEverBeenOnSale_falseWhenOnlyDraftOrPendingOrRejected() {
 		Product draft = product(ProductStatus.DRAFT, (short) 1, (short) 0);
 		ProductFamily family = ProductFamily.of(draft.getId(), List.of(draft));
