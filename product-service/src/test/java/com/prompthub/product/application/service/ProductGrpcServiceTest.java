@@ -1,6 +1,6 @@
 package com.prompthub.product.application.service;
 
-import com.prompthub.product.application.client.StorageClient;
+import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
 import com.prompthub.product.application.usecase.ProductQueryUseCase;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
@@ -37,7 +37,7 @@ class ProductGrpcServiceTest {
 	private ProductRepository productRepository;
 
 	@Mock
-	private StorageClient storageClient;
+	private ObjectStorageGateway objectStorage;
 
 	@Mock
 	private ProductQueryUseCase productQueryUseCase;
@@ -47,7 +47,7 @@ class ProductGrpcServiceTest {
 	@BeforeEach
 	void setUp() {
 		productGrpcService = new ProductGrpcService(
-			new ProductFamilyResolver(productRepository), storageClient, productQueryUseCase);
+			new ProductFamilyResolver(productRepository), objectStorage, productQueryUseCase);
 	}
 
 	@Nested
@@ -119,7 +119,7 @@ class ProductGrpcServiceTest {
 			ProductContentResponse response = productGrpcService.getProductContent(PRODUCT_ID);
 
 			assertThat(response.content()).isEqualTo("프롬프트 본문");
-			then(storageClient).shouldHaveNoInteractions();
+			then(objectStorage).shouldHaveNoInteractions();
 		}
 
 		@Test
@@ -128,7 +128,7 @@ class ProductGrpcServiceTest {
 			Product product = onSaleWithType(ProductType.PPT);
 			ReflectionTestUtils.setField(product, "fileUrl", "products/1/file/a.pptx");
 			mockResolve(product);
-			given(storageClient.generatePresignedDownloadUrl("products/1/file/a.pptx"))
+			given(objectStorage.createPresignedGetUrl("products/1/file/a.pptx"))
 				.willReturn("https://s3/presigned-file");
 
 			ProductContentResponse response = productGrpcService.getProductContent(PRODUCT_ID);
@@ -146,7 +146,7 @@ class ProductGrpcServiceTest {
 			ProductContentResponse response = productGrpcService.getProductContent(PRODUCT_ID);
 
 			assertThat(response.content()).isEqualTo("https://notion.so/t");
-			then(storageClient).shouldHaveNoInteractions();
+			then(objectStorage).shouldHaveNoInteractions();
 		}
 
 		private Product onSaleWithType(ProductType type) {

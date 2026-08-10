@@ -1,8 +1,11 @@
 package com.prompthub.product.presentation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.prompthub.product.application.client.StorageClient;
+import com.prompthub.product.application.usecase.FileUploadUseCase;
+import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.ProductExceptionHandler;
+import com.prompthub.product.exception.enums.ProductErrorCode;
+import com.prompthub.product.presentation.dto.response.UploadUrlResponse;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,8 +22,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -30,17 +32,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class FileUploadControllerTest {
 
     private static final UUID SELLER_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
-    private static final String PRESIGNED_URL = "https://3jmt-prompthub-bucket.s3.ap-northeast-2.amazonaws.com/products/temp/thumbnail/uuid.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=3600";
 
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
 
     @Mock
-    private StorageClient storageClient;
+    private FileUploadUseCase fileUploadUseCase;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new FileUploadController(storageClient))
+        mockMvc = MockMvcBuilders.standaloneSetup(new FileUploadController(fileUploadUseCase))
             .setControllerAdvice(new ProductExceptionHandler())
             .build();
         objectMapper = new ObjectMapper();
@@ -51,14 +52,11 @@ class FileUploadControllerTest {
     class CreateUploadUrl {
 
         @Test
-        @DisplayName("PPT 파일은 pptx content-type으로 presigned PUT URL을 발급한다")
-        void createUploadUrl_pptxFile() throws Exception {
-            given(storageClient.generatePresignedUploadUrl(
-                org.mockito.ArgumentMatchers.startsWith("products/temp/file/"),
-                eq("application/vnd.openxmlformats-officedocument.presentationml.presentation")))
-                .willReturn("https://put-url");
-            given(storageClient.generatePresignedDownloadUrl(org.mockito.ArgumentMatchers.anyString()))
-                .willReturn("https://get-url");
+        @DisplayName("유스케이스가 만든 tempObjectKey·presignedPutUrl·presignedGetUrl을 그대로 응답한다")
+        void createUploadUrl_delegatesToUseCase() throws Exception {
+            given(fileUploadUseCase.createUploadUrl(eq(SELLER_ID), any()))
+                .willReturn(new UploadUrlResponse(
+                    "products/temp/" + SELLER_ID + "/file/uuid.pptx", "https://put-url", "https://get-url"));
 
             mockMvc.perform(post("/api/v2/products/uploads/presigned-urls")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -66,31 +64,17 @@ class FileUploadControllerTest {
                     .header("X-User-Id", SELLER_ID.toString())
                     .header("X-User-Role", "SELLER"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.uploadUrl").value("https://put-url"))
-                .andExpect(jsonPath("$.data.fileUrl").value("https://get-url"));
+                .andExpect(jsonPath("$.data.tempObjectKey").value("products/temp/" + SELLER_ID + "/file/uuid.pptx"))
+                .andExpect(jsonPath("$.data.presignedPutUrl").value("https://put-url"))
+                .andExpect(jsonPath("$.data.presignedGetUrl").value("https://get-url"));
         }
 
         @Test
-        @DisplayName("이미지는 확장자에 맞는 content-type으로 발급한다")
-        void createUploadUrl_image() throws Exception {
-            given(storageClient.generatePresignedUploadUrl(
-                org.mockito.ArgumentMatchers.startsWith("products/temp/thumbnail/"), eq("image/png")))
-                .willReturn("https://put-url");
-            given(storageClient.generatePresignedDownloadUrl(org.mockito.ArgumentMatchers.anyString()))
-                .willReturn("https://get-url");
+        @DisplayName("유스케이스가 정책 위반(P008)을 던지면 400으로 응답한다")
+        void createUploadUrl_policyViolation_returnsBadRequest() throws Exception {
+            given(fileUploadUseCase.createUploadUrl(eq(SELLER_ID), any()))
+                .willThrow(new ProductException(ProductErrorCode.INVALID_UPLOAD_FILE_TYPE));
 
-            mockMvc.perform(post("/api/v2/products/uploads/presigned-urls")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"purpose\":\"thumbnail\",\"fileName\":\"t.png\"}")
-                    .header("X-User-Id", SELLER_ID.toString())
-                    .header("X-User-Role", "SELLER"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.uploadUrl").value("https://put-url"));
-        }
-
-        @Test
-        @DisplayName("productType과 확장자가 맞지 않으면 400")
-        void createUploadUrl_extMismatch() throws Exception {
             mockMvc.perform(post("/api/v2/products/uploads/presigned-urls")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"purpose\":\"file\",\"fileName\":\"a.xlsx\",\"productType\":\"PPT\"}")
@@ -100,14 +84,16 @@ class FileUploadControllerTest {
         }
 
         @Test
-        @DisplayName("purpose=file인데 productType이 없으면 400")
-        void createUploadUrl_fileWithoutType() throws Exception {
+        @DisplayName("purpose가 비어 있으면 유스케이스 호출 전에 400으로 거절한다")
+        void createUploadUrl_blankPurpose_rejectedByValidation() throws Exception {
             mockMvc.perform(post("/api/v2/products/uploads/presigned-urls")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"purpose\":\"file\",\"fileName\":\"a.pptx\"}")
+                    .content("{\"purpose\":\"\",\"fileName\":\"a.pptx\"}")
                     .header("X-User-Id", SELLER_ID.toString())
                     .header("X-User-Role", "SELLER"))
                 .andExpect(status().isBadRequest());
+
+            then(fileUploadUseCase).shouldHaveNoInteractions();
         }
     }
 
@@ -116,35 +102,18 @@ class FileUploadControllerTest {
     class DeleteTempImages {
 
         @Test
-        @DisplayName("temp 경로 URL은 key를 추출해 S3에서 삭제한다")
-        void deleteTempImages_success() throws Exception {
-            List<String> urls = List.of(PRESIGNED_URL);
+        @DisplayName("요청 본문의 object key 목록을 그대로 유스케이스에 위임한다")
+        void deleteTempImages_delegatesObjectKeysToUseCase() throws Exception {
+            List<String> objectKeys = List.of("products/temp/" + SELLER_ID + "/thumbnail/uuid.png");
 
             mockMvc.perform(delete("/api/v2/products/images")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(urls))
+                    .content(objectMapper.writeValueAsString(objectKeys))
                     .header("X-User-Id", SELLER_ID.toString())
                     .header("X-User-Role", "SELLER"))
                 .andExpect(status().isOk());
 
-            verify(storageClient).deleteObject("products/temp/thumbnail/uuid.png");
-        }
-
-        @Test
-        @DisplayName("temp 경로가 아닌 URL은 삭제하지 않는다")
-        void deleteTempImages_skipsNonTemp() throws Exception {
-            List<String> urls = List.of(
-                "https://3jmt-prompthub-bucket.s3.ap-northeast-2.amazonaws.com/products/some-id/thumbnail/uuid.png?X-Amz-Expires=3600"
-            );
-
-            mockMvc.perform(delete("/api/v2/products/images")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(urls))
-                    .header("X-User-Id", SELLER_ID.toString())
-                    .header("X-User-Role", "SELLER"))
-                .andExpect(status().isOk());
-
-            verify(storageClient, never()).deleteObject(any());
+            then(fileUploadUseCase).should().deleteTempObjects(SELLER_ID, objectKeys);
         }
     }
 }

@@ -8,23 +8,25 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
-import com.prompthub.product.application.client.StorageClient;
+import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
+import com.prompthub.product.application.service.fileupload.TempFilePromoter;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.infra.messaging.producer.ProductEventProducer;
+import com.prompthub.product.presentation.dto.request.ProductCreateRequest;
 import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -42,10 +44,18 @@ class ProductSellerServiceTest {
 	private ProductEventProducer productEventProducer;
 
 	@Mock
-	private StorageClient storageClient;
+	private ObjectStorageGateway objectStorage;
 
-	@InjectMocks
 	private ProductSellerService productSellerService;
+
+	@BeforeEach
+	void setUp() {
+		// TempFilePromoter는 실제 인스턴스를 쓴다 — null/영구 key는 objectStorage를 전혀 건드리지
+		// 않으므로 대부분의 테스트는 stubbing 없이도 그대로 통과하고, 실제 temp 승격 경로만
+		// 필요한 테스트에서 objectStorage.copy/delete를 stub·검증한다.
+		productSellerService = new ProductSellerService(
+			productRepository, productEventProducer, objectStorage, new TempFilePromoter(objectStorage));
+	}
 
 	@Nested
 	@DisplayName("검수 제출")
@@ -58,9 +68,9 @@ class ProductSellerServiceTest {
 			ReflectionTestUtils.setField(product, "thumbnailUrl", "products/1/thumbnail/a.png");
 			ReflectionTestUtils.setField(product, "imageUrls", List.of("products/1/image/b.png"));
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
-			given(storageClient.generatePresignedDownloadUrl("products/1/thumbnail/a.png"))
+			given(objectStorage.createPresignedGetUrl("products/1/thumbnail/a.png"))
 				.willReturn("https://s3/presigned-thumb");
-			given(storageClient.generatePresignedDownloadUrl("products/1/image/b.png"))
+			given(objectStorage.createPresignedGetUrl("products/1/image/b.png"))
 				.willReturn("https://s3/presigned-image");
 
 			productSellerService.submitForReview(SELLER_ID, PRODUCT_ID);
@@ -79,7 +89,7 @@ class ProductSellerServiceTest {
 			productSellerService.submitForReview(SELLER_ID, PRODUCT_ID);
 
 			then(productEventProducer).should().publishReviewRequested(product, null, null, List.of());
-			then(storageClient).shouldHaveNoInteractions();
+			then(objectStorage).shouldHaveNoInteractions();
 		}
 
 		@Test
@@ -197,7 +207,7 @@ class ProductSellerServiceTest {
 				.willAnswer(inv -> inv.getArgument(0));
 
 			productSellerService.createProduct(SELLER_ID,
-				new com.prompthub.product.presentation.dto.request.ProductCreateRequest(
+				new ProductCreateRequest(
 					"노션 상품", "NOTION", "model", "설명", 1000,
 					null, null, "https://notion.so/my-template", null, List.of(), List.of()
 				));
@@ -206,19 +216,20 @@ class ProductSellerServiceTest {
 			then(productRepository).should().save(captor.capture());
 			assertThat(captor.getValue().getExternalUrl()).isEqualTo("https://notion.so/my-template");
 			assertThat(captor.getValue().getFileUrl()).isNull();
-			then(storageClient).shouldHaveNoInteractions();
+			then(objectStorage).shouldHaveNoInteractions();
 		}
 
 		@Test
-		@DisplayName("PPT 생성 시 file_url 임시 키를 상품 경로로 이동해 키로 저장한다")
+		@DisplayName("PPT 생성 시 file_object_key 임시 키를 상품 경로로 이동해 키로 저장한다")
 		void createProduct_ppt_movesFileKey() {
 			given(productRepository.save(org.mockito.ArgumentMatchers.any(Product.class)))
 				.willAnswer(inv -> inv.getArgument(0));
+			String tempKey = "products/temp/" + SELLER_ID + "/file/abc.pptx";
 
 			productSellerService.createProduct(SELLER_ID,
-				new com.prompthub.product.presentation.dto.request.ProductCreateRequest(
+				new ProductCreateRequest(
 					"PPT 상품", "PPT", "model", "설명", 1000,
-					null, "products/temp/file/abc.pptx", null, null, List.of(), List.of()
+					null, tempKey, null, null, List.of(), List.of()
 				));
 
 			ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
@@ -226,9 +237,41 @@ class ProductSellerServiceTest {
 			assertThat(captor.getValue().getFileUrl()).startsWith("products/");
 			assertThat(captor.getValue().getFileUrl()).endsWith("/file/abc.pptx");
 			assertThat(captor.getValue().getExternalUrl()).isNull();
-			then(storageClient).should().copyObject(
-				org.mockito.ArgumentMatchers.eq("products/temp/file/abc.pptx"),
+			then(objectStorage).should().copy(
+				org.mockito.ArgumentMatchers.eq(tempKey),
 				org.mockito.ArgumentMatchers.anyString());
+		}
+
+		@Test
+		@DisplayName("다른 판매자 소유의 temp key를 보내면 승격을 거부하고 상품을 저장하지 않는다")
+		void createProduct_foreignTempKey_isRejected() {
+			UUID otherSellerId = UUID.randomUUID();
+			String foreignTempKey = "products/temp/" + otherSellerId + "/file/abc.pptx";
+
+			assertThatThrownBy(() -> productSellerService.createProduct(SELLER_ID,
+				new ProductCreateRequest(
+					"PPT 상품", "PPT", "model", "설명", 1000,
+					null, foreignTempKey, null, null, List.of(), List.of()
+				)))
+				.isInstanceOf(ProductException.class);
+
+			then(productRepository).should(never()).save(any());
+		}
+
+		@Test
+		@DisplayName("상품 유형과 필드가 맞지 않으면 파일 승격 전에 거부한다")
+		void createProduct_typeMismatch_rejectsBeforeFilePromotion() {
+			String tempFileKey = "products/temp/" + SELLER_ID + "/file/abc.pptx";
+
+			assertThatThrownBy(() -> productSellerService.createProduct(SELLER_ID,
+				new ProductCreateRequest(
+					"프롬프트 상품", "PROMPT", "model", "설명", 1000,
+					"prompt", tempFileKey, null, null, List.of(), List.of()
+				)))
+				.isInstanceOf(ProductException.class);
+
+			then(objectStorage).shouldHaveNoInteractions();
+			then(productRepository).should(never()).save(any());
 		}
 
 		@Test
@@ -238,7 +281,7 @@ class ProductSellerServiceTest {
 				.willAnswer(inv -> inv.getArgument(0));
 
 			productSellerService.createProduct(SELLER_ID,
-				new com.prompthub.product.presentation.dto.request.ProductCreateRequest(
+				new ProductCreateRequest(
 					"노션 상품", "NOTION", "model", "설명", 1000,
 					null, null, "https://notion.so/my-template", null, List.of(), List.of()
 				));
@@ -333,19 +376,20 @@ class ProductSellerServiceTest {
 		}
 
 		@Test
-		@DisplayName("판매자 상세는 fileUrl을 presigned로, externalUrl을 원문으로 반환한다")
-		void getMyProduct_exposesTypeFields() {
+		@DisplayName("판매자 상세는 fileUrl을 presigned로, externalUrl을 원문으로, fileObjectKey를 원본 key로 반환한다")
+		void getMyProduct_exposesTypeFieldsAndObjectKeys() {
 			Product onSale = product(PRODUCT_ID, null, ProductStatus.ON_SALE, (short) 1, (short) 0);
 			ReflectionTestUtils.setField(onSale, "fileUrl", "products/1/file/a.pptx");
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(onSale));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(onSale));
-			given(storageClient.generatePresignedDownloadUrl("products/1/file/a.pptx"))
+			given(objectStorage.createPresignedGetUrl("products/1/file/a.pptx"))
 				.willReturn("https://s3/presigned-file");
 
 			com.prompthub.product.presentation.dto.response.SellerProductDetailResponse result =
 				productSellerService.getMyProduct(SELLER_ID, PRODUCT_ID);
 
 			assertThat(result.fileUrl()).isEqualTo("https://s3/presigned-file");
+			assertThat(result.fileObjectKey()).isEqualTo("products/1/file/a.pptx");
 			assertThat(result.externalUrl()).isNull();
 		}
 

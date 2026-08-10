@@ -528,8 +528,8 @@ class ProductControllerTest {
 		void getMyProduct_success() throws Exception {
 			SellerProductDetailResponse response = new SellerProductDetailResponse(
 				PRODUCT_ID, "리액트 컴포넌트 리팩터링 도우미", "PROMPT", "GPT-4o", 7900,
-				"컴포넌트 분리, 상태 정리, 타입 개선", "본문 내용", null, null, "DRAFT", "1.0", 4.5,
-				"https://cdn.example.com/images/thumb.jpg", List.of(), List.of("리액트"), null, List.of()
+				"컴포넌트 분리, 상태 정리, 타입 개선", "본문 내용", null, null, null, "DRAFT", "1.0", 4.5,
+				"https://cdn.example.com/images/thumb.jpg", null, List.of(), List.of(), List.of("리액트"), null, List.of()
 			);
 			given(productSellerUseCase.getMyProduct(SELLER_ID, PRODUCT_ID)).willReturn(response);
 
