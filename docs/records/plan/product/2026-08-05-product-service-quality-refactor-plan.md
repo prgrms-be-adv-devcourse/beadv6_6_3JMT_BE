@@ -2412,7 +2412,24 @@ Controller endpoint, request URL, Kafka payload, DB schema, seller history DTO�
 
 ##### 구현 후 검증 결과
 
-상태: **IMPLEMENTED · PR_PENDING** · 확인일: 2026-08-11 · 기준: `develop d0aacd91`(PR 1 머지 직후) · 이슈: #718
+상태: **MERGED · DEPLOYED** · 확인일: 2026-08-11 · 기준: `develop d0aacd91`(PR 1 머지 직후) · 이슈:
+[#718](https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/issues/718) · PR:
+[#719](https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/pull/719)
+
+**PR·머지·배포**
+
+- BE PR [#719](https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/pull/719)
+  (`fix/#718-rejected-major-same-version-edit` → `develop`), merge commit `bbd02001a`. 커밋 3건을
+  목적별로 분리: `fix`(구현) `49e0ba16` · `test`(테스트) `72e0bcbf` · `docs`(이 절 갱신 전 버전)
+  `0916555b`.
+- FE는 이슈·PR 없이 `beadv6_6_3JMT_FE` `main`에 직접 push하는 레포 컨벤션에 따라 커밋
+  `392902f`로 별도 반영.
+- `develop` push로 CD(`Release - Develop`)가 자동 트리거돼 개발서버에 배포 완료(총 약 11분,
+  Plan → Build&Test → CI Gate → Docker Build → Deploy Applications 전부 success). 과거 셀프호스티드
+  러너 ruby 부재로 인한 `exit 127`(#679) 재발 없음 — 이번 실행은 정상 소요 시간이었다(직전 PR 1
+  배포는 동일 원인으로 추정되는 지연으로 2시간 36분 걸렸다).
+
+**BE/FE 테스트**
 
 - `ProductFamilyTest`·`ProductTest`·`ProductSellerServiceTest`·`ProductInspectionResultHandlerTest` 타겟
   실행: 통과.
@@ -2422,9 +2439,41 @@ Controller endpoint, request URL, Kafka payload, DB schema, seller history DTO�
 - FE `npm run lint`(`app/edit/[id]/page.tsx`, `app/shop/page.tsx`): 통과.
 - FE `npm run build`: 통과.
 - Codex 리뷰: No findings.
+- PR CI(`product_service_ci / Build & Test`): pass(3분 18초), `ci-gate`: pass. `mergeStateStatus`:
+  `CLEAN`.
 - `app/shop/page.tsx`는 실제로는 변경하지 않았다 — REJECTED 카드의 수정·재요청 버튼은 이미 있었고,
   BE 대표 선택 우선순위만 고치면 그 카드가 노출되는 구조였다(§"현재 코드에서 실제로 끊기는 지점" 분석과
   일치).
+
+**배포 환경 E2E (2026-08-11, 실제 개발서버)**
+
+실제 판매 데이터를 건드리지 않기 위해 자체 생성한 테스트 상품으로 아래 전체 사이클을 재현했다.
+승인/반려는 admin 수동 처리가 아니라 **ai-service가 Kafka 이벤트로 자동 판정**한다(설계 문서
+"검수 요청부터 AI 소비까지의 코드 근거" 절과 일치) — E2E 도중 admin 콘솔의 "검수 대기" 큐를
+확인했으나 AI가 수초 내에 먼저 처리해 항상 0건이었다.
+
+```text
+1.0 등록 → 검수 요청 → AI 승인 → 1.0 ON_SALE
+  → 1.0에 저품질 콘텐츠로 MAJOR 수정 제출 → AI가 반려("의미 없는 문자열") → 2.0 REJECTED
+  → 내 상점 목록: 2.0 REJECTED가 대표로 노출(사유·수정·재요청 버튼) — 1.0에 가려지지 않음
+  → 2.0 수정 화면: "v2.0을 수정합니다 · 현재 v1.0이 판매 중이에요", 버전 선택·변경 사유 UI 없음
+  → 저장 → 같은 2.0 row 그대로 REJECTED 유지(반려 사유도 그대로, 이벤트 미발행)
+  → 공개 상세(productId=1.0): 정상 조회, 1.0 그대로 판매 중
+  → 재요청 → 같은 2.0 row가 PENDING_REVIEW로 전환(새 row 생성 안 됨)
+  → (재시도 1회차) AI가 테스트 문구 자체를 스팸으로 재반려 → 같은 2.0 row REJECTED 유지 확인
+  → 정상 콘텐츠로 재편집 → 재요청 → AI 승인
+  → 2.0 ON_SALE 전환, 공개 상세 `버전 기록: v2.0`으로 대표 교체(1.0 SUPERSEDED)
+```
+
+설계한 상태 전이(§"확정 동작")와 실제 배포 환경 동작이 전부 일치했다.
+
+**CodeFlow Receipt**
+
+PR #719 review-receipt: `LOC +70214` · `functions +1027` · `dead code 0` · `circular deps 0` ·
+`blast radius 575 → 863 ▲` · `health C` · `avg coupling +0.4`. 실제 diff는 7개 파일 155줄
+추가뿐이라 이 수치와 명백히 모순된다 — 이 레포 CodeFlow의 기존에 알려진 결함(점수가 코드 변화에
+무반응하거나 카드 갱신이 깨지는 문제)의 연장으로 판단해 **신뢰하지 않았고 Publish 근거로 쓰지
+않았다.** 실제 지표 개선을 신뢰성 있게 관측하기 전까지는 이 Receipt를 인용하지 않는다.
 
 **품질(§측정 기준 14개 카테고리 rubric) 비교 — 변경 3개 main 파일 기준**
 
@@ -2444,7 +2493,23 @@ Controller endpoint, request URL, Kafka payload, DB schema, seller history DTO�
 뿐이다. **diff 기준 품질 delta는 0**(신규 위반 없음, 기존 구조 부채도 고치지 않음 — 범위를 그대로 두라는
 지시에 따라 의도적으로 손대지 않았다). `product-service` 전체 절대 점수는 이 PR 범위에서 다시 산정하지
 않았다 — I-1~I-9 각 항목의 개별 회복분 추정치만 이 문서에 기록돼 있고 전체 합산 baseline 점수는 별도로
-계산된 적이 없다.
+계산된 적이 없다. (Claude가 diff 기준으로 측정한 결과이며, 별도의 자동 채점 스크립트는 없다.)
+
+**설계와 달라진 부분**
+
+- 이 절 바로 앞 §"판매 후 major 반려본 재수정 확정 흐름"(브레인스토밍 단계 초안)은
+  `Product.update(..., boolean isMajor)`를 없애고 `updateDraftContent()` /
+  `updateRejectedContent()` 두 메서드로 쪼개자고 제안했었다. **실제 구현은 확정본인 이
+  "PR 2 구현 인계" 절만 따라 `updateRejectedContent()`만 추가했고 `update()`는 손대지 않았다** —
+  "변경 파일 경계"에도 `update()` 제거·`updateDraftContent()` 신설이 없어, 확정 단계에서 그
+  초안보다 범위를 의도적으로 좁힌 것으로 판단했다. 초안대로 더 넓게 리팩터링할지는 별도 판단이
+  필요하다.
+- 승인/반려 주체를 처음엔 "admin 수동 처리"로 가정하고 admin 콘솔 접근을 시도했으나, 실제로는
+  ai-service가 Kafka로 자동 판정한다는 걸 E2E 도중 재확인했다(§"배포 환경 E2E" 참고). 설계 문서
+  자체의 "검수 요청부터 AI 소비까지의 코드 근거" 절과는 일치하므로 설계 오류는 아니고, 구현 시점의
+  가정 착오였다.
+- 나머지(SELLER_PRIORITY 순서, `updateRejectedContent()` 계약, `updateProduct()` 분기,
+  Controller·API·Kafka payload·DB schema 미변경)는 설계 그대로 구현했다.
 
 ##### 이슈 본문 초안
 
