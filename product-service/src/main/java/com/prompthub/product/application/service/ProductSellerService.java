@@ -81,7 +81,6 @@ public class ProductSellerService implements ProductSellerUseCase {
 
 		ProductType productType = parseProductType(request.productType());
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
-		boolean isMajor = "MAJOR".equalsIgnoreCase(request.versionType());
 		ProductContent.validateTypeFields(
 			productType, request.content(), request.fileObjectKey(), request.externalUrl());
 
@@ -93,6 +92,15 @@ public class ProductSellerService implements ProductSellerUseCase {
 			amountType, request.amount(), storedFiles.thumbnailKey(), storedFiles.imageKeys(),
 			request.content(), storedFiles.fileKey(), request.externalUrl(), request.tags());
 
+		// 판매 후 반려된 row는 같은 version만 보정한다 — 새 row도, 기존 ON_SALE 교대도, 검수
+		// 요청 이벤트도 만들지 않는다. 재검수는 판매자가 submitForReview()를 별도로 호출해야 한다.
+		if (anchor.getStatus() == ProductStatus.REJECTED) {
+			anchor.updateRejectedContent(content);
+			productRepository.save(anchor);
+			return;
+		}
+
+		boolean isMajor = "MAJOR".equalsIgnoreCase(request.versionType());
 		UUID familyRootId = anchor.familyRootId();
 		ProductFamily family = ProductFamily.of(familyRootId, productRepository.findAllByFamilyRootIds(List.of(familyRootId)));
 

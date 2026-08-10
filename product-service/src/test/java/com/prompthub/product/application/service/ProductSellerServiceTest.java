@@ -184,6 +184,24 @@ class ProductSellerServiceTest {
 		}
 
 		@Test
+		@DisplayName("판매 후 REJECTED된 row는 같은 row의 콘텐츠만 수정하고 새 row·이벤트를 만들지 않는다")
+		void updateProduct_rejectedRow_updatesInPlace_withoutNewRowOrEvent() {
+			Product rejected = product(PRODUCT_ID, null, ProductStatus.REJECTED, (short) 3, (short) 0);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(rejected));
+
+			productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, request("MAJOR"));
+
+			ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+			then(productRepository).should().save(captor.capture());
+			assertThat(captor.getValue()).isSameAs(rejected);
+			assertThat(rejected.getName()).isEqualTo("새 제목");
+			assertThat(rejected.getStatus()).isEqualTo(ProductStatus.REJECTED);
+			assertThat(rejected.getMajorVersion()).isEqualTo((short) 3);
+			then(productRepository).should(never()).findAllByFamilyRootIds(any());
+			then(productEventProducer).shouldHaveNoInteractions();
+		}
+
+		@Test
 		@DisplayName("이미 PENDING_REVIEW인 MAJOR 변경이 있으면 재제출을 거부한다")
 		void updateProduct_majorWhilePendingReviewExists_throws() {
 			Product onSale = product(PRODUCT_ID, null, ProductStatus.ON_SALE, (short) 2, (short) 0);
@@ -313,6 +331,21 @@ class ProductSellerServiceTest {
 		}
 
 		@Test
+		@DisplayName("ON_SALE과 REJECTED가 함께 있으면 REJECTED를 대표로 반환한다")
+		void getMyProducts_returnsRejectedAsRepresentative_whenOnSaleAndRejectedCoexist() {
+			Product onSale = product(UUID.randomUUID(), null, ProductStatus.ON_SALE, (short) 2, (short) 0);
+			UUID familyRootId = onSale.getId();
+			Product rejected = product(UUID.randomUUID(), familyRootId, ProductStatus.REJECTED, (short) 3, (short) 0);
+			given(productRepository.findBySellerId(SELLER_ID)).willReturn(List.of(onSale, rejected));
+
+			List<com.prompthub.product.presentation.dto.response.SellerProductListItemResponse> result =
+				productSellerService.getMyProducts(SELLER_ID);
+
+			assertThat(result).hasSize(1);
+			assertThat(result.get(0).productId()).isEqualTo(rejected.getId());
+		}
+
+		@Test
 		@DisplayName("STOPPED만 있는 family도 대표 row로 노출한다")
 		void getMyProducts_stoppedOnlyFamily_returnsStoppedRow() {
 			Product stopped = product(UUID.randomUUID(), null, ProductStatus.STOPPED, (short) 1, (short) 0);
@@ -373,6 +406,21 @@ class ProductSellerServiceTest {
 			assertThat(result.productId()).isEqualTo(pending.getId());
 			assertThat(result.liveVersion()).isEqualTo("2.0");
 			assertThat(result.versions()).hasSize(2);
+		}
+
+		@Test
+		@DisplayName("2.0 ON_SALE + 3.0 REJECTED에서 대표는 3.0, liveVersion은 2.0이다")
+		void getMyProduct_returnsRejectedAsRepresentative_withOnSaleAsLiveVersion() {
+			Product onSale = product(PRODUCT_ID, null, ProductStatus.ON_SALE, (short) 2, (short) 0);
+			Product rejected = product(UUID.randomUUID(), PRODUCT_ID, ProductStatus.REJECTED, (short) 3, (short) 0);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(onSale));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(onSale, rejected));
+
+			com.prompthub.product.presentation.dto.response.SellerProductDetailResponse result =
+				productSellerService.getMyProduct(SELLER_ID, PRODUCT_ID);
+
+			assertThat(result.productId()).isEqualTo(rejected.getId());
+			assertThat(result.liveVersion()).isEqualTo("2.0");
 		}
 
 		@Test
