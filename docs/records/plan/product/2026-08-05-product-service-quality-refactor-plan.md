@@ -2410,6 +2410,42 @@ Controller endpoint, request URL, Kafka payload, DB schema, seller history DTO�
   정보 표시, version 선택·변경 사유 없음, 저장 후 재요청 전까지 판매 중인 공개 2.0 상세·구매 정상.
 - 기존 DRAFT 수정·검수 요청, PENDING_REVIEW 수정 차단, ON_SALE 수정 동작은 baseline과 동일해야 한다.
 
+##### 구현 후 검증 결과
+
+상태: **IMPLEMENTED · PR_PENDING** · 확인일: 2026-08-11 · 기준: `develop d0aacd91`(PR 1 머지 직후) · 이슈: #718
+
+- `ProductFamilyTest`·`ProductTest`·`ProductSellerServiceTest`·`ProductInspectionResultHandlerTest` 타겟
+  실행: 통과.
+- `./gradlew.bat :product-service:build`(checkstyle + 전체 테스트): **BUILD SUCCESSFUL**. checkstyle 경고
+  16건은 전부 `build/generated/sources/proto`(protobuf 자동 생성 코드)에서 나온 기존 이슈이며 이 PR과
+  무관하다.
+- FE `npm run lint`(`app/edit/[id]/page.tsx`, `app/shop/page.tsx`): 통과.
+- FE `npm run build`: 통과.
+- Codex 리뷰: No findings.
+- `app/shop/page.tsx`는 실제로는 변경하지 않았다 — REJECTED 카드의 수정·재요청 버튼은 이미 있었고,
+  BE 대표 선택 우선순위만 고치면 그 카드가 노출되는 구조였다(§"현재 코드에서 실제로 끊기는 지점" 분석과
+  일치).
+
+**품질(§측정 기준 14개 카테고리 rubric) 비교 — 변경 3개 main 파일 기준**
+
+| 파일 | 지표 | PR2 이전 | PR2 이후 |
+| --- | --- | --- | --- |
+| `Product.java` | LOC | 321(이미 300줄 초과) | 330 |
+| `ProductFamily.java` | LOC / 메서드 수 | 108 / 16개(이미 15개 초과) | 110 / 16개 |
+| `ProductSellerService.java` | LOC / 메서드 수 | 264 / 13개 | 272 / 13개 |
+| `updateProduct()` | 메서드 길이 | 약 54줄(이미 50줄 초과) | 약 62줄 |
+
+신규 위반: High 0 / Medium 0 / Low 0. `updateRejectedContent()`의 `IllegalStateException`은
+`domain-model.md`의 도메인 순수 예외 컨벤션과 형식은 다르지만, 같은 클래스의 `supersede()`·
+`approve()`·`reject()`가 이미 쓰는 기존 패턴을 그대로 따랐을 뿐이라 이 PR이 새로 만든 격차는 아니다.
+
+점수 산식(`100 − 5×High − 2×Medium − 0.5×Low − 비대클래스 − 긴메서드 − 중복`) 기준으로 이 PR이 새로
+건드는 항목은 없다 — 비대클래스·긴메서드 감점은 PR2 이전부터 이미 적용되던 상태를 그대로 물려받았을
+뿐이다. **diff 기준 품질 delta는 0**(신규 위반 없음, 기존 구조 부채도 고치지 않음 — 범위를 그대로 두라는
+지시에 따라 의도적으로 손대지 않았다). `product-service` 전체 절대 점수는 이 PR 범위에서 다시 산정하지
+않았다 — I-1~I-9 각 항목의 개별 회복분 추정치만 이 문서에 기록돼 있고 전체 합산 baseline 점수는 별도로
+계산된 적이 없다.
+
 ##### 이슈 본문 초안
 
 **제목**: `fix(product): 판매 후 반려된 major 버전을 동일 version으로 재편집`
