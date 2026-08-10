@@ -16,10 +16,12 @@ public class ProductFamily {
 		ProductStatus.DRAFT
 	);
 
+	// REJECTED가 ON_SALE보다 앞선다 — 판매 후 반려된 row가 있으면 조치가 필요한 그 row를
+	// 대표로 보여줘야 판매자가 수정·재요청 버튼을 볼 수 있다(현재 판매 중인 이전 버전에 가려지지 않는다).
 	private static final List<ProductStatus> SELLER_PRIORITY = List.of(
 		ProductStatus.PENDING_REVIEW,
-		ProductStatus.ON_SALE,
 		ProductStatus.REJECTED,
+		ProductStatus.ON_SALE,
 		ProductStatus.DRAFT,
 		ProductStatus.STOPPED
 	);

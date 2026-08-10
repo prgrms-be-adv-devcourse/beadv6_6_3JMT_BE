@@ -188,6 +188,15 @@ public class Product {
 		this.updatedAt = LocalDateTime.now();
 	}
 
+	/** 판매 후 반려된 row를 같은 version에서 콘텐츠만 보정한다 — 재검수는 {@link #submitForReview()}를 따로 호출한다. */
+	public void updateRejectedContent(ProductContent productContent) {
+		if (this.status != ProductStatus.REJECTED) {
+			throw new IllegalStateException("REJECTED 상태의 상품만 이 방식으로 수정할 수 있습니다. current=" + this.status);
+		}
+		applyContent(productContent);
+		this.updatedAt = LocalDateTime.now();
+	}
+
 	public void stop() {
 		this.status = ProductStatus.STOPPED;
 		this.updatedAt = LocalDateTime.now();
