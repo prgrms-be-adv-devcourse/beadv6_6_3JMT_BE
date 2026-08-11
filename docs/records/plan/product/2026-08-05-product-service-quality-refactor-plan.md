@@ -2887,6 +2887,99 @@ PR에서 producer 전체를 정리하지 않는다.
   `versionType`을 보내지 않음.
 - 전체 BE 테스트와 FE lint/build·등록/수정/검수/공개 상세 회귀에서 baseline 대비 신규 실패 없음.
 
+##### 구현 후 검증 결과
+
+상태: **IMPLEMENTED · PR_PENDING** · 확인일: 2026-08-11 · 기준: `develop`(PR 2 머지 직후) · 이슈:
+[#720](https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/issues/720) · 브랜치:
+`feat/#720-auto-version-type-determination`
+
+**구현 흐름**
+
+"상태별 수정 알고리즘"·"자동 판정 규칙" 그대로 구현했다: anchor 조회 → productType 검증 → 승격 전
+candidate `ProductContent` 생성 → DRAFT/REJECTED는 같은 row 보정 후 조기 반환 → ON_SALE만
+`currentOnSale.determineVersionType(candidate)`로 판정 → empty면 파일 승격·저장·이벤트 없이 현재
+row 응답 → MAJOR/PATCH면 changeReason 검증 → `nextProductId`를 application이 먼저 생성 →
+temp object만 그 ID 경로로 승격 → `createNextVersion()` → PATCH는 기존 ON_SALE을 SUPERSEDED하고 즉시
+발행, MAJOR는 기존 판매본을 유지한 채 검수 요청 이벤트 발행.
+
+**BE/FE 테스트**
+
+- `./gradlew.bat :product-service:build`(checkstyle + 전체 테스트, `ProductSellerServiceVersionConflictIntegrationTest`·
+  `ProductFamilyVersionUniqueMigrationTest`·`ProductExceptionHandlerTest` 신규 케이스 포함): **BUILD
+  SUCCESSFUL**.
+- FE `npm run lint`(`app/edit/[id]/page.tsx`): 통과(기존 경고 3건 그대로, 신규 에러 0).
+- FE `npm run build`: 통과.
+- Codex 리뷰 3라운드: 1차 `/codex:adversarial-review`(구현 직후) — needs-attention, stale-anchor
+  lost-update(두 요청이 같은 `currentOnSale`을 동시에 읽는 경우 unique index만으로 막을 수 있는지)
+  지적. 2차 결함 리뷰 — 6건(P1×3, P2×3): FE dirty-check·changeReason 검증 소실 2건, 동시성 충돌 시
+  실제 DB 예외 변환·S3 rollback 미검증 1건, FE의 P009 메시지 BE와 중복 하드코딩 1건,
+  `determineVersionType()` 테스트 매트릭스 공백(엑셀·FREE↔PAID·단독 메타데이터·이미지·태그 순서·
+  NOTION/PPT/EXCEL no-op) 1건, API 문서·Swagger 미반영 1건 — 전부 수정·검증 완료(아래 상세). 3차
+  최종 리뷰 — **No findings**.
+
+**Codex 2차 리뷰 대응**
+
+| 지적 | 대응 |
+| --- | --- |
+| FE changeReason 필수 검증 소실 | `isDirty`(전 필드 비교) 계산 + `noteErr` 게이트 복원 |
+| FE no-op 저장도 버튼 활성 | `isDirty` 기반 저장 버튼 비활성화 + "변경 없음" 라벨 |
+| 동시성 충돌의 실제 DB 예외 변환·rollback 미검증 | `ProductExceptionHandlerTest`에 실제 Hibernate `ConstraintViolationException` 체인 테스트 추가, `ProductSellerServiceVersionConflictIntegrationTest` 신규(실제 Postgres + 실제 트랜잭션 프록시로 경쟁 충돌 재현, 영구 object만 보상 삭제·temp 원본 유지 확인) |
+| FE P009 메시지 BE와 중복 | FE는 상태만 보고 재조회 필요 여부를 판단하지 않고, BE `message`를 그대로 표시하도록 단순화(메시지 소유권을 BE로 이관) |
+| `determineVersionType()` 테스트 매트릭스 공백 | `ProductTest`에 11개 케이스 추가 |
+| API 문서·Swagger 미반영 | `ProductUpdateResponse`에 `@Schema` 추가, `docs/api-spec/product.md` PATCH 섹션을 실제 계약(요청에서 `versionType` 제거, 자동 판정 규칙, 응답 바디, 에러 코드 P006·P009·V001)으로 재작성 |
+
+**ponytail 자가 감사**
+
+`/ponytail full` 셀프 감사로 과설계 1건을 찾아 고쳤다: `determineVersionType()` 안에서 호출 지점이
+하나뿐이던 private 헬퍼 `coreOutputChanged()`/`metadataChanged()`를 로컬 변수로 인라인했다(동작 변경
+없음, 메서드 2개 제거). 그 외 새 추상화(인터페이스·팩토리·불필요한 설정값)는 추가하지 않았다.
+
+**verify-rules 게이트**
+
+루트 공용 룰(clean-architecture, code-style, controller-exception, domain-model, git-convention,
+kafka-event, security, swagger) + 서비스 룰(git-workflow, product-api, testing) 11개를
+`rule-checker`로 병렬 검증했다.
+
+- PASS: clean-architecture, code-style, git-workflow, product-api, security, testing.
+- N/A: kafka-event(이번 diff에 이벤트 발행 구조 변경 없음).
+- FAIL → 수정: git-convention(기존 PR2 문서 커밋 `bf08377d`의 본문이 불릿 목록이 아닌 서술형 문단 —
+  `git commit --amend`로 불릿 형식 재작성), swagger(`ProductUpdateRequest`에 `@Schema`가 전혀 없음 —
+  전 필드에 추가).
+- FAIL → 기존 패턴으로 판단, 이번 PR에서 고치지 않음(둘 다 PR3가 새로 만든 위반이 아니라 이미 있던
+  패턴을 그대로 따른 것):
+  - domain-model §8: `Product.updateDraftContent()`가 도메인 순수 예외 대신 `IllegalStateException`을
+    직접 던진다. 같은 파일의 `updateRejectedContent`·`supersede`·`submitForReview`·`approve`·`reject`
+    5개가 이미 동일 패턴이라(도메인 전용 exception 패키지 자체가 없음), 이 메서드 하나만 새
+    exception 클래스로 바꾸면 같은 파일 안에서 패턴이 갈린다. 6개를 한 번에 정리하는 건 PR3 범위 밖의
+    별도 리팩터링으로 판단해 손대지 않았다.
+  - controller-exception §1/§7: `updateProduct()`가 다중 필드 명령인데도(§7의 "입력이 식별자뿐" 예외
+    조건에 문자 그대로는 안 맞음) application 서비스가 `~Result` 없이 presentation `~Response`를 직접
+    반환한다. 같은 서비스의 `createProduct()`가 이미 이 PR 이전부터 동일 패턴이라 PR3가 새로 만든
+    선례는 아니다. `ProductUpdateResponse` 직접 반환은 "PR 3 구현 인계"에서 사용자가 이미 확정한
+    설계이기도 하다. `~Result` 계층을 새로 넣는 건 두 메서드(`createProduct`·`updateProduct`)를 함께
+    건드리는 별도 리팩터링이라 이번 PR 범위로 보지 않았다.
+
+**메서드 순서 정리(로직 변경 없음)**
+
+`ProductSellerService`·`ProductSellerUseCase`의 public 메서드를 실제 호출 흐름 순서로 재배열했다:
+`createProduct → submitForReview → updateProduct → deleteProduct → getMyProducts → getMyProduct →
+getProductCount`. 공용 private 헬퍼(`createDownloadUrl` 등)는 하단에 그대로 둔다.
+
+**설계와 달라진 부분**
+
+- 동시성 방어는 설계대로 DB unique index(P009)만 쓰고 애플리케이션 레벨 락(`SELECT FOR UPDATE`,
+  Redis lock)은 추가하지 않았다. 1차 `/codex:adversarial-review`가 지적한 stale-anchor 창(두
+  트랜잭션이 동시에 같은 `currentOnSale`을 읽고 각자 다음 patch/major를 계산하는 경우)은 이론적으로는
+  여전히 존재하지만, unique index가 그중 하나만 커밋을 통과시키고 나머지를 P009로 확정 거절하므로
+  데이터 정합성은 깨지지 않는다 — 지는 쪽이 실패 후 재시도해야 하는 사용자 경험상의 열세이지 정합성
+  결함은 아니라고 판단해 이번 PR 범위에서는 애플리케이션 레벨 락을 추가하지 않았다. 이 판단은 3차
+  최종 리뷰가 No findings로 통과하며 재확인됐다. `ProductSellerServiceVersionConflictIntegrationTest`가
+  이 경합을 실제 Postgres로 재현해 P009 응답과 rollback 보상 범위를 고정한다.
+- FE changeReason 필수 판정은 로드맵 원안("실제 변경이 있을 때만 필수")을 `isDirty` 계산으로
+  구체화했다 — 설계 의도와 동일하고 표현만 명시적으로 코드화했다.
+- 그 외(요청·응답 계약, 판정 규칙, 파일 승격 순서, migration, FE 버전 선택 UI 제거)는 설계 그대로
+  구현했다.
+
 ##### 이슈 본문 초안
 
 **제목**: `feat(product): 상품 변경 내용으로 MAJOR/PATCH 버전을 자동 판정`
