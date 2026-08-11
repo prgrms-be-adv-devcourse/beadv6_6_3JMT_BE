@@ -8,6 +8,7 @@ import com.prompthub.product.domain.model.entity.ProductFamily;
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
+import com.prompthub.product.domain.model.enums.ProductVersionType;
 import com.prompthub.product.domain.model.vo.ProductContent;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.exception.ProductException;
@@ -17,12 +18,14 @@ import com.prompthub.product.presentation.dto.request.ProductCreateRequest;
 import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
 import com.prompthub.product.presentation.dto.response.ProductCountResponse;
 import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
+import com.prompthub.product.presentation.dto.response.ProductUpdateResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductListItemResponse;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -76,66 +79,113 @@ public class ProductSellerService implements ProductSellerUseCase {
 	}
 
 	@Override
-	public void updateProduct(UUID sellerId, UUID productId, ProductUpdateRequest request) {
+	public void submitForReview(UUID sellerId, UUID productId) {
+		Product product = getOwnedProduct(sellerId, productId);
+		product.submitForReview();
+		productRepository.save(product);
+
+		publishReviewRequestedEvent(product);
+	}
+
+	/** MAJOR 버전 전환으로 PENDING_REVIEW가 되는 모든 경로(submitForReview, MAJOR 수정)가 공유한다. */
+	private void publishReviewRequestedEvent(Product product) {
+		UUID duplicateOfProductId = findOriginalProductIdByContentHash(product);
+		String presignedThumbnailUrl = createDownloadUrl(product.getThumbnailUrl());
+		List<String> presignedImageUrls = createDownloadUrls(product.getImageUrls());
+		productEventProducer.publishReviewRequested(
+			product, duplicateOfProductId, presignedThumbnailUrl, presignedImageUrls);
+	}
+
+	@Override
+	public ProductUpdateResponse updateProduct(UUID sellerId, UUID productId, ProductUpdateRequest request) {
 		Product anchor = getOwnedProduct(sellerId, productId);
 
-		ProductType productType = parseProductType(request.productType());
-		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
-		ProductContent.validateTypeFields(
-			productType, request.content(), request.fileObjectKey(), request.externalUrl());
+		ProductType requestedType = parseProductType(request.productType());
+		if (requestedType != anchor.getProductType()) {
+			throw new ProductException(ProductErrorCode.INVALID_PRODUCT_TYPE);
+		}
 
-		// 새 temp key는 영구 key로 복사하고, 기존 영구 key는 그대로 유지한다.
-		TempFilePromoter.PromotedFiles storedFiles = tempFilePromoter.promote(
-			request.thumbnailObjectKey(), request.imageObjectKeys(), request.fileObjectKey(), productId, sellerId);
-		ProductContent content = new ProductContent(
-			productType, request.title(), request.desc(), request.model(),
-			amountType, request.amount(), storedFiles.thumbnailKey(), storedFiles.imageKeys(),
-			request.content(), storedFiles.fileKey(), request.externalUrl(), request.tags());
+		// 승격 전 원본 object key로 후보를 만든다 — no-op 판정은 반드시 승격보다 먼저 끝나야 한다.
+		// 먼저 승격하면 안 바뀐 파일도 새 key가 생겨 변경으로 오판된다. 유형별 필드 검증은
+		// ProductContent 생성자가 한다.
+		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
+		ProductContent candidate = new ProductContent(
+			requestedType, request.title(), request.desc(), request.model(),
+			amountType, request.amount(), request.thumbnailObjectKey(), request.imageObjectKeys(),
+			request.content(), request.fileObjectKey(), request.externalUrl(), request.tags());
+
+		if (anchor.getStatus() == ProductStatus.DRAFT) {
+			ProductContent stored = promoteToPath(request, anchor.getId(), sellerId, candidate);
+			anchor.updateDraftContent(stored);
+			productRepository.save(anchor);
+			return toResponse(anchor);
+		}
 
 		// 판매 후 반려된 row는 같은 version만 보정한다 — 새 row도, 기존 ON_SALE 교대도, 검수
 		// 요청 이벤트도 만들지 않는다. 재검수는 판매자가 submitForReview()를 별도로 호출해야 한다.
 		if (anchor.getStatus() == ProductStatus.REJECTED) {
-			anchor.updateRejectedContent(content);
+			ProductContent stored = promoteToPath(request, anchor.getId(), sellerId, candidate);
+			anchor.updateRejectedContent(stored);
 			productRepository.save(anchor);
-			return;
+			return toResponse(anchor);
 		}
 
-		boolean isMajor = "MAJOR".equalsIgnoreCase(request.versionType());
+		if (anchor.getStatus() != ProductStatus.ON_SALE) {
+			throw new ProductException(ProductErrorCode.PRODUCT_INVALID_STATUS);
+		}
+
 		UUID familyRootId = anchor.familyRootId();
 		ProductFamily family = ProductFamily.of(familyRootId, productRepository.findAllByFamilyRootIds(List.of(familyRootId)));
+		Product onSale = family.currentOnSale()
+			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_INVALID_STATUS));
 
-		int previousPrice;
-		if (!family.hasEverBeenOnSale()) {
-			previousPrice = anchor.getAmount();
-			anchor.update(content, request.changeReason(), isMajor);
-			productRepository.save(anchor);
-			if (isMajor) {
-				publishReviewRequestedEvent(anchor);
-			}
+		Optional<ProductVersionType> versionType = onSale.determineVersionType(candidate);
+		if (versionType.isEmpty()) {
+			return toResponse(onSale);
+		}
+		if (request.changeReason() == null || request.changeReason().isBlank()) {
+			throw new ProductException(ProductErrorCode.INVALID_INPUT_VALUE);
+		}
+		if (versionType.get() == ProductVersionType.MAJOR && family.pendingReview().isPresent()) {
+			throw new ProductException(ProductErrorCode.PRODUCT_INVALID_STATUS);
+		}
+
+		UUID nextProductId = UUID.randomUUID();
+		ProductContent stored = promoteToPath(request, nextProductId, sellerId, candidate);
+		Product next = onSale.createNextVersion(nextProductId, versionType.get(), stored, request.changeReason());
+
+		if (versionType.get() == ProductVersionType.PATCH) {
+			onSale.supersede();
+			productRepository.save(onSale);
+			productRepository.save(next);
+			productEventProducer.publishProductChanged(familyRootId);
 		} else {
-			Product onSale = family.currentOnSale()
-				.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_INVALID_STATUS));
-			previousPrice = onSale.getAmount();
-
-			if (isMajor) {
-				if (family.pendingReview().isPresent()) {
-					throw new ProductException(ProductErrorCode.PRODUCT_INVALID_STATUS);
-				}
-				Product next = onSale.nextVersion(true, content, request.changeReason());
-				productRepository.save(next);
-				publishReviewRequestedEvent(next);
-			} else {
-				Product next = onSale.nextVersion(false, content, request.changeReason());
-				onSale.supersede();
-				productRepository.save(onSale);
-				productRepository.save(next);
-				productEventProducer.publishProductChanged(familyRootId);
-			}
+			productRepository.save(next);
+			publishReviewRequestedEvent(next);
 		}
 
-		if (previousPrice != request.amount()) {
-			productEventProducer.publishPriceChanged(productId, previousPrice, request.amount());
+		if (onSale.getAmount() != request.amount()) {
+			productEventProducer.publishPriceChanged(productId, onSale.getAmount(), request.amount());
 		}
+
+		return toResponse(next);
+	}
+
+	/** 새 temp key만 대상 경로로 복사한다. 기존 영구 key는 promote()가 그대로 통과시킨다. */
+	private ProductContent promoteToPath(
+		ProductUpdateRequest request, UUID targetProductId, UUID sellerId, ProductContent candidate
+	) {
+		TempFilePromoter.PromotedFiles storedFiles = tempFilePromoter.promote(
+			request.thumbnailObjectKey(), request.imageObjectKeys(), request.fileObjectKey(), targetProductId, sellerId);
+		return new ProductContent(
+			candidate.productType(), candidate.name(), candidate.description(), candidate.model(),
+			candidate.amountType(), candidate.amount(), storedFiles.thumbnailKey(), storedFiles.imageKeys(),
+			candidate.content(), storedFiles.fileKey(), candidate.externalUrl(), candidate.tags());
+	}
+
+	private ProductUpdateResponse toResponse(Product product) {
+		return new ProductUpdateResponse(
+			product.getId(), product.getMajorVersion() + "." + product.getPatchVersion(), product.getStatus().name());
 	}
 
 	@Override
@@ -160,24 +210,6 @@ public class ProductSellerService implements ProductSellerUseCase {
 		} else {
 			productEventProducer.publishStopped(productId);
 		}
-	}
-
-	@Override
-	public void submitForReview(UUID sellerId, UUID productId) {
-		Product product = getOwnedProduct(sellerId, productId);
-		product.submitForReview();
-		productRepository.save(product);
-
-		publishReviewRequestedEvent(product);
-	}
-
-	/** MAJOR 버전 전환으로 PENDING_REVIEW가 되는 모든 경로(submitForReview, MAJOR 수정)가 공유한다. */
-	private void publishReviewRequestedEvent(Product product) {
-		UUID duplicateOfProductId = findOriginalProductIdByContentHash(product);
-		String presignedThumbnailUrl = createDownloadUrl(product.getThumbnailUrl());
-		List<String> presignedImageUrls = createDownloadUrls(product.getImageUrls());
-		productEventProducer.publishReviewRequested(
-			product, duplicateOfProductId, presignedThumbnailUrl, presignedImageUrls);
 	}
 
 	@Override
