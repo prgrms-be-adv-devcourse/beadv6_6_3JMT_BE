@@ -6,6 +6,7 @@ import com.prompthub.product.exception.enums.ProductErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -16,6 +17,8 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @Slf4j
 @RestControllerAdvice
 public class ProductExceptionHandler {
+
+	private static final String FAMILY_VERSION_UNIQUE_CONSTRAINT = "uk_product_family_version";
 
 	@ExceptionHandler(BusinessException.class)
 	public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException exception) {
@@ -38,6 +41,33 @@ public class ProductExceptionHandler {
 		return ResponseEntity
 			.status(errorCode.getStatus())
 			.body(ErrorResponse.of(errorCode, exception.getMessage()));
+	}
+
+	/** family-version unique index 위반만 P009/409로 변환한다 — 그 외 DB 제약 위반은 기존 500 그대로 둔다. */
+	@ExceptionHandler(DataIntegrityViolationException.class)
+	public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
+		if (!violatesFamilyVersionUnique(exception)) {
+			ProductErrorCode errorCode = ProductErrorCode.INTERNAL_SERVER_ERROR;
+			log.error("Product DB 제약 위반 - code={}, type={}", errorCode.getCode(), exception.getClass().getSimpleName());
+			return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
+		}
+
+		ProductErrorCode errorCode = ProductErrorCode.PRODUCT_VERSION_CONFLICT;
+		log.warn("동시 버전 생성 충돌 - code={}", errorCode.getCode());
+
+		return ResponseEntity
+			.status(errorCode.getStatus())
+			.body(ErrorResponse.of(errorCode));
+	}
+
+	private boolean violatesFamilyVersionUnique(Throwable exception) {
+		for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+			if (cause instanceof org.hibernate.exception.ConstraintViolationException constraintViolation
+				&& FAMILY_VERSION_UNIQUE_CONSTRAINT.equals(constraintViolation.getConstraintName())) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	@ExceptionHandler({

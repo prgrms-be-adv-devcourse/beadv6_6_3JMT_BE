@@ -11,6 +11,7 @@ import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
 import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
+import com.prompthub.product.presentation.dto.response.ProductUpdateResponse;
 import com.prompthub.product.presentation.dto.response.ProductVersionResponse;
 import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import com.prompthub.product.presentation.dto.response.PurchasedProductDetailResponse;
@@ -400,8 +401,11 @@ class ProductControllerTest {
 	class UpdateProduct {
 
 		@Test
-		@DisplayName("판매자가 상품을 수정한다")
+		@DisplayName("판매자가 상품을 수정하면 응답에 반영된 productId·version·status가 담긴다")
 		void updateProduct_success() throws Exception {
+			given(productSellerUseCase.updateProduct(eq(SELLER_ID), eq(PRODUCT_ID), org.mockito.ArgumentMatchers.any()))
+				.willReturn(new ProductUpdateResponse(PRODUCT_ID, "1.1", "ON_SALE"));
+
 			mockMvc.perform(patch("/api/v2/products/{productId}", PRODUCT_ID)
 					.contentType(MediaType.APPLICATION_JSON)
 					.header("X-User-Id", SELLER_ID.toString())
@@ -410,7 +414,10 @@ class ProductControllerTest {
 						"desc":"컴포넌트 분리, 상태 정리, 타입 개선","amount":7900}
 						"""))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.success").value(true));
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.data.productId").value(PRODUCT_ID.toString()))
+				.andExpect(jsonPath("$.data.version").value("1.1"))
+				.andExpect(jsonPath("$.data.status").value("ON_SALE"));
 
 			verify(productSellerUseCase).updateProduct(eq(SELLER_ID), eq(PRODUCT_ID), org.mockito.ArgumentMatchers.any());
 		}
@@ -418,6 +425,9 @@ class ProductControllerTest {
 		@Test
 		@DisplayName("PROMPT가 아닌 상품은 model 없이도 수정된다")
 		void updateProduct_nonPromptWithoutModel_success() throws Exception {
+			given(productSellerUseCase.updateProduct(eq(SELLER_ID), eq(PRODUCT_ID), org.mockito.ArgumentMatchers.any()))
+				.willReturn(new ProductUpdateResponse(PRODUCT_ID, "1.1", "ON_SALE"));
+
 			mockMvc.perform(patch("/api/v2/products/{productId}", PRODUCT_ID)
 						.contentType(MediaType.APPLICATION_JSON)
 						.header("X-User-Id", SELLER_ID.toString())
@@ -429,6 +439,24 @@ class ProductControllerTest {
 					.andExpect(jsonPath("$.success").value(true));
 
 			verify(productSellerUseCase).updateProduct(eq(SELLER_ID), eq(PRODUCT_ID), org.mockito.ArgumentMatchers.any());
+		}
+
+		@Test
+		@DisplayName("동시 요청으로 family-version unique 제약을 위반하면 P009/409를 반환한다")
+		void updateProduct_versionConflict_returnsConflict() throws Exception {
+			given(productSellerUseCase.updateProduct(eq(SELLER_ID), eq(PRODUCT_ID), org.mockito.ArgumentMatchers.any()))
+				.willThrow(new ProductException(ProductErrorCode.PRODUCT_VERSION_CONFLICT));
+
+			mockMvc.perform(patch("/api/v2/products/{productId}", PRODUCT_ID)
+						.contentType(MediaType.APPLICATION_JSON)
+						.header("X-User-Id", SELLER_ID.toString())
+						.content("""
+							{"title":"제목","productType":"PROMPT","model":"GPT-4o",
+							"desc":"설명","amount":1000,"content":"본문","changeReason":"본문 개정"}
+							"""))
+					.andExpect(status().isConflict())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.code").value("P009"));
 		}
 	}
 

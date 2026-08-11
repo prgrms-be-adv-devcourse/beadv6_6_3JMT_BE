@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.prompthub.exception.response.ErrorResponse;
 import com.prompthub.product.exception.enums.ProductErrorCode;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -40,6 +42,32 @@ class ProductExceptionHandlerTest {
 	void handleException_returns500() {
 		ResponseEntity<ErrorResponse> response = handler.handleException(
 			new RuntimeException("boom"), new MockHttpServletRequest());
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody().code()).isEqualTo(ProductErrorCode.INTERNAL_SERVER_ERROR.getCode());
+	}
+
+	@Test
+	@DisplayName("family-version unique 제약 위반은 실제 Hibernate 예외 체인에서도 P009/409로 변환된다")
+	void handleDataIntegrityViolation_familyVersionConflict_returnsP009() {
+		DataIntegrityViolationException exception = new DataIntegrityViolationException(
+			"insert failed", new ConstraintViolationException("duplicate key", null, "uk_product_family_version"));
+
+		ResponseEntity<ErrorResponse> response = handler.handleDataIntegrityViolation(exception);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody().code()).isEqualTo(ProductErrorCode.PRODUCT_VERSION_CONFLICT.getCode());
+	}
+
+	@Test
+	@DisplayName("다른 제약 위반은 P009로 오인하지 않고 500으로 응답한다")
+	void handleDataIntegrityViolation_otherConstraint_returns500() {
+		DataIntegrityViolationException exception = new DataIntegrityViolationException(
+			"insert failed", new ConstraintViolationException("not null", null, "product_seller_id_not_null"));
+
+		ResponseEntity<ErrorResponse> response = handler.handleDataIntegrityViolation(exception);
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
 		assertThat(response.getBody()).isNotNull();

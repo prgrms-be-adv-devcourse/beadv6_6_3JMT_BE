@@ -3,6 +3,7 @@ package com.prompthub.product.domain.model.entity;
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
+import com.prompthub.product.domain.model.enums.ProductVersionType;
 import com.prompthub.product.domain.model.vo.InspectionChecklist;
 import com.prompthub.product.domain.model.vo.ProductContent;
 import com.prompthub.product.domain.model.vo.ProductContentHash;
@@ -17,6 +18,8 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -175,16 +178,12 @@ public class Product {
 		return product;
 	}
 
-	public void update(ProductContent productContent, String changeReason, boolean isMajor) {
-		applyContent(productContent);
-		this.changeReason = changeReason;
-		if (isMajor) {
-			this.majorVersion++;
-			this.patchVersion = 0;
-			this.status = ProductStatus.PENDING_REVIEW;
-		} else {
-			this.patchVersion++;
+	/** 판매 전 DRAFT row를 같은 version(1.0)에서 콘텐츠만 보정한다 — 임시저장은 버전을 올리지 않는다. */
+	public void updateDraftContent(ProductContent productContent) {
+		if (this.status != ProductStatus.DRAFT) {
+			throw new IllegalStateException("DRAFT 상태의 상품만 이 방식으로 수정할 수 있습니다. current=" + this.status);
 		}
+		applyContent(productContent);
 		this.updatedAt = LocalDateTime.now();
 	}
 
@@ -195,6 +194,30 @@ public class Product {
 		}
 		applyContent(productContent);
 		this.updatedAt = LocalDateTime.now();
+	}
+
+	/** 유형별 핵심 산출물이나 FREE/PAID 전환이면 MAJOR, 그 외 변경만 있으면 PATCH, 변화 없으면 empty(no-op). */
+	public Optional<ProductVersionType> determineVersionType(ProductContent candidate) {
+		boolean coreOutputChanged = switch (this.productType) {
+			case PROMPT -> !Objects.equals(this.content, candidate.content());
+			case NOTION -> !Objects.equals(this.externalUrl, candidate.externalUrl());
+			case PPT, EXCEL -> !Objects.equals(this.fileUrl, candidate.fileUrl());
+		};
+		if (coreOutputChanged || this.amountType != candidate.amountType()) {
+			return Optional.of(ProductVersionType.MAJOR);
+		}
+
+		boolean metadataChanged = !Objects.equals(this.name, candidate.name())
+			|| !Objects.equals(this.description, candidate.description())
+			|| !Objects.equals(this.model, candidate.model())
+			|| !Objects.equals(this.thumbnailUrl, candidate.thumbnailUrl())
+			|| !this.imageUrls.equals(candidate.imageUrls())
+			|| !this.tags.equals(candidate.tags());
+		if (metadataChanged || this.amount != candidate.amount()) {
+			return Optional.of(ProductVersionType.PATCH);
+		}
+
+		return Optional.empty();
 	}
 
 	public void stop() {
@@ -237,15 +260,16 @@ public class Product {
 		return this.parentId == null;
 	}
 
-	public Product nextVersion(boolean isMajor, ProductContent productContent, String changeReason) {
+	/** id는 application이 미리 생성해 넘긴다 — 파일을 그 경로로 승격해야 해서 도메인이 내부 생성하면 안 된다. */
+	public Product createNextVersion(UUID nextProductId, ProductVersionType versionType, ProductContent productContent, String changeReason) {
 		Product next = new Product();
-		next.id = UUID.randomUUID();
+		next.id = nextProductId;
 		next.parentId = this.familyRootId();
 		next.sellerId = this.sellerId;
 		next.applyContent(productContent);
 		next.changeReason = changeReason;
 		next.badge = null; // 새 버전 row는 뱃지를 물려받지 않고 초기화한다(예: "신규" 뱃지가 계속 남는 걸 방지)
-		if (isMajor) {
+		if (versionType == ProductVersionType.MAJOR) {
 			next.majorVersion = (short) (this.majorVersion + 1);
 			next.patchVersion = 0;
 			next.status = ProductStatus.PENDING_REVIEW;
@@ -322,9 +346,9 @@ public class Product {
 		this.fileUrl = productContent.fileUrl();
 		this.externalUrl = productContent.externalUrl();
 		this.tags = productContent.tags();
-		// 여기서 계산해야 create·update(MAJOR)·nextVersion(MAJOR) 세 경로가 모두 덮인다.
-		// submitForReview()에만 두면 뒤의 둘이 새서, 그 경로로 올라온 상품은 검사도 안 받고
-		// 나중에 남이 복제해도 대조에 걸리지 않는다.
+		// 여기서 계산해야 create·submitForReview 대상 MAJOR row·createNextVersion(MAJOR) 세 경로가
+		// 모두 덮인다. submitForReview()에만 두면 뒤의 둘이 새서, 그 경로로 올라온 상품은 검사도
+		// 안 받고 나중에 남이 복제해도 대조에 걸리지 않는다.
 		this.contentHash = ProductContentHash.of(productContent);
 	}
 }

@@ -608,8 +608,17 @@
 - 인증: 필요
 - 필요 역할: SELLER
 - 본인 상품만 수정 가능
-- MINOR 수정: patchVersion 증가, 상태 유지
-- MAJOR 수정: majorVersion 증가, 상태 → PENDING_REVIEW
+- 버전 유형은 클라이언트가 고르지 않는다. 바뀐 필드로 BE가 판정한다.
+  - 핵심 산출물(PROMPT `content` / NOTION `externalUrl` / PPT·EXCEL `fileUrl`) 변경, 또는
+    FREE ↔ PAID 전환 → **MAJOR**(majorVersion 증가, 상태 → `PENDING_REVIEW`)
+  - 그 외 필드(제목·설명·모델·가격·썸네일·이미지·태그)만 변경 → **PATCH**(patchVersion 증가,
+    상태 `ON_SALE` 유지, 기존 ON_SALE row는 `SUPERSEDED`로 전환)
+  - 아무것도 바뀌지 않으면 no-op — 새 row·파일 승격·이벤트 발행 없이 현재 상태를 그대로 반환한다
+  - MAJOR·PATCH 모두 실제 변경이 있으면 `changeReason` 필수. no-op이면 안 보내도 된다
+- DRAFT·REJECTED 상태 상품은 위 판정을 적용하지 않는다 — 같은 row·version에 내용만 덮어쓴다
+  (새 row 생성·검수 요청 이벤트 없음). REJECTED는 재검수를 별도로
+  `PATCH /products/{productId}/inspection`으로 요청해야 한다
+- MAJOR로 갈 상품이 있는데 같은 family에 이미 `PENDING_REVIEW`가 있으면 409 `P006`
 
 #### Path Parameters
 
@@ -629,8 +638,7 @@
   "content": "수정된 프롬프트 원문",
   "thumbnailObjectKey": "products/<productId>/thumbnail/<uuid>.png",
   "tags": ["태그1"],
-  "changeReason": "내용 보강",
-  "versionType": "MINOR"
+  "changeReason": "내용 보강"
 }
 ```
 
@@ -647,8 +655,7 @@
 | thumbnailObjectKey | string | N | 썸네일 이미지 object key. 새 파일이면 `tempObjectKey`, 안 바꿨으면 기존 영구 key를 그대로 보낸다 |
 | imageObjectKeys | string[] | N | 소개 이미지 object key 목록 |
 | tags | string[] | N | 판매자 지정 태그 목록 |
-| changeReason | string | N | 변경 사유 |
-| versionType | string | N | `MINOR`(기본) \| `MAJOR` |
+| changeReason | string | N | 변경 사유. 실제 변경이 있으면 필수(비어 있으면 400 `V001`) |
 
 > **유형별 필수 필드**: PROMPT→`content`, PPT·EXCEL→`fileObjectKey`, NOTION→`externalUrl`. 각 유형은 해당 필드만 사용하며, 맞지 않는 필드가 채워지면 400 `P007`.
 >
@@ -659,7 +666,36 @@
 
 #### Response
 
-**200 OK** — 응답 바디 없음
+**200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "productId": "9f1c2a7e-4b8d-4e2a-9c11-2d3e4f5a1111",
+    "version": "2.1",
+    "status": "ON_SALE"
+  },
+  "message": "success"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| productId | UUID | 이번 수정이 반영된 상품 ID(MAJOR면 새로 생성된 row, PATCH·no-op·DRAFT·REJECTED면 기존 row) |
+| version | string | 반영 후 버전(`major.patch`) |
+| status | string | 반영 후 상태 |
+
+#### 에러
+
+| 상태 | 코드 | 설명 |
+|------|------|------|
+| 400 | P007 | 상품 유형에 맞지 않는 필드 구성 |
+| 400 | V001 | 실제 변경이 있는데 changeReason 누락 |
+| 403 | P003 | 본인 상품이 아님 |
+| 404 | P001 | 상품 없음 |
+| 409 | P006 | 현재 상태에서 처리 불가(DRAFT·REJECTED·ON_SALE이 아니거나, MAJOR 전환인데 이미 PENDING_REVIEW 존재) |
+| 409 | P009 | 동시 수정 충돌 — 같은 family·version으로 다른 요청이 먼저 반영됨. 최신 상품을 다시 불러와야 함 |
 
 ---
 

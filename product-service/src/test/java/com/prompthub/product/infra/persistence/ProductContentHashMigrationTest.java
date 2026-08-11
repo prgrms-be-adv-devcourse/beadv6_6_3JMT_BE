@@ -118,7 +118,7 @@ class ProductContentHashMigrationTest extends PostgresIntegrationTestSupport {
 
 			beginNewTransaction();
 			productJpaRepository.findById(id).orElseThrow()
-				.update(promptContent("원본", 1000, "본문  "), null, false); // 정규화하면 동일 해시
+				.updateDraftContent(promptContent("원본", 1000, "본문  ")); // 정규화하면 동일 해시
 			productJpaRepository.flush();
 			commit();
 
@@ -126,7 +126,7 @@ class ProductContentHashMigrationTest extends PostgresIntegrationTestSupport {
 
 			beginNewTransaction();
 			productJpaRepository.findById(id).orElseThrow()
-				.update(promptContent("원본", 1000, "완전히 다른 본문"), null, false);
+				.updateDraftContent(promptContent("원본", 1000, "완전히 다른 본문"));
 			productJpaRepository.flush();
 			commit();
 

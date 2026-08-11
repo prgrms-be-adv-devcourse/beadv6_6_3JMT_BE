@@ -11,6 +11,7 @@ import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
 import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
+import com.prompthub.product.presentation.dto.response.ProductUpdateResponse;
 import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
 import com.prompthub.product.presentation.dto.response.PurchasedProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.SellerProductDetailResponse;
@@ -98,13 +99,12 @@ public class ProductController {
 	}
 
 	@PatchMapping("/products/{productId}")
-	public ApiResult<Void> updateProduct(
+	public ApiResult<ProductUpdateResponse> updateProduct(
 		@RequestHeader("X-User-Id") UUID sellerId,
 		@PathVariable UUID productId,
 		@Valid @RequestBody ProductUpdateRequest request
 	) {
-		productSellerUseCase.updateProduct(sellerId, productId, request);
-		return ApiResult.success(null);
+		return ApiResult.success(productSellerUseCase.updateProduct(sellerId, productId, request));
 	}
 
 	@DeleteMapping("/products/{productId}")
