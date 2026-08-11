@@ -62,6 +62,7 @@ class SimilarProductQueryIntegrationTest extends PostgresIntegrationTestSupport 
 		Product base = save(promptContent("기준상품", 1000), 0);
 		Product sibling = save(promptContent("같은family 다른버전", 1000), 0);
 		ReflectionTestUtils.setField(sibling, "parentId", base.getId());
+		ReflectionTestUtils.setField(sibling, "majorVersion", (short) 2); // 같은 family에 다른 version(V10 unique 대상)
 		productJpaRepository.saveAndFlush(sibling);
 
 		assertThat(idsOf(base, 10)).doesNotContain(sibling.getId());
@@ -154,6 +155,7 @@ class SimilarProductQueryIntegrationTest extends PostgresIntegrationTestSupport 
 		Product familyRoot = save(promptContent("후보 v1", 1000), 0);
 		Product newerVersion = onSale(promptContent("후보 v2", 1000));
 		ReflectionTestUtils.setField(newerVersion, "parentId", familyRoot.getId());
+		ReflectionTestUtils.setField(newerVersion, "majorVersion", (short) 2); // v1과 구분(V10 unique 대상)
 		productJpaRepository.saveAndFlush(newerVersion);
 		float[] embedding = new float[DIMENSIONS];
 		embedding[0] = 1f;

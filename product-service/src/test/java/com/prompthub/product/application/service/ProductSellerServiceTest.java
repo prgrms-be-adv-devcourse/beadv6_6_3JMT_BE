@@ -17,6 +17,7 @@ import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.infra.messaging.producer.ProductEventProducer;
 import com.prompthub.product.presentation.dto.request.ProductCreateRequest;
 import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
+import com.prompthub.product.presentation.dto.response.ProductUpdateResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -112,43 +113,66 @@ class ProductSellerServiceTest {
 	class UpdateProduct {
 
 		@Test
-		@DisplayName("한 번도 ON_SALE된 적 없으면 in-place로 수정한다")
-		void updateProduct_neverOnSale_updatesInPlace() {
+		@DisplayName("DRAFT row는 같은 row·같은 version에서 콘텐츠만 수정하고 이벤트를 만들지 않는다")
+		void updateProduct_draftRow_updatesInPlace_keepsVersionAndStatus() {
 			Product draft = product(PRODUCT_ID, null, ProductStatus.DRAFT, (short) 1, (short) 0);
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(draft));
-			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(draft));
 
-			productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, request("MINOR"));
+			ProductUpdateResponse response = productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, request("변경 사유"));
 
 			ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
 			then(productRepository).should().save(captor.capture());
 			assertThat(captor.getValue()).isSameAs(draft);
 			assertThat(draft.getName()).isEqualTo("새 제목");
-			then(productEventProducer).should(never()).publishReviewRequested(any(), any(), any(), any());
+			assertThat(response.version()).isEqualTo("1.0");
+			assertThat(response.status()).isEqualTo("DRAFT");
+			then(productRepository).should(never()).findAllByFamilyRootIds(any());
+			then(productEventProducer).shouldHaveNoInteractions();
 		}
 
 		@Test
-		@DisplayName("한 번도 ON_SALE된 적 없어도 MAJOR 수정이면 PENDING_REVIEW로 전환하고 검수 요청 이벤트를 발행한다")
-		void updateProduct_neverOnSale_majorTransitionsToPendingReview_publishesReviewRequested() {
-			Product draft = product(PRODUCT_ID, null, ProductStatus.DRAFT, (short) 1, (short) 0);
-			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(draft));
-			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(draft));
+		@DisplayName("REJECTED row는 같은 row의 콘텐츠만 수정하고 새 row·이벤트를 만들지 않는다")
+		void updateProduct_rejectedRow_updatesInPlace_withoutNewRowOrEvent() {
+			Product rejected = product(PRODUCT_ID, null, ProductStatus.REJECTED, (short) 3, (short) 0);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(rejected));
 
-			productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, request("MAJOR"));
+			ProductUpdateResponse response = productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, request("변경 사유"));
 
-			assertThat(draft.getStatus()).isEqualTo(ProductStatus.PENDING_REVIEW);
-			then(productEventProducer).should().publishReviewRequested(draft, null, null, List.of());
+			ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+			then(productRepository).should().save(captor.capture());
+			assertThat(captor.getValue()).isSameAs(rejected);
+			assertThat(rejected.getName()).isEqualTo("새 제목");
+			assertThat(rejected.getStatus()).isEqualTo(ProductStatus.REJECTED);
+			assertThat(response.version()).isEqualTo("3.0");
+			assertThat(response.status()).isEqualTo("REJECTED");
+			then(productRepository).should(never()).findAllByFamilyRootIds(any());
+			then(productEventProducer).shouldHaveNoInteractions();
 		}
 
 		@Test
-		@DisplayName("ON_SALE 이후 MAJOR 수정은 새 PENDING_REVIEW row를 만들고 기존 ON_SALE은 그대로 두며 검수 요청 이벤트를 발행한다")
-		void updateProduct_majorAfterOnSale_createsPendingReviewChild_keepsOnSaleUntouched() {
-			UUID familyRootId = PRODUCT_ID;
+		@DisplayName("변경 내용이 없으면 저장·이벤트 없이 현재 ON_SALE 상태를 그대로 반환한다(no-op)")
+		void updateProduct_onSaleNoRealChange_isNoOp() {
 			Product onSale = product(PRODUCT_ID, null, ProductStatus.ON_SALE, (short) 2, (short) 0);
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(onSale));
-			given(productRepository.findAllByFamilyRootIds(List.of(familyRootId))).willReturn(List.of(onSale));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(onSale));
 
-			productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, request("MAJOR"));
+			ProductUpdateResponse response = productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, sameContentRequest());
+
+			assertThat(response.productId()).isEqualTo(PRODUCT_ID);
+			assertThat(response.version()).isEqualTo("2.0");
+			assertThat(response.status()).isEqualTo("ON_SALE");
+			then(productRepository).should(never()).save(any());
+			then(productEventProducer).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("핵심 산출물이 바뀌면 자동으로 MAJOR 판정해 새 PENDING_REVIEW row를 만들고 기존 ON_SALE은 그대로 둔다")
+		void updateProduct_coreOutputChanged_autoMajor_createsPendingReviewChild() {
+			Product onSale = product(PRODUCT_ID, null, ProductStatus.ON_SALE, (short) 2, (short) 0);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(onSale));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(onSale));
+
+			ProductUpdateResponse response = productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, request("본문 개정"));
 
 			ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
 			then(productRepository).should().save(captor.capture());
@@ -156,20 +180,22 @@ class ProductSellerServiceTest {
 			assertThat(saved).isNotSameAs(onSale);
 			assertThat(saved.getStatus()).isEqualTo(ProductStatus.PENDING_REVIEW);
 			assertThat(saved.getMajorVersion()).isEqualTo((short) 3);
-			assertThat(saved.getParentId()).isEqualTo(familyRootId);
+			assertThat(saved.getParentId()).isEqualTo(PRODUCT_ID);
 			assertThat(onSale.getStatus()).isEqualTo(ProductStatus.ON_SALE);
 			assertThat(onSale.getName()).isEqualTo("제목");
+			assertThat(response.status()).isEqualTo("PENDING_REVIEW");
+			assertThat(response.version()).isEqualTo("3.0");
 			then(productEventProducer).should().publishReviewRequested(saved, null, null, List.of());
 		}
 
 		@Test
-		@DisplayName("ON_SALE 이후 PATCH 수정은 새 ON_SALE row를 만들고 기존 row는 SUPERSEDED로 전환한다")
-		void updateProduct_patchAfterOnSale_createsOnSaleChild_supersedesPrevious() {
+		@DisplayName("metadata만 바뀌면 자동으로 PATCH 판정해 새 ON_SALE row를 만들고 기존 row는 SUPERSEDED로 전환한다")
+		void updateProduct_metadataOnlyChanged_autoPatch_createsOnSaleChild() {
 			Product onSale = product(PRODUCT_ID, null, ProductStatus.ON_SALE, (short) 2, (short) 0);
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(onSale));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(onSale));
 
-			productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, request("MINOR"));
+			ProductUpdateResponse response = productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, metadataOnlyRequest());
 
 			ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
 			then(productRepository).should(org.mockito.Mockito.times(2)).save(captor.capture());
@@ -179,26 +205,22 @@ class ProductSellerServiceTest {
 				assertThat(p.getStatus()).isEqualTo(ProductStatus.ON_SALE);
 				assertThat(p.getPatchVersion()).isEqualTo((short) 1);
 			});
+			assertThat(response.status()).isEqualTo("ON_SALE");
+			assertThat(response.version()).isEqualTo("2.1");
 			then(productEventProducer).should().publishProductChanged(PRODUCT_ID);
 			then(productEventProducer).should(never()).publishReviewRequested(any(), any(), any(), any());
 		}
 
 		@Test
-		@DisplayName("판매 후 REJECTED된 row는 같은 row의 콘텐츠만 수정하고 새 row·이벤트를 만들지 않는다")
-		void updateProduct_rejectedRow_updatesInPlace_withoutNewRowOrEvent() {
-			Product rejected = product(PRODUCT_ID, null, ProductStatus.REJECTED, (short) 3, (short) 0);
-			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(rejected));
+		@DisplayName("가격이 바뀌면 PRODUCT_PRICE_CHANGED 이벤트도 함께 발행한다")
+		void updateProduct_priceChanged_publishesPriceChangedEvent() {
+			Product onSale = product(PRODUCT_ID, null, ProductStatus.ON_SALE, (short) 2, (short) 0);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(onSale));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(onSale));
 
-			productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, request("MAJOR"));
+			productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, metadataOnlyRequest());
 
-			ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
-			then(productRepository).should().save(captor.capture());
-			assertThat(captor.getValue()).isSameAs(rejected);
-			assertThat(rejected.getName()).isEqualTo("새 제목");
-			assertThat(rejected.getStatus()).isEqualTo(ProductStatus.REJECTED);
-			assertThat(rejected.getMajorVersion()).isEqualTo((short) 3);
-			then(productRepository).should(never()).findAllByFamilyRootIds(any());
-			then(productEventProducer).shouldHaveNoInteractions();
+			then(productEventProducer).should().publishPriceChanged(PRODUCT_ID, 1000, 2000);
 		}
 
 		@Test
@@ -209,7 +231,43 @@ class ProductSellerServiceTest {
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(onSale));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(onSale, pending));
 
-			assertThatThrownBy(() -> productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, request("MAJOR")))
+			assertThatThrownBy(() -> productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, request("본문 개정")))
+				.isInstanceOf(ProductException.class);
+		}
+
+		@Test
+		@DisplayName("MAJOR/PATCH로 실제 새 row를 만드는데 changeReason이 없으면 거부한다")
+		void updateProduct_realChangeWithoutChangeReason_throws() {
+			Product onSale = product(PRODUCT_ID, null, ProductStatus.ON_SALE, (short) 2, (short) 0);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(onSale));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(onSale));
+
+			assertThatThrownBy(() -> productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, request(null)))
+				.isInstanceOf(ProductException.class);
+		}
+
+		@Test
+		@DisplayName("요청 productType이 기존 유형과 다르면 파일 승격 전에 거부한다")
+		void updateProduct_productTypeMismatch_throws() {
+			Product onSale = product(PRODUCT_ID, null, ProductStatus.ON_SALE, (short) 2, (short) 0);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(onSale));
+			ProductUpdateRequest wrongType = new ProductUpdateRequest(
+				"새 제목", "NOTION", null, "새 설명", 2000, null,
+				null, "https://notion.so/x", null, List.of(), List.of(), "변경 사유");
+
+			assertThatThrownBy(() -> productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, wrongType))
+				.isInstanceOf(ProductException.class);
+			then(productRepository).should(never()).findAllByFamilyRootIds(any());
+			then(objectStorage).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("PENDING_REVIEW anchor는 직접 수정을 거부한다")
+		void updateProduct_pendingReviewAnchor_throws() {
+			Product pending = product(PRODUCT_ID, null, ProductStatus.PENDING_REVIEW, (short) 2, (short) 0);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(pending));
+
+			assertThatThrownBy(() -> productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, request("변경 사유")))
 				.isInstanceOf(ProductException.class);
 		}
 	}
@@ -474,10 +532,27 @@ class ProductSellerServiceTest {
 		}
 	}
 
-	private ProductUpdateRequest request(String versionType) {
+	/** 핵심 산출물(content)까지 바뀐 요청 — MAJOR 판정 대상. */
+	private ProductUpdateRequest request(String changeReason) {
 		return new ProductUpdateRequest(
 			"새 제목", "PROMPT", "model2", "새 설명", 2000, "content2",
-			null, null, null, List.of(), List.of(), "변경 사유", versionType
+			null, null, null, List.of(), List.of(), changeReason
+		);
+	}
+
+	/** product() 헬퍼가 만드는 promptContent()와 완전히 같은 값 — no-op 판정 대상. */
+	private ProductUpdateRequest sameContentRequest() {
+		return new ProductUpdateRequest(
+			"제목", "PROMPT", "model", "설명", 1000, "content",
+			null, null, null, List.of(), List.of(), null
+		);
+	}
+
+	/** content는 그대로 두고 제목·가격만 바꾼 요청 — PATCH 판정 대상. */
+	private ProductUpdateRequest metadataOnlyRequest() {
+		return new ProductUpdateRequest(
+			"새 제목", "PROMPT", "model", "설명", 2000, "content",
+			null, null, null, List.of(), List.of(), "가격 조정"
 		);
 	}
 
