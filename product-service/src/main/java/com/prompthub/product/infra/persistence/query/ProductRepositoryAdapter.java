@@ -57,6 +57,11 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	}
 
 	@Override
+	public Map<UUID, Long> getSalesCounts(List<UUID> familyRootIds) {
+		return productJpaRepository.getSalesCounts(familyRootIds);
+	}
+
+	@Override
 	public long sumSalesCountByFamilyRootId(UUID familyRootId) {
 		return productJpaRepository.sumSalesCountByFamilyRootId(familyRootId);
 	}
@@ -64,6 +69,12 @@ public class ProductRepositoryAdapter implements ProductRepository {
 	@Override
 	public long sumViewCountByFamilyRootId(UUID familyRootId) {
 		return productJpaRepository.sumViewCountByFamilyRootId(familyRootId);
+	}
+
+	@Override
+	@Transactional
+	public boolean incrementViewCount(UUID productId, LocalDateTime viewedAt) {
+		return productJpaRepository.incrementViewCount(productId, viewedAt) == 1;
 	}
 
 	@Override

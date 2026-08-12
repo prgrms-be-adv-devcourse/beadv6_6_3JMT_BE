@@ -130,6 +130,23 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 	}
 
 	@Query("""
+		select coalesce(p.parentId, p.id), coalesce(sum(p.salesCount), 0)
+		from Product p
+		where coalesce(p.parentId, p.id) in :familyRootIds
+			and p.deletedAt is null
+		group by coalesce(p.parentId, p.id)
+		""")
+	List<Object[]> findSalesCountsByFamilyRootIds(@Param("familyRootIds") List<UUID> familyRootIds);
+
+	default Map<UUID, Long> getSalesCounts(List<UUID> familyRootIds) {
+		if (familyRootIds.isEmpty()) {
+			return Map.of();
+		}
+		return findSalesCountsByFamilyRootIds(familyRootIds).stream()
+			.collect(Collectors.toMap(row -> (UUID) row[0], row -> (Long) row[1]));
+	}
+
+	@Query("""
 		select coalesce(sum(p.salesCount), 0)
 		from Product p
 		where coalesce(p.parentId, p.id) = :familyRootId
@@ -144,6 +161,16 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			and p.deletedAt is null
 		""")
 	long sumViewCountByFamilyRootId(@Param("familyRootId") UUID familyRootId);
+
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Query("""
+		update Product p
+		set p.viewCount = p.viewCount + 1,
+			p.updatedAt = :viewedAt
+		where p.id = :productId
+			and p.deletedAt is null
+		""")
+	int incrementViewCount(@Param("productId") UUID productId, @Param("viewedAt") LocalDateTime viewedAt);
 
 	/**
 	 * 주어진 id들의 목록 표시용 정보를 한 번에 가져온다.

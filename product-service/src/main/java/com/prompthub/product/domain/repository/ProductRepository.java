@@ -26,9 +26,13 @@ public interface ProductRepository {
 
 	Map<UUID, Double> getAverageRatings(List<UUID> familyRootIds);
 
+	Map<UUID, Long> getSalesCounts(List<UUID> familyRootIds);
+
 	long sumSalesCountByFamilyRootId(UUID familyRootId);
 
 	long sumViewCountByFamilyRootId(UUID familyRootId);
+
+	boolean incrementViewCount(UUID productId, LocalDateTime viewedAt);
 
 	/** 주어진 id들의 목록 표시용 정보(평점·family 판매수 포함). 순서는 보장하지 않는다. */
 	List<ProductListProjection> findProjectionsByIds(List<UUID> productIds);
