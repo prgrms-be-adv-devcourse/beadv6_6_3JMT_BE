@@ -19,12 +19,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * RDB와 ES 색인을 맞추는 재조정. 두 경로가 있다.
+ * RDB와 ES 색인을 맞추는 재조정. 실시간 Kafka 색인 경로 없이 이 두 경로만으로 RDB→ES를
+ * scheduler-only eventual consistency로 유지한다(PR5 로드맵 I-2).
  *
  * <p><b>증분({@link #reconcileChanged})</b> — 짧은 주기로 돈다. 마지막 실행 이후 변경된
  * family만 골라 반영하므로 변경이 없으면 조회 2건으로 끝나고 ES에 아무것도 쓰지 않는다.
- * admin-service발 승인/승인취소처럼 실시간 이벤트가 없는 변화를 잡는 것이 주 목적이다
- * (product-service 자체 변경은 ProductSearchEventProcessor가 실시간 반영한다).
+ * product-service 자체 변경(생성·수정·판매중단·삭제)과 admin-service발 승인/승인취소를
+ * 구분하지 않고 이 경로 하나로 잡는다 — 검색 결과는 최대 이 주기만큼 늦게 수렴한다.
  *
  * <p><b>전체({@link #reconcileAll})</b> — 기동 시 1회와 하루 1회 돈다. 증분이 잡지 못하는
  * ES 고아 문서(드리프트, 수동 DB 편집, ES측 유실)를 정리한다.
@@ -118,22 +119,23 @@ public class ProductReindexService {
 			);
 		}
 
-		// ponytail: 이번 사이클에 막 계산되는 임베딩(아래 refresh)은 여기서 못 읽어 한 사이클
-		// 더 늦게 ES에 반영된다. 임베딩 생성 자체가 이미 최대 20초 지연을 받아들이는 설계라
-		// 같은 예산 안이다 — 실측으로 문제되면 refresh를 이 조회보다 앞으로 옮긴다.
-		Map<UUID, float[]> embeddings = productRepository.findEmbeddings(
-			onSaleByFamily.values().stream().map(Product::getId).toList());
+		List<Product> onSaleProducts = List.copyOf(onSaleByFamily.values());
+		Map<UUID, float[]> storedEmbeddings = productRepository.findEmbeddings(
+			onSaleProducts.stream().map(Product::getId).toList());
+		// refreshAndGet을 upsert 조립보다 먼저 실행해, 이번 사이클에 새로 계산된 임베딩이
+		// 다음 사이클까지 밀리지 않고 같은 bulk 요청에 실리게 한다.
+		Map<UUID, float[]> refreshedEmbeddings = productEmbeddingUpdater.refreshAndGet(onSaleProducts);
 
 		List<FamilyUpsertInput> toUpsert = new ArrayList<>();
 		for (Map.Entry<UUID, Product> entry : onSaleByFamily.entrySet()) {
 			UUID familyRootId = entry.getKey();
 			Product onSale = entry.getValue();
 			List<Product> members = membersByFamily.getOrDefault(familyRootId, List.of());
+			float[] embedding = refreshedEmbeddings.getOrDefault(onSale.getId(), storedEmbeddings.get(onSale.getId()));
 			toUpsert.add(familyStatsResolver.buildFamilyUpsertInput(
-				members, onSale, averageRatings.getOrDefault(familyRootId, 0.0), embeddings.get(onSale.getId())));
+				members, onSale, averageRatings.getOrDefault(familyRootId, 0.0), embedding));
 		}
 
-		productEmbeddingUpdater.refresh(toUpsert.stream().map(FamilyUpsertInput::onSale).toList());
 		return new Reconciliation(toUpsert, toDelete);
 	}
 

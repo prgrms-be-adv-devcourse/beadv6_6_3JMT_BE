@@ -176,6 +176,51 @@ class ProductReindexServiceTest {
 	}
 
 	@Test
+	@SuppressWarnings("unchecked")
+	void reconcileAll_새로_계산된_임베딩이_같은_사이클의_upsert에_실린다() {
+		UUID familyRootId = UUID.randomUUID();
+		Product onSale = product(familyRootId, ProductStatus.ON_SALE);
+		float[] refreshedEmbedding = {0.9f};
+		given(productSearchIndexer.indexExists()).willReturn(true);
+		given(productRepository.findAllByStatus(ProductStatus.ON_SALE)).willReturn(List.of(onSale));
+		given(productRepository.findAllByFamilyRootIds(List.of(familyRootId))).willReturn(List.of(onSale));
+		given(productRepository.getAverageRatings(List.of(familyRootId))).willReturn(Map.of(familyRootId, 4.0));
+		given(productRepository.findEmbeddings(List.of(onSale.getId()))).willReturn(Map.of());
+		given(productEmbeddingUpdater.refreshAndGet(List.of(onSale)))
+			.willReturn(Map.of(onSale.getId(), refreshedEmbedding));
+		given(productSearchIndexer.findAllIndexedFamilyRootIds()).willReturn(Set.of());
+
+		reindexService.reconcileAll();
+
+		// 새 임베딩이 findEmbeddings(기존 저장값)가 아니라 refreshAndGet 결과로 채워져야
+		// 이번 사이클에 반영된다 — 다음 사이클까지 미뤄지지 않는다.
+		verify(familyStatsResolver).buildFamilyUpsertInput(List.of(onSale), onSale, 4.0, refreshedEmbedding);
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void reconcileAll_임베딩_재계산이_비어있으면_기존_저장된_vector를_그대로_쓴다() {
+		UUID familyRootId = UUID.randomUUID();
+		Product onSale = product(familyRootId, ProductStatus.ON_SALE);
+		float[] storedEmbedding = {0.4f};
+		given(productSearchIndexer.indexExists()).willReturn(true);
+		given(productRepository.findAllByStatus(ProductStatus.ON_SALE)).willReturn(List.of(onSale));
+		given(productRepository.findAllByFamilyRootIds(List.of(familyRootId))).willReturn(List.of(onSale));
+		given(productRepository.getAverageRatings(List.of(familyRootId))).willReturn(Map.of(familyRootId, 4.0));
+		given(productRepository.findEmbeddings(List.of(onSale.getId())))
+			.willReturn(Map.of(onSale.getId(), storedEmbedding));
+		// 원문 해시가 안 바뀌었거나 생성이 실패해 refreshAndGet이 이 상품을 돌려주지 않는 경우다.
+		given(productEmbeddingUpdater.refreshAndGet(List.of(onSale))).willReturn(Map.of());
+		given(productSearchIndexer.findAllIndexedFamilyRootIds()).willReturn(Set.of());
+
+		reindexService.reconcileAll();
+
+		// 새로 계산된 값이 없다고 embedding을 null로 비우면 keyword-only로 색인돼 이미 있던
+		// vector 검색 결과가 조용히 사라진다 — 기존 저장값을 그대로 들고 가야 한다.
+		verify(familyStatsResolver).buildFamilyUpsertInput(List.of(onSale), onSale, 4.0, storedEmbedding);
+	}
+
+	@Test
 	void reconcileChanged_인덱스가_아직_없으면_건너뛰고_실패를_알린다() {
 		given(productSearchIndexer.indexExists()).willReturn(false);
 

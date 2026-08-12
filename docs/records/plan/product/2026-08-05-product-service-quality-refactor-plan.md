@@ -118,7 +118,7 @@ score = 100 − 5×High − 2×Medium − 0.5×Low
 | ID | 제목 | 타입 | 점수 | 이슈 |
 | --- | --- | --- | --- | --- |
 | I-1 | Kafka 발행 실패가 조용히 사라진다 | `fix` | +7 | #722 |
-| I-2 | ES 색인이 실패를 숨긴다 | `fix` | +9 | |
+| I-2 | ES 색인이 실패를 숨긴다 | `fix` | +9 | #729 |
 | I-3 | 응답에 값이 절대 안 들어가는 필드 3개 | `refactor` | +6 | |
 | I-4 | 업로드 정책이 컨트롤러에 있고 S3 키 파싱이 중복 | `refactor` | +6 | |
 | I-5 | ProductType별 본문 해석이 3곳에 흩어짐 | `refactor` | +2 | |
@@ -407,6 +407,40 @@ the same name as the alias"로 터진다. **실제로 겪은 장애다.** alias 
 
 #### PR 5 구현 인계 — Elasticsearch scheduler-only 정합성(I-2)
 
+##### 구현 착수 전 코드 재확인 (2026-08-12)
+
+PR4(#722)·패키지 재구성(#723) 머지 이후 develop 기준으로 다시 코드를 읽어보니, 이 문서를 처음
+쓴 시점(2026-08-05) 이후 일부가 이미 다른 작업 중에 구현돼 있었다. PR5 이슈는 아래 "재작업
+불필요" 항목을 제외한 실제 잔여 범위로 좁혀 만든다. 이 문서를 처음 쓴 시점의 문제 설명은 당시
+판단의 기록으로 아래 그대로 두고, 지금 상태는 이 절이 최신 기준이다.
+
+**이미 구현됨 — 재작업 불필요**
+
+- **bulk 부분 실패 검사**: `ElasticsearchProductSearchIndexer.validateBulkResponse()`가
+  `BulkResponse.errors()`와 item별 `error()`를 검사해 실패 operation·index·id·reason을 담아
+  예외를 던진다. 아래 "bulk 부분 실패와 제한적 재시도" 절의 문제 설명("지금은 IOException 계열만
+  잡고 응답 본문은 안 본다")은 더 이상 사실이 아니다 — 남은 실제 작업은 **chunking(기본
+  500건 단위)** 과 **일시적 오류(429/502/503/504) 1회 재시도**, delete-404를 성공으로 취급하는
+  처리뿐이다.
+- **watermark 미전진**: `ProductReconcileScheduler.reconcile()`은 `bulkReconcile()`이 예외를
+  던지면 `succeeded` 대입 이전에 예외가 전파돼 `lastSucceededAt`을 전진시키지 않는다. 명시적
+  분기는 아니지만 결과적으로 요구를 만족한다. 사이클 시작 시각·소요 시간·upsert/delete 건수를
+  구조화 로그로 남기는 관측성 보강만 남는다.
+
+**여전히 필요 — 실제 잔여 범위**
+
+- 증분 변경 감지가 soft-delete row를 제외함(`findFamilyRootIdsByProductUpdatedSince`·
+  `...ReviewUpdatedSince` 둘 다 `deletedAt is null` 필터가 그대로 있음)
+- 새 embedding이 같은 재조정 사이클의 ES 문서에 반영되지 않음(`ProductReindexService.buildReconciliation()`의
+  기존 ponytail 주석이 이 한 사이클 지연을 이미 알고 있다고 명시)
+- bulk chunking 없음(전체를 한 번에 `client.bulk()`로 전송)
+- 일시적 오류 재시도 없음
+- `findAllIndexedFamilyRootIds()`가 여전히 `size(10000)` 고정 — PIT/search_after 미전환
+- `ProductIndexBootstrap`이 `existsAlias` 단일 검사뿐 — rogue index·mapping 불일치 무방비
+- 검색용 Kafka 이벤트 4종(`PRODUCT_CHANGED`·`PRODUCT_STOPPED`·`PRODUCT_DELETED`·`PRODUCT_PRICE_CHANGED`)이
+  product-service producer(`ProductEventProducer`)와 order-service 로그 전용 consumer
+  (`ProductEventConsumer`)에 그대로 남아 있음
+
 ##### 목표와 작업 순서
 
 RDB를 상품 상태의 단일 진실 공급원으로 유지하고 ES는 지연을 허용하는 검색 projection으로 운영한다.
@@ -606,14 +640,153 @@ PR 4에서 `ProductEventPublisher` 포트와 producer 완료 관측을 먼저 �
 
 ##### Claude가 생성할 이슈 본문 핵심
 
-- 문제: 증분 쿼리가 삭제 row를 제외하고 새 embedding을 같은 사이클에 싣지 못하며, ES bulk item 실패와
-  10k 이후 고아 문서를 성공으로 오인할 수 있다. 실시간 Kafka와 polling 이중 경로도 책임과 멱등성
-  비용을 중복시킨다.
-- 결정: RDB 원본 + 20초 scheduler-only eventual consistency. polling·bulk·bootstrap·전체 스윕을 먼저
-  보완한 뒤 검색 및 로그 전용 product event 4종을 제거한다.
+`bulk item 실패 검사`와 `watermark 미전진`은 위 "구현 착수 전 코드 재확인" 절에서 확인한 대로
+이미 되어 있으므로 아래 문제·범위에서 제외한다.
+
+- 문제: 증분 쿼리가 삭제 row를 제외해 soft-delete·삭제 review가 재조정 대상에서 빠지고, 새
+  embedding이 같은 사이클에 실리지 않아 반영이 한 사이클 늦다. bulk 요청에 chunking·일시적 오류
+  재시도가 없고, 10k 초과 시 고아 문서 탐지가 불완전하며, alias bootstrap이 rogue index·mapping
+  불일치에 무방비다. 실시간 Kafka와 polling 이중 경로도 책임과 멱등성 비용을 중복시킨다.
+- 결정: RDB 원본 + 20초 scheduler-only eventual consistency. polling 증분 보완·임베딩 동시 반영·
+  bulk chunking/재시도·10k 상한 제거·bootstrap 무결성을 먼저 완성한 뒤 검색 및 로그 전용 product
+  event 4종을 제거한다.
 - 제외: API URL/응답 변경, 즉시 ES refresh, Outbox, Debezium, 분산 lock, 다중 worker, 과거 processed-event
-  데이터 삭제, AI 검수 이벤트 변경.
+  데이터 삭제, AI 검수 이벤트 변경, 이미 구현된 bulk item 실패 검사·watermark 미전진 로직 재작성.
 - 수용 기준: 위 필수 테스트와 단일 파드 전제 및 FE 수렴 확인을 그대로 사용한다.
+
+##### 실제 구현 결과 (2026-08-12) — `IMPLEMENTED · PR_PENDING`
+
+이슈 #729, 브랜치 `feat/#729-es-scheduler-only-consistency`(최신 develop 기준). 구현·테스트·코드
+리뷰 반영이 끝나 목적별로 커밋하고 PR을 여는 단계다.
+
+**구현 범위**: 인계 문서의 "구현 착수 전 코드 재확인"에서 남은 것으로 확인한 항목 그대로 완성했다.
+
+1. 증분 변경 감지: `findFamilyRootIdsByProductUpdatedSince`·`...ReviewUpdatedSince`에서 `deletedAt is null`
+   필터를 제거하고, review 쿼리는 `coalesce(r.product.parentId, r.product.id)`로 family root를 반환하도록
+   수정했다.
+2. 임베딩 동일 사이클 반영: `ProductEmbeddingUpdater.refresh()`(void)를 `refreshAndGet()`
+   (`Map<UUID, float[]>` 반환)으로 바꾸고, `ProductReindexService.buildReconciliation()`이 그 결과를
+   기존 저장 임베딩과 병합해 같은 사이클 upsert에 반영한다.
+3. bulk chunking·재시도: `ElasticsearchProductSearchIndexer.bulkReconcile()`을 청크 단위(`bulkChunkSize`,
+   기본 500)로 나눠 보내고, 429/502/503/504로 실패한 item만 원본 operation 그대로 1회 재시도한다. delete
+   404는 실패로 보지 않는다. 최종 실패 item은 operation·index·id·status·reason을 구조화 로그로 남긴 뒤
+   예외를 던진다.
+4. 10k 상한 제거: `findAllIndexedFamilyRootIds()`를 PIT + search_after 순회로 전환했다(`orphanScanPageSize`,
+   기본 1000). `finally`에서 PIT를 항상 닫는다(닫기 자체가 실패해도 warn 로그만 남기고 원래 예외를
+   가리지 않는다).
+5. alias/index 무결성: `ProductIndexBootstrap`이 alias 없음/있음·rogue index 점유·alias 대상 불일치·
+   mapping(핵심 field 4개 + embedding dims) 불일치를 구분해, 실패 상태는 자동 복구 없이 시작을 막는다.
+6. 검색용 Kafka 이벤트 4종 제거(product-service 쪽만): `PRODUCT_CHANGED`/`PRODUCT_STOPPED`/`PRODUCT_DELETED`/
+   `PRODUCT_PRICE_CHANGED` producer 메서드·payload·enum 값과 `ProductSellerService`/
+   `ProductVersionTransitionService` 호출을 삭제했다. `ProductSearchEventConsumer`/
+   `ProductSearchEventProcessor`(인계 문서의 EventHandler)와 전용 테스트를 삭제했다. 실제 소비자가
+   없어진 `ProductSearchIndexPort.upsert()`(단건 색인)도 함께 제거하고, 이를 테스트 시딩 용도로 쓰던
+   통합 테스트 두 곳은 `bulkReconcile()`로 교체했다.
+
+   **order-service 쪽은 사용자 요청으로 되돌렸다.** 원래는 로그만 남기고 주문 상태를 바꾸지 않는
+   `ProductEventConsumer`·`OrderProductEventService`·이벤트 DTO 3종과 전용 Kafka consumer/listener
+   container factory 빈 2개, 관련 테스트를 함께 삭제했었지만, 사용자가 "order-service는 건드리지
+   말라"고 명시적으로 요청해 전부 원상복구했다. **기능적으로는 문제가 없다** — product-service가 이제
+   그 4종을 발행하지 않으므로, order-service의 컨슈머는 코드는 남아 있어도 매칭되는 메시지를 더 이상
+   받지 못해 사실상 비활성 상태다. 배포 순서와 무관하게 안전하다(Kafka pub/sub이라 한쪽만 먼저 배포돼도
+   에러가 나지 않는다는 것을 확인했다). `docs/api-spec/order.md`·`docs/architecture/event-flow.md`도
+   이 되돌림에 맞춰 다시 갱신했다.
+
+**설계 차이**:
+- 인계 문서가 `ProductSearchEventHandler`로 부른 클래스는 실제 코드에서 이미 `ProductSearchEventProcessor`로
+  구현돼 있었다(PR4 이후 명명) — 삭제 대상 식별만 이름 매핑으로 조정했고 별도 설계 변경은 아니다.
+- bulk 재시도 판정(`isFailure`/`isRetryable`)은 기존 `validateBulkResponse`가 package-private static
+  이었던 테스트 관례를 그대로 유지해 static으로 남겼다.
+- `ProductIndexBootstrap`의 mapping 검증은 "핵심 field"로 `familyRootId`·`productId`·`amount`·
+  `embedding`(+dims) 4개만 본다 — 매핑 전체(20개 필드) 구조적 비교는 하지 않는다. 검색·색인에 실제
+  쓰이는 필드로 범위를 좁힌 설계 의도를 그대로 따랐다.
+- `ProductVersionTransitionService.transitionToNextVersion()`의 `familyRootId` 파라미터를 제거했다 —
+  `publishProductChanged` 호출이 없어지며 그 값을 쓰는 곳이 사라져, 그대로 두면 미사용 파라미터가
+  됐다.
+
+**검증 결과 (2026-08-12, 코드 리뷰 반영 + order-service 되돌림 후 기준)**: `:product-service:test`
+357개 전부 통과. order-service는 되돌려 변경이 없으므로 재검증 대상이 아니다(기존 상태 그대로).
+`checkstyleMain`/`checkstyleTest`는 기존에도 있던 gRPC 생성 코드 경고만 남고 이번 변경으로 새로
+추가된 위반은 없다. `git diff --check` 통과(공백 오류 없음, CRLF 안내만). CodeFlow 등 자동 채점은
+이번 세션에서 실행하지 않았다 — 실제 점수는 CI/CodeFlow 재실행 결과로 다음 인계에서 채운다.
+변경 범위는 product-service·config·docs로 한정되며, 총 40개 파일이 바뀌었다(order-service는 원상
+복구돼 diff 없음).
+
+신규 테스트가 실제로 검증하는 범위는 다음과 같다. **PIT/search_after 페이지네이션은 5건·페이지
+2건으로 순회 로직 자체(마지막 hit 기준 다음 페이지 요청, 페이지가 다 차지 않으면 종료)만 증명한
+것**이고, 완료 조건이 요구하는 "10,001건 이상" 규모는 이번에 실행하지 않았다 — 대용량 시드는 매번
+도는 통합 테스트로는 비용이 커서, 알고리즘 검증(작은 규모)과 실제 규모 확인(운영/별도 부하 테스트)을
+분리했다. 나머지는 기록과 실제 커버리지가 맞다: bulk 첫 시도 → retryable item만 원본 operation
+그대로 정확히 1회 재전송 → 최종 판정(영구 실패 1건이면 예외) 흐름, PIT 조회 중 예외가 나도 `finally`에서
+close가 호출되는지, `ProductReconcileScheduler`가 성공 시에만 watermark를 전진시키고 실패(예외·false
+반환) 시에는 다음 tick도 같은 구간을 다시 훑는지, `ProductIndexBootstrap`의 6개 상태 분기(정상 alias·
+잘못된 대상·rogue index 점유·index만 있고 alias 없음·**alias와 index 모두 없어 새로 생성**·mapping
+dims 불일치) 전부를 새 테스트로 검증했다.
+
+**FE**: API·검색 응답 계약을 바꾸지 않아 코드 변경 없음. FE lint/build는 실행하지 않았다 — 필요해지면
+`/`, `/browse`, `/detail/[id]` 수렴 확인은 별도로 진행한다.
+
+**남은 후속 과제(이번에 해결하지 않음)**: 단일 파드(`replicas: 1`) 전제이며, scale-out 전 별도 indexing
+worker 분리 또는 분산 lock 도입이 필요하다(인계 문서에 이미 명시돼 있음). `ProductQueryService`
+가독성(PR 6, I-7)은 그대로 계획대로 남아 있다. PIT 페이지네이션의 10,001건 이상 규모 검증은 위에서
+설명한 이유로 이번 범위에 포함하지 않았다.
+
+##### 코드 리뷰 반영 (2026-08-12, Codex 리뷰)
+
+- **P1 — `bulkChunkSize`/`orphanScanPageSize`가 0 이하면 무한 루프·PIT 순회 오류**: `ProductReindexProperties`에
+  compact constructor로 두 값 모두 1 이상 검증을 추가했다(기동 시 즉시 실패). 검증 테스트 추가.
+- **P1 — 신규 테스트가 완료 조건을 실제로 다 덮지 못함**: bulk 재시도 흐름(첫 시도 → retryable만
+  재전송 → 최종 판정), PIT 조회 예외 시 `finally` close, `ProductReconcileScheduler` watermark 전진·
+  불변 6개 시나리오, bootstrap의 "alias·index 모두 없어 생성" 경로를 각각 새 테스트로 추가했다.
+  10,001건 규모 PIT 순회는 위 "검증 결과"에 설명한 이유로 여전히 실제 규모로는 검증하지 않는다.
+- **P2 — 임베딩 생성 실패가 로그 없이 사라짐**: `ProductEmbeddingUpdater.refreshAndGet()`의 null 분기에
+  `log.warn(productId, ...)`을 추가하고, 로그가 실제로 남는지 검증하는 테스트를 추가했다.
+- **P2 — scheduler-only 전환 후에도 product-service 자기소비용 Kafka bean이 남아 있었음**: 컨슈머
+  클래스는 지웠지만 `product/infra/messaging/config/KafkaConfig.java`의
+  `productEventConsumerFactory`/`productEventContainerFactory`/`productEventErrorHandler` 3개 bean과
+  관련 주석을 빠뜨렸다 — 삭제했다.
+- **P3 — 삭제된 실시간 색인 경로를 설명하는 주석이 남아 있었음**: `ProductReindexService`·
+  `FamilyStatsResolver`의 클래스 Javadoc이 삭제된 `ProductSearchEventProcessor`를 "실시간 반영" 주체로
+  계속 언급하고 있었다 — 지금은 증분 재조정 하나가 product-service 자체 변경과 admin-service발 변경을
+  구분 없이 잡는다는 내용으로 다시 썼다.
+
+##### Codex 최종 리뷰 (2026-08-12)
+
+위 5건 반영 후 재검토 결과 **No findings**. `:product-service:test` 재검증도 통과 상태를 유지한다.
+order-service는 이전 라운드에서 삭제했던 로그 전용 consumer 스택(`ProductEventConsumer`,
+`OrderProductEventService`, 이벤트 DTO 3종, 전용 Kafka bean 2개)을 사용자 요청으로 전부 되돌려 이
+브랜치에서 변경 없음 — product-service·config·docs만 범위로 남는다. 최종 구현 범위는 이 절 상단의
+"구현 범위" 6개 항목 중 6번(검색용 Kafka 이벤트 제거)이 **product-service 쪽 producer·자기소비
+정리로 한정**된다(원래 인계 문서와 코드 리뷰 반영 절 다음의 "order-service 쪽은 사용자 요청으로
+되돌렸다" 문단 참고). 목적별로 6개 커밋을 만들고 PR #730(`develop` 대상)을 열었다.
+
+##### PR #730 리뷰 후속 — 10,001건 용량 테스트와 검증 방법 자체의 결함 (2026-08-12)
+
+PR을 연 뒤 "10,001건 상한 제거를 실제로 테스트했는지" 확인이 나와, 완료 조건이 요구하는 실제
+규모를 마저 검증했다. 그 과정에서 검증 방법 자체의 결함 두 가지를 추가로 잡았다.
+
+1. **10,001건 PIT 순회 테스트 추가**: `ElasticsearchProductSearchIndexerIntegrationTest`에
+   기본 page size(1000)로 10,001개 문서를 직접 bulk 색인한 뒤 전부 순회되는지 확인하는 테스트를
+   추가했다. `bulkReconcile()`은 `ProductEmbeddingUpdater`(OpenAI 호출 지점)를 거치지 않는
+   경로라 임베딩 API를 부르지 않는다.
+2. **Gradle 테스트 캐시 함정 발견**: 코드 리뷰 반영 직후 "357개 전부 통과"로 보고했던 결과가 실은
+   `compileTestJava`가 `UP-TO-DATE`로 잘못 캐시돼 새로 추가한 테스트가 재실행되지 않은 채 이전
+   결과를 재사용한 것이었다. `--rerun-tasks`로 강제 재실행하자 리뷰 반영 라운드에서 추가한 PIT
+   예외 테스트가 애초부터 깨져 있었다는 게 드러났다(`OpenPointInTimeResponse`가 `id` 외에
+   `shards`도 필수 필드인데 안 채움 — `IndexAliases.aliases` 때 겪은 것과 같은 종류의 실수).
+   `shards`를 채워 고쳤다. **이후로는 캐시 신뢰 대신 `--rerun-tasks`로 재검증한다.**
+3. **공유 ES 컨테이너 오염**: 10,001건 테스트가 정리 없이 끝나자
+   `ElasticsearchProductSearchQuerierIntegrationTest`의 정렬·필터 테스트 3개가 깨졌다 — 통합
+   테스트가 `ElasticsearchIntegrationTestSupport`의 static 컨테이너를 공유하는데, 그중
+   `search_priceAsc` 테스트는 고유 키워드로 격리하지 않고 상위 20건만 보는 구조라 대량의 남은
+   문서에 취약했다. 10,001건 테스트와, 같은 파일에서 문서를 남기고 정리 안 하던 기존 테스트
+   2개(chunk 테스트, 페이지네이션 테스트) 모두 `finally`에서 색인한 문서를 지우도록 고쳐 원래
+   상태로 복구했다. `--rerun-tasks`로 452개 전부 통과 재확인.
+4. **임베딩 실패 시 기존 vector 유지 테스트 추가**: `ProductReindexServiceTest`에
+   `refreshAndGet()`이 빈 결과를 돌려줘도(원문 해시가 안 바뀌었거나 생성 실패) 기존 저장된
+   embedding이 upsert에 그대로 실리는지 검증하는 테스트를 추가했다. 나머지 "애매한" 항목
+   (429 외 개별 상태 코드 테스트, bulk 호출 횟수 카운트, 죽은 Kafka bean 회귀 테스트)은 반환
+   대비 확인 비용이 낮다고 판단해 이번 범위에서 스킵했다.
 
 ---
 

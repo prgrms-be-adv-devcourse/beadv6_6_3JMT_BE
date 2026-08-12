@@ -246,19 +246,22 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 
 	List<Product> findByStatusAndDeletedAtIsNull(ProductStatus status);
 
+	/** soft-delete된 row도 포함한다 — 삭제 자체가 family를 재대사해야 할 변경이다. */
 	@Query("""
 		select distinct coalesce(p.parentId, p.id)
 		from Product p
 		where p.updatedAt >= :since
-			and p.deletedAt is null
 		""")
 	List<UUID> findFamilyRootIdsByProductUpdatedSince(@Param("since") LocalDateTime since);
 
+	/**
+	 * soft-delete된 row도 포함하고, family root id로 coalesce해 돌려준다 — child version에
+	 * review가 연결되더라도 ES 문서 ID인 family root가 갱신 대상이 된다.
+	 */
 	@Query("""
-		select distinct r.product.id
+		select distinct coalesce(r.product.parentId, r.product.id)
 		from Review r
 		where r.updatedAt >= :since
-			and r.deletedAt is null
 		""")
 	List<UUID> findFamilyRootIdsByReviewUpdatedSince(@Param("since") LocalDateTime since);
 

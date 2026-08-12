@@ -8,7 +8,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
-import com.prompthub.product.application.usecase.inspection.ProductEventPublisher;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductVersionType;
@@ -33,29 +32,25 @@ class ProductVersionTransitionServiceTest {
 	private ProductRepository productRepository;
 
 	@Mock
-	private ProductEventPublisher productEventPublisher;
-
-	@Mock
 	private ProductInspectionRequestPublisher productInspectionRequestPublisher;
 
 	@InjectMocks
 	private ProductVersionTransitionService versionTransition;
 
 	@Test
-	@DisplayName("PATCH는 기존 row를 SUPERSEDED로 교대시키고 PRODUCT_CHANGED를 발행한다")
-	void transitionToNextVersion_patch_supersedesOldRowAndPublishesProductChanged() {
+	@DisplayName("PATCH는 기존 row를 SUPERSEDED로 교대시키고 새 row를 ON_SALE로 저장한다")
+	void transitionToNextVersion_patch_supersedesOldRowAndSavesNextRow() {
 		Product onSale = onSale((short) 2, (short) 0);
 		UUID nextId = UUID.randomUUID();
 
 		Product next = versionTransition.transitionToNextVersion(
-			onSale, nextId, ProductVersionType.PATCH, promptContent("새 제목", 2000), "가격 조정", onSale.getId());
+			onSale, nextId, ProductVersionType.PATCH, promptContent("새 제목", 2000), "가격 조정");
 
 		assertThat(onSale.getStatus()).isEqualTo(ProductStatus.SUPERSEDED);
 		assertThat(next.getStatus()).isEqualTo(ProductStatus.ON_SALE);
 		assertThat(next.getPatchVersion()).isEqualTo((short) 1);
 		then(productRepository).should().save(onSale);
 		then(productRepository).should().save(next);
-		then(productEventPublisher).should().publishProductChanged(onSale.getId());
 		then(productInspectionRequestPublisher).should(never()).publish(org.mockito.ArgumentMatchers.any());
 	}
 
@@ -66,7 +61,7 @@ class ProductVersionTransitionServiceTest {
 		UUID nextId = UUID.randomUUID();
 
 		Product next = versionTransition.transitionToNextVersion(
-			onSale, nextId, ProductVersionType.MAJOR, notionContent("새 제목", 2000), "본문 개정", onSale.getId());
+			onSale, nextId, ProductVersionType.MAJOR, notionContent("새 제목", 2000), "본문 개정");
 
 		assertThat(onSale.getStatus()).isEqualTo(ProductStatus.ON_SALE);
 		assertThat(next.getStatus()).isEqualTo(ProductStatus.PENDING_REVIEW);
@@ -76,7 +71,6 @@ class ProductVersionTransitionServiceTest {
 		then(productRepository).should().save(savedCaptor.capture());
 		assertThat(savedCaptor.getValue()).isSameAs(next);
 		then(productInspectionRequestPublisher).should().publish(next);
-		then(productEventPublisher).should(never()).publishProductChanged(org.mockito.ArgumentMatchers.any());
 	}
 
 	private Product onSale(short majorVersion, short patchVersion) {

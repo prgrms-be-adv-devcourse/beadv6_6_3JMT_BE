@@ -14,7 +14,6 @@ import static org.mockito.Mockito.never;
 
 import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
 import com.prompthub.product.application.service.fileupload.TempFilePromoter;
-import com.prompthub.product.application.usecase.inspection.ProductEventPublisher;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.repository.ProductRepository;
@@ -46,9 +45,6 @@ class ProductSellerServiceTest {
 	private ProductRepository productRepository;
 
 	@Mock
-	private ProductEventPublisher productEventPublisher;
-
-	@Mock
 	private ProductInspectionRequestPublisher productInspectionRequestPublisher;
 
 	@Mock
@@ -61,12 +57,12 @@ class ProductSellerServiceTest {
 		// TempFilePromoter·ProductVersionChangePolicy·ProductVersionTransitionService는 실제
 		// 인스턴스를 쓴다 — MAJOR/PATCH/no-op 판정과 반영 로직이 그 안에 있어, mock으로 바꾸면
 		// 아래 UpdateProduct 테스트들이 검증하는 실제 동작이 사라진다. 이 협력 객체들이 의존하는
-		// productRepository/productEventPublisher/productInspectionRequestPublisher는 이미 mock이라
-		// 검증 지점은 그대로 유지된다.
+		// productRepository/productInspectionRequestPublisher는 이미 mock이라 검증 지점은
+		// 그대로 유지된다.
 		productSellerService = new ProductSellerService(
-			productRepository, productEventPublisher, productInspectionRequestPublisher,
+			productRepository, productInspectionRequestPublisher,
 			new ProductVersionChangePolicy(),
-			new ProductVersionTransitionService(productRepository, productEventPublisher, productInspectionRequestPublisher),
+			new ProductVersionTransitionService(productRepository, productInspectionRequestPublisher),
 			objectStorage, new TempFilePromoter(objectStorage));
 	}
 
@@ -110,7 +106,6 @@ class ProductSellerServiceTest {
 			assertThat(response.version()).isEqualTo("1.0");
 			assertThat(response.status()).isEqualTo("DRAFT");
 			then(productRepository).should(never()).findAllByFamilyRootIds(any());
-			then(productEventPublisher).shouldHaveNoInteractions();
 			then(productInspectionRequestPublisher).shouldHaveNoInteractions();
 		}
 
@@ -130,7 +125,6 @@ class ProductSellerServiceTest {
 			assertThat(response.version()).isEqualTo("3.0");
 			assertThat(response.status()).isEqualTo("REJECTED");
 			then(productRepository).should(never()).findAllByFamilyRootIds(any());
-			then(productEventPublisher).shouldHaveNoInteractions();
 			then(productInspectionRequestPublisher).shouldHaveNoInteractions();
 		}
 
@@ -147,7 +141,6 @@ class ProductSellerServiceTest {
 			assertThat(response.version()).isEqualTo("2.0");
 			assertThat(response.status()).isEqualTo("ON_SALE");
 			then(productRepository).should(never()).save(any());
-			then(productEventPublisher).shouldHaveNoInteractions();
 			then(productInspectionRequestPublisher).shouldHaveNoInteractions();
 		}
 
@@ -193,20 +186,7 @@ class ProductSellerServiceTest {
 			});
 			assertThat(response.status()).isEqualTo("ON_SALE");
 			assertThat(response.version()).isEqualTo("2.1");
-			then(productEventPublisher).should().publishProductChanged(PRODUCT_ID);
 			then(productInspectionRequestPublisher).should(never()).publish(any());
-		}
-
-		@Test
-		@DisplayName("가격이 바뀌면 PRODUCT_PRICE_CHANGED 이벤트도 함께 발행한다")
-		void updateProduct_priceChanged_publishesPriceChangedEvent() {
-			Product onSale = product(PRODUCT_ID, null, ProductStatus.ON_SALE, (short) 2, (short) 0);
-			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(onSale));
-			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(onSale));
-
-			productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, metadataOnlyRequest());
-
-			then(productEventPublisher).should().publishPriceChanged(PRODUCT_ID, 1000, 2000);
 		}
 
 		@Test
@@ -334,23 +314,6 @@ class ProductSellerServiceTest {
 
 			then(objectStorage).shouldHaveNoInteractions();
 			then(productRepository).should(never()).save(any());
-		}
-
-		@Test
-		@DisplayName("생성 시 PRODUCT_CHANGED 이벤트를 발행한다")
-		void createProduct_publishesProductChangedEvent() {
-			given(productRepository.save(org.mockito.ArgumentMatchers.any(Product.class)))
-				.willAnswer(inv -> inv.getArgument(0));
-
-			productSellerService.createProduct(SELLER_ID,
-				new ProductCreateRequest(
-					"노션 상품", "NOTION", "model", "설명", 1000,
-					null, null, "https://notion.so/my-template", null, List.of(), List.of()
-				));
-
-			ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
-			then(productRepository).should().save(captor.capture());
-			then(productEventPublisher).should().publishProductChanged(captor.getValue().getId());
 		}
 	}
 

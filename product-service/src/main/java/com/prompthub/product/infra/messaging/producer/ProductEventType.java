@@ -10,10 +10,6 @@ import java.util.Optional;
  */
 public enum ProductEventType implements EventType {
 
-	PRODUCT_STOPPED,
-	PRODUCT_DELETED,
-	PRODUCT_PRICE_CHANGED,
-	PRODUCT_CHANGED,
 	PRODUCT_REVIEW_REQUESTED;
 
 	@Override

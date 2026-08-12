@@ -63,6 +63,8 @@ prompthub:
   search:
     reconcile:
       fixed-delay-ms: 20000
+      bulk-chunk-size: 500
+      orphan-scan-page-size: 1000
     ranking:
       sales-weight: 0.3
       view-weight: 0.1

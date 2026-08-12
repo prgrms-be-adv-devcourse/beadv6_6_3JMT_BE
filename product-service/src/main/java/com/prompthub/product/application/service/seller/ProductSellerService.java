@@ -3,7 +3,6 @@ package com.prompthub.product.application.service.seller;
 import com.prompthub.product.application.service.inspection.ProductInspectionRequestPublisher;
 import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
 import com.prompthub.product.application.service.fileupload.TempFilePromoter;
-import com.prompthub.product.application.usecase.inspection.ProductEventPublisher;
 import com.prompthub.product.application.usecase.seller.ProductSellerUseCase;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.ProductFamily;
@@ -42,7 +41,6 @@ public class ProductSellerService implements ProductSellerUseCase {
 	private static final ProductType DEFAULT_PRODUCT_TYPE = ProductType.PROMPT;
 
 	private final ProductRepository productRepository;
-	private final ProductEventPublisher productEventPublisher;
 	private final ProductInspectionRequestPublisher productInspectionRequestPublisher;
 	private final ProductVersionChangePolicy versionChangePolicy;
 	private final ProductVersionTransitionService versionTransition;
@@ -68,7 +66,6 @@ public class ProductSellerService implements ProductSellerUseCase {
 		Product product = Product.create(productId, sellerId, content);
 
 		Product saved = productRepository.save(product);
-		productEventPublisher.publishProductChanged(saved.familyRootId());
 
 		return new ProductCreateResponse(
 			saved.getId(),
@@ -149,11 +146,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 		UUID nextProductId = UUID.randomUUID();
 		ProductContent stored = promoteToPath(request, nextProductId, sellerId, candidate);
 		Product next = versionTransition.transitionToNextVersion(
-			onSale, nextProductId, versionType.get(), stored, request.changeReason(), familyRootId);
-
-		if (onSale.getAmount() != request.amount()) {
-			productEventPublisher.publishPriceChanged(productId, onSale.getAmount(), request.amount());
-		}
+			onSale, nextProductId, versionType.get(), stored, request.changeReason());
 
 		return toResponse(next);
 	}
@@ -194,19 +187,12 @@ public class ProductSellerService implements ProductSellerUseCase {
 			throw new ProductException(ProductErrorCode.PRODUCT_FORBIDDEN);
 		}
 
-		boolean isDraft = product.getStatus() == ProductStatus.DRAFT;
-		if (isDraft) {
+		if (product.getStatus() == ProductStatus.DRAFT) {
 			product.softDelete();
 		} else {
 			product.stop();
 		}
 		productRepository.save(product);
-
-		if (isDraft) {
-			productEventPublisher.publishDeleted(productId);
-		} else {
-			productEventPublisher.publishStopped(productId);
-		}
 	}
 
 	@Override

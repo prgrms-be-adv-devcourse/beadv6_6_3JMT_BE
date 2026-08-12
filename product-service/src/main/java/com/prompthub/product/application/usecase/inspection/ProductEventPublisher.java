@@ -10,14 +10,6 @@ import java.util.UUID;
  */
 public interface ProductEventPublisher {
 
-	void publishStopped(UUID productId);
-
-	void publishDeleted(UUID productId);
-
-	void publishPriceChanged(UUID productId, int previousPrice, int changedPrice);
-
-	void publishProductChanged(UUID familyRootId);
-
 	void publishReviewRequested(
 		Product product, UUID duplicateOfProductId, String presignedThumbnailUrl, List<String> presignedImageUrls);
 }
