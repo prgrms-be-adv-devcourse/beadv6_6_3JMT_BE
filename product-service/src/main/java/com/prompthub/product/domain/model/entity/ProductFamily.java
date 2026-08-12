@@ -42,10 +42,6 @@ public class ProductFamily {
 		return familyRootId;
 	}
 
-	public List<Product> members() {
-		return members;
-	}
-
 	public Optional<Product> currentOnSale() {
 		return latestByStatus(ProductStatus.ON_SALE);
 	}
@@ -60,10 +56,6 @@ public class ProductFamily {
 
 	public Optional<Product> pendingReview() {
 		return latestByStatus(ProductStatus.PENDING_REVIEW);
-	}
-
-	public Optional<Product> mostRecentSuperseded() {
-		return latestByStatus(ProductStatus.SUPERSEDED);
 	}
 
 	public boolean hasEverBeenOnSale() {

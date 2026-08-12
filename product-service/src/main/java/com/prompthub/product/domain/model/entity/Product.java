@@ -7,6 +7,7 @@ import com.prompthub.product.domain.model.enums.ProductVersionType;
 import com.prompthub.product.domain.model.vo.InspectionChecklist;
 import com.prompthub.product.domain.model.vo.ProductContent;
 import com.prompthub.product.domain.model.vo.ProductContentHash;
+import com.prompthub.product.domain.model.vo.ProductDeliverable;
 import com.prompthub.product.infra.persistence.converter.TagsConverter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
@@ -210,11 +211,9 @@ public class Product {
 
 	/** 유형별 핵심 산출물이나 FREE/PAID 전환이면 MAJOR, 그 외 변경만 있으면 PATCH, 변화 없으면 empty(no-op). */
 	public Optional<ProductVersionType> determineVersionType(ProductContent candidate) {
-		boolean coreOutputChanged = switch (this.productType) {
-			case PROMPT -> !Objects.equals(this.content, candidate.content());
-			case NOTION -> !Objects.equals(this.externalUrl, candidate.externalUrl());
-			case PPT, EXCEL -> !Objects.equals(this.fileUrl, candidate.fileUrl());
-		};
+		ProductDeliverable candidateDeliverable = candidate.productType()
+			.resolveDeliverable(candidate.content(), candidate.fileUrl(), candidate.externalUrl());
+		boolean coreOutputChanged = !resolveDeliverable().equals(candidateDeliverable);
 		if (coreOutputChanged || this.amountType != candidate.amountType()) {
 			return Optional.of(ProductVersionType.MAJOR);
 		}
@@ -230,6 +229,10 @@ public class Product {
 		}
 
 		return Optional.empty();
+	}
+
+	public ProductDeliverable resolveDeliverable() {
+		return productType.resolveDeliverable(content, fileUrl, externalUrl);
 	}
 
 	public void stop() {

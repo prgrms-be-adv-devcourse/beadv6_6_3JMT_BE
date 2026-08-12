@@ -78,11 +78,9 @@
       "productType": "PROMPT",
       "model": "Midjourney v6",
       "amount": 5900,
-      "originalAmount": null,
       "rating": 4.9,
       "salesCount": 1240,
       "sellerId": "uuid",
-      "badge": "신규",
       "desc": "상품 설명",
       "thumbnail_url": null,
       "tags": ["이미지생성", "목업"],
@@ -107,11 +105,9 @@
 | productType | string | 상품 유형 (`PROMPT` \| `NOTION` \| `PPT` \| `EXCEL`) |
 | model | string | 대상 AI 모델 |
 | amount | integer | 현재 가격 |
-| originalAmount | integer \| null | 할인 전 원래 가격 (할인 없으면 null) |
 | rating | number | 평균 별점 |
 | salesCount | integer | 누적 판매 수 |
 | sellerId | string | 판매자 ID |
-| badge | string | 뱃지 (`신규` 등) |
 | desc | string | 상품 설명 |
 | thumbnail_url | string \| null | 썸네일 이미지 URL |
 | tags | string[] | 판매자 지정 태그 목록 |
@@ -329,7 +325,6 @@
     "salesCount": 1240,
     "sellerId": "uuid",
     "sellerProductCount": 12,
-    "badge": "신규",
     "desc": "상품 설명",
     "thumbnail_url": null,
     "imageUrls": [],
@@ -339,7 +334,6 @@
       { "ver": "v1.3", "date": "2026-06-01", "note": "조명 프리셋 3종 추가" },
       { "ver": "v1.2", "date": "2026-05-10", "note": "배경 제거 옵션 개선" }
     ],
-    "features": ["고해상도 출력 지원", "상업적 이용 가능", "버전 업데이트 무료 제공"],
     "hasContext": true,
     "hasObjective": true,
     "hasNuance": false,
