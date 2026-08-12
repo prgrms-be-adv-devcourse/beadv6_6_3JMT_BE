@@ -956,19 +956,28 @@
 
 | eventType | 발행 시점 | payload |
 |---|---|---|
-| `PRODUCT_DELETED` | 상품 삭제 시 | `productId`, `occurredAt` |
-| `PRODUCT_PRICE_CHANGED` | 상품 가격 변경 시 | `productId`, `previousPrice`, `changedPrice`, `occurredAt` |
-| `PRODUCT_STOPPED` | 상품 판매 중지 시 | `productId`, `occurredAt` |
+| `PRODUCT_REVIEW_REQUESTED` | 검수 제출(`submitForReview`) 또는 MAJOR 버전 수정으로 `PENDING_REVIEW`가 될 때, 오래 대기한 검수를 1회 재발행할 때 | 상품 스냅샷(`productId`, `productType`, `name`, `description`, `content`, `tags`, presign된 썸네일·이미지 URL, `duplicateOfProductId`, `free`) |
 
-예시 (`PRODUCT_PRICE_CHANGED`):
+> 검색용으로 쓰이던 `PRODUCT_CHANGED`·`PRODUCT_STOPPED`·`PRODUCT_DELETED`·`PRODUCT_PRICE_CHANGED`는
+> product-service가 20초 주기 scheduler로 RDB→ES를 직접 재조정하도록 전환하며 제거했다(PR5, I-2).
+> ES는 이제 실시간 Kafka 이벤트가 아니라 이 scheduler-only 재조정으로만 갱신된다.
+
+예시 (`PRODUCT_REVIEW_REQUESTED`):
 
 ```json
 {
-  "eventType": "PRODUCT_PRICE_CHANGED",
+  "eventType": "PRODUCT_REVIEW_REQUESTED",
   "productId": "uuid",
-  "previousPrice": 10000,
-  "changedPrice": 8000,
-  "occurredAt": "2026-07-07T12:00:00"
+  "productType": "PROMPT",
+  "name": "제목",
+  "description": "설명",
+  "content": "본문",
+  "tags": ["tag1"],
+  "thumbnailUrl": "https://s3/presigned-thumb",
+  "imageUrls": ["https://s3/presigned-1"],
+  "duplicateOfProductId": null,
+  "free": false,
+  "occurredAt": "2026-08-12T12:00:00"
 }
 ```
 
