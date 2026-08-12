@@ -47,7 +47,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Slf4j
 @Configuration
-@EnableConfigurationProperties(SearchRankingProperties.class)
+@EnableConfigurationProperties({SearchRankingProperties.class, ProductReindexProperties.class})
 public class ElasticsearchClientConfig {
 
 	@Value("${elasticsearch.uris}")
