@@ -758,7 +758,35 @@ order-service는 이전 라운드에서 삭제했던 로그 전용 consumer 스�
 브랜치에서 변경 없음 — product-service·config·docs만 범위로 남는다. 최종 구현 범위는 이 절 상단의
 "구현 범위" 6개 항목 중 6번(검색용 Kafka 이벤트 제거)이 **product-service 쪽 producer·자기소비
 정리로 한정**된다(원래 인계 문서와 코드 리뷰 반영 절 다음의 "order-service 쪽은 사용자 요청으로
-되돌렸다" 문단 참고). 목적별 커밋·push·PR 생성으로 다음 단계를 진행한다.
+되돌렸다" 문단 참고). 목적별로 6개 커밋을 만들고 PR #730(`develop` 대상)을 열었다.
+
+##### PR #730 리뷰 후속 — 10,001건 용량 테스트와 검증 방법 자체의 결함 (2026-08-12)
+
+PR을 연 뒤 "10,001건 상한 제거를 실제로 테스트했는지" 확인이 나와, 완료 조건이 요구하는 실제
+규모를 마저 검증했다. 그 과정에서 검증 방법 자체의 결함 두 가지를 추가로 잡았다.
+
+1. **10,001건 PIT 순회 테스트 추가**: `ElasticsearchProductSearchIndexerIntegrationTest`에
+   기본 page size(1000)로 10,001개 문서를 직접 bulk 색인한 뒤 전부 순회되는지 확인하는 테스트를
+   추가했다. `bulkReconcile()`은 `ProductEmbeddingUpdater`(OpenAI 호출 지점)를 거치지 않는
+   경로라 임베딩 API를 부르지 않는다.
+2. **Gradle 테스트 캐시 함정 발견**: 코드 리뷰 반영 직후 "357개 전부 통과"로 보고했던 결과가 실은
+   `compileTestJava`가 `UP-TO-DATE`로 잘못 캐시돼 새로 추가한 테스트가 재실행되지 않은 채 이전
+   결과를 재사용한 것이었다. `--rerun-tasks`로 강제 재실행하자 리뷰 반영 라운드에서 추가한 PIT
+   예외 테스트가 애초부터 깨져 있었다는 게 드러났다(`OpenPointInTimeResponse`가 `id` 외에
+   `shards`도 필수 필드인데 안 채움 — `IndexAliases.aliases` 때 겪은 것과 같은 종류의 실수).
+   `shards`를 채워 고쳤다. **이후로는 캐시 신뢰 대신 `--rerun-tasks`로 재검증한다.**
+3. **공유 ES 컨테이너 오염**: 10,001건 테스트가 정리 없이 끝나자
+   `ElasticsearchProductSearchQuerierIntegrationTest`의 정렬·필터 테스트 3개가 깨졌다 — 통합
+   테스트가 `ElasticsearchIntegrationTestSupport`의 static 컨테이너를 공유하는데, 그중
+   `search_priceAsc` 테스트는 고유 키워드로 격리하지 않고 상위 20건만 보는 구조라 대량의 남은
+   문서에 취약했다. 10,001건 테스트와, 같은 파일에서 문서를 남기고 정리 안 하던 기존 테스트
+   2개(chunk 테스트, 페이지네이션 테스트) 모두 `finally`에서 색인한 문서를 지우도록 고쳐 원래
+   상태로 복구했다. `--rerun-tasks`로 452개 전부 통과 재확인.
+4. **임베딩 실패 시 기존 vector 유지 테스트 추가**: `ProductReindexServiceTest`에
+   `refreshAndGet()`이 빈 결과를 돌려줘도(원문 해시가 안 바뀌었거나 생성 실패) 기존 저장된
+   embedding이 upsert에 그대로 실리는지 검증하는 테스트를 추가했다. 나머지 "애매한" 항목
+   (429 외 개별 상태 코드 테스트, bulk 호출 횟수 카운트, 죽은 Kafka bean 회귀 테스트)은 반환
+   대비 확인 비용이 낮다고 판단해 이번 범위에서 스킵했다.
 
 ---
 
