@@ -80,17 +80,49 @@ Tailwind 기본 클래스를 모바일 레이아웃으로 두고 `md:` 이상에
 
 ## 구현 결과
 
-- 실제 구현: 홈, Header, Footer, browse, detail, mypage, shop, sell, edit의 기존 인라인 데스크톱 값을
-  유지하면서 모바일 기본값과 `md:` 복원 Tailwind 클래스를 추가했다. Header·Logo·Tag·필터·정렬·상점
-  채팅·Footer 등 모바일 상호작용 요소에는 최소 44×44px 터치 영역을 적용했다.
+- 실제 구현(1차, `f9aeea3`): 홈, Header, Footer, browse, detail, mypage, shop, sell, edit의 기존 인라인
+  데스크톱 값을 유지하면서 모바일 기본값과 `md:` 복원 Tailwind 클래스를 추가했다. Header·Logo·Tag·필터·
+  정렬·상점 채팅·Footer 등 모바일 상호작용 요소에는 최소 44×44px 터치 영역을 적용했다.
+- 실제 구현(2차, `7e6e9b2`): 1차 검증 이후 정적 재점검으로 잔여 결함 4건을 추가로 확인·수정했다 — Header
+  모바일 전용 햄버거 메뉴 신설(탐색·판매하기·내상점·찜·마이페이지, `aria-expanded` 포함)과 장바구니·알림
+  아이콘을 모바일에서도 상시 노출(기존엔 완전히 접근 불가했음), sell 소개 이미지 5열 그리드에 반응형 열
+  수 적용(edit 페이지엔 이미 적용돼 있던 것과 동일하게), edit/detail 뒤로가기 버튼 터치 영역 44px 보정,
+  mypage 프로필 카드 이메일 줄바꿈·`flexWrap`으로 가로 오버플로우 방지.
 - 설계 차이: FE 저장소가 현재 쓰기 허용 루트 밖이어서 `playwright.config.ts`와 감사 테스트 파일은 만들지
-  못했다. 대신 이미 설치된 Playwright와 Chromium을 직접 실행해 동일 viewport·overflow·터치 영역을
-  검증하고 스크린샷을 임시 산출물로 확인했다.
-- 검증: 공개 화면은 375·390·393·430·1440px, 인증 경로는 375·430px에서 가로 overflow 0을 확인했다.
+  못했다(1·2차 공통). 대신 로컬 dev 서버 또는 배포 사이트를 `<iframe>`으로 감싸 실제 375px 뷰포트를
+  만드는 방식으로 viewport·overflow·터치 영역을 수기 검증했다(브라우저 창 자체를 리사이즈하는 방식은 이
+  환경에서 실제 뷰포트에 반영되지 않아 우회했다).
+- 검증(1차): 공개 화면은 375·390·393·430·1440px, 인증 경로는 375·430px에서 가로 overflow 0을 확인했다.
   375px의 홈·browse·shop·sell에서 보이는 버튼과 링크는 모두 44×44px 이상이다. `tsc --noEmit`, build,
-  `git diff --check`는 통과했다. 전체 lint는 작업 전부터 존재한 22 errors·93 warnings로 실패했다.
-- 남은 배포 검증: 실제 BUYER·SELLER 인증과 유효 상품 ID로 mypage, detail, edit의 데이터 로드 완료 화면을
-  Vercel 배포 환경에서 확인한다.
+  `git diff --check`는 통과했다. 전체 lint는 작업 전부터 존재한 22 errors·93 warnings로 실패했다(2차
+  변경 파일 기준으로도 동일 baseline 유지, 신규 lint 위반 없음).
+- 검증(2차, 배포 사이트 E2E): `https://prompthub-fe.vercel.app`에 실제 로그인된 SELLER 세션으로 홈·
+  browse·detail·mypage·shop·sell·edit·Header를 375px 뷰포트에서 직접 확인했다.
+  - PASS: 홈·browse·detail·mypage·shop 전 구간 `scrollWidth` 초과 없음. Header 모바일 아이콘(햄버거·
+    장바구니·알림) 정상 노출, 햄버거 패널 안 검색창 정상 렌더링(overflow 없음, `aria-expanded` 반영).
+    edit/detail 뒤로가기 버튼 실측 44px, detail 체크리스트 그리드 1열, sell/edit 이미지 업로드 그리드
+    2열, shop 통계 카드 2열 모두 확인.
+  - FAIL(신규 발견): sell·edit 페이지의 "태그" 입력 행(`app/sell/page.tsx:321`,
+    `app/edit/[id]/page.tsx:417` — `<form style={{display:'flex',gap:8}}>`로 감싼 입력 필드가
+    `flex:1`이지만 래핑 `<div>`에 `minWidth:0`이 없어 375px에서 "추가" 버튼이 11px 화면 밖으로 밀려
+    가로 스크롤 발생. 실측 `scrollWidth=367 > clientWidth=356`.
+  - 미해결로 남아있던 것 확인(기존에 "의심"으로 분류): Header 장바구니 팝오버가 375px에서 좌측으로
+    실제 잘림 확인(`x=-30`, 팝오버 폭 320px 중 30px가 화면 밖). "장바구니" 제목 텍스트의 "장" 글자가
+    잘려 보임.
+  - mypage 프로필 카드 오버플로우 수정은 테스트 계정 이메일이 짧아(`kim.1104@daum.net`) 실사용 조건에서
+    재현·검증하지 못했다(코드 검토로만 확인).
+- 실제 구현(3차, `885f3a9`): 2차 E2E에서 발견한 결함 2종을 수정했다 — sell/edit 태그 입력 행은 감싸는
+  `<div style={{flex:1}}>`에 `minWidth:0`을 추가해 375px에서 "추가" 버튼이 더 이상 화면 밖으로 밀리지
+  않게 했다. Header 카트·알림 팝오버(`Pop` 컴포넌트)는 모바일에서 트리거 아이콘 기준 절대좌표 대신
+  `position:fixed`로 뷰포트 우측(`right-4`)에 고정해 어느 아이콘에서 열리든 화면 밖으로 잘리지 않게
+  했다(데스크톱은 `md:` 분기로 기존 동작 그대로 유지).
+- 검증(3차, 배포 사이트 재확인): `885f3a9` 배포 후 동일한 SELLER 세션·375px 뷰포트로 재확인했다.
+  sell/edit 태그 입력 행 모두 `scrollWidth == clientWidth`로 오버플로우 요소 0개, Header 장바구니
+  팝오버는 `x:20~340`으로 완전히 화면 안에 들어오고 "장바구니" 제목이 안 잘린다. 알림 팝오버도 같은
+  코드 경로라 함께 확인했고 정상. 데스크톱 헤더 레이아웃 회귀 없음.
+- 남은 배포 검증: 없음 — 3차 수정까지 전부 배포 사이트에서 재확인 완료. mypage 프로필 카드 오버플로우
+  방지 코드만 테스트 계정 이메일이 짧아 실사용 조건 재현을 못 했고(코드 검토로만 확인), 그 외 알려진
+  잔여 결함은 없다.
 - Quality: 기능·데이터 흐름·화면 구성·색상·타이포그래피를 바꾸지 않고 Tailwind 반응형 클래스만 사용했다.
   전역 CSS 우회와 신규 의존성은 추가하지 않았다.
 - 현재 상태: `IMPLEMENTED · PR_PENDING`.
