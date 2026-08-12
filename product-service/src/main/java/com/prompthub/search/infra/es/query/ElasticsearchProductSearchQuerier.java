@@ -20,6 +20,7 @@ import com.prompthub.search.infra.es.config.ProductIndexBootstrap;
 import com.prompthub.search.infra.es.indexing.ProductSearchDocument;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,14 +35,6 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class ElasticsearchProductSearchQuerier implements ProductSearchQueryPort {
-
-	/**
-	 * 하이브리드는 이 정렬에서만 돈다.
-	 *
-	 * <p>{@code rating}·{@code price-asc}는 값 기준 정렬이라 순서가 그 필드로 완전히 결정된다.
-	 * 두 레그를 섞어도 정렬이 덮어써서 병합이 무의미하고 외부 API 호출만 낭비된다.
-	 */
-	private static final String HYBRID_SORT = ProductSearchQueryBuilder.SORT_POPULAR;
 
 	/**
 	 * 두 레그에서 각각 가져와 병합할 문서 수.
@@ -60,7 +53,7 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryPort
 	public ProductSearchPageResult search(String keyword, String productType, String sort, Pageable pageable) {
 		// 유형 단어("주식 프롬프트"의 "프롬프트")를 필터로 옮긴 뒤 남은 단어로 두 레그를 돌린다(#689).
 		SearchKeywordTypeParser.Parsed parsed = SearchKeywordTypeParser.parse(keyword, productType);
-		if (shouldTryHybrid(parsed.keyword(), sort, pageable)) {
+		if (shouldTryHybrid(parsed.keyword(), pageable)) {
 			float[] queryVector = queryEmbeddingCache.get(parsed.keyword());
 			if (queryVector != null) {
 				return hybridSearch(parsed.keyword(), parsed.productType(), sort, pageable, queryVector);
@@ -69,10 +62,9 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryPort
 		return lexicalSearch(queryBuilder.build(parsed.keyword(), parsed.productType(), sort, pageable));
 	}
 
-	private boolean shouldTryHybrid(String keyword, String sort, Pageable pageable) {
+	private boolean shouldTryHybrid(String keyword, Pageable pageable) {
 		return keyword != null
 			&& !keyword.isBlank()
-			&& HYBRID_SORT.equals(sort)
 			&& pageable.getOffset() + pageable.getPageSize() <= FUSION_WINDOW;
 	}
 
@@ -100,7 +92,8 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryPort
 	private ProductSearchPageResult hybridSearch(
 		String keyword, String productType, String sort, Pageable pageable, float[] queryVector
 	) {
-		SearchRequest lexical = queryBuilder.build(keyword, productType, sort, 0, FUSION_WINDOW);
+		SearchRequest lexical = queryBuilder.build(
+			keyword, productType, ProductSearchQueryBuilder.SORT_POPULAR, 0, FUSION_WINDOW);
 		SearchRequest semantic = queryBuilder.buildKnn(queryVector, productType, FUSION_WINDOW);
 
 		try {
@@ -126,7 +119,8 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryPort
 			List<UUID> semanticRanking = collect(semanticResult, documents);
 
 			List<UUID> fused = ReciprocalRankFusion.fuse(lexicalRanking, semanticRanking);
-			List<ProductSearchHit> page = slice(fused, pageable).stream()
+			List<UUID> orderedCandidates = orderCandidates(fused, documents, sort);
+			List<ProductSearchHit> page = slice(orderedCandidates, pageable).stream()
 				.map(documents::get)
 				.filter(Objects::nonNull)
 				.map(this::toHit)
@@ -136,6 +130,29 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryPort
 		} catch (IOException | ElasticsearchException exception) {
 			throw new ProductSearchUnavailableException("ES 하이브리드 검색에 실패했습니다.", exception);
 		}
+	}
+
+	private List<UUID> orderCandidates(
+		List<UUID> fused, Map<UUID, ProductSearchDocument> documents, String sort
+	) {
+		Comparator<ProductSearchDocument> comparator = switch (sort) {
+			case ProductSearchQueryBuilder.SORT_RATING -> Comparator
+				.comparingDouble(ProductSearchDocument::ratingAvg).reversed()
+				.thenComparing(ProductSearchDocument::familyRootId);
+			case ProductSearchQueryBuilder.SORT_PRICE_ASC -> Comparator
+				.comparingInt(ProductSearchDocument::amount)
+				.thenComparing(ProductSearchDocument::familyRootId);
+			default -> null;
+		};
+		if (comparator == null) {
+			return fused;
+		}
+		return fused.stream()
+			.map(documents::get)
+			.filter(Objects::nonNull)
+			.sorted(comparator)
+			.map(ProductSearchDocument::familyRootId)
+			.toList();
 	}
 
 	private MultiSearchItem<ProductSearchDocument> resultOf(

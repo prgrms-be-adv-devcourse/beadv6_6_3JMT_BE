@@ -47,8 +47,8 @@ public class ProductSearchQueryBuilder {
 	private static final String MINIMUM_SHOULD_MATCH = "2<75%";
 	private static final String ALL_PRODUCT_TYPES = "all";
 	static final String SORT_POPULAR = "popular";
-	private static final String SORT_RATING = "rating";
-	private static final String SORT_PRICE_ASC = "price-asc";
+	static final String SORT_RATING = "rating";
+	static final String SORT_PRICE_ASC = "price-asc";
 
 	/**
 	 * 의미 기반 레그가 문서를 후보로 올리는 코사인 유사도 하한.

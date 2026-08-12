@@ -127,6 +127,7 @@ score = 100 − 5×High − 2×Medium − 0.5×Low
 | I-8 | ProductSellerService 슬림화 + 응답 DTO의 S3 직접 호출 제거 | `refactor` | +3 | |
 | I-9 | 잔여 소소한 정리 | `chore` | +2.5 | |
 | I-10 | PR4 품질 재검증 잔여 부채 — 예외 규율·타임아웃·응답 DTO 값객체 | `refactor` | +18 | |
+| I-11 | 검색어+정렬(rating·price-asc) 조합에서 결과 소실 — 하이브리드 후보 확장이 popular 정렬에만 적용됨 | `fix` | 채점 외(기능 결함) | #733 |
 
 ---
 
@@ -1557,6 +1558,45 @@ tags = tags == null ? List.of() : List.copyOf(tags);
 유형별 필드 조합은 여전히 `P007`인지, 원본 image/tag list를 생성 후 수정해도 ProductContent 값이
 바뀌지 않는지 확인한다. 테스트 fixture까지 전부 기계적으로 바꾸지는 않고 가독성이 필요한 production
 조립부와 대표 fixture부터 적용한다.
+
+### I-11 · 검색어 + 정렬(rating·price-asc) 조합에서 결과 소실 — `fix` — 채점 외(기능 결함)
+
+PR 6(#731) FE 회귀 확인의 홈·browse 검색 및 정렬 항목을 실측하는 과정에서 발견했다. 로컬 검증 데이터에서
+`sort=rating`으로 "이력서 작성"을 검색하면 popular·price-asc는 10건, rating은 0건을 반환했고,
+"코드 리뷰"는 4건에서 2건으로 줄었다.
+
+원인은 하이브리드 검색을 도입한 커밋 `b6f54a4b`(#378)부터 존재한 기존 결함이며 PR 6은 이 파일을
+패키지 재구성 과정에서 옮겼을 뿐 해당 로직을 변경하지 않았다. `ElasticsearchProductSearchQuerier`의
+하이브리드 실행 조건이 `SORT_POPULAR`로 고정돼 있어 검색어가 있더라도 rating·price-asc 정렬은
+`lexicalSearch`만 실행한다. 이 때문에 텍스트로 약하게 매칭되거나 `minimumShouldMatch("2<75%")`를
+충족하지 못한 문서가 의미 기반 KNN 후보 확장에 포함되지 못한다. 기존 주석은 값 정렬에서 하이브리드
+병합 순서가 무의미하다고 설명하지만, 하이브리드 검색은 순서뿐 아니라 후보 집합도 확장한다.
+
+영향 범위는 rating과 price-asc 정렬이다. 이번 실측에서는 rating에서만 결과 소실이 드러났지만 두 정렬이
+동일한 하이브리드 실행 조건을 사용하므로 함께 수정하고 검증한다. 수정은 구현 방식을 미리 고정하지 않고,
+검색어가 있는 정렬 요청에서도 lexical·KNN 후보 확장을 보존한 뒤 요청한 정렬과 명시적인 동점 기준을
+적용하는 것을 목표로 한다.
+
+현재 `ProductSearchQueryBuilderTest`와 `ElasticsearchProductSearchQuerierTest`에는 고정된 검색 fixture로
+정렬별 후보 집합과 total을 비교하는 회귀 검증이 없다. 수정 시 다음을 확인한다.
+
+- popular·rating·price-asc가 동일한 후보 상품 집합과 total을 반환한다.
+- 각 응답은 요청한 정렬 기준과 명시적인 tie-breaker를 따른다.
+- 평점이 없거나 가격이 같은 상품에서도 결과가 결정적이며, 페이지네이션 중 중복·누락이 없다.
+
+#### I-11 구현 결과
+
+- 실제 구현: 검색어가 있고 fusion window 안이면 popular·rating·price-asc 모두 동일한 relevance 기반
+  lexical 후보와 KNN 후보를 확장한다. popular는 기존 RRF 순서를 유지하고, rating은 평점 내림차순,
+  price-asc는 가격 오름차순으로 병합 후보를 최종 정렬한다. 두 값 정렬의 동점 기준은 `familyRootId`
+  오름차순이다.
+- 설계 차이: 후보 집합과 total을 세 정렬 간 직접 비교하는 단일 fixture 대신, rating·price-asc 각각에서
+  lexical 전용 후보와 semantic 전용 후보가 함께 포함되고 요청한 값 순서로 반환되는 통합 회귀 테스트로
+  핵심 결함을 고정했다. 기존 primitive 필드와 Elasticsearch 값 정렬 정책은 변경하지 않았다.
+- 검증: focused 단위·통합 테스트, `:product-service:test`, `git diff --check` 통과.
+- Quality: `ponytail`과 `write-readable-code` 기준으로 기존 query adapter 안에서 최소 변경했으며 새 계층이나
+  의존성을 추가하지 않았다. 전체 diff 검토에서 범위 밖 기능 변경과 보안·아키텍처 위반은 발견되지 않았다.
+- 현재 상태: `IMPLEMENTED · PR_PENDING`.
 
 #### PR 7 구현 인계 — 죽은 응답·유형별 산출물·값 객체 소규모 정리(I-3 + I-5 + I-9)
 
