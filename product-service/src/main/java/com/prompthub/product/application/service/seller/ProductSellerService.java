@@ -1,7 +1,9 @@
 package com.prompthub.product.application.service.seller;
 
+import com.prompthub.product.application.service.inspection.ProductInspectionRequestPublisher;
 import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
 import com.prompthub.product.application.service.fileupload.TempFilePromoter;
+import com.prompthub.product.application.usecase.inspection.ProductEventPublisher;
 import com.prompthub.product.application.usecase.seller.ProductSellerUseCase;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.ProductFamily;
@@ -13,7 +15,6 @@ import com.prompthub.product.domain.model.vo.ProductContent;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
-import com.prompthub.product.infra.messaging.producer.ProductEventProducer;
 import com.prompthub.product.presentation.dto.request.product.ProductCreateRequest;
 import com.prompthub.product.presentation.dto.request.product.ProductUpdateRequest;
 import com.prompthub.product.presentation.dto.response.product.ProductCountResponse;
@@ -27,6 +28,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -40,7 +42,10 @@ public class ProductSellerService implements ProductSellerUseCase {
 	private static final ProductType DEFAULT_PRODUCT_TYPE = ProductType.PROMPT;
 
 	private final ProductRepository productRepository;
-	private final ProductEventProducer productEventProducer;
+	private final ProductEventPublisher productEventPublisher;
+	private final ProductInspectionRequestPublisher productInspectionRequestPublisher;
+	private final ProductVersionChangePolicy versionChangePolicy;
+	private final ProductVersionTransitionService versionTransition;
 	private final ObjectStorageGateway objectStorage;
 	private final TempFilePromoter tempFilePromoter;
 
@@ -63,7 +68,7 @@ public class ProductSellerService implements ProductSellerUseCase {
 		Product product = Product.create(productId, sellerId, content);
 
 		Product saved = productRepository.save(product);
-		productEventProducer.publishProductChanged(saved.familyRootId());
+		productEventPublisher.publishProductChanged(saved.familyRootId());
 
 		return new ProductCreateResponse(
 			saved.getId(),
@@ -87,13 +92,13 @@ public class ProductSellerService implements ProductSellerUseCase {
 		publishReviewRequestedEvent(product);
 	}
 
-	/** MAJOR 버전 전환으로 PENDING_REVIEW가 되는 모든 경로(submitForReview, MAJOR 수정)가 공유한다. */
+	/**
+	 * MAJOR 버전 전환으로 PENDING_REVIEW가 되는 모든 경로(submitForReview, MAJOR 수정)가 공유한다.
+	 * snapshot 조립은 최초 요청과 stale 재발행이 같은 계약을 쓰도록
+	 * {@link ProductInspectionRequestPublisher}로 단일화돼 있다.
+	 */
 	private void publishReviewRequestedEvent(Product product) {
-		UUID duplicateOfProductId = findOriginalProductIdByContentHash(product);
-		String presignedThumbnailUrl = createDownloadUrl(product.getThumbnailUrl());
-		List<String> presignedImageUrls = createDownloadUrls(product.getImageUrls());
-		productEventProducer.publishReviewRequested(
-			product, duplicateOfProductId, presignedThumbnailUrl, presignedImageUrls);
+		productInspectionRequestPublisher.publish(product);
 	}
 
 	@Override
@@ -115,19 +120,13 @@ public class ProductSellerService implements ProductSellerUseCase {
 			request.content(), request.fileObjectKey(), request.externalUrl(), request.tags());
 
 		if (anchor.getStatus() == ProductStatus.DRAFT) {
-			ProductContent stored = promoteToPath(request, anchor.getId(), sellerId, candidate);
-			anchor.updateDraftContent(stored);
-			productRepository.save(anchor);
-			return toResponse(anchor);
+			return updateContentInPlace(anchor, request, sellerId, candidate, anchor::updateDraftContent);
 		}
 
 		// 판매 후 반려된 row는 같은 version만 보정한다 — 새 row도, 기존 ON_SALE 교대도, 검수
 		// 요청 이벤트도 만들지 않는다. 재검수는 판매자가 submitForReview()를 별도로 호출해야 한다.
 		if (anchor.getStatus() == ProductStatus.REJECTED) {
-			ProductContent stored = promoteToPath(request, anchor.getId(), sellerId, candidate);
-			anchor.updateRejectedContent(stored);
-			productRepository.save(anchor);
-			return toResponse(anchor);
+			return updateContentInPlace(anchor, request, sellerId, candidate, anchor::updateRejectedContent);
 		}
 
 		if (anchor.getStatus() != ProductStatus.ON_SALE) {
@@ -139,36 +138,34 @@ public class ProductSellerService implements ProductSellerUseCase {
 		Product onSale = family.currentOnSale()
 			.orElseThrow(() -> new ProductException(ProductErrorCode.PRODUCT_INVALID_STATUS));
 
-		Optional<ProductVersionType> versionType = onSale.determineVersionType(candidate);
+		// 판정(no-op·changeReason·MAJOR 중복 대기 검증)은 policy가, 실제 반영(row 생성·저장·발행)은
+		// transition이 맡는다 — 여기는 둘을 순서대로 호출하는 오케스트레이션만 한다.
+		Optional<ProductVersionType> versionType =
+			versionChangePolicy.decideVersionChange(onSale, candidate, family, request.changeReason());
 		if (versionType.isEmpty()) {
 			return toResponse(onSale);
-		}
-		if (request.changeReason() == null || request.changeReason().isBlank()) {
-			throw new ProductException(ProductErrorCode.INVALID_INPUT_VALUE);
-		}
-		if (versionType.get() == ProductVersionType.MAJOR && family.pendingReview().isPresent()) {
-			throw new ProductException(ProductErrorCode.PRODUCT_INVALID_STATUS);
 		}
 
 		UUID nextProductId = UUID.randomUUID();
 		ProductContent stored = promoteToPath(request, nextProductId, sellerId, candidate);
-		Product next = onSale.createNextVersion(nextProductId, versionType.get(), stored, request.changeReason());
-
-		if (versionType.get() == ProductVersionType.PATCH) {
-			onSale.supersede();
-			productRepository.save(onSale);
-			productRepository.save(next);
-			productEventProducer.publishProductChanged(familyRootId);
-		} else {
-			productRepository.save(next);
-			publishReviewRequestedEvent(next);
-		}
+		Product next = versionTransition.transitionToNextVersion(
+			onSale, nextProductId, versionType.get(), stored, request.changeReason(), familyRootId);
 
 		if (onSale.getAmount() != request.amount()) {
-			productEventProducer.publishPriceChanged(productId, onSale.getAmount(), request.amount());
+			productEventPublisher.publishPriceChanged(productId, onSale.getAmount(), request.amount());
 		}
 
 		return toResponse(next);
+	}
+
+	/** DRAFT·REJECTED 공통 — 같은 row·같은 version에서 콘텐츠만 보정한다. 상태별 불변식 검증은 applyContent가 맡는다. */
+	private ProductUpdateResponse updateContentInPlace(
+		Product anchor, ProductUpdateRequest request, UUID sellerId, ProductContent candidate, Consumer<ProductContent> applyContent
+	) {
+		ProductContent stored = promoteToPath(request, anchor.getId(), sellerId, candidate);
+		applyContent.accept(stored);
+		productRepository.save(anchor);
+		return toResponse(anchor);
 	}
 
 	/** 새 temp key만 대상 경로로 복사한다. 기존 영구 key는 promote()가 그대로 통과시킨다. */
@@ -206,9 +203,9 @@ public class ProductSellerService implements ProductSellerUseCase {
 		productRepository.save(product);
 
 		if (isDraft) {
-			productEventProducer.publishDeleted(productId);
+			productEventPublisher.publishDeleted(productId);
 		} else {
-			productEventProducer.publishStopped(productId);
+			productEventPublisher.publishStopped(productId);
 		}
 	}
 
@@ -222,8 +219,11 @@ public class ProductSellerService implements ProductSellerUseCase {
 		return byFamily.entrySet().stream()
 			.map(entry -> {
 				ProductFamily family = ProductFamily.of(entry.getKey(), entry.getValue());
+				// family에 대표 row가 없는 건 클라이언트 요청 문제가 아니라 데이터 정합성 위반이다.
+				// 원인 파악을 위해 familyRootId를 메시지에 남기고, HTTP 응답은 409로 통일한다.
 				Product representative = family.currentForSeller()
-					.orElseThrow(() -> new IllegalStateException("family에 대표 row가 없습니다. familyRootId=" + entry.getKey()));
+					.orElseThrow(() -> new ProductException(
+						ProductErrorCode.PRODUCT_INVALID_STATUS, "family에 대표 row가 없습니다. familyRootId=" + entry.getKey()));
 				int familySalesCount = entry.getValue().stream().mapToInt(Product::getSalesCount).sum();
 				double averageRating = averageRatings.getOrDefault(entry.getKey(), 0.0);
 				return SellerProductListItemResponse.from(
@@ -290,15 +290,5 @@ public class ProductSellerService implements ProductSellerUseCase {
 		}
 
 		return product;
-	}
-
-	/** PROMPT가 아니면 content_hash가 없어 비교 대상이 아니다(ADR-0011). */
-	private UUID findOriginalProductIdByContentHash(Product product) {
-		if (product.getContentHash() == null) {
-			return null;
-		}
-		return productRepository
-			.findDuplicateOfProductId(product.getId(), product.getContentHash(), product.getSellerId())
-			.orElse(null);
 	}
 }

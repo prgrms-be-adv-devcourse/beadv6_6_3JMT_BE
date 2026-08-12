@@ -173,6 +173,17 @@ public class ProductRepositoryAdapter implements ProductRepository {
 		return productJpaRepository.findDuplicateOfProductId(productId, contentHash, sellerId);
 	}
 
+	@Override
+	public List<UUID> findStaleInspectionRequestCandidateIds(LocalDateTime cutoff, int batchSize) {
+		return productJpaRepository.findStaleInspectionRequestCandidateIds(cutoff, batchSize);
+	}
+
+	@Override
+	@Transactional
+	public boolean claimInspectionRequestRetry(UUID productId, LocalDateTime cutoff) {
+		return productJpaRepository.claimInspectionRequestRetry(productId, cutoff);
+	}
+
 	/** {@link #toVectorLiteral}의 역변환. 우리 시스템이 쓴 값을 그대로 읽는 왕복이라 별도 검증은 두지 않는다. */
 	private float[] fromVectorLiteral(String literal) {
 		String[] parts = literal.substring(1, literal.length() - 1).split(",");

@@ -81,4 +81,14 @@ public interface ProductRepository {
 	 * 아니다 — 무해한 재편집으로는 순서가 밀리지 않는다.
 	 */
 	Optional<UUID> findDuplicateOfProductId(UUID productId, String contentHash, UUID sellerId);
+
+	/** stale-after를 넘긴 검수 요청 재발행 후보 ID를 오래 대기한 순으로 최대 batchSize개 돌려준다. */
+	List<UUID> findStaleInspectionRequestCandidateIds(LocalDateTime cutoff, int batchSize);
+
+	/**
+	 * 조건(PENDING_REVIEW·retryCount=0·cutoff 이전·미삭제)을 만족하는 상품 하나를 원자적으로
+	 * 선점한다. 조회 후 별도 저장 방식이 아니라 조건부 UPDATE라, 같은 상품을 여러 인스턴스가
+	 * 동시에 집어도 영향 row가 1인 실행만 true를 받는다.
+	 */
+	boolean claimInspectionRequestRetry(UUID productId, LocalDateTime cutoff);
 }

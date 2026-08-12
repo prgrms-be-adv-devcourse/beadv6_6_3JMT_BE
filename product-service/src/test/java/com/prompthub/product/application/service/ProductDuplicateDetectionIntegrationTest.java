@@ -1,5 +1,8 @@
 package com.prompthub.product.application.service;
 import com.prompthub.product.application.service.seller.ProductSellerService;
+import com.prompthub.product.application.service.inspection.ProductInspectionRequestPublisher;
+import com.prompthub.product.application.service.seller.ProductVersionChangePolicy;
+import com.prompthub.product.application.service.seller.ProductVersionTransitionService;
 
 import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -10,12 +13,12 @@ import static org.mockito.Mockito.never;
 
 import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
 import com.prompthub.product.application.service.fileupload.TempFilePromoter;
+import com.prompthub.product.application.usecase.inspection.ProductEventPublisher;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.vo.ProductContent;
 import com.prompthub.product.domain.model.vo.ProductContentHash;
 import com.prompthub.product.domain.repository.ProductRepository;
-import com.prompthub.product.infra.messaging.producer.ProductEventProducer;
 import com.prompthub.product.infra.persistence.query.ProductJpaRepository;
 import com.prompthub.product.infra.persistence.query.ProductRepositoryAdapter;
 import com.prompthub.product.presentation.dto.request.product.ProductCreateRequest;
@@ -59,18 +62,25 @@ class ProductDuplicateDetectionIntegrationTest extends PostgresIntegrationTestSu
 	private EntityManager entityManager;
 
 	private ProductRepository productRepository;
-	private ProductEventProducer productEventProducer;
+	private ProductEventPublisher productEventPublisher;
 	private ObjectStorageGateway objectStorage;
 	private ProductSellerService productSellerService;
 
 	@BeforeEach
 	void setUp() {
 		// Spring이 아니라 순수 자바 조립 — Kafka·전체 컨텍스트 부팅 없이 실제 리포지토리 배선만 검증한다.
+		// ProductInspectionRequestPublisher는 실제 인스턴스를 쓴다 — 이 테스트가 검증하는 중복 탐지
+		// 조회가 그 안에 있어, mock으로 바꾸면 검증 대상 자체가 사라진다.
 		productRepository = Mockito.spy(new ProductRepositoryAdapter(productJpaRepository));
-		productEventProducer = Mockito.mock(ProductEventProducer.class);
+		productEventPublisher = Mockito.mock(ProductEventPublisher.class);
 		objectStorage = Mockito.mock(ObjectStorageGateway.class);
+		ProductInspectionRequestPublisher productInspectionRequestPublisher =
+			new ProductInspectionRequestPublisher(productEventPublisher, productRepository, objectStorage);
 		productSellerService = new ProductSellerService(
-			productRepository, productEventProducer, objectStorage, new TempFilePromoter(objectStorage));
+			productRepository, productEventPublisher, productInspectionRequestPublisher,
+			new ProductVersionChangePolicy(),
+			new ProductVersionTransitionService(productRepository, productEventPublisher, productInspectionRequestPublisher),
+			objectStorage, new TempFilePromoter(objectStorage));
 	}
 
 	@Test
@@ -97,7 +107,7 @@ class ProductDuplicateDetectionIntegrationTest extends PostgresIntegrationTestSu
 			productSellerService.submitForReview(sellerB, productBId);
 
 			ArgumentCaptor<UUID> duplicateCaptor = ArgumentCaptor.forClass(UUID.class);
-			then(productEventProducer).should().publishReviewRequested(
+			then(productEventPublisher).should().publishReviewRequested(
 				any(Product.class), duplicateCaptor.capture(), any(), any());
 			assertThat(duplicateCaptor.getValue()).isEqualTo(productAId);
 		} finally {
@@ -125,7 +135,7 @@ class ProductDuplicateDetectionIntegrationTest extends PostgresIntegrationTestSu
 
 			productSellerService.submitForReview(seller, product2Id);
 
-			then(productEventProducer).should().publishReviewRequested(
+			then(productEventPublisher).should().publishReviewRequested(
 				any(Product.class), isNull(), any(), any());
 		} finally {
 			cleanUp(product1Id, product2Id);
@@ -154,7 +164,7 @@ class ProductDuplicateDetectionIntegrationTest extends PostgresIntegrationTestSu
 
 			productSellerService.submitForReview(sellerB, productBId);
 
-			then(productEventProducer).should().publishReviewRequested(
+			then(productEventPublisher).should().publishReviewRequested(
 				any(Product.class), isNull(), any(), any());
 		} finally {
 			cleanUp(productAId, productBId);
@@ -173,7 +183,7 @@ class ProductDuplicateDetectionIntegrationTest extends PostgresIntegrationTestSu
 			productSellerService.submitForReview(seller, productId);
 
 			then(productRepository).should(never()).findDuplicateOfProductId(any(), any(), any());
-			then(productEventProducer).should().publishReviewRequested(
+			then(productEventPublisher).should().publishReviewRequested(
 				any(Product.class), isNull(), any(), any());
 		} finally {
 			cleanUp(productId, null);

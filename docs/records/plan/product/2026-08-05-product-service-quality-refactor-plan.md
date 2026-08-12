@@ -109,6 +109,7 @@ score = 100 − 5×High − 2×Medium − 0.5×Low
 | PR 5 | ES scheduler-only 정합성(I-2) |
 | PR 6 | 상품 조회 가독성·집계 성능(I-7) |
 | PR 7 | 독립 소규모 정리(I-3 + I-5 + I-9) |
+| PR 8 | PR4 품질 재검증에서 드러난 잔여 부채 정리(I-10) |
 
 ---
 
@@ -116,7 +117,7 @@ score = 100 − 5×High − 2×Medium − 0.5×Low
 
 | ID | 제목 | 타입 | 점수 | 이슈 |
 | --- | --- | --- | --- | --- |
-| I-1 | Kafka 발행 실패가 조용히 사라진다 | `fix` | +7 | |
+| I-1 | Kafka 발행 실패가 조용히 사라진다 | `fix` | +7 | #722 |
 | I-2 | ES 색인이 실패를 숨긴다 | `fix` | +9 | |
 | I-3 | 응답에 값이 절대 안 들어가는 필드 3개 | `refactor` | +6 | |
 | I-4 | 업로드 정책이 컨트롤러에 있고 S3 키 파싱이 중복 | `refactor` | +6 | |
@@ -125,6 +126,7 @@ score = 100 − 5×High − 2×Medium − 0.5×Low
 | I-7 | ProductQueryService 가독성 + 집계 쿼리 개선 | `refactor` | +4 | **#411 재범위화** |
 | I-8 | ProductSellerService 슬림화 + 응답 DTO의 S3 직접 호출 제거 | `refactor` | +3 | |
 | I-9 | 잔여 소소한 정리 | `chore` | +2.5 | |
+| I-10 | PR4 품질 재검증 잔여 부채 — 예외 규율·타임아웃·응답 DTO 값객체 | `refactor` | +18 | |
 
 ---
 
@@ -328,6 +330,52 @@ FE 코드 변경은 없지만, 회귀 확인에서 검수 요청 후 대기/승�
 - 제외: Outbox, 무제한 retry, 수동 event replay API, ai-service 수정, 검수 회차 correlation, API/FE 변경,
   PR 5의 검색 이벤트 삭제.
 - 수용 기준: 위 필수 테스트와 보장 범위 표를 그대로 사용한다.
+
+##### 실제 구현 결과 (2026-08-11) — `IMPLEMENTED · PR_PENDING`
+
+이슈 #722, 브랜치 `feat/#722-kafka-inspection-request-observability-retry`(최신 `develop` 기준). 아직
+commit·push·PR은 하지 않았다 — 구현·테스트만 완료된 상태.
+
+**네이밍 차이**: 인계 초안의 `review*`(`reviewRequestedAt`·`ProductReviewRequestRetryScheduler`)를
+전부 `inspection*`으로 바꿨다. 코드베이스에 이미 고객 리뷰용 `Review` 엔티티와 AI 검수용
+`ProductInspectionResultHandler`/`InspectionChecklist`가 공존해, `review`를 그대로 쓰면 이름이
+충돌한다. 최종: `Product.inspectionRequestedAt`/`inspectionRequestRetryCount`,
+`ProductInspectionRequestPublisher`/`RetryService`/`RetryScheduler`. `PRODUCT_REVIEW_REQUESTED`
+Kafka eventType 등 기존 wire 계약은 바꾸지 않았다.
+
+**구현 범위**: 인계 문서 그대로 — `ProductEventPublisher` 포트(`application/usecase`) +
+`ProductEventProducer` 구현체에 send future 완료 콜백(성공 debug/실패 error, payload 미포함) 추가.
+`V11__add_product_inspection_request_retry_metadata.sql`로 `inspection_requested_at`·
+`inspection_request_retry_count` 컬럼 추가. `Product.startInspectionRequest()`가
+`submitForReview()`·`createNextVersion(MAJOR)`에서 새 검수 회차를 기록한다(`updatedAt` 재사용 안 함).
+`ProductInspectionRequestPublisher`가 최초/재발행 snapshot 조립(중복 탐지+presign)을 단일화.
+`ProductInspectionRequestRetryScheduler`(`@ConfigurationProperties` 기반
+`fixed-delay-ms`/`stale-after`/`batch-size`)가 stale 후보를 조회하고, `ProductInspectionRequestRetryService`가
+개별 트랜잭션에서 `ProductJpaRepository`의 조건부 UPDATE(`claimInspectionRequestRetry`)로 1회
+선점 후 재발행한다.
+
+**설계 차이 — ProductSellerService 리팩토링 동시 진행**: 구현 도중 사용자가 PR1~PR3 누적으로
+`ProductSellerService`가 이미 300 LOC(304줄)를 넘었고 `updateProduct()`가 73줄(50 LOC 긴 메서드
+기준 초과)이라는 점을 지적해, PR4 범위를 Kafka 기능에 더해 이 부채 해소까지 확장했다(원 인계
+문서에는 없던 결정). `ProductVersionChangePolicy`(no-op·changeReason·MAJOR 중복 대기 판정)와
+`ProductVersionTransitionService`(새 버전 row 생성·저장·이벤트 발행)를 분리하고, DRAFT/REJECTED
+in-place 수정 중복도 `updateContentInPlace()`로 합쳤다. 결과: `ProductSellerService` 304→289줄,
+메서드 수 15→15(동일, `findOriginalProductIdByContentHash` 제거+`updateContentInPlace` 추가로 상쇄),
+`updateProduct()` 73→약 52줄(주석 포함)로 협력 객체 위임만 남았다. CodeFlow 배지(`.github/codeflow-card.json`)는
+2026-07-15 커밋 기준으로 PR1~4 전부를 반영하지 못해 이번 비교에서 배제하고 git diff 직접 측정만 썼다.
+
+**검증 결과**: `:product-service:test` 437개 전부 통과(신규 테스트 약 30개 포함 — Product 도메인
+검수 회차 기록, ProductEventProducer 콜백 로깅(success/failure/null-future), ProductInspectionRequestPublisher,
+ProductInspectionRequestRetryService, ProductVersionChangePolicy, ProductVersionTransitionService,
+ProductInspectionRequestRetryScheduler 단위 테스트와 ProductJpaRepositoryTest의 실제 Postgres 기반
+조건부 UPDATE 동시 선점 재현). 기존 baseline 실패는 없었다(develop 기준 이 브랜치 이전에 실패하던
+테스트 없음). FE는 API·이벤트 계약을 바꾸지 않아 코드 변경이 없으므로 FE lint/build는 실행하지
+않았다 — 필요해지면 회귀 확인은 검수 요청 대기/승인·반려 화면 흐름 수동 확인으로 별도 진행한다.
+
+**남은 후속 과제(이번에 해결하지 않음)**: `Product.java`의 도메인 상태 전이 메서드 전반이 여전히
+범용 `IllegalStateException`을 던진다(`domain-model.md`/`controller-exception.md` §2-4가 권장하는
+전용 도메인 예외가 아님) — PR3 이전부터 있던 저장소 전반의 기존 패턴이라 이번 PR 파일 경계 밖으로
+남겨둔다. Kafka 검색 이벤트 정리(PR 5)와 `ProductQueryService` 가독성(PR 6, I-7)도 그대로 계획대로 남아 있다.
 
 ---
 
@@ -3294,3 +3342,56 @@ I-1~I-5·I-7~I-9, 반려 major 재편집, 자동 버전 판정과 이번 분석�
   검토한다.
 - **후속 검토 후보**: 기존 DB의 카카오 프로필 URL 정리와 FE 표시 경계에서의 HTTPS 정규화다.
   user-service 변경 여부는 아직 확정하지 않는다.
+
+#### PR4 재검증 메모 (2026-08-11)
+
+- PR4 결함 수정 후 `:product-service:test` 전체 통과. 패키지 이동으로 깨진 테스트 참조도 함께 정리했다.
+- #723 패키지 구조를 적용해 application 기능별 하위 패키지, infra 관심사별 persistence/batch, presentation 기능별 controller로 정리했다.
+- FE는 변경 파일이 없으며 `npm run build`는 통과했다. `npm run lint`는 기존 FE 전역 오류 22건으로 실패했으며 PR4 회귀로 보지 않는다.
+- 현재 상태: `IMPLEMENTED · PR_PENDING`.
+
+---
+
+#### PR4 후속 구조·가독성 반영 메모 (2026-08-12)
+
+- `search/application`을 `query`, `indexing`, `embedding` 기능 패키지로 분리하고, `search/infra/es`를
+  `config`, `query`, `indexing`으로 나눴다. 검색 application은 product의 사용자 요청을 직접 받는 계층이
+  아니라 검색 기능을 제공하는 내부 모듈이므로 별도 `usecase/service` 계층은 추가하지 않았다.
+- 검색 경계 이름을 `ProductSearchQueryPort`, `ProductSearchIndexPort`로 명확히 하고, 이벤트 처리 클래스는
+  `ProductSearchEventProcessor`로 이름을 바꿨다. 이벤트 분기 메서드는 `routeProductEvent`·`routeRemovalEvent`,
+  family 색인 입력 조립 메서드는 `buildFamilyUpsertInput`으로 이름을 정리했다.
+- 이 구조와 이름 변경은 동작 변경이 아닌 패키지·명명 정리다. ES bulk item별 실패 검증과 회귀 테스트는
+  기존 PR4 변경으로 유지한다.
+- 검증: `:product-service:test` 전체 통과, `git diff --check` 통과.
+- 현재 상태: `IMPLEMENTED · PR_PENDING`.
+
+### I-10 · PR4 품질 재검증 잔여 부채 — 예외 규율·타임아웃·응답 DTO 값객체 — `refactor` — +18
+
+PR4 구현 완료 후 품질 재검증(2026-08-11, 오늘 게시된 35.0점 스냅샷의 findings 29건을 코드로
+재대조)에서 확인한 잔여 위반 중, PR5~PR7(I-2·I-3·I-5·I-7·I-9)의 기존 범위에 들지 않는 것만
+모은다. I-2·I-3·I-5·I-7·I-9와 겹치는 항목(ES bulk·alias·size(10000), 항상 null인 응답 필드,
+ProductType 분기, ProductQueryService 비대, ProductFamily 죽은 메서드 2개·`ProductContent`
+Builder)은 각자의 PR에 그대로 둔다.
+
+| 항목 | 위치 | 회복 |
+| --- | --- | --- |
+| ES 조회 실패를 광범위한 `catch (RuntimeException)`으로 감싸 RDB 폴백 | `ProductQueryService.java:66` | +2 |
+| "이미 처리된 이벤트" 판별이 범용 `IllegalStateException` catch에 의존 — 나중에 같은 타입의 다른 실패가 추가되면 조용히 중복으로 오판될 수 있다 | `ProductInspectionResultHandler.java:40`, `ProductInspectionResultConsumer.java:65` | +2 |
+| 공용 `ForkJoinPool`로 임베딩 조회, 동시 중복 요청을 막는 single-flight 장치 없음 | `QueryEmbeddingCache.java:71` | +2 |
+| S3/ES 클라이언트에 명시적 호출 타임아웃 없음 | `S3Config.java:14-19,21-26`, `ElasticsearchClientConfig.java:65-76` | +2 |
+| `ProductFamily.hasEverBeenOnSale()` — 테스트에서만 호출(I-9가 잡은 죽은 메서드 2개 외 3번째) | `ProductFamily.java:69` | +2 |
+| presign null-safe 래퍼 중복 — PR4에서 `ObjectStorageGateway.presignIfPresent()`로 2곳(`ProductSellerService`·`ProductInspectionRequestPublisher`)은 정리했지만 3곳이 남음 | `ProductQueryService.java`, `PurchasedProductQueryService.java`, `ProductGrpcService.java` | +2 |
+| 공개 조회 응답 DTO가 27필드(`ProductDetailResponse`)·15필드(`ProductListItemResponse`) 포지셔널 record 생성자 — I-9의 `ProductContent` Builder 적용과 별개 대상 | `ProductDetailResponse.java`, `ProductListItemResponse.java` | +2 |
+| `promoteKeys`/`promoteKey`가 호출부가 채우는 출력 파라미터(`List<String>`) 2개를 받는다 — `PromotionRecord(tempKey, permanentKey)` 값객체 리스트 반환으로 정리 가능 | `TempFilePromoter.java:70-102` | +2 |
+| `IllegalStateException`→409(`PRODUCT_INVALID_STATUS`) 일괄 매핑이 ES 인프라 장애(`ElasticsearchProductSearchIndexer` 4곳)까지 같은 상태로 위장시킨다 — `Product.java` 도메인 순수 예외 부재와 얽힌 문제라 과거 스냅샷에서도 "의도 미확인" 설계 질문으로만 남아 있었다 | `ProductExceptionHandler.java:33-44` | +2 |
+
+**제외한 것(범위 밖)**: `ProductQueryGrpcService`의 order/cart snapshot 빌더 중복은 order-service
+소비자 전환 완료까지 유지하기로 이미 결정된 의도된 과도기 상태다(`docs/records/plan/product-api.md`
+참고 — 임의로 정리하지 않는다). `ProductJpaRepository`의 JPQL 프로젝션 중복은 JPQL에 조각 공유
+수단이 마땅치 않은 구조적 제약에 가까워 별도 정리 대상으로 잡지 않는다.
+
+**검증**: `ProductQueryService`/검수 컨슈머 예외 케이스가 여전히 의도한 동작(ES 폴백, 중복
+이벤트 스킵)을 유지하는지, single-flight 도입 후 동시 동일 keyword 요청이 OpenAI 호출을 중복
+발생시키지 않는지, S3/ES 타임아웃 설정 후 정상 응답 시간 내 회귀가 없는지, 응답 DTO 필드 값이
+Builder 도입 전후 동일한지, `promoteKeys` 리팩토링 후 기존 파일 승격·보상 삭제 테스트가 그대로
+통과하는지 확인한다.

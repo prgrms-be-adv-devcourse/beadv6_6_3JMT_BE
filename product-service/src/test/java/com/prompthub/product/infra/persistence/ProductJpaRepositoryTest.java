@@ -281,6 +281,60 @@ class ProductJpaRepositoryTest extends PostgresIntegrationTestSupport {
 		TestTransaction.start();
 	}
 
+	// stale 재발행 조건부 UPDATE의 원자성 검증(2026-08-05 로드맵 PR4) — 두 실행이 같은 상품을
+	// 경쟁해도 발행 권리(claim)는 총 1회만 성립해야 한다. 실제 스레드 없이도 "먼저 커밋된 claim"
+	// 다음에 같은 조건으로 다시 claim을 시도하는 순서로 같은 경쟁 결과를 결정적으로 재현한다
+	// (ProductSellerServiceVersionConflictIntegrationTest와 같은 방식).
+	@Test
+	void claimInspectionRequestRetry_staleCandidate_claimsOnceAndSecondAttemptFails() {
+		LocalDateTime cutoff = LocalDateTime.now();
+		Product pending = product(null, ProductStatus.PENDING_REVIEW, (short) 1, (short) 0);
+		ReflectionTestUtils.setField(pending, "inspectionRequestedAt", cutoff.minusMinutes(11));
+		ReflectionTestUtils.setField(pending, "inspectionRequestRetryCount", 0);
+		productJpaRepository.saveAndFlush(pending);
+
+		boolean firstClaim = productJpaRepository.claimInspectionRequestRetry(pending.getId(), cutoff);
+		boolean secondClaim = productJpaRepository.claimInspectionRequestRetry(pending.getId(), cutoff);
+
+		assertThat(firstClaim).isTrue();
+		assertThat(secondClaim).isFalse();
+	}
+
+	@Test
+	void claimInspectionRequestRetry_notYetStale_doesNotClaim() {
+		LocalDateTime cutoff = LocalDateTime.now();
+		Product pending = product(null, ProductStatus.PENDING_REVIEW, (short) 1, (short) 0);
+		ReflectionTestUtils.setField(pending, "inspectionRequestedAt", cutoff.minusMinutes(1));
+		ReflectionTestUtils.setField(pending, "inspectionRequestRetryCount", 0);
+		productJpaRepository.saveAndFlush(pending);
+
+		boolean claimed = productJpaRepository.claimInspectionRequestRetry(pending.getId(), cutoff.minusMinutes(10));
+
+		assertThat(claimed).isFalse();
+	}
+
+	@Test
+	void findStaleInspectionRequestCandidateIds_returnsOnlyPendingReviewRetryZeroBeforeCutoff() {
+		// queryCutoff = 스케줄러가 넘기는 "now - staleAfter" 기준값. stale은 이 기준보다 이전에
+		// 요청됐고, fresh는 이 기준 이후(더 최근)에 요청됐다 — cutoff 자체를 기준 시각으로 겹쳐
+		// 쓰면 두 케이스를 구분하지 못한다.
+		LocalDateTime queryCutoff = LocalDateTime.now().minusMinutes(10);
+		Product stale = product(null, ProductStatus.PENDING_REVIEW, (short) 1, (short) 0);
+		ReflectionTestUtils.setField(stale, "inspectionRequestedAt", queryCutoff.minusMinutes(1));
+		Product fresh = product(null, ProductStatus.PENDING_REVIEW, (short) 1, (short) 0);
+		ReflectionTestUtils.setField(fresh, "inspectionRequestedAt", queryCutoff.plusMinutes(9));
+		Product alreadyRetried = product(null, ProductStatus.PENDING_REVIEW, (short) 1, (short) 0);
+		ReflectionTestUtils.setField(alreadyRetried, "inspectionRequestedAt", queryCutoff.minusMinutes(10));
+		ReflectionTestUtils.setField(alreadyRetried, "inspectionRequestRetryCount", 1);
+		Product notPending = product(null, ProductStatus.ON_SALE, (short) 1, (short) 0);
+		ReflectionTestUtils.setField(notPending, "inspectionRequestedAt", queryCutoff.minusMinutes(20));
+		productJpaRepository.saveAll(List.of(stale, fresh, alreadyRetried, notPending));
+
+		List<UUID> result = productJpaRepository.findStaleInspectionRequestCandidateIds(queryCutoff, 50);
+
+		assertThat(result).containsExactly(stale.getId());
+	}
+
 	private Product product(UUID parentId, ProductStatus status, short majorVersion, short patchVersion) {
 		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
 		ReflectionTestUtils.setField(product, "parentId", parentId);
