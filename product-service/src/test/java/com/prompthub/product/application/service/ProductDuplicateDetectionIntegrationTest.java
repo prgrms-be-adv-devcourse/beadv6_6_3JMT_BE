@@ -77,9 +77,9 @@ class ProductDuplicateDetectionIntegrationTest extends PostgresIntegrationTestSu
 		ProductInspectionRequestPublisher productInspectionRequestPublisher =
 			new ProductInspectionRequestPublisher(productEventPublisher, productRepository, objectStorage);
 		productSellerService = new ProductSellerService(
-			productRepository, productEventPublisher, productInspectionRequestPublisher,
+			productRepository, productInspectionRequestPublisher,
 			new ProductVersionChangePolicy(),
-			new ProductVersionTransitionService(productRepository, productEventPublisher, productInspectionRequestPublisher),
+			new ProductVersionTransitionService(productRepository, productInspectionRequestPublisher),
 			objectStorage, new TempFilePromoter(objectStorage));
 	}
 

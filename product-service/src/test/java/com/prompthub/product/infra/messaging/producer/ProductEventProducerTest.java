@@ -6,10 +6,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.prompthub.common.event.EventMessage;
 import com.prompthub.product.domain.model.entity.Product;
-import com.prompthub.product.infra.messaging.producer.event.ProductChangedPayload;
-import com.prompthub.product.infra.messaging.producer.event.ProductPriceChangedPayload;
 import com.prompthub.product.infra.messaging.producer.event.ProductReviewRequestedPayload;
-import com.prompthub.product.infra.messaging.producer.event.ProductStoppedPayload;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -57,81 +54,6 @@ class ProductEventProducerTest {
 		ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
 		then(kafkaTemplate).should().send(eq(TOPIC), eq(PRODUCT_ID.toString()), captor.capture());
 		return (EventMessage<?>) captor.getValue();
-	}
-
-	@Nested
-	@DisplayName("PRODUCT_STOPPED 이벤트 발행")
-	class PublishStopped {
-
-		@Test
-		@DisplayName("EventMessage 봉투로 감싸 product-events 토픽에 productId 키로 발행한다")
-		void publishStopped_sendsEnvelope() {
-			productEventProducer.publishStopped(PRODUCT_ID);
-
-			EventMessage<?> message = captureMessage();
-			assertThat(message.eventId()).isNotNull();
-			assertThat(message.eventType()).isEqualTo("PRODUCT_STOPPED");
-			assertThat(message.occurredAt()).isNotNull();
-			assertThat(message.aggregateType()).isEqualTo("PRODUCT");
-			assertThat(message.aggregateId()).isEqualTo(PRODUCT_ID);
-			assertThat(message.payload()).isInstanceOf(ProductStoppedPayload.class);
-			assertThat(((ProductStoppedPayload) message.payload()).productId()).isEqualTo(PRODUCT_ID);
-		}
-	}
-
-	@Nested
-	@DisplayName("PRODUCT_DELETED 이벤트 발행")
-	class PublishDeleted {
-
-		@Test
-		@DisplayName("EventMessage 봉투로 감싸 PRODUCT_DELETED 를 발행한다")
-		void publishDeleted_sendsEnvelope() {
-			productEventProducer.publishDeleted(PRODUCT_ID);
-
-			EventMessage<?> message = captureMessage();
-			assertThat(message.eventId()).isNotNull();
-			assertThat(message.eventType()).isEqualTo("PRODUCT_DELETED");
-			assertThat(message.aggregateType()).isEqualTo("PRODUCT");
-			assertThat(message.aggregateId()).isEqualTo(PRODUCT_ID);
-		}
-	}
-
-	@Nested
-	@DisplayName("PRODUCT_PRICE_CHANGED 이벤트 발행")
-	class PublishPriceChanged {
-
-		@Test
-		@DisplayName("가격 정보를 payload 에 담아 EventMessage 봉투로 발행한다")
-		void publishPriceChanged_sendsEnvelope() {
-			productEventProducer.publishPriceChanged(PRODUCT_ID, 10000, 8000);
-
-			EventMessage<?> message = captureMessage();
-			assertThat(message.eventType()).isEqualTo("PRODUCT_PRICE_CHANGED");
-			assertThat(message.payload()).isInstanceOf(ProductPriceChangedPayload.class);
-			ProductPriceChangedPayload payload = (ProductPriceChangedPayload) message.payload();
-			assertThat(payload.productId()).isEqualTo(PRODUCT_ID);
-			assertThat(payload.previousPrice()).isEqualTo(10000);
-			assertThat(payload.changedPrice()).isEqualTo(8000);
-		}
-	}
-
-	@Nested
-	@DisplayName("PRODUCT_CHANGED 이벤트 발행")
-	class PublishProductChanged {
-
-		@Test
-		@DisplayName("EventMessage 봉투로 감싸 familyRootId를 payload로 발행한다")
-		void publishProductChanged_sendsEnvelope() {
-			productEventProducer.publishProductChanged(PRODUCT_ID);
-
-			EventMessage<?> message = captureMessage();
-			assertThat(message.eventId()).isNotNull();
-			assertThat(message.eventType()).isEqualTo("PRODUCT_CHANGED");
-			assertThat(message.aggregateType()).isEqualTo("PRODUCT");
-			assertThat(message.aggregateId()).isEqualTo(PRODUCT_ID);
-			assertThat(message.payload()).isInstanceOf(ProductChangedPayload.class);
-			assertThat(((ProductChangedPayload) message.payload()).familyRootId()).isEqualTo(PRODUCT_ID);
-		}
 	}
 
 	@Nested
@@ -218,12 +140,12 @@ class ProductEventProducerTest {
 			given(kafkaTemplate.send(eq(TOPIC), eq(PRODUCT_ID.toString()), any()))
 				.willReturn(CompletableFuture.completedFuture(new SendResult<>(record, recordMetadata)));
 
-			productEventProducer.publishStopped(PRODUCT_ID);
+			productEventProducer.publishReviewRequested(product(), null, null, List.of());
 
 			assertThat(logAppender.list).anySatisfy(event -> {
 				assertThat(event.getLevel()).isEqualTo(Level.DEBUG);
 				assertThat(event.getFormattedMessage())
-					.contains("PRODUCT_STOPPED", PRODUCT_ID.toString(), TOPIC);
+					.contains("PRODUCT_REVIEW_REQUESTED", PRODUCT_ID.toString(), TOPIC);
 			});
 		}
 
@@ -234,12 +156,12 @@ class ProductEventProducerTest {
 			given(kafkaTemplate.send(eq(TOPIC), eq(PRODUCT_ID.toString()), any()))
 				.willReturn(CompletableFuture.failedFuture(brokerFailure));
 
-			productEventProducer.publishStopped(PRODUCT_ID);
+			productEventProducer.publishReviewRequested(product(), null, null, List.of());
 
 			assertThat(logAppender.list).anySatisfy(event -> {
 				assertThat(event.getLevel()).isEqualTo(Level.ERROR);
 				assertThat(event.getFormattedMessage())
-					.contains("PRODUCT_STOPPED", PRODUCT_ID.toString(), TOPIC);
+					.contains("PRODUCT_REVIEW_REQUESTED", PRODUCT_ID.toString(), TOPIC);
 				assertThat(event.getThrowableProxy().getMessage()).isEqualTo("broker down");
 			});
 		}
@@ -249,7 +171,12 @@ class ProductEventProducerTest {
 		void sendReturnsNullFuture_doesNotThrow() {
 			given(kafkaTemplate.send(eq(TOPIC), eq(PRODUCT_ID.toString()), any())).willReturn(null);
 
-			assertThatCode(() -> productEventProducer.publishStopped(PRODUCT_ID)).doesNotThrowAnyException();
+			assertThatCode(() -> productEventProducer.publishReviewRequested(product(), null, null, List.of()))
+				.doesNotThrowAnyException();
+		}
+
+		private Product product() {
+			return Product.create(PRODUCT_ID, UUID.randomUUID(), promptContent());
 		}
 	}
 }

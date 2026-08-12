@@ -8,14 +8,12 @@ import org.springframework.stereotype.Component;
 
 /**
  * family 단위 검색 색인 통계(family 합산 salesCount/viewCount, 최초 게시일)를 계산해
- * {@link FamilyUpsertInput}으로 묶는다. 실시간 경로(ProductSearchEventProcessor)와
- * 배치 경로(ProductReindexService) 양쪽이 각자 family를 순회하며 같은 계산을 반복하던 것을
- * 여기 하나로 모았다.
+ * {@link FamilyUpsertInput}으로 묶는다. {@link ProductReindexService}의 증분·전체 재조정
+ * 양쪽이 같은 계산을 하므로 여기 하나로 모았다.
  *
  * <p>합산은 호출자가 이미 조회한 {@code members}에서 메모리로 계산한다 — family마다
  * 집계 쿼리를 던지면 N+1이 되기 때문이다. 평균 평점은 Review 테이블 집계라 멤버 목록으로
- * 계산할 수 없으므로 호출자가 조회해 넘긴다(배치 경로는 {@code getAverageRatings}로 한 번에,
- * 실시간 경로는 단건으로).
+ * 계산할 수 없으므로 호출자가 {@code getAverageRatings}로 family 단위 일괄 조회해 넘긴다.
  */
 @Component
 public class FamilyStatsResolver {

@@ -14,6 +14,7 @@ import com.prompthub.search.application.indexing.FamilyUpsertInput;
 import com.prompthub.search.application.query.ProductSearchHit;
 import com.prompthub.search.application.query.ProductSearchPageResult;
 import com.prompthub.search.infra.es.config.ProductIndexBootstrap;
+import com.prompthub.search.infra.es.config.ProductReindexProperties;
 import com.prompthub.search.infra.es.config.SearchRankingProperties;
 import com.prompthub.search.infra.es.indexing.ElasticsearchProductSearchIndexer;
 import com.prompthub.search.support.ElasticsearchIntegrationTestSupport;
@@ -47,8 +48,10 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 	}
 
 	private void index(Product product, long salesCount, long viewCount, double ratingAvg, float[] embedding) {
-		ElasticsearchProductSearchIndexer indexer = new ElasticsearchProductSearchIndexer(client);
-		indexer.upsert(new FamilyUpsertInput(product, salesCount, viewCount, ratingAvg, LocalDateTime.now(), embedding));
+		ElasticsearchProductSearchIndexer indexer =
+			new ElasticsearchProductSearchIndexer(client, new ProductReindexProperties(500, 1000));
+		FamilyUpsertInput input = new FamilyUpsertInput(product, salesCount, viewCount, ratingAvg, LocalDateTime.now(), embedding);
+		indexer.bulkReconcile(List.of(input), List.of());
 	}
 
 	/** 한 축만 1인 단위 벡터. 서로 다른 축이면 코사인 거리가 최대라 순서가 뚜렷하게 갈린다. */

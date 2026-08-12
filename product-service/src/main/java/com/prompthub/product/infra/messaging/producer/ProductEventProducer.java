@@ -4,11 +4,7 @@ import com.prompthub.common.event.EventMessage;
 import com.prompthub.product.application.usecase.inspection.ProductEventPublisher;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.AmountType;
-import com.prompthub.product.infra.messaging.producer.event.ProductChangedPayload;
-import com.prompthub.product.infra.messaging.producer.event.ProductDeletedPayload;
-import com.prompthub.product.infra.messaging.producer.event.ProductPriceChangedPayload;
 import com.prompthub.product.infra.messaging.producer.event.ProductReviewRequestedPayload;
-import com.prompthub.product.infra.messaging.producer.event.ProductStoppedPayload;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -38,27 +34,6 @@ public class ProductEventProducer implements ProductEventPublisher {
 	private static final String AGGREGATE_TYPE = "PRODUCT";
 
 	private final KafkaTemplate<String, Object> kafkaTemplate;
-
-	@Override
-	public void publishStopped(UUID productId) {
-		publish(ProductEventType.PRODUCT_STOPPED, productId, ProductStoppedPayload.of(productId));
-	}
-
-	@Override
-	public void publishDeleted(UUID productId) {
-		publish(ProductEventType.PRODUCT_DELETED, productId, ProductDeletedPayload.of(productId));
-	}
-
-	@Override
-	public void publishPriceChanged(UUID productId, int previousPrice, int changedPrice) {
-		publish(ProductEventType.PRODUCT_PRICE_CHANGED, productId,
-			ProductPriceChangedPayload.of(productId, previousPrice, changedPrice));
-	}
-
-	@Override
-	public void publishProductChanged(UUID familyRootId) {
-		publish(ProductEventType.PRODUCT_CHANGED, familyRootId, ProductChangedPayload.of(familyRootId));
-	}
 
 	@Override
 	public void publishReviewRequested(

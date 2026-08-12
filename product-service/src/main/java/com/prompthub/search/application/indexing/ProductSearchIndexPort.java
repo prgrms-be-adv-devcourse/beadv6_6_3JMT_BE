@@ -6,8 +6,6 @@ import java.util.UUID;
 
 public interface ProductSearchIndexPort {
 
-	void upsert(FamilyUpsertInput input);
-
 	boolean indexExists();
 
 	Set<UUID> findAllIndexedFamilyRootIds();
