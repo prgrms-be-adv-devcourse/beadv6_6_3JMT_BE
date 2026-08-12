@@ -259,14 +259,45 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 	}
 
 	@Test
-	void 하이브리드_rating_정렬은_임베딩을_만들지_않는다() throws Exception {
-		index(product("정렬테스트"), 0, 0, 3.0, vector(0));
+	void 하이브리드_rating_정렬도_의미_후보를_포함하고_평점순으로_정렬한다() throws Exception {
+		Product highRatingSemanticOnly = product("의미로만찾는고평점");
+		Product lowRatingLexical = product("정렬테스트 저평점");
+		index(highRatingSemanticOnly, 0, 0, 4.5, vector(0));
+		index(lowRatingLexical, 0, 0, 2.0, vector(1));
 		refresh();
 
 		RecordingEmbeddingClient embeddingClient = new RecordingEmbeddingClient(vector(0));
-		querier(embeddingClient).search("정렬테스트", "all", "rating", PageRequest.of(0, 20));
+		ProductSearchPageResult result = querier(embeddingClient)
+			.search("정렬테스트", "all", "rating", PageRequest.of(0, 20));
 
-		assertThat(embeddingClient.calls).isEmpty();
+		assertThat(embeddingClient.calls).containsExactly("정렬테스트");
+		assertThat(result.hits().stream()
+			.map(ProductSearchHit::productId)
+			.filter(id -> id.equals(highRatingSemanticOnly.getId()) || id.equals(lowRatingLexical.getId())))
+			.containsExactly(highRatingSemanticOnly.getId(), lowRatingLexical.getId());
+		assertThat(result.total()).isGreaterThanOrEqualTo(2);
+	}
+
+	@Test
+	void 하이브리드_priceAsc_정렬도_의미_후보를_포함하고_가격순으로_정렬한다() throws Exception {
+		Product cheapSemanticOnly = Product.create(UUID.randomUUID(), UUID.randomUUID(),
+			ProductContentFixtures.promptContent("의미로만찾는저가상품", 1000));
+		Product expensiveLexical = Product.create(UUID.randomUUID(), UUID.randomUUID(),
+			ProductContentFixtures.promptContent("가격정렬테스트 고가상품", 9000));
+		index(cheapSemanticOnly, 0, 0, 0, vector(0));
+		index(expensiveLexical, 0, 0, 0, vector(1));
+		refresh();
+
+		RecordingEmbeddingClient embeddingClient = new RecordingEmbeddingClient(vector(0));
+		ProductSearchPageResult result = querier(embeddingClient)
+			.search("가격정렬테스트", "all", "price-asc", PageRequest.of(0, 20));
+
+		assertThat(embeddingClient.calls).containsExactly("가격정렬테스트");
+		assertThat(result.hits().stream()
+			.map(ProductSearchHit::productId)
+			.filter(id -> id.equals(cheapSemanticOnly.getId()) || id.equals(expensiveLexical.getId())))
+			.containsExactly(cheapSemanticOnly.getId(), expensiveLexical.getId());
+		assertThat(result.total()).isGreaterThanOrEqualTo(2);
 	}
 
 	@Test
