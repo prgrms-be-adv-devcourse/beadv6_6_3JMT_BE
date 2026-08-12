@@ -162,6 +162,18 @@ public class Product {
 	@Column(name = "deleted_at")
 	private LocalDateTime deletedAt;
 
+	/**
+	 * 현재 검수 회차가 시작된 시각. 오래 대기한 PENDING_REVIEW를 찾는 stale 판정 기준이다.
+	 * 단순 수정 시각인 {@code updatedAt}은 재사용하지 않는다 — 재발행 때문에 ES 재대사 대상이
+	 * 불필요하게 바뀌는 부작용과 "일반 수정"·"검수 대기 시작"의 의미가 섞이는 걸 피한다.
+	 */
+	@Column(name = "inspection_requested_at")
+	private LocalDateTime inspectionRequestedAt;
+
+	/** 현재 검수 회차의 자동 재발행 횟수. 최대 1이며, 조건부 UPDATE로 원자적으로 선점된다. */
+	@Column(name = "inspection_request_retry_count", nullable = false)
+	private int inspectionRequestRetryCount;
+
 	public static Product create(UUID id, UUID sellerId, ProductContent productContent) {
 		Product product = new Product();
 		product.id = id;
@@ -273,6 +285,7 @@ public class Product {
 			next.majorVersion = (short) (this.majorVersion + 1);
 			next.patchVersion = 0;
 			next.status = ProductStatus.PENDING_REVIEW;
+			next.startInspectionRequest();
 		} else {
 			next.majorVersion = this.majorVersion;
 			next.patchVersion = (short) (this.patchVersion + 1);
@@ -301,6 +314,7 @@ public class Product {
 		this.rejectionReason = null;
 		this.status = ProductStatus.PENDING_REVIEW;
 		this.updatedAt = LocalDateTime.now();
+		startInspectionRequest();
 	}
 
 	public void approve(InspectionChecklist checklist) {
@@ -320,6 +334,12 @@ public class Product {
 		this.status = ProductStatus.REJECTED;
 		this.rejectionReason = reason;
 		this.updatedAt = LocalDateTime.now();
+	}
+
+	/** 새 검수 회차 시작 — 대기 시각을 다시 찍고 재발행 횟수를 0으로 초기화한다. */
+	private void startInspectionRequest() {
+		this.inspectionRequestedAt = LocalDateTime.now();
+		this.inspectionRequestRetryCount = 0;
 	}
 
 	private void applyInspectionChecklist(InspectionChecklist checklist) {

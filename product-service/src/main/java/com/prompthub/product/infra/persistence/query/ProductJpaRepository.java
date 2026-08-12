@@ -376,4 +376,36 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 			PageRequest.of(0, 1)
 		).stream().findFirst();
 	}
+
+	@Query(value = """
+		select id
+		from product
+		where status = 'PENDING_REVIEW'
+			and inspection_request_retry_count = 0
+			and inspection_requested_at <= :cutoff
+			and deleted_at is null
+		order by inspection_requested_at asc
+		limit :batchSize
+		""", nativeQuery = true)
+	List<UUID> findStaleInspectionRequestCandidateIds(@Param("cutoff") LocalDateTime cutoff, @Param("batchSize") int batchSize);
+
+	/**
+	 * 조건부 선점 UPDATE. 영향 row 수가 1이어야 이번 실행이 재발행 권리를 가진다 — 조회 후
+	 * 엔티티 값만 바꿔 저장하는 방식은 두 인스턴스가 같은 상품을 동시에 재발행할 수 있어 쓰지 않는다.
+	 */
+	@Modifying
+	@Query(value = """
+		update product
+		set inspection_request_retry_count = 1
+		where id = :productId
+			and status = 'PENDING_REVIEW'
+			and inspection_request_retry_count = 0
+			and inspection_requested_at <= :cutoff
+			and deleted_at is null
+		""", nativeQuery = true)
+	int claimInspectionRequestRetryRowCount(@Param("productId") UUID productId, @Param("cutoff") LocalDateTime cutoff);
+
+	default boolean claimInspectionRequestRetry(UUID productId, LocalDateTime cutoff) {
+		return claimInspectionRequestRetryRowCount(productId, cutoff) == 1;
+	}
 }
