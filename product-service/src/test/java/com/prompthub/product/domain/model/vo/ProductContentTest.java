@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.exception.ProductException;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -53,5 +54,32 @@ class ProductContentTest {
 		);
 		assertThat(content.imageUrls()).isEmpty();
 		assertThat(content.tags()).isEmpty();
+	}
+
+	@Test
+	void builder_defensivelyCopiesCollections() {
+		List<String> imageUrls = new ArrayList<>(List.of("image.png"));
+		List<String> tags = new ArrayList<>(List.of("tag"));
+		ProductContent content = ProductContent.builder()
+			.productType(ProductType.PROMPT)
+			.name("제목")
+			.description("설명")
+			.model("model")
+			.amountType(AmountType.PAID)
+			.amount(1000)
+			.imageUrls(imageUrls)
+			.content("content")
+			.tags(tags)
+			.build();
+
+		imageUrls.add("changed.png");
+		tags.add("changed");
+
+		assertThat(content.imageUrls()).containsExactly("image.png");
+		assertThat(content.tags()).containsExactly("tag");
+		assertThatThrownBy(() -> content.imageUrls().add("blocked.png"))
+			.isInstanceOf(UnsupportedOperationException.class);
+		assertThatThrownBy(() -> content.tags().add("blocked"))
+			.isInstanceOf(UnsupportedOperationException.class);
 	}
 }

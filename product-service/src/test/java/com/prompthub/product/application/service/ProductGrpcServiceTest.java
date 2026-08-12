@@ -139,6 +139,20 @@ class ProductGrpcServiceTest {
 		}
 
 		@Test
+		@DisplayName("EXCEL은 file_url을 presigned 다운로드 URL로 변환해 반환한다")
+		void getProductContent_excel() {
+			Product product = onSaleWithType(ProductType.EXCEL);
+			ReflectionTestUtils.setField(product, "fileUrl", "products/1/file/sheet.xlsx");
+			mockResolve(product);
+			given(objectStorage.createPresignedGetUrl("products/1/file/sheet.xlsx"))
+				.willReturn("https://s3/presigned-sheet");
+
+			ProductContentResponse response = productGrpcService.getProductContent(PRODUCT_ID);
+
+			assertThat(response.content()).isEqualTo("https://s3/presigned-sheet");
+		}
+
+		@Test
 		@DisplayName("NOTION은 external_url 원문을 반환한다")
 		void getProductContent_notion() {
 			Product product = onSaleWithType(ProductType.NOTION);
@@ -223,8 +237,8 @@ class ProductGrpcServiceTest {
 
 		private ProductListItemResponse listItem(String title) {
 			return new ProductListItemResponse(
-				UUID.randomUUID(), title, "PROMPT", "GPT-5", 10000, null, 4.5, 3,
-				SELLER_ID, null, "설명", null, List.of(), null, null);
+				UUID.randomUUID(), title, "PROMPT", "GPT-5", 10000, 4.5, 3,
+				SELLER_ID, "설명", null, List.of(), null, null);
 		}
 	}
 

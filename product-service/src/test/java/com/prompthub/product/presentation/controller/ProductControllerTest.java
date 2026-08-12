@@ -157,6 +157,8 @@ class ProductControllerTest {
 				.andExpect(jsonPath("$.message").value("success"))
 				.andExpect(jsonPath("$.data[0].id").value(PRODUCT_ID.toString()))
 				.andExpect(jsonPath("$.data[0].productType").value("PROMPT"))
+				.andExpect(jsonPath("$.data[0].originalAmount").doesNotExist())
+				.andExpect(jsonPath("$.data[0].badge").doesNotExist())
 				.andExpect(jsonPath("$.data[0].tags[0]").value("리액트"))
 				.andExpect(jsonPath("$.meta.page").value(1))
 				.andExpect(jsonPath("$.meta.size").value(8));
@@ -370,6 +372,8 @@ class ProductControllerTest {
 				.andExpect(jsonPath("$.data.id").value(PRODUCT_ID.toString()))
 				.andExpect(jsonPath("$.data.title").value("리액트 컴포넌트 리팩터링 도우미"))
 				.andExpect(jsonPath("$.data.productType").value("PROMPT"))
+				.andExpect(jsonPath("$.data.badge").doesNotExist())
+				.andExpect(jsonPath("$.data.features").doesNotExist())
 				.andExpect(jsonPath("$.data.tags[0]").value("리액트"))
 				.andExpect(jsonPath("$.data.versions[0].ver").value("v1.3"))
 				.andExpect(jsonPath("$.data.imageUrls[0]").value("https://cdn.example.com/images/1.jpg"))
@@ -583,11 +587,9 @@ class ProductControllerTest {
 			productType,
 			"GPT-4o",
 			7900,
-			null,
 			4.7,
 			760,
 			SELLER_ID,
-			null,
 			"컴포넌트 분리, 상태 정리, 타입 개선",
 			null,
 			List.of("리액트", "리팩터링"),
@@ -607,14 +609,12 @@ class ProductControllerTest {
 			760,
 			SELLER_ID,
 			0,
-			null,
 			"컴포넌트 분리, 상태 정리, 타입 개선",
 			null,
 			List.of("https://cdn.example.com/images/1.jpg"),
 			"[리액트 컴포넌트 리팩터링 도우미]\n\n전체 내용은 구매 후 확인할 수 있습니다.",
 			List.of("리액트", "리팩터링"),
 			List.of(new ProductVersionResponse("v1.3", "2026-06-01", "테스트 개선")),
-			List.of(),
 			true,
 			true,
 			false,

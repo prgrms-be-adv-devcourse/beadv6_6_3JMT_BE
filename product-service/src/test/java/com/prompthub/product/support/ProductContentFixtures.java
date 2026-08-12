@@ -20,30 +20,43 @@ public final class ProductContentFixtures {
 	}
 
 	public static ProductContent promptContent(String name, int amount, String content) {
-		return new ProductContent(
-			ProductType.PROMPT, name, "설명", "model", AmountType.PAID, amount,
-			null, List.of(), content, null, null, List.of()
-		);
+		return productContent(ProductType.PROMPT, name, amount)
+			.content(content)
+			.build();
 	}
 
 	public static ProductContent freePromptContent() {
-		return new ProductContent(
-			ProductType.PROMPT, "제목", "설명", "model", AmountType.FREE, 0,
-			null, List.of(), "content", null, null, List.of()
-		);
+		return productContent(ProductType.PROMPT, "제목", 0)
+			.amountType(AmountType.FREE)
+			.content("content")
+			.build();
 	}
 
 	public static ProductContent notionContent(String name, int amount) {
-		return new ProductContent(
-			ProductType.NOTION, name, "새 설명", "model2", AmountType.PAID, amount,
-			null, List.of(), null, null, "https://notion.so/x", List.of()
-		);
+		return productContent(ProductType.NOTION, name, amount)
+			.description("새 설명")
+			.model("model2")
+			.externalUrl("https://notion.so/x")
+			.build();
 	}
 
 	public static ProductContent pptContent() {
-		return new ProductContent(
-			ProductType.PPT, "제목", "설명", "model", AmountType.PAID, 1000,
-			null, List.of(), null, "products/1/file/a.pptx", null, List.of()
-		);
+		return productContent(ProductType.PPT, "제목", 1000)
+			.fileUrl("products/1/file/a.pptx")
+			.build();
+	}
+
+	private static ProductContent.ProductContentBuilder productContent(
+		ProductType productType, String name, int amount
+	) {
+		return ProductContent.builder()
+			.productType(productType)
+			.name(name)
+			.description("설명")
+			.model("model")
+			.amountType(AmountType.PAID)
+			.amount(amount)
+			.imageUrls(List.of())
+			.tags(List.of());
 	}
 }
