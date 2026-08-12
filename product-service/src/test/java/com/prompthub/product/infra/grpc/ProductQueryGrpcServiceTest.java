@@ -289,7 +289,7 @@ class ProductQueryGrpcServiceTest {
 		void mapsNullFieldsToEmptyString() {
 			given(productGrpcUseCase.getSimilarProducts(List.of(SEED_A), 4))
 				.willReturn(Map.of(SEED_A, List.of(new ProductListItemResponse(
-					PRODUCT_ID, "제목", null, null, 1000, null, 0.0, 0, null, null, null, null, null, null, null))));
+					PRODUCT_ID, "제목", null, null, 1000, 0.0, 0, null, null, null, null, null, null))));
 
 			grpcService.getSimilarProducts(request(List.of(SEED_A), 4), observer);
 
@@ -332,8 +332,8 @@ class ProductQueryGrpcServiceTest {
 
 		private ProductListItemResponse listItem(String title) {
 			return new ProductListItemResponse(
-				PRODUCT_ID, title, "PROMPT", "GPT-5", 10000, null, 4.5, 3,
-				SELLER_ID, null, "설명", "https://example.com/t.png", List.of("태그"), null, null);
+				PRODUCT_ID, title, "PROMPT", "GPT-5", 10000, 4.5, 3,
+				SELLER_ID, "설명", "https://example.com/t.png", List.of("태그"), null, null);
 		}
 	}
 }

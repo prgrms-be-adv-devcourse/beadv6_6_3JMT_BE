@@ -5,6 +5,7 @@ import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
 import com.prompthub.product.application.usecase.purchase.PurchasedProductQueryUseCase;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.ProductFamily;
+import com.prompthub.product.domain.model.vo.ProductDeliverable;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.domain.repository.ReviewRepository;
 import com.prompthub.product.exception.ProductException;
@@ -41,21 +42,18 @@ public class PurchasedProductQueryService implements PurchasedProductQueryUseCas
 		Integer myRating = reviewRepository.findByUserIdAndProductId(userId, familyRootId)
 			.map(review -> (int) review.getRating())
 			.orElse(null);
-		return buildResponse(productId, product, averageRating, myRating);
+		return createPurchasedProductResponse(productId, product, averageRating, myRating);
 	}
 
 	// 유형별 콘텐츠: PROMPT=본문, PPT·EXCEL=presigned 다운로드 URL(DB 값은 S3 키), NOTION=외부 링크
-	private PurchasedProductDetailResponse buildResponse(
+	private PurchasedProductDetailResponse createPurchasedProductResponse(
 		UUID requestedId, Product product, double averageRating, Integer myRating
 	) {
-		String content = null;
-		String fileUrl = null;
-		String externalUrl = null;
-		switch (product.getProductType()) {
-			case PROMPT -> content = product.getContent();
-			case PPT, EXCEL -> fileUrl = presignIfPresent(product.getFileUrl());
-			case NOTION -> externalUrl = product.getExternalUrl();
-		}
+		ProductDeliverable deliverable = product.resolveDeliverable();
+		String content = deliverable.type() == ProductDeliverable.Type.INLINE_CONTENT ? deliverable.value() : null;
+		String fileUrl = deliverable.type() == ProductDeliverable.Type.FILE_OBJECT_KEY
+			? objectStorage.createPresignedGetUrl(deliverable.value()) : null;
+		String externalUrl = deliverable.type() == ProductDeliverable.Type.EXTERNAL_URL ? deliverable.value() : null;
 		return PurchasedProductDetailResponse.of(
 			requestedId, product, content, fileUrl, externalUrl,
 			presignIfPresent(product.getThumbnailUrl()), averageRating, myRating);

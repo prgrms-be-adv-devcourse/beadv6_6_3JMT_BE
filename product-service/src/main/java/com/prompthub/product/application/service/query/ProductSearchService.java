@@ -118,8 +118,8 @@ public class ProductSearchService implements ProductSearchUseCase {
 
 	private ProductListItemResponse toListItemResponse(ProductSearchHit hit) {
 		return new ProductListItemResponse(
-			hit.productId(), hit.name(), hit.productType(), hit.model(), hit.amount(), null,
-			hit.ratingAvg(), hit.salesCount(), hit.sellerId(), null, hit.description(),
+			hit.productId(), hit.name(), hit.productType(), hit.model(), hit.amount(),
+			hit.ratingAvg(), hit.salesCount(), hit.sellerId(), hit.description(),
 			objectStorage.presignIfPresent(hit.thumbnailUrl()), hit.tags(), hit.firstPublishedAt(), hit.currentVersionAt()
 		);
 	}

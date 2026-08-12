@@ -17,7 +17,6 @@ public record ProductSearchDocument(
 	int amount,
 	String amountType,
 	String thumbnailUrl,
-	String badge,
 	int salesCount,
 	int viewCount,
 	int reviewCount,

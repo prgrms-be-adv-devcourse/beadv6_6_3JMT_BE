@@ -101,6 +101,24 @@ class PurchasedProductQueryServiceTest {
 	}
 
 	@Test
+	@DisplayName("EXCEL 상품은 fileUrl을 presigned URL로 채워서 반환한다")
+	void getPurchasedProduct_excel_presignedFileUrl() {
+		Product product = onSaleProduct(ProductType.EXCEL);
+		ReflectionTestUtils.setField(product, "fileUrl", "files/sheet.xlsx");
+		stubFamily(product);
+		given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(0.0);
+		given(reviewRepository.findByUserIdAndProductId(USER_ID, PRODUCT_ID)).willReturn(Optional.empty());
+		given(objectStorage.createPresignedGetUrl("files/sheet.xlsx")).willReturn("https://s3/presigned-sheet");
+
+		PurchasedProductDetailResponse result =
+			purchasedProductQueryService.getPurchasedProduct(USER_ID, PRODUCT_ID);
+
+		assertThat(result.content()).isNull();
+		assertThat(result.fileUrl()).isEqualTo("https://s3/presigned-sheet");
+		assertThat(result.externalUrl()).isNull();
+	}
+
+	@Test
 	@DisplayName("썸네일은 presigned URL로 변환해서 반환한다")
 	void getPurchasedProduct_presignedThumbnailUrl() {
 		Product product = onSaleProduct(ProductType.PROMPT);
@@ -119,18 +137,16 @@ class PurchasedProductQueryServiceTest {
 	}
 
 	@Test
-	@DisplayName("fileUrl이 비어 있으면 presign 없이 null을 반환한다")
-	void getPurchasedProduct_blankFileUrl_returnsNull() {
+	@DisplayName("파일 상품의 산출물 key가 비어 있으면 도메인 불변식 오류를 드러낸다")
+	void getPurchasedProduct_blankFileUrl_throws() {
 		Product product = onSaleProduct(ProductType.EXCEL);
 		ReflectionTestUtils.setField(product, "fileUrl", " ");
 		stubFamily(product);
 		given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(0.0);
 		given(reviewRepository.findByUserIdAndProductId(USER_ID, PRODUCT_ID)).willReturn(Optional.empty());
 
-		PurchasedProductDetailResponse result =
-			purchasedProductQueryService.getPurchasedProduct(USER_ID, PRODUCT_ID);
-
-		assertThat(result.fileUrl()).isNull();
+		assertThatThrownBy(() -> purchasedProductQueryService.getPurchasedProduct(USER_ID, PRODUCT_ID))
+			.isInstanceOf(IllegalArgumentException.class);
 		verifyNoInteractions(objectStorage);
 	}
 

@@ -1754,6 +1754,23 @@ docs/api-spec/product.md
 - 선행 중복: S002는 PR 1 결과를 사용하고 재구현하지 않는다.
 - 수용 기준: 위 필수 테스트와 변경 파일 경계를 그대로 사용한다.
 
+#### PR 7 구현 결과
+
+- 실제 구현 범위: 공개 목록의 `originalAmount`·`badge`, 상세의 `badge`·`features`와 새 ES 문서의 의미 없는
+  `badge` 전달을 제거했다. 유형별 원본 산출물 선택은 `ProductType`과 `ProductDeliverable`로 단일화하고,
+  `ProductContent` production 조립은 Builder로 바꾸면서 compact constructor의 조합 검증과 collection
+  방어적 복사를 유지했다. 최종 사용처가 없던 `ProductFamily.members()`·`mostRecentSuperseded()`와 예외
+  handler의 미사용 request 인자도 제거했다.
+- 설계 차이: 기존 ES mapping과 DB `badge` column은 migration 없이 유지했다. 파일 상품의 비어 있는 object
+  key는 종전처럼 null 응답으로 숨기지 않고 `ProductDeliverable` 생성 시 불변식 오류로 드러낸다. FE optional
+  type과 fallback은 그대로 두어 FE source는 변경하지 않았다.
+- 검증: 관련 domain·application·controller·exception·search focused 테스트 72건, Docker 기반 통합 테스트를
+  포함한 `:product-service:test`, FE build가 통과했다. FE lint는 기존 22 errors·93 warnings로 실패했다.
+  Checkstyle은 생성된 protobuf의 기존 warning만 남기고 task가 통과했으며, 변경 관련 테스트 실패는 0건이다.
+- Quality: `ponytail`과 `write-readable-code` 기준으로 새 service나 mapper 없이 기존 domain 규칙과 호출부만
+  정리했다. endpoint·DB migration·ES index version·Kafka·FE source 등 범위 밖 기능은 변경하지 않았다.
+- 현재 상태: `IMPLEMENTED · PR_PENDING`.
+
 ---
 
 ## 상품 파일 업로드·등록 분석 인계 기록

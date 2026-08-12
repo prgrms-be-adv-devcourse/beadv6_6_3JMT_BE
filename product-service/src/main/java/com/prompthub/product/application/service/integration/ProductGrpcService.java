@@ -6,6 +6,7 @@ import com.prompthub.product.application.usecase.integration.ProductGrpcUseCase;
 import com.prompthub.product.application.usecase.query.ProductQueryUseCase;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.ProductFamily;
+import com.prompthub.product.domain.model.vo.ProductDeliverable;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
 import com.prompthub.product.presentation.dto.response.product.ProductCartSnapshotResponse;
@@ -56,7 +57,7 @@ public class ProductGrpcService implements ProductGrpcUseCase {
 		if (product == null) {
 			throw new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND);
 		}
-		return new ProductContentResponse(productId, resolveDeliverable(product));
+		return new ProductContentResponse(productId, createDownloadableValue(product.resolveDeliverable()));
 	}
 
 	/**
@@ -86,18 +87,10 @@ public class ProductGrpcService implements ProductGrpcUseCase {
 		}
 	}
 
-	private String resolveDeliverable(Product product) {
-		return switch (product.getProductType()) {
-			case PROMPT -> product.getContent();
-			case PPT, EXCEL -> presignIfPresent(product.getFileUrl());
-			case NOTION -> product.getExternalUrl();
-		};
-	}
-
-	private String presignIfPresent(String key) {
-		if (key == null || key.isBlank()) {
-			return null;
+	private String createDownloadableValue(ProductDeliverable deliverable) {
+		if (deliverable.type() == ProductDeliverable.Type.FILE_OBJECT_KEY) {
+			return objectStorage.createPresignedGetUrl(deliverable.value());
 		}
-		return objectStorage.createPresignedGetUrl(key);
+		return deliverable.value();
 	}
 }

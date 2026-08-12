@@ -92,16 +92,6 @@ class ProductFamilyTest {
 		assertThat(family.publicHistory()).containsExactly(onSale, superseded);
 	}
 
-	@Test
-	void mostRecentSuperseded_returnsHighestVersionSuperseded() {
-		Product old = product(ProductStatus.SUPERSEDED, (short) 1, (short) 0);
-		Product recent = product(ProductStatus.SUPERSEDED, (short) 2, (short) 0);
-		Product onSale = product(ProductStatus.ON_SALE, (short) 3, (short) 0);
-		ProductFamily family = ProductFamily.of(old.getId(), List.of(old, recent, onSale));
-
-		assertThat(family.mostRecentSuperseded()).contains(recent);
-	}
-
 	private Product product(ProductStatus status, short majorVersion, short patchVersion) {
 		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
 		ReflectionTestUtils.setField(product, "status", status);

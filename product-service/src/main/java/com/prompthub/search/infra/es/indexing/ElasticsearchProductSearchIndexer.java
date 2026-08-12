@@ -223,7 +223,6 @@ public class ElasticsearchProductSearchIndexer implements ProductSearchIndexPort
 			onSale.getAmount(),
 			onSale.getAmountType().name(),
 			onSale.getThumbnailUrl(),
-			onSale.getBadge(),
 			(int) input.familySalesCount(),
 			(int) input.familyViewCount(),
 			0,

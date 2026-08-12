@@ -51,18 +51,30 @@ public class ProductSellerService implements ProductSellerUseCase {
 	public ProductCreateResponse createProduct(UUID sellerId, ProductCreateRequest request) {
 		ProductType productType = parseProductType(request.productType());
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
-		ProductContent.validateTypeFields(
-			productType, request.content(), request.fileObjectKey(), request.externalUrl());
+		if (!productType.isValidContentCombination(
+			request.content(), request.fileObjectKey(), request.externalUrl())) {
+			throw new ProductException(ProductErrorCode.PRODUCT_TYPE_FIELD_MISMATCH);
+		}
 
 		UUID productId = UUID.randomUUID();
 		// 임시 업로드를 상품이 계속 참조할 영구 key로 복사한다.
 		TempFilePromoter.PromotedFiles storedFiles = tempFilePromoter.promote(
 			request.thumbnailObjectKey(), request.imageObjectKeys(), request.fileObjectKey(), productId, sellerId);
 
-		ProductContent content = new ProductContent(
-			productType, request.title(), request.desc(), request.model(),
-			amountType, request.amount(), storedFiles.thumbnailKey(), storedFiles.imageKeys(),
-			request.content(), storedFiles.fileKey(), request.externalUrl(), request.tags());
+		ProductContent content = ProductContent.builder()
+			.productType(productType)
+			.name(request.title())
+			.description(request.desc())
+			.model(request.model())
+			.amountType(amountType)
+			.amount(request.amount())
+			.thumbnailUrl(storedFiles.thumbnailKey())
+			.imageUrls(storedFiles.imageKeys())
+			.content(request.content())
+			.fileUrl(storedFiles.fileKey())
+			.externalUrl(request.externalUrl())
+			.tags(request.tags())
+			.build();
 		Product product = Product.create(productId, sellerId, content);
 
 		Product saved = productRepository.save(product);
@@ -111,10 +123,20 @@ public class ProductSellerService implements ProductSellerUseCase {
 		// 먼저 승격하면 안 바뀐 파일도 새 key가 생겨 변경으로 오판된다. 유형별 필드 검증은
 		// ProductContent 생성자가 한다.
 		AmountType amountType = request.amount() == 0 ? AmountType.FREE : AmountType.PAID;
-		ProductContent candidate = new ProductContent(
-			requestedType, request.title(), request.desc(), request.model(),
-			amountType, request.amount(), request.thumbnailObjectKey(), request.imageObjectKeys(),
-			request.content(), request.fileObjectKey(), request.externalUrl(), request.tags());
+		ProductContent candidate = ProductContent.builder()
+			.productType(requestedType)
+			.name(request.title())
+			.description(request.desc())
+			.model(request.model())
+			.amountType(amountType)
+			.amount(request.amount())
+			.thumbnailUrl(request.thumbnailObjectKey())
+			.imageUrls(request.imageObjectKeys())
+			.content(request.content())
+			.fileUrl(request.fileObjectKey())
+			.externalUrl(request.externalUrl())
+			.tags(request.tags())
+			.build();
 
 		if (anchor.getStatus() == ProductStatus.DRAFT) {
 			return updateContentInPlace(anchor, request, sellerId, candidate, anchor::updateDraftContent);
@@ -167,10 +189,20 @@ public class ProductSellerService implements ProductSellerUseCase {
 	) {
 		TempFilePromoter.PromotedFiles storedFiles = tempFilePromoter.promote(
 			request.thumbnailObjectKey(), request.imageObjectKeys(), request.fileObjectKey(), targetProductId, sellerId);
-		return new ProductContent(
-			candidate.productType(), candidate.name(), candidate.description(), candidate.model(),
-			candidate.amountType(), candidate.amount(), storedFiles.thumbnailKey(), storedFiles.imageKeys(),
-			candidate.content(), storedFiles.fileKey(), candidate.externalUrl(), candidate.tags());
+		return ProductContent.builder()
+			.productType(candidate.productType())
+			.name(candidate.name())
+			.description(candidate.description())
+			.model(candidate.model())
+			.amountType(candidate.amountType())
+			.amount(candidate.amount())
+			.thumbnailUrl(storedFiles.thumbnailKey())
+			.imageUrls(storedFiles.imageKeys())
+			.content(candidate.content())
+			.fileUrl(storedFiles.fileKey())
+			.externalUrl(candidate.externalUrl())
+			.tags(candidate.tags())
+			.build();
 	}
 
 	private ProductUpdateResponse toResponse(Product product) {
