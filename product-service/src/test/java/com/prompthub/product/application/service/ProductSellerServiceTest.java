@@ -1,5 +1,8 @@
 package com.prompthub.product.application.service;
+import com.prompthub.product.application.service.inspection.ProductInspectionRequestPublisher;
 import com.prompthub.product.application.service.seller.ProductSellerService;
+import com.prompthub.product.application.service.seller.ProductVersionChangePolicy;
+import com.prompthub.product.application.service.seller.ProductVersionTransitionService;
 
 import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -11,11 +14,11 @@ import static org.mockito.Mockito.never;
 
 import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
 import com.prompthub.product.application.service.fileupload.TempFilePromoter;
+import com.prompthub.product.application.usecase.inspection.ProductEventPublisher;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.exception.ProductException;
-import com.prompthub.product.infra.messaging.producer.ProductEventProducer;
 import com.prompthub.product.presentation.dto.request.product.ProductCreateRequest;
 import com.prompthub.product.presentation.dto.request.product.ProductUpdateRequest;
 import com.prompthub.product.presentation.dto.response.product.ProductUpdateResponse;
@@ -43,7 +46,10 @@ class ProductSellerServiceTest {
 	private ProductRepository productRepository;
 
 	@Mock
-	private ProductEventProducer productEventProducer;
+	private ProductEventPublisher productEventPublisher;
+
+	@Mock
+	private ProductInspectionRequestPublisher productInspectionRequestPublisher;
 
 	@Mock
 	private ObjectStorageGateway objectStorage;
@@ -52,60 +58,36 @@ class ProductSellerServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		// TempFilePromoter는 실제 인스턴스를 쓴다 — null/영구 key는 objectStorage를 전혀 건드리지
-		// 않으므로 대부분의 테스트는 stubbing 없이도 그대로 통과하고, 실제 temp 승격 경로만
-		// 필요한 테스트에서 objectStorage.copy/delete를 stub·검증한다.
+		// TempFilePromoter·ProductVersionChangePolicy·ProductVersionTransitionService는 실제
+		// 인스턴스를 쓴다 — MAJOR/PATCH/no-op 판정과 반영 로직이 그 안에 있어, mock으로 바꾸면
+		// 아래 UpdateProduct 테스트들이 검증하는 실제 동작이 사라진다. 이 협력 객체들이 의존하는
+		// productRepository/productEventPublisher/productInspectionRequestPublisher는 이미 mock이라
+		// 검증 지점은 그대로 유지된다.
 		productSellerService = new ProductSellerService(
-			productRepository, productEventProducer, objectStorage, new TempFilePromoter(objectStorage));
+			productRepository, productEventPublisher, productInspectionRequestPublisher,
+			new ProductVersionChangePolicy(),
+			new ProductVersionTransitionService(productRepository, productEventPublisher, productInspectionRequestPublisher),
+			objectStorage, new TempFilePromoter(objectStorage));
 	}
 
 	@Nested
 	@DisplayName("검수 제출")
 	class SubmitForReview {
 
+		// snapshot 조립(presign·중복 탐지)은 ProductInspectionRequestPublisher로 단일화됐다
+		// (2026-08-05 로드맵 PR4) — 그 세부 동작은 ProductInspectionRequestPublisherTest가 검증하고,
+		// 여기서는 상태 전이와 위임 호출만 확인한다.
 		@Test
-		@DisplayName("썸네일/이미지를 presign해 PRODUCT_REVIEW_REQUESTED를 발행한다")
-		void submitForReview_presignsImagesAndPublishesEvent() {
+		@DisplayName("상태를 PENDING_REVIEW로 바꾸고 검수 요청 발행을 위임한다")
+		void submitForReview_flipsStatusAndDelegatesPublish() {
 			Product product = product(PRODUCT_ID, null, ProductStatus.DRAFT, (short) 1, (short) 0);
-			ReflectionTestUtils.setField(product, "thumbnailUrl", "products/1/thumbnail/a.png");
-			ReflectionTestUtils.setField(product, "imageUrls", List.of("products/1/image/b.png"));
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
-			given(objectStorage.createPresignedGetUrl("products/1/thumbnail/a.png"))
-				.willReturn("https://s3/presigned-thumb");
-			given(objectStorage.createPresignedGetUrl("products/1/image/b.png"))
-				.willReturn("https://s3/presigned-image");
 
 			productSellerService.submitForReview(SELLER_ID, PRODUCT_ID);
 
 			assertThat(product.getStatus()).isEqualTo(ProductStatus.PENDING_REVIEW);
-			then(productEventProducer).should().publishReviewRequested(
-				product, null, "https://s3/presigned-thumb", List.of("https://s3/presigned-image"));
-		}
-
-		@Test
-		@DisplayName("썸네일이 없으면 presign 없이 null로 발행한다")
-		void submitForReview_withoutThumbnail_publishesNullThumbnail() {
-			Product product = product(PRODUCT_ID, null, ProductStatus.DRAFT, (short) 1, (short) 0);
-			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
-
-			productSellerService.submitForReview(SELLER_ID, PRODUCT_ID);
-
-			then(productEventProducer).should().publishReviewRequested(product, null, null, List.of());
+			then(productInspectionRequestPublisher).should().publish(product);
 			then(objectStorage).shouldHaveNoInteractions();
-		}
-
-		@Test
-		@DisplayName("같은 content_hash를 가진 다른 판매자 상품이 있으면 duplicateOfProductId를 함께 발행한다")
-		void submitForReview_withDuplicate_publishesDuplicateOfProductId() {
-			Product product = product(PRODUCT_ID, null, ProductStatus.DRAFT, (short) 1, (short) 0);
-			UUID originalProductId = UUID.randomUUID();
-			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
-			given(productRepository.findDuplicateOfProductId(PRODUCT_ID, product.getContentHash(), SELLER_ID))
-				.willReturn(Optional.of(originalProductId));
-
-			productSellerService.submitForReview(SELLER_ID, PRODUCT_ID);
-
-			then(productEventProducer).should().publishReviewRequested(product, originalProductId, null, List.of());
 		}
 	}
 
@@ -128,7 +110,8 @@ class ProductSellerServiceTest {
 			assertThat(response.version()).isEqualTo("1.0");
 			assertThat(response.status()).isEqualTo("DRAFT");
 			then(productRepository).should(never()).findAllByFamilyRootIds(any());
-			then(productEventProducer).shouldHaveNoInteractions();
+			then(productEventPublisher).shouldHaveNoInteractions();
+			then(productInspectionRequestPublisher).shouldHaveNoInteractions();
 		}
 
 		@Test
@@ -147,7 +130,8 @@ class ProductSellerServiceTest {
 			assertThat(response.version()).isEqualTo("3.0");
 			assertThat(response.status()).isEqualTo("REJECTED");
 			then(productRepository).should(never()).findAllByFamilyRootIds(any());
-			then(productEventProducer).shouldHaveNoInteractions();
+			then(productEventPublisher).shouldHaveNoInteractions();
+			then(productInspectionRequestPublisher).shouldHaveNoInteractions();
 		}
 
 		@Test
@@ -163,7 +147,8 @@ class ProductSellerServiceTest {
 			assertThat(response.version()).isEqualTo("2.0");
 			assertThat(response.status()).isEqualTo("ON_SALE");
 			then(productRepository).should(never()).save(any());
-			then(productEventProducer).shouldHaveNoInteractions();
+			then(productEventPublisher).shouldHaveNoInteractions();
+			then(productInspectionRequestPublisher).shouldHaveNoInteractions();
 		}
 
 		@Test
@@ -186,7 +171,7 @@ class ProductSellerServiceTest {
 			assertThat(onSale.getName()).isEqualTo("제목");
 			assertThat(response.status()).isEqualTo("PENDING_REVIEW");
 			assertThat(response.version()).isEqualTo("3.0");
-			then(productEventProducer).should().publishReviewRequested(saved, null, null, List.of());
+			then(productInspectionRequestPublisher).should().publish(saved);
 		}
 
 		@Test
@@ -208,8 +193,8 @@ class ProductSellerServiceTest {
 			});
 			assertThat(response.status()).isEqualTo("ON_SALE");
 			assertThat(response.version()).isEqualTo("2.1");
-			then(productEventProducer).should().publishProductChanged(PRODUCT_ID);
-			then(productEventProducer).should(never()).publishReviewRequested(any(), any(), any(), any());
+			then(productEventPublisher).should().publishProductChanged(PRODUCT_ID);
+			then(productInspectionRequestPublisher).should(never()).publish(any());
 		}
 
 		@Test
@@ -221,7 +206,7 @@ class ProductSellerServiceTest {
 
 			productSellerService.updateProduct(SELLER_ID, PRODUCT_ID, metadataOnlyRequest());
 
-			then(productEventProducer).should().publishPriceChanged(PRODUCT_ID, 1000, 2000);
+			then(productEventPublisher).should().publishPriceChanged(PRODUCT_ID, 1000, 2000);
 		}
 
 		@Test
@@ -365,7 +350,7 @@ class ProductSellerServiceTest {
 
 			ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
 			then(productRepository).should().save(captor.capture());
-			then(productEventProducer).should().publishProductChanged(captor.getValue().getId());
+			then(productEventPublisher).should().publishProductChanged(captor.getValue().getId());
 		}
 	}
 
