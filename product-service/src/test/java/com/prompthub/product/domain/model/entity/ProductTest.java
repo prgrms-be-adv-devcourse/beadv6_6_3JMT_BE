@@ -80,6 +80,9 @@ class ProductTest {
 		assertThat(next.getPatchVersion()).isEqualTo((short) 0);
 		assertThat(next.getStatus()).isEqualTo(ProductStatus.PENDING_REVIEW);
 		assertThat(next.getName()).isEqualTo("새 제목");
+		// MAJOR row도 새 검수 회차 시작이다 — stale 재발행 후보 판정 기준.
+		assertThat(next.getInspectionRequestedAt()).isNotNull();
+		assertThat(next.getInspectionRequestRetryCount()).isZero();
 		// 승인 전까지 기존 ON_SALE row는 변경되지 않는다
 		assertThat(onSale.getStatus()).isEqualTo(ProductStatus.ON_SALE);
 		assertThat(onSale.getName()).isEqualTo("제목");
@@ -99,6 +102,9 @@ class ProductTest {
 		assertThat(next.getPatchVersion()).isEqualTo((short) 4);
 		assertThat(next.getStatus()).isEqualTo(ProductStatus.ON_SALE);
 		assertThat(next.getAmount()).isEqualTo(1500);
+		// PATCH는 검수를 거치지 않으므로 검수 요청 회차를 시작하지 않는다.
+		assertThat(next.getInspectionRequestedAt()).isNull();
+		assertThat(next.getInspectionRequestRetryCount()).isZero();
 	}
 
 	@Test
@@ -147,6 +153,39 @@ class ProductTest {
 		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
 
 		assertThatThrownBy(product::supersede).isInstanceOf(IllegalStateException.class);
+	}
+
+	// startInspectionRequest()가 검수 요청 시작 시각을 기록하고 재발행 횟수를 초기화하는지 검증한다
+	// (2026-08-05 로드맵 PR4) — stale 재발행 스케줄러가 이 값들로 오래 대기한 상품을 찾는다.
+	@Test
+	void submitForReview_draft_startsInspectionRequestWithRetryCountZero() {
+		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
+
+		product.submitForReview();
+
+		assertThat(product.getStatus()).isEqualTo(ProductStatus.PENDING_REVIEW);
+		assertThat(product.getInspectionRequestedAt()).isNotNull();
+		assertThat(product.getInspectionRequestRetryCount()).isZero();
+	}
+
+	@Test
+	void submitForReview_rejectedWithPriorRetry_startsNewInspectionRequestAndResetsRetryCount() {
+		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
+		ReflectionTestUtils.setField(product, "status", ProductStatus.REJECTED);
+		ReflectionTestUtils.setField(product, "inspectionRequestRetryCount", 1);
+
+		product.submitForReview();
+
+		// 새 검수 회차이므로 이전 회차의 재발행 횟수를 그대로 물려받지 않는다.
+		assertThat(product.getInspectionRequestRetryCount()).isZero();
+	}
+
+	@Test
+	void submitForReview_nonDraftOrRejected_throws() {
+		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
+		ReflectionTestUtils.setField(product, "status", ProductStatus.ON_SALE);
+
+		assertThatThrownBy(product::submitForReview).isInstanceOf(IllegalStateException.class);
 	}
 
 	@Test

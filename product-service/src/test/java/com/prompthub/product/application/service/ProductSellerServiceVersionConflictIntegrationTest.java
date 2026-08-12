@@ -1,5 +1,8 @@
 package com.prompthub.product.application.service;
 import com.prompthub.product.application.service.seller.ProductSellerService;
+import com.prompthub.product.application.service.inspection.ProductInspectionRequestPublisher;
+import com.prompthub.product.application.service.seller.ProductVersionChangePolicy;
+import com.prompthub.product.application.service.seller.ProductVersionTransitionService;
 
 import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -9,9 +12,9 @@ import static org.mockito.Mockito.verify;
 
 import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
 import com.prompthub.product.application.service.fileupload.TempFilePromoter;
+import com.prompthub.product.application.usecase.inspection.ProductEventPublisher;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
-import com.prompthub.product.infra.messaging.producer.ProductEventProducer;
 import com.prompthub.product.infra.persistence.query.ProductJpaRepository;
 import com.prompthub.product.infra.persistence.query.ProductRepositoryAdapter;
 import com.prompthub.product.presentation.dto.request.product.ProductUpdateRequest;
@@ -47,7 +50,10 @@ import org.springframework.test.util.ReflectionTestUtils;
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({ProductRepositoryAdapter.class, TempFilePromoter.class, ProductSellerService.class})
+@Import({
+	ProductRepositoryAdapter.class, TempFilePromoter.class, ProductInspectionRequestPublisher.class,
+	ProductVersionChangePolicy.class, ProductVersionTransitionService.class, ProductSellerService.class
+})
 @ActiveProfiles("test")
 class ProductSellerServiceVersionConflictIntegrationTest extends PostgresIntegrationTestSupport {
 
@@ -66,7 +72,7 @@ class ProductSellerServiceVersionConflictIntegrationTest extends PostgresIntegra
 	private ObjectStorageGateway objectStorage;
 
 	@MockitoBean
-	private ProductEventProducer productEventProducer;
+	private ProductEventPublisher productEventPublisher;
 
 	// commit()으로 실제 커밋한 row는 @DataJpaTest의 기본 롤백 대상이 아니라 다음 테스트로 새어
 	// 나간다 — 컨테이너를 테스트 실행 전체가 공유하므로 직접 지운다.
