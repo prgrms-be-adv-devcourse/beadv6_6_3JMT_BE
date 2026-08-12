@@ -201,7 +201,42 @@ class ProductJpaRepositoryTest extends PostgresIntegrationTestSupport {
 	}
 
 	@Test
-	void findChangedFamilyRootIds_삭제된_상품은_제외한다() {
+	void findChangedFamilyRootIds_삭제된_리뷰도_포함한다() {
+		Product root = product(null, ProductStatus.ON_SALE, (short) 1, (short) 0);
+		ReflectionTestUtils.setField(root, "updatedAt", LocalDateTime.now().minusHours(1));
+		productJpaRepository.save(root);
+
+		Review deletedReview = Review.create(UUID.randomUUID(), root, (short) 5);
+		ReflectionTestUtils.setField(deletedReview, "deletedAt", LocalDateTime.now());
+		reviewJpaRepository.save(deletedReview);
+
+		List<UUID> result = productJpaRepository.findChangedFamilyRootIds(LocalDateTime.now().minusMinutes(1));
+
+		// 리뷰 삭제로 평균 평점이 달라지므로, 삭제된 review row도 변경 감지 대상이어야 한다
+		assertThat(result).containsExactly(root.getId());
+	}
+
+	@Test
+	void findChangedFamilyRootIds_child_version에_달린_리뷰도_family_루트_id를_반환한다() {
+		Product root = product(null, ProductStatus.SUPERSEDED, (short) 1, (short) 0);
+		Product child = product(root.getId(), ProductStatus.ON_SALE, (short) 2, (short) 0);
+		ReflectionTestUtils.setField(root, "updatedAt", LocalDateTime.now().minusHours(1));
+		ReflectionTestUtils.setField(child, "updatedAt", LocalDateTime.now().minusHours(1));
+		productJpaRepository.saveAll(List.of(root, child));
+
+		Review review = Review.create(UUID.randomUUID(), child, (short) 5);
+		reviewJpaRepository.save(review);
+
+		List<UUID> result = productJpaRepository.findChangedFamilyRootIds(LocalDateTime.now().minusMinutes(1));
+
+		// review.product가 child여도 ES 문서 ID는 family root이므로 root id로 나와야 한다
+		assertThat(result).containsExactly(root.getId());
+	}
+
+	@Test
+	void findChangedFamilyRootIds_삭제된_상품도_포함한다() {
+		// softDelete() 자체가 재조정이 필요한 변경이다 — 삭제된 family를 재조정 대상에서
+		// 빼면 ES에 이미 색인된 문서가 정리되지 않고 그대로 남는다.
 		Product deleted = product(null, ProductStatus.ON_SALE, (short) 1, (short) 0);
 		ReflectionTestUtils.setField(deleted, "updatedAt", LocalDateTime.now());
 		ReflectionTestUtils.setField(deleted, "deletedAt", LocalDateTime.now());
@@ -209,7 +244,7 @@ class ProductJpaRepositoryTest extends PostgresIntegrationTestSupport {
 
 		List<UUID> result = productJpaRepository.findChangedFamilyRootIds(LocalDateTime.now().minusMinutes(1));
 
-		assertThat(result).isEmpty();
+		assertThat(result).containsExactly(deleted.getId());
 	}
 
 	@Test
