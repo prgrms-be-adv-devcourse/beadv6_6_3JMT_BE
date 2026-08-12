@@ -124,6 +124,8 @@
 | badge | VARCHAR(50) | | NULL | 상품 뱃지 (`신규` 등) |
 | status | VARCHAR(30) | ✓ | DRAFT | DRAFT / PENDING_REVIEW / ON_SALE / REJECTED / STOPPED / SUPERSEDED (CHECK constraint). SUPERSEDED = 버전업 승인 시 밀려난 이전 ON_SALE row |
 | rejection_reason | VARCHAR(1000) | | NULL | 검수 반려 사유. REJECTED 상태에서만 유효 |
+| inspection_requested_at | TIMESTAMP | | NULL | 현재 검수 회차가 시작된 시각(submitForReview·MAJOR row 생성 시 기록). stale 재발행 판정 기준 — updated_at은 재사용하지 않는다(#722, PR4) |
+| inspection_request_retry_count | INT | ✓ | 0 | 현재 검수 회차의 자동 재발행 횟수. 최대 1이며 조건부 UPDATE로 원자적으로 선점된다(#722, PR4) |
 | has_context | BOOLEAN | ✓ | false | AI 검수 체크리스트: 맥락 명시 여부 |
 | has_objective | BOOLEAN | ✓ | false | AI 검수 체크리스트: 목표 명시 여부 |
 | has_nuance | BOOLEAN | ✓ | false | AI 검수 체크리스트: 뉘앙스 명시 여부 |
