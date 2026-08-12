@@ -19,6 +19,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}          # DB 계정
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}  # DB 비밀번호
       POSTGRES_DB: ${POSTGRES_DB}              # 기본 DB 이름
+      USER_SERVICE_PASSWORD: ${USER_SERVICE_PASSWORD}
+      PRODUCT_SERVICE_PASSWORD: ${PRODUCT_SERVICE_PASSWORD}
+      ORDER_SERVICE_PASSWORD: ${ORDER_SERVICE_PASSWORD}
+      PAYMENT_SERVICE_PASSWORD: ${PAYMENT_SERVICE_PASSWORD}
+      SETTLEMENT_SERVICE_PASSWORD: ${SETTLEMENT_SERVICE_PASSWORD}
+      NOTIFICATION_SERVICE_PASSWORD: ${NOTIFICATION_SERVICE_PASSWORD}
     volumes:
       - pg-data:/var/lib/postgresql            # 데이터 영속 볼륨(postgres 18+ 권장 마운트 경로)
       - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d  # 초기화 스크립트(ADR-0002)
