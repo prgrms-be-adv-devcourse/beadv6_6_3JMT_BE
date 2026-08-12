@@ -176,6 +176,28 @@ class ProductReindexServiceTest {
 	}
 
 	@Test
+	@SuppressWarnings("unchecked")
+	void reconcileAll_새로_계산된_임베딩이_같은_사이클의_upsert에_실린다() {
+		UUID familyRootId = UUID.randomUUID();
+		Product onSale = product(familyRootId, ProductStatus.ON_SALE);
+		float[] refreshedEmbedding = {0.9f};
+		given(productSearchIndexer.indexExists()).willReturn(true);
+		given(productRepository.findAllByStatus(ProductStatus.ON_SALE)).willReturn(List.of(onSale));
+		given(productRepository.findAllByFamilyRootIds(List.of(familyRootId))).willReturn(List.of(onSale));
+		given(productRepository.getAverageRatings(List.of(familyRootId))).willReturn(Map.of(familyRootId, 4.0));
+		given(productRepository.findEmbeddings(List.of(onSale.getId()))).willReturn(Map.of());
+		given(productEmbeddingUpdater.refreshAndGet(List.of(onSale)))
+			.willReturn(Map.of(onSale.getId(), refreshedEmbedding));
+		given(productSearchIndexer.findAllIndexedFamilyRootIds()).willReturn(Set.of());
+
+		reindexService.reconcileAll();
+
+		// 새 임베딩이 findEmbeddings(기존 저장값)가 아니라 refreshAndGet 결과로 채워져야
+		// 이번 사이클에 반영된다 — 다음 사이클까지 미뤄지지 않는다.
+		verify(familyStatsResolver).buildFamilyUpsertInput(List.of(onSale), onSale, 4.0, refreshedEmbedding);
+	}
+
+	@Test
 	void reconcileChanged_인덱스가_아직_없으면_건너뛰고_실패를_알린다() {
 		given(productSearchIndexer.indexExists()).willReturn(false);
 
