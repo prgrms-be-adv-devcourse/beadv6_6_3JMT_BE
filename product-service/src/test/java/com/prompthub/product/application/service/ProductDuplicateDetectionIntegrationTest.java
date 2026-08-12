@@ -1,4 +1,5 @@
 package com.prompthub.product.application.service;
+import com.prompthub.product.application.service.seller.ProductSellerService;
 
 import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -15,10 +16,10 @@ import com.prompthub.product.domain.model.vo.ProductContent;
 import com.prompthub.product.domain.model.vo.ProductContentHash;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.infra.messaging.producer.ProductEventProducer;
-import com.prompthub.product.infra.persistence.ProductJpaRepository;
-import com.prompthub.product.infra.persistence.ProductRepositoryAdapter;
-import com.prompthub.product.presentation.dto.request.ProductCreateRequest;
-import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
+import com.prompthub.product.infra.persistence.query.ProductJpaRepository;
+import com.prompthub.product.infra.persistence.query.ProductRepositoryAdapter;
+import com.prompthub.product.presentation.dto.request.product.ProductCreateRequest;
+import com.prompthub.product.presentation.dto.response.product.ProductCreateResponse;
 import com.prompthub.product.support.PostgresIntegrationTestSupport;
 import jakarta.persistence.EntityManager;
 import java.util.List;

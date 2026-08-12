@@ -1,4 +1,6 @@
 package com.prompthub.product.application.service;
+import com.prompthub.product.application.service.query.ProductQueryService;
+import com.prompthub.product.application.service.query.ProductFamilyResolver;
 
 import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
 import com.prompthub.product.domain.model.entity.Product;
@@ -9,15 +11,15 @@ import com.prompthub.product.domain.model.projection.ProductReviewProjection;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
-import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
-import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
-import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
-import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
+import com.prompthub.product.presentation.dto.response.product.ProductDetailResponse;
+import com.prompthub.product.presentation.dto.response.product.ProductListItemResponse;
+import com.prompthub.product.presentation.dto.response.review.ProductReviewResponse;
+import com.prompthub.product.presentation.dto.response.product.ProductsByIdsResponse;
 import com.prompthub.presentation.dto.PageResponse;
-import com.prompthub.search.application.ProductSearchHit;
-import com.prompthub.search.application.ProductSearchPageResult;
+import com.prompthub.search.application.query.ProductSearchHit;
+import com.prompthub.search.application.query.ProductSearchPageResult;
 import com.prompthub.recommendation.application.ProductRecommender;
-import com.prompthub.search.application.ProductSearchQueryService;
+import com.prompthub.search.application.query.ProductSearchQueryPort;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -62,7 +64,7 @@ class ProductQueryServiceTest {
 	private ObjectStorageGateway objectStorage;
 
 	@Mock
-	private ProductSearchQueryService productSearchQueryService;
+	private ProductSearchQueryPort productSearchQueryService;
 
 	@Mock
 	private ProductRecommender productRecommender;

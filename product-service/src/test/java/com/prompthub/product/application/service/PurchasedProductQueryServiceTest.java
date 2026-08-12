@@ -1,4 +1,6 @@
 package com.prompthub.product.application.service;
+import com.prompthub.product.application.service.purchase.PurchasedProductQueryService;
+import com.prompthub.product.application.service.query.ProductFamilyResolver;
 
 import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
 import com.prompthub.product.domain.model.entity.Product;
@@ -8,7 +10,7 @@ import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.domain.repository.ReviewRepository;
 import com.prompthub.product.exception.ProductException;
-import com.prompthub.product.presentation.dto.response.PurchasedProductDetailResponse;
+import com.prompthub.product.presentation.dto.response.purchase.PurchasedProductDetailResponse;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

@@ -8,8 +8,7 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
- * purpose·productType·확장자 조합 검증과 업로드 content-type 결정을 전담한다. 이전에는
- * {@code FileUploadController} 안에서 판단하던 업무 규칙이다(.claude/rules/controller-exception.md §1).
+ * purpose·productType·확장자 조합 검증과 업로드 content-type 결정을 전담한다.
  */
 @Component
 public class FileUploadPolicy {

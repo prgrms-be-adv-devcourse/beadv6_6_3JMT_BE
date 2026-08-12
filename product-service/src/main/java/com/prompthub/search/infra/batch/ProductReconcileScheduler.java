@@ -1,6 +1,6 @@
 package com.prompthub.search.infra.batch;
 
-import com.prompthub.search.application.ProductReindexService;
+import com.prompthub.search.application.indexing.ProductReindexService;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;

@@ -1,4 +1,6 @@
 package com.prompthub.product.application.service;
+import com.prompthub.product.application.service.query.ProductSalesCountService;
+import com.prompthub.product.application.service.integration.OrderEventHandler;
 
 import com.prompthub.product.domain.model.entity.ProductProcessedEvent;
 import com.prompthub.product.domain.repository.ProcessedEventRepository;

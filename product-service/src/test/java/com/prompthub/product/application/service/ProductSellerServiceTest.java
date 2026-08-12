@@ -1,4 +1,5 @@
 package com.prompthub.product.application.service;
+import com.prompthub.product.application.service.seller.ProductSellerService;
 
 import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -15,9 +16,9 @@ import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.infra.messaging.producer.ProductEventProducer;
-import com.prompthub.product.presentation.dto.request.ProductCreateRequest;
-import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
-import com.prompthub.product.presentation.dto.response.ProductUpdateResponse;
+import com.prompthub.product.presentation.dto.request.product.ProductCreateRequest;
+import com.prompthub.product.presentation.dto.request.product.ProductUpdateRequest;
+import com.prompthub.product.presentation.dto.response.product.ProductUpdateResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -381,7 +382,7 @@ class ProductSellerServiceTest {
 			Product pending = product(UUID.randomUUID(), familyRootId, ProductStatus.PENDING_REVIEW, (short) 3, (short) 0);
 			given(productRepository.findBySellerId(SELLER_ID)).willReturn(List.of(superseded, onSale, pending));
 
-			List<com.prompthub.product.presentation.dto.response.SellerProductListItemResponse> result =
+			List<com.prompthub.product.presentation.dto.response.seller.SellerProductListItemResponse> result =
 				productSellerService.getMyProducts(SELLER_ID);
 
 			assertThat(result).hasSize(1);
@@ -396,7 +397,7 @@ class ProductSellerServiceTest {
 			Product rejected = product(UUID.randomUUID(), familyRootId, ProductStatus.REJECTED, (short) 3, (short) 0);
 			given(productRepository.findBySellerId(SELLER_ID)).willReturn(List.of(onSale, rejected));
 
-			List<com.prompthub.product.presentation.dto.response.SellerProductListItemResponse> result =
+			List<com.prompthub.product.presentation.dto.response.seller.SellerProductListItemResponse> result =
 				productSellerService.getMyProducts(SELLER_ID);
 
 			assertThat(result).hasSize(1);
@@ -409,7 +410,7 @@ class ProductSellerServiceTest {
 			Product stopped = product(UUID.randomUUID(), null, ProductStatus.STOPPED, (short) 1, (short) 0);
 			given(productRepository.findBySellerId(SELLER_ID)).willReturn(List.of(stopped));
 
-			List<com.prompthub.product.presentation.dto.response.SellerProductListItemResponse> result =
+			List<com.prompthub.product.presentation.dto.response.seller.SellerProductListItemResponse> result =
 				productSellerService.getMyProducts(SELLER_ID);
 
 			assertThat(result).hasSize(1);
@@ -425,7 +426,7 @@ class ProductSellerServiceTest {
 			given(productRepository.findBySellerId(SELLER_ID)).willReturn(List.of(onSale, nextVersion));
 			given(productRepository.getAverageRatings(List.of(familyRootId))).willReturn(Map.of(familyRootId, 4.5));
 
-			List<com.prompthub.product.presentation.dto.response.SellerProductListItemResponse> result =
+			List<com.prompthub.product.presentation.dto.response.seller.SellerProductListItemResponse> result =
 				productSellerService.getMyProducts(SELLER_ID);
 
 			assertThat(result).hasSize(1);
@@ -439,7 +440,7 @@ class ProductSellerServiceTest {
 			given(productRepository.findBySellerId(SELLER_ID)).willReturn(List.of(stopped));
 			given(productRepository.getAverageRatings(List.of(stopped.getId()))).willReturn(Map.of());
 
-			List<com.prompthub.product.presentation.dto.response.SellerProductListItemResponse> result =
+			List<com.prompthub.product.presentation.dto.response.seller.SellerProductListItemResponse> result =
 				productSellerService.getMyProducts(SELLER_ID);
 
 			assertThat(result.get(0).averageRating()).isEqualTo(0.0);
@@ -458,7 +459,7 @@ class ProductSellerServiceTest {
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(onSale));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(onSale, pending));
 
-			com.prompthub.product.presentation.dto.response.SellerProductDetailResponse result =
+			com.prompthub.product.presentation.dto.response.seller.SellerProductDetailResponse result =
 				productSellerService.getMyProduct(SELLER_ID, PRODUCT_ID);
 
 			assertThat(result.productId()).isEqualTo(pending.getId());
@@ -474,7 +475,7 @@ class ProductSellerServiceTest {
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(onSale));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(onSale, rejected));
 
-			com.prompthub.product.presentation.dto.response.SellerProductDetailResponse result =
+			com.prompthub.product.presentation.dto.response.seller.SellerProductDetailResponse result =
 				productSellerService.getMyProduct(SELLER_ID, PRODUCT_ID);
 
 			assertThat(result.productId()).isEqualTo(rejected.getId());
@@ -491,7 +492,7 @@ class ProductSellerServiceTest {
 			given(objectStorage.createPresignedGetUrl("products/1/file/a.pptx"))
 				.willReturn("https://s3/presigned-file");
 
-			com.prompthub.product.presentation.dto.response.SellerProductDetailResponse result =
+			com.prompthub.product.presentation.dto.response.seller.SellerProductDetailResponse result =
 				productSellerService.getMyProduct(SELLER_ID, PRODUCT_ID);
 
 			assertThat(result.fileUrl()).isEqualTo("https://s3/presigned-file");
@@ -507,7 +508,7 @@ class ProductSellerServiceTest {
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(onSale));
 			given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(3.5);
 
-			com.prompthub.product.presentation.dto.response.SellerProductDetailResponse result =
+			com.prompthub.product.presentation.dto.response.seller.SellerProductDetailResponse result =
 				productSellerService.getMyProduct(SELLER_ID, PRODUCT_ID);
 
 			assertThat(result.averageRating()).isEqualTo(3.5);

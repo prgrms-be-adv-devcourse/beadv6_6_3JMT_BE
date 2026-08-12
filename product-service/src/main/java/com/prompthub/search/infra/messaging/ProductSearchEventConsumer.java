@@ -8,7 +8,7 @@ import com.prompthub.common.event.EventMessage;
 import com.prompthub.product.infra.messaging.producer.ProductEventType;
 import com.prompthub.product.infra.messaging.producer.event.ProductDeletedPayload;
 import com.prompthub.product.infra.messaging.producer.event.ProductStoppedPayload;
-import com.prompthub.search.application.ProductSearchEventHandler;
+import com.prompthub.search.application.indexing.ProductSearchEventProcessor;
 import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
 public class ProductSearchEventConsumer {
 
 	private final ObjectMapper objectMapper;
-	private final ProductSearchEventHandler productSearchEventHandler;
+	private final ProductSearchEventProcessor productSearchEventProcessor;
 
 	@KafkaListener(
 		topics = "product-events",
@@ -38,30 +38,30 @@ public class ProductSearchEventConsumer {
 		}
 
 		ProductEventType.from(event.eventType()).ifPresentOrElse(
-			type -> handle(type, event),
+			type -> routeProductEvent(type, event),
 			() -> log.info("색인 컨슈머가 지원하지 않는 eventType입니다. eventType={}", event.eventType())
 		);
 
 		acknowledgment.acknowledge();
 	}
 
-	private void handle(ProductEventType type, EventMessage<JsonNode> event) {
+	private void routeProductEvent(ProductEventType type, EventMessage<JsonNode> event) {
 		switch (type) {
 			case PRODUCT_CHANGED -> {
 				UUID familyRootId = UUID.fromString(event.payload().get("familyRootId").asText());
-				productSearchEventHandler.handleProductChanged(event.eventId(), event.occurredAt(), familyRootId);
+				productSearchEventProcessor.processProductChanged(event.eventId(), event.occurredAt(), familyRootId);
 			}
-			case PRODUCT_STOPPED -> handleRemovalCandidate(
+			case PRODUCT_STOPPED -> routeRemovalEvent(
 				type, event, mapPayload(event.payload(), ProductStoppedPayload.class).productId());
-			case PRODUCT_DELETED -> handleRemovalCandidate(
+			case PRODUCT_DELETED -> routeRemovalEvent(
 				type, event, mapPayload(event.payload(), ProductDeletedPayload.class).productId());
 			default -> log.info("색인 컨슈머가 처리하지 않는 eventType입니다. eventType={}", type);
 		}
 	}
 
-	private void handleRemovalCandidate(ProductEventType type, EventMessage<JsonNode> event, UUID productId) {
+	private void routeRemovalEvent(ProductEventType type, EventMessage<JsonNode> event, UUID productId) {
 		Objects.requireNonNull(productId, type.name() + " payload에 productId가 없습니다.");
-		productSearchEventHandler.handleProductRemovalCandidate(event.eventId(), event.occurredAt(), type.name(), productId);
+		productSearchEventProcessor.processRemovalCandidate(event.eventId(), event.occurredAt(), type.name(), productId);
 	}
 
 	private <T> T mapPayload(JsonNode payload, Class<T> type) {

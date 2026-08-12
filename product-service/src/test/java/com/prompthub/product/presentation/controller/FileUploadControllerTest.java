@@ -1,11 +1,12 @@
 package com.prompthub.product.presentation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.prompthub.product.application.usecase.FileUploadUseCase;
+import com.prompthub.product.application.usecase.fileupload.FileUploadUseCase;
+import com.prompthub.product.presentation.controller.fileupload.FileUploadController;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.ProductExceptionHandler;
 import com.prompthub.product.exception.enums.ProductErrorCode;
-import com.prompthub.product.presentation.dto.response.UploadUrlResponse;
+import com.prompthub.product.presentation.dto.response.fileupload.UploadUrlResponse;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;

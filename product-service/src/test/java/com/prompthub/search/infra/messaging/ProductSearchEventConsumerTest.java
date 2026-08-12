@@ -7,7 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.prompthub.search.application.ProductSearchEventHandler;
+import com.prompthub.search.application.indexing.ProductSearchEventProcessor;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,7 +21,7 @@ import org.springframework.kafka.support.Acknowledgment;
 class ProductSearchEventConsumerTest {
 
 	@Mock
-	private ProductSearchEventHandler productSearchEventHandler;
+	private ProductSearchEventProcessor productSearchEventHandler;
 
 	@Mock
 	private Acknowledgment acknowledgment;
@@ -41,7 +41,7 @@ class ProductSearchEventConsumerTest {
 
 		consumer.consume(message(eventId, "PRODUCT_STOPPED", "{\"productId\":\"" + productId + "\"}"), acknowledgment);
 
-		verify(productSearchEventHandler).handleProductRemovalCandidate(
+		verify(productSearchEventHandler).processRemovalCandidate(
 			eq(eventId), any(LocalDateTime.class), eq("PRODUCT_STOPPED"), eq(productId));
 		verify(acknowledgment).acknowledge();
 	}
@@ -53,7 +53,7 @@ class ProductSearchEventConsumerTest {
 
 		consumer.consume(message(eventId, "PRODUCT_DELETED", "{\"productId\":\"" + productId + "\"}"), acknowledgment);
 
-		verify(productSearchEventHandler).handleProductRemovalCandidate(
+		verify(productSearchEventHandler).processRemovalCandidate(
 			eq(eventId), any(LocalDateTime.class), eq("PRODUCT_DELETED"), eq(productId));
 		verify(acknowledgment).acknowledge();
 	}

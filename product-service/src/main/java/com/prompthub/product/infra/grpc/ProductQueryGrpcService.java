@@ -1,6 +1,6 @@
 package com.prompthub.product.infra.grpc;
 
-import com.prompthub.product.application.usecase.ProductGrpcUseCase;
+import com.prompthub.product.application.usecase.integration.ProductGrpcUseCase;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.grpc.GetCartSnapshotsRequest;
 import com.prompthub.product.grpc.GetCartSnapshotsResponse;
@@ -17,10 +17,10 @@ import com.prompthub.product.grpc.ProductQueryServiceGrpc;
 import com.prompthub.product.grpc.PurchasedProductContent;
 import com.prompthub.product.grpc.RecommendedProduct;
 import com.prompthub.product.grpc.SimilarProductRanking;
-import com.prompthub.product.presentation.dto.response.ProductCartSnapshotResponse;
-import com.prompthub.product.presentation.dto.response.ProductContentResponse;
-import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
-import com.prompthub.product.presentation.dto.response.ProductOrderSnapshotResponse;
+import com.prompthub.product.presentation.dto.response.product.ProductCartSnapshotResponse;
+import com.prompthub.product.presentation.dto.response.product.ProductContentResponse;
+import com.prompthub.product.presentation.dto.response.product.ProductListItemResponse;
+import com.prompthub.product.presentation.dto.response.product.ProductOrderSnapshotResponse;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.util.List;

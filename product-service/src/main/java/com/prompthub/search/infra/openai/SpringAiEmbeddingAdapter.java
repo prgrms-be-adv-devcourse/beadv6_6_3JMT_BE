@@ -1,6 +1,6 @@
 package com.prompthub.search.infra.openai;
 
-import com.prompthub.search.application.EmbeddingClient;
+import com.prompthub.search.application.embedding.EmbeddingClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;
