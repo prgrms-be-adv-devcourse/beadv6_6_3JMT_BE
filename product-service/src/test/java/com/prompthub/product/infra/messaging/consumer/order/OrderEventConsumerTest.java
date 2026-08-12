@@ -1,6 +1,6 @@
 package com.prompthub.product.infra.messaging.consumer.order;
 
-import com.prompthub.product.application.service.OrderEventHandler;
+import com.prompthub.product.application.service.integration.OrderEventHandler;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;

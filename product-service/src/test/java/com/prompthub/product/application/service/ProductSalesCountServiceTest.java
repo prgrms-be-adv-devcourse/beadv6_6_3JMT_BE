@@ -1,4 +1,5 @@
 package com.prompthub.product.application.service;
+import com.prompthub.product.application.service.query.ProductSalesCountService;
 
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;

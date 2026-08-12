@@ -1,22 +1,23 @@
 package com.prompthub.product.presentation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.prompthub.product.application.usecase.ProductQueryUseCase;
-import com.prompthub.product.application.usecase.ProductSellerUseCase;
-import com.prompthub.product.application.usecase.PurchasedProductQueryUseCase;
+import com.prompthub.product.application.usecase.query.ProductQueryUseCase;
+import com.prompthub.product.application.usecase.seller.ProductSellerUseCase;
+import com.prompthub.product.application.usecase.purchase.PurchasedProductQueryUseCase;
+import com.prompthub.product.presentation.controller.product.ProductController;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
 import com.prompthub.product.exception.ProductExceptionHandler;
-import com.prompthub.product.presentation.dto.response.ProductCreateResponse;
-import com.prompthub.product.presentation.dto.response.ProductDetailResponse;
-import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
-import com.prompthub.product.presentation.dto.response.ProductReviewResponse;
-import com.prompthub.product.presentation.dto.response.ProductUpdateResponse;
-import com.prompthub.product.presentation.dto.response.ProductVersionResponse;
-import com.prompthub.product.presentation.dto.response.ProductsByIdsResponse;
-import com.prompthub.product.presentation.dto.response.PurchasedProductDetailResponse;
-import com.prompthub.product.presentation.dto.response.SellerProductDetailResponse;
-import com.prompthub.product.presentation.dto.response.SellerProductListItemResponse;
+import com.prompthub.product.presentation.dto.response.product.ProductCreateResponse;
+import com.prompthub.product.presentation.dto.response.product.ProductDetailResponse;
+import com.prompthub.product.presentation.dto.response.product.ProductListItemResponse;
+import com.prompthub.product.presentation.dto.response.review.ProductReviewResponse;
+import com.prompthub.product.presentation.dto.response.product.ProductUpdateResponse;
+import com.prompthub.product.presentation.dto.response.product.ProductVersionResponse;
+import com.prompthub.product.presentation.dto.response.product.ProductsByIdsResponse;
+import com.prompthub.product.presentation.dto.response.purchase.PurchasedProductDetailResponse;
+import com.prompthub.product.presentation.dto.response.seller.SellerProductDetailResponse;
+import com.prompthub.product.presentation.dto.response.seller.SellerProductListItemResponse;
 import com.prompthub.presentation.dto.PageResponse;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -279,7 +280,7 @@ class ProductControllerTest {
 		@DisplayName("등록 상품 수와 누적 판매 수를 반환한다")
 		void getMyProductSummary_success() throws Exception {
 			given(productSellerUseCase.getProductCount(SELLER_ID))
-				.willReturn(new com.prompthub.product.presentation.dto.response.ProductCountResponse(SELLER_ID, 3, 42));
+				.willReturn(new com.prompthub.product.presentation.dto.response.product.ProductCountResponse(SELLER_ID, 3, 42));
 
 			mockMvc.perform(get("/api/v2/products/sellers/me/summary")
 					.header("X-User-Id", SELLER_ID.toString()))
@@ -308,7 +309,7 @@ class ProductControllerTest {
 			mockMvc.perform(post("/api/v2/products/wishlists")
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(
-						new com.prompthub.product.presentation.dto.request.ProductsByIdsRequest(
+						new com.prompthub.product.presentation.dto.request.product.ProductsByIdsRequest(
 							List.of(PRODUCT_ID, productId2)))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
@@ -337,7 +338,7 @@ class ProductControllerTest {
 			mockMvc.perform(post("/api/v2/products/orders")
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(
-						new com.prompthub.product.presentation.dto.request.ProductsByIdsRequest(
+						new com.prompthub.product.presentation.dto.request.product.ProductsByIdsRequest(
 							List.of(PRODUCT_ID, productId2)))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))

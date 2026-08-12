@@ -1,7 +1,7 @@
-package com.prompthub.product.application.usecase;
+package com.prompthub.product.application.usecase.fileupload;
 
-import com.prompthub.product.presentation.dto.request.UploadUrlRequest;
-import com.prompthub.product.presentation.dto.response.UploadUrlResponse;
+import com.prompthub.product.presentation.dto.request.fileupload.UploadUrlRequest;
+import com.prompthub.product.presentation.dto.response.fileupload.UploadUrlResponse;
 import java.util.List;
 import java.util.UUID;
 

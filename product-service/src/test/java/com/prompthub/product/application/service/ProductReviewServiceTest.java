@@ -1,4 +1,5 @@
 package com.prompthub.product.application.service;
+import com.prompthub.product.application.service.review.ProductReviewService;
 
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.entity.Review;

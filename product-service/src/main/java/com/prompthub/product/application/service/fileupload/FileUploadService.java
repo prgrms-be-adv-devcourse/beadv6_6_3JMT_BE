@@ -2,9 +2,9 @@ package com.prompthub.product.application.service.fileupload;
 
 import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
 import com.prompthub.product.application.gateway.external.ObjectStorageKey;
-import com.prompthub.product.application.usecase.FileUploadUseCase;
-import com.prompthub.product.presentation.dto.request.UploadUrlRequest;
-import com.prompthub.product.presentation.dto.response.UploadUrlResponse;
+import com.prompthub.product.application.usecase.fileupload.FileUploadUseCase;
+import com.prompthub.product.presentation.dto.request.fileupload.UploadUrlRequest;
+import com.prompthub.product.presentation.dto.response.fileupload.UploadUrlResponse;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;

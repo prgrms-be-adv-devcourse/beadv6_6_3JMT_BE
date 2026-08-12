@@ -1,16 +1,18 @@
 package com.prompthub.product.application.service;
+import com.prompthub.product.application.service.integration.ProductGrpcService;
+import com.prompthub.product.application.service.query.ProductFamilyResolver;
 
 import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
-import com.prompthub.product.application.usecase.ProductQueryUseCase;
+import com.prompthub.product.application.usecase.query.ProductQueryUseCase;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.repository.ProductRepository;
 import com.prompthub.product.exception.ProductException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
-import com.prompthub.product.presentation.dto.response.ProductCartSnapshotResponse;
-import com.prompthub.product.presentation.dto.response.ProductContentResponse;
-import com.prompthub.product.presentation.dto.response.ProductListItemResponse;
+import com.prompthub.product.presentation.dto.response.product.ProductCartSnapshotResponse;
+import com.prompthub.product.presentation.dto.response.product.ProductContentResponse;
+import com.prompthub.product.presentation.dto.response.product.ProductListItemResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;

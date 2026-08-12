@@ -1,7 +1,7 @@
 package com.prompthub.search.support;
 
-import com.prompthub.search.infra.es.ElasticsearchClientConfig;
-import com.prompthub.search.infra.es.ProductIndexBootstrap;
+import com.prompthub.search.infra.es.config.ElasticsearchClientConfig;
+import com.prompthub.search.infra.es.config.ProductIndexBootstrap;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;

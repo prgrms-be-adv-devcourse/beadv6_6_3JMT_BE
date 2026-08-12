@@ -1,6 +1,7 @@
 package com.prompthub.product.presentation.controller;
 
-import com.prompthub.product.application.usecase.ProductReviewUseCase;
+import com.prompthub.product.application.usecase.review.ProductReviewUseCase;
+import com.prompthub.product.presentation.controller.review.ReviewController;
 import com.prompthub.product.exception.ProductExceptionHandler;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;

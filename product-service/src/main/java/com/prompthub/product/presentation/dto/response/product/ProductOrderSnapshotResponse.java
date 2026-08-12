@@ -1,0 +1,25 @@
+package com.prompthub.product.presentation.dto.response.product;
+
+import com.prompthub.product.domain.model.entity.Product;
+import java.util.UUID;
+
+public record ProductOrderSnapshotResponse(
+	UUID productId,
+	UUID sellerId,
+	String title,
+	String productType,
+	int amount,
+	String model
+) {
+
+	public static ProductOrderSnapshotResponse from(UUID productId, Product product) {
+		return new ProductOrderSnapshotResponse(
+			productId,
+			product.getSellerId(),
+			product.getName(),
+			product.getProductType().name(),
+			product.getAmount(),
+			product.getModel() != null ? product.getModel() : ""
+		);
+	}
+}

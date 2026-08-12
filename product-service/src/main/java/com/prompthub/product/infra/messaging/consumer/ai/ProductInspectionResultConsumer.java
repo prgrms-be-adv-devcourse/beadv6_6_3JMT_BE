@@ -1,7 +1,7 @@
 package com.prompthub.product.infra.messaging.consumer.ai;
 
 import com.prompthub.common.event.EventMessage;
-import com.prompthub.product.application.service.ProductInspectionResultHandler;
+import com.prompthub.product.application.service.inspection.ProductInspectionResultHandler;
 import com.prompthub.product.domain.model.vo.InspectionChecklist;
 import java.util.Optional;
 import java.util.UUID;

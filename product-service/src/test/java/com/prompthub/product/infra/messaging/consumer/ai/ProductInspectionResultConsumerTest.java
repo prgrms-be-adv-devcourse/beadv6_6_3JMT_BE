@@ -7,7 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
-import com.prompthub.product.application.service.ProductInspectionResultHandler;
+import com.prompthub.product.application.service.inspection.ProductInspectionResultHandler;
 import com.prompthub.product.domain.model.vo.InspectionChecklist;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;

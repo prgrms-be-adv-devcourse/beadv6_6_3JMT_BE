@@ -61,3 +61,26 @@
 7. 규칙 검증 (`verify-rules`)
 8. 커밋 (`commit`)
 9. PR 생성 (`create-github-pr`)
+## Package structure rules (required for every implementation)
+
+- Keep the top-level layers `application`, `domain`, `infra`, `presentation`, `exception`, and `config`.
+- Organize classes by business capability, not by technical type. Use the existing capability packages such as
+  `seller`, `query`, `inspection`, `review`, `purchase`, `integration`, and `fileupload`.
+- Keep read-only flows in `application/service/query`. Do not create a new package for a single class.
+- Keep seller version changes in `seller`, inspection requests/results/retries in `inspection`, reviews in `review`,
+  and purchased-product reads in `purchase`.
+- Keep external technology implementations under `infra`, split by concern (`batch`, `messaging`, `grpc`, and
+  `persistence`). Repository adapters belong under `infra/persistence`.
+- Keep HTTP controllers and request/response DTOs under `presentation`; domain rules must not live in controllers.
+- Keep application services as readable sequential orchestration. Depend on application ports, not concrete Kafka,
+  S3, gRPC, or persistence implementations.
+- Do not add generic `util`, `manager`, or `helper` packages. Use `common` only for genuinely shared code.
+- Add each new class to the nearest existing capability package. Package moves must be separate from behavior changes
+  when possible, and `:product-service:test` must run after a move.
+- Before finishing any product-service implementation, check package placement, dependency direction, and whether a
+  new package is actually necessary.
+- For the search module, keep `application/query`, `application/indexing`, and `application/embedding` separate.
+  Keep Elasticsearch adapters under `infra/es/config`, `infra/es/query`, or `infra/es/indexing`; do not return to a
+  flat `search/application` or `search/infra/es` package.
+- Name the search application ports `ProductSearchQueryPort` and `ProductSearchIndexPort`. Prefer concrete action
+  names such as `ProductSearchEventProcessor` over vague `Handler` names.

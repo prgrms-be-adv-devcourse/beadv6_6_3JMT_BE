@@ -1,4 +1,5 @@
 package com.prompthub.product.application.service;
+import com.prompthub.product.application.service.seller.ProductSellerService;
 
 import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -11,9 +12,9 @@ import com.prompthub.product.application.service.fileupload.TempFilePromoter;
 import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.infra.messaging.producer.ProductEventProducer;
-import com.prompthub.product.infra.persistence.ProductJpaRepository;
-import com.prompthub.product.infra.persistence.ProductRepositoryAdapter;
-import com.prompthub.product.presentation.dto.request.ProductUpdateRequest;
+import com.prompthub.product.infra.persistence.query.ProductJpaRepository;
+import com.prompthub.product.infra.persistence.query.ProductRepositoryAdapter;
+import com.prompthub.product.presentation.dto.request.product.ProductUpdateRequest;
 import com.prompthub.product.support.PostgresIntegrationTestSupport;
 import java.util.ArrayList;
 import java.util.List;
