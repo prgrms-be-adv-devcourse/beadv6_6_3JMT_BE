@@ -16,6 +16,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -25,6 +29,8 @@ import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabas
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 // replace = NONE — @DataJpaTest 기본값은 내장 DB로 갈아끼우는데, 여기서는
 // PostgresIntegrationTestSupport가 띄운 컨테이너를 그대로 써야 한다.
@@ -38,6 +44,9 @@ class ProductJpaRepositoryTest extends PostgresIntegrationTestSupport {
 
 	@Autowired
 	private ReviewJpaRepository reviewJpaRepository;
+
+	@Autowired
+	private PlatformTransactionManager transactionManager;
 
 	@Test
 	void findPublicProducts_aggregatesRatingAcrossFamilyRoot() {
@@ -78,6 +87,71 @@ class ProductJpaRepositoryTest extends PostgresIntegrationTestSupport {
 		Map<UUID, Double> result = productJpaRepository.getAverageRatings(List.of());
 
 		assertThat(result).isEmpty();
+	}
+
+	@Test
+	void getSalesCounts_aggregatesEachFamilyAndExcludesDeletedVersions() {
+		Product root = product(null, ProductStatus.SUPERSEDED, (short) 1, (short) 0);
+		ReflectionTestUtils.setField(root, "salesCount", 5);
+		Product current = product(root.getId(), ProductStatus.ON_SALE, (short) 2, (short) 0);
+		ReflectionTestUtils.setField(current, "salesCount", 2);
+		Product deleted = product(root.getId(), ProductStatus.STOPPED, (short) 2, (short) 1);
+		ReflectionTestUtils.setField(deleted, "salesCount", 99);
+		ReflectionTestUtils.setField(deleted, "deletedAt", LocalDateTime.now());
+		productJpaRepository.saveAll(List.of(root, current, deleted));
+
+		Map<UUID, Long> result = productJpaRepository.getSalesCounts(List.of(root.getId()));
+
+		assertThat(result).containsExactly(Map.entry(root.getId(), 7L));
+	}
+
+	@Test
+	void getSalesCounts_emptyIds_returnsEmptyMapWithoutQuerying() {
+		assertThat(productJpaRepository.getSalesCounts(List.of())).isEmpty();
+	}
+
+	@Test
+	void incrementViewCount_updatesCountAndTimestampAtomically() {
+		Product product = product(null, ProductStatus.ON_SALE, (short) 1, (short) 0);
+		ReflectionTestUtils.setField(product, "viewCount", 3);
+		productJpaRepository.saveAndFlush(product);
+		LocalDateTime viewedAt = LocalDateTime.of(2026, 8, 12, 12, 30);
+
+		int updatedRows = productJpaRepository.incrementViewCount(product.getId(), viewedAt);
+		Product updated = productJpaRepository.findById(product.getId()).orElseThrow();
+
+		assertThat(updatedRows).isEqualTo(1);
+		assertThat(updated.getViewCount()).isEqualTo(4);
+		assertThat(updated.getUpdatedAt()).isEqualTo(viewedAt);
+	}
+
+	@Test
+	void incrementViewCount_preservesEveryConcurrentIncrement() {
+		Product product = product(null, ProductStatus.ON_SALE, (short) 1, (short) 0);
+		ReflectionTestUtils.setField(product, "viewCount", 0);
+		productJpaRepository.saveAndFlush(product);
+		UUID productId = product.getId();
+		TestTransaction.flagForCommit();
+		TestTransaction.end();
+
+		TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+		ExecutorService executor = Executors.newFixedThreadPool(8);
+		try {
+			CompletableFuture<?>[] increments = IntStream.range(0, 20)
+				.mapToObj(index -> CompletableFuture.runAsync(
+					() -> transaction.executeWithoutResult(status ->
+						productJpaRepository.incrementViewCount(productId, LocalDateTime.now())),
+					executor))
+				.toArray(CompletableFuture[]::new);
+
+			CompletableFuture.allOf(increments).join();
+			Product updated = transaction.execute(status -> productJpaRepository.findById(productId).orElseThrow());
+
+			assertThat(updated.getViewCount()).isEqualTo(20);
+		} finally {
+			executor.shutdownNow();
+			transaction.executeWithoutResult(status -> productJpaRepository.deleteById(productId));
+		}
 	}
 
 	@Test

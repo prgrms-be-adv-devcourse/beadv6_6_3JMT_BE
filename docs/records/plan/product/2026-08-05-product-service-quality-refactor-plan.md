@@ -60,7 +60,7 @@ score = 100 − 5×High − 2×Medium − 0.5×Low
 | --- | --- | --- | --- |
 | **1차** | I-1 · I-2 | +16 | 실패가 조용히 묻히는 곳 — 운영 리스크 |
 | **2차** | I-3 · I-4 · I-5 · I-8 · I-9 | +19.5 | 정리 — 파일이 안 겹쳐 병렬 가능 |
-| **3차** | I-7 | +4 | 단일 service 가독성·쿼리 개선 |
+| **3차** | I-7 | +4 | 검색/공개 조회 경계 분리·쿼리 개선 |
 
 ### Codex 설계 → Claude 구현 → Codex Publish 인계 절차
 
@@ -978,13 +978,15 @@ Kafka consumer의 메이저 버전 혼재가 별도 수정 없이 사라진다.
 
 ### I-7 · ProductQueryService 가독성 + 집계 쿼리 개선 — `refactor` — +4 — **#411 재범위화**
 
-`ProductQueryService`를 목록·상세·batch·조회수 service 네 개로 나누는 기존 안은 취소한다. 각 파일의
-내용이 작아지고 탐색할 service/usecase만 늘어나는 비용이 더 크다. `ProductQueryService`와
-`ProductQueryUseCase`는 하나로 유지하고 다음 문제만 고친다.
+`ProductQueryService`를 목록·상세·batch·조회수 service 네 개로 나누는 기존 안은 취소한다. 대신 ES
+검색과 RDB fallback이라는 독립된 장애 경계를 가진 목록·자동완성만 `ProductSearchService`와
+`ProductSearchUseCase`로 분리한다. 상세·추천·리뷰·wishlist/order batch는 판매 중 representative와
+family 조회 정책을 공유하므로 기존 `ProductQueryService`와 `ProductQueryUseCase`에 함께 유지한다.
+DTO mapper나 별도 `ProductViewService`는 만들지 않고 다음 문제만 고친다.
 
-1. **읽는 순서 정리** — public API 순서에 맞춰 상품 목록·자동완성, 상품 상세·추천·리뷰, 목적별 ID
-   목록 조회, 응답 변환, 입력 정규화 순서로 배치한다. 각 묶음에는 코드를 번역하지 않고 정책만 설명하는
-   한 줄 주석을 둔다.
+1. **검색 경계 분리와 읽는 순서 정리** — `ProductSearchService`는 상품 목록·자동완성, ES/RDB 응답 조립,
+   검색 입력 정규화 순서로 둔다. `ProductQueryService`는 상품 상세·추천·리뷰, 목적별 ID 목록 조회,
+   응답 변환 순서로 둔다. 각 묶음에는 코드를 번역하지 않고 정책만 설명하는 한 줄 주석을 둔다.
 2. **private 메서드만 직관화** — `searchViaElasticsearch` → `searchProductsWithElasticsearch`,
    `searchViaRdb` → `searchProductsWithRdb`, `getOnSaleProduct` → `findCurrentOnSaleProduct`,
    `toVersionHistory` → `getPublicVersionHistory`, `toUrl(s)` → `createDownloadUrl(s)`로 바꾼다.
@@ -1029,20 +1031,32 @@ GET  /api/v2/products/{productId}/reviews
 
 ##### 이번 PR의 구조 판단
 
-`ProductQueryUseCase`와 `ProductQueryService`는 각각 하나로 유지한다. 목록·상세·batch·조회수별 service를
-추가하지 않고, 한 파일 안에서 호출자가 읽는 흐름과 private 이름을 정리한다. public usecase 이름,
-Controller endpoint, 요청·응답 DTO와 JSON field는 바꾸지 않는다.
+목록·자동완성은 신규 `ProductSearchUseCase`와 `ProductSearchService`로 옮기고, 상세·추천·리뷰·batch는
+기존 `ProductQueryUseCase`와 `ProductQueryService`에 유지한다. `ProductController`는 두 usecase를
+주입받되 endpoint, 요청·응답 DTO와 JSON field는 바꾸지 않는다. 목록·상세·batch·조회수별 4분할,
+별도 mapper와 `ProductViewService`는 추가하지 않는다.
 
 코드 순서는 다음으로 고정한다.
 
 ```text
-상수와 의존성
+ProductSearchService
+
+상수와 검색 의존성
 
 // 상품 목록·검색: ES 우선, 검색 인프라 실패에서만 RDB fallback
 getProducts
 searchProductsWithElasticsearch
 searchProductsWithRdb
 suggest
+
+// 검색 응답 조립과 외부 입력 정규화
+toListItemResponse overloads
+ObjectStorageGateway.presignIfPresent 재사용
+normalizePage/Positive/Keyword/ProductType/Sort
+
+ProductQueryService
+
+상수와 공개 조회 의존성
 
 // 공개 상세: 판매 중 대표본, 조회수, 추천, 리뷰와 공개 버전 이력
 getProduct
@@ -1059,10 +1073,7 @@ toListItemResponse overloads
 toReviewResponse
 toVersionResponse
 createPreviewContent
-createDownloadUrl(s)
-
-// 외부 입력 정규화
-normalizePage/Positive/Keyword/ProductType/Sort
+ObjectStorageGateway.presignIfPresent/presignAllIfPresent 재사용
 ```
 
 주석은 각 묶음의 정책을 한 줄로 설명한다. 메서드 내용을 그대로 한국어로 번역한 주석이나 모든 private
@@ -1076,8 +1087,6 @@ private 메서드 rename은 다음으로 제한한다.
 | `searchViaRdb` | `searchProductsWithRdb` |
 | `getOnSaleProduct` | `findCurrentOnSaleProduct` |
 | `toVersionHistory` | `getPublicVersionHistory` |
-| `toUrl` | `createDownloadUrl` |
-| `toUrls` | `createDownloadUrls` |
 
 PR 1에서 object storage port 이름이 이미 확정되면 `StorageClient` 대신 그 결과를 사용하되 이 PR에서
 저장소 경계를 다시 설계하지 않는다.
@@ -1179,24 +1188,31 @@ API 계약이 바뀌지 않으므로 `docs/api-spec/product.md` 내용 변경도
 
 ```text
 product-service/src/main/java/com/prompthub/product/
-  application/service/ProductQueryService.java
+  application/usecase/query/ProductSearchUseCase.java
+  application/usecase/query/ProductQueryUseCase.java
+  application/service/query/ProductSearchService.java
+  application/service/query/ProductQueryService.java
+  presentation/controller/product/ProductController.java
   domain/repository/ProductRepository.java
   infra/persistence/ProductJpaRepository.java
   infra/persistence/ProductRepositoryAdapter.java
 
 product-service/src/main/java/com/prompthub/search/
-  application/ProductSearchUnavailableException.java
-  infra/es/ElasticsearchProductSearchQuerier.java
+  application/query/ProductSearchUnavailableException.java
+  infra/es/query/ElasticsearchProductSearchQuerier.java
 
 product-service/src/test/java/com/prompthub/product/
+  application/service/ProductSearchServiceTest.java
   application/service/ProductQueryServiceTest.java
+  presentation/controller/product/ProductControllerTest.java
   infra/persistence/ProductJpaRepositoryTest.java
 
-product-service/src/test/java/com/prompthub/search/infra/es/
+product-service/src/test/java/com/prompthub/search/infra/es/query/
   ElasticsearchProductSearchQuerierTest 또는 기존 integration test 보완
 ```
 
-새 usecase/service/mapper 패키지, endpoint, DTO, migration은 추가하지 않는다.
+검색 경계를 위한 usecase/service 각 하나 외에 새 service/mapper 패키지, endpoint, DTO, migration은
+추가하지 않는다. repository port와 응답 DTO는 두 service가 기존 계약을 그대로 재사용한다.
 
 ##### 필수 테스트와 완료 조건
 
@@ -1208,7 +1224,8 @@ product-service/src/test/java/com/prompthub/search/infra/es/
 - 집계 row 없음은 판매량 0·평점 0.0, 삭제 version 판매량 제외
 - 동시 상세 조회 N회 후 view count가 정확히 N 증가하고 update 각각의 영향 row가 1
 - 상세 조회 중 삭제 경쟁으로 update 0건이면 PRODUCT_NOT_FOUND
-- public usecase signature, Controller MockMvc endpoint와 response JSON snapshot이 전후 동일
+- 검색 메서드는 `ProductSearchUseCase`, 나머지 조회 메서드는 `ProductQueryUseCase`에만 존재하고
+  Controller MockMvc endpoint와 response JSON snapshot은 전후 동일
 - FE `/`, `/browse`, `/detail/[id]`, wishlist/order 마이페이지 회귀 확인
 - `:product-service:test`, 관련 ES integration test, `git diff --check`, 적용 규칙 기반 diff 검증 통과
 - 기존 baseline 실패는 별도 기록하고 이 PR이 추가한 실패는 0건
@@ -1217,12 +1234,30 @@ product-service/src/test/java/com/prompthub/search/infra/es/
 
 - 문제: 조회 service의 책임 순서와 private 이름이 흐름을 숨기고, 광범위한 RuntimeException fallback이
   코드 결함까지 감추며, ID 100건에서 집계 쿼리가 최대 200회 실행되고 조회수 동시 증가가 유실될 수 있다.
-- 결정: service/usecase는 하나로 유지하고 읽는 순서·private 이름만 정리한다. ES 전용 예외만 fallback,
-  family 판매량/평점은 각각 한 번에 집계, 조회수는 원자적 update로 변경한다.
-- 제외: public API rename, endpoint/DTO 변경, 서비스 4분할, 별도 ViewService, 캐시, migration, FE source 변경.
-- GitHub: 다른 작성자의 #411은 수정·종료하지 않는다. 범위가 다른 사용자 소유 신규 이슈를 생성하고
-  관련 배경으로만 #411을 링크한다.
+- 결정: 목록·자동완성만 `ProductSearchService`/`ProductSearchUseCase`로 분리한다. 나머지는 기존
+  query service/usecase에 유지하고, ES 전용 예외만 fallback, family 판매량/평점은 각각 한 번에 집계,
+  조회수는 원자적 update로 변경한다.
+- 제외: public endpoint/DTO 변경, 서비스 4분할, 별도 mapper/ViewService, 캐시, migration, FE source 변경.
+- GitHub: 사용자 소유 신규 #731에서 구현하고, 완료 PR이 합의한 검색 경계 분리와 CQS 위험 완화를
+  충족하면 #731과 #411을 함께 종료한다.
 - 수용 기준: 위 필수 테스트와 변경 금지 계약을 그대로 사용한다.
+
+##### 실제 구현 결과 (2026-08-13) — `IMPLEMENTED · PR_PENDING`
+
+- 실제 범위: 목록·자동완성을 `ProductSearchUseCase`/`ProductSearchService`로 분리하고, 상세·추천·리뷰·batch는
+  `ProductQueryUseCase`/`ProductQueryService`에 유지했다. Controller와 공개 API·DTO·FE source는 변경하지
+  않았다. batch family 판매량·평점은 각각 한 번의 집계 query로 조회하고 조회수는 원자적 update로 바꿨다.
+- 설계 차이: service별 `createDownloadUrl(s)`를 새로 만들지 않고 기존 공용 port의
+  `ObjectStorageGateway.presignIfPresent/presignAllIfPresent`를 재사용했다. 같은 규칙의 중복 구현을 피하면서
+  URL 생성 실패를 숨기지 않는 기존 계약을 유지한다.
+- 검증: `getProductsByIds` 0·1·10·100건, lexical·hybrid·msearch item·suggest 실패 경계, 조회수 0건과
+  동시 증가를 테스트에 포함했다. 집중 테스트, `:product-service:test`, `:product-service:build`, FE build와
+  `git diff --check`는 통과했다. FE lint는 기존 source의 baseline 22 errors·93 warnings로 실패했으며 FE
+  작업 트리는 깨끗하고 이 PR의 신규 lint 실패는 없다.
+- Quality: `ProductQueryService`는 320 LOC에서 191 LOC로 줄고 검색 책임은 159 LOC의
+  `ProductSearchService`와 대응 테스트로 분리했다. 광범위한 `RuntimeException` fallback과 신규 코드의
+  미사용 import를 제거했다. build의 checkstyle warning 152건은 generated protobuf source에만 남아 있다.
+  별도 mapper·조회수 service·다운로드 URL helper는 만들지 않았다.
 
 ---
 
@@ -3257,7 +3292,7 @@ PR 검토를 포함한다. AI가 코드를 빠르게 생성하는 시간보다 �
 | 반려 major 재편집 | ProductFamily 우선순위, rejected revise, FE 상태/버튼, 재요청·승인 교대 테스트 | 2~3일 |
 | 자동 버전 판정 | versionType 제거, MAJOR/PATCH 정책과 무변경 no-op, 가격 이벤트 시점, BE·FE·필드별 테스트 | 1.5~2.5일 |
 | 소규모 정리 | I-3, I-5, I-9 중 독립 항목 | 1~2일 |
-| 조회 구조·성능 정리 | I-7 단일 ProductQueryService 순서·이름, ES 예외, 일괄 집계와 회귀 | 1.5~2.5일 |
+| 조회 구조·성능 정리 | I-7 검색/공개 조회 2분할, ES 예외, 일괄 집계와 회귀 | 1.5~2.5일 |
 | 최종 통합 | 전체 product test/build, FE test/build, 계약 문서, Quality, diff/PR 회귀 수정 | 1.5~2.5일 |
 
 위 합계는 사람이 직접 구현할 때의 복잡도 참고치이고 실제 달력 일정으로 사용하지 않는다. 사용자는
@@ -3456,7 +3491,7 @@ I-1~I-5·I-7~I-9, 반려 major 재편집, 자동 버전 판정과 이번 분석�
 
 | 이슈 | 작성자 | 판단 | 이유 |
 | --- | --- | --- | --- |
-| #411 ProductQueryService 책임/CQS | `git-mesome` | **유지·직접 close 금지** | PR 6은 단일 service 유지, 메서드 순서·이름, ES 예외 경계, 집계 `2N → 2`, 조회수 atomic update라는 재범위화다. 다른 작성자의 기존 이슈는 참고 링크로만 두고, 사용자 소유 신규 이슈에서 구현한다 |
+| #411 ProductQueryService 책임/CQS | `git-mesome` | **PR 6에서 #731과 함께 close** | 4개 service 분리 대신 목록·자동완성을 검색 service/usecase로 분리하고, 나머지 공개 조회는 응집된 단일 service로 유지한다. 조회수는 atomic update로 동시성 위험을 제거하며 GET의 부수 효과는 테스트와 이름으로 명시한다 |
 | #684 반려 상품 삭제 | `git-mesome` | **유지·직접 close 금지** | REJECTED를 실제 소프트 삭제할지, 현 설계(STOPPED 전이 후 목록 유지)가 맞고 FE 버튼만 고칠지 정책 결정이 먼저다 |
 | #555 Kafka consumer DLT | `Jinpyo-An` | **유지·변경 금지** | 현재 코드에 DLT가 이미 있어도 다른 작성자의 이슈다. 이번 로드맵에서 댓글·close·재범위화를 수행하지 않는다 |
 | #560 판매자 목록 페이징 | `gfkmkl` | **로드맵 이후 진행** | I-7 이후 `PageResponse` 계약과 FE를 함께 변경한다. 해당 후속 구현 PR이 완료되면 close 가능하다 |
@@ -3465,8 +3500,8 @@ I-1~I-5·I-7~I-9, 반려 major 재편집, 자동 버전 판정과 이번 분석�
 | #582 ES 보안 전환 | `gfkmkl` | **로드맵 이후 운영 작업** | PR #659로 1·2단계는 완료됐지만 3단계(`xpack.security.enabled=true`, 계정·권한 분리, 자동완성 포함 전환 검증)가 남았다. ELK 담당자와 적용 후 검증까지 끝나야 close한다 |
 
 #518은 사용자가 직접 정리한 이슈이므로 Claude 인계와 이 로드맵의 close 작업 대상에서 제외한다.
-작성자가 다른 #411·#555·#684도 자동 close하거나 본문을 바꾸지 않는다. PR 6은 #411을 참고하되 현재
-합의 범위로 사용자 소유 신규 이슈를 생성한다.
+작성자가 다른 #555·#684는 자동 close하거나 본문을 바꾸지 않는다. #411은 사용자의 2026-08-12
+명시적 결정에 따라 PR 6 완료 시 사용자 소유 #731과 함께 close한다.
 
 ### closed 상태지만 구현되지 않은 검색·ES 고도화 후속
 

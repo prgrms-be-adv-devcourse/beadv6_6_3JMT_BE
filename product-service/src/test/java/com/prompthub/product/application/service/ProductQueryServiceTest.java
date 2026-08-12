@@ -15,13 +15,11 @@ import com.prompthub.product.presentation.dto.response.product.ProductDetailResp
 import com.prompthub.product.presentation.dto.response.product.ProductListItemResponse;
 import com.prompthub.product.presentation.dto.response.review.ProductReviewResponse;
 import com.prompthub.product.presentation.dto.response.product.ProductsByIdsResponse;
-import com.prompthub.presentation.dto.PageResponse;
-import com.prompthub.search.application.query.ProductSearchHit;
-import com.prompthub.search.application.query.ProductSearchPageResult;
 import com.prompthub.recommendation.application.ProductRecommender;
-import com.prompthub.search.application.query.ProductSearchQueryPort;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,24 +27,22 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.BDDMockito.willThrow;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class ProductQueryServiceTest {
@@ -64,9 +60,6 @@ class ProductQueryServiceTest {
 	private ObjectStorageGateway objectStorage;
 
 	@Mock
-	private ProductSearchQueryPort productSearchQueryService;
-
-	@Mock
 	private ProductRecommender productRecommender;
 
 	private ProductQueryService productQueryService;
@@ -74,154 +67,12 @@ class ProductQueryServiceTest {
 	@BeforeEach
 	void setUp() {
 		productQueryService = new ProductQueryService(
-			productRepository, objectStorage, new ProductFamilyResolver(productRepository), productSearchQueryService,
-			productRecommender);
-		// getProducts를 호출하지 않는 테스트에서는 불필요한 스텁 경고를 피하기 위해 lenient 처리.
-		lenient().when(productSearchQueryService.search(any(), any(), any(), any()))
-			.thenThrow(new IllegalStateException("테스트 기본값: ES 실패 가정, RDB 폴백 경로를 검증한다"));
-	}
-
-	@Nested
-	@DisplayName("상품 목록 조회")
-	class GetProducts {
-
-		@Test
-		@DisplayName("검색, 상품유형, 정렬, 페이징 조건으로 공개 상품 목록을 조회한다")
-		void getProducts_success() {
-			ProductListProjection projection = productListProjection(PRODUCT_ID, "PROMPT");
-			Product product = product(ProductStatus.ON_SALE, null);
-			given(productRepository.findPublicProducts("react", "PROMPT", "popular", Pageable.ofSize(8)))
-				.willReturn(List.of(projection));
-			given(productRepository.countPublicProducts("react", "PROMPT"))
-				.willReturn(1L);
-			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID)))
-				.willReturn(List.of(product));
-
-			PageResponse<ProductListItemResponse> response = productQueryService.getProducts(
-				" React ",
-				"PROMPT",
-				"unknown",
-				0,
-				8
-			);
-
-			assertThat(response.success()).isTrue();
-			assertThat(response.data()).hasSize(1);
-			assertThat(response.data().getFirst().id()).isEqualTo(PRODUCT_ID);
-			assertThat(response.data().getFirst().productType()).isEqualTo("PROMPT");
-			assertThat(response.data().getFirst().tags()).containsExactly("리액트", "리팩터링");
-			assertThat(response.meta().page()).isEqualTo(0);
-			assertThat(response.meta().size()).isEqualTo(8);
-			assertThat(response.meta().total()).isEqualTo(1);
-			assertThat(response.meta().hasNext()).isFalse();
-		}
-
-		@Test
-		@DisplayName("page는 0 이상, size는 1 이상으로 보정한다")
-		void getProducts_normalizesPageAndSize() {
-			ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-			given(productRepository.findPublicProducts(
-				org.mockito.ArgumentMatchers.anyString(),
-				org.mockito.ArgumentMatchers.anyString(),
-				org.mockito.ArgumentMatchers.anyString(),
-				pageableCaptor.capture()
-			)).willReturn(List.of());
-			given(productRepository.countPublicProducts("", "all")).willReturn(0L);
-			given(productRepository.findAllByIdIn(List.of())).willReturn(List.of());
-
-			productQueryService.getProducts(null, null, "popular", -1, -10);
-
-			assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
-			assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(1);
-		}
-
-		@Test
-		@DisplayName("존재하지 않는 productType이면 예외가 발생한다")
-		void getProducts_invalidProductType() {
-			assertThatThrownBy(() -> productQueryService.getProducts("", "NOT_A_TYPE", "popular", 1, 20))
-				.isInstanceOf(ProductException.class)
-				.satisfies(exception ->
-					assertThat(((ProductException) exception).getErrorCode())
-						.isEqualTo(ProductErrorCode.INVALID_PRODUCT_TYPE)
-				);
-		}
-
-		@Test
-		@DisplayName("ES 조회가 성공하면 ES 결과를 매핑해 반환하고 RDB는 호출하지 않는다")
-		void getProducts_esSuccess_mapsEsHitsWithoutTouchingRdb() {
-			ProductSearchHit hit = new ProductSearchHit(
-				PRODUCT_ID, SELLER_ID, "ES에서 온 상품", "ES 설명", "PROMPT", "GPT-4o",
-				5000, "products/thumb.jpg", List.of("es태그"), 10, 4.2, CREATED_AT, UPDATED_AT
-			);
-			// 기본 스텁(@BeforeEach)이 이미 예외를 던지도록 설정돼 있어, given(mock.method())처럼
-			// 먼저 실제 호출을 평가하는 방식은 그 예외를 즉시 트리거한다 — doReturn으로 덮어쓴다.
-			doReturn(new ProductSearchPageResult(List.of(hit), 1))
-				.when(productSearchQueryService).search("es검색어", "PROMPT", "popular", PageRequest.of(0, 20));
-			given(objectStorage.createPresignedGetUrl("products/thumb.jpg"))
-				.willReturn("https://s3/presigned");
-
-			PageResponse<ProductListItemResponse> response =
-				productQueryService.getProducts("es검색어", "PROMPT", "popular", 0, 20);
-
-			assertThat(response.data()).hasSize(1);
-			ProductListItemResponse item = response.data().getFirst();
-			assertThat(item.id()).isEqualTo(PRODUCT_ID);
-			assertThat(item.title()).isEqualTo("ES에서 온 상품");
-			assertThat(item.thumbnail_url()).isEqualTo("https://s3/presigned");
-			assertThat(response.meta().total()).isEqualTo(1);
-			then(productRepository).shouldHaveNoInteractions();
-		}
-
-		@Test
-		@DisplayName("ES 조회가 실패하면 기존 RDB 경로로 폴백한다")
-		void getProducts_esFailure_fallsBackToRdb() {
-			ProductListProjection projection = productListProjection(PRODUCT_ID, "PROMPT");
-			given(productRepository.findPublicProducts("", "all", "popular", Pageable.ofSize(20)))
-				.willReturn(List.of(projection));
-			given(productRepository.countPublicProducts("", "all")).willReturn(1L);
-			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID))).willReturn(List.of(product(ProductStatus.ON_SALE, null)));
-
-			PageResponse<ProductListItemResponse> response = productQueryService.getProducts(null, null, "popular", 0, 20);
-
-			assertThat(response.data()).hasSize(1);
-			assertThat(response.data().getFirst().id()).isEqualTo(PRODUCT_ID);
-		}
-	}
-
-	@Nested
-	@DisplayName("상품명 자동완성")
-	class Suggest {
-
-		@Test
-		@DisplayName("검색어를 정규화해 ES 제안을 조회한다")
-		void suggest_delegatesToElasticsearch() {
-			given(productSearchQueryService.suggest("프롬", 5)).willReturn(List.of("프롬프트 마스터 팩"));
-
-			List<String> result = productQueryService.suggest("  프롬  ");
-
-			assertThat(result).containsExactly("프롬프트 마스터 팩");
-		}
-
-		@Test
-		@DisplayName("빈 검색어면 ES를 조회하지 않고 빈 목록을 반환한다")
-		void suggest_blankKeywordSkipsQuery() {
-			List<String> result = productQueryService.suggest("   ");
-
-			assertThat(result).isEmpty();
-			then(productSearchQueryService).should(never()).suggest(any(), anyInt());
-		}
-
-		@Test
-		@DisplayName("ES 조회가 실패해도 예외를 던지지 않고 빈 목록을 반환한다")
-		void suggest_returnsEmptyWhenElasticsearchFails() {
-			willThrow(new IllegalStateException("ES down"))
-				.given(productSearchQueryService).suggest("프롬", 5);
-
-			List<String> result = productQueryService.suggest("프롬");
-
-			// 타이핑 중 매 요청이 500이 되는 것보다 드롭다운이 안 뜨는 편이 낫다
-			assertThat(result).isEmpty();
-		}
+			productRepository, objectStorage, new ProductFamilyResolver(productRepository), productRecommender);
+		lenient().when(productRepository.incrementViewCount(any(), any())).thenReturn(true);
+		lenient().when(productRepository.getSalesCounts(any())).thenReturn(Map.of());
+		lenient().when(productRepository.getAverageRatings(any())).thenReturn(Map.of());
+		lenient().when(objectStorage.presignIfPresent(any())).thenCallRealMethod();
+		lenient().when(objectStorage.presignAllIfPresent(any())).thenCallRealMethod();
 	}
 
 	@Nested
@@ -264,6 +115,20 @@ class ProductQueryServiceTest {
 					assertThat(((ProductException) exception).getErrorCode())
 						.isEqualTo(ProductErrorCode.PRODUCT_NOT_FOUND)
 				);
+		}
+
+		@Test
+		@DisplayName("상세 조회 중 상품이 삭제되어 조회수 갱신이 실패하면 P001 예외가 발생한다")
+		void getProduct_deletedBeforeViewCountUpdate() {
+			Product product = product(ProductStatus.ON_SALE, null);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRepository.incrementViewCount(eq(PRODUCT_ID), any())).willReturn(false);
+
+			assertThatThrownBy(() -> productQueryService.getProduct(PRODUCT_ID))
+				.isInstanceOf(ProductException.class)
+				.satisfies(exception -> assertThat(((ProductException) exception).getErrorCode())
+					.isEqualTo(ProductErrorCode.PRODUCT_NOT_FOUND));
 		}
 
 		@Test
@@ -443,8 +308,6 @@ class ProductQueryServiceTest {
 			ReflectionTestUtils.setField(product, "thumbnailUrl", "products/1/thumbnail/uuid.jpg");
 			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID))).willReturn(List.of(product));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
-			given(productRepository.sumSalesCountByFamilyRootId(PRODUCT_ID)).willReturn(0L);
-			given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(0.0);
 			given(objectStorage.createPresignedGetUrl("products/1/thumbnail/uuid.jpg"))
 				.willReturn("https://s3/presigned-thumbnail");
 
@@ -460,13 +323,44 @@ class ProductQueryServiceTest {
 			Product product = product(ProductStatus.ON_SALE, null);
 			given(productRepository.findAllByIdIn(List.of(PRODUCT_ID))).willReturn(List.of(product));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
-			given(productRepository.sumSalesCountByFamilyRootId(PRODUCT_ID)).willReturn(0L);
-			given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(0.0);
 
 			List<ProductsByIdsResponse> result = productQueryService.getProductsByIds(List.of(PRODUCT_ID));
 
 			assertThat(result.get(0).thumbnailUrl()).isNull();
-			then(objectStorage).shouldHaveNoInteractions();
+			then(objectStorage).should(never()).createPresignedGetUrl(any());
+		}
+
+		@ParameterizedTest(name = "요청 {0}건")
+		@ValueSource(ints = {1, 10, 100})
+		@DisplayName("요청 건수와 무관하게 family 판매량과 평점을 각각 한 번만 조회한다")
+		void getProductsByIds_aggregatesEachFamilyOnce(int requestCount) {
+			List<UUID> requestedIds = Collections.nCopies(requestCount, PRODUCT_ID);
+			Product product = product(ProductStatus.ON_SALE, null);
+			given(productRepository.findAllByIdIn(requestedIds)).willReturn(List.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRepository.getSalesCounts(List.of(PRODUCT_ID))).willReturn(Map.of(PRODUCT_ID, 42L));
+			given(productRepository.getAverageRatings(List.of(PRODUCT_ID))).willReturn(Map.of(PRODUCT_ID, 4.8));
+
+			List<ProductsByIdsResponse> result = productQueryService.getProductsByIds(requestedIds);
+
+			assertThat(result).hasSize(requestCount).allSatisfy(response -> {
+				assertThat(response.productId()).isEqualTo(PRODUCT_ID);
+				assertThat(response.salesCount()).isEqualTo(42);
+				assertThat(response.averageRating()).isEqualTo(4.8);
+			});
+			then(productRepository).should(times(1)).getSalesCounts(List.of(PRODUCT_ID));
+			then(productRepository).should(times(1)).getAverageRatings(List.of(PRODUCT_ID));
+		}
+
+		@Test
+		@DisplayName("빈 요청은 빈 결과를 반환하고 family 상품을 조회하지 않는다")
+		void getProductsByIds_emptyRequest() {
+			List<ProductsByIdsResponse> result = productQueryService.getProductsByIds(List.of());
+
+			assertThat(result).isEmpty();
+			then(productRepository).should(never()).findAllByFamilyRootIds(any());
+			then(productRepository).should(times(1)).getSalesCounts(List.of());
+			then(productRepository).should(times(1)).getAverageRatings(List.of());
 		}
 	}
 

@@ -2,6 +2,7 @@ package com.prompthub.product.presentation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prompthub.product.application.usecase.query.ProductQueryUseCase;
+import com.prompthub.product.application.usecase.query.ProductSearchUseCase;
 import com.prompthub.product.application.usecase.seller.ProductSellerUseCase;
 import com.prompthub.product.application.usecase.purchase.PurchasedProductQueryUseCase;
 import com.prompthub.product.presentation.controller.product.ProductController;
@@ -60,6 +61,9 @@ class ProductControllerTest {
 	private ProductQueryUseCase productQueryUseCase;
 
 	@Mock
+	private ProductSearchUseCase productSearchUseCase;
+
+	@Mock
 	private ProductSellerUseCase productSellerUseCase;
 
 	@Mock
@@ -68,7 +72,8 @@ class ProductControllerTest {
 	@BeforeEach
 	void setUp() {
 		mockMvc = MockMvcBuilders.standaloneSetup(
-				new ProductController(productQueryUseCase, productSellerUseCase, purchasedProductQueryUseCase))
+				new ProductController(
+					productQueryUseCase, productSearchUseCase, productSellerUseCase, purchasedProductQueryUseCase))
 			.setControllerAdvice(new ProductExceptionHandler())
 			.build();
 		objectMapper = new ObjectMapper();
@@ -138,7 +143,7 @@ class ProductControllerTest {
 		@DisplayName("로그인 없이 상품 목록을 조회한다")
 		void getProducts_success() throws Exception {
 			ProductListItemResponse item = productListItemResponse(PRODUCT_ID, "PROMPT");
-			given(productQueryUseCase.getProducts("react", "PROMPT", "popular", 1, 8))
+			given(productSearchUseCase.getProducts("react", "PROMPT", "popular", 1, 8))
 				.willReturn(PageResponse.success(List.of(item), 1, 8, 1, false));
 
 			mockMvc.perform(get("/api/v2/products")
@@ -161,7 +166,7 @@ class ProductControllerTest {
 		@DisplayName("쿼리 파라미터를 안 보내면 기본값(page=0)으로 조회한다")
 		void getProducts_defaultsToPageZero() throws Exception {
 			ProductListItemResponse item = productListItemResponse(PRODUCT_ID, "PROMPT");
-			given(productQueryUseCase.getProducts("", "all", "popular", 0, 20))
+			given(productSearchUseCase.getProducts("", "all", "popular", 0, 20))
 				.willReturn(PageResponse.success(List.of(item), 0, 20, 1, false));
 
 			mockMvc.perform(get("/api/v2/products"))
@@ -179,7 +184,7 @@ class ProductControllerTest {
 		@Test
 		@DisplayName("로그인 없이 상품명 제안을 조회한다")
 		void suggest_success() throws Exception {
-			given(productQueryUseCase.suggest("프롬"))
+			given(productSearchUseCase.suggest("프롬"))
 				.willReturn(List.of("프롬프트 마스터 팩", "시니어 코드리뷰 프롬프트"));
 
 			mockMvc.perform(get("/api/v2/products/suggest").param("q", "프롬"))
@@ -192,7 +197,7 @@ class ProductControllerTest {
 		@Test
 		@DisplayName("q를 안 보내면 빈 문자열로 위임한다")
 		void suggest_defaultsToEmptyKeyword() throws Exception {
-			given(productQueryUseCase.suggest("")).willReturn(List.of());
+			given(productSearchUseCase.suggest("")).willReturn(List.of());
 
 			mockMvc.perform(get("/api/v2/products/suggest"))
 				.andExpect(status().isOk())

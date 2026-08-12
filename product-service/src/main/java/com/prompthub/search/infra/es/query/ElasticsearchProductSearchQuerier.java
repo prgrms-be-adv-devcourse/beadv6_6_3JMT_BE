@@ -9,13 +9,14 @@ import co.elastic.clients.elasticsearch.core.msearch.MultiSearchItem;
 import co.elastic.clients.elasticsearch.core.msearch.MultiSearchResponseItem;
 import co.elastic.clients.elasticsearch.core.msearch.RequestItem;
 import co.elastic.clients.elasticsearch.core.search.ResponseBody;
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import com.prompthub.search.application.query.ProductSearchHit;
 import com.prompthub.search.application.query.ProductSearchPageResult;
 import com.prompthub.search.application.query.ProductSearchQueryPort;
+import com.prompthub.search.application.query.ProductSearchUnavailableException;
 import com.prompthub.search.application.embedding.QueryEmbeddingCache;
 import com.prompthub.search.application.query.ReciprocalRankFusion;
 import com.prompthub.search.infra.es.config.ProductIndexBootstrap;
-import com.prompthub.search.infra.es.config.SearchRankingProperties;
 import com.prompthub.search.infra.es.indexing.ProductSearchDocument;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -82,8 +83,8 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryPort
 				.map(hit -> toHit(hit.source()))
 				.toList();
 			return new ProductSearchPageResult(hits, totalOf(response, hits.size()));
-		} catch (IOException | RuntimeException e) {
-			throw new IllegalStateException("ES 검색에 실패했습니다.", e);
+		} catch (IOException | ElasticsearchException exception) {
+			throw new ProductSearchUnavailableException("ES 검색에 실패했습니다.", exception);
 		}
 	}
 
@@ -132,8 +133,8 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryPort
 				.toList();
 
 			return new ProductSearchPageResult(page, Math.max(totalOf(lexicalResult, 0), fused.size()));
-		} catch (IOException | RuntimeException e) {
-			throw new IllegalStateException("ES 하이브리드 검색에 실패했습니다.", e);
+		} catch (IOException | ElasticsearchException exception) {
+			throw new ProductSearchUnavailableException("ES 하이브리드 검색에 실패했습니다.", exception);
 		}
 	}
 
@@ -142,7 +143,8 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryPort
 	) {
 		MultiSearchResponseItem<ProductSearchDocument> item = items.get(index);
 		if (item.isFailure()) {
-			throw new IllegalStateException("ES 레그 조회가 실패했습니다. reason=" + item.failure().error().reason());
+			throw new ProductSearchUnavailableException(
+				"ES 레그 조회에 실패했습니다. reason=" + item.failure().error().reason());
 		}
 		return item.result();
 	}
@@ -187,8 +189,8 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryPort
 				.filter(Objects::nonNull)
 				.distinct()
 				.toList();
-		} catch (IOException | RuntimeException e) {
-			throw new IllegalStateException("ES 자동완성 조회에 실패했습니다.", e);
+		} catch (IOException | ElasticsearchException exception) {
+			throw new ProductSearchUnavailableException("ES 자동완성 조회에 실패했습니다.", exception);
 		}
 	}
 

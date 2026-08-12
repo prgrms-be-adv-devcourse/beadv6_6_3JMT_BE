@@ -1,6 +1,7 @@
 package com.prompthub.product.presentation.controller.product;
 
 import com.prompthub.product.application.usecase.query.ProductQueryUseCase;
+import com.prompthub.product.application.usecase.query.ProductSearchUseCase;
 import com.prompthub.product.application.usecase.seller.ProductSellerUseCase;
 import com.prompthub.product.application.usecase.purchase.PurchasedProductQueryUseCase;
 import com.prompthub.product.presentation.dto.request.product.ProductCreateRequest;
@@ -41,6 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProductController {
 
 	private final ProductQueryUseCase productQueryUseCase;
+	private final ProductSearchUseCase productSearchUseCase;
 	private final ProductSellerUseCase productSellerUseCase;
 	private final PurchasedProductQueryUseCase purchasedProductQueryUseCase;
 
@@ -52,12 +54,12 @@ public class ProductController {
 		@RequestParam(defaultValue = "0") int page,
 		@RequestParam(defaultValue = "20") int size
 	) {
-		return productQueryUseCase.getProducts(q, productType, sort, page, size);
+		return productSearchUseCase.getProducts(q, productType, sort, page, size);
 	}
 
 	@GetMapping("/products/suggest")
 	public ApiResult<List<String>> suggest(@RequestParam(defaultValue = "") String q) {
-		return ApiResult.success(productQueryUseCase.suggest(q));
+		return ApiResult.success(productSearchUseCase.suggest(q));
 	}
 
 	@PostMapping("/products")
