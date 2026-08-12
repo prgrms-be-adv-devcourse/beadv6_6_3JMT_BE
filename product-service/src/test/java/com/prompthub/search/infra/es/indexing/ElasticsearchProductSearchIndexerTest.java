@@ -105,7 +105,8 @@ class ElasticsearchProductSearchIndexerTest {
 			new ElasticsearchProductSearchIndexer(client, new ProductReindexProperties(500, 1000));
 
 		given(client.openPointInTime(any(Function.class)))
-			.willReturn(OpenPointInTimeResponse.of(b -> b.id("pit-id")));
+			.willReturn(OpenPointInTimeResponse.of(b -> b.id("pit-id")
+				.shards(s -> s.total(1).successful(1).failed(0))));
 		given(client.search(any(Function.class), eq(Void.class)))
 			.willThrow(new IOException("connection reset"));
 

@@ -58,19 +58,25 @@ class ElasticsearchProductSearchIndexerIntegrationTest extends ElasticsearchInte
 	@Test
 	void bulkReconcile_chunk_크기를_넘는_upsert도_전부_반영한다() throws Exception {
 		// chunk 크기를 2로 좁혀 5건을 여러 chunk로 나눠 보내도 전부 반영되는지 확인한다.
+		// 이 alias는 다른 통합 테스트와 공유하므로 검증 후 반드시 지운다(정렬·필터 검증을 깨뜨림).
 		ElasticsearchProductSearchIndexer indexer =
 			new ElasticsearchProductSearchIndexer(client, new ProductReindexProperties(2, 1000));
 		List<FamilyUpsertInput> toUpsert = new ArrayList<>();
 		for (int i = 0; i < 5; i++) {
 			toUpsert.add(upsertInput());
 		}
+		List<UUID> seededIds = toUpsert.stream().map(input -> input.onSale().familyRootId()).toList();
 
-		indexer.bulkReconcile(toUpsert, List.of());
-		client.indices().refresh(r -> r.index(ProductIndexBootstrap.ALIAS));
+		try {
+			indexer.bulkReconcile(toUpsert, List.of());
+			client.indices().refresh(r -> r.index(ProductIndexBootstrap.ALIAS));
 
-		Set<UUID> indexedIds = indexer.findAllIndexedFamilyRootIds();
-		List<UUID> expectedIds = toUpsert.stream().map(input -> input.onSale().familyRootId()).toList();
-		assertThat(indexedIds).containsAll(expectedIds);
+			Set<UUID> indexedIds = indexer.findAllIndexedFamilyRootIds();
+			assertThat(indexedIds).containsAll(seededIds);
+		} finally {
+			indexer.bulkReconcile(List.of(), seededIds);
+			client.indices().refresh(r -> r.index(ProductIndexBootstrap.ALIAS));
+		}
 	}
 
 	@Test
@@ -85,19 +91,61 @@ class ElasticsearchProductSearchIndexerIntegrationTest extends ElasticsearchInte
 	@Test
 	void findAllIndexedFamilyRootIds_페이지_크기를_넘는_문서도_PIT로_모두_순회한다() throws Exception {
 		// page size를 2로 좁혀 5건이 3페이지에 걸쳐 나뉘어도 search_after로 전부 모이는지 확인한다.
+		// 이 alias는 다른 통합 테스트와 공유하므로 검증 후 반드시 지운다(정렬·필터 검증을 깨뜨림).
 		ElasticsearchProductSearchIndexer indexer =
 			new ElasticsearchProductSearchIndexer(client, new ProductReindexProperties(500, 2));
 		List<FamilyUpsertInput> toUpsert = new ArrayList<>();
 		for (int i = 0; i < 5; i++) {
 			toUpsert.add(upsertInput());
 		}
-		indexer.bulkReconcile(toUpsert, List.of());
-		client.indices().refresh(r -> r.index(ProductIndexBootstrap.ALIAS));
+		List<UUID> seededIds = toUpsert.stream().map(input -> input.onSale().familyRootId()).toList();
 
-		Set<UUID> indexedIds = indexer.findAllIndexedFamilyRootIds();
+		try {
+			indexer.bulkReconcile(toUpsert, List.of());
+			client.indices().refresh(r -> r.index(ProductIndexBootstrap.ALIAS));
 
-		List<UUID> expectedIds = toUpsert.stream().map(input -> input.onSale().familyRootId()).toList();
-		assertThat(indexedIds).containsAll(expectedIds);
+			Set<UUID> indexedIds = indexer.findAllIndexedFamilyRootIds();
+			assertThat(indexedIds).containsAll(seededIds);
+		} finally {
+			indexer.bulkReconcile(List.of(), seededIds);
+			client.indices().refresh(r -> r.index(ProductIndexBootstrap.ALIAS));
+		}
+	}
+
+	/**
+	 * 완료 조건이 요구하는 실제 규모(10,001건)를 기본 page size(1000)로 검증한다. 임베딩
+	 * API는 호출하지 않는다 — {@link #upsertInput()}이 embedding을 null로 두고, 이 테스트가
+	 * 호출하는 {@code bulkReconcile}은 OpenAI를 부르는 {@code ProductEmbeddingUpdater}를
+	 * 거치지 않는다.
+	 *
+	 * <p>이 alias는 {@link ElasticsearchIntegrationTestSupport}가 여러 테스트 클래스에 공유하는
+	 * 컨테이너다 — 1만 건을 넣어둔 채로 끝내면 검색 정렬·필터를 검증하는 다른 통합 테스트가
+	 * 이 문서들 때문에 깨진다(실제로 겪었다). 검증 후 반드시 지운다.
+	 */
+	@Test
+	void findAllIndexedFamilyRootIds_10001건도_기본_page_size로_모두_순회한다() throws Exception {
+		int documentCount = 10_001;
+		ElasticsearchProductSearchIndexer indexer =
+			new ElasticsearchProductSearchIndexer(client, new ProductReindexProperties(500, 1000));
+		List<FamilyUpsertInput> toUpsert = new ArrayList<>(documentCount);
+		for (int i = 0; i < documentCount; i++) {
+			toUpsert.add(upsertInput());
+		}
+		List<UUID> seededIds = toUpsert.stream().map(input -> input.onSale().familyRootId()).toList();
+
+		try {
+			indexer.bulkReconcile(toUpsert, List.of());
+			client.indices().refresh(r -> r.index(ProductIndexBootstrap.ALIAS));
+
+			Set<UUID> indexedIds = indexer.findAllIndexedFamilyRootIds();
+
+			// 이 인덱스는 다른 테스트가 남긴 문서와도 공유되므로 정확히 일치가 아니라 포함 여부로 검증한다.
+			assertThat(indexedIds).hasSizeGreaterThanOrEqualTo(documentCount);
+			assertThat(indexedIds).containsAll(seededIds);
+		} finally {
+			indexer.bulkReconcile(List.of(), seededIds);
+			client.indices().refresh(r -> r.index(ProductIndexBootstrap.ALIAS));
+		}
 	}
 
 	private FamilyUpsertInput upsertInput() {
