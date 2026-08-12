@@ -306,6 +306,108 @@
           "total": 708
         }
       ]
+    },
+    {
+      "at": "2026-08-12T08:51:32.754Z",
+      "sha": "e38196b4402fb6379616d4ac6b852bd4e891145e",
+      "pr": null,
+      "actor": "gfkmkl",
+      "files": 1855,
+      "functions": 2531,
+      "loc": 208307,
+      "languages": 17,
+      "topLanguages": [
+        {
+          "ext": "java",
+          "pct": 48,
+          "lines": 98953
+        },
+        {
+          "ext": "md",
+          "pct": 44,
+          "lines": 91277
+        },
+        {
+          "ext": "yaml",
+          "pct": 2,
+          "lines": 4780
+        },
+        {
+          "ext": "json",
+          "pct": 2,
+          "lines": 3917
+        },
+        {
+          "ext": "sh",
+          "pct": 1,
+          "lines": 2562
+        }
+      ],
+      "dead": 4,
+      "deadPct": 0.2,
+      "circular": 0,
+      "godObjects": 1,
+      "avgCoupling": 1.8,
+      "securityIssues": 1,
+      "patterns": 9,
+      "duplicates": 29,
+      "layerViolations": 181,
+      "connections": 3399,
+      "avgFnLines": 13.4,
+      "longestFn": 16,
+      "testFiles": 429,
+      "testRatio": 23.1,
+      "topFolders": [
+        {
+          "name": "order-service",
+          "count": 289
+        },
+        {
+          "name": "user-service",
+          "count": 249
+        },
+        {
+          "name": "docs",
+          "count": 213
+        },
+        {
+          "name": "product-service",
+          "count": 203
+        },
+        {
+          "name": "settlement-service",
+          "count": 191
+        }
+      ],
+      "folders": 5,
+      "grade": "A",
+      "score": 92,
+      "topBlast": {
+        "path": "notification-service/src/main/java/com/prompthub/notification/presentation/NotificationController.java",
+        "direct": 159,
+        "transitive": 578,
+        "total": 737
+      },
+      "fragility": [
+        {
+          "path": "notification-service/src/main/java/com/prompthub/notification/presentation/NotificationController.java",
+          "direct": 159,
+          "transitive": 578,
+          "total": 737
+        },
+        {
+          "path": "ai-service/src/main/java/com/prompthub/ai/settlement/application/service/run/SettlementRunTaskRegistry.java",
+          "direct": 80,
+          "transitive": 580,
+          "total": 660
+        },
+        {
+          "path": "user-service/src/main/java/com/prompthub/user/auth/domain/model/OAuthProvider.java",
+          "direct": 138,
+          "transitive": 460,
+          "total": 598
+        }
+      ]
     }
   ]
 }
