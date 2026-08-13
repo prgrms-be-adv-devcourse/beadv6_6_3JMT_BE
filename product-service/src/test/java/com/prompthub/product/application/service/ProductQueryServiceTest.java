@@ -275,7 +275,7 @@ class ProductQueryServiceTest {
 			ReflectionTestUtils.setField(recommended, "id", RECOMMENDED_PRODUCT_ID);
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
-			given(productRecommender.recommend(PRODUCT_ID, PRODUCT_ID, "PROMPT", 4))
+			given(productRecommender.recommendSimilar(product, 4))
 				.willReturn(List.of(RECOMMENDED_PRODUCT_ID));
 			given(productRepository.findProjectionsByIds(List.of(RECOMMENDED_PRODUCT_ID)))
 				.willReturn(List.of(productListProjection(RECOMMENDED_PRODUCT_ID, "PROMPT")));
@@ -286,7 +286,7 @@ class ProductQueryServiceTest {
 
 			assertThat(response).hasSize(1);
 			assertThat(response.getFirst().id()).isEqualTo(RECOMMENDED_PRODUCT_ID);
-			then(productRecommender).should().recommend(PRODUCT_ID, PRODUCT_ID, "PROMPT", 4);
+			then(productRecommender).should().recommendSimilar(product, 4);
 		}
 
 		@Test
@@ -296,7 +296,7 @@ class ProductQueryServiceTest {
 			Product product = product(ProductStatus.ON_SALE, null);
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
-			given(productRecommender.recommend(PRODUCT_ID, PRODUCT_ID, "PROMPT", 4))
+			given(productRecommender.recommendSimilar(product, 4))
 				.willReturn(List.of(RECOMMENDED_PRODUCT_ID, second));
 			// 조회가 역순으로 돌려줘도 추천 순서가 이겨야 한다.
 			given(productRepository.findProjectionsByIds(List.of(RECOMMENDED_PRODUCT_ID, second)))
@@ -318,7 +318,7 @@ class ProductQueryServiceTest {
 			Product product = product(ProductStatus.ON_SALE, null);
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
-			given(productRecommender.recommend(PRODUCT_ID, PRODUCT_ID, "PROMPT", 4))
+			given(productRecommender.recommendSimilar(product, 4))
 				.willReturn(List.of(RECOMMENDED_PRODUCT_ID));
 			given(productRepository.findProjectionsByIds(List.of(RECOMMENDED_PRODUCT_ID)))
 				.willReturn(List.of(productListProjection(RECOMMENDED_PRODUCT_ID, "PROMPT")));
@@ -347,7 +347,7 @@ class ProductQueryServiceTest {
 			Product product = product(ProductStatus.ON_SALE, null);
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
-			given(productRecommender.recommend(PRODUCT_ID, PRODUCT_ID, "PROMPT", 4)).willReturn(List.of());
+			given(productRecommender.recommendSimilar(product, 4)).willReturn(List.of());
 
 			assertThat(productQueryService.getRecommendedProducts(PRODUCT_ID, 4)).isEmpty();
 			then(productRepository).should(org.mockito.Mockito.never()).findProjectionsByIds(any());

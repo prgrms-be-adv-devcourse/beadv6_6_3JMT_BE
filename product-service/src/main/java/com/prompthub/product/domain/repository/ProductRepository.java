@@ -4,7 +4,6 @@ import com.prompthub.product.domain.model.entity.Product;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.projection.ProductListProjection;
 import com.prompthub.product.domain.model.projection.ProductReviewProjection;
-import com.prompthub.product.domain.model.projection.SimilarProductProjection;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -62,14 +61,6 @@ public interface ProductRepository {
 	 * "원문이 그대로면 다시 만들지 않는다"를 판단한다.
 	 */
 	Map<UUID, String> findEmbeddingSourceHashes(List<UUID> productIds);
-
-	/**
-	 * 기준 상품과 임베딩이 가까운 상품을 유사도 순으로 돌려준다.
-	 *
-	 * <p>자기 family의 다른 버전, 판매 중이 아닌 상품, 아직 임베딩이 없는 상품은 제외되고,
-	 * 후보도 family당 최근접 1건만 돌아온다 — 같은 상품의 버전들이 나란히 추천되지 않는다(#699).
-	 */
-	List<SimilarProductProjection> findSimilarProducts(UUID productId, UUID familyRootId, int candidates);
 
 	/** 임베딩과 그 원문 해시를 함께 저장한다. 둘은 항상 같이 바뀌어야 한다. */
 	void updateEmbedding(UUID productId, float[] embedding, String sourceHash);

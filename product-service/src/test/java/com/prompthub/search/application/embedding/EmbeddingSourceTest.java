@@ -19,13 +19,13 @@ class EmbeddingSourceTest {
 	class Text {
 
 		@Test
-		@DisplayName("프롬프트는 제목·태그·설명·모델·본문을 순서대로 합친다")
+		@DisplayName("프롬프트는 제목·태그·설명·모델만 순서대로 합친다")
 		void combinesFields() {
 			Product product = product("엑셀 자동화", "보고서를 만들어준다", "본문입니다", List.of("생산성", "AI"));
 
 			String text = EmbeddingSource.of(product).text();
 
-			assertThat(text).isEqualTo("엑셀 자동화\n생산성 AI\n보고서를 만들어준다\ngpt-5\n본문입니다");
+			assertThat(text).isEqualTo("엑셀 자동화\n생산성 AI\n보고서를 만들어준다\ngpt-5");
 		}
 
 		@Test
@@ -39,19 +39,6 @@ class EmbeddingSourceTest {
 			assertThat(text).isEqualTo("노션 템플릿\n회의록 정리");
 		}
 
-		@Test
-		@DisplayName("본문이 길면 잘라낸다")
-		void truncatesLongContent() {
-			String longContent = "가".repeat(EmbeddingSource.MAX_CONTENT_CHARS + 500);
-			Product product = product("이름", "설명", longContent, List.of());
-
-			String text = EmbeddingSource.of(product).text();
-
-			// 모델 입력 상한(8,191토큰)을 넘기지 않으려는 것이지 정확한 토큰 계산이 목적이 아니다.
-			assertThat(text).hasSize(
-				"이름".length() + 1 + "설명".length() + 1 + "gpt-5".length() + 1
-					+ EmbeddingSource.MAX_CONTENT_CHARS);
-		}
 	}
 
 	@Nested
@@ -68,12 +55,12 @@ class EmbeddingSourceTest {
 		}
 
 		@Test
-		@DisplayName("원문이 한 글자만 달라도 해시가 달라진다")
-		void differentTextDifferentHash() {
+		@DisplayName("본문만 달라지면 검색 원문 해시는 유지된다")
+		void contentDoesNotChangeHash() {
 			Product a = product("이름", "설명", "본문", List.of("태그"));
 			Product b = product("이름", "설명", "본문!", List.of("태그"));
 
-			assertThat(EmbeddingSource.of(a).hash()).isNotEqualTo(EmbeddingSource.of(b).hash());
+			assertThat(EmbeddingSource.of(a).hash()).isEqualTo(EmbeddingSource.of(b).hash());
 		}
 
 		@Test

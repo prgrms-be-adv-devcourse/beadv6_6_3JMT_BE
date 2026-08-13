@@ -2,10 +2,17 @@ package com.prompthub.recommendation.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 
-import com.prompthub.product.domain.model.projection.SimilarProductProjection;
+import com.prompthub.product.domain.model.entity.Product;
+import com.prompthub.product.domain.model.enums.ProductType;
 import com.prompthub.product.domain.repository.ProductRepository;
+import com.prompthub.recommendation.application.RecommendationCandidateQuery.Seed;
+import com.prompthub.recommendation.application.RecommendationCandidateQuery.Signal;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,105 +24,107 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class ProductRecommenderTest {
 
-	private final UUID baseId = UUID.randomUUID();
-	private final UUID familyRootId = UUID.randomUUID();
+	private static final UUID CART = UUID.fromString("10000000-0000-0000-0000-000000000001");
+	private static final UUID PURCHASED = UUID.fromString("20000000-0000-0000-0000-000000000001");
+	private static final UUID RECOMMENDED = UUID.fromString("30000000-0000-0000-0000-000000000001");
 
 	@Mock
 	private ProductRepository productRepository;
 
+	private RecordingCandidateQuery candidateQuery;
 	private ProductRecommender recommender;
 
 	@BeforeEach
 	void setUp() {
-		recommender = new ProductRecommender(productRepository);
+		candidateQuery = new RecordingCandidateQuery();
+		recommender = new ProductRecommender(productRepository, candidateQuery);
 	}
 
 	@Test
-	@DisplayName("유사도가 같으면 같은 유형이 앞선다")
-	void sameTypeWinsOnTie() {
-		UUID sameType = UUID.randomUUID();
-		UUID otherType = UUID.randomUUID();
-		givenCandidates(
-			new SimilarProductProjection(otherType, "NOTION", 0.20),
-			new SimilarProductProjection(sameType, "PROMPT", 0.20));
+	@DisplayName("비슷한 상품은 현재 상품 하나와 자기 상품군 제외 조건으로 조회한다")
+	void recommendsSimilarProductsFromOneSeed() {
+		Product base = product(CART, CART, "코드 리뷰", ProductType.PROMPT, "GPT-5");
+		given(productRepository.findEmbeddings(List.of(CART))).willReturn(Map.of(CART, new float[]{1f}));
+		candidateQuery.result = List.of(RECOMMENDED);
 
-		assertThat(recommend("PROMPT", 2)).containsExactly(sameType, otherType);
+		assertThat(recommender.recommendSimilar(base, 4)).containsExactly(RECOMMENDED);
+		assertThat(candidateQuery.seeds).singleElement().satisfies(seed -> {
+			assertThat(seed.productId()).isEqualTo(CART);
+			assertThat(seed.signal()).isEqualTo(Signal.SIMILAR_PRODUCT);
+			assertThat(seed.text()).contains("코드 리뷰", "GPT-5");
+			assertThat(seed.text()).doesNotContain("본문 예시");
+		});
+		assertThat(candidateQuery.excludedFamilies).containsExactly(CART);
 	}
 
 	@Test
-	@DisplayName("유사도 차이가 가산점보다 크면 다른 유형이 앞선다 — 하드 필터가 아니다")
-	void similarityCanBeatTypeBonus() {
-		// 이 검증이 이 클래스의 존재 이유다. 유형으로 거르거나 1차 정렬 키로 두면 FE가
-		// limit=4로 요청하므로 같은 유형 후보가 4개만 있어도 타 유형이 절대 노출되지 않는다.
-		UUID muchCloserOtherType = UUID.randomUUID();
-		UUID sameType = UUID.randomUUID();
-		givenCandidates(
-			new SimilarProductProjection(sameType, "PROMPT", 0.30),
-			new SimilarProductProjection(muchCloserOtherType, "NOTION", 0.10));
+	@DisplayName("회원 추천은 장바구니와 구매를 최신 5개씩만 사용하고 한 번에 조회한다")
+	void recommendsFromAtMostFiveSeedsPerSignal() {
+		List<UUID> cartIds = ids("40000000", 6);
+		List<UUID> purchaseIds = ids("50000000", 6);
+		List<UUID> allActivityIds = new ArrayList<>(cartIds);
+		allActivityIds.addAll(purchaseIds);
+		List<UUID> selectedIds = new ArrayList<>(cartIds.subList(0, 5));
+		selectedIds.addAll(purchaseIds.subList(0, 5));
+		List<Product> products = allActivityIds.stream()
+			.map(id -> product(id, id, "상품 " + id, ProductType.PPT, null))
+			.toList();
+		given(productRepository.findAllByIdIn(allActivityIds)).willReturn(products);
+		given(productRepository.findEmbeddings(selectedIds)).willReturn(Map.of());
 
-		assertThat(recommend("PROMPT", 2)).containsExactly(muchCloserOtherType, sameType);
+		recommender.recommendForActivity(cartIds, purchaseIds, 4);
+
+		assertThat(candidateQuery.calls).isEqualTo(1);
+		assertThat(candidateQuery.seeds).hasSize(10);
+		assertThat(candidateQuery.seeds.subList(0, 5)).allMatch(seed -> seed.signal() == Signal.CART);
+		assertThat(candidateQuery.seeds.subList(5, 10)).allMatch(seed -> seed.signal() == Signal.PURCHASE);
+		assertThat(candidateQuery.seeds.subList(0, 5)).allMatch(seed -> seed.weight() == 1.0);
+		assertThat(candidateQuery.seeds.subList(5, 10)).allMatch(seed -> seed.weight() == 0.7);
+		assertThat(candidateQuery.excludedFamilies).containsExactlyInAnyOrderElementsOf(allActivityIds);
 	}
 
 	@Test
-	@DisplayName("유사도 차이가 가산점보다 작으면 같은 유형이 앞선다")
-	void typeBonusWinsOnNarrowGap() {
-		UUID slightlyCloserOtherType = UUID.randomUUID();
-		UUID sameType = UUID.randomUUID();
-		givenCandidates(
-			new SimilarProductProjection(sameType, "PROMPT", 0.20),
-			new SimilarProductProjection(slightlyCloserOtherType, "NOTION", 0.18));
-
-		assertThat(recommend("PROMPT", 2)).containsExactly(sameType, slightlyCloserOtherType);
+	@DisplayName("활동 상품이 없으면 후보 조회를 하지 않는다")
+	void noActivityReturnsEmptyWithoutCandidateQuery() {
+		assertThat(recommender.recommendForActivity(List.of(), null, 4)).isEmpty();
+		assertThat(candidateQuery.calls).isZero();
 	}
 
-	@Test
-	@DisplayName("요청한 개수까지만 돌려준다")
-	void respectsLimit() {
-		givenCandidates(
-			new SimilarProductProjection(UUID.randomUUID(), "PROMPT", 0.10),
-			new SimilarProductProjection(UUID.randomUUID(), "PROMPT", 0.20),
-			new SimilarProductProjection(UUID.randomUUID(), "PROMPT", 0.30));
-
-		assertThat(recommend("PROMPT", 2)).hasSize(2);
+	private Product product(UUID id, UUID familyRootId, String name, ProductType type, String model) {
+		Product product = org.mockito.Mockito.mock(Product.class);
+		given(product.getId()).willReturn(id);
+		given(product.familyRootId()).willReturn(familyRootId);
+		lenient().when(product.getName()).thenReturn(name);
+		lenient().when(product.getDescription()).thenReturn("설명");
+		lenient().when(product.getContent()).thenReturn("본문 예시");
+		lenient().when(product.getTags()).thenReturn(List.of("태그"));
+		lenient().when(product.getProductType()).thenReturn(type);
+		if (type == ProductType.PROMPT) {
+			lenient().when(product.getModel()).thenReturn(model);
+		}
+		return product;
 	}
 
-	@Test
-	@DisplayName("후보가 요청보다 적으면 있는 만큼만 돌려준다")
-	void returnsFewerWhenCandidatesAreScarce() {
-		givenCandidates(new SimilarProductProjection(UUID.randomUUID(), "PROMPT", 0.10));
-
-		assertThat(recommend("PROMPT", 4)).hasSize(1);
+	private List<UUID> ids(String prefix, int count) {
+		List<UUID> ids = new ArrayList<>();
+		for (int index = 1; index <= count; index++) {
+			ids.add(UUID.fromString(prefix + "-0000-0000-0000-" + String.format("%012d", index)));
+		}
+		return ids;
 	}
 
-	@Test
-	@DisplayName("후보가 없으면 빈 결과를 준다")
-	void emptyWhenNoCandidates() {
-		givenCandidates();
+	private static class RecordingCandidateQuery implements RecommendationCandidateQuery {
+		private int calls;
+		private List<Seed> seeds = List.of();
+		private Set<UUID> excludedFamilies = Set.of();
+		private List<UUID> result = List.of();
 
-		assertThat(recommend("PROMPT", 4)).isEmpty();
-	}
-
-	@Test
-	@DisplayName("요청 개수보다 넉넉히 후보를 가져온다 — 가산점이 순서를 뒤집을 여지를 준다")
-	void fetchesMoreCandidatesThanRequested() {
-		givenCandidates();
-
-		recommender.recommend(baseId, familyRootId, "PROMPT", 4);
-
-		// limit만큼만 가져오면 같은 유형이 그 자리를 다 채웠을 때 타 유형이 후보에도 못 든다.
-		org.mockito.BDDMockito.then(productRepository).should()
-			.findSimilarProducts(baseId, familyRootId, 4 * ProductRecommender.CANDIDATE_MULTIPLIER);
-	}
-
-	private void givenCandidates(SimilarProductProjection... candidates) {
-		given(productRepository.findSimilarProducts(
-			org.mockito.ArgumentMatchers.eq(baseId),
-			org.mockito.ArgumentMatchers.eq(familyRootId),
-			org.mockito.ArgumentMatchers.anyInt()))
-			.willReturn(List.of(candidates));
-	}
-
-	private List<UUID> recommend(String baseType, int limit) {
-		return recommender.recommend(baseId, familyRootId, baseType, limit);
+		@Override
+		public List<UUID> findRelevantProductIds(List<Seed> seeds, Set<UUID> excludedFamilyRootIds, int limit) {
+			calls++;
+			this.seeds = seeds;
+			this.excludedFamilies = excludedFamilyRootIds;
+			return result;
+		}
 	}
 }

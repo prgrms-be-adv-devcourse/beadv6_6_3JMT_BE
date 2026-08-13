@@ -13,6 +13,9 @@ public interface ProductQueryUseCase {
 
 	List<ProductListItemResponse> getRecommendedProducts(UUID productId, int limit);
 
+	List<ProductListItemResponse> getPersonalizedRecommendedProducts(
+		List<UUID> cartProductIds, List<UUID> purchasedProductIds, int limit);
+
 	List<ProductReviewResponse> getProductReviews(UUID productId);
 
 	List<ProductsByIdsResponse> getProductsByIds(List<UUID> productIds);

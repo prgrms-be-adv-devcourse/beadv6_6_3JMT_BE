@@ -26,7 +26,6 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -269,31 +268,28 @@ class ProductQueryGrpcServiceTest {
 		private StreamObserver<GetSimilarProductsResponse> observer;
 
 		@Test
-		@DisplayName("기준 순서를 유지하고, 순위가 빈 기준도 자리를 남긴다")
-		void keepsSeedOrderIncludingEmptyRankings() {
-			given(productGrpcUseCase.getSimilarProducts(List.of(SEED_A, SEED_B), 8))
-				.willReturn(Map.of(SEED_A, List.of(listItem("비슷한 상품")), SEED_B, List.of()));
+		@DisplayName("장바구니와 구매 활동을 통합 추천 요청으로 전달한다")
+		void returnsIntegratedRecommendations() {
+			given(productGrpcUseCase.getPersonalizedRecommendations(List.of(SEED_A), List.of(SEED_B), 8))
+				.willReturn(List.of(listItem("비슷한 상품")));
 
-			grpcService.getSimilarProducts(request(List.of(SEED_A, SEED_B), 8), observer);
+			grpcService.getSimilarProducts(request(List.of(SEED_A), List.of(SEED_B), 8), observer);
 
 			GetSimilarProductsResponse response = captureResponse();
-			assertThat(response.getRankingsList()).hasSize(2);
-			assertThat(response.getRankings(0).getSeedProductId()).isEqualTo(SEED_A.toString());
-			assertThat(response.getRankings(0).getProductsList()).hasSize(1);
-			assertThat(response.getRankings(1).getSeedProductId()).isEqualTo(SEED_B.toString());
-			assertThat(response.getRankings(1).getProductsList()).isEmpty();
+			assertThat(response.getProductsList()).hasSize(1);
+			assertThat(response.getProducts(0).getTitle()).isEqualTo("비슷한 상품");
 		}
 
 		@Test
 		@DisplayName("null 필드는 빈 문자열로 내보낸다 — proto3 string은 null을 담지 못한다")
 		void mapsNullFieldsToEmptyString() {
-			given(productGrpcUseCase.getSimilarProducts(List.of(SEED_A), 4))
-				.willReturn(Map.of(SEED_A, List.of(new ProductListItemResponse(
-					PRODUCT_ID, "제목", null, null, 1000, 0.0, 0, null, null, null, null, null, null))));
+			given(productGrpcUseCase.getPersonalizedRecommendations(List.of(SEED_A), List.of(), 4))
+				.willReturn(List.of(new ProductListItemResponse(
+					PRODUCT_ID, "제목", null, null, 1000, 0.0, 0, null, null, null, null, null, null)));
 
-			grpcService.getSimilarProducts(request(List.of(SEED_A), 4), observer);
+			grpcService.getSimilarProducts(request(List.of(SEED_A), List.of(), 4), observer);
 
-			RecommendedProduct product = captureResponse().getRankings(0).getProducts(0);
+			RecommendedProduct product = captureResponse().getProducts(0);
 			assertThat(product.getProductType()).isEmpty();
 			assertThat(product.getModel()).isEmpty();
 			assertThat(product.getSellerId()).isEmpty();
@@ -306,7 +302,7 @@ class ProductQueryGrpcServiceTest {
 		@DisplayName("기준 id가 UUID 형식이 아니면 INVALID_ARGUMENT로 응답한다")
 		void invalidSeedIdIsRejected() {
 			grpcService.getSimilarProducts(
-				GetSimilarProductsRequest.newBuilder().addSeedProductIds("not-a-uuid").setLimitPerSeed(4).build(),
+				GetSimilarProductsRequest.newBuilder().addCartProductIds("not-a-uuid").setLimit(4).build(),
 				observer);
 
 			ArgumentCaptor<Throwable> captor = ArgumentCaptor.forClass(Throwable.class);
@@ -315,10 +311,11 @@ class ProductQueryGrpcServiceTest {
 				.isEqualTo(Status.Code.INVALID_ARGUMENT);
 		}
 
-		private GetSimilarProductsRequest request(List<UUID> seedIds, int limitPerSeed) {
+		private GetSimilarProductsRequest request(List<UUID> cartIds, List<UUID> purchasedIds, int limit) {
 			return GetSimilarProductsRequest.newBuilder()
-				.addAllSeedProductIds(seedIds.stream().map(UUID::toString).toList())
-				.setLimitPerSeed(limitPerSeed)
+				.addAllCartProductIds(cartIds.stream().map(UUID::toString).toList())
+				.addAllPurchasedProductIds(purchasedIds.stream().map(UUID::toString).toList())
+				.setLimit(limit)
 				.build();
 		}
 

@@ -16,7 +16,6 @@ import com.prompthub.product.grpc.ProductOrderSnapshot;
 import com.prompthub.product.grpc.ProductQueryServiceGrpc;
 import com.prompthub.product.grpc.PurchasedProductContent;
 import com.prompthub.product.grpc.RecommendedProduct;
-import com.prompthub.product.grpc.SimilarProductRanking;
 import com.prompthub.product.presentation.dto.response.product.ProductCartSnapshotResponse;
 import com.prompthub.product.presentation.dto.response.product.ProductContentResponse;
 import com.prompthub.product.presentation.dto.response.product.ProductListItemResponse;
@@ -24,7 +23,6 @@ import com.prompthub.product.presentation.dto.response.product.ProductOrderSnaps
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -125,29 +123,26 @@ public class ProductQueryGrpcService extends ProductQueryServiceGrpc.ProductQuer
 	public void getSimilarProducts(
 		GetSimilarProductsRequest request, StreamObserver<GetSimilarProductsResponse> responseObserver) {
 		try {
-			List<UUID> seedProductIds = request.getSeedProductIdsList().stream()
+			List<UUID> cartProductIds = request.getCartProductIdsList().stream()
 				.map(UUID::fromString)
 				.toList();
-			Map<UUID, List<ProductListItemResponse>> rankings =
-				productGrpcUseCase.getSimilarProducts(seedProductIds, request.getLimitPerSeed());
+			List<UUID> purchasedProductIds = request.getPurchasedProductIdsList().stream()
+				.map(UUID::fromString)
+				.toList();
+			List<ProductListItemResponse> recommendations = productGrpcUseCase.getPersonalizedRecommendations(
+				cartProductIds, purchasedProductIds, request.getLimit());
 
-			GetSimilarProductsResponse.Builder response = GetSimilarProductsResponse.newBuilder();
-			// 요청 순서대로 담는다. 호출자가 기준별 가중치를 요청 순서로 대응시킬 수 있어야 한다.
-			for (UUID seedProductId : seedProductIds) {
-				response.addRankings(SimilarProductRanking.newBuilder()
-					.setSeedProductId(seedProductId.toString())
-					.addAllProducts(rankings.getOrDefault(seedProductId, List.of()).stream()
-						.map(this::toRecommendedProduct)
-						.toList())
-					.build());
-			}
-			responseObserver.onNext(response.build());
+			responseObserver.onNext(GetSimilarProductsResponse.newBuilder()
+				.addAllProducts(recommendations.stream().map(this::toRecommendedProduct).toList())
+				.build());
 			responseObserver.onCompleted();
 		} catch (IllegalArgumentException e) {
-			log.warn("GetSimilarProducts invalid request: seedProductIds={}", request.getSeedProductIdsList(), e);
+			log.warn("GetSimilarProducts invalid request: cartProductIds={}, purchasedProductIds={}",
+				request.getCartProductIdsList(), request.getPurchasedProductIdsList(), e);
 			responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
 		} catch (Exception e) {
-			log.error("GetSimilarProducts failed: seedProductIds={}", request.getSeedProductIdsList(), e);
+			log.error("GetSimilarProducts failed: cartCount={}, purchaseCount={}",
+				request.getCartProductIdsCount(), request.getPurchasedProductIdsCount(), e);
 			responseObserver.onError(Status.INTERNAL.withDescription(e.getMessage()).asRuntimeException());
 		}
 	}

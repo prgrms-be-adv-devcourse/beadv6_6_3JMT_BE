@@ -311,43 +311,6 @@ public interface ProductJpaRepository extends JpaRepository<Product, UUID> {
 	List<Object[]> findEmbeddingSourceHashRows(@Param("productIds") List<UUID> productIds);
 
 	/**
-	 * 기준 상품과 임베딩이 가까운 순으로 후보를 돌려준다.
-	 *
-	 * <p>정렬식을 순수 거리 연산자로 두어야 ON_SALE 부분 HNSW 인덱스를 탄다. 여기에 유형
-	 * 가산점 같은 산술을 얹으면 표현식이 되어 인덱스를 못 쓰고 풀스캔이 된다 — 그래서 재정렬은
-	 * 앱에서 한다.
-	 *
-	 * <p>마지막 exists는 <b>기준 상품</b>에 임베딩이 있는지 본다. 없으면 서브쿼리가 NULL이 되고
-	 * {@code <=> NULL}도 NULL이라 후보 행이 distance=NULL로 그대로 돌아온다(제외되지 않는다) —
-	 * 이걸 primitive double로 받으면 NPE가 난다. 승인 직후 재조정 배치가 임베딩을 채우기 전까지
-	 * 실제로 생기는 상태다. WHERE에만 두어 ORDER BY 식은 건드리지 않는다.
-	 *
-	 * <p>가족(family) 중복 제거는 SQL이 아니라 어댑터에서 한다 — {@code DISTINCT ON}은 정렬
-	 * 선두를 가족 키로 바꿔 위의 HNSW 인덱스 조건을 깨뜨린다. family_root 컬럼은 그 어댑터
-	 * 중복 제거용이다(#699).
-	 *
-	 * @return {@code [id(UUID), productType(String), distance(Double), familyRoot(UUID)]} 행 목록
-	 */
-	@Query(value = """
-		select p.id, p.product_type,
-		       p.embedding <=> (select embedding from product where id = :productId) as distance,
-		       coalesce(p.parent_id, p.id) as family_root
-		from product p
-		where p.status = 'ON_SALE'
-			and p.deleted_at is null
-			and p.embedding is not null
-			and coalesce(p.parent_id, p.id) <> :familyRootId
-			and exists (select 1 from product b where b.id = :productId and b.embedding is not null)
-		order by p.embedding <=> (select embedding from product where id = :productId)
-		limit :candidates
-		""", nativeQuery = true)
-	List<Object[]> findSimilarProductRows(
-		@Param("productId") UUID productId,
-		@Param("familyRootId") UUID familyRootId,
-		@Param("candidates") int candidates
-	);
-
-	/**
 	 * 네이티브 UPDATE라 JPA auditing이 타지 않아 {@code updated_at}이 그대로 남는다. 이게
 	 * 중요하다 — 임베딩을 쓸 때마다 updated_at이 바뀌면 그 상품이 다음 증분 재조정 대상으로
 	 * 다시 걸려 배치가 자기 꼬리를 무는 루프가 된다.
