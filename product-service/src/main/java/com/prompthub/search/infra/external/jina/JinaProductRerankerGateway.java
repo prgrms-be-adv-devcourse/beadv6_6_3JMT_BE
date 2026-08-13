@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prompthub.search.application.gateway.external.ProductRerankerGateway;
 import com.prompthub.search.application.gateway.external.ProductRerankerGateway.RerankCandidate;
-import com.prompthub.search.application.gateway.external.ProductRerankerGateway.RankedProduct;
 import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -43,7 +42,7 @@ public class JinaProductRerankerGateway implements ProductRerankerGateway {
 
 	/** 빈 Optional은 외부 재랭킹을 사용할 수 없어 BM25로 축소해야 한다는 뜻이다. */
 	@Override
-	public Optional<List<RankedProduct>> findRelevantProducts(String keyword, List<RerankCandidate> candidates) {
+	public Optional<List<UUID>> findRelevantProductIds(String keyword, List<RerankCandidate> candidates) {
 		if (!properties.isConfigured()) {
 			return Optional.empty();
 		}
@@ -65,8 +64,7 @@ public class JinaProductRerankerGateway implements ProductRerankerGateway {
 				log.warn("Jina reranker 호출 실패. status={}", response.statusCode());
 				return Optional.empty();
 			}
-			return Optional.of(collectRelevantProducts(
-				objectMapper.readValue(response.body(), RerankResponse.class), candidates));
+			return Optional.of(collectRelevantIds(objectMapper.readValue(response.body(), RerankResponse.class), candidates));
 		} catch (IOException exception) {
 			log.warn("Jina reranker 통신 실패. BM25 검색으로 축소합니다.", exception);
 			return Optional.empty();
@@ -80,20 +78,17 @@ public class JinaProductRerankerGateway implements ProductRerankerGateway {
 		}
 	}
 
-	private List<RankedProduct> collectRelevantProducts(
-		RerankResponse response, List<RerankCandidate> candidates
-	) {
-		List<RankedProduct> relevantProducts = new ArrayList<>();
+	private List<UUID> collectRelevantIds(RerankResponse response, List<RerankCandidate> candidates) {
+		List<UUID> relevantIds = new ArrayList<>();
 		for (RerankResult result : response.results()) {
 			if (result.relevanceScore() < properties.minScore()
 				|| result.index() < 0
 				|| result.index() >= candidates.size()) {
 				continue;
 			}
-			relevantProducts.add(new RankedProduct(
-				candidates.get(result.index()).productId(), result.relevanceScore()));
+			relevantIds.add(candidates.get(result.index()).productId());
 		}
-		return relevantProducts;
+		return relevantIds;
 	}
 
 	private String buildRerankText(RerankCandidate candidate) {
