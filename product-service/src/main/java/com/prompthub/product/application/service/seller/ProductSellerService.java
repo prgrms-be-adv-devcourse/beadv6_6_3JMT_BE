@@ -219,7 +219,9 @@ public class ProductSellerService implements ProductSellerUseCase {
 			throw new ProductException(ProductErrorCode.PRODUCT_FORBIDDEN);
 		}
 
-		if (product.getStatus() == ProductStatus.DRAFT) {
+		// DRAFT·REJECTED는 ON_SALE에 도달한 적이 없어 판매 이력이 없다 — 실제로 삭제한다.
+		// 그 외(ON_SALE 등)는 판매 이력 보존을 위해 상태만 중단시킨다.
+		if (product.getStatus() == ProductStatus.DRAFT || product.getStatus() == ProductStatus.REJECTED) {
 			product.softDelete();
 		} else {
 			product.stop();

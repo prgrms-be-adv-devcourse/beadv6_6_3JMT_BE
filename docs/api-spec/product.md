@@ -698,8 +698,9 @@
 - UC: UC-PRODUCT-04
 - 인증: 필요
 - 필요 역할: SELLER / ADMIN
-- DRAFT 상태: 소프트 삭제 (deletedAt 설정, 목록 제외)
-- 그 외 상태: 판매 중단 (status → STOPPED, 목록 유지)
+- DRAFT·REJECTED 상태: 소프트 삭제 (deletedAt 설정, 목록 제외) — 둘 다 ON_SALE에 도달한 적이
+  없어 판매 이력 보존 명분이 없다
+- 그 외 상태: 판매 중단 (status → STOPPED, 목록 유지) — 판매 이력 보존
 
 #### Path Parameters
 

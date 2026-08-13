@@ -486,6 +486,72 @@ class ProductSellerServiceTest {
 		}
 	}
 
+	@Nested
+	@DisplayName("상품 삭제")
+	class DeleteProduct {
+
+		@Test
+		@DisplayName("DRAFT는 ON_SALE에 도달한 적이 없어 실제로 삭제한다")
+		void deleteProduct_draft_softDeletes() {
+			Product draft = product(PRODUCT_ID, null, ProductStatus.DRAFT, (short) 1, (short) 0);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(draft));
+
+			productSellerService.deleteProduct(SELLER_ID, PRODUCT_ID);
+
+			assertThat(draft.getStatus()).isEqualTo(ProductStatus.STOPPED);
+			assertThat(draft.getDeletedAt()).isNotNull();
+			then(productRepository).should().save(draft);
+		}
+
+		@Test
+		@DisplayName("REJECTED도 ON_SALE에 도달한 적이 없어 실제로 삭제한다")
+		void deleteProduct_rejected_softDeletes() {
+			Product rejected = product(PRODUCT_ID, null, ProductStatus.REJECTED, (short) 2, (short) 0);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(rejected));
+
+			productSellerService.deleteProduct(SELLER_ID, PRODUCT_ID);
+
+			assertThat(rejected.getStatus()).isEqualTo(ProductStatus.STOPPED);
+			assertThat(rejected.getDeletedAt()).isNotNull();
+			then(productRepository).should().save(rejected);
+		}
+
+		@Test
+		@DisplayName("ON_SALE은 판매 이력 보존을 위해 상태만 중단시키고 실제로 삭제하지 않는다")
+		void deleteProduct_onSale_stopsWithoutSoftDelete() {
+			Product onSale = product(PRODUCT_ID, null, ProductStatus.ON_SALE, (short) 1, (short) 0);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(onSale));
+
+			productSellerService.deleteProduct(SELLER_ID, PRODUCT_ID);
+
+			assertThat(onSale.getStatus()).isEqualTo(ProductStatus.STOPPED);
+			assertThat(onSale.getDeletedAt()).isNull();
+			then(productRepository).should().save(onSale);
+		}
+
+		@Test
+		@DisplayName("다른 셀러 소유 상품이면 삭제를 거부한다")
+		void deleteProduct_notOwner_throwsForbidden() {
+			Product product = product(PRODUCT_ID, null, ProductStatus.DRAFT, (short) 1, (short) 0);
+			UUID otherSellerId = UUID.randomUUID();
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+
+			assertThatThrownBy(() -> productSellerService.deleteProduct(otherSellerId, PRODUCT_ID))
+				.isInstanceOf(ProductException.class);
+			then(productRepository).should(never()).save(any());
+		}
+
+		@Test
+		@DisplayName("존재하지 않는 상품이면 삭제를 거부한다")
+		void deleteProduct_notFound_throwsNotFound() {
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.empty());
+
+			assertThatThrownBy(() -> productSellerService.deleteProduct(SELLER_ID, PRODUCT_ID))
+				.isInstanceOf(ProductException.class);
+			then(productRepository).should(never()).save(any());
+		}
+	}
+
 	/** 핵심 산출물(content)까지 바뀐 요청 — MAJOR 판정 대상. */
 	private ProductUpdateRequest request(String changeReason) {
 		return new ProductUpdateRequest(
