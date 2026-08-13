@@ -74,7 +74,7 @@ AI 프롬프트, 노션/PPT/엑셀 템플릿 등 디지털 상품을 사고파�
 
 ## Architecture
 
-<!-- TODO: 아키텍처 다이어그램 이미지 삽입 -->
+![System Architecture](./docs/architecture/images/system-architecture.png)
 
 **서비스 구성** (모듈 / 포트 HTTP·gRPC / 역할)
 
@@ -96,15 +96,15 @@ AI 프롬프트, 노션/PPT/엑셀 템플릿 등 디지털 상품을 사고파�
 **통신 방식**
 
 - **외부 → 내부**: 클라이언트 → API Gateway(WebFlux) → JWT 서명 검증(RSA 공개키) → `X-User-Id`/`X-User-Role` 헤더 주입 → Eureka에서 `lb://{SERVICE-NAME}` 조회 후 라우팅
-- **내부 동기 통신**: 서비스 간 gRPC(상품/판매자 정보 조회 등), 일부는 FeignClient(HTTP)
-- **내부 비동기 통신**: Kafka (`order-events`, `product-events`, `payment-events` — 이벤트 종류는 payload의 `eventType` 필드로 구분, 예: `payment.failed`)
+- **내부 동기 통신**: 서비스 간 gRPC(상품/판매자 정보 조회 등)
+- **내부 비동기 통신**: Kafka (`order-events`, `product-events`, `payment-events` — 이벤트 종류는 payload의 `eventType` 필드로 구분, 예: `ORDER_PAID`, `PAYMENT_APPROVED`)
 - **외부 연동**: payment-service → Toss Payments API
 
-**인증/인가**: user-service가 로그인 시 JWT(RS256) 발급 → API Gateway가 서명 검증 후 `sub`(사용자 ID), `roles`(BUYER/SELLER/ADMIN)를 헤더로 다운스트림에 전달. `status` 클레임이 `ACTIVE`가 아니면 Gateway 단에서 403 처리. 각 서비스는 JWT를 직접 파싱하지 않고 헤더만 신뢰한다.
+**인증/인가**: user-service가 로그인 시 JWT(RS256, `sub`+`epoch`만 포함)를 발급한다. API Gateway는 서명을 검증한 뒤 `roles`·`status`를 JWT 클레임으로 신뢰하지 않고 매 요청마다 내부 authorize API로 최신 값을 조회한다(forward-auth). 조회한 `status`가 `ACTIVE`가 아니면 Gateway 단에서 403 처리하고, `ACTIVE`면 `X-User-Id`, `X-User-Role`(BUYER/SELLER/ADMIN) 헤더를 다운스트림에 주입한다. 각 서비스는 JWT를 직접 파싱하지 않고 헤더만 신뢰한다.
 
-**기동 순서**: `postgres` + `kafka` → `discovery` → `config` → 비즈니스 서비스 5종(8081~8085) → `apigateway`. `docker-compose.yml`의 `depends_on`이 순서를 보장한다.
+**기동 순서**: `postgres` + `kafka` → `discovery` → `config` → 비즈니스 서비스 → `apigateway`. `docker-compose.yml`의 `depends_on`이 순서를 보장한다.
 
-**배포**: 별도 운영(prod) 서버 없이 AWS EC2 단일 인스턴스를 "개발서버"로 운영한다. `develop` 브랜치 머지가 곧 개발서버 자동 배포이며, `main`은 완성 스냅샷을 태그(`v1.0.0` 등)로만 보존하는 동결 브랜치다.
+**배포**: 별도 운영(prod) 서버 없이 AWS EC2 2대에 직접 구축한 Kubernetes 클러스터(kubeadm, EKS 미사용)를 "개발서버"로 운영한다. `develop` 브랜치 머지 시 GitHub Actions(`cd-selfhosted-kubernetes.yml`)가 self-hosted runner를 통해 `prompthub` 네임스페이스에 배포하며, `main`은 완성 스냅샷을 태그(`v1.0.0` 등)로만 보존하는 동결 브랜치다.
 
 ## Run Locally
 
@@ -145,16 +145,13 @@ http://ec2-13-209-136-116.ap-northeast-2.compute.amazonaws.com/swagger-ui/index.
 ## Team
 
 
-| 이름           | 역할  | 담당  | GitHub                                         |
-| ------------ | --- | --- | ---------------------------------------------- |
-| Minseo Kim   |     |     | [@git-mesome](https://github.com/git-mesome)   |
-| JongChan Lee |     |     | [@oxix97](https://github.com/oxix97)           |
-| Taehyeon Ko  |     |     | [@TaetaetaE01](https://github.com/TaetaetaE01) |
-| Jinpyo An    |     |     | [@Jinpyo-An](https://github.com/Jinpyo-An)     |
-| JiHeeKim     |     |     | [@jhkimm96](https://github.com/jhkimm96)       |
-
-
-<!-- TODO: 역할/담당 채우기 -->
+| 이름           | 역할  | 담당                                                                                  | GitHub                                         |
+| ------------ | --- | ----------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Minseo Kim   | 팀장  | Spring Cloud 기반 인증/인가, 콘텐츠 표절 탐지, PR 코드 리뷰, 시스템 설계 전반                                  | [@git-mesome](https://github.com/git-mesome)   |
+| JongChan Lee | 팀원  | 비동기 분산 트랜잭션 및 주문·환불 시스템, Kafka·Redis·SSE 기반 실시간 멱등적 비동기 알림 파이프라인, Fluent Bit·ELK 기반 경량 분산 로그 수집 및 실시간 모니터링 | [@oxix97](https://github.com/oxix97)           |
+| Taehyeon Ko  | 팀원  | 정산 배치 시스템 구축, Spring AI 챗봇 개발, AWS 클라우드 인프라 구축, K8s 클러스터 구축, CI/CD 파이프라인 구축                | [@TaetaetaE01](https://github.com/TaetaetaE01) |
+| Jinpyo An    | 팀원  | Toss Payments 연동 결제 승인/환불 시스템 구축, Spring AI 기반 상품 자동 검수 시스템 구축                          | [@Jinpyo-An](https://github.com/Jinpyo-An)     |
+| JiHeeKim     | 팀원  | 상품 도메인 설계 및 구현, Elasticsearch 검색 파이프라인 구축, 벡터 검색·OpenAI text-embedding 모델 연동             | [@jhkimm96](https://github.com/jhkimm96)       |
 
 ## 팀 / 기여 가이드
 
@@ -171,7 +168,7 @@ http://ec2-13-209-136-116.ap-northeast-2.compute.amazonaws.com/swagger-ui/index.
 
 > **운영(prod) 서버가 따로 없는 이유는?**
 
-포트폴리오/학습 프로젝트라 AWS EC2 단일 인스턴스를 "개발서버"로 운영한다. `develop` 머지가 곧 배포이며, `main`은 완성 스냅샷을 태그로만 보존한다. 자세한 배경은 `docs/records/plan/infra/adr-0005-develop-deploy-main-freeze(v).md` 참고.
+포트폴리오/학습 프로젝트라 AWS EC2 2대에 직접 구축한 Kubernetes 클러스터를 "개발서버"로 운영한다. `develop` 머지 시 self-hosted runner가 해당 클러스터에 배포하며, `main`은 완성 스냅샷을 태그로만 보존한다. 브랜치 전략 배경은 `docs/records/plan/infra/adr-0005-develop-deploy-main-freeze(v).md`, K8s 아키텍처는 `docs/architecture/kubernetes.md` 참고.
 
 > **API 경로에 `v1`, `v2`가 같이 있는 이유는?**
 
@@ -179,7 +176,28 @@ http://ec2-13-209-136-116.ap-northeast-2.compute.amazonaws.com/swagger-ui/index.
 
 ## Demo
 
-<!-- TODO: 데모 gif 또는 배포 링크 삽입 -->
+<table>
+  <tr>
+    <td align="center">
+      <img src="./docs/demo/search-flow.gif" width="400" /><br />
+      상품 검색
+    </td>
+    <td align="center">
+      <img src="./docs/demo/order-payment-flow.gif" width="400" /><br />
+      주문·결제
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="./docs/demo/inspection-flow.gif" width="400" /><br />
+      AI 상품 검수
+    </td>
+    <td align="center">
+      <img src="./docs/demo/settlement-flow.gif" width="400" /><br />
+      판매자 정산
+    </td>
+  </tr>
+</table>
 
 ## License
 
