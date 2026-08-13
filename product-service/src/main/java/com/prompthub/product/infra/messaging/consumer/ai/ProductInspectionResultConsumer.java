@@ -16,8 +16,8 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * ai-events 소비 어댑터. (루트 kafka-event.md 참고)
- * 미지원 eventType 은 로그+Ack(DLT 아님). handler가 던지는 IllegalStateException(중복/이미
- * 처리된 상품)도 로그+Ack로 흡수한다 — 정상적인 중복 이벤트이지 처리 실패가 아니다.
+ * 미지원 eventType 은 로그+Ack(DLT 아님). 중복/이미 처리된 상품은 handler가 내부에서
+ * 조용히 스킵하므로(예외를 던지지 않음) 이 consumer는 정상 흐름만 처리하면 된다.
  */
 @Slf4j
 @Component
@@ -60,11 +60,7 @@ public class ProductInspectionResultConsumer {
 			payload.path("hasRoleAssignment").asBoolean(false)
 		);
 
-		try {
-			productInspectionResultHandler.apply(productId, approved, rejectionReason, checklist);
-		} catch (IllegalStateException e) {
-			log.info("이미 처리된 상품 검수 결과라 스킵함. productId={}", productId);
-		}
+		productInspectionResultHandler.apply(productId, approved, rejectionReason, checklist);
 		acknowledgment.acknowledge();
 	}
 

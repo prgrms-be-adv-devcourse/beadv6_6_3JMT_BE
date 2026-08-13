@@ -4,6 +4,7 @@ import com.prompthub.product.application.service.inspection.ProductInspectionRes
 import static com.prompthub.product.support.ProductContentFixtures.promptContent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
 import com.prompthub.product.domain.model.entity.Product;
@@ -105,6 +106,21 @@ class ProductInspectionResultHandlerTest {
 			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.empty());
 
 			assertThatCode(() -> handler.apply(PRODUCT_ID, true, null, CHECKLIST)).doesNotThrowAnyException();
+		}
+
+		@Test
+		@DisplayName("중복이 아닌 진짜 실패는 삼키지 않고 전파한다 — 예외를 제어 흐름으로 쓰지 않는다")
+		void apply_realFailure_propagates() {
+			handler = new ProductInspectionResultHandler(productRepository);
+			Product product = pendingReviewProduct();
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(product.familyRootId())))
+				.willReturn(List.of(product));
+			given(productRepository.save(product)).willThrow(new RuntimeException("DB 오류"));
+
+			assertThatThrownBy(() -> handler.apply(PRODUCT_ID, true, null, CHECKLIST))
+				.isInstanceOf(RuntimeException.class)
+				.hasMessage("DB 오류");
 		}
 	}
 
