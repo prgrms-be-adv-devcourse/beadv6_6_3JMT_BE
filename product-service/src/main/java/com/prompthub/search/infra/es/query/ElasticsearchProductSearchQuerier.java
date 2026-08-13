@@ -15,16 +15,18 @@ import com.prompthub.search.application.query.ProductSearchPageResult;
 import com.prompthub.search.application.query.ProductSearchQueryPort;
 import com.prompthub.search.application.query.ProductSearchUnavailableException;
 import com.prompthub.search.application.embedding.QueryEmbeddingCache;
+import com.prompthub.search.application.gateway.external.ProductRerankerGateway;
+import com.prompthub.search.application.gateway.external.ProductRerankerGateway.RerankCandidate;
 import com.prompthub.search.application.query.ReciprocalRankFusion;
 import com.prompthub.search.infra.es.config.ProductIndexBootstrap;
 import com.prompthub.search.infra.es.indexing.ProductSearchDocument;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,14 +42,15 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryPort
 	 * 두 레그에서 각각 가져와 병합할 문서 수.
 	 *
 	 * <p>RRF는 순위 목록을 통째로 섞는 방식이라 페이지 단위로 나눠 계산할 수 없다.
-	 * 이 창을 넘어가는 페이지는 글자 기반 결과만 준다 — 현재 상품 수에서는 전체가 창에
-	 * 들어오고, 검색 결과 100건 뒤까지 넘겨보는 사용은 사실상 없다.
+	 * 이 창을 넘어가는 페이지는 글자 기반 결과만 준다. 외부 reranker에는 첫 50건만 보내
+	 * 지연과 호출 비용을 제한한다.
 	 */
-	private static final int FUSION_WINDOW = 100;
+	private static final int FUSION_WINDOW = 50;
 
 	private final ElasticsearchClient client;
 	private final ProductSearchQueryBuilder queryBuilder;
 	private final QueryEmbeddingCache queryEmbeddingCache;
+	private final ProductRerankerGateway productRerankerGateway;
 
 	@Override
 	public ProductSearchPageResult search(String keyword, String productType, String sort, Pageable pageable) {
@@ -80,15 +83,7 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryPort
 		}
 	}
 
-	/**
-	 * 글자 기반과 의미 기반을 한 번의 왕복으로 동시에 조회해 순위를 병합한다.
-	 *
-	 * <p>총 건수는 <b>글자 기반 레그의 전체 건수와 병합 결과 크기 중 큰 값</b>이다. 호출자가
-	 * 이 값으로 다음 페이지 존재 여부를 계산하므로 실제로 돌려주는 결과 수보다 작으면 안 된다.
-	 * 글자 기반 값만 쓰면 의미 기반만 찾은 문서가 총 건수에서 빠져 {@code total}과 실제 목록이
-	 * 어긋나고, 글자 기반이 0건일 때 다음 페이지로 넘어갈 수 없다(#645). 반대로 병합 결과
-	 * 크기만 쓰면 병합 창({@link #FUSION_WINDOW})을 넘는 글자 기반 결과가 잘려 과소 집계된다.
-	 */
+	/** 글자·의미 후보를 병합한 뒤 관련성 통과 ID만 사용자 정렬로 다시 조회한다. */
 	private ProductSearchPageResult hybridSearch(
 		String keyword, String productType, String sort, Pageable pageable, float[] queryVector
 	) {
@@ -118,41 +113,28 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryPort
 			List<UUID> lexicalRanking = collect(lexicalResult, documents);
 			List<UUID> semanticRanking = collect(semanticResult, documents);
 
-			List<UUID> fused = ReciprocalRankFusion.fuse(lexicalRanking, semanticRanking);
-			List<UUID> orderedCandidates = orderCandidates(fused, documents, sort);
-			List<ProductSearchHit> page = slice(orderedCandidates, pageable).stream()
+			List<ProductSearchDocument> candidates = ReciprocalRankFusion.fuse(lexicalRanking, semanticRanking).stream()
 				.map(documents::get)
 				.filter(Objects::nonNull)
-				.map(this::toHit)
 				.toList();
-
-			return new ProductSearchPageResult(page, Math.max(totalOf(lexicalResult, 0), fused.size()));
+			List<RerankCandidate> rerankCandidates = candidates.stream().map(this::toRerankCandidate).toList();
+			Optional<List<UUID>> relevantIds = productRerankerGateway.findRelevantProductIds(keyword, rerankCandidates);
+			if (relevantIds.isEmpty()) {
+				return lexicalSearch(queryBuilder.build(keyword, productType, sort, pageable));
+			}
+			if (relevantIds.get().isEmpty()) {
+				return new ProductSearchPageResult(List.of(), 0);
+			}
+			return lexicalSearch(queryBuilder.buildQualifiedCandidates(relevantIds.get(), sort, pageable));
 		} catch (IOException | ElasticsearchException exception) {
 			throw new ProductSearchUnavailableException("ES 하이브리드 검색에 실패했습니다.", exception);
 		}
 	}
 
-	private List<UUID> orderCandidates(
-		List<UUID> fused, Map<UUID, ProductSearchDocument> documents, String sort
-	) {
-		Comparator<ProductSearchDocument> comparator = switch (sort) {
-			case ProductSearchQueryBuilder.SORT_RATING -> Comparator
-				.comparingDouble(ProductSearchDocument::ratingAvg).reversed()
-				.thenComparing(ProductSearchDocument::familyRootId);
-			case ProductSearchQueryBuilder.SORT_PRICE_ASC -> Comparator
-				.comparingInt(ProductSearchDocument::amount)
-				.thenComparing(ProductSearchDocument::familyRootId);
-			default -> null;
-		};
-		if (comparator == null) {
-			return fused;
-		}
-		return fused.stream()
-			.map(documents::get)
-			.filter(Objects::nonNull)
-			.sorted(comparator)
-			.map(ProductSearchDocument::familyRootId)
-			.toList();
+	private RerankCandidate toRerankCandidate(ProductSearchDocument document) {
+		return new RerankCandidate(
+			document.familyRootId(), document.name(), document.tags(), document.description(),
+			document.productType(), document.model());
 	}
 
 	private MultiSearchItem<ProductSearchDocument> resultOf(
@@ -180,14 +162,6 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryPort
 			ranking.add(document.familyRootId());
 		}
 		return ranking;
-	}
-
-	private List<UUID> slice(List<UUID> fused, Pageable pageable) {
-		int from = (int) pageable.getOffset();
-		if (from >= fused.size()) {
-			return List.of();
-		}
-		return fused.subList(from, Math.min(from + pageable.getPageSize(), fused.size()));
 	}
 
 	private long totalOf(ResponseBody<ProductSearchDocument> response, long fallback) {

@@ -61,6 +61,11 @@ elasticsearch:
 
 prompthub:
   search:
+    reranker:
+      api-key: ${JINA_API_KEY:}
+      model: jina-reranker-v3
+      min-score: 0.5
+      timeout: 2s
     reconcile:
       fixed-delay-ms: 20000
       bulk-chunk-size: 500

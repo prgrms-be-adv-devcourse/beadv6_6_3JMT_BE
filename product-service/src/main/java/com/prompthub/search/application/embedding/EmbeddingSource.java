@@ -1,6 +1,7 @@
 package com.prompthub.search.application.embedding;
 
 import com.prompthub.product.domain.model.entity.Product;
+import com.prompthub.product.domain.model.enums.ProductType;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -43,6 +44,9 @@ public final class EmbeddingSource {
 		addIfPresent(parts, product.getName());
 		addIfPresent(parts, joinTags(product.getTags()));
 		addIfPresent(parts, product.getDescription());
+		if (product.getProductType() == ProductType.PROMPT) {
+			addIfPresent(parts, product.getModel());
+		}
 		addIfPresent(parts, truncate(product.getContent()));
 
 		return new EmbeddingSource(String.join(DELIMITER, parts));
