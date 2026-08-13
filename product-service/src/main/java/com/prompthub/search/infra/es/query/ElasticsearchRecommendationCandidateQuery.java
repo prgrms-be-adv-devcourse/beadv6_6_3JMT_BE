@@ -12,21 +12,15 @@ import com.prompthub.recommendation.application.RecommendationCandidateQuery;
 import com.prompthub.recommendation.application.RecommendationCandidateQuery.Seed;
 import com.prompthub.search.application.gateway.external.ProductRerankerGateway;
 import com.prompthub.search.application.gateway.external.ProductRerankerGateway.RerankCandidate;
-import com.prompthub.search.application.gateway.external.ProductRerankerGateway.RankedProduct;
 import com.prompthub.search.infra.es.config.ProductIndexBootstrap;
 import com.prompthub.search.infra.es.indexing.ProductSearchDocument;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -36,7 +30,6 @@ import org.springframework.stereotype.Component;
 public class ElasticsearchRecommendationCandidateQuery implements RecommendationCandidateQuery {
 
 	private static final int CANDIDATE_MULTIPLIER = 5;
-	private static final int MAX_RERANK_CONCURRENCY = 4;
 	private static final float MIN_SEMANTIC_SIMILARITY = 0.35f;
 	private static final List<String> MATCH_FIELDS =
 		List.of("name^3", "tags.text^2", "description^1.5", "model.text");
@@ -138,70 +131,24 @@ public class ElasticsearchRecommendationCandidateQuery implements Recommendation
 		List<RerankCandidate> rerankCandidates = candidates.stream()
 			.map(this::toRerankCandidate)
 			.toList();
-		if (seeds.size() == 1) {
-			return productRerankerGateway.findRelevantProducts(seeds.getFirst().rerankText(), rerankCandidates)
-				.map(ranked -> toProductIds(ranked, candidates, limit))
-				.orElseGet(List::of);
-		}
-		return rankForMember(seeds, rerankCandidates, candidates, limit);
-	}
-
-	private List<UUID> rankForMember(
-		List<Seed> seeds,
-		List<RerankCandidate> rerankCandidates,
-		List<ProductSearchDocument> candidates,
-		int limit
-	) {
-		List<SeedRanking> rankings = new ArrayList<>(seeds.size());
-		try (ExecutorService executor = Executors.newFixedThreadPool(
-			Math.min(seeds.size(), MAX_RERANK_CONCURRENCY))) {
-			List<CompletableFuture<Optional<List<RankedProduct>>>> futures = seeds.stream()
-				.map(seed -> CompletableFuture.supplyAsync(
-					() -> productRerankerGateway.findRelevantProducts(seed.rerankText(), rerankCandidates), executor))
-				.toList();
-			for (int index = 0; index < seeds.size(); index++) {
-				Optional<List<RankedProduct>> ranked = futures.get(index).join();
-				if (ranked.isEmpty()) {
-					return List.of();
-				}
-				rankings.add(new SeedRanking(seeds.get(index), ranked.get()));
-			}
-		} catch (RuntimeException exception) {
-			log.warn("회원 추천 재랭킹 집계에 실패해 빈 추천을 반환합니다.", exception);
+		Optional<List<UUID>> relevantIds = productRerankerGateway.findRelevantProductIds(
+			buildRerankQuery(seeds), rerankCandidates);
+		if (relevantIds.isEmpty()) {
 			return List.of();
 		}
 
-		Map<UUID, Double> bestScores = new LinkedHashMap<>();
-		for (SeedRanking ranking : rankings) {
-			for (RankedProduct product : ranking.products()) {
-				bestScores.merge(
-					product.productId(), product.relevanceScore() * ranking.seed().weight(), Math::max);
-			}
-		}
-		List<RankedProduct> rankedProducts = bestScores.entrySet().stream()
-			.sorted(Map.Entry.<UUID, Double>comparingByValue(Comparator.reverseOrder()))
-			.map(entry -> new RankedProduct(entry.getKey(), entry.getValue()))
-			.toList();
-		return toProductIds(rankedProducts, candidates, limit);
-	}
-
-	private List<UUID> toProductIds(
-		List<RankedProduct> rankedProducts, List<ProductSearchDocument> candidates, int limit
-	) {
-		Map<UUID, UUID> productIdsByFamily = candidates.stream().collect(java.util.stream.Collectors.toMap(
-			ProductSearchDocument::familyRootId,
-			ProductSearchDocument::productId,
-			(existing, ignored) -> existing));
-		return rankedProducts.stream()
-			.map(RankedProduct::productId)
-			.map(productIdsByFamily::get)
-			.filter(java.util.Objects::nonNull)
-			.distinct()
+		Set<UUID> relevant = new HashSet<>(relevantIds.get());
+		return candidates.stream()
+			.filter(candidate -> relevant.contains(candidate.familyRootId()))
+			.map(ProductSearchDocument::productId)
 			.limit(limit)
 			.toList();
 	}
 
-	private record SeedRanking(Seed seed, List<RankedProduct> products) {
+	private String buildRerankQuery(List<Seed> seeds) {
+		return seeds.stream()
+			.map(seed -> seed.signal().name() + "\n" + seed.rerankText())
+			.collect(java.util.stream.Collectors.joining("\n\n"));
 	}
 
 	private RerankCandidate toRerankCandidate(ProductSearchDocument document) {
