@@ -16,6 +16,7 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.prompthub.recommendation.application.RecommendationCandidateQuery.Seed;
 import com.prompthub.recommendation.application.RecommendationCandidateQuery.Signal;
 import com.prompthub.search.application.gateway.external.ProductRerankerGateway;
+import com.prompthub.search.application.gateway.external.ProductRerankerGateway.RankedProduct;
 import com.prompthub.search.infra.es.indexing.ProductSearchDocument;
 import java.io.IOException;
 import java.util.List;
@@ -34,27 +35,35 @@ class ElasticsearchRecommendationCandidateQueryTest {
 	private static final UUID SECOND_PRODUCT = UUID.fromString("20000000-0000-0000-0000-000000000002");
 
 	@Test
-	@DisplayName("여러 활동 기준을 ES 한 번에 조회하고 Jina 통과 여부만 적용해 ES 순서를 유지한다")
-	void preservesEsOrderAfterJinaFiltering() throws IOException {
+	@DisplayName("회원 추천은 seed별 Jina 점수에 가중치를 적용하고 후보별 최고점 순서로 반환한다")
+	void ranksCandidatesByBestWeightedSeedScore() throws IOException {
 		ElasticsearchClient client = mock(ElasticsearchClient.class);
 		ProductRerankerGateway reranker = mock(ProductRerankerGateway.class);
 		SearchResponse<ProductSearchDocument> response = response(document(FIRST), document(SECOND));
 		given(client.search(any(SearchRequest.class), eq(ProductSearchDocument.class))).willReturn(response);
-		given(reranker.findRelevantProductIds(any(), any())).willReturn(Optional.of(List.of(SECOND, FIRST)));
+		given(reranker.findRelevantProducts(any(), any()))
+			.willAnswer(invocation -> invocation.<String>getArgument(0).contains("장바구니")
+				? Optional.of(List.of(new RankedProduct(SECOND, 0.5), new RankedProduct(FIRST, 0.4)))
+				: Optional.of(List.of(new RankedProduct(FIRST, 0.4), new RankedProduct(SECOND, 0.1))));
 		ElasticsearchRecommendationCandidateQuery query =
 			new ElasticsearchRecommendationCandidateQuery(client, reranker);
 
 		List<UUID> result = query.findRelevantProductIds(
 			List.of(
-				new Seed(UUID.randomUUID(), "장바구니", new float[]{1f}, 1.0, Signal.CART),
-				new Seed(UUID.randomUUID(), "구매", new float[]{0f, 1f}, 0.7, Signal.PURCHASE)),
+				new Seed(UUID.randomUUID(), "장바구니 설명", "장바구니 의도", new float[]{1f}, 1.0, Signal.CART),
+				new Seed(UUID.randomUUID(), "구매 설명", "구매 의도", new float[]{0f, 1f}, 0.7, Signal.PURCHASE)),
 			Set.of(UUID.randomUUID()),
 			4);
 
-		assertThat(result).containsExactly(FIRST_PRODUCT, SECOND_PRODUCT);
+		assertThat(result).containsExactly(SECOND_PRODUCT, FIRST_PRODUCT);
 		ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
 		verify(client).search(requestCaptor.capture(), eq(ProductSearchDocument.class));
-		verify(reranker, times(1)).findRelevantProductIds(any(), any());
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<ProductRerankerGateway.RerankCandidate>> candidatesCaptor =
+			ArgumentCaptor.forClass(List.class);
+		verify(reranker, times(2)).findRelevantProducts(any(), candidatesCaptor.capture());
+		assertThat(candidatesCaptor.getAllValues()).allSatisfy(
+			candidates -> assertThat(candidates).allMatch(candidate -> !candidate.includeModel()));
 		SearchRequest request = requestCaptor.getValue();
 		assertThat(request.size()).isEqualTo(20);
 		assertThat(request.query().bool().should()).hasSize(2);
@@ -73,7 +82,7 @@ class ElasticsearchRecommendationCandidateQueryTest {
 
 		assertThat(new ElasticsearchRecommendationCandidateQuery(client, reranker)
 			.findRelevantProductIds(
-				List.of(new Seed(UUID.randomUUID(), "기준", null, 1.0, Signal.SIMILAR_PRODUCT)),
+				List.of(new Seed(UUID.randomUUID(), "기준 설명", "기준", null, 1.0, Signal.SIMILAR_PRODUCT)),
 				Set.of(),
 				4))
 			.isEmpty();
@@ -87,11 +96,11 @@ class ElasticsearchRecommendationCandidateQueryTest {
 		SearchResponse<ProductSearchDocument> response = response(document(FIRST));
 		given(client.search(any(SearchRequest.class), eq(ProductSearchDocument.class)))
 			.willReturn(response);
-		given(reranker.findRelevantProductIds(any(), any())).willReturn(Optional.empty());
+		given(reranker.findRelevantProducts(any(), any())).willReturn(Optional.empty());
 
 		assertThat(new ElasticsearchRecommendationCandidateQuery(client, reranker)
 			.findRelevantProductIds(
-				List.of(new Seed(UUID.randomUUID(), "기준", null, 1.0, Signal.SIMILAR_PRODUCT)),
+				List.of(new Seed(UUID.randomUUID(), "기준 설명", "기준", null, 1.0, Signal.SIMILAR_PRODUCT)),
 				Set.of(),
 				4))
 			.isEmpty();
@@ -105,11 +114,11 @@ class ElasticsearchRecommendationCandidateQueryTest {
 		SearchResponse<ProductSearchDocument> response = response(document(FIRST));
 		given(client.search(any(SearchRequest.class), eq(ProductSearchDocument.class)))
 			.willReturn(response);
-		given(reranker.findRelevantProductIds(any(), any())).willReturn(Optional.of(List.of()));
+		given(reranker.findRelevantProducts(any(), any())).willReturn(Optional.of(List.of()));
 
 		assertThat(new ElasticsearchRecommendationCandidateQuery(client, reranker)
 			.findRelevantProductIds(
-				List.of(new Seed(UUID.randomUUID(), "기준", null, 1.0, Signal.SIMILAR_PRODUCT)),
+				List.of(new Seed(UUID.randomUUID(), "기준 설명", "기준", null, 1.0, Signal.SIMILAR_PRODUCT)),
 				Set.of(),
 				4))
 			.isEmpty();

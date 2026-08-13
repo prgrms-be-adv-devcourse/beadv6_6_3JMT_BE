@@ -18,9 +18,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class ProductRecommender {
 
-	private static final int MAX_SEEDS_PER_SIGNAL = 5;
+	private static final int MAX_SEEDS_PER_SIGNAL = 10;
 	private static final double CART_WEIGHT = 1.0;
 	private static final double PURCHASE_WEIGHT = 0.7;
+	private static final double RECENCY_STEP = 0.05;
 
 	private final ProductRepository productRepository;
 	private final RecommendationCandidateQuery candidateQuery;
@@ -91,17 +92,34 @@ public class ProductRecommender {
 		Signal signal
 	) {
 		Set<UUID> addedIds = seeds.stream().map(Seed::productId).collect(Collectors.toSet());
-		for (UUID productId : productIds) {
+		for (int index = 0; index < productIds.size(); index++) {
+			UUID productId = productIds.get(index);
 			Product product = productsById.get(productId);
 			if (product == null || addedIds.contains(productId)) {
 				continue;
 			}
-			seeds.add(seedOf(product, embeddings.get(productId), weight, signal));
+			double recencyWeight = 1.0 - RECENCY_STEP * index;
+			seeds.add(seedOf(product, embeddings.get(productId), weight * recencyWeight, signal));
 			addedIds.add(productId);
 		}
 	}
 
 	private Seed seedOf(Product product, float[] embedding, double weight, Signal signal) {
-		return new Seed(product.getId(), EmbeddingSource.of(product).text(), embedding, weight, signal);
+		return new Seed(
+			product.getId(),
+			EmbeddingSource.of(product).text(),
+			recommendationIntentOf(product),
+			embedding,
+			weight,
+			signal);
+	}
+
+	private String recommendationIntentOf(Product product) {
+		List<String> parts = new ArrayList<>();
+		parts.add(product.getName());
+		if (product.getTags() != null && !product.getTags().isEmpty()) {
+			parts.add(String.join(" ", product.getTags()));
+		}
+		return String.join("\n", parts);
 	}
 }

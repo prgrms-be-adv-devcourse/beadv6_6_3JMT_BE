@@ -134,7 +134,7 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryPort
 	private RerankCandidate toRerankCandidate(ProductSearchDocument document) {
 		return new RerankCandidate(
 			document.familyRootId(), document.name(), document.tags(), document.description(),
-			document.productType(), document.model());
+			document.productType(), document.model(), true);
 	}
 
 	private MultiSearchItem<ProductSearchDocument> resultOf(

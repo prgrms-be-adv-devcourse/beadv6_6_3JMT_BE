@@ -75,7 +75,25 @@ class JinaProductRerankerGatewayTest {
 
 	private RerankCandidate candidate(String name, String productType, String model, String content) {
 		UUID id = UUID.randomUUID();
-		return new RerankCandidate(id, name, List.of("태그"), "상품 소개", productType, model);
+		return new RerankCandidate(id, name, List.of("태그"), "상품 소개", productType, model, true);
+	}
+
+	@Test
+	void 추천_후보는_설명을_포함하고_모델을_제외한다() throws Exception {
+		JinaProductRerankerGateway client = client("configured", 0.05);
+		UUID productId = UUID.randomUUID();
+		RerankCandidate candidate = new RerankCandidate(
+			productId, "Docker 가이드", List.of("Docker"), "컨테이너 환경 구축", "PROMPT", "GPT-5", false);
+		given(response.statusCode()).willReturn(200);
+		given(response.body()).willReturn("{\"results\":[{\"index\":0,\"relevance_score\":0.1}]}");
+		given(httpClient.send(any(HttpRequest.class), anyStringBodyHandler())).willReturn(response);
+
+		assertThat(client.findRelevantProductIds("주식 분석", List.of(candidate))).contains(List.of(productId));
+		ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+		verify(httpClient).send(requestCaptor.capture(), anyStringBodyHandler());
+		assertThat(requestBody(requestCaptor.getValue()))
+			.contains("Docker 가이드", "Docker", "컨테이너 환경 구축")
+			.doesNotContain("GPT-5");
 	}
 
 	@SuppressWarnings("unchecked")

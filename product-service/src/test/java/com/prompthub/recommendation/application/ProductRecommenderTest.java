@@ -53,19 +53,21 @@ class ProductRecommenderTest {
 			assertThat(seed.signal()).isEqualTo(Signal.SIMILAR_PRODUCT);
 			assertThat(seed.text()).contains("코드 리뷰", "GPT-5");
 			assertThat(seed.text()).doesNotContain("본문 예시");
+			assertThat(seed.rerankText()).contains("코드 리뷰", "태그");
+			assertThat(seed.rerankText()).doesNotContain("설명", "GPT-5", "본문 예시");
 		});
 		assertThat(candidateQuery.excludedFamilies).containsExactly(CART);
 	}
 
 	@Test
-	@DisplayName("회원 추천은 장바구니와 구매를 최신 5개씩만 사용하고 한 번에 조회한다")
-	void recommendsFromAtMostFiveSeedsPerSignal() {
-		List<UUID> cartIds = ids("40000000", 6);
-		List<UUID> purchaseIds = ids("50000000", 6);
+	@DisplayName("회원 추천은 장바구니와 구매를 최신 10개씩 사용하고 최신 순서대로 가중치를 낮춘다")
+	void recommendsFromAtMostTenWeightedSeedsPerSignal() {
+		List<UUID> cartIds = ids("40000000", 11);
+		List<UUID> purchaseIds = ids("50000000", 11);
 		List<UUID> allActivityIds = new ArrayList<>(cartIds);
 		allActivityIds.addAll(purchaseIds);
-		List<UUID> selectedIds = new ArrayList<>(cartIds.subList(0, 5));
-		selectedIds.addAll(purchaseIds.subList(0, 5));
+		List<UUID> selectedIds = new ArrayList<>(cartIds.subList(0, 10));
+		selectedIds.addAll(purchaseIds.subList(0, 10));
 		List<Product> products = allActivityIds.stream()
 			.map(id -> product(id, id, "상품 " + id, ProductType.PPT, null))
 			.toList();
@@ -75,11 +77,13 @@ class ProductRecommenderTest {
 		recommender.recommendForActivity(cartIds, purchaseIds, 4);
 
 		assertThat(candidateQuery.calls).isEqualTo(1);
-		assertThat(candidateQuery.seeds).hasSize(10);
-		assertThat(candidateQuery.seeds.subList(0, 5)).allMatch(seed -> seed.signal() == Signal.CART);
-		assertThat(candidateQuery.seeds.subList(5, 10)).allMatch(seed -> seed.signal() == Signal.PURCHASE);
-		assertThat(candidateQuery.seeds.subList(0, 5)).allMatch(seed -> seed.weight() == 1.0);
-		assertThat(candidateQuery.seeds.subList(5, 10)).allMatch(seed -> seed.weight() == 0.7);
+		assertThat(candidateQuery.seeds).hasSize(20);
+		assertThat(candidateQuery.seeds.subList(0, 10)).allMatch(seed -> seed.signal() == Signal.CART);
+		assertThat(candidateQuery.seeds.subList(10, 20)).allMatch(seed -> seed.signal() == Signal.PURCHASE);
+		assertThat(candidateQuery.seeds.subList(0, 10)).extracting(seed -> rounded(seed.weight()))
+			.containsExactly(1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55);
+		assertThat(candidateQuery.seeds.subList(10, 20)).extracting(seed -> rounded(seed.weight()))
+			.containsExactly(0.7, 0.665, 0.63, 0.595, 0.56, 0.525, 0.49, 0.455, 0.42, 0.385);
 		assertThat(candidateQuery.excludedFamilies).containsExactlyInAnyOrderElementsOf(allActivityIds);
 	}
 
@@ -111,6 +115,10 @@ class ProductRecommenderTest {
 			ids.add(UUID.fromString(prefix + "-0000-0000-0000-" + String.format("%012d", index)));
 		}
 		return ids;
+	}
+
+	private double rounded(double value) {
+		return Math.round(value * 1000) / 1000.0;
 	}
 
 	private static class RecordingCandidateQuery implements RecommendationCandidateQuery {
