@@ -138,6 +138,12 @@ spec:
                 secretKeyRef:
                   name: ai-secret
                   key: OPENAI_API_KEY
+            - name: JINA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-secret
+                  key: JINA_API_KEY
+                  optional: true
             - name: MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED
               value: "true"
             - name: JAVA_TOOL_OPTIONS
