@@ -147,13 +147,13 @@ public class ElasticsearchRecommendationCandidateQuery implements Recommendation
 
 	private String buildRerankQuery(List<Seed> seeds) {
 		return seeds.stream()
-			.map(seed -> seed.signal().name() + "\n" + seed.text())
+			.map(seed -> seed.signal().name() + "\n" + seed.rerankText())
 			.collect(java.util.stream.Collectors.joining("\n\n"));
 	}
 
 	private RerankCandidate toRerankCandidate(ProductSearchDocument document) {
 		return new RerankCandidate(
 			document.familyRootId(), document.name(), document.tags(), document.description(),
-			document.productType(), document.model());
+			document.productType(), document.model(), false);
 	}
 }

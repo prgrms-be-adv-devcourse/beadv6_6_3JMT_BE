@@ -9,7 +9,14 @@ public interface RecommendationCandidateQuery {
 
 	List<UUID> findRelevantProductIds(List<Seed> seeds, Set<UUID> excludedFamilyRootIds, int limit);
 
-	record Seed(UUID productId, String text, float[] embedding, double weight, Signal signal) {
+	record Seed(
+		UUID productId,
+		String text,
+		String rerankText,
+		float[] embedding,
+		double weight,
+		Signal signal
+	) {
 	}
 
 	enum Signal {

@@ -14,7 +14,8 @@ public interface ProductRerankerGateway {
 		List<String> tags,
 		String description,
 		String productType,
-		String model
+		String model,
+		boolean includeModel
 	) {
 	}
 }

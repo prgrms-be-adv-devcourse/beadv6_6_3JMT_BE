@@ -46,15 +46,23 @@ class ElasticsearchRecommendationCandidateQueryTest {
 
 		List<UUID> result = query.findRelevantProductIds(
 			List.of(
-				new Seed(UUID.randomUUID(), "장바구니", new float[]{1f}, 1.0, Signal.CART),
-				new Seed(UUID.randomUUID(), "구매", new float[]{0f, 1f}, 0.7, Signal.PURCHASE)),
+				new Seed(UUID.randomUUID(), "장바구니 설명", "장바구니 의도", new float[]{1f}, 1.0, Signal.CART),
+				new Seed(UUID.randomUUID(), "구매 설명", "구매 의도", new float[]{0f, 1f}, 0.7, Signal.PURCHASE)),
 			Set.of(UUID.randomUUID()),
 			4);
 
 		assertThat(result).containsExactly(FIRST_PRODUCT, SECOND_PRODUCT);
 		ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
 		verify(client).search(requestCaptor.capture(), eq(ProductSearchDocument.class));
-		verify(reranker, times(1)).findRelevantProductIds(any(), any());
+		ArgumentCaptor<String> rerankQueryCaptor = ArgumentCaptor.forClass(String.class);
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<ProductRerankerGateway.RerankCandidate>> candidatesCaptor =
+			ArgumentCaptor.forClass(List.class);
+		verify(reranker, times(1)).findRelevantProductIds(rerankQueryCaptor.capture(), candidatesCaptor.capture());
+		assertThat(rerankQueryCaptor.getValue())
+			.contains("CART\n장바구니 의도", "PURCHASE\n구매 의도")
+			.doesNotContain("장바구니 설명", "구매 설명");
+		assertThat(candidatesCaptor.getValue()).allMatch(candidate -> !candidate.includeModel());
 		SearchRequest request = requestCaptor.getValue();
 		assertThat(request.size()).isEqualTo(20);
 		assertThat(request.query().bool().should()).hasSize(2);
@@ -73,7 +81,7 @@ class ElasticsearchRecommendationCandidateQueryTest {
 
 		assertThat(new ElasticsearchRecommendationCandidateQuery(client, reranker)
 			.findRelevantProductIds(
-				List.of(new Seed(UUID.randomUUID(), "기준", null, 1.0, Signal.SIMILAR_PRODUCT)),
+				List.of(new Seed(UUID.randomUUID(), "기준 설명", "기준", null, 1.0, Signal.SIMILAR_PRODUCT)),
 				Set.of(),
 				4))
 			.isEmpty();
@@ -91,7 +99,7 @@ class ElasticsearchRecommendationCandidateQueryTest {
 
 		assertThat(new ElasticsearchRecommendationCandidateQuery(client, reranker)
 			.findRelevantProductIds(
-				List.of(new Seed(UUID.randomUUID(), "기준", null, 1.0, Signal.SIMILAR_PRODUCT)),
+				List.of(new Seed(UUID.randomUUID(), "기준 설명", "기준", null, 1.0, Signal.SIMILAR_PRODUCT)),
 				Set.of(),
 				4))
 			.isEmpty();
@@ -109,7 +117,7 @@ class ElasticsearchRecommendationCandidateQueryTest {
 
 		assertThat(new ElasticsearchRecommendationCandidateQuery(client, reranker)
 			.findRelevantProductIds(
-				List.of(new Seed(UUID.randomUUID(), "기준", null, 1.0, Signal.SIMILAR_PRODUCT)),
+				List.of(new Seed(UUID.randomUUID(), "기준 설명", "기준", null, 1.0, Signal.SIMILAR_PRODUCT)),
 				Set.of(),
 				4))
 			.isEmpty();

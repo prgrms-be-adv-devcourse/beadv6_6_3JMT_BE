@@ -98,7 +98,7 @@ public class JinaProductRerankerGateway implements ProductRerankerGateway {
 			parts.add(String.join(" ", candidate.tags()));
 		}
 		addIfPresent(parts, candidate.description());
-		if ("PROMPT".equals(candidate.productType())) {
+		if (candidate.includeModel() && "PROMPT".equals(candidate.productType())) {
 			addIfPresent(parts, candidate.model());
 		}
 		return String.join("\n", parts);

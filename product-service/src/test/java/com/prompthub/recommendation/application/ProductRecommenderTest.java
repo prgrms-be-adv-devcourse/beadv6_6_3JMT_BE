@@ -53,6 +53,8 @@ class ProductRecommenderTest {
 			assertThat(seed.signal()).isEqualTo(Signal.SIMILAR_PRODUCT);
 			assertThat(seed.text()).contains("코드 리뷰", "GPT-5");
 			assertThat(seed.text()).doesNotContain("본문 예시");
+			assertThat(seed.rerankText()).contains("코드 리뷰", "태그");
+			assertThat(seed.rerankText()).doesNotContain("설명", "GPT-5", "본문 예시");
 		});
 		assertThat(candidateQuery.excludedFamilies).containsExactly(CART);
 	}

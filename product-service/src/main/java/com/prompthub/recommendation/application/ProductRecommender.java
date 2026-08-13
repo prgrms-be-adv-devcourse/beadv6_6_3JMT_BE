@@ -102,6 +102,21 @@ public class ProductRecommender {
 	}
 
 	private Seed seedOf(Product product, float[] embedding, double weight, Signal signal) {
-		return new Seed(product.getId(), EmbeddingSource.of(product).text(), embedding, weight, signal);
+		return new Seed(
+			product.getId(),
+			EmbeddingSource.of(product).text(),
+			recommendationIntentOf(product),
+			embedding,
+			weight,
+			signal);
+	}
+
+	private String recommendationIntentOf(Product product) {
+		List<String> parts = new ArrayList<>();
+		parts.add(product.getName());
+		if (product.getTags() != null && !product.getTags().isEmpty()) {
+			parts.add(String.join(" ", product.getTags()));
+		}
+		return String.join("\n", parts);
 	}
 }
