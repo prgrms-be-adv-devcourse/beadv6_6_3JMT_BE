@@ -134,12 +134,15 @@ flowchart TD
     C -->|"아니오"| LEX2["글자 레그만"]
     C -->|"예"| EMB{"질의 임베딩<br/>확보?"}
     EMB -->|"실패"| LEX2
-    EMB -->|"성공"| BOTH["한 번의 왕복으로 동시 조회"]
-    BOTH --> LEX["글자 레그<br/>multi_match<br/>name^3 tags^2 desc^1.5<br/>minimum_should_match 2&lt;75%"]
-    BOTH --> KNN["의미 레그<br/>kNN k=size<br/>numCandidates=size×2<br/>similarity ≥ 0.35"]
+    EMB -->|"성공"| BOTH["ES msearch로 동시 조회"]
+    BOTH --> LEX["글자 레그<br/>name^3 tags^2 desc^1.5 model<br/>minimum_should_match 2&lt;75%"]
+    BOTH --> KNN["의미 레그<br/>kNN k=50<br/>numCandidates=100<br/>similarity ≥ 0.35"]
     LEX --> RRF["ReciprocalRankFusion"]
     KNN --> RRF
-    RRF --> R["검색 결과"]
+    RRF --> JR["Jina Reranker v3<br/>상위 50건 재평가"]
+    JR -->|"minScore ≥ 0.5"| SORT["통과 후보만<br/>인기·평점·가격 정렬"]
+    JR -->|"장애·키 없음"| LEX2
+    SORT --> R["검색 결과"]
     LEX2 --> R
     R -->|"ES 실패 시"| FB["RDB 폴백<br/>findPublicProducts"]
 ```
@@ -151,14 +154,17 @@ flowchart TD
   단어를 이름에 단 모든 상품이 꼬리로 딸려오고, 질의 임베딩도 유형 쪽으로 쏠려 **의미 레그까지
   오염된다.** 유형 단어는 필터로 옮기고 남은 단어로만 두 레그를 돌린다.
   화면에서 유형을 이미 골랐으면(`productType != all`) 그 선택을 존중하고 해석하지 않는다.
-- **하이브리드 조건** — 검색어가 있고, 정렬이 `popular`이고, `offset + size ≤ 100`일 때만.
+- **하이브리드 조건** — 검색어가 있고 `offset + size ≤ 50`일 때만. 인기순·평점순·낮은 가격순은
+  같은 병합 후보를 유지하고, 병합 뒤 선택한 정렬을 적용한다.
   RRF는 순위 목록을 통째로 섞는 방식이라 페이지 단위로 나눠 계산할 수 없어 병합 창이 필요하다.
 - **두 레그에 같은 필터** — 대상 집합이 다르면 병합 결과에 필터 밖 문서가 섞인다.
 - **의미 레그에 하한이 필수** — kNN은 관련도와 무관하게 상위 k건을 채워 돌려준다. 하한이
   없으면 색인 문서가 k보다 적을 때 어떤 질의든 전체 문서가 후보가 되어 **"검색 결과 0건"이
   발생할 수 없게 된다.**
-- **총 건수** = 글자 레그의 전체 건수와 병합 결과 크기 중 **큰 값**. 글자 레그 값만 쓰면 의미
-  레그만 찾은 문서가 빠지고, 병합 크기만 쓰면 병합 창을 넘는 글자 결과가 과소 집계된다.
+- **재랭킹 입력** — 상품명·태그·소개글과 PROMPT 상품의 모델명을 사용한다. placeholder가 많은
+  본문은 제외한다. Jina 장애나 API key 미설정 시 semantic-only 후보를 버리고 BM25만 반환한다.
+- **정렬** — reranker 최소 점수를 통과한 ID만 다시 조회해 인기·평점·가격순을 적용한다. RRF 순위나
+  낮은 reranker 점수의 상품이 정렬 단계에서 다시 들어오지 않는다.
 - **폴백 판단은 product 패키지가 한다** — search 패키지는 예외를 던지고, 폴백 여부는
   `ProductQueryService`의 try/catch가 정한다.
 
@@ -170,6 +176,8 @@ flowchart TD
 | 질의 조립 | `search/infra/es/ProductSearchQueryBuilder.java` |
 | 두 레그 실행·병합 | `search/infra/es/ElasticsearchProductSearchQuerier.java` |
 | 순위 융합 | `search/application/ReciprocalRankFusion.java` |
+| 외부 재랭킹 계약 | `search/application/gateway/external/ProductRerankerGateway.java` |
+| Jina 재랭킹 adapter | `search/infra/external/jina/JinaProductRerankerGateway.java` |
 | 질의 임베딩 캐시 | `search/application/QueryEmbeddingCache.java` |
 | 폴백 판단 | `product/application/service/ProductQueryService.java` |
 
@@ -177,12 +185,13 @@ flowchart TD
 
 | 상수 | 값 | 근거 |
 |---|---|---|
-| 검색 대상 필드 | `name^3`, `tags.text^2`, `description^1.5` | 본문(`content`)은 제외 — placeholder 예시에 무관한 검색어가 걸려 오탐을 만든다(#689) |
+| 검색 대상 필드 | `name^3`, `tags.text^2`, `description^1.5`, `model.text` | 본문(`content`)은 제외 — placeholder 예시에 무관한 검색어가 걸려 오탐을 만든다(#689) |
 | `minimumShouldMatch` | `2<75%` | 기본 OR이면 단어 하나만 겹쳐도 매칭된다. 이 코퍼스는 대부분 상품명이 "프롬프트"를 포함해 그 단어가 만능 열쇠가 됐다 |
 | `tieBreaker` | 0.3 | `best_fields` 사용 시 나머지 필드 점수 반영 비율 |
-| kNN 유사도 하한 | 0.35 | 2026-07-30 dev 실측으로 검증 — 아래 부록 A |
+| kNN 유사도 하한 | 0.35 | 먼 벡터를 줄이는 1차 안전 하한. 최종 관련성 판정에는 사용하지 않는다 |
 | `numCandidates` | `size × 2` | 근사 탐색(HNSW)이 상위 k를 놓치지 않을 여유 |
-| 병합 창 | 100 | 검색 결과 100건 뒤를 넘겨보는 사용은 사실상 없다 |
+| 병합·rerank 창 | 50 | 검색 결과 recall을 확보하되 Jina 호출 비용·지연을 제한하는 최초 운영값 |
+| reranker 최소 점수 | 0.5 | 배포 후 고정 판정표로 재측정할 조정값 |
 
 ---
 
@@ -399,7 +408,9 @@ flowchart TD
 
 ## A-2. 검색 kNN 하한 검증 (질의 ↔ 상품)
 
-무관한 질의 5종의 최고 코사인이 전부 하한 0.35에 못 미쳐 **오탐 0건**이었다.
+초기 무관 질의 5종의 최고 코사인은 0.305 이하였다. 이후 운영 데이터에서는 0.35를 통과한 무관 상품도
+확인됐다. 이 값만 올리면 정상 의미 검색도 함께 잃으므로 0.35는 후보 안전 하한으로 유지하고,
+최종 관련성은 Jina reranker의 질의-상품 교차 점수로 판정한다(#737).
 
 | 구분 | 코사인 | 통과 |
 |---|---|---|
@@ -407,7 +418,7 @@ flowchart TD
 | 명확히 관련된 질의 | 0.435 ~ 0.494 | 통과 |
 | 경계 사례 "면접 준비" | 0.325 | 미달 — 글자 레그가 잡아준다 |
 
-→ **하한 0.35는 이 코퍼스에서 유효하다.**
+→ **코사인 하한은 최종 판정값이 아니다.** RRF 후보를 줄인 뒤 reranker 최소 점수로 무관 상품을 제거한다.
 
 ## A-3. 추천 거리 분포 (상품 ↔ 상품)
 
@@ -477,7 +488,8 @@ CS 완전 정복(0.504, 무관)이 동점**이라 거리로 구분되지 않는�
 | kNN 유사도 하한 | 0.35 | `ProductSearchQueryBuilder.MIN_SEMANTIC_SIMILARITY` | 코드 |
 | `minimumShouldMatch` | `2<75%` | 〃 | 코드 |
 | `tieBreaker` | 0.3 | 〃 | 코드 |
-| 병합 창 | 100 | `ElasticsearchProductSearchQuerier.FUSION_WINDOW` | 코드 |
+| 병합·rerank 창 | 50 | `ElasticsearchProductSearchQuerier.FUSION_WINDOW` | 코드 |
+| reranker 최소 점수 | 0.5 | `prompthub.search.reranker.min-score` | yml |
 | 인기순 가중치 4종 | 0.3 / 0.1 / 0.1 / 0.2 | `prompthub.search.ranking.*` | yml |
 | 신선도 감쇠 | 30d / 0.7 | 〃 | yml |
 | 유형 가산점 | 0.05 | `ProductRecommender.TYPE_BONUS` | 코드 |
