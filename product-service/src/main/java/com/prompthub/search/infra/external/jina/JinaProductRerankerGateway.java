@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -28,6 +29,7 @@ public class JinaProductRerankerGateway implements ProductRerankerGateway {
 	private final ObjectMapper objectMapper;
 	private final HttpClient httpClient;
 
+	@Autowired
 	public JinaProductRerankerGateway(JinaRerankerProperties properties, ObjectMapper objectMapper) {
 		this(properties, objectMapper, HttpClient.newBuilder().connectTimeout(properties.timeout()).build());
 	}
