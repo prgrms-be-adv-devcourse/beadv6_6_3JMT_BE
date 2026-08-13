@@ -90,10 +90,7 @@ role/status와 달리 stale 문제가 없다(결정 8-1).
 오류로 가장 위험한 보호선이 조용히 사라지는 것을 막는다. 기동 시 정책표가 비었거나
 파싱 불가면 fail-fast로 기동을 중단한다.
 - 알려진 정책표 요구(작성 시점): `/admin/**`→ADMIN, `/sellers/me/**`→SELLER,
-`POST /seller/register`→BUYER, `POST·PUT·PATCH·DELETE /products/**`→SELLER
-(판매자 상품 API가 `/api/v1/products`에 매핑된 `SellerProductController` 커버).
-⚠ 리뷰 작성 엔드포인트의 정확한 경로·메서드를 product 팀에 확인해 구매자의 리뷰
-작성이 SELLER 규칙에 오차단되지 않도록 예외를 정의할 것.
+`POST /seller/register`→BUYER.
 - gateway→authorize 호출은 짧은 타임아웃 + **fail-closed(503)**. 인가는 값이 없으면
 통과시킬 수 없으므로 fail-open이 불가능하다.
 
@@ -106,14 +103,16 @@ role/status와 달리 stale 문제가 없다(결정 8-1).
 - TTL 60초: 무효화가 우회되는 경로(아래 결정 8의 admin 직접 UPDATE 등)의 staleness 상한.
 - Redis 장애 시 DB 직접 조회로 폴백(fail-soft) — 인가는 느려질 뿐 계속 동작한다.
 
-### 7. X-User-Role 헤더 전면 삭제
+### 7. X-User-Role 헤더 — 전면 삭제 대신 user-service 필요분만 유지 (최종 결정)
 
-- gateway는 `X-User-Id`만 주입한다. role 판정은 gateway 정책표에서 끝났으므로
-다운스트림 서비스는 role을 알 필요가 없다.
-- **마이그레이션 순서(역순 금지):** ① 각 팀이 컨트롤러의 `@RequestHeader("X-User-Role")`
-파라미터와 내부 role 분기 제거 → ② gateway가 주입 중단. 순서가 뒤집히면 필수 헤더
-누락으로 해당 API가 400으로 깨진다. (작성 시점 사용처: product 12곳, payment 2곳,
-order·settlement의 `AuthHeaders` 상수, user-service `GlobalExceptionHandler`·CORS 설정)
+- 당초 계획은 role 판정이 gateway 정책표에서 끝나니 `X-User-Id`만 주입하고
+`X-User-Role`은 다운스트림에 전달할 필요가 없다는 것이었다. 그러나 user-service는
+자체 로직상 role 정보가 필요해 이 헤더에 의존한다 — 그래서 완전 삭제 대신 **gateway가
+`X-User-Id`와 `X-User-Role`을 계속 함께 주입하는 것으로 최종 결정**했다.
+- product·payment·order·settlement는 컨트롤러의 `@RequestHeader("X-User-Role")`과 내부
+role 분기를 이미 제거해 이 헤더를 소비하지 않는다(order·settlement의 `AuthHeaders`
+상수도 `USER_ID`만 남음). 헤더가 전달돼도 무해하므로 이 서비스들 쪽에서 추가로
+정리할 것은 없다.
 - **소유권 검사는 인가가 아니라 비즈니스 규칙이므로 각 서비스에 남는다.**
 "이 wishlist/주문이 X-User-Id의 것인가"는 서비스가 계속 검사한다.
 합의 문구: **"gateway = role/status 확인, 서비스 = 소유권 확인(X-User-Id 기반)"**.
@@ -194,7 +193,7 @@ forward-auth를 통과하므로 도착 시점에 status 확인이 끝나 있다.
  무효화한다 — **재현 조건이 아니라 배포 즉시 전 유저에게 결정적으로 발생한다.**
  완화책 없음(그레이스 기간·구버전 RT 1회 허용 등은 미채택) — 배포 순서 자체로 막는다.
 
-## 액션 아이템 (2026-07-22 갱신 — 대부분 구현 완료)
+## 액션 아이템 (2026-08-13 갱신 — 코드 재확인 + 사용자 확인)
 
 구현 (user-service·gateway 담당):
 
@@ -205,27 +204,25 @@ forward-auth를 통과하므로 도착 시점에 status 확인이 끝나 있다.
 - [x] gateway forward-auth 필터 — `ForwardAuthFilter`로 구현 (결정 5)
 - [x] gateway 정책표(`RoutePolicyResolver`/`GatewayRoutePolicyProperties`) + admin 캐치올 + fail-fast (결정 5)
 - [x] gateway 라우트에서 `/internal/orders/**` 제거 — `VersionedServiceRoute` (팀 확인 완료)
-- [ ] 세션 폐기 앵커링 — 탈퇴(`DELETE /users/me`) 구현 시 포함 (결정 8)
-- [ ] **결정 7 "X-User-Role 헤더 전면 삭제" 미완료** — `ForwardAuthFilter.java:76`이 여전히
-  `X-User-Role`을 주입 중이고, user-service의 `SecurityConfig`·`GlobalExceptionHandler`도
-  이 헤더를 계속 참조한다. 결정 7의 마이그레이션 순서(① 서비스 쪽 제거 → ② gateway 주입
-  중단) 어느 쪽도 아직 시작되지 않은 상태 — 조용히 보류된 것으로 보이니 팀 확인 필요.
+- [x] 세션 폐기 앵커링 — `DELETE /users/me`(`UserController`) 구현 완료. `UserApplicationService.withdraw()`가
+  `user.withdraw()` 상태 전이 후 `sessionRevocationUseCase.revoke(userId)`로 RT 삭제·authorize 캐시
+  무효화까지 수행한다 (결정 8)
+- [x] **결정 7 "X-User-Role 헤더" — 완료(최종 결정: 전면 삭제 대신 유지).** user-service가
+  role 정보를 필요로 해 gateway가 `X-User-Role`을 계속 주입하는 것으로 확정됨. 나머지
+  product·order·payment·settlement는 이미 이 헤더를 소비하지 않아(`order-service`의
+  `AuthHeaders`는 `USER_ID`만 남음) 추가로 정리할 것이 없다.
 
 외부 공지·확인:
 
-- [ ] **프런트(브레이킹, 배포 순서 필수)**: 카카오 로그인 전달 방식 변경(사용자 정보 → 토큰),
-  ```
-  refresh 응답에 새 RT 포함(RTR) — ⚠ 백엔드 RTR과 프런트 "새 RT로 저장값 교체" 로직은
-  **반드시 같은 배포 창에 동시 반영**(결과 항목 6, 순서가 어긋나면 전 유저 강제 로그아웃),
-  "승급 확인 시 refresh 호출" 규칙 폐기(자동 즉시 반영), 로그아웃 시 로컬 AT 삭제(기본 위생,
-  다른 탭·유출 사본까지 막지는 못함) — 단 서버가 다음 요청부터 epoch으로 AT를 즉시
-  무효화하므로(결정 8-1) 별도 블랙리스트 공지는 불필요
-  ```
-- [ ] **product·payment·order·settlement**: X-User-Role 제거 (결정 7의 순서 엄수)
-- [ ] **product**: 리뷰 작성 엔드포인트 경로·메서드 확인 (정책표 SELLER 규칙 오차단 방지)
-- [ ] **인프라**: product 8082 포트 외부 비노출 확인(무인증 internal 컨트롤러 노출 방지),
-  ```
-  Redis AOF + 볼륨 마운트
-  ```
-- [ ] **팀 합의문**: "gateway = role/status 확인, 서비스 = 소유권 확인" 문구 반영
+- [x] **프런트(브레이킹)**: 카카오 로그인 전달 방식 변경(사용자 정보 → 토큰), RTR 새 RT로 저장값
+  교체 로직까지 프런트 반영 완료(2026-08-13, 사용자 확인).
+- [x] **product·payment·order·settlement**: X-User-Role 제거 — 위 결정 7 항목과 동일 근거로 완료 확인.
+- [x] **인프라**: product 8082 포트 외부 비노출 — `docker-compose.yml`에서 `127.0.0.1:8082:8082`
+  loopback 바인딩 확인됨. Redis AOF + 볼륨 마운트 — 같은 파일의 `redis` 서비스에 `--appendonly yes` +
+  `redis-data` 볼륨으로 확인됨.
+- [ ] **인프라(신규 확인 필요)**: 위 포트 격리·AOF 설정은 `docker-compose.yml`(로컬용) 기준이다.
+  배포가 이후 self-hosted Kubernetes로 전환됐으므로(`docs/architecture/kubernetes.md`), 같은
+  격리·영속화가 `k8s/` 매니페스트에도 동일하게 있는지는 별도로 확인해야 한다.
+- [ ] **팀 합의문**: "gateway = role/status 확인, 서비스 = 소유권 확인" 문구 반영 — 코드로 확인 불가한
+  항목, 미확인 유지.
 
