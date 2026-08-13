@@ -87,8 +87,8 @@ public class ElasticsearchProductSearchQuerier implements ProductSearchQueryPort
 	private ProductSearchPageResult hybridSearch(
 		String keyword, String productType, String sort, Pageable pageable, float[] queryVector
 	) {
-		SearchRequest lexical = queryBuilder.build(
-			keyword, productType, ProductSearchQueryBuilder.SORT_POPULAR, 0, FUSION_WINDOW);
+		SearchRequest lexical = queryBuilder.buildHybridLexicalCandidates(
+			keyword, productType, 0, FUSION_WINDOW);
 		SearchRequest semantic = queryBuilder.buildKnn(queryVector, productType, FUSION_WINDOW);
 
 		try {

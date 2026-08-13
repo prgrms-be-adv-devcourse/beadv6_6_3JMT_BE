@@ -58,6 +58,15 @@ class ProductSearchQueryBuilderTest {
 	}
 
 	@Test
+	void 하이브리드_BM25_후보는_한_단어만_일치해도_포함한다() {
+		SearchRequest request = queryBuilder.buildHybridLexicalCandidates("취업 자기소개서", "all", 0, 50);
+
+		MultiMatchQuery multiMatch = request.query().functionScore().query().bool().must().get(0).multiMatch();
+
+		assertThat(multiMatch.minimumShouldMatch()).isNull();
+	}
+
+	@Test
 	void buildQuery_sort가_popular면_function_score로_감싸고_4개_함수를_가진다() {
 		Query query = queryBuilder.buildQuery("", "all", "popular");
 

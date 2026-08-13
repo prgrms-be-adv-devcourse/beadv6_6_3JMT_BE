@@ -77,7 +77,7 @@ class ElasticsearchProductSearchQuerierTest {
 		SearchRequest lexical = mock(SearchRequest.class, RETURNS_DEEP_STUBS);
 		SearchRequest semantic = mock(SearchRequest.class, RETURNS_DEEP_STUBS);
 		given(queryEmbeddingCache.get("hybrid")).willReturn(new float[]{0.1f});
-		given(queryBuilder.build("hybrid", "all", "popular", 0, 50)).willReturn(lexical);
+		given(queryBuilder.buildHybridLexicalCandidates("hybrid", "all", 0, 50)).willReturn(lexical);
 		given(queryBuilder.buildKnn(any(float[].class), eq("all"), eq(50))).willReturn(semantic);
 
 		@SuppressWarnings("unchecked")
@@ -102,7 +102,7 @@ class ElasticsearchProductSearchQuerierTest {
 		SearchRequest lexical = mock(SearchRequest.class, RETURNS_DEEP_STUBS);
 		SearchRequest semantic = mock(SearchRequest.class, RETURNS_DEEP_STUBS);
 		given(queryEmbeddingCache.get("hybrid")).willReturn(new float[]{0.1f});
-		given(queryBuilder.build("hybrid", "all", "popular", 0, 50)).willReturn(lexical);
+		given(queryBuilder.buildHybridLexicalCandidates("hybrid", "all", 0, 50)).willReturn(lexical);
 		given(queryBuilder.buildKnn(any(float[].class), eq("all"), eq(50))).willReturn(semantic);
 		given(client.msearch(any(MsearchRequest.class), eq(ProductSearchDocument.class)))
 			.willThrow(new IOException("connection refused"));

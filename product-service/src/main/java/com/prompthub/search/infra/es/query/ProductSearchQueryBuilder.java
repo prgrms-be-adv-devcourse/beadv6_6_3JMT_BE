@@ -96,13 +96,28 @@ public class ProductSearchQueryBuilder {
 	 * 하이브리드 검색은 페이지가 아니라 병합용 창(상위 N건)을 받아야 해서 from·size를 직접 받는다.
 	 */
 	public SearchRequest build(String keyword, String productType, String sort, int from, int size) {
-		Query query = buildQuery(keyword, productType, sort);
+		Query query = buildQuery(keyword, productType, sort, true);
 		List<SortOptions> sortOptions = buildSort(sort);
 
 		return SearchRequest.of(s -> s
 			.index(ProductIndexBootstrap.ALIAS)
 			.query(query)
 			.sort(sortOptions)
+			.from(from)
+			.size(size)
+			.trackTotalHits(t -> t.enabled(true)));
+	}
+
+	/** Reranker가 최종 관련성을 판단할 수 있도록 한 단어만 일치한 상품도 후보에 포함한다. */
+	public SearchRequest buildHybridLexicalCandidates(
+		String keyword, String productType, int from, int size
+	) {
+		Query query = buildQuery(keyword, productType, SORT_POPULAR, false);
+
+		return SearchRequest.of(s -> s
+			.index(ProductIndexBootstrap.ALIAS)
+			.query(query)
+			.sort(buildSort(SORT_POPULAR))
 			.from(from)
 			.size(size)
 			.trackTotalHits(t -> t.enabled(true)));
@@ -167,20 +182,32 @@ public class ProductSearchQueryBuilder {
 	}
 
 	Query buildQuery(String keyword, String productType, String sort) {
+		return buildQuery(keyword, productType, sort, true);
+	}
+
+	private Query buildQuery(String keyword, String productType, String sort, boolean requireStrongTermMatch) {
 		List<Query> filters = buildFilters(productType);
 
 		Query base = (keyword == null || keyword.isBlank())
 			? Query.of(q -> q.matchAll(m -> m))
-			: Query.of(q -> q.multiMatch(m -> m
-				.query(keyword)
-				.type(TextQueryType.BestFields)
-				.tieBreaker(0.3)
-				.minimumShouldMatch(MINIMUM_SHOULD_MATCH)
-				.fields(MATCH_FIELDS)));
+			: buildKeywordQuery(keyword, requireStrongTermMatch);
 
 		Query filtered = Query.of(q -> q.bool(b -> b.must(base).filter(filters)));
 
 		return SORT_POPULAR.equals(sort) ? withPopularityBoost(filtered) : filtered;
+	}
+
+	private Query buildKeywordQuery(String keyword, boolean requireStrongTermMatch) {
+		return Query.of(q -> q.multiMatch(m -> {
+			m.query(keyword)
+				.type(TextQueryType.BestFields)
+				.tieBreaker(0.3)
+				.fields(MATCH_FIELDS);
+			if (requireStrongTermMatch) {
+				m.minimumShouldMatch(MINIMUM_SHOULD_MATCH);
+			}
+			return m;
+		}));
 	}
 
 	private Query withPopularityBoost(Query base) {

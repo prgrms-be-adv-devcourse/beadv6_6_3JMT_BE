@@ -63,6 +63,34 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 	}
 
 	@Test
+	void 하이브리드_검색은_두_단어_중_하나만_일치한_BM25_후보도_reranker에_전달한다() throws Exception {
+		String unique = UUID.randomUUID().toString().substring(0, 8);
+		Product resume = product(unique + " 이력서 첨삭");
+		index(resume, 0, 0, 0, vector(1));
+		refresh();
+
+		ProductSearchPageResult result = querier(new RecordingEmbeddingClient(vector(0)))
+			.search(unique + " 자기소개서", "all", "popular", PageRequest.of(0, 20));
+
+		assertThat(result.hits()).extracting(ProductSearchHit::productId).contains(resume.getId());
+	}
+
+	@Test
+	void reranker가_실패하면_두_단어_중_하나만_일치한_상품은_BM25_폴백에서_제외한다() throws Exception {
+		String unique = UUID.randomUUID().toString().substring(0, 8);
+		Product oneWordMatch = product(unique + " 이력서 첨삭");
+		index(oneWordMatch, 0, 0, 0, vector(1));
+		refresh();
+		ProductRerankerGateway failedReranker = mock(ProductRerankerGateway.class);
+		given(failedReranker.findRelevantProductIds(anyString(), anyList())).willReturn(Optional.empty());
+
+		ProductSearchPageResult result = querier(new RecordingEmbeddingClient(vector(0)), failedReranker)
+			.search(unique + " 자기소개서", "all", "popular", PageRequest.of(0, 20));
+
+		assertThat(result.hits()).extracting(ProductSearchHit::productId).doesNotContain(oneWordMatch.getId());
+	}
+
+	@Test
 	void reranker가_실패하면_의미_후보를_버리고_BM25_결과만_반환한다() throws Exception {
 		String keyword = "폴백" + UUID.randomUUID().toString().substring(0, 8);
 		Product lexical = product(keyword + " 글자상품");
