@@ -7,7 +7,7 @@ import com.prompthub.product.presentation.dto.response.product.ProductCreateResp
 import com.prompthub.product.presentation.dto.response.product.ProductUpdateResponse;
 import com.prompthub.product.presentation.dto.response.seller.SellerProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.seller.SellerProductListItemResponse;
-import java.util.List;
+import com.prompthub.presentation.dto.PageResponse;
 import java.util.UUID;
 
 public interface ProductSellerUseCase {
@@ -20,7 +20,7 @@ public interface ProductSellerUseCase {
 
 	void deleteProduct(UUID sellerId, UUID productId);
 
-	List<SellerProductListItemResponse> getMyProducts(UUID sellerId);
+	PageResponse<SellerProductListItemResponse> getMyProducts(UUID sellerId, int page, int size);
 
 	SellerProductDetailResponse getMyProduct(UUID sellerId, UUID productId);
 

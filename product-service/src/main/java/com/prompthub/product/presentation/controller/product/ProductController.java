@@ -82,10 +82,12 @@ public class ProductController {
 	}
 
 	@GetMapping("/products/sellers/me")
-	public ApiResult<List<SellerProductListItemResponse>> getMyProducts(
-		@RequestHeader("X-User-Id") UUID sellerId
+	public PageResponse<SellerProductListItemResponse> getMyProducts(
+		@RequestHeader("X-User-Id") UUID sellerId,
+		@RequestParam(defaultValue = "0") int page,
+		@RequestParam(defaultValue = "20") int size
 	) {
-		return ApiResult.success(productSellerUseCase.getMyProducts(sellerId));
+		return productSellerUseCase.getMyProducts(sellerId, page, size);
 	}
 
 	@GetMapping("/products/sellers/me/summary")
