@@ -53,6 +53,8 @@ eureka:
 
 prompthub:
   search:
+    reranker:
+      api-key: ${JINA_API_KEY:}
     reconcile:
       fixed-delay-ms: 20000
     ranking:

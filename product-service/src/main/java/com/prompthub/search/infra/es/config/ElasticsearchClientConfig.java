@@ -8,6 +8,7 @@ import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.prompthub.search.infra.external.jina.JinaRerankerProperties;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
@@ -47,7 +48,8 @@ import org.springframework.context.annotation.Configuration;
  */
 @Slf4j
 @Configuration
-@EnableConfigurationProperties({SearchRankingProperties.class, ProductReindexProperties.class})
+@EnableConfigurationProperties({SearchRankingProperties.class, ProductReindexProperties.class,
+	JinaRerankerProperties.class})
 public class ElasticsearchClientConfig {
 
 	@Value("${elasticsearch.uris}")

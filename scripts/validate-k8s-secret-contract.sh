@@ -151,10 +151,10 @@ ai_secret_keys="$(
     | awk -F '|' '$1 == "ai-secret" { print $2 }' \
     | sort
 )"
-expected_ai_secret_keys=$'AI_USER_GRPC_TOKEN\nOPENAI_API_KEY'
+expected_ai_secret_keys=$'AI_USER_GRPC_TOKEN\nJINA_API_KEY\nOPENAI_API_KEY'
 
 if [[ "${ai_secret_keys}" != "${expected_ai_secret_keys}" ]]; then
-  fail "ai-secret must contain exactly AI_USER_GRPC_TOKEN and OPENAI_API_KEY"
+  fail "ai-secret must contain exactly AI_USER_GRPC_TOKEN, JINA_API_KEY and OPENAI_API_KEY"
 fi
 
 required_config_keys="$(
@@ -187,6 +187,7 @@ is_approved_non_config_key() {
   case "$1" in
     .dockerconfigjson | \
       CORS_ALLOWED_ORIGINS | \
+      JINA_API_KEY | \
       ORDER_SERVICE_PASSWORD | \
       PAYMENT_GRPC_SERVER_PORT | \
       PAYMENT_SERVICE_PASSWORD | \

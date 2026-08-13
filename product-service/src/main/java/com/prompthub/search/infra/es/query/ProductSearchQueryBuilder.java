@@ -1,5 +1,6 @@
 package com.prompthub.search.infra.es.query;
 
+import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.SortOptions;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.Time;
@@ -12,6 +13,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import com.prompthub.search.infra.es.config.ProductIndexBootstrap;
@@ -69,6 +71,25 @@ public class ProductSearchQueryBuilder {
 
 	public SearchRequest build(String keyword, String productType, String sort, Pageable pageable) {
 		return build(keyword, productType, sort, (int) pageable.getOffset(), pageable.getPageSize());
+	}
+
+	public SearchRequest buildQualifiedCandidates(List<UUID> familyRootIds, String sort, Pageable pageable) {
+		List<FieldValue> ids = familyRootIds.stream()
+			.map(UUID::toString)
+			.map(FieldValue::of)
+			.toList();
+		Query qualifiedCandidates = Query.of(q -> q.terms(t -> t
+			.field("_id")
+			.terms(values -> values.value(ids))));
+		Query query = SORT_POPULAR.equals(sort) ? withPopularityBoost(qualifiedCandidates) : qualifiedCandidates;
+
+		return SearchRequest.of(s -> s
+			.index(ProductIndexBootstrap.ALIAS)
+			.query(query)
+			.sort(buildSort(sort))
+			.from((int) pageable.getOffset())
+			.size(pageable.getPageSize())
+			.trackTotalHits(t -> t.enabled(true)));
 	}
 
 	/**
