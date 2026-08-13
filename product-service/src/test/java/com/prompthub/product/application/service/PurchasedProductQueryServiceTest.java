@@ -24,7 +24,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
@@ -53,6 +57,9 @@ class PurchasedProductQueryServiceTest {
 			reviewRepository,
 			objectStorage
 		);
+		// presignIfPresent는 인터페이스 default 메서드라 mock이 실제 본문을 실행하지 않는다 —
+		// createPresignedGetUrl로 위임하는 실제 로직을 타도록 강제한다.
+		lenient().when(objectStorage.presignIfPresent(any())).thenCallRealMethod();
 	}
 
 	@Test
@@ -78,7 +85,9 @@ class PurchasedProductQueryServiceTest {
 		assertThat(result.sellerId()).isEqualTo(SELLER_ID);
 		assertThat(result.averageRating()).isEqualTo(4.5);
 		assertThat(result.myRating()).isEqualTo(5);
-		verifyNoInteractions(objectStorage);
+		// thumbnailUrl이 없으니 presignIfPresent(null) 자체는 호출되지만(인터페이스 default 메서드
+		// 호출도 mock 인터랙션으로 잡힌다), 실제 S3 presign 호출(createPresignedGetUrl)은 없어야 한다.
+		then(objectStorage).should(never()).createPresignedGetUrl(any());
 	}
 
 	@Test

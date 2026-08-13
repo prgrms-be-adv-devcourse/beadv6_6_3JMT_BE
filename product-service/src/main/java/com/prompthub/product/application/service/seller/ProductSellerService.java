@@ -245,7 +245,8 @@ public class ProductSellerService implements ProductSellerUseCase {
 				int familySalesCount = entry.getValue().stream().mapToInt(Product::getSalesCount).sum();
 				double averageRating = averageRatings.getOrDefault(entry.getKey(), 0.0);
 				return SellerProductListItemResponse.from(
-					representative, familySalesCount, averageRating, createDownloadUrl(representative.getThumbnailUrl()));
+					representative, familySalesCount, averageRating,
+				objectStorage.presignIfPresent(representative.getThumbnailUrl()));
 			})
 			.sorted(Comparator.comparing(SellerProductListItemResponse::updatedAt).reversed())
 			.toList();
@@ -263,9 +264,9 @@ public class ProductSellerService implements ProductSellerUseCase {
 		double averageRating = productRepository.getAverageRating(familyRootId);
 		return SellerProductDetailResponse.from(
 			representative, liveOnSale, family.sellerHistory(), averageRating,
-			createDownloadUrl(representative.getThumbnailUrl()),
-			createDownloadUrls(representative.getImageUrls()),
-			createDownloadUrl(representative.getFileUrl()));
+			objectStorage.presignIfPresent(representative.getThumbnailUrl()),
+			objectStorage.presignAllIfPresent(representative.getImageUrls()),
+			objectStorage.presignIfPresent(representative.getFileUrl()));
 	}
 
 	@Override
@@ -275,17 +276,6 @@ public class ProductSellerService implements ProductSellerUseCase {
 			sellerId,
 			productRepository.countFamiliesBySellerId(sellerId),
 			productRepository.sumSalesCountBySellerId(sellerId));
-	}
-
-	private String createDownloadUrl(String key) {
-		return (key == null || key.isBlank()) ? null : objectStorage.createPresignedGetUrl(key);
-	}
-
-	private List<String> createDownloadUrls(List<String> keys) {
-		if (keys == null || keys.isEmpty()) {
-			return List.of();
-		}
-		return keys.stream().map(objectStorage::createPresignedGetUrl).toList();
 	}
 
 	private ProductType parseProductType(String productType) {

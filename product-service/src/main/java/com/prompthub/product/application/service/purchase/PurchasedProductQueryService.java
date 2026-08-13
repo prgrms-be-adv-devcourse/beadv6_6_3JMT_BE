@@ -56,14 +56,7 @@ public class PurchasedProductQueryService implements PurchasedProductQueryUseCas
 		String externalUrl = deliverable.type() == ProductDeliverable.Type.EXTERNAL_URL ? deliverable.value() : null;
 		return PurchasedProductDetailResponse.of(
 			requestedId, product, content, fileUrl, externalUrl,
-			presignIfPresent(product.getThumbnailUrl()), averageRating, myRating);
-	}
-
-	private String presignIfPresent(String key) {
-		if (key == null || key.isBlank()) {
-			return null;
-		}
-		return objectStorage.createPresignedGetUrl(key);
+			objectStorage.presignIfPresent(product.getThumbnailUrl()), averageRating, myRating);
 	}
 
 	// 구매 여부 검증 지점 — 현재는 검증하지 않는다(#550 설계 결정). 후속 이슈에서 order-service gRPC 검증으로 대체한다.
