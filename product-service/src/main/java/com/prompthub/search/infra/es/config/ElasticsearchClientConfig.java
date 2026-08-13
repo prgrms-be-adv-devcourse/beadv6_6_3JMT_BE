@@ -20,6 +20,7 @@ import javax.net.ssl.SSLContext;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.auth.AuthScope;
 import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
@@ -28,6 +29,7 @@ import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBu
 import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.ssl.SSLContexts;
+import org.apache.hc.core5.util.Timeout;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -52,6 +54,11 @@ import org.springframework.context.annotation.Configuration;
 	JinaRerankerProperties.class})
 public class ElasticsearchClientConfig {
 
+	// ponytail: 고정값. ES가 붙는 같은 클러스터 안에서만 쓰는 호출이라 넉넉히 잡음 —
+	// 운영에서 지연 분포를 보고 조정이 필요해지면 그때 설정값으로 뺀다.
+	private static final Timeout CONNECT_TIMEOUT = Timeout.ofSeconds(5);
+	private static final Timeout SOCKET_TIMEOUT = Timeout.ofSeconds(10);
+
 	@Value("${elasticsearch.uris}")
 	private String uris;
 
@@ -70,7 +77,7 @@ public class ElasticsearchClientConfig {
 		HttpAsyncClientBuilder builder = HttpAsyncClients.custom().disableContentCompression();
 
 		applyBasicAuth(builder);
-		applyCustomCa(builder);
+		applyConnectionManager(builder);
 
 		CloseableHttpAsyncClient client = builder.build();
 		client.start();
@@ -102,12 +109,29 @@ public class ElasticsearchClientConfig {
 	}
 
 	/**
-	 * CA 경로가 있으면 그 인증서만 신뢰하는 TLS 컨텍스트를 만든다.
+	 * connect·응답 timeout을 건다. CA 경로가 있으면 같은 connection manager에 그 인증서만
+	 * 신뢰하는 TLS 전략도 함께 붙인다 — connection manager는 클라이언트당 하나만 설정할 수
+	 * 있어서 timeout과 TLS를 따로 붙일 수 없다.
 	 *
-	 * <p>기본 truststore에 없는 자체 서명 CA이므로 이걸 안 하면 핸드셰이크에서 끊긴다.
-	 * 경로가 없으면 JVM 기본 신뢰 저장소를 그대로 쓴다 — HTTP 연결이면 애초에 쓰이지 않는다.
+	 * <p>기본 truststore에 없는 자체 서명 CA이므로 TLS 전략을 안 붙이면 핸드셰이크에서
+	 * 끊긴다. 경로가 없으면 JVM 기본 신뢰 저장소를 그대로 쓴다 — HTTP 연결이면 애초에
+	 * 쓰이지 않는다.
 	 */
-	private void applyCustomCa(HttpAsyncClientBuilder builder) {
+	private void applyConnectionManager(HttpAsyncClientBuilder builder) {
+		PoolingAsyncClientConnectionManagerBuilder connectionManagerBuilder = PoolingAsyncClientConnectionManagerBuilder.create()
+			.setDefaultConnectionConfig(ConnectionConfig.custom()
+				.setConnectTimeout(CONNECT_TIMEOUT)
+				.setSocketTimeout(SOCKET_TIMEOUT)
+				.build());
+
+		applyCustomCa(connectionManagerBuilder);
+
+		// async 클라이언트는 connection manager를 빌더가 아니라 이쪽에 건다.
+		// buildAsync()를 쓴다 — build()는 classic용 반환 타입이라 deprecated다.
+		builder.setConnectionManager(connectionManagerBuilder.build());
+	}
+
+	private void applyCustomCa(PoolingAsyncClientConnectionManagerBuilder connectionManagerBuilder) {
 		if (caPath.isBlank()) {
 			return;
 		}
@@ -121,11 +145,7 @@ public class ElasticsearchClientConfig {
 			}
 
 			SSLContext sslContext = SSLContexts.custom().loadTrustMaterial(trustStore, null).build();
-			// async 클라이언트는 TLS 전략을 빌더가 아니라 커넥션 매니저에 건다.
-			// buildAsync()를 쓴다 — build()는 classic용 반환 타입이라 deprecated다.
-			builder.setConnectionManager(PoolingAsyncClientConnectionManagerBuilder.create()
-				.setTlsStrategy(ClientTlsStrategyBuilder.create().setSslContext(sslContext).buildAsync())
-				.build());
+			connectionManagerBuilder.setTlsStrategy(ClientTlsStrategyBuilder.create().setSslContext(sslContext).buildAsync());
 			log.info("Elasticsearch CA 인증서를 신뢰 목록에 추가했습니다. path={}", caPath);
 		} catch (Exception e) {
 			// 여기서 삼키면 TLS 검증 없이 붙거나 원인 모를 핸드셰이크 실패로 이어진다.
