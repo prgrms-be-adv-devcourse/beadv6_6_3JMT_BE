@@ -81,8 +81,21 @@ public class ProductQueryService implements ProductQueryUseCase {
 		Product product = findCurrentOnSaleProduct(productId);
 		int normalizedLimit = limit > 0 ? limit : DEFAULT_LIMIT;
 
-		List<UUID> recommendedIds = productRecommender.recommend(
-			product.getId(), product.familyRootId(), product.getProductType().name(), normalizedLimit);
+		List<UUID> recommendedIds = productRecommender.recommendSimilar(product, normalizedLimit);
+		return toListItemResponses(recommendedIds);
+	}
+
+	@Override
+	public List<ProductListItemResponse> getPersonalizedRecommendedProducts(
+		List<UUID> cartProductIds, List<UUID> purchasedProductIds, int limit
+	) {
+		int normalizedLimit = limit > 0 ? limit : DEFAULT_LIMIT;
+		List<UUID> recommendedIds = productRecommender.recommendForActivity(
+			cartProductIds, purchasedProductIds, normalizedLimit);
+		return toListItemResponses(recommendedIds);
+	}
+
+	private List<ProductListItemResponse> toListItemResponses(List<UUID> recommendedIds) {
 		if (recommendedIds.isEmpty()) {
 			return List.of();
 		}

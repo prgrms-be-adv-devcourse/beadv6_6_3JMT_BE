@@ -1,6 +1,6 @@
 package com.prompthub.ai.recommendation.presentation.rest;
 
-import com.prompthub.ai.recommendation.application.port.SimilarProductQuery.RecommendedProduct;
+import com.prompthub.ai.recommendation.application.port.PersonalizedProductQuery.RecommendedProduct;
 import com.prompthub.ai.recommendation.application.usecase.RecommendationUseCase;
 import com.prompthub.presentation.dto.ApiResult;
 import io.swagger.v3.oas.annotations.Operation;

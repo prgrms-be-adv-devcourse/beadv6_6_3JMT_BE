@@ -1,6 +1,6 @@
 package com.prompthub.ai.recommendation.application.usecase;
 
-import com.prompthub.ai.recommendation.application.port.SimilarProductQuery.RecommendedProduct;
+import com.prompthub.ai.recommendation.application.port.PersonalizedProductQuery.RecommendedProduct;
 import java.util.List;
 import java.util.UUID;
 

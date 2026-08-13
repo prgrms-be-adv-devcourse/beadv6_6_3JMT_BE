@@ -189,52 +189,24 @@ class ProductGrpcServiceTest {
 	}
 
 	@Nested
-	@DisplayName("유사 상품 순위 조회 (ai 소비)")
+	@DisplayName("회원 추천 조회 (ai 소비)")
 	class GetSimilarProducts {
 
 		private static final UUID SEED_A = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
 		private static final UUID SEED_B = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000002");
 
 		@Test
-		@DisplayName("기준마다 따로 조회해 요청 순서대로 돌려준다")
-		void returnsRankingPerSeedInRequestOrder() {
-			given(productQueryUseCase.getRecommendedProducts(SEED_A, 8))
-				.willReturn(List.of(listItem("A와 비슷한 상품")));
-			given(productQueryUseCase.getRecommendedProducts(SEED_B, 8))
-				.willReturn(List.of(listItem("B와 비슷한 상품")));
+		@DisplayName("장바구니와 구매 활동을 한 번에 조회한다")
+		void returnsPersonalizedRecommendations() {
+			given(productQueryUseCase.getPersonalizedRecommendedProducts(List.of(SEED_A), List.of(SEED_B), 8))
+				.willReturn(List.of(listItem("추천 상품")));
 
-			Map<UUID, List<ProductListItemResponse>> rankings =
-				productGrpcService.getSimilarProducts(List.of(SEED_A, SEED_B), 8);
-
-			assertThat(rankings.keySet()).containsExactly(SEED_A, SEED_B);
-			assertThat(rankings.get(SEED_A)).extracting(ProductListItemResponse::title)
-				.containsExactly("A와 비슷한 상품");
-			assertThat(rankings.get(SEED_B)).extracting(ProductListItemResponse::title)
-				.containsExactly("B와 비슷한 상품");
+			assertThat(productGrpcService.getPersonalizedRecommendations(List.of(SEED_A), List.of(SEED_B), 8))
+				.extracting(ProductListItemResponse::title)
+				.containsExactly("추천 상품");
 		}
 
 		@Test
-		@DisplayName("기준 하나가 판매 종료·임베딩 부재로 실패해도 나머지 기준의 순위는 살린다")
-		void oneFailingSeedDoesNotBreakTheRest() {
-			given(productQueryUseCase.getRecommendedProducts(SEED_A, 8))
-				.willThrow(new ProductException(ProductErrorCode.PRODUCT_NOT_FOUND));
-			given(productQueryUseCase.getRecommendedProducts(SEED_B, 8))
-				.willReturn(List.of(listItem("B와 비슷한 상품")));
-
-			Map<UUID, List<ProductListItemResponse>> rankings =
-				productGrpcService.getSimilarProducts(List.of(SEED_A, SEED_B), 8);
-
-			assertThat(rankings.get(SEED_A)).isEmpty();
-			assertThat(rankings.get(SEED_B)).hasSize(1);
-		}
-
-		@Test
-		@DisplayName("기준이 없으면 조회하지 않고 빈 결과를 돌려준다")
-		void noSeedsProducesEmptyResult() {
-			assertThat(productGrpcService.getSimilarProducts(List.of(), 8)).isEmpty();
-			then(productQueryUseCase).shouldHaveNoInteractions();
-		}
-
 		private ProductListItemResponse listItem(String title) {
 			return new ProductListItemResponse(
 				UUID.randomUUID(), title, "PROMPT", "GPT-5", 10000, 4.5, 3,
