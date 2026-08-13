@@ -698,8 +698,9 @@
 - UC: UC-PRODUCT-04
 - 인증: 필요
 - 필요 역할: SELLER / ADMIN
-- DRAFT 상태: 소프트 삭제 (deletedAt 설정, 목록 제외)
-- 그 외 상태: 판매 중단 (status → STOPPED, 목록 유지)
+- DRAFT·REJECTED 상태: 소프트 삭제 (deletedAt 설정, 목록 제외) — 둘 다 ON_SALE에 도달한 적이
+  없어 판매 이력 보존 명분이 없다
+- 그 외 상태: 판매 중단 (status → STOPPED, 목록 유지) — 판매 이력 보존
 
 #### Path Parameters
 
@@ -738,6 +739,15 @@
 - UC: UC-PRODUCT-07
 - 인증: 필요
 - 필요 역할: SELLER
+- family(버전군) 단위로 대표 row 하나씩만 반환한다 — DB에서 바로 페이징할 수 없어 family로
+  묶은 결과를 메모리에서 자른다(판매자 한 명의 상품 수 범위 안에서는 무리 없는 크기)
+
+#### Query Parameters
+
+| 파라미터 | 타입 | 필수 | 기본값 | 설명 |
+|---------|------|------|--------|------|
+| page | number | N | `0` | 0부터 시작하는 페이지 번호 |
+| size | number | N | `20` | 페이지당 항목 수 |
 
 #### Response
 
@@ -762,7 +772,13 @@
       "updatedAt": "2024-01-01T00:00:00"
     }
   ],
-  "message": "success"
+  "message": "success",
+  "meta": {
+    "page": 0,
+    "size": 20,
+    "total": 1,
+    "hasNext": false
+  }
 }
 ```
 
@@ -780,6 +796,10 @@
 | rejectionReason | string \| null | 반려 사유 (REJECTED 상태일 때) |
 | createdAt | string | 생성일시 |
 | updatedAt | string | 수정일시 |
+| meta.page | integer | 현재 페이지 번호(0-base) |
+| meta.size | integer | 페이지당 항목 수 |
+| meta.total | integer | 전체 family(등록 상품) 수 |
+| meta.hasNext | boolean | 다음 페이지 존재 여부 |
 
 ---
 

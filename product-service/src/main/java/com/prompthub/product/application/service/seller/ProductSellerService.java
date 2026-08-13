@@ -21,6 +21,7 @@ import com.prompthub.product.presentation.dto.response.product.ProductCreateResp
 import com.prompthub.product.presentation.dto.response.product.ProductUpdateResponse;
 import com.prompthub.product.presentation.dto.response.seller.SellerProductDetailResponse;
 import com.prompthub.product.presentation.dto.response.seller.SellerProductListItemResponse;
+import com.prompthub.presentation.dto.PageResponse;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -219,7 +220,9 @@ public class ProductSellerService implements ProductSellerUseCase {
 			throw new ProductException(ProductErrorCode.PRODUCT_FORBIDDEN);
 		}
 
-		if (product.getStatus() == ProductStatus.DRAFT) {
+		// DRAFT·REJECTED는 ON_SALE에 도달한 적이 없어 판매 이력이 없다 — 실제로 삭제한다.
+		// 그 외(ON_SALE 등)는 판매 이력 보존을 위해 상태만 중단시킨다.
+		if (product.getStatus() == ProductStatus.DRAFT || product.getStatus() == ProductStatus.REJECTED) {
 			product.softDelete();
 		} else {
 			product.stop();
@@ -229,12 +232,12 @@ public class ProductSellerService implements ProductSellerUseCase {
 
 	@Override
 	@Transactional(readOnly = true)
-	public List<SellerProductListItemResponse> getMyProducts(UUID sellerId) {
+	public PageResponse<SellerProductListItemResponse> getMyProducts(UUID sellerId, int page, int size) {
 		List<Product> all = productRepository.findBySellerId(sellerId);
 		Map<UUID, List<Product>> byFamily = all.stream()
 			.collect(Collectors.groupingBy(Product::familyRootId));
 		Map<UUID, Double> averageRatings = productRepository.getAverageRatings(List.copyOf(byFamily.keySet()));
-		return byFamily.entrySet().stream()
+		List<SellerProductListItemResponse> allItems = byFamily.entrySet().stream()
 			.map(entry -> {
 				ProductFamily family = ProductFamily.of(entry.getKey(), entry.getValue());
 				// family에 대표 row가 없는 건 클라이언트 요청 문제가 아니라 데이터 정합성 위반이다.
@@ -250,6 +253,23 @@ public class ProductSellerService implements ProductSellerUseCase {
 			})
 			.sorted(Comparator.comparing(SellerProductListItemResponse::updatedAt).reversed())
 			.toList();
+		return paginate(allItems, page, size);
+	}
+
+	// family 단위로 대표 row를 뽑은 뒤라 DB에서 바로 LIMIT/OFFSET을 걸 수 없다 — 판매자 한 명의
+	// 상품 수는 많지 않아 메모리에서 잘라도 무리가 없다.
+	private PageResponse<SellerProductListItemResponse> paginate(
+		List<SellerProductListItemResponse> items, int page, int size
+	) {
+		int normalizedPage = Math.max(page, 0);
+		int normalizedSize = Math.max(size, 1);
+		int offset = normalizedPage * normalizedSize;
+		List<SellerProductListItemResponse> pageItems = items.stream()
+			.skip(offset)
+			.limit(normalizedSize)
+			.toList();
+		boolean hasNext = offset + pageItems.size() < items.size();
+		return PageResponse.success(pageItems, normalizedPage, normalizedSize, items.size(), hasNext);
 	}
 
 	@Override

@@ -268,14 +268,33 @@ class ProductControllerTest {
 				PRODUCT_ID, "리액트 컴포넌트 리팩터링 도우미", "PROMPT", "GPT-4o", 7900,
 				"ON_SALE", 760, 4.5, "https://cdn.example.com/images/thumb.jpg", null, CREATED_AT, UPDATED_AT
 			);
-			given(productSellerUseCase.getMyProducts(SELLER_ID)).willReturn(List.of(item));
+			given(productSellerUseCase.getMyProducts(SELLER_ID, 0, 20))
+				.willReturn(PageResponse.success(List.of(item), 0, 20, 1, false));
 
 			mockMvc.perform(get("/api/v2/products/sellers/me")
 					.header("X-User-Id", SELLER_ID.toString()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.data[0].productId").value(PRODUCT_ID.toString()))
-				.andExpect(jsonPath("$.data[0].averageRating").value(4.5));
+				.andExpect(jsonPath("$.data[0].averageRating").value(4.5))
+				.andExpect(jsonPath("$.meta.page").value(0))
+				.andExpect(jsonPath("$.meta.total").value(1))
+				.andExpect(jsonPath("$.meta.hasNext").value(false));
+		}
+
+		@Test
+		@DisplayName("page·size 쿼리 파라미터를 그대로 전달한다")
+		void getMyProducts_passesPageAndSizeParams() throws Exception {
+			given(productSellerUseCase.getMyProducts(SELLER_ID, 1, 5))
+				.willReturn(PageResponse.success(List.of(), 1, 5, 6, false));
+
+			mockMvc.perform(get("/api/v2/products/sellers/me")
+					.header("X-User-Id", SELLER_ID.toString())
+					.param("page", "1")
+					.param("size", "5"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.meta.page").value(1))
+				.andExpect(jsonPath("$.meta.size").value(5));
 		}
 	}
 
