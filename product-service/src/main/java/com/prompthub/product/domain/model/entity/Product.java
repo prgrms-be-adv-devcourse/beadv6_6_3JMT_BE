@@ -1,5 +1,6 @@
 package com.prompthub.product.domain.model.entity;
 
+import com.prompthub.product.domain.exception.ProductInvalidStatusException;
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
@@ -194,7 +195,7 @@ public class Product {
 	/** 판매 전 DRAFT row를 같은 version(1.0)에서 콘텐츠만 보정한다 — 임시저장은 버전을 올리지 않는다. */
 	public void updateDraftContent(ProductContent productContent) {
 		if (this.status != ProductStatus.DRAFT) {
-			throw new IllegalStateException("DRAFT 상태의 상품만 이 방식으로 수정할 수 있습니다. current=" + this.status);
+			throw new ProductInvalidStatusException("DRAFT 상태의 상품만 이 방식으로 수정할 수 있습니다. current=" + this.status);
 		}
 		applyContent(productContent);
 		this.updatedAt = LocalDateTime.now();
@@ -203,7 +204,7 @@ public class Product {
 	/** 판매 후 반려된 row를 같은 version에서 콘텐츠만 보정한다 — 재검수는 {@link #submitForReview()}를 따로 호출한다. */
 	public void updateRejectedContent(ProductContent productContent) {
 		if (this.status != ProductStatus.REJECTED) {
-			throw new IllegalStateException("REJECTED 상태의 상품만 이 방식으로 수정할 수 있습니다. current=" + this.status);
+			throw new ProductInvalidStatusException("REJECTED 상태의 상품만 이 방식으로 수정할 수 있습니다. current=" + this.status);
 		}
 		applyContent(productContent);
 		this.updatedAt = LocalDateTime.now();
@@ -304,7 +305,7 @@ public class Product {
 
 	public void supersede() {
 		if (this.status != ProductStatus.ON_SALE) {
-			throw new IllegalStateException("ON_SALE 상태의 상품만 SUPERSEDED로 전환할 수 있습니다. current=" + this.status);
+			throw new ProductInvalidStatusException("ON_SALE 상태의 상품만 SUPERSEDED로 전환할 수 있습니다. current=" + this.status);
 		}
 		this.status = ProductStatus.SUPERSEDED;
 		this.updatedAt = LocalDateTime.now();
@@ -312,7 +313,7 @@ public class Product {
 
 	public void submitForReview() {
 		if (this.status != ProductStatus.DRAFT && this.status != ProductStatus.REJECTED) {
-			throw new IllegalStateException("검수 요청할 수 없는 상태입니다. current=" + this.status);
+			throw new ProductInvalidStatusException("검수 요청할 수 없는 상태입니다. current=" + this.status);
 		}
 		this.rejectionReason = null;
 		this.status = ProductStatus.PENDING_REVIEW;
@@ -322,7 +323,7 @@ public class Product {
 
 	public void approve(InspectionChecklist checklist) {
 		if (this.status != ProductStatus.PENDING_REVIEW) {
-			throw new IllegalStateException("PENDING_REVIEW 상태의 상품만 승인할 수 있습니다. current=" + this.status);
+			throw new ProductInvalidStatusException("PENDING_REVIEW 상태의 상품만 승인할 수 있습니다. current=" + this.status);
 		}
 		applyInspectionChecklist(checklist);
 		this.status = ProductStatus.ON_SALE;
@@ -331,7 +332,7 @@ public class Product {
 
 	public void reject(String reason, InspectionChecklist checklist) {
 		if (this.status != ProductStatus.PENDING_REVIEW) {
-			throw new IllegalStateException("PENDING_REVIEW 상태의 상품만 반려할 수 있습니다. current=" + this.status);
+			throw new ProductInvalidStatusException("PENDING_REVIEW 상태의 상품만 반려할 수 있습니다. current=" + this.status);
 		}
 		applyInspectionChecklist(checklist);
 		this.status = ProductStatus.REJECTED;

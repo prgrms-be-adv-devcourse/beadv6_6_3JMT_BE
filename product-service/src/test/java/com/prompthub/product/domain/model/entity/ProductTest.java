@@ -7,6 +7,7 @@ import static com.prompthub.product.support.ProductContentFixtures.promptContent
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.prompthub.product.domain.exception.ProductInvalidStatusException;
 import com.prompthub.product.domain.model.enums.AmountType;
 import com.prompthub.product.domain.model.enums.ProductStatus;
 import com.prompthub.product.domain.model.enums.ProductType;
@@ -52,7 +53,7 @@ class ProductTest {
 		ReflectionTestUtils.setField(product, "status", ProductStatus.ON_SALE);
 
 		assertThatThrownBy(() -> product.updateDraftContent(promptContent()))
-			.isInstanceOf(IllegalStateException.class);
+			.isInstanceOf(ProductInvalidStatusException.class);
 	}
 
 	@Test
@@ -135,7 +136,7 @@ class ProductTest {
 		ReflectionTestUtils.setField(product, "status", ProductStatus.ON_SALE);
 
 		assertThatThrownBy(() -> product.updateRejectedContent(promptContent()))
-			.isInstanceOf(IllegalStateException.class);
+			.isInstanceOf(ProductInvalidStatusException.class);
 	}
 
 	@Test
@@ -152,7 +153,7 @@ class ProductTest {
 	void supersede_nonOnSaleRow_throws() {
 		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
 
-		assertThatThrownBy(product::supersede).isInstanceOf(IllegalStateException.class);
+		assertThatThrownBy(product::supersede).isInstanceOf(ProductInvalidStatusException.class);
 	}
 
 	// startInspectionRequest()가 검수 요청 시작 시각을 기록하고 재발행 횟수를 초기화하는지 검증한다
@@ -185,7 +186,7 @@ class ProductTest {
 		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
 		ReflectionTestUtils.setField(product, "status", ProductStatus.ON_SALE);
 
-		assertThatThrownBy(product::submitForReview).isInstanceOf(IllegalStateException.class);
+		assertThatThrownBy(product::submitForReview).isInstanceOf(ProductInvalidStatusException.class);
 	}
 
 	@Test
@@ -213,7 +214,7 @@ class ProductTest {
 	void approve_nonPendingReview_throws() {
 		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
 
-		assertThatThrownBy(() -> product.approve(emptyChecklist())).isInstanceOf(IllegalStateException.class);
+		assertThatThrownBy(() -> product.approve(emptyChecklist())).isInstanceOf(ProductInvalidStatusException.class);
 	}
 
 	@Test
@@ -234,7 +235,7 @@ class ProductTest {
 	void reject_nonPendingReview_throws() {
 		Product product = Product.create(UUID.randomUUID(), UUID.randomUUID(), promptContent());
 
-		assertThatThrownBy(() -> product.reject("사유", emptyChecklist())).isInstanceOf(IllegalStateException.class);
+		assertThatThrownBy(() -> product.reject("사유", emptyChecklist())).isInstanceOf(ProductInvalidStatusException.class);
 	}
 
 	private static InspectionChecklist emptyChecklist() {
