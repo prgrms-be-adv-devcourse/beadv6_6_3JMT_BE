@@ -139,6 +139,63 @@ class ProductQueryServiceTest {
 			assertThatThrownBy(() -> productQueryService.getProduct(PRODUCT_ID))
 				.isInstanceOf(ProductException.class);
 		}
+
+		@Test
+		@DisplayName("모든 필드가 정확한 위치에 채워진다 — 인접한 boolean·문자열 필드가 뒤바뀌면 이 테스트가 실패한다")
+		void getProduct_fillsEveryFieldAtItsOwnPosition() {
+			Product product = productWithDistinctValues();
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRepository.getAverageRating(PRODUCT_ID)).willReturn(4.5);
+			given(productRepository.sumSalesCountByFamilyRootId(PRODUCT_ID)).willReturn(760L);
+			given(productRepository.countOnSaleProductsBySellerId(SELLER_ID)).willReturn(3L);
+			given(objectStorage.createPresignedGetUrl("products/thumb.jpg")).willReturn("https://cdn/presigned-thumb");
+			given(objectStorage.createPresignedGetUrl("https://cdn.example.com/images/1.jpg"))
+				.willReturn("https://cdn.example.com/images/1.jpg?presigned");
+
+			ProductDetailResponse response = productQueryService.getProduct(PRODUCT_ID);
+
+			assertThat(response.id()).isEqualTo(PRODUCT_ID);
+			assertThat(response.title()).isEqualTo("리액트 컴포넌트 리팩터링 도우미");
+			assertThat(response.productType()).isEqualTo("PROMPT");
+			assertThat(response.model()).isEqualTo("GPT-4o");
+			assertThat(response.amount()).isEqualTo(7900);
+			assertThat(response.rating()).isEqualTo(4.5);
+			assertThat(response.salesCount()).isEqualTo(760);
+			assertThat(response.sellerId()).isEqualTo(SELLER_ID);
+			assertThat(response.sellerProductCount()).isEqualTo(3);
+			assertThat(response.desc()).isEqualTo("컴포넌트 분리, 상태 정리, 타입 개선");
+			assertThat(response.thumbnail_url()).isEqualTo("https://cdn/presigned-thumb");
+			assertThat(response.imageUrls()).containsExactly("https://cdn.example.com/images/1.jpg?presigned");
+			assertThat(response.tags()).containsExactly("리액트", "리팩터링");
+			assertThat(response.hasContext()).isTrue();
+			assertThat(response.hasObjective()).isFalse();
+			assertThat(response.hasNuance()).isTrue();
+			assertThat(response.hasTone()).isFalse();
+			assertThat(response.hasExamples()).isTrue();
+			assertThat(response.hasExecution()).isFalse();
+			assertThat(response.hasRoleAssignment()).isTrue();
+			assertThat(response.checklistRecorded()).isTrue();
+			assertThat(response.createdAt()).isEqualTo(CREATED_AT);
+			// updatedAt 자리는 실제로 product.getUpdatedAt()이 아니라 조회 시각(viewedAt)이 채운다
+			// (ProductQueryService.getProduct() 참고) — 고정값 대신 createdAt과 달라야 함만 확인한다.
+			assertThat(response.updatedAt()).isAfter(CREATED_AT);
+		}
+
+		private Product productWithDistinctValues() {
+			Product product = product(ProductStatus.ON_SALE, null);
+			ReflectionTestUtils.setField(product, "thumbnailUrl", "products/thumb.jpg");
+			ReflectionTestUtils.setField(product, "model", "GPT-4o");
+			ReflectionTestUtils.setField(product, "hasContext", true);
+			ReflectionTestUtils.setField(product, "hasObjective", false);
+			ReflectionTestUtils.setField(product, "hasNuance", true);
+			ReflectionTestUtils.setField(product, "hasTone", false);
+			ReflectionTestUtils.setField(product, "hasExamples", true);
+			ReflectionTestUtils.setField(product, "hasExecution", false);
+			ReflectionTestUtils.setField(product, "hasRoleAssignment", true);
+			ReflectionTestUtils.setField(product, "checklistRecorded", true);
+			return product;
+		}
 	}
 
 	@Nested
@@ -253,6 +310,35 @@ class ProductQueryServiceTest {
 
 			assertThat(response).extracting(ProductListItemResponse::id)
 				.containsExactly(RECOMMENDED_PRODUCT_ID, second);
+		}
+
+		@Test
+		@DisplayName("추천 상품 각 필드가 정확한 위치에 채워진다 — 인접한 문자열·날짜 필드가 뒤바뀌면 이 테스트가 실패한다")
+		void getRecommendedProducts_fillsEveryFieldAtItsOwnPosition() {
+			Product product = product(ProductStatus.ON_SALE, null);
+			given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+			given(productRepository.findAllByFamilyRootIds(List.of(PRODUCT_ID))).willReturn(List.of(product));
+			given(productRecommender.recommend(PRODUCT_ID, PRODUCT_ID, "PROMPT", 4))
+				.willReturn(List.of(RECOMMENDED_PRODUCT_ID));
+			given(productRepository.findProjectionsByIds(List.of(RECOMMENDED_PRODUCT_ID)))
+				.willReturn(List.of(productListProjection(RECOMMENDED_PRODUCT_ID, "PROMPT")));
+			given(productRepository.findAllByIdIn(List.of(RECOMMENDED_PRODUCT_ID))).willReturn(List.of());
+
+			ProductListItemResponse response = productQueryService.getRecommendedProducts(PRODUCT_ID, 0).getFirst();
+
+			assertThat(response.id()).isEqualTo(RECOMMENDED_PRODUCT_ID);
+			assertThat(response.title()).isEqualTo("리액트 컴포넌트 리팩터링 도우미");
+			assertThat(response.productType()).isEqualTo("PROMPT");
+			assertThat(response.model()).isEqualTo("GPT-4o");
+			assertThat(response.amount()).isEqualTo(7900);
+			assertThat(response.rating()).isEqualTo(4.7);
+			assertThat(response.salesCount()).isEqualTo(760);
+			assertThat(response.sellerId()).isEqualTo(SELLER_ID);
+			assertThat(response.desc()).isEqualTo("컴포넌트 분리, 상태 정리, 타입 개선");
+			assertThat(response.thumbnail_url()).isNull();
+			assertThat(response.tags()).isEmpty();
+			assertThat(response.createdAt()).isEqualTo(CREATED_AT);
+			assertThat(response.updatedAt()).isEqualTo(UPDATED_AT);
 		}
 
 		@Test
