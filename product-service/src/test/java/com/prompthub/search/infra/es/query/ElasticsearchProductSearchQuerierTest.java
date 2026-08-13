@@ -6,6 +6,7 @@ import co.elastic.clients.elasticsearch.core.MsearchResponse;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.msearch.MultiSearchResponseItem;
 import com.prompthub.search.application.embedding.QueryEmbeddingCache;
+import com.prompthub.search.application.gateway.external.ProductRerankerGateway;
 import com.prompthub.search.application.query.ProductSearchUnavailableException;
 import com.prompthub.search.infra.es.indexing.ProductSearchDocument;
 import java.io.IOException;
@@ -37,11 +38,14 @@ class ElasticsearchProductSearchQuerierTest {
 	@Mock
 	private QueryEmbeddingCache queryEmbeddingCache;
 
+	@Mock
+	private ProductRerankerGateway productRerankerGateway;
+
 	private ElasticsearchProductSearchQuerier querier;
 
 	@BeforeEach
 	void setUp() {
-		querier = new ElasticsearchProductSearchQuerier(client, queryBuilder, queryEmbeddingCache);
+		querier = new ElasticsearchProductSearchQuerier(client, queryBuilder, queryEmbeddingCache, productRerankerGateway);
 	}
 
 	@Test
@@ -73,8 +77,8 @@ class ElasticsearchProductSearchQuerierTest {
 		SearchRequest lexical = mock(SearchRequest.class, RETURNS_DEEP_STUBS);
 		SearchRequest semantic = mock(SearchRequest.class, RETURNS_DEEP_STUBS);
 		given(queryEmbeddingCache.get("hybrid")).willReturn(new float[]{0.1f});
-		given(queryBuilder.build("hybrid", "all", "popular", 0, 100)).willReturn(lexical);
-		given(queryBuilder.buildKnn(any(float[].class), eq("all"), eq(100))).willReturn(semantic);
+		given(queryBuilder.build("hybrid", "all", "popular", 0, 50)).willReturn(lexical);
+		given(queryBuilder.buildKnn(any(float[].class), eq("all"), eq(50))).willReturn(semantic);
 
 		@SuppressWarnings("unchecked")
 		MultiSearchResponseItem<ProductSearchDocument> failedItem =
@@ -98,8 +102,8 @@ class ElasticsearchProductSearchQuerierTest {
 		SearchRequest lexical = mock(SearchRequest.class, RETURNS_DEEP_STUBS);
 		SearchRequest semantic = mock(SearchRequest.class, RETURNS_DEEP_STUBS);
 		given(queryEmbeddingCache.get("hybrid")).willReturn(new float[]{0.1f});
-		given(queryBuilder.build("hybrid", "all", "popular", 0, 100)).willReturn(lexical);
-		given(queryBuilder.buildKnn(any(float[].class), eq("all"), eq(100))).willReturn(semantic);
+		given(queryBuilder.build("hybrid", "all", "popular", 0, 50)).willReturn(lexical);
+		given(queryBuilder.buildKnn(any(float[].class), eq("all"), eq(50))).willReturn(semantic);
 		given(client.msearch(any(MsearchRequest.class), eq(ProductSearchDocument.class)))
 			.willThrow(new IOException("connection refused"));
 

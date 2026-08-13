@@ -19,13 +19,13 @@ class EmbeddingSourceTest {
 	class Text {
 
 		@Test
-		@DisplayName("제목·태그·설명·본문을 순서대로 합친다")
+		@DisplayName("프롬프트는 제목·태그·설명·모델·본문을 순서대로 합친다")
 		void combinesFields() {
 			Product product = product("엑셀 자동화", "보고서를 만들어준다", "본문입니다", List.of("생산성", "AI"));
 
 			String text = EmbeddingSource.of(product).text();
 
-			assertThat(text).isEqualTo("엑셀 자동화\n생산성 AI\n보고서를 만들어준다\n본문입니다");
+			assertThat(text).isEqualTo("엑셀 자동화\n생산성 AI\n보고서를 만들어준다\ngpt-5\n본문입니다");
 		}
 
 		@Test
@@ -48,7 +48,9 @@ class EmbeddingSourceTest {
 			String text = EmbeddingSource.of(product).text();
 
 			// 모델 입력 상한(8,191토큰)을 넘기지 않으려는 것이지 정확한 토큰 계산이 목적이 아니다.
-			assertThat(text).hasSize("이름".length() + 1 + "설명".length() + 1 + EmbeddingSource.MAX_CONTENT_CHARS);
+			assertThat(text).hasSize(
+				"이름".length() + 1 + "설명".length() + 1 + "gpt-5".length() + 1
+					+ EmbeddingSource.MAX_CONTENT_CHARS);
 		}
 	}
 

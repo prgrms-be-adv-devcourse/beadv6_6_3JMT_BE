@@ -13,6 +13,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.MultiMatchQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
 
@@ -111,6 +112,21 @@ class ProductSearchQueryBuilderTest {
 		// 하한이 없으면 색인 문서가 k보다 적을 때 어떤 질의든 전체 문서가 후보로 들어온다 (#645)
 		assertThat(request.knn()).hasSize(1);
 		assertThat(request.knn().get(0).similarity()).isNotNull().isPositive();
+	}
+
+	@Test
+	void buildQualifiedCandidates는_관련성_통과_ID만_가격순으로_조회한다() {
+		UUID first = UUID.randomUUID();
+		UUID second = UUID.randomUUID();
+
+		SearchRequest request = queryBuilder.buildQualifiedCandidates(
+			List.of(first, second), "price-asc", PageRequest.of(0, 20));
+
+		assertThat(request.query().terms().field()).isEqualTo("_id");
+		assertThat(request.query().terms().terms().value())
+			.extracting(value -> value.stringValue())
+			.containsExactly(first.toString(), second.toString());
+		assertThat(request.sort().get(0).field().field()).isEqualTo("amount");
 	}
 
 	@Test

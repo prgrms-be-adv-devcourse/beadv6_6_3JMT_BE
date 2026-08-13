@@ -1,6 +1,10 @@
 package com.prompthub.search.infra.es.query;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.prompthub.product.domain.model.entity.Product;
@@ -10,6 +14,8 @@ import com.prompthub.product.domain.model.vo.ProductContent;
 import com.prompthub.product.support.ProductContentFixtures;
 import com.prompthub.search.application.embedding.EmbeddingClient;
 import com.prompthub.search.application.embedding.QueryEmbeddingCache;
+import com.prompthub.search.application.gateway.external.ProductRerankerGateway;
+import com.prompthub.search.application.gateway.external.ProductRerankerGateway.RerankCandidate;
 import com.prompthub.search.application.indexing.FamilyUpsertInput;
 import com.prompthub.search.application.query.ProductSearchHit;
 import com.prompthub.search.application.query.ProductSearchPageResult;
@@ -21,6 +27,7 @@ import com.prompthub.search.support.ElasticsearchIntegrationTestSupport;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,11 +43,42 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 	}
 
 	private ElasticsearchProductSearchQuerier querier(RecordingEmbeddingClient embeddingClient) {
+		ProductRerankerGateway rerankerGateway = mock(ProductRerankerGateway.class);
+		given(rerankerGateway.findRelevantProductIds(anyString(), anyList())).willAnswer(invocation -> {
+			List<RerankCandidate> candidates = invocation.getArgument(1);
+			return Optional.of(candidates.stream().map(RerankCandidate::productId).toList());
+		});
+		return querier(embeddingClient, rerankerGateway);
+	}
+
+	private ElasticsearchProductSearchQuerier querier(
+		RecordingEmbeddingClient embeddingClient, ProductRerankerGateway rerankerGateway
+	) {
 		SearchRankingProperties rankingProperties = new SearchRankingProperties(0.3, 0.1, 0.1, 0.2, "30d", 0.7);
 		return new ElasticsearchProductSearchQuerier(
 			client,
 			new ProductSearchQueryBuilder(rankingProperties),
-			new QueryEmbeddingCache(embeddingClient));
+			new QueryEmbeddingCache(embeddingClient),
+			rerankerGateway);
+	}
+
+	@Test
+	void reranker가_실패하면_의미_후보를_버리고_BM25_결과만_반환한다() throws Exception {
+		String keyword = "폴백" + UUID.randomUUID().toString().substring(0, 8);
+		Product lexical = product(keyword + " 글자상품");
+		Product semanticOnly = product("의미전용상품" + UUID.randomUUID());
+		index(lexical, 0, 0, 0, vector(1));
+		index(semanticOnly, 0, 0, 0, vector(0));
+		refresh();
+		ProductRerankerGateway failedReranker = mock(ProductRerankerGateway.class);
+		given(failedReranker.findRelevantProductIds(anyString(), anyList())).willReturn(Optional.empty());
+
+		ProductSearchPageResult result = querier(new RecordingEmbeddingClient(vector(0)), failedReranker)
+			.search(keyword, "all", "popular", PageRequest.of(0, 20));
+
+		assertThat(result.hits()).extracting(ProductSearchHit::productId)
+			.contains(lexical.getId())
+			.doesNotContain(semanticOnly.getId());
 	}
 
 	private void index(Product product, long salesCount, long viewCount, double ratingAvg) {
@@ -244,7 +282,7 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 	}
 
 	@Test
-	void 하이브리드_두_레그_모두_상위인_문서가_먼저_온다() throws Exception {
+	void 하이브리드_두_레그의_후보가_관련성_통과_집합에_유지된다() throws Exception {
 		String unique = UUID.randomUUID().toString().substring(0, 8);
 		Product both = product(unique + " 양쪽상위");
 		Product lexicalOnly = product(unique + " 글자만");
@@ -255,7 +293,32 @@ class ElasticsearchProductSearchQuerierIntegrationTest extends ElasticsearchInte
 		ProductSearchPageResult result = querier(new RecordingEmbeddingClient(vector(0)))
 			.search(unique, "all", "popular", PageRequest.of(0, 20));
 
-		assertThat(result.hits()).extracting(ProductSearchHit::name).startsWith(both.getName());
+		assertThat(result.hits()).extracting(ProductSearchHit::name)
+			.contains(both.getName(), lexicalOnly.getName());
+	}
+
+	@Test
+	void 하이브리드_정렬을_바꿔도_관련성_통과_ID는_같다() throws Exception {
+		String keyword = "후보보존" + UUID.randomUUID().toString().substring(0, 8);
+		Product first = Product.create(UUID.randomUUID(), UUID.randomUUID(),
+			ProductContentFixtures.promptContent(keyword + " 첫상품", 1000));
+		Product second = Product.create(UUID.randomUUID(), UUID.randomUUID(),
+			ProductContentFixtures.promptContent(keyword + " 둘째상품", 9000));
+		index(first, 10, 0, 1.0, vector(0));
+		index(second, 1, 0, 5.0, vector(1));
+		refresh();
+
+		ElasticsearchProductSearchQuerier querier = querier(new RecordingEmbeddingClient(vector(0)));
+		List<UUID> popularIds = ids(querier.search(keyword, "all", "popular", PageRequest.of(0, 20)));
+		List<UUID> ratingIds = ids(querier.search(keyword, "all", "rating", PageRequest.of(0, 20)));
+		List<UUID> priceIds = ids(querier.search(keyword, "all", "price-asc", PageRequest.of(0, 20)));
+
+		assertThat(ratingIds).containsExactlyInAnyOrderElementsOf(popularIds);
+		assertThat(priceIds).containsExactlyInAnyOrderElementsOf(popularIds);
+	}
+
+	private List<UUID> ids(ProductSearchPageResult result) {
+		return result.hits().stream().map(ProductSearchHit::productId).toList();
 	}
 
 	@Test
