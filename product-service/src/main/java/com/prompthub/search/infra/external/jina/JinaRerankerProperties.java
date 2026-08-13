@@ -10,7 +10,7 @@ public record JinaRerankerProperties(
 	@DefaultValue("https://api.jina.ai/v1/rerank") URI uri,
 	@DefaultValue("") String apiKey,
 	@DefaultValue("jina-reranker-v3") String model,
-	@DefaultValue("0.5") double minScore,
+	@DefaultValue("0.05") double minScore,
 	@DefaultValue("2s") Duration timeout
 ) {
 	public boolean isConfigured() {
