@@ -13,8 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * ai-events(PRODUCT_INSPECTION_COMPLETED) 처리. (루트 kafka-event.md 참고)
- * Product.approve()/reject()가 PENDING_REVIEW 가드를 갖고 있어 자연 멱등이다 —
- * 이미 처리된 상품에 대한 중복 이벤트는 IllegalStateException을 잡아 조용히 스킵한다.
+ * Product.approve()/reject()는 PENDING_REVIEW가 아니면 예외를 던지므로, 중복 이벤트인지는
+ * 그 호출 전에 상태를 직접 확인해 판단한다 — 예외를 제어 흐름으로 쓰지 않는다.
  */
 @Slf4j
 @Service
@@ -30,17 +30,16 @@ public class ProductInspectionResultHandler {
 			log.info("검수 대상 상품을 찾을 수 없어 결과를 스킵함. productId={}", productId);
 			return;
 		}
-		try {
-			if (approved) {
-				product.approve(checklist);
-				supersedePreviousVersions(product);
-			} else {
-				product.reject(rejectionReason, checklist);
-			}
-		} catch (IllegalStateException e) {
+		if (product.getStatus() != ProductStatus.PENDING_REVIEW) {
 			log.info("이미 처리된 검수 결과라 스킵함. productId={}, currentStatus={}",
 				productId, product.getStatus());
 			return;
+		}
+		if (approved) {
+			product.approve(checklist);
+			supersedePreviousVersions(product);
+		} else {
+			product.reject(rejectionReason, checklist);
 		}
 		productRepository.save(product);
 	}

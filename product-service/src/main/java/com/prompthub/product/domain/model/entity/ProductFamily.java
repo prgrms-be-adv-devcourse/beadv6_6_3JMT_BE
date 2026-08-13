@@ -58,11 +58,6 @@ public class ProductFamily {
 		return latestByStatus(ProductStatus.PENDING_REVIEW);
 	}
 
-	public boolean hasEverBeenOnSale() {
-		return members.stream().anyMatch(p ->
-			p.getStatus() == ProductStatus.ON_SALE || p.getStatus() == ProductStatus.SUPERSEDED);
-	}
-
 	public List<Product> publicHistory() {
 		return members.stream()
 			.filter(p -> p.getStatus() == ProductStatus.ON_SALE || p.getStatus() == ProductStatus.SUPERSEDED)

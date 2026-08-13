@@ -66,23 +66,6 @@ class ProductFamilyTest {
 	}
 
 	@Test
-	void hasEverBeenOnSale_falseWhenOnlyDraftOrPendingOrRejected() {
-		Product draft = product(ProductStatus.DRAFT, (short) 1, (short) 0);
-		ProductFamily family = ProductFamily.of(draft.getId(), List.of(draft));
-
-		assertThat(family.hasEverBeenOnSale()).isFalse();
-	}
-
-	@Test
-	void hasEverBeenOnSale_trueWhenSupersededExists() {
-		Product superseded = product(ProductStatus.SUPERSEDED, (short) 1, (short) 0);
-		Product onSale = product(ProductStatus.ON_SALE, (short) 2, (short) 0);
-		ProductFamily family = ProductFamily.of(superseded.getId(), List.of(superseded, onSale));
-
-		assertThat(family.hasEverBeenOnSale()).isTrue();
-	}
-
-	@Test
 	void publicHistory_excludesRejectedAndPendingReview_sortedDescending() {
 		Product superseded = product(ProductStatus.SUPERSEDED, (short) 1, (short) 0);
 		Product rejected = product(ProductStatus.REJECTED, (short) 2, (short) 0);

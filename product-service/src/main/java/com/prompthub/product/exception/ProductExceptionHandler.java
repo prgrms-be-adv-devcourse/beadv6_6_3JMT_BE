@@ -2,6 +2,7 @@ package com.prompthub.product.exception;
 
 import com.prompthub.exception.BusinessException;
 import com.prompthub.exception.response.ErrorResponse;
+import com.prompthub.product.domain.exception.ProductInvalidStatusException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -29,9 +30,13 @@ public class ProductExceptionHandler {
 			.body(ErrorResponse.of(errorCode, exception.getMessage()));
 	}
 
-	@ExceptionHandler(IllegalStateException.class)
-	public ResponseEntity<ErrorResponse> handleIllegalStateException(
-		IllegalStateException exception
+	/**
+	 * 도메인 상태 전이 가드 위반만 409로 변환한다. 그 외 {@code IllegalStateException}(예상 못 한
+	 * 버그)은 이 핸들러를 안 타므로 아래 범용 {@code Exception} 핸들러가 잡아 500으로 응답한다.
+	 */
+	@ExceptionHandler(ProductInvalidStatusException.class)
+	public ResponseEntity<ErrorResponse> handleProductInvalidStatusException(
+		ProductInvalidStatusException exception
 	) {
 		ProductErrorCode errorCode = ProductErrorCode.PRODUCT_INVALID_STATUS;
 

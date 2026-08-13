@@ -3,6 +3,7 @@ package com.prompthub.product.exception;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.prompthub.exception.response.ErrorResponse;
+import com.prompthub.product.domain.exception.ProductInvalidStatusException;
 import com.prompthub.product.exception.enums.ProductErrorCode;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.DisplayName;
@@ -33,6 +34,24 @@ class ProductExceptionHandlerTest {
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
 		assertThat(response.getBody()).isNotNull();
 		assertThat(response.getBody().code()).isEqualTo(ProductErrorCode.ENDPOINT_NOT_FOUND.getCode());
+	}
+
+	/**
+	 * ES 인프라 장애(ElasticsearchProductSearchIndexer 등)를 포함해 도메인 상태 가드와
+	 * 무관한 {@code IllegalStateException}은 이 핸들러가 더 이상 잡지 않는다 — Spring이
+	 * 더 구체적인 핸들러가 없는 예외를 위 handleException(500)으로 보낸다.
+	 */
+	@Test
+	@DisplayName("도메인 상태 가드 위반(ProductInvalidStatusException)은 409/P006으로 응답한다")
+	void handleProductInvalidStatusException_returns409() {
+		ProductInvalidStatusException exception =
+			new ProductInvalidStatusException("PENDING_REVIEW 상태의 상품만 승인할 수 있습니다. current=ON_SALE");
+
+		ResponseEntity<ErrorResponse> response = handler.handleProductInvalidStatusException(exception);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody().code()).isEqualTo(ProductErrorCode.PRODUCT_INVALID_STATUS.getCode());
 	}
 
 	@Test

@@ -126,7 +126,7 @@ score = 100 − 5×High − 2×Medium − 0.5×Low
 | I-7 | ProductQueryService 가독성 + 집계 쿼리 개선 | `refactor` | +4 | **#411 재범위화** |
 | I-8 | ProductSellerService 슬림화 + 응답 DTO의 S3 직접 호출 제거 | `refactor` | +3 | |
 | I-9 | 잔여 소소한 정리 | `chore` | +2.5 | |
-| I-10 | PR4 품질 재검증 잔여 부채 — 예외 규율·타임아웃·응답 DTO 값객체 | `refactor` | +18 | |
+| I-10 | PR4 품질 재검증 잔여 부채 — 예외 규율·타임아웃·응답 DTO 값객체 | `refactor` | +18 | #738 |
 | I-11 | 검색어+정렬(rating·price-asc) 조합에서 결과 소실 — 하이브리드 후보 확장이 popular 정렬에만 적용됨 | `fix` | 채점 외(기능 결함) | #733 |
 
 ---
@@ -3858,3 +3858,64 @@ Builder)은 각자의 PR에 그대로 둔다.
 발생시키지 않는지, S3/ES 타임아웃 설정 후 정상 응답 시간 내 회귀가 없는지, 응답 DTO 필드 값이
 Builder 도입 전후 동일한지, `promoteKeys` 리팩토링 후 기존 파일 승격·보상 삭제 테스트가 그대로
 통과하는지 확인한다.
+
+#### PR 8 구현 결과 (2026-08-13) — `IMPLEMENTED · PR_PENDING`
+
+이슈 #738, 브랜치 `refactor/#738-post-pr4-quality-debt`(`fix/#737-hybrid-search-relevance-filter`
+최신 커밋 기준). 착수 전 코드 재확인(Codex 교차검증 포함)으로 원안 9개 중 이미 해소된 2개(ES
+조회 catch 구체화 — PR6에서 `ProductSearchUnavailableException`으로 이미 구체화됨, presign
+래퍼 통일 — 3곳 중 2곳은 이미 `presignIfPresent()`로 통일되어 있었고 나머지 1곳(`ProductGrpcService`)은
+애초에 이 패턴이 아니었음)을 제외했다.
+
+**실제 구현 범위 — 5개**
+
+1. `ProductInspectionResultHandler`/`ProductInspectionResultConsumer` — 중복 이벤트 판별을
+   `catch (IllegalStateException)`에서 `product.getStatus() != PENDING_REVIEW` 사전 체크로
+   바꿨다. 예외를 제어 흐름으로 쓰지 않아, 다른 원인의 실패가 "중복이라 스킵"으로 오판되지
+   않고 그대로 전파돼 Kafka 재시도/DLT 경로를 탄다.
+2. `ProductFamily.hasEverBeenOnSale()` 삭제(프로덕션 호출 없음, 테스트도 함께 삭제).
+3. `ProductDetailResponse`(25필드)·`ProductListItemResponse`(13필드) — record와 `from()`은
+   그대로 두고(저장소 컨벤션상 Response DTO는 Builder 대상이 아님), 각 필드에 서로 다른 값을
+   채워 위치 인자 순서 실수를 잡아내는 테스트를 추가했다. 프로덕션 코드 diff는 0.
+4. `S3Config`(`copyObject`/`deleteObject`가 쓰는 `S3Client`만 해당, 로컬 서명이라 네트워크
+   호출이 없는 `S3Presigner`는 제외)와 `ElasticsearchClientConfig`에 명시적 connect/call
+   timeout을 추가했다.
+5. `Product.java`의 상태 가드 6곳(`updateDraftContent`·`updateRejectedContent`·`supersede`·
+   `submitForReview`·`approve`·`reject`)이 던지던 범용 `IllegalStateException`을 도메인 순수
+   예외 `ProductInvalidStatusException` 하나로 통일했다. `ProductExceptionHandler`는 이제 이
+   타입만 409(`PRODUCT_INVALID_STATUS`)로 매핑하고, 그 외 `IllegalStateException`(예: ES
+   인프라 코드의 것)은 기존 범용 `Exception` 핸들러의 500 폴백으로 간다.
+
+**원안과 달라진 점(범위 축소)**: single-flight 임베딩 캐시는 보류했다 — 실제 동시 중복 요청이
+관측된 적이 없어 지금 넣는 건 추측성 최적화(YAGNI)라고 판단했다. 응답 DTO는 Builder 대신 값
+비교 테스트로 대체했다 — `domain-model.md` §10이 Response DTO에는 `record`+`from()`만
+명시하고 `@Builder`는 Command/Search Condition/Test Fixture에만 허용해, Builder 도입이 오히려
+컨벤션 이탈이었다. `ProductInvalidStatusException`은 (인계 문서가 암시한 것과 달리) 6개 가드마다
+별도 클래스를 만들지 않고 메시지만 다른 단일 클래스로 통일했다 — 전부 "현재 상태로는 이 동작을
+할 수 없다"는 같은 모양의 규칙이라 클래스를 늘릴 이유가 없었다.
+
+**`TempFilePromoter`(원래 4번 항목) 전체 제외** — Codex adversarial review 2회차에서 발견.
+`promoteKeys`/`promoteKey`의 출력 파라미터 2개를 `PromotionRecord` 값객체 반환으로 바꾸는
+구조 리팩터링 자체는 실제 버그를 고치는 게 아니라 가독성 목적이었다. 1회차 리뷰에서 "S3
+copy 타임아웃 후 성공한 영구 객체가 보상 정리에서 누락된다"는 medium 지적을 받아 "copy 실패
+시 목적지 permanent key를 방어적으로 delete"하는 코드를 추가했는데, 2회차 리뷰에서 이게 오히려
+**high 등급 데이터 유실 버그**라는 게 드러났다 — 목적지 key는 `productId+purpose+파일명`으로
+결정되는 고정 경로라, 이전 요청이 이미 성공해 DB가 참조 중인 파일에 대해 같은 요청이 재시도(예:
+클라이언트가 타임아웃으로 실패했다고 오판해 재전송)되면 원본 temp가 이미 삭제된 상태라 copy가
+실패하고, 이 방어적 delete가 **살아있는 정상 파일을 지워버린다.** 근본 원인을 고치려면 요청별
+고유 경로로 복사하거나 "이번 시도가 실제로 만든 객체"만 증명 가능하게 추적해야 하는데, 이는
+버그 하나 없던 파일에 리팩터링 목적만으로 들어가기엔 과한 범위라 판단해 `TempFilePromoter`와
+그 테스트를 전부 원상 복구했다. I-10 항목표의 이 행은 향후 실제 필요(예: 관측된 고아 객체
+누적)가 생기면 별도 이슈로 재검토한다.
+
+**검증 결과**: `.\gradlew.bat :product-service:build --no-daemon` (checkstyle + 전체 테스트)
+`BUILD SUCCESSFUL`, 482개 테스트 전부 통과(신규/수정 테스트 약 9개 포함 — DTO 필드 위치 안전성
+2건, 검수 결과 실패 전파 1건, consumer DLT 전파 1건, `ProductInvalidStatusException` 409 매핑
+1건, `Product` 도메인 6개 가드 예외 타입 갱신). `git diff --check` 통과. API URL·요청/응답
+필드·gRPC·Kafka payload 계약을 하나도 바꾸지 않아 FE 영향이 없음을 확인했고, 이번 PR만으로는
+FE lint/build를 실행하지 않았다.
+
+**Quality**: 이번 세션에서 CodeFlow/Quality 재측정은 수행하지 않았다 — 근거 없는 점수를 기록하지
+않기 위해 구현 결과와 테스트 통과 사실만 남긴다.
+
+commit·push·PR은 아직 하지 않았다.

@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
 import com.prompthub.product.application.gateway.external.ObjectStorageGateway;
@@ -64,6 +65,10 @@ class ProductSellerServiceTest {
 			new ProductVersionChangePolicy(),
 			new ProductVersionTransitionService(productRepository, productInspectionRequestPublisher),
 			objectStorage, new TempFilePromoter(objectStorage));
+		// presignIfPresent/presignAllIfPresent는 인터페이스 default 메서드라 mock이 실제 본문을
+		// 실행하지 않는다 — createPresignedGetUrl로 위임하는 실제 로직을 타도록 강제한다.
+		lenient().when(objectStorage.presignIfPresent(any())).thenCallRealMethod();
+		lenient().when(objectStorage.presignAllIfPresent(any())).thenCallRealMethod();
 	}
 
 	@Nested

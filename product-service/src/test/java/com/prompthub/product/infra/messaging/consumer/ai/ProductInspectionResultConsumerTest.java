@@ -109,15 +109,15 @@ class ProductInspectionResultConsumerTest {
 		}
 
 		@Test
-		@DisplayName("handler가 IllegalStateException(중복 처리됨)을 던지면 acknowledge하고 DLT로 보내지 않는다")
-		void consume_alreadyProcessed_acknowledgesWithoutDlt() {
-			org.mockito.BDDMockito.willThrow(new IllegalStateException("이미 처리됨"))
+		@DisplayName("handler가 예외를 던지면 그대로 전파한다 — 중복 처리는 handler가 내부에서 조용히 스킵하므로 여기까지 올라오는 예외는 진짜 실패다")
+		void consume_handlerThrows_propagatesForDlt() {
+			org.mockito.BDDMockito.willThrow(new RuntimeException("DB 오류"))
 				.given(handler).apply(eq(PRODUCT_ID), eq(true), eq((String) null), any());
 			String message = eventMessage(true, null);
 
-			consumer.consume(message, acknowledgment);
-
-			then(acknowledgment).should().acknowledge();
+			assertThatThrownBy(() -> consumer.consume(message, acknowledgment))
+				.isInstanceOf(RuntimeException.class);
+			then(acknowledgment).should(never()).acknowledge();
 		}
 	}
 
