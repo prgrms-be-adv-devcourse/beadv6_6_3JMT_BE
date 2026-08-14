@@ -10,6 +10,7 @@ import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -48,7 +49,7 @@ class PersonalizedProductQueryClientTest {
         var channel = InProcessChannelBuilder.forName(serverName).directExecutor().build();
         try {
             PersonalizedProductQueryClient client = new PersonalizedProductQueryClient(
-                    ProductQueryServiceGrpc.newBlockingStub(channel));
+                    ProductQueryServiceGrpc.newBlockingStub(channel), Duration.ofSeconds(10));
 
             assertThat(client.findRecommendations(List.of(CART), List.of(PURCHASED), 4))
                     .extracting(product -> product.id())
