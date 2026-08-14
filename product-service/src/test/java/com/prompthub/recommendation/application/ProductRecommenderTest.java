@@ -60,14 +60,14 @@ class ProductRecommenderTest {
 	}
 
 	@Test
-	@DisplayName("회원 추천은 장바구니와 구매를 최신 10개씩 사용하고 최신 순서대로 가중치를 낮춘다")
-	void recommendsFromAtMostTenWeightedSeedsPerSignal() {
+	@DisplayName("회원 추천은 장바구니와 구매를 최신 3개씩 사용하고 최신 순서대로 가중치를 낮춘다")
+	void recommendsFromAtMostThreeWeightedSeedsPerSignal() {
 		List<UUID> cartIds = ids("40000000", 11);
 		List<UUID> purchaseIds = ids("50000000", 11);
 		List<UUID> allActivityIds = new ArrayList<>(cartIds);
 		allActivityIds.addAll(purchaseIds);
-		List<UUID> selectedIds = new ArrayList<>(cartIds.subList(0, 10));
-		selectedIds.addAll(purchaseIds.subList(0, 10));
+		List<UUID> selectedIds = new ArrayList<>(cartIds.subList(0, 3));
+		selectedIds.addAll(purchaseIds.subList(0, 3));
 		List<Product> products = allActivityIds.stream()
 			.map(id -> product(id, id, "상품 " + id, ProductType.PPT, null))
 			.toList();
@@ -77,13 +77,13 @@ class ProductRecommenderTest {
 		recommender.recommendForActivity(cartIds, purchaseIds, 4);
 
 		assertThat(candidateQuery.calls).isEqualTo(1);
-		assertThat(candidateQuery.seeds).hasSize(20);
-		assertThat(candidateQuery.seeds.subList(0, 10)).allMatch(seed -> seed.signal() == Signal.CART);
-		assertThat(candidateQuery.seeds.subList(10, 20)).allMatch(seed -> seed.signal() == Signal.PURCHASE);
-		assertThat(candidateQuery.seeds.subList(0, 10)).extracting(seed -> rounded(seed.weight()))
-			.containsExactly(1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55);
-		assertThat(candidateQuery.seeds.subList(10, 20)).extracting(seed -> rounded(seed.weight()))
-			.containsExactly(0.7, 0.665, 0.63, 0.595, 0.56, 0.525, 0.49, 0.455, 0.42, 0.385);
+		assertThat(candidateQuery.seeds).hasSize(6);
+		assertThat(candidateQuery.seeds.subList(0, 3)).allMatch(seed -> seed.signal() == Signal.CART);
+		assertThat(candidateQuery.seeds.subList(3, 6)).allMatch(seed -> seed.signal() == Signal.PURCHASE);
+		assertThat(candidateQuery.seeds.subList(0, 3)).extracting(seed -> rounded(seed.weight()))
+			.containsExactly(1.0, 0.95, 0.9);
+		assertThat(candidateQuery.seeds.subList(3, 6)).extracting(seed -> rounded(seed.weight()))
+			.containsExactly(0.7, 0.665, 0.63);
 		assertThat(candidateQuery.excludedFamilies).containsExactlyInAnyOrderElementsOf(allActivityIds);
 	}
 

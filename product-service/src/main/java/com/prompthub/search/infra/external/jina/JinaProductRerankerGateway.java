@@ -50,6 +50,7 @@ public class JinaProductRerankerGateway implements ProductRerankerGateway {
 			return Optional.of(List.of());
 		}
 
+		long startedAt = System.nanoTime();
 		try {
 			RerankRequest body = new RerankRequest(
 				properties.model(), keyword, candidates.stream().map(this::buildRerankText).toList(), candidates.size());
@@ -64,7 +65,11 @@ public class JinaProductRerankerGateway implements ProductRerankerGateway {
 				log.warn("Jina reranker 호출 실패. status={}", response.statusCode());
 				return Optional.empty();
 			}
-			return Optional.of(collectRelevantIds(objectMapper.readValue(response.body(), RerankResponse.class), candidates));
+			List<UUID> relevantIds = collectRelevantIds(
+				objectMapper.readValue(response.body(), RerankResponse.class), candidates);
+			log.info("member recommendation reranker completed: candidates={}, relevant={}, elapsedMs={}",
+				candidates.size(), relevantIds.size(), elapsedMsSince(startedAt));
+			return Optional.of(relevantIds);
 		} catch (IOException exception) {
 			log.warn("Jina reranker 통신 실패. BM25 검색으로 축소합니다.", exception);
 			return Optional.empty();
@@ -76,6 +81,10 @@ public class JinaProductRerankerGateway implements ProductRerankerGateway {
 			log.warn("Jina reranker 응답 처리 실패. BM25 검색으로 축소합니다.", exception);
 			return Optional.empty();
 		}
+	}
+
+	private long elapsedMsSince(long startedAt) {
+		return (System.nanoTime() - startedAt) / 1_000_000;
 	}
 
 	private List<UUID> collectRelevantIds(RerankResponse response, List<RerankCandidate> candidates) {

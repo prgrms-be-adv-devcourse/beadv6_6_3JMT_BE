@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class ProductRecommender {
 
-	private static final int MAX_SEEDS_PER_SIGNAL = 10;
+	private static final int MAX_SEEDS_PER_SIGNAL = 3;
 	private static final double CART_WEIGHT = 1.0;
 	private static final double PURCHASE_WEIGHT = 0.7;
 	private static final double RECENCY_STEP = 0.05;
