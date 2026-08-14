@@ -52,12 +52,15 @@ public class ElasticsearchRecommendationCandidateQuery implements Recommendation
 
 		int candidateLimit = limit * CANDIDATE_MULTIPLIER;
 		SearchRequest request = buildRequest(seeds, excludedFamilyRootIds, candidateLimit);
+		long startedAt = System.nanoTime();
 		try {
 			SearchResponse<ProductSearchDocument> response = client.search(request, ProductSearchDocument.class);
 			List<ProductSearchDocument> candidates = response.hits().hits().stream()
 				.map(hit -> hit.source())
 				.filter(java.util.Objects::nonNull)
 				.toList();
+			log.info("member recommendation ES candidates completed: seeds={}, excludedFamilies={}, candidates={}, elapsedMs={}",
+				seeds.size(), excludedFamilyRootIds.size(), candidates.size(), elapsedMsSince(startedAt));
 			return filterRelevantCandidates(seeds, candidates, limit);
 		} catch (IOException | ElasticsearchException exception) {
 			log.warn("ES 추천 후보 조회에 실패해 빈 추천을 반환합니다.", exception);
@@ -143,6 +146,10 @@ public class ElasticsearchRecommendationCandidateQuery implements Recommendation
 			.map(ProductSearchDocument::productId)
 			.limit(limit)
 			.toList();
+	}
+
+	private long elapsedMsSince(long startedAt) {
+		return (System.nanoTime() - startedAt) / 1_000_000;
 	}
 
 	private String buildRerankQuery(List<Seed> seeds) {

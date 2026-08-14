@@ -65,7 +65,7 @@ prompthub:
       api-key: ${JINA_API_KEY:}
       model: jina-reranker-v3
       min-score: 0.05
-      timeout: 2s
+      timeout: ${JINA_RERANKER_TIMEOUT:5s}
     reconcile:
       fixed-delay-ms: 20000
       bulk-chunk-size: 500
