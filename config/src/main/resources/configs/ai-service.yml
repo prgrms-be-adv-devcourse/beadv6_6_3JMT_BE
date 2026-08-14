@@ -40,6 +40,8 @@ ai:
   max-completion-tokens: ${OPENAI_MAX_COMPLETION_TOKENS:2000}
   history-max-tokens: ${AI_CHAT_HISTORY_MAX_TOKENS:8000}
   run-timeout: ${AI_RUN_TIMEOUT:90s}
+  recommendation:
+    grpc-deadline: ${AI_RECOMMENDATION_GRPC_DEADLINE:10s}
   user-grpc-deadline: ${AI_USER_GRPC_DEADLINE:3s}
   user-grpc-internal-token: ${AI_USER_GRPC_TOKEN}
   execution:
